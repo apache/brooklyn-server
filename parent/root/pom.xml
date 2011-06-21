@@ -3,14 +3,14 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>brooklyn</groupId>
-	<artifactId>brooklyn-parent</artifactId>
+	<artifactId>brooklyn-parent-root</artifactId>
 	<packaging>pom</packaging>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>Brooklyn Parent</name>
 
 	<description>
-      The parent for Brooklyn modules
-	</description>
+        The parent for Brooklyn modules (defines dependencies and config used everywhere)
+    </description>
 
 	<url>http://brooklyn</url>
 
@@ -35,7 +35,7 @@
 	</developers>
 
 	<properties>
-		<gmaven.version>1.3</gmaven.version>
+		<test.directory>${pom.basedir}/src/test</test.directory>
 		<groovy.version>1.8.0</groovy.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
@@ -88,6 +88,12 @@
 				<version>${slf4j.version}</version>
 			</dependency>
 			<dependency>
+				<groupId>org.slf4j</groupId>
+				<artifactId>slf4j-log4j12</artifactId>
+				<version>${slf4j.version}</version>
+				<scope>test</scope>
+			</dependency>
+			<dependency>
 				<groupId>org.codehaus.groovy</groupId>
 				<artifactId>groovy-all</artifactId>
 				<version>${groovy.version}</version>
@@ -98,37 +104,28 @@
 				<version>${junit.version}</version>
 				<scope>test</scope>
 			</dependency>
-			<dependency>
-				<groupId>org.codehaus.gmaven.runtime</groupId>
-				<artifactId>gmaven-runtime-1.7</artifactId>
-				<version>${gmaven.version}</version>
-				<scope>test</scope>
-			</dependency>
 		</dependencies>
 	</dependencyManagement>
 
 
 	<build>
-		<testSourceDirectory>src/test/java</testSourceDirectory>
+		<testSourceDirectory>${test.directory}/java</testSourceDirectory>
+		<testResources>
+			<testResource>
+				<directory>${test.directory}/resources</directory>
+			</testResource>
+		</testResources>
 
 		<pluginManagement>
 			<plugins>
 				<plugin>
-					<artifactId>maven-compiler-plugin</artifactId>
-                    <version>2.3.2</version>
-					<configuration>
-						<source>1.6</source>
-						<target>1.6</target>
-					</configuration>
-				</plugin>
-				<plugin>
 					<artifactId>maven-jar-plugin</artifactId>
-	                <version>2.3.1</version>
-	                <configuration>
-	                    <archive>
-	                        <manifestFile>${project.build.outputDirectory}/META-INF/MANIFEST.MF</manifestFile>
-	                    </archive>
-	                </configuration>
+					<version>2.3.1</version>
+					<configuration>
+						<archive>
+							<manifestFile>${project.build.outputDirectory}/META-INF/MANIFEST.MF</manifestFile>
+						</archive>
+					</configuration>
 				</plugin>
 				<plugin>
 					<artifactId>maven-javadoc-plugin</artifactId>
@@ -139,67 +136,6 @@
 						<keywords>true</keywords>
 						<author>true</author>
 					</configuration>
-				</plugin>
-				<plugin>
-					<groupId>org.codehaus.gmaven</groupId>
-					<artifactId>gmaven-plugin</artifactId>
-					<version>${gmaven.version}</version>
-					<executions>
-						<execution>
-							<id>compile</id>
-							<goals>
-								<goal>generateStubs</goal>
-								<goal>compile</goal>
-							</goals>
-							<configuration>
-								<sources>
-									<fileset>
-										<directory>${pom.basedir}/src/main/java</directory>
-										<includes>
-											<include>**/*.groovy</include>
-										</includes>
-									</fileset>
-								</sources>
-								<providerSelection>1.7</providerSelection>
-							</configuration>
-						</execution>
-						<execution>
-							<id>testCompile</id>
-							<goals>
-								<goal>generateTestStubs</goal>
-								<goal>testCompile</goal>
-							</goals>
-							<configuration>
-								<sources>
-									<fileset>
-										<directory>${pom.basedir}/src/test/java</directory>
-										<includes>
-											<include>**/*.groovy</include>
-										</includes>
-									</fileset>
-								</sources>
-								<providerSelection>1.7</providerSelection>
-							</configuration>
-						</execution>
-					</executions>
-					<dependencies>
-						<dependency>
-							<groupId>org.codehaus.gmaven.runtime</groupId>
-							<artifactId>gmaven-runtime-1.7</artifactId>
-							<version>${gmaven.version}</version>
-							<exclusions>
-								<exclusion>
-									<groupId>org.codehaus.groovy</groupId>
-									<artifactId>groovy-all</artifactId>
-								</exclusion>
-							</exclusions>
-						</dependency>
-						<dependency>
-							<groupId>org.codehaus.groovy</groupId>
-							<artifactId>groovy-all</artifactId>
-							<version>${groovy.version}</version>
-						</dependency>
-					</dependencies>
 				</plugin>
 				<plugin>
 					<groupId>org.apache.felix</groupId>
@@ -216,30 +152,36 @@
 						</execution>
 					</executions>
 				</plugin>
-                <plugin>
-                    <artifactId>maven-surefire-plugin</artifactId>
-                    <version>${surefire.version}</version>
-                    <configuration>
-                        <forkMode>always</forkMode>
-                    </configuration>
-                </plugin>
-                <plugin>
-                    <artifactId>maven-source-plugin</artifactId>
-                    <version>2.1.2</version>
-                    <inherited>true</inherited>
-                    <executions>
-                        <execution>
-                            <id>attach-sources</id>
-                            <phase>verify</phase>
-                            <goals>
-                                <goal>jar-no-fork</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                </plugin>
-				
+				<plugin>
+					<artifactId>maven-surefire-plugin</artifactId>
+					<version>${surefire.version}</version>
+					<configuration>
+						<forkMode>always</forkMode>
+					</configuration>
+				</plugin>
+				<plugin>
+					<artifactId>maven-failsafe-plugin</artifactId>
+					<version>2.9</version>
+				</plugin>
+				<plugin>
+					<artifactId>maven-source-plugin</artifactId>
+					<version>2.1.2</version>
+					<inherited>true</inherited>
+					<executions>
+						<execution>
+							<id>attach-sources</id>
+							<phase>verify</phase>
+							<goals>
+								<goal>jar-no-fork</goal>
+							</goals>
+						</execution>
+					</executions>
+				</plugin>
 				<!--This plugin's configuration is used to store Eclipse m2e settings 
-					only. It has no influence on the Maven build itself. -->
+					only. It has no influence on the Maven build itself. 
+					
+					This seems to break install via command line, so am deleting.
+					
 				<plugin>
 					<groupId>org.eclipse.m2e</groupId>
 					<artifactId>lifecycle-mapping</artifactId>
@@ -260,30 +202,34 @@
 										<ignore />
 									</action>
 								</pluginExecution>
-								<pluginExecution>
-									<pluginExecutionFilter>
-										<groupId>org.codehaus.gmaven</groupId>
-										<artifactId>gmaven-plugin</artifactId>
-										<versionRange>[1.3,)</versionRange>
-										<goals>
-											<goal>generateStubs</goal>
-											<goal>generateTestStubs</goal>
-											<goal>compile</goal>
-											<goal>testCompile</goal>
-										</goals>
-									</pluginExecutionFilter>
-									<action>
-										<ignore />
-									</action>
-								</pluginExecution>
 							</pluginExecutions>
 						</lifecycleMappingMetadata>
 					</configuration>
 				</plugin>
+					-->
+				
+		<plugin>
+			<artifactId>maven-eclipse-plugin</artifactId>
+			<configuration>
+				<additionalProjectnatures>
+					<projectnature>
+						org.maven.ide.eclipse.maven2Nature
+					</projectnature>
+				</additionalProjectnatures>
+<!-- 
+				<buildcommands>
+					<buildcommand>
+						org.eclipse.ajdt.core.ajbuilder
+					</buildcommand>
+				</buildcommands>
+ -->				
+			</configuration>
+		</plugin>
+				
 			</plugins>
 		</pluginManagement>
 
-		<plugins>
+	<plugins>		
 			<plugin>
 				<artifactId>maven-enforcer-plugin</artifactId>
 				<version>1.0</version>
@@ -319,27 +265,24 @@
 					<encoding>${project.build.sourceEncoding}</encoding>
 				</configuration>
 			</plugin>
-			
-            <plugin>
-                <artifactId>maven-compiler-plugin</artifactId>
-            </plugin>
-            <plugin>
-                <artifactId>maven-jar-plugin</artifactId>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.felix</groupId>
-                <artifactId>maven-bundle-plugin</artifactId>
-            </plugin>
-            <plugin>
-                <artifactId>maven-surefire-plugin</artifactId>
-            </plugin>
-            <plugin>
-                <artifactId>maven-source-plugin</artifactId>
-            </plugin>
-            <plugin>
-                <groupId>org.codehaus.gmaven</groupId>
-                <artifactId>gmaven-plugin</artifactId>
-            </plugin>
+
+			<plugin>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>2.3.2</version>
+			</plugin>
+			<plugin>
+				<artifactId>maven-jar-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.felix</groupId>
+				<artifactId>maven-bundle-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<artifactId>maven-surefire-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<artifactId>maven-source-plugin</artifactId>
+			</plugin>
 		</plugins>
 	</build>
 
@@ -397,6 +340,19 @@
 								</goals>
 							</execution>
 						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+		<profile>
+			<id>Integration</id>
+			<properties>
+				<test.directory>${pom.basedir}/src/integration</test.directory>
+			</properties>
+			<build>
+				<plugins>
+					<plugin>
+						<artifactId>maven-failsafe-plugin</artifactId>
 					</plugin>
 				</plugins>
 			</build>
@@ -527,7 +483,8 @@
 									<classifier>sources</classifier>
 									<includeScope>compile</includeScope>
 									<includeGroupIds>org.overpaas</includeGroupIds>
-									<outputDirectory>${project.build.directory}/cobertura/dependency-sources</outputDirectory>
+									<outputDirectory>${project.build.directory}/cobertura/dependency-sources
+                                    </outputDirectory>
 								</configuration>
 							</execution>
 							<execution>
@@ -540,7 +497,8 @@
 									<type>jar</type>
 									<includeScope>compile</includeScope>
 									<includeGroupIds>org.overpaas</includeGroupIds>
-									<outputDirectory>${project.build.directory}/cobertura/dependency-classes</outputDirectory>
+									<outputDirectory>${project.build.directory}/cobertura/dependency-classes
+                                    </outputDirectory>
 								</configuration>
 							</execution>
 						</executions>
