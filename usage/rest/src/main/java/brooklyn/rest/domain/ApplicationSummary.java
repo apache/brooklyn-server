@@ -3,6 +3,7 @@ package brooklyn.rest.domain;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.Map;
 
 import org.codehaus.jackson.annotate.JsonIgnore;
@@ -117,9 +118,10 @@ public class ApplicationSummary {
   }
 
   public Map<String, URI> getLinks() {
+    if (getId()==null) return Collections.emptyMap();
     return ImmutableMap.of(
-        "self", URI.create("/v1/applications/" + spec.getName()),
-        "entities", URI.create("/v1/applications/" + spec.getName() + "/entities")
+        "self", URI.create("/v1/applications/" + getId()),
+        "entities", URI.create("/v1/applications/" + getId() + "/entities")
     );
   }
 

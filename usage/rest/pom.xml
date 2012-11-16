@@ -1,7 +1,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <artifactId>brooklyn-rest-SANDBOX</artifactId>
+    <artifactId>brooklyn-rest</artifactId>
     <packaging>bundle</packaging>
     <name>Brooklyn REST API</name>
     <description>
@@ -16,15 +16,13 @@
     </parent>
 
     <properties>
-        <slf4j.version>1.6.4</slf4j.version>
-        <jetty.version>8.1.4.v20120524</jetty.version>
         <jersey.version>1.12</jersey.version>
         <jersey.json.version>1.12</jersey.json.version>
         <jersey.multipart.version>1.12</jersey.multipart.version>
         <jackson.version>1.9.9</jackson.version>
         <reflections.version>0.9.5</reflections.version>
-        <dropwizard.version>0.4.4</dropwizard.version>
         <swagger.version>1.0.1</swagger.version>
+        <dropwizard.version>0.4.4</dropwizard.version>
     </properties>
 
     <dependencies>
@@ -148,6 +146,22 @@
             <groupId>com.wordnik</groupId>
             <artifactId>swagger-jaxrs_2.9.1</artifactId>
             <version>${swagger.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>javax.servlet</groupId>
+                    <artifactId>servlet-api</artifactId>
+                </exclusion>
+<!-- needed?
+                <exclusion>
+                    <groupId>javax.ws.rs</groupId>
+                    <artifactId>jsr311-api</artifactId>
+                </exclusion>
+-->
+                <exclusion>
+                    <groupId>com.sun.jersey</groupId>
+                    <artifactId>jersey-client</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
                 
     </dependencies>
@@ -155,6 +169,7 @@
     <build>
         <plugins>
 
+<!-- if you want to build a WAR, full or skinny:
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-war-plugin</artifactId>
@@ -183,6 +198,7 @@
                     </execution>
                 </executions>
             </plugin>
+-->
 
         </plugins>
     </build>
