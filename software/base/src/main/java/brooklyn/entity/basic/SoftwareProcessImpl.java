@@ -16,11 +16,7 @@ import org.slf4j.LoggerFactory;
 import brooklyn.config.ConfigKey;
 import brooklyn.entity.Entity;
 import brooklyn.entity.drivers.DriverDependentEntity;
-import brooklyn.entity.trait.Startable;
-import brooklyn.event.AttributeSensor;
 import brooklyn.event.adapter.SensorRegistry;
-import brooklyn.event.basic.BasicAttributeSensor;
-import brooklyn.event.basic.BasicConfigKey;
 import brooklyn.event.feed.ConfigToAttributes;
 import brooklyn.location.Location;
 import brooklyn.location.MachineLocation;
@@ -34,7 +30,6 @@ import brooklyn.util.MutableMap;
 import brooklyn.util.MutableSet;
 import brooklyn.util.Time;
 import brooklyn.util.exceptions.Exceptions;
-import brooklyn.util.flags.SetFromFlag;
 import brooklyn.util.internal.Repeater;
 import brooklyn.util.task.Tasks;
 
@@ -50,60 +45,22 @@ import com.google.common.collect.Maps;
  * <p>
  * It exposes sensors for service state (Lifecycle) and status (String), and for host info, log file location.
  */
-public abstract class SoftwareProcessEntity extends AbstractEntity implements Startable, DriverDependentEntity {
-	private static final Logger log = LoggerFactory.getLogger(SoftwareProcessEntity.class);
+public abstract class SoftwareProcessImpl extends AbstractEntity implements SoftwareProcess, DriverDependentEntity {
+	private static final Logger log = LoggerFactory.getLogger(SoftwareProcessImpl.class);
     
-    @SetFromFlag("startLatch")
-    public static final ConfigKey<Boolean> START_LATCH = ConfigKeys.START_LATCH;
-    
-    @SetFromFlag("installLatch")
-    public static final ConfigKey<Boolean> INSTALL_LATCH = ConfigKeys.INSTALL_LATCH;
-    
-    @SetFromFlag("customizeLatch")
-    public static final ConfigKey<Boolean> CUSTOMIZE_LATCH = ConfigKeys.CUSTOMIZE_LATCH;
-    
-    @SetFromFlag("launchLatch")
-    public static final ConfigKey<Boolean> LAUNCH_LATCH = ConfigKeys.LAUNCH_LATCH;
-    
-	@SetFromFlag("version")
-	public static final ConfigKey<String> SUGGESTED_VERSION = ConfigKeys.SUGGESTED_VERSION;
-	
-    @SetFromFlag("installDir")
-	public static final ConfigKey<String> SUGGESTED_INSTALL_DIR = ConfigKeys.SUGGESTED_INSTALL_DIR;
-	
-    @SetFromFlag("runDir")
-	public static final ConfigKey<String> SUGGESTED_RUN_DIR = ConfigKeys.SUGGESTED_RUN_DIR;
-
-	@SetFromFlag("env")
-	public static final ConfigKey<Map> SHELL_ENVIRONMENT = new BasicConfigKey(
-	        Map.class, "shell.env", "Map of environment variables to pass to the runtime shell", MutableMap.of());
-
-    @SetFromFlag("provisioningProperties")
-    public static final ConfigKey<Map<String,Object>> PROVISIONING_PROPERTIES = new BasicConfigKey(
-            Map.class, "provisioning.properties", 
-            "Custom properties to be passed in when provisioning a new machine", MutableMap.of());
-    
-	public static final AttributeSensor<String> HOSTNAME = Attributes.HOSTNAME;
-	public static final AttributeSensor<String> ADDRESS = Attributes.ADDRESS;
-
-    public static final AttributeSensor<MachineProvisioningLocation> PROVISIONING_LOCATION = new BasicAttributeSensor<MachineProvisioningLocation>(
-            MachineProvisioningLocation.class, "softwareservice.provisioningLocation", "Location used to provision a machine where this is running");
-        
-	public static final BasicAttributeSensor<Lifecycle> SERVICE_STATE = Attributes.SERVICE_STATE;
-	
 	private transient SoftwareProcessDriver driver;
 	protected transient SensorRegistry sensorRegistry;
 
-	public SoftwareProcessEntity() {
+	public SoftwareProcessImpl() {
         super(MutableMap.of(), null);
     }
-    public SoftwareProcessEntity(Entity parent) {
+    public SoftwareProcessImpl(Entity parent) {
         this(MutableMap.of(), parent);
     }
-    public SoftwareProcessEntity(Map properties) {
+    public SoftwareProcessImpl(Map properties) {
         this(properties, null);
     }
-	public SoftwareProcessEntity(Map properties, Entity parent) {
+	public SoftwareProcessImpl(Map properties, Entity parent) {
 		super(properties, parent);
 	}
 
