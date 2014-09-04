@@ -16,32 +16,27 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package brooklyn.rest.resources;
+package brooklyn.rest.apidoc;
 
-import brooklyn.rest.testing.BrooklynRestResourceTest;
+import java.util.List;
 
-import com.sun.jersey.api.client.ClientResponse;
-import javax.ws.rs.core.Response;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
-import org.testng.annotations.Test;
+import org.codehaus.jackson.annotate.JsonProperty;
+import org.codehaus.jackson.annotate.JsonSetter;
 
-public class VersionResourceTest extends BrooklynRestResourceTest {
+import com.wordnik.swagger.core.Documentation;
 
-  @Test
-  public void testGetVersion() {
-    ClientResponse response = client().resource("/v1/version")
-        .get(ClientResponse.class);
+public class ApidocRoot extends Documentation {
 
-    assertEquals(response.getStatus(), Response.Status.OK.getStatusCode());
-    String version = response.getEntity(String.class);
-
-    assertTrue(version.matches("^\\d+\\.\\d+\\.\\d+.*"));
-  }
-
-  @Override
-  protected void addBrooklynResources() {
-      addResource(new VersionResource());
-  }
-  
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    @JsonProperty("apis")
+    public List<ApidocEndpoint> getApidocApis() {
+        return (List) getApis();
+    }
+    
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    @JsonSetter("apis")
+    public void setApidocApis(List<ApidocEndpoint> ep) {
+        super.setApis((List)ep);
+    }
+    
 }
