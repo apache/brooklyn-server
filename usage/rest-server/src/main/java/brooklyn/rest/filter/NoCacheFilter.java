@@ -16,25 +16,25 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package brooklyn.rest.security.provider;
+package brooklyn.rest.filter;
 
-import javax.servlet.http.HttpSession;
+import javax.ws.rs.core.HttpHeaders;
+import javax.ws.rs.core.MultivaluedMap;
 
-/** provider who allows everyone */
-public class AnyoneSecurityProvider implements SecurityProvider {
+import com.sun.jersey.spi.container.ContainerRequest;
+import com.sun.jersey.spi.container.ContainerResponse;
+import com.sun.jersey.spi.container.ContainerResponseFilter;
 
-    @Override
-    public boolean isAuthenticated(HttpSession session) {
-        return true;
-    }
-
-    @Override
-    public boolean authenticate(HttpSession session, String user, String password) {
-        return true;
-    }
+public class NoCacheFilter implements ContainerResponseFilter {
 
     @Override
-    public boolean logout(HttpSession session) { 
-        return true;
+    public ContainerResponse filter(ContainerRequest request, ContainerResponse response) {
+        //https://developer.mozilla.org/en-US/docs/Web/HTTP/Caching_FAQ
+        MultivaluedMap<String, Object> headers = response.getHttpHeaders();
+        headers.putSingle(HttpHeaders.CACHE_CONTROL, "no-cache, no-store");
+        headers.putSingle("Pragma", "no-cache");
+        headers.putSingle(HttpHeaders.EXPIRES, "0");
+        return response;
     }
+
 }
