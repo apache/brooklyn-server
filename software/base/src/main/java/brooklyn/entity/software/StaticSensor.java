@@ -16,8 +16,29 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package brooklyn.entity.basic;
+package brooklyn.entity.software;
 
-public interface VanillaSoftwareProcessDriver extends SoftwareProcessDriver {
+import brooklyn.config.ConfigKey;
+import brooklyn.entity.basic.ConfigKeys;
+import brooklyn.entity.basic.EntityLocal;
+import brooklyn.entity.effector.AddSensor;
+import brooklyn.util.config.ConfigBag;
+import brooklyn.util.flags.TypeCoercions;
 
+public class StaticSensor<T> extends AddSensor<T> {
+
+    public static final ConfigKey<Object> STATIC_VALUE = ConfigKeys.newConfigKey(Object.class, "static.value");
+
+    private final Object value;
+
+    public StaticSensor(ConfigBag params) {
+        super(params);
+        value = params.get(STATIC_VALUE);
+    }
+
+    @Override
+    public void apply(EntityLocal entity) {
+        super.apply(entity);
+        entity.setAttribute(sensor, (T) TypeCoercions.coerce(value, sensor.getType()));
+    }
 }
