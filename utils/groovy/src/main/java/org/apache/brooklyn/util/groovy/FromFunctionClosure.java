@@ -16,30 +16,24 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.util.core;
+package org.apache.brooklyn.util.groovy;
 
-import java.util.concurrent.atomic.AtomicBoolean;
+import groovy.lang.Closure;
 
-import org.apache.brooklyn.core.internal.BrooklynInitialization;
+import com.google.common.base.Function;
 
-/** @deprecated since 0.7.0 use {@link BrooklynInitialization} */
-public class BrooklynLanguageExtensions {
+public class FromFunctionClosure<T> extends Closure<T> {
+    private static final long serialVersionUID = 1L;
+    private Function<Object, T> job;
 
-    private BrooklynLanguageExtensions() {}
-    
-    private static AtomicBoolean done = new AtomicBoolean(false);
-    
-    public synchronized static void reinit() {
-        done.set(false);
-        init();
+    @SuppressWarnings("unchecked")
+    public FromFunctionClosure(Class<GroovyJavaMethods> owner, Function<?, T> job) {
+        super(owner, owner);
+        this.job = (Function<Object, T>) job;
     }
-    
-    /** performs the language extensions required for this project */
-    public synchronized static void init() {
-        if (done.getAndSet(true)) return;
-        BrooklynInitialization.initPortRanges();
+
+    public T doCall(Object it) throws Exception {
+        return job.apply(it);
     }
-    
-    static { BrooklynInitialization.initLegacyLanguageExtensions(); }
-    
+
 }
