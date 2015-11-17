@@ -7,7 +7,7 @@
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
@@ -16,17 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.test.framework;
+package org.apache.brooklyn.test.performance;
 
-import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.ImplementedBy;
-import org.apache.brooklyn.core.entity.trait.Startable;
+import java.util.Date;
 
-/**
- * This implementation will start all child entities in parallel.
- *
- * @author Chris Burke
- */
-@ImplementedBy(value = ParallelTestCaseImpl.class)
-public interface ParallelTestCase extends Entity, Startable {
+import com.google.common.annotations.Beta;
+
+@Beta
+public interface MeasurementResultPersister {
+
+    void persist(Date time, PerformanceTestDescriptor options, PerformanceTestResult result);
 }
