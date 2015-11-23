@@ -16,13 +16,26 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.rest.apidoc;
+package org.apache.brooklyn.core.typereg;
 
-import javax.ws.rs.ext.Provider;
+import org.apache.brooklyn.api.typereg.RegisteredType.TypeImplementationPlan;
 
-import com.wordnik.swagger.jaxrs.ApiHelpMessageBodyWriter;
+public class BasicTypeImplementationPlan implements TypeImplementationPlan {
+    final String format;
+    final Object data;
+    
+    public BasicTypeImplementationPlan(String format, Object data) {
+        this.format = format;
+        this.data = data;
+    }
+    
+    @Override
+    public String getPlanFormat() {
+        return format;
+    }
 
-/** subclassed for convenience */
-@Provider
-public class ApidocHelpMessageBodyWriter extends ApiHelpMessageBodyWriter {
+    @Override
+    public Object getPlanData() {
+        return data;
+    }
 }

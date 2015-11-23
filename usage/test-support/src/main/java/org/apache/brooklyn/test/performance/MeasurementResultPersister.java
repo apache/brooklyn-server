@@ -16,18 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.rest.apidoc;
+package org.apache.brooklyn.test.performance;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import java.util.Date;
 
-/** like Swagger Api annotation (and treated similarly) but doesn't require path to be repeated, and supports a name */
-@Target(ElementType.TYPE)
-@Retention(RetentionPolicy.RUNTIME)
-public @interface Apidoc {
-    String value();
-    String description() default "";
-    // ? what is 'open' in @Api
+import com.google.common.annotations.Beta;
+
+@Beta
+public interface MeasurementResultPersister {
+
+    void persist(Date time, PerformanceTestDescriptor options, PerformanceTestResult result);
 }

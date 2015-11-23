@@ -16,32 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.rest.apidoc;
+package org.apache.brooklyn.core.typereg;
 
-import java.util.List;
+public class UnsupportedTypePlanException extends RuntimeException {
 
-import org.codehaus.jackson.annotate.JsonIgnoreProperties;
-import org.codehaus.jackson.annotate.JsonProperty;
-import org.codehaus.jackson.annotate.JsonSetter;
+    private static final long serialVersionUID = -5590108442839125317L;
 
-import com.wordnik.swagger.core.Documentation;
-
-@JsonIgnoreProperties({
-    "com$wordnik$swagger$core$Documentation$$apis",
-    "com$wordnik$swagger$core$Documentation$$models"
-})
-public class ApidocRoot extends Documentation {
-
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    @JsonProperty("apis")
-    public List<ApidocEndpoint> getApidocApis() {
-        return (List) getApis();
+    public UnsupportedTypePlanException(String message, Throwable cause) {
+        super(message, cause);
     }
-    
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    @JsonSetter("apis")
-    public void setApidocApis(List<ApidocEndpoint> ep) {
-        super.setApis((List)ep);
+
+    public UnsupportedTypePlanException(String message) {
+        super(message);
     }
-    
+
+    public UnsupportedTypePlanException(Throwable cause) {
+        super(cause);
+    }
+
 }
