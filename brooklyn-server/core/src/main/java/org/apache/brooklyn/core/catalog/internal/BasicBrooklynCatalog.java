@@ -378,7 +378,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         catalogMetadata.remove("items");
         if (!itemDef.isEmpty()) {
             log.debug("Reading brooklyn.catalog peer keys as item ('top-level syntax')");
-            Map<String,?> rootItem = MutableMap.of("item", (Object) itemDef);
+            Map<String,?> rootItem = MutableMap.of("item", itemDef);
             String rootItemYaml = yaml;
             YamlExtract yamlExtract = Yamls.getTextOfYamlAtPath(rootItemYaml, "brooklyn.catalog");
             String match = yamlExtract.withOriginalIndentation(true).withKeyIncluded(true).getMatchedYamlTextOrWarn();
