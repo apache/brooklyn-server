@@ -162,11 +162,6 @@ public class JcloudsWinRmMachineLocation extends WinRmMachineLocation implements
     }
 
     @Override
-    public int getPort() {
-        return getConfig(WINRM_PORT);
-    }
-    
-    @Override
     public JcloudsLocation getParent() {
         return jcloudsParent;
     }

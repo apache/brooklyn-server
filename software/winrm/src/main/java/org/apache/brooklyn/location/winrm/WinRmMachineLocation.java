@@ -29,6 +29,7 @@ import java.util.Set;
 
 import javax.annotation.Nullable;
 
+import com.google.common.annotations.Beta;
 import org.apache.brooklyn.api.location.MachineDetails;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.OsDetails;
@@ -46,6 +47,7 @@ import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmToolResponse;
 import org.apache.brooklyn.util.core.internal.winrm.winrm4j.Winrm4jTool;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.commons.codec.binary.Base64;
@@ -63,6 +65,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.net.HostAndPort;
 import com.google.common.reflect.TypeToken;
 
+import static org.apache.brooklyn.core.config.ConfigKeys.newConfigKeyWithPrefix;
+
 public class WinRmMachineLocation extends AbstractLocation implements MachineLocation {
 
     private static final Logger LOG = LoggerFactory.getLogger(WinRmMachineLocation.class);
@@ -72,8 +76,19 @@ public class WinRmMachineLocation extends AbstractLocation implements MachineLoc
             "address",
             "Address of the remote machine");
 
-    public static final ConfigKey<Integer> WINRM_PORT = WinRmTool.PROP_PORT;
-    
+    public static final ConfigKey<Integer> WINRM_CONFIG_PORT = newConfigKeyWithPrefix(BrooklynConfigKeys.BROOKLYN_WINRM_CONFIG_KEY_PREFIX, WinRmTool.PROP_PORT);
+    public static final ConfigKey<Boolean> USE_HTTPS_WINRM = WinRmTool.USE_HTTPS_WINRM;
+
+
+    /**
+     * Flag which tells winrm whether to use Basic Authentication
+     * or Negotiate plus NTLM.
+     * winrm.useNtlm parameter could be a subject to change.
+     * TODO Winrm supports several authentication mechanisms so it would be better to replace it with a prioritised list of authentication mechanisms to try.
+     */
+    @Beta
+    public static final ConfigKey<Boolean> USE_NTLM = WinRmTool.USE_NTLM;
+
     // TODO merge with {link SshTool#PROP_USER} and {@link SshMachineLocation#user}?
     public static final ConfigKey<String> USER = WinRmTool.PROP_USER;
 
@@ -197,7 +212,21 @@ public class WinRmMachineLocation extends AbstractLocation implements MachineLoc
     @Nullable
     protected String getHostAndPort() {
         String host = getHostname();
-        return (host == null) ? null : host + ":" + config().get(WINRM_PORT);
+        return (host == null) ? null : host + ":" + getDefaultPort();
+    }
+
+    public int getPort() {
+        Maybe<Object> raw = config().getRaw(WinRmTool.PROP_PORT);
+        if (raw.orNull() == null && config().getRaw(WINRM_CONFIG_PORT).orNull() != null) {
+            return config().get(WINRM_CONFIG_PORT);
+        } else {
+            Integer result = config().get(WinRmTool.PROP_PORT);
+            return (result != null) ? result : getDefaultPort();
+        }
+    }
+
+    private int getDefaultPort() {
+        return getConfig(USE_HTTPS_WINRM) ? 5986 : 5985;
     }
 
     @Override
@@ -309,6 +338,9 @@ public class WinRmMachineLocation extends AbstractLocation implements MachineLoc
             
             args.putAll(props);
             args.configure(SshTool.PROP_HOST, getAddress().getHostAddress());
+            args.configure(WinRmTool.USE_NTLM, getConfig(WinRmMachineLocation.USE_NTLM));
+            args.configure(WinRmTool.USE_HTTPS_WINRM, getConfig(WinRmMachineLocation.USE_HTTPS_WINRM));
+            args.configure(WinRmTool.PROP_PORT, getPort());
 
             if (LOG.isTraceEnabled()) LOG.trace("creating WinRM session for "+Sanitizer.sanitize(args));
 
@@ -349,7 +381,7 @@ public class WinRmMachineLocation extends AbstractLocation implements MachineLoc
         return response.getStatusCode();
     }
 
-    public static String getDefaultUserMetadataString() {
+    public static String getDefaultUserMetadataString(ConfigurationSupportInternal config) {
         // Using an encoded command obviates the need to escape
         String unencodePowershell = Joiner.on("\r\n").join(ImmutableList.of(
                 // Allow TS connections
@@ -388,20 +420,38 @@ public class WinRmMachineLocation extends AbstractLocation implements MachineLoc
                 "}"
         ));
 
+        // FIXME USE_HTTPS_WINRM
+        // Missing generate certificate step.
+        // https://support.microsoft.com/en-us/kb/2019527
+        //
+        // One possible approach is to generate a certificate and append it to this command.
+        // http://stackoverflow.com/questions/1615871/creating-an-x509-certificate-in-java-without-bouncycastle
+        //
+        // @neykov:
+        // The certificate is best generated on the machine, without leaving it ever (for self-signed case). On the other hand it's not possible to get the public part at this step.
+        // I see this setup step dissappearing longer term (or keeping it minimalistic).
+        // Instead do something like the jclouds init sequence where it connects with whatever is provided by the cloud, then configuring it to our liking.
+        boolean useSecureWinrm = config.getBag().get(USE_HTTPS_WINRM);
+
+        boolean basicAuth = !config.getBag().get(USE_NTLM), allowUnencrypted = !useSecureWinrm;
+        int port = useSecureWinrm ? 5986 : 5985;
+
         String encoded = new String(Base64.encodeBase64(unencodePowershell.getBytes(Charsets.UTF_16LE)));
-        return "winrm quickconfig -q & " +
-                "winrm set winrm/config/service/auth @{Basic=\"true\"} & " +
-                "winrm set winrm/config/service/auth @{CredSSP=\"true\"} & " +
-                "winrm set winrm/config/client/auth @{CredSSP=\"true\"} & " +
-                "winrm set winrm/config/client @{AllowUnencrypted=\"true\"} & " +
-                "winrm set winrm/config/service @{AllowUnencrypted=\"true\"} & " +
+        return String.format("winrm quickconfig -q & " +
+                "winrm set winrm/config/service/auth @{Basic=\"%1$s\"} & " +
+                "winrm set winrm/config/service @{AllowUnencrypted=\"%2$s\"} & " +
                 "winrm set winrm/config/winrs @{MaxConcurrentUsers=\"100\"} & " +
                 "winrm set winrm/config/winrs @{MaxMemoryPerShellMB=\"0\"} & " +
                 "winrm set winrm/config/winrs @{MaxProcessesPerShell=\"0\"} & " +
                 "winrm set winrm/config/winrs @{MaxShellsPerUser=\"0\"} & " +
                 "netsh advfirewall firewall add rule name=RDP dir=in protocol=tcp localport=3389 action=allow profile=any & " +
-                "netsh advfirewall firewall add rule name=WinRM dir=in protocol=tcp localport=5985 action=allow profile=any & " +
-                "powershell -EncodedCommand " + encoded;
+                "netsh advfirewall firewall add rule name=WinRM dir=in protocol=tcp localport=%3$d action=allow profile=any & " +
+                "powershell -EncodedCommand ",
+                basicAuth,
+                allowUnencrypted,
+                port
+                )
+                + encoded;
         /* TODO: Find out why scripts with new line characters aren't working on AWS. The following appears as if it *should*
            work but doesn't - the script simply isn't run. By connecting to the machine via RDP, you can get the script
            from 'http://169.254.169.254/latest/user-data', and running it at the command prompt works, but for some

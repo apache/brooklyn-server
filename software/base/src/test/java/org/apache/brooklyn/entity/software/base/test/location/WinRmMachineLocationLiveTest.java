@@ -100,7 +100,7 @@ public class WinRmMachineLocationLiveTest {
         loc = newLoc(mgmt);
         machine = loc.obtain(ImmutableMap.of());
         
-        LOG.info("PROVISIONED: "+machine.getAddress()+":"+machine.config().get(WinRmMachineLocation.WINRM_PORT)
+        LOG.info("PROVISIONED: "+machine.getAddress()+":"+machine.getPort()
                 +", "+machine.getUser()+":"+machine.config().get(WinRmMachineLocation.PASSWORD));
     }
     

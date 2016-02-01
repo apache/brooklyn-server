@@ -35,6 +35,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.apache.commons.codec.binary.Base64;
+import org.apache.http.client.config.AuthSchemes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,6 +68,8 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
     private final int execTries;
     private final Duration execRetryDelay;
     private final boolean logCredentials;
+    private final Boolean useSecureWinrm;
+    private final String authenticationScheme;
     
     public Winrm4jTool(Map<String,?> config) {
         this(ConfigBag.newInstance(config));
@@ -75,7 +78,9 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
     public Winrm4jTool(ConfigBag config) {
         this.bag = checkNotNull(config, "config bag");
         host = getRequiredConfig(config, PROP_HOST);
-        port = getRequiredConfig(config, PROP_PORT);
+        port = config.get(PROP_PORT);
+        useSecureWinrm = config.get(USE_HTTPS_WINRM);
+        authenticationScheme = config.get(USE_NTLM) ? AuthSchemes.NTLM : null;
         user = getRequiredConfig(config, PROP_USER);
         password = getRequiredConfig(config, PROP_PASSWORD);
         execTries = getRequiredConfig(config, PROP_EXEC_TRIES);
@@ -184,7 +189,17 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
     }
 
     private io.cloudsoft.winrm4j.winrm.WinRmTool connect() {
-        return io.cloudsoft.winrm4j.winrm.WinRmTool.connect(host+":"+port, user, password);
+        WinRmTool.Builder builder = WinRmTool.Builder.builder(host, user, password);
+        builder.setAuthenticationScheme(authenticationScheme);
+        builder.useHttps(useSecureWinrm);
+        builder.port(port);
+
+        // FIXME USE_HTTPS_WINRM shouldn't disable certificates checks
+        // However to do that Winrm4JTool should also support whitelisting certificates.
+        if (useSecureWinrm) {
+            builder.disableCertificateChecks(true);
+        }
+        return builder.build();
     }
     
     private <T> T getRequiredConfig(ConfigBag bag, ConfigKey<T> key) {

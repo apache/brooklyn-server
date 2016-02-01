@@ -731,7 +731,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
             boolean windows = isWindows(node, setup);
             if (windows) {
-                int newLoginPort = node.getLoginPort() == 22 ? 5985 : node.getLoginPort();
+                int newLoginPort = node.getLoginPort() == 22 ? (getConfig(WinRmMachineLocation.USE_HTTPS_WINRM) ? 5986 : 5985) : node.getLoginPort();
                 String newLoginUser = "root".equals(node.getCredentials().getUser()) ? "Administrator" : node.getCredentials().getUser();
                 LOG.debug("jclouds created Windows VM {}; transforming connection details: loginPort from {} to {}; loginUser from {} to {}", 
                         new Object[] {node, node.getLoginPort(), newLoginPort, node.getCredentials().getUser(), newLoginUser});
@@ -1535,7 +1535,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         boolean windows = isWindows(template, config);
         if (windows) {
             if (!(config.containsKey(JcloudsLocationConfig.USER_METADATA_STRING) || config.containsKey(JcloudsLocationConfig.USER_METADATA_MAP))) {
-                config.put(JcloudsLocationConfig.USER_METADATA_STRING, WinRmMachineLocation.getDefaultUserMetadataString());
+                config.put(JcloudsLocationConfig.USER_METADATA_STRING, WinRmMachineLocation.getDefaultUserMetadataString(config()));
             }
         }
                
@@ -2297,7 +2297,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     .configure("jcloudsParent", this)
                     .configure("displayName", vmHostname)
                     .configure("address", address)
-                    .configure(WinRmMachineLocation.WINRM_PORT, sshHostAndPort.isPresent() ? sshHostAndPort.get().getPort() : node.getLoginPort())
+                    .configure(WinRmMachineLocation.WINRM_CONFIG_PORT, sshHostAndPort.isPresent() ? sshHostAndPort.get().getPort() : node.getLoginPort())
                     .configure("user", getUser(setup))
                     .configure(WinRmMachineLocation.USER, setup.get(USER))
                     .configure(WinRmMachineLocation.PASSWORD, setup.get(PASSWORD))
@@ -2476,7 +2476,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     hostAndPortOverride = ((SshMachineLocation)machine).getSshHostAndPort();
                 } else if (machine instanceof WinRmMachineLocation) {
                     String host = ((WinRmMachineLocation)machine).getAddress().getHostAddress();
-                    int port = ((WinRmMachineLocation)machine).config().get(WinRmMachineLocation.WINRM_PORT);
+                    int port = ((WinRmMachineLocation)machine).getPort();
                     hostAndPortOverride = HostAndPort.fromParts(host, port);
                 } else {
                     LOG.warn("Unexpected machine {} of type {}; expected SSH or WinRM", machine, (machine != null ? machine.getClass() : null));
@@ -2644,7 +2644,8 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         String user = (users.size() == 1) ? Iterables.getOnlyElement(users) : "{" + Joiner.on(",").join(users) + "}";
         String vmIp = hostAndPortOverride.isPresent() ? hostAndPortOverride.get().getHostText() : getFirstReachableAddress(node, setup);
         if (vmIp==null) LOG.warn("Unable to extract IP for "+node+" ("+setup.getDescription()+"): subsequent connection attempt will likely fail");
-        int vmPort = hostAndPortOverride.isPresent() ? hostAndPortOverride.get().getPortOrDefault(5985) : 5985;
+        int defaultWinRmPort = getConfig(WinRmMachineLocation.USE_HTTPS_WINRM) ? 5986 : 5985;
+        int vmPort = hostAndPortOverride.isPresent() ? hostAndPortOverride.get().getPortOrDefault(defaultWinRmPort) : defaultWinRmPort;
 
         String connectionDetails = user + "@" + vmIp + ":" + vmPort;
         final HostAndPort hostAndPort = hostAndPortOverride.isPresent() ? hostAndPortOverride.get() : HostAndPort.fromParts(vmIp, vmPort);

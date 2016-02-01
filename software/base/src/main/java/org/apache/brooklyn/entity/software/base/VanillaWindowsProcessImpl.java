@@ -19,6 +19,10 @@
 package org.apache.brooklyn.entity.software.base;
 
 
+import com.google.common.collect.Iterables;
+import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
+
 public class VanillaWindowsProcessImpl extends SoftwareProcessImpl implements VanillaWindowsProcess {
     @Override
     public Class getDriverInterface() {
@@ -29,7 +33,10 @@ public class VanillaWindowsProcessImpl extends SoftwareProcessImpl implements Va
     protected void preStart() {
         super.preStart();
         sensors().set(RDP_PORT, 3389);
-        sensors().set(WINRM_PORT, 5985);
+        WinRmMachineLocation loc = Iterables.getFirst(Iterables.filter(getLocations(), WinRmMachineLocation.class), null);
+        if (loc != null) {
+            sensors().set(WINRM_PORT, loc.getPort());
+        }
     }
     
     @Override

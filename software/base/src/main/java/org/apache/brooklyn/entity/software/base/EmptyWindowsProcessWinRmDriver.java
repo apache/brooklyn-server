@@ -23,6 +23,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
+import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
 import org.apache.brooklyn.util.net.UserAndHostAndPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,7 +41,7 @@ public class EmptyWindowsProcessWinRmDriver extends AbstractSoftwareProcessWinRm
     @Override
     public void start() {
         WinRmMachineLocation machine = (WinRmMachineLocation) location;
-        UserAndHostAndPort winrmAddress = UserAndHostAndPort.fromParts(machine.getUser(), machine.getAddress().getHostName(), machine.config().get(WinRmMachineLocation.WINRM_PORT));
+        UserAndHostAndPort winrmAddress = UserAndHostAndPort.fromParts(machine.getUser(), machine.getAddress().getHostName(), entity.getConfig(WinRmTool.PROP_PORT));
         getEntity().sensors().set(Attributes.WINRM_ADDRESS, winrmAddress);
 
         super.start();
