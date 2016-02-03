@@ -151,14 +151,14 @@ public class Yamls {
 
     /** simplifies new Yaml().loadAll, and converts to list to prevent single-use iterable bug in yaml */
     @SuppressWarnings("unchecked")
-    public static Iterable<Object> parseAll(String yaml) {
+    public static List<Object> parseAll(String yaml) {
         Iterable<Object> result = new org.yaml.snakeyaml.Yaml().loadAll(yaml);
         return (List<Object>) getAs(result, List.class);
     }
 
     /** as {@link #parseAll(String)} */
     @SuppressWarnings("unchecked")
-    public static Iterable<Object> parseAll(Reader yaml) {
+    public static List<Object> parseAll(Reader yaml) {
         Iterable<Object> result = new org.yaml.snakeyaml.Yaml().loadAll(yaml);
         return (List<Object>) getAs(result, List.class);
     }

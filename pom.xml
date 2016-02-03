@@ -194,6 +194,7 @@
         <module>locations/jclouds</module>
 
         <module>software/base</module>
+        <module>software/cm/salt</module>
         <module>software/winrm</module>
 
         <module>storage/hazelcast</module>
