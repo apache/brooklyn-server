@@ -414,7 +414,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             }
             
         } else {
-            log.info("No Camp-YAML parser regsitered for parsing catalog item DSL; skipping DSL-parsing");
+            log.info("No Camp-YAML parser registered for parsing catalog item DSL; skipping DSL-parsing");
         }
 
         Map<Object,Object> catalogMetadata = MutableMap.<Object, Object>builder()
