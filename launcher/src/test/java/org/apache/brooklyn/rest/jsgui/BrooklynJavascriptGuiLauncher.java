@@ -25,7 +25,9 @@ import org.eclipse.jetty.webapp.WebAppContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.rest.BrooklynRestApiLauncher;
+import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.net.Networking;
+import org.apache.brooklyn.util.os.Os;
 import org.eclipse.jetty.server.NetworkConnector;
 
 /** launches Javascript GUI programmatically. and used for tests.
@@ -73,9 +75,12 @@ public class BrooklynJavascriptGuiLauncher {
      * see {@link BrooklynRestApiLauncher#findJsguiWebappInSource()} */
     public static Server startJavascriptWithoutRest() throws Exception {
         WebAppContext context = new WebAppContext(
-        		BrooklynRestApiLauncher.findJsguiWebappInSource()
-        			.or("../../brooklyn-ui/src/main/webapp"), 
-    			"/");
+            BrooklynRestApiLauncher.findJsguiWebappInSource().isPresent() 
+                ? BrooklynRestApiLauncher.findJsguiWebappInSource().get()
+            : ResourceUtils.create(BrooklynJavascriptGuiLauncher.class).doesUrlExist("classpath://brooklyn.war") 
+                ? Os.writeToTempFile(ResourceUtils.create(BrooklynJavascriptGuiLauncher.class).getResourceFromUrl("classpath://brooklyn.war"), "brooklyn", "war").getAbsolutePath()
+            : throwingReturning("could not find jsgui war or source", "missing-brooklyn.war"),
+			"/");
 
         Server server = new Server(new InetSocketAddress(Networking.LOOPBACK, Networking.nextAvailablePort(FAVOURITE_PORT)));
         server.setHandler(context);
@@ -83,6 +88,10 @@ public class BrooklynJavascriptGuiLauncher {
         log.info("JS GUI server started (no REST) at  http://localhost:"+((NetworkConnector)server.getConnectors()[0]).getLocalPort()+"/");
         
         return server;
+    }
+
+    private static <T> T throwingReturning(String error, T result) {
+        throw new IllegalStateException(error);
     }
 
 }

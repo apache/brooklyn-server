@@ -50,9 +50,11 @@ import org.apache.brooklyn.rest.util.ManagementContextProvider;
 import org.apache.brooklyn.rest.util.OsgiCompat;
 import org.apache.brooklyn.rest.util.ServerStoppingShutdownHandler;
 import org.apache.brooklyn.rest.util.ShutdownHandlerProvider;
+import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.net.Networking;
+import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.text.WildcardGlobs;
 import org.eclipse.jetty.server.NetworkConnector;
 import org.eclipse.jetty.server.Server;
@@ -235,9 +237,12 @@ public class BrooklynRestApiLauncher {
         // For Eclipse, use the default option of ${workspace_loc:brooklyn-launcher}.
         // If the working directory is not set correctly, Brooklyn will be unable to find the jsgui .war
         // file and the 'gui not available' message will be shown.
-        context.setWar(this.deployJsgui && findJsguiWebappInSource().isPresent()
-                       ? findJsguiWebappInSource().get()
-                       : createTempWebDirWithIndexHtml("Brooklyn REST API <p> (gui not available)"));
+        context.setWar(this.deployJsgui && 
+                findJsguiWebappInSource().isPresent() 
+                    ? findJsguiWebappInSource().get()
+                : ResourceUtils.create(this).doesUrlExist("classpath://brooklyn.war") 
+                    ? Os.writeToTempFile(ResourceUtils.create(this).getResourceFromUrl("classpath://brooklyn.war"), "brooklyn", "war").getAbsolutePath()
+                : createTempWebDirWithIndexHtml("Brooklyn REST API <p> (gui not available)"));
         installAsServletFilter(context, this.filters);
         return context;
     }
