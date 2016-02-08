@@ -50,7 +50,7 @@ public class FluentKeySigner {
     protected Date validityStartDate, validityEndDate;
     protected BigInteger serialNumber;
     
-    protected String signatureAlgorithm = "MD5WithRSAEncryption";
+    protected String signatureAlgorithm = "SHA256WithRSAEncryption";
     protected AuthorityKeyIdentifier authorityKeyIdentifier;
     protected X509Certificate authorityCertificate;
 
