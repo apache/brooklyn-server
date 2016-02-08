@@ -56,6 +56,7 @@ import org.apache.brooklyn.rt.felix.ManifestHelper;
 import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.osgi.OsgiUtil;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.osgi.framework.Bundle;
@@ -178,7 +179,7 @@ public class BrooklynVersion {
      * Reads main attributes properties from brooklyn-core's bundle manifest.
      */
     private void readPropertiesFromOsgiResource() {
-        if (Osgis.isBrooklynInsideFramework()) {
+        if (OsgiUtil.isBrooklynInsideFramework()) {
             Dictionary<String, String> headers = FrameworkUtil.getBundle(BrooklynVersion.class).getHeaders();
             for (Enumeration<String> keys = headers.keys(); keys.hasMoreElements();) {
                 String key = keys.nextElement();
@@ -288,7 +289,7 @@ public class BrooklynVersion {
      * @return An iterable containing all features found in the management context's classpath and catalogue.
      */
     public static Iterable<BrooklynFeature> getFeatures(ManagementContext mgmt) {
-        if (Osgis.isBrooklynInsideFramework()) {
+        if (OsgiUtil.isBrooklynInsideFramework()) {
             List<Bundle> bundles = Arrays.asList(
                     FrameworkUtil.getBundle(BrooklynVersion.class)
                             .getBundleContext()
