@@ -214,6 +214,13 @@ This project includes the software: bootstrap.js
   Used under the following license: Apache License, version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
   Copyright (c) Twitter, Inc. (2012)
 
+This project includes the software: codemirror.js
+  Available at: http://codemirror.net/
+  Inclusive of: codemirror.{js,css}, show-hint.{js,css}, placeholder.js, anyword-hint.js, yaml.js
+  Version used: 5.11.1
+  Used under the following license: The MIT License (http://opensource.org/licenses/MIT)
+  CodeMirror (c) Marijn Haverbeke and others
+
 This project includes the software: handlebars.js
   Available at: https://github.com/wycats/handlebars.js
   Developed by: Yehuda Katz (https://github.com/wycats/)
@@ -278,7 +285,7 @@ This project includes the software: js-uri
 This project includes the software: js-yaml.js
   Available at: https://github.com/nodeca/
   Developed by: Vitaly Puzrin (https://github.com/nodeca/)
-  Version used: 3.2.7
+  Version used: 3.5.2
   Used under the following license: The MIT License (http://opensource.org/licenses/MIT)
   Copyright (c) Vitaly Puzrin (2011-2015)
 
