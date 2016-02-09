@@ -136,8 +136,11 @@ public class Urls {
                 }
                 return true;
             }
-            if (!Character.isAlphabetic(c) && c!='+') {
-                // only letters, numbers and + allowed before colon
+            
+            // protocol schema as per https://en.wikipedia.org/wiki/Uniform_Resource_Locator
+            if (i==0) {
+                if (!Character.isLetter(c)) return false;
+            } else if (!Character.isAlphabetic(c) && !Character.isDigit(c) && c!='+' && c!='.' && c!='-') {
                 return false; 
             }
         }
