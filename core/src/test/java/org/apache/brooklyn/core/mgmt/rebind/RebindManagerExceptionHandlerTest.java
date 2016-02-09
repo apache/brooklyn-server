@@ -18,22 +18,22 @@
  */
 package org.apache.brooklyn.core.mgmt.rebind;
 
-import com.google.common.collect.ImmutableMap;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestApplicationNoEnrichersImpl;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.test.EntityTestUtils;
-import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.test.Asserts;
 import org.testng.annotations.Test;
+
+import com.google.common.collect.ImmutableMap;
 
 public class RebindManagerExceptionHandlerTest extends RebindTestFixtureWithApp {
 
-    @Test(expectedExceptions = {IllegalStateException.class, IllegalArgumentException.class})
+    @Test
     public void testAddConfigFailure() throws Throwable {
         origApp.createAndManageChild(EntitySpec.create(TestEntity.class)
                 .configure("test.confMapThing", ImmutableMap.of("keyWithMapValue", ImmutableMap.of("minRam", 4))));
@@ -44,15 +44,16 @@ public class RebindManagerExceptionHandlerTest extends RebindTestFixtureWithApp 
             // Use the original context with empty properties so the test doesn't depend on the local properties file
             rebindOptions.newManagementContext = origManagementContext;
             rebind(rebindOptions);
-        } catch (Exception e) {
-            throw Exceptions.getFirstInteresting(e);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Throwable e) {
+            Asserts.expectedFailureContainsIgnoreCase(e, "minRam=4", "keyWithMapValue");
         }
     }
 
     @Test
     public void testAddConfigContinue() throws Throwable {
         ManagementContext m = createManagementContextWithAddConfigContinue();
-        origApp = ApplicationBuilder.newManagedApp(EntitySpec.create(TestApplication.class, TestApplicationNoEnrichersImpl.class), m);
+        origApp = m.getEntityManager().createEntity(EntitySpec.create(TestApplication.class, TestApplicationNoEnrichersImpl.class));
         origApp.createAndManageChild(EntitySpec.create(TestEntity.class)
                 .configure("test.confMapThing", ImmutableMap.of("keyWithMapValue", ImmutableMap.of("minRam", 4))));
 
@@ -60,7 +61,7 @@ public class RebindManagerExceptionHandlerTest extends RebindTestFixtureWithApp 
         RebindOptions rebindOptions = RebindOptions.create();
         rebindOptions.newManagementContext = m;
         TestApplication rebindedApp = rebind(rebindOptions);
-        EntityTestUtils.assertConfigEquals(rebindedApp, TestEntity.CONF_MAP_THING, null);
+        EntityAsserts.assertConfigEquals(rebindedApp, TestEntity.CONF_MAP_THING, null);
     }
 
     private LocalManagementContext createManagementContextWithAddConfigContinue() {

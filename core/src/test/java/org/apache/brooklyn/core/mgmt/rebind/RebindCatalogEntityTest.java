@@ -26,13 +26,8 @@ import java.io.Closeable;
 import java.net.URL;
 import java.util.List;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -40,11 +35,14 @@ import org.apache.brooklyn.core.entity.AbstractApplication;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.StartableApplication;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.core.javalang.UrlClassLoader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
 import com.google.common.base.Function;
 
@@ -94,6 +92,7 @@ public class RebindCatalogEntityTest extends RebindTestFixture<StartableApplicat
     //       AbstractMemento.injectTypeClass(Class)
     //
     // NB: this behaviour is generally deprecated in favour of OSGi now.
+    @SuppressWarnings("resource")
     @Test 
     public void testRestoresAppFromCatalogClassloader() throws Exception {
         @SuppressWarnings("unchecked")
@@ -102,7 +101,7 @@ public class RebindCatalogEntityTest extends RebindTestFixture<StartableApplicat
         
         EntitySpec<StartableApplication> appSpec = EntitySpec.create(StartableApplication.class, appClazz)
                 .configure("myconf", "myconfval");
-        origApp = ApplicationBuilder.newManagedApp(appSpec, origManagementContext);
+        origApp = origManagementContext.getEntityManager().createEntity(appSpec);
         ((EntityInternal)origApp).sensors().set(Sensors.newStringSensor("mysensor"), "mysensorval");
         
         newApp = rebindWithAppClass();

@@ -19,14 +19,13 @@
 package org.apache.brooklyn.core.mgmt.rebind;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestApplicationNoEnrichersImpl;
 
 public class RebindTestFixtureWithApp extends RebindTestFixture<TestApplication> {
 
     protected TestApplication createApp() {
-        return ApplicationBuilder.newManagedApp(EntitySpec.create(TestApplication.class, TestApplicationNoEnrichersImpl.class), origManagementContext);
+        return origManagementContext.getEntityManager().createEntity(EntitySpec.create(TestApplication.class, TestApplicationNoEnrichersImpl.class));
     }
     
 }

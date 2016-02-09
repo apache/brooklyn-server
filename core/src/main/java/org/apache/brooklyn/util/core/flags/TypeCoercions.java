@@ -282,7 +282,7 @@ public class TypeCoercions {
                 // fall back to below
             }
         }
-        throw new ClassCoercionException("Cannot coerce type "+value.getClass()+" to "+targetType.getCanonicalName()+" ("+value+"): no adapter known");
+        throw new ClassCoercionException("Cannot coerce type "+value.getClass().getCanonicalName()+" to "+targetType.getCanonicalName()+" ("+value+"): no adapter known");
     }
 
     /**

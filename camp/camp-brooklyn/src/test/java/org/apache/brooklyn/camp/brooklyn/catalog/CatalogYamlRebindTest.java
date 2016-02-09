@@ -24,7 +24,6 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 import java.io.StringReader;
 import java.io.StringWriter;
@@ -54,6 +53,7 @@ import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
 import org.apache.brooklyn.core.test.policy.TestEnricher;
 import org.apache.brooklyn.core.test.policy.TestPolicy;
 import org.apache.brooklyn.entity.stock.BasicEntity;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 import org.testng.annotations.Test;
@@ -283,13 +283,14 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
         } else {
             try {
                 StartableApplication app2 = (StartableApplication) createAndStartApplication(yaml2);
-                fail();
+                Asserts.shouldHaveFailedPreviously();
             } catch (Exception e) {
+                // only these two modes are allowed; may have different assertions (but don't yet)
                 if (mode == RebindWithCatalogTestMode.DELETE_CATALOG) {
-                    if (!e.toString().contains("cannot be matched")) throw e;
+                    Asserts.expectedFailureContainsIgnoreCase(e, "unable to match", "my.catalog.app");
                 } else {
                     assertEquals(mode, RebindWithCatalogTestMode.DISABLE_CATALOG);
-                    if (!e.toString().contains("cannot be matched")) throw e;
+                    Asserts.expectedFailureContainsIgnoreCase(e, "unable to match", "my.catalog.app");
                 }
             }
         }

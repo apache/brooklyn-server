@@ -19,18 +19,12 @@
 package org.apache.brooklyn.core.mgmt.rebind;
 
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
 
 import java.io.File;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Application;
@@ -55,6 +49,10 @@ import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.Iterables;
@@ -306,7 +304,6 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
         assertEquals(actual.getId(), expected.getId());
         assertEquals(actual.getDisplayName(), expected.getDisplayName());
         assertEquals(actual.getVersion(), expected.getVersion());
-        assertEquals(actual.getJavaType(), expected.getJavaType());
         assertEquals(actual.getDescription(), expected.getDescription());
         assertEquals(actual.getIconUrl(), expected.getIconUrl());
         assertEquals(actual.getVersion(), expected.getVersion());

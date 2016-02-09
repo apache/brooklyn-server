@@ -18,6 +18,24 @@
  */
 package org.apache.brooklyn.rest.resources;
 
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import io.swagger.annotations.Api;
+import io.swagger.models.Operation;
+import io.swagger.models.Path;
+import io.swagger.models.Swagger;
+
+import java.util.Collection;
+
+import org.apache.brooklyn.rest.BrooklynRestApi;
+import org.apache.brooklyn.rest.api.CatalogApi;
+import org.apache.brooklyn.rest.api.EffectorApi;
+import org.apache.brooklyn.rest.api.EntityApi;
+import org.apache.brooklyn.rest.filter.SwaggerFilter;
+import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.testng.annotations.Test;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -28,34 +46,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.sun.jersey.api.core.ClassNamesResourceConfig;
 import com.sun.jersey.spi.container.servlet.ServletContainer;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.testng.Assert;
-import org.testng.annotations.Test;
-
-import org.apache.brooklyn.rest.BrooklynRestApi;
-import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
-
 import com.sun.jersey.test.framework.AppDescriptor;
 import com.sun.jersey.test.framework.JerseyTest;
 import com.sun.jersey.test.framework.WebAppDescriptor;
 import com.sun.jersey.test.framework.spi.container.TestContainerException;
 import com.sun.jersey.test.framework.spi.container.TestContainerFactory;
 import com.sun.jersey.test.framework.spi.container.grizzly2.web.GrizzlyWebTestContainerFactory;
-import io.swagger.annotations.Api;
-import io.swagger.models.Info;
-import io.swagger.models.Operation;
-import io.swagger.models.Path;
-import io.swagger.models.Swagger;
-import java.util.Collection;
-import org.apache.brooklyn.rest.api.CatalogApi;
-import org.apache.brooklyn.rest.api.EffectorApi;
-import org.apache.brooklyn.rest.api.EntityApi;
-import org.apache.brooklyn.rest.filter.SwaggerFilter;
-import org.apache.brooklyn.rest.util.ShutdownHandlerProvider;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 
 /**
  * @author Adam Lowe
@@ -83,9 +79,9 @@ public class ApidocResourceTest extends BrooklynRestResourceTest {
             }
 
             private String getResourceClassnames() {
-                Iterable<String> classnames = Collections2.transform(config.getClasses(), new Function<Class, String>() {
+                Iterable<String> classnames = Collections2.transform(config.getClasses(), new Function<Class<?>, String>() {
                     @Override
-                    public String apply(Class clazz) {
+                    public String apply(Class<?> clazz) {
                         return clazz.getName();
                     }
                 });
