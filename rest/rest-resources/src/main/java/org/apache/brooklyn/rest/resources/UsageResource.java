@@ -30,7 +30,6 @@ import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
-import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.usage.ApplicationUsage;
 import org.apache.brooklyn.core.mgmt.usage.LocationUsage;
 import org.apache.brooklyn.core.mgmt.usage.ApplicationUsage.ApplicationEvent;
@@ -67,7 +66,7 @@ public class UsageResource extends AbstractBrooklynRestResource implements Usage
         
         checkDates(startDate, endDate);
 
-        Set<ApplicationUsage> usages = ((ManagementContextInternal) mgmt()).getUsageManager().getApplicationUsage(Predicates.alwaysTrue());
+        Set<ApplicationUsage> usages = mgmtInternal().getUsageManager().getApplicationUsage(Predicates.alwaysTrue());
 
         for (ApplicationUsage usage : usages) {
             List<UsageStatistic> statistics = retrieveApplicationUsage(usage, startDate, endDate);
@@ -87,7 +86,7 @@ public class UsageResource extends AbstractBrooklynRestResource implements Usage
 
         checkDates(startDate, endDate);
 
-        ApplicationUsage usage = ((ManagementContextInternal) mgmt()).getUsageManager().getApplicationUsage(application);
+        ApplicationUsage usage = mgmtInternal().getUsageManager().getApplicationUsage(application);
         if (usage != null) {
             List<UsageStatistic> statistics = retrieveApplicationUsage(usage, startDate, endDate);
             return new UsageStatistics(statistics, ImmutableMap.<String,URI>of());
@@ -146,7 +145,7 @@ public class UsageResource extends AbstractBrooklynRestResource implements Usage
         checkDates(startDate, endDate);
         
         // Note currently recording ALL metrics for a machine that contains an Event from given Application
-        Set<LocationUsage> matches = ((ManagementContextInternal) mgmt()).getUsageManager().getLocationUsage(new Predicate<LocationUsage>() {
+        Set<LocationUsage> matches = mgmtInternal().getUsageManager().getLocationUsage(new Predicate<LocationUsage>() {
             @Override
             public boolean apply(LocationUsage input) {
                 LocationUsage.LocationEvent first = input.getEvents().get(0);
@@ -189,7 +188,7 @@ public class UsageResource extends AbstractBrooklynRestResource implements Usage
         checkDates(startDate, endDate);
         
         // Note currently recording ALL metrics for a machine that contains an Event from given Application
-        LocationUsage usage = ((ManagementContextInternal) mgmt()).getUsageManager().getLocationUsage(machine);
+        LocationUsage usage = mgmtInternal().getUsageManager().getLocationUsage(machine);
         
         if (usage == null) {
             throw notFound("Machine '%s' not found", machine);

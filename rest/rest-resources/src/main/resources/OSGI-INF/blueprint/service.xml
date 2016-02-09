@@ -29,58 +29,78 @@ limitations under the License.
 
     <cxf:bus>
         <cxf:features>
+<!--            <bean class="org.apache.cxf.interceptor.security.JAASAuthenticationFeature">
+                    <property name="reportFault" value="true"/>
+            </bean>-->
             <cxf:logging/>
         </cxf:features>
     </cxf:bus>
 
     <reference id="localManagementContext"
                interface="org.apache.brooklyn.api.mgmt.ManagementContext" />
+    <reference id="localManagementContextInternal"
+               interface="org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal" />
 
     <bean id="accessResourceBean" class="org.apache.brooklyn.rest.resources.AccessResource">
         <property name="managementContext" ref="localManagementContext" />
+        <property name="managementContextInternal" ref="localManagementContextInternal" />
     </bean>
     <bean id="activityResourceBean" class="org.apache.brooklyn.rest.resources.ActivityResource">
         <property name="managementContext" ref="localManagementContext" />
+        <property name="managementContextInternal" ref="localManagementContextInternal" />
     </bean>
     <!--<bean id="apidocResourceBean" class="org.apache.brooklyn.rest.resources.ApidocResource" />-->
     <bean id="applicationResourceBean" class="org.apache.brooklyn.rest.resources.ApplicationResource">
         <property name="managementContext" ref="localManagementContext" />
+        <property name="managementContextInternal" ref="localManagementContextInternal" />
     </bean>
     <bean id="catalogResourceBean" class="org.apache.brooklyn.rest.resources.CatalogResource">
         <property name="managementContext" ref="localManagementContext" />
+        <property name="managementContextInternal" ref="localManagementContextInternal" />
     </bean>
     <bean id="effectorResourceBean" class="org.apache.brooklyn.rest.resources.EffectorResource">
         <property name="managementContext" ref="localManagementContext" />
+        <property name="managementContextInternal" ref="localManagementContextInternal" />
     </bean>
     <bean id="entityConfigResourceBean" class="org.apache.brooklyn.rest.resources.EntityConfigResource">
         <property name="managementContext" ref="localManagementContext" />
+        <property name="managementContextInternal" ref="localManagementContextInternal" />
     </bean>
     <bean id="entityResourceBean" class="org.apache.brooklyn.rest.resources.EntityResource">
         <property name="managementContext" ref="localManagementContext" />
+        <property name="managementContextInternal" ref="localManagementContextInternal" />
     </bean>
     <bean id="locationResourceBean" class="org.apache.brooklyn.rest.resources.LocationResource">
         <property name="managementContext" ref="localManagementContext" />
+        <property name="managementContextInternal" ref="localManagementContextInternal" />
     </bean>
     <bean id="policyConfigResourceBean" class="org.apache.brooklyn.rest.resources.PolicyConfigResource">
         <property name="managementContext" ref="localManagementContext" />
+        <property name="managementContextInternal" ref="localManagementContextInternal" />
     </bean>
     <bean id="policyResourceBean" class="org.apache.brooklyn.rest.resources.PolicyResource">
         <property name="managementContext" ref="localManagementContext" />
+        <property name="managementContextInternal" ref="localManagementContextInternal" />
     </bean>
     <bean id="scriptResourceBean" class="org.apache.brooklyn.rest.resources.ScriptResource">
         <property name="managementContext" ref="localManagementContext" />
+        <property name="managementContextInternal" ref="localManagementContextInternal" />
     </bean>
     <bean id="sensorResourceBean" class="org.apache.brooklyn.rest.resources.SensorResource">
         <property name="managementContext" ref="localManagementContext" />
+        <property name="managementContextInternal" ref="localManagementContextInternal" />
     </bean>
     <bean id="serverResourceBean" class="org.apache.brooklyn.rest.resources.ServerResource">
         <property name="managementContext" ref="localManagementContext" />
+        <property name="managementContextInternal" ref="localManagementContextInternal" />
     </bean>
     <bean id="usageResourceBean" class="org.apache.brooklyn.rest.resources.UsageResource">
         <property name="managementContext" ref="localManagementContext" />
+        <property name="managementContextInternal" ref="localManagementContextInternal" />
     </bean>
     <bean id="versionResourceBean" class="org.apache.brooklyn.rest.resources.VersionResource">
         <property name="managementContext" ref="localManagementContext" />
+        <property name="managementContextInternal" ref="localManagementContextInternal" />
     </bean>
 
     <jaxrs:server id="brooklynRestApiV1" address="/">

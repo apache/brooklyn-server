@@ -86,7 +86,6 @@
     <feature name="brooklyn-rest-api" version="${project.version}" description="Brooklyn REST API">
         <feature>brooklyn-utils-rest-swagger</feature>
         <feature>brooklyn-api</feature>
-        <feature>brooklyn-core</feature>
 
         <bundle>mvn:org.apache.brooklyn/brooklyn-rest-api/${project.version}</bundle>
 
@@ -100,8 +99,8 @@
         <!--<feature>jersey</feature>-->
         <bundle dependency="true">mvn:com.sun.jersey/jersey-servlet/${jersey.version}</bundle>
         <bundle dependency="true">mvn:org.apache.commons/commons-lang3/${commons-lang3.version}</bundle>
-        <bundle dependency="true">mvn:com.fasterxml.jackson.core/jackson-annotations/${fasterxml.jackson.version}</bundle>
-        <bundle dependency="true">mvn:com.fasterxml.jackson.core/jackson-databind/${fasterxml.jackson.version}</bundle>
+        <bundle dependency="true">mvn:org.codehaus.jackson/jackson-core-asl/${jackson.version}</bundle>
+        <bundle dependency="true">mvn:org.codehaus.jackson/jackson-mapper-asl/${jackson.version}</bundle>
 
         <bundle dependency="true">mvn:javax.servlet/javax.servlet-api/${javax-servlet.version}</bundle>
     </feature>
@@ -117,7 +116,7 @@
         <bundle>mvn:org.apache.brooklyn/brooklyn-core/${project.version}</bundle>
         <bundle>mvn:org.apache.brooklyn/brooklyn-rt-osgi/${project.version}</bundle>
         <bundle>mvn:org.apache.brooklyn/brooklyn-utils-groovy/${project.version}</bundle>
-
+    
         <bundle dependency="true">mvn:com.google.code.gson/gson/${gson.version}</bundle>
         <bundle dependency="true">mvn:com.jayway.jsonpath/json-path/${jsonPath.version}</bundle>
         <bundle dependency="true">mvn:com.fasterxml.jackson.core/jackson-core/${fasterxml.jackson.version}</bundle>
@@ -133,6 +132,9 @@
         <bundle dependency="true">mvn:org.bouncycastle/bcpkix-jdk15on/${bouncycastle.version}</bundle>
         <bundle dependency="true">mvn:commons-codec/commons-codec/${commons-codec.version}</bundle>
         <bundle dependency="true">mvn:org.apache.commons/commons-lang3/${commons-lang3.version}</bundle>
+        <bundle dependency="true">mvn:org.codehaus.jackson/jackson-core-asl/${jackson.version}</bundle>
+        <bundle dependency="true">mvn:org.codehaus.jackson/jackson-mapper-asl/${jackson.version}</bundle>
+        <bundle dependency="true">mvn:org.codehaus.jackson/jackson-jaxrs/${jackson.version}</bundle>
 
         <!-- TODO: don't use wrap -->
         <bundle dependency="true">wrap:mvn:com.google.http-client/google-http-client/1.18.0-rc</bundle> <!-- from geoip -->
@@ -166,9 +168,14 @@
         <feature>brooklyn-camp-base</feature>
         <feature>brooklyn-utils-rest-swagger</feature>
         <feature>jetty</feature> <!-- TODO: pax-jetty??? -->
+
+        <bundle dependency="true">mvn:org.codehaus.jackson/jackson-core-asl/${jackson.version}</bundle>
+        
+        <bundle dependency="true">wrap:mvn:javax.validation/validation-api/${validation-api.version}</bundle>
+        <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.reflections/${reflections.bundle.version}</bundle>
     </feature>
 
-    <feature name="brooklyn-rest-resources" version="${project.version}" description="Brooklyn REST Resources">
+    <feature name="brooklyn-rest-resources" version="${project.version}" description="Brooklyn REST Resources (CXF)">
         <bundle>mvn:org.apache.brooklyn/brooklyn-rest-resources/${project.version}</bundle>
         <feature>brooklyn-core</feature>
         <feature>brooklyn-rest-api</feature>
@@ -177,27 +184,21 @@
 
         <feature>cxf-jaxrs</feature>
 
-        <bundle dependency="true">mvn:com.fasterxml.jackson.jaxrs/jackson-jaxrs-json-provider/${fasterxml.jackson.version}</bundle>
-
         <!-- should be deps of jax-rs-2.0 rest-api project -->
         <bundle dependency="true">mvn:javax.servlet/javax.servlet-api/${javax-servlet.version}</bundle>
         <bundle dependency="true">mvn:javax.ws.rs/javax.ws.rs-api/${jax-rs-api.version}</bundle>
-
-        <config name="org.apache.cxf.osgi">
-            org.apache.cxf.servlet.context = /v1
-        </config>
     </feature>
 
     <feature name="brooklyn-jsgui" version="${project.version}" description="Brooklyn REST JavaScript Web GUI">
         <bundle>mvn:org.apache.brooklyn/brooklyn-jsgui/${project.version}/war</bundle>
         <feature>war</feature>
     </feature>
-
+  
     <feature name="brooklyn-commands"  version="${project.version}"  description="Brooklyn Shell Commands">
         <bundle>mvn:org.apache.brooklyn/brooklyn-commands/${project.version}</bundle>
         <!--<feature version="${project.version}">brooklyn-core</feature>-->
     </feature>
-
+  
     <feature name="brooklyn-software-winrm" version="${project.version}" description="Brooklyn WinRM Software Entities">
         <bundle>mvn:org.apache.brooklyn/brooklyn-software-winrm/${project.version}</bundle>
         <feature>brooklyn-core</feature>
@@ -283,5 +284,5 @@
         <feature>brooklyn-software-base</feature>
         <bundle dependency="true">mvn:com.google.guava/guava/${guava.version}</bundle>
     </feature>
-
+    
 </features>

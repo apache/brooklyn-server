@@ -52,7 +52,6 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
-import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
 import org.apache.brooklyn.core.mgmt.persist.FileBasedObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
@@ -190,7 +189,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
                     }
 
                     terminateTried = true;
-                    ((ManagementContextInternal)mgmt).terminate(); 
+                    mgmtInternal().terminate(); 
 
                 } catch (Throwable e) {
                     Throwable interesting = Exceptions.getFirstInteresting(e);
@@ -208,7 +207,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
                     hasAppErrorsOrTimeout.set(true);
                     
                     if (!terminateTried) {
-                        ((ManagementContextInternal)mgmt).terminate(); 
+                        mgmtInternal().terminate(); 
                     }
                 } finally {
 
@@ -356,7 +355,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
     
     @Override
     public boolean isHealthy() {
-        return isUp() && ((ManagementContextInternal) mgmt()).errors().isEmpty();
+        return isUp() && mgmtInternal().errors().isEmpty();
     }
     
     @Override

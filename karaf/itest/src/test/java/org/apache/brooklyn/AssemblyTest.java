@@ -89,7 +89,7 @@ public class AssemblyTest {
                 .groupId("org.apache.brooklyn")
                 .artifactId("apache-brooklyn")
                 .type("zip")
-                .version(asInProject());
+                .versionAsInProject();
     }
 
     public static MavenUrlReference karafStandardFeaturesRepository() {
@@ -98,7 +98,16 @@ public class AssemblyTest {
                 .artifactId("standard")
                 .type("xml")
                 .classifier("features")
-                .version(asInProject());
+                .versionAsInProject();
+    }
+
+    public static MavenUrlReference brooklynFeaturesRepository() {
+        return maven()
+                .groupId("org.apache.brooklyn")
+                .artifactId("brooklyn-features")
+                .type("xml")
+                .classifier("features")
+                .versionAsInProject();
     }
 
     @Test

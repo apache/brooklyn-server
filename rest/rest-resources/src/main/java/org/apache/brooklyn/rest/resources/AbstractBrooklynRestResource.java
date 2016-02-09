@@ -27,6 +27,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.config.render.RendererHints;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.rest.util.BrooklynRestResourceUtils;
 import org.apache.brooklyn.rest.util.OsgiCompat;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
@@ -49,11 +50,17 @@ public abstract class AbstractBrooklynRestResource implements ManagementContextI
 
     
     private ManagementContext managementContext;
+    private ManagementContextInternal managementContextInternal;
+
     private BrooklynRestResourceUtils brooklynRestResourceUtils;
     private ObjectMapper mapper;
 
     public ManagementContext mgmt() {
         return mgmtMaybe().get();
+    }
+
+    public ManagementContextInternal mgmtInternal() {
+        return managementContextInternal;
     }
     
     protected synchronized Maybe<ManagementContext> mgmtMaybe() {
@@ -71,7 +78,16 @@ public abstract class AbstractBrooklynRestResource implements ManagementContextI
             throw new IllegalStateException("ManagementContext cannot be changed: specified twice for Brooklyn Jersey Resource "+this);
         }
         this.managementContext = managementContext;
+        if (managementContext instanceof ManagementContextInternal) {
+            // when running outside OSGi container
+            this.managementContextInternal = (ManagementContextInternal)managementContext;
+        }
     }
+
+    public void setManagementContextInternal(ManagementContextInternal managementContextInternal) {
+        this.managementContextInternal = managementContextInternal;
+    }
+
 
     public synchronized BrooklynRestResourceUtils brooklyn() {
         if (brooklynRestResourceUtils!=null) return brooklynRestResourceUtils;
