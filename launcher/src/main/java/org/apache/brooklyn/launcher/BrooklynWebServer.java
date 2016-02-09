@@ -74,8 +74,6 @@ import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.web.ContextHandlerCollectionHotSwappable;
-import org.apache.cxf.transport.common.gzip.GZIPInInterceptor;
-import org.apache.cxf.transport.common.gzip.GZIPOutInterceptor;
 import org.eclipse.jetty.http.HttpVersion;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.HttpConfiguration;
@@ -421,13 +419,11 @@ public class BrooklynWebServer {
     }
 
     private WebAppContext deployRestApi(WebAppContext context) {
-        RestApiSetup.installRestServlet(context,
+        RestApiSetup.installRest(context,
                 new ManagementContextProvider(managementContext),
                 new ShutdownHandlerProvider(shutdownHandler),
                 new NoCacheFilter(),
-                new HaHotCheckResourceFilter(),
-                new GZIPInInterceptor(),
-                new GZIPOutInterceptor());
+                new HaHotCheckResourceFilter());
         RestApiSetup.installServletFilters(context,
                 RequestTaggingFilter.class,
                 LoggingFilter.class,

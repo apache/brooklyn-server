@@ -23,6 +23,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import javax.servlet.ServletContext;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.ext.ContextResolver;
 import javax.ws.rs.ext.MessageBodyReader;
 import javax.ws.rs.ext.MessageBodyWriter;
 
@@ -31,7 +32,6 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.server.BrooklynServiceAttributes;
-import org.apache.brooklyn.rest.util.OsgiCompat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,12 +48,14 @@ public class BrooklynJacksonJsonProvider extends JacksonJsonProvider implements
 
     public static final String BROOKLYN_REST_OBJECT_MAPPER = BrooklynServiceAttributes.BROOKLYN_REST_OBJECT_MAPPER;
 
-    @Context protected ServletContext servletContext;
+    @Context
+    private ServletContext servletContext;
 
     protected ObjectMapper ourMapper;
     protected boolean notFound = false;
 
-    private ManagementContext mgmt;
+    @Context
+    private ContextResolver<ManagementContext> mgmt;
 
     @Override
     public ObjectMapper locateMapper(Class<?> type, MediaType mediaType) {
@@ -77,7 +79,7 @@ public class BrooklynJacksonJsonProvider extends JacksonJsonProvider implements
         if (ourMapper != null || notFound)
             return ourMapper;
 
-        ourMapper = findSharedObjectMapper(servletContext, mgmt);
+        ourMapper = findSharedObjectMapper(servletContext, mgmt());
         if (ourMapper == null) return null;
 
         if (notFound) {
@@ -86,6 +88,10 @@ public class BrooklynJacksonJsonProvider extends JacksonJsonProvider implements
         log.debug("Found mapper "+ourMapper+" for "+this+", creating custom Brooklyn mapper");
 
         return ourMapper;
+    }
+
+    private ManagementContext mgmt() {
+        return mgmt.getContext(ManagementContext.class);
     }
 
     /**
@@ -113,19 +119,16 @@ public class BrooklynJacksonJsonProvider extends JacksonJsonProvider implements
                 }
             }
         }
-        if (mgmt != null) {
-            synchronized (mgmt) {
-                ConfigKey<ObjectMapper> key = ConfigKeys.newConfigKey(ObjectMapper.class, BROOKLYN_REST_OBJECT_MAPPER);
-                ObjectMapper mapper = mgmt.getConfig().getConfig(key);
-                if (mapper != null) return mapper;
+        synchronized (mgmt) {
+            ConfigKey<ObjectMapper> key = ConfigKeys.newConfigKey(ObjectMapper.class, BROOKLYN_REST_OBJECT_MAPPER);
+            ObjectMapper mapper = mgmt.getConfig().getConfig(key);
+            if (mapper != null) return mapper;
 
-                mapper = newPrivateObjectMapper(mgmt);
-                log.debug("Storing new ObjectMapper against "+mgmt+" because no ServletContext available: "+mapper);
-                ((BrooklynProperties)mgmt.getConfig()).put(key, mapper);
-                return mapper;
-            }
+            mapper = newPrivateObjectMapper(mgmt);
+            log.debug("Storing new ObjectMapper against "+mgmt+" because no ServletContext available: "+mapper);
+            ((BrooklynProperties)mgmt.getConfig()).put(key, mapper);
+            return mapper;
         }
-        return null;
     }
 
     /**
@@ -136,9 +139,6 @@ public class BrooklynJacksonJsonProvider extends JacksonJsonProvider implements
         ObjectMapper mapper = findSharedObjectMapper(servletContext, mgmt);
         if (mapper != null) return mapper;
 
-        if (mgmt == null && servletContext != null) {
-            mgmt = getManagementContext(servletContext);
-        }
         return newPrivateObjectMapper(mgmt);
     }
 
@@ -168,10 +168,6 @@ public class BrooklynJacksonJsonProvider extends JacksonJsonProvider implements
         mapper.registerModule(mapperModule);
 
         return mapper;
-    }
-
-    public static ManagementContext getManagementContext(ServletContext servletContext) {
-        return OsgiCompat.getManagementContext(servletContext);
     }
 
 }
