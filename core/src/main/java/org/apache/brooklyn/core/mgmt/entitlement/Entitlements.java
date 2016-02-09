@@ -66,6 +66,7 @@ public class Entitlements {
     
     public static EntitlementClass<Entity> SEE_ENTITY = new BasicEntitlementClassDefinition<Entity>("entity.see", Entity.class);
     public static EntitlementClass<EntityAndItem<String>> SEE_SENSOR = new BasicEntitlementClassDefinition<EntityAndItem<String>>("sensor.see", EntityAndItem. typeToken(String.class));
+    public static EntitlementClass<EntityAndItem<String>> SEE_CONFIG = new BasicEntitlementClassDefinition<EntityAndItem<String>>("config.see", EntityAndItem. typeToken(String.class));
     // string is effector name; argument may be a map or a list, depending how the args were supplied
     public static EntitlementClass<EntityAndItem<StringAndArgument>> INVOKE_EFFECTOR = new BasicEntitlementClassDefinition<EntityAndItem<StringAndArgument>>("effector.invoke", EntityAndItem.typeToken(StringAndArgument.class));
     public static EntitlementClass<Entity> MODIFY_ENTITY = new BasicEntitlementClassDefinition<Entity>("entity.modify", Entity.class);
@@ -274,6 +275,7 @@ public class Entitlements {
                 return "Entitlements.allowing(" + permission + " -> " + test + ")";
             }
         }
+        
         public static EntitlementManager seeNonSecretSensors() {
             return allowing(SEE_SENSOR, new Predicate<EntityAndItem<String>>() {
                 @Override
@@ -288,13 +290,27 @@ public class Entitlements {
             });
         }
         
+        public static EntitlementManager seeNonSecretConfig() {
+            return allowing(SEE_CONFIG, new Predicate<EntityAndItem<String>>() {
+                @Override
+                public boolean apply(EntityAndItem<String> input) {
+                    if (input == null) return false;
+                    return !Sanitizer.IS_SECRET_PREDICATE.apply(input.getItem());
+                }
+                @Override
+                public String toString() {
+                    return "Predicates.nonSecret";
+                }
+            });
+        }
     }
     
     /** allow read-only */
     public static EntitlementManager readOnly() {
         return FineGrainedEntitlements.anyOf(
             FineGrainedEntitlements.allowing(SEE_ENTITY),
-            FineGrainedEntitlements.seeNonSecretSensors()
+            FineGrainedEntitlements.seeNonSecretSensors(),
+            FineGrainedEntitlements.seeNonSecretConfig()
         );
     }
 
