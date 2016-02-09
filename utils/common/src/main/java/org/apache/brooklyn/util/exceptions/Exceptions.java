@@ -227,7 +227,7 @@ public class Exceptions {
                 // everything in the tree is boring...
                 return source;
             }
-            if (visited.add(collapsed)) {
+            if (!visited.add(collapsed)) {
                 // there is a recursive loop
                 break;
             }

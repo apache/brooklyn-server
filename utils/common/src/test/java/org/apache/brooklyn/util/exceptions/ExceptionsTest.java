@@ -23,6 +23,7 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+import java.io.IOException;
 import java.util.ConcurrentModificationException;
 import java.util.concurrent.ExecutionException;
 
@@ -216,6 +217,58 @@ public class ExceptionsTest {
         Assert.assertEquals(Exceptions.collapseText(t), "Invalid java type: sample");
     }
 
+    @Test
+    public void testNestedPropWithMessage() {
+        Throwable t;
+        t = new IOException("1");
+        t = new org.apache.brooklyn.util.exceptions.PropagatedRuntimeException(t);
+        t = new org.apache.brooklyn.util.exceptions.PropagatedRuntimeException("A", t);
+        Assert.assertEquals(Exceptions.collapseText(t), "A: IOException: 1");
+    }
+    
+    @Test
+    public void testExec() {
+        Throwable t;
+        t = new IOException("1");
+        t = new java.util.concurrent.ExecutionException(t);
+        Assert.assertEquals(Exceptions.collapseText(t), "IOException: 1");
+    }
+    
+    @Test
+    public void testNestedExecAndProp() {
+        Throwable t;
+        t = new IOException("1");
+        t = new org.apache.brooklyn.util.exceptions.PropagatedRuntimeException(t);
+        t = new java.util.concurrent.ExecutionException(t);
+        Assert.assertEquals(Exceptions.collapseText(t), "IOException: 1");
+    }
+    
+    @Test
+    public void testComplexJcloudsExample() {
+        Throwable t;
+        t = new IOException("POST https://ec2.us-east-1.amazonaws.com/ HTTP/1.1 -> HTTP/1.1 401 Unauthorized");
+        t = new IllegalStateException("Not authorized to access cloud JcloudsLocation[aws-ec2:foo/aws-ec2@SEk63t8T]", t);
+        t = new java.util.concurrent.ExecutionException(t);
+        t = new org.apache.brooklyn.util.exceptions.PropagatedRuntimeException(t);
+        t = new org.apache.brooklyn.util.exceptions.PropagatedRuntimeException("Error invoking start at EmptySoftwareProcessImpl{id=GVYo7Cth}", t);
+        t = new java.util.concurrent.ExecutionException(t);
+        t = new org.apache.brooklyn.util.exceptions.PropagatedRuntimeException(t);
+        t = new java.util.concurrent.ExecutionException(t);
+        t = new org.apache.brooklyn.util.exceptions.PropagatedRuntimeException(t);
+        t = new java.util.concurrent.ExecutionException(t);
+        t = new org.apache.brooklyn.util.exceptions.PropagatedRuntimeException(t);
+        t = new org.apache.brooklyn.util.exceptions.PropagatedRuntimeException("Error invoking start at BasicApplicationImpl{id=fbihp1mo}", t);
+        t = new java.util.concurrent.ExecutionException(t);
+        
+        String collapsed = Exceptions.collapseText(t);
+        // should say IOException and POST
+        Assert.assertTrue(collapsed.contains("IOException"), collapsed);
+        Assert.assertTrue(collapsed.matches(".*POST.*"), collapsed);
+        // should not contain propagated or POST twice
+        Assert.assertFalse(collapsed.contains("Propagated"), collapsed);
+        Assert.assertFalse(collapsed.matches(".*POST.*POST.*"), collapsed);
+    }
+    
     private void assert12StandardChecks(RuntimeException e, boolean isPropagated) {
         String collapseText = Exceptions.collapseText(e);
         log.info("Exception collapsing got: "+collapseText+" ("+e+")");
