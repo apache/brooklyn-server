@@ -28,7 +28,7 @@ services:
     $brooklyn:entitySpec:
       type: org.apache.brooklyn.entity.webapp.jboss.JBoss7Server
       brooklyn.config:
-        wars.root: http://search.maven.org/remotecontent?filepath=io/brooklyn/example/brooklyn-example-hello-world-sql-webapp/0.6.0/brooklyn-example-hello-world-sql-webapp-0.6.0.war
+        wars.root: http://search.maven.org/remotecontent?filepath=org/apache/brooklyn/example/brooklyn-example-hello-world-sql-webapp/0.8.0-incubating/brooklyn-example-hello-world-sql-webapp-0.8.0-incubating.war
         java.sysprops: 
           brooklyn.example.db.url: $brooklyn:formatString("jdbc:%s%s?user=%s\\&password=%s",
              component("db").attributeWhenReady("datastore.url"), "visitors", "brooklyn", "br00k11n")
