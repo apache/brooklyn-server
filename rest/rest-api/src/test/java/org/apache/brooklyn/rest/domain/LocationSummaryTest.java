@@ -33,7 +33,7 @@ public class LocationSummaryTest extends AbstractDomainTest {
     @Override
     protected Object getDomainObject() {
         Map<String, URI> links = Maps.newLinkedHashMap();
-        links.put("self", URI.create("/v1/locations/123"));
+        links.put("self", URI.create("/locations/123"));
 
         return new LocationSummary("123", "localhost", "localhost", null, null, links);
     }

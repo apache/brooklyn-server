@@ -16,15 +16,17 @@
 package org.apache.brooklyn.rest.apidoc;
 
 
-import io.swagger.annotations.Api;
-import io.swagger.jaxrs.config.AbstractScanner;
-import io.swagger.jaxrs.config.JaxrsScanner;
-
 import java.util.HashSet;
 import java.util.Set;
 
 import javax.servlet.ServletConfig;
 import javax.ws.rs.core.Application;
+
+import io.swagger.annotations.Api;
+import io.swagger.config.SwaggerConfig;
+import io.swagger.jaxrs.config.AbstractScanner;
+import io.swagger.jaxrs.config.JaxrsScanner;
+import io.swagger.models.Swagger;
 
 
 /**
@@ -34,7 +36,7 @@ import javax.ws.rs.core.Application;
  * that interface will be added as well.
  *
  */
-public class RestApiResourceScanner extends AbstractScanner implements JaxrsScanner {
+public class RestApiResourceScanner extends AbstractScanner implements JaxrsScanner, SwaggerConfig {
 
     private Set<Class<?>> apiClasses = null;
 
@@ -76,6 +78,17 @@ public class RestApiResourceScanner extends AbstractScanner implements JaxrsScan
     @Override
     public Set<Class<?>> classes() {
         return new HashSet<>();
+    }
+
+    @Override
+    public Swagger configure(Swagger swagger) {
+        swagger.setBasePath("/v1");
+        return swagger;
+    }
+
+    @Override
+    public String getFilterClass() {
+        return null;
     }
 
 }

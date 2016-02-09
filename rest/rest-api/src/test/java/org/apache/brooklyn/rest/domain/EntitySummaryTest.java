@@ -33,10 +33,10 @@ public class EntitySummaryTest extends AbstractDomainTest {
     @Override
     protected Object getDomainObject() {
         Map<String, URI> links = Maps.newLinkedHashMap();
-        links.put("self", URI.create("/v1/applications/tesr/entities/zQsqdXzi"));
-        links.put("catalog", URI.create("/v1/catalog/entities/org.apache.brooklyn.entity.webapp.tomcat.TomcatServer"));
-        links.put("application", URI.create("/v1/applications/tesr"));
-        links.put("children", URI.create("/v1/applications/tesr/entities/zQsqdXzi/children"));
+        links.put("self", URI.create("/applications/tesr/entities/zQsqdXzi"));
+        links.put("catalog", URI.create("/catalog/entities/org.apache.brooklyn.entity.webapp.tomcat.TomcatServer"));
+        links.put("application", URI.create("/applications/tesr"));
+        links.put("children", URI.create("/applications/tesr/entities/zQsqdXzi/children"));
         links.put("effectors", URI.create("fixtures/effector-summary-list.json"));
         links.put("sensors", URI.create("fixtures/sensor-summary-list.json"));
         links.put("activities", URI.create("fixtures/task-summary-list.json"));
