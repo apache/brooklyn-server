@@ -21,6 +21,7 @@ package org.apache.brooklyn.location.jclouds;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -32,6 +33,7 @@ import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.slf4j.Logger;
@@ -79,6 +81,7 @@ public class JcloudsLocationResolverTest {
         brooklynProperties.put("brooklyn.location.jclouds.aws-ec2.privateKeyData", "myprivateKeyData");
         brooklynProperties.put("brooklyn.location.jclouds.aws-ec2.publicKeyData", "myPublicKeyData");
         brooklynProperties.put("brooklyn.location.jclouds.aws-ec2.privateKeyPassphrase", "myprivateKeyPassphrase");
+        brooklynProperties.put("brooklyn.location.jclouds.aws-ec2.multi.prefix.property", "value");
         Map<String, Object> conf = resolve("jclouds:aws-ec2").config().getBag().getAllConfig();
 
         assertEquals(conf.get("privateKeyFile"), "myprivatekeyfile");
@@ -86,15 +89,17 @@ public class JcloudsLocationResolverTest {
         assertEquals(conf.get("privateKeyData"), "myprivateKeyData");
         assertEquals(conf.get("publicKeyData"), "myPublicKeyData");
         assertEquals(conf.get("privateKeyPassphrase"), "myprivateKeyPassphrase");
+        assertEquals(conf.get("multi.prefix.property"), "value");
     }
 
     @Test
-    public void testJcloudsTakesGenericScopedProperties() {
+    public void testJcloudsTakesGenericScopedSingleWordProperties() {
         brooklynProperties.put("brooklyn.location.jclouds.privateKeyFile", "myprivatekeyfile");
         brooklynProperties.put("brooklyn.location.jclouds.publicKeyFile", "mypublickeyfile");
         brooklynProperties.put("brooklyn.location.jclouds.privateKeyData", "myprivateKeyData");
         brooklynProperties.put("brooklyn.location.jclouds.publicKeyData", "myPublicKeyData");
         brooklynProperties.put("brooklyn.location.jclouds.privateKeyPassphrase", "myprivateKeyPassphrase");
+        brooklynProperties.put("brooklyn.location.jclouds.unrecognizedKey", "value");
         Map<String, Object> conf = resolve("jclouds:aws-ec2").config().getBag().getAllConfig();
 
         assertEquals(conf.get("privateKeyFile"), "myprivatekeyfile");
@@ -102,6 +107,25 @@ public class JcloudsLocationResolverTest {
         assertEquals(conf.get("privateKeyData"), "myprivateKeyData");
         assertEquals(conf.get("publicKeyData"), "myPublicKeyData");
         assertEquals(conf.get("privateKeyPassphrase"), "myprivateKeyPassphrase");
+        assertEquals(conf.get("unrecognizedKey"), "value");
+    }
+
+    @Test
+    public void testJcloudsTakesOnlyKnownGenericMultiwordProperties() {
+        brooklynProperties.put("brooklyn.location.multi_word.property", "not-set");
+        brooklynProperties.put("brooklyn.location.loginUser.privateKeyData", "is-set");
+        
+        brooklynProperties.put("brooklyn.location.jclouds.another.multi_word.property", "not-set");
+        brooklynProperties.put("brooklyn.location.jclouds.loginUser.password", "is-set");
+        brooklynProperties.put("brooklyn.location.jclouds.jclouds.multi_word.property", "is-set");
+        
+        Map<String, Object> conf = resolve("jclouds:aws-ec2").config().getBag().getAllConfig();
+        
+        Assert.assertNull(conf.get("multi_word.property"));
+        assertEquals(conf.get("loginUser.privateKeyData"), "is-set");
+        Assert.assertNull(conf.get("another.multi_word.property"));
+        assertEquals(conf.get("loginUser.password"), "is-set");
+        assertEquals(conf.get("jclouds.multi_word.property"), "is-set");
     }
 
     @Test
@@ -350,6 +374,22 @@ public class JcloudsLocationResolverTest {
         resolve("jclouds");
     }
 
+    @Test
+    public void testInheritancePublicKeyDocsExample() {
+        // illustration used in the docs
+        brooklynProperties.put("brooklyn.location.extraSshPublicKeyUrls", "http://me.com/public_key");
+        brooklynProperties.put("brooklyn.location.jclouds.aws-ec2.extraSshPublicKeyUrls", "[ \"http://me.com/public_key\", \"http://me.com/aws_public_key\" ]");
+        brooklynProperties.put("brooklyn.location.named.prod1", "jclouds:aws-ec2");
+        brooklynProperties.put("brooklyn.location.named.prod1.extraSshPublicKeyUrls", "");
+
+        Assert.assertEquals(resolve("jclouds:softlayer").config().get(JcloudsLocationConfig.EXTRA_PUBLIC_KEY_URLS_TO_AUTH),
+            MutableList.of("http://me.com/public_key"));
+        Assert.assertEquals(resolve("jclouds:aws-ec2").config().get(JcloudsLocationConfig.EXTRA_PUBLIC_KEY_URLS_TO_AUTH),
+            MutableList.of("http://me.com/public_key", "http://me.com/aws_public_key"));
+        Assert.assertEquals(resolve("named:prod1").config().get(JcloudsLocationConfig.EXTRA_PUBLIC_KEY_URLS_TO_AUTH),
+            MutableList.of());
+    }
+    
     private JcloudsLocation resolve(String spec) {
         return (JcloudsLocation) managementContext.getLocationRegistry().resolve(spec);
     }

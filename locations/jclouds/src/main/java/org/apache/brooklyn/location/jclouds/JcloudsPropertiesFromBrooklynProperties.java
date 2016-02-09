@@ -19,15 +19,20 @@
 package org.apache.brooklyn.location.jclouds;
 
 import java.util.Map;
+import java.util.Set;
 
+import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.config.ConfigUtils;
+import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.location.DeprecatedKeysMappingBuilder;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.location.LocationPropertiesFromBrooklynProperties;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
+import org.apache.brooklyn.util.text.StringPredicates;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
@@ -88,7 +93,10 @@ public class JcloudsPropertiesFromBrooklynProperties extends LocationPropertiesF
         // named properties are preferred over providerOrApi properties
         jcloudsProperties.put(LocationConfigKeys.CLOUD_PROVIDER, provider);
         jcloudsProperties.putAll(transformDeprecated(getGenericLocationSingleWordProperties(properties)));
+        jcloudsProperties.putAll(transformDeprecated(getGenericLocationKnownProperties(properties)));
         jcloudsProperties.putAll(transformDeprecated(getGenericJcloudsSingleWordProperties(providerOrApi, properties)));
+        jcloudsProperties.putAll(transformDeprecated(getGenericJcloudsKnownProperties(properties)));
+        jcloudsProperties.putAll(transformDeprecated(getGenericJcloudsPropertiesPrefixedJclouds(providerOrApi, properties)));
         jcloudsProperties.putAll(transformDeprecated(getProviderOrApiJcloudsProperties(providerOrApi, properties)));
         jcloudsProperties.putAll(transformDeprecated(getRegionJcloudsProperties(providerOrApi, regionOrEndpoint, properties)));
         if (!Strings.isNullOrEmpty(namedLocation)) jcloudsProperties.putAll(transformDeprecated(getNamedJcloudsProperties(namedLocation, properties)));
@@ -121,12 +129,34 @@ public class JcloudsPropertiesFromBrooklynProperties extends LocationPropertiesF
     protected String getProviderFromDefinition(String definition) {
         return Iterables.get(Splitter.on(":").split(definition), 1);
     }
+    
+    private Map<String, ?> getGenericLocationKnownProperties(Map<String, ?> properties) {
+        return getMatchingPropertiesWithoutPrefixInSet("brooklyn.location.", ConfigUtils.getStaticKeysOnClass(JcloudsLocationConfig.class), properties);
+    }
+
+    private Map<String, ?> getGenericJcloudsKnownProperties(Map<String, ?> properties) {
+        return getMatchingPropertiesWithoutPrefixInSet("brooklyn.location.jclouds.", ConfigUtils.getStaticKeysOnClass(JcloudsLocationConfig.class), properties);
+    }
+
+    private Map<String, ?> getMatchingPropertiesWithoutPrefixInSet(String prefix, Set<HasConfigKey<?>> keysToKeep, Map<String, ?> properties) {
+        BrooklynProperties filteredProperties = ConfigUtils.filterForPrefixAndStrip(properties, prefix);
+        Set<String> keysToKeepStrings = MutableSet.of();
+        for (HasConfigKey<?> key: keysToKeep) keysToKeepStrings.add(key.getConfigKey().getName());
+        return ConfigUtils.filterFor(filteredProperties, StringPredicates.equalToAny(keysToKeepStrings)).asMapWithStringKeys();
+    }
 
     protected Map<String, Object> getGenericJcloudsSingleWordProperties(String providerOrApi, Map<String, ?> properties) {
         if (Strings.isNullOrEmpty(providerOrApi)) return Maps.newHashMap();
         String deprecatedPrefix = "brooklyn.jclouds.";
         String preferredPrefix = "brooklyn.location.jclouds.";
         return getMatchingSingleWordProperties(preferredPrefix, deprecatedPrefix, properties);
+    }
+
+    protected Map<String, Object> getGenericJcloudsPropertiesPrefixedJclouds(String providerOrApi, Map<String, ?> properties) {
+        if (Strings.isNullOrEmpty(providerOrApi)) return Maps.newHashMap();
+        String prefixToStrip = "brooklyn.location.jclouds.";
+        String prefixToKeep = "jclouds.";
+        return getMatchingConcatenatedPrefixesPropertiesFirstPrefixRemoved(prefixToStrip, prefixToKeep, properties);
     }
 
     protected Map<String, Object> getProviderOrApiJcloudsProperties(String providerOrApi, Map<String, ?> properties) {
