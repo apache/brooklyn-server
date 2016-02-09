@@ -20,7 +20,7 @@ name: Test Tomcat HTTPS
 location: localhost
 services:
 - type: org.apache.brooklyn.entity.webapp.tomcat.TomcatServer
-  war: http://search.maven.org/remotecontent?filepath=io/brooklyn/example/brooklyn-example-hello-world-sql-webapp/0.6.0/brooklyn-example-hello-world-sql-webapp-0.6.0.war
+  war: http://search.maven.org/remotecontent?filepath=org/apache/brooklyn/example/brooklyn-example-hello-world-sql-webapp/0.8.0-incubating/brooklyn-example-hello-world-sql-webapp-0.8.0-incubating.war
   enabledProtocols: [https]
   httpsSsl:
     url: classpath://org/apache/brooklyn/entity/webapp/sample-java-keystore.jks
