@@ -26,7 +26,6 @@ import java.net.URL;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 import javax.annotation.Nullable;
@@ -110,14 +109,39 @@ public class Urls {
     }
 
     /** returns true if the string begins with a non-empty string of letters followed by a colon,
-     * i.e. "protocol:" returns true, but "/" returns false */
+     * i.e. "protocol:" returns true, but "/" returns false,
+     * followed by a non-space character. thereafter it is not strict, it can have spaces, but not newlines;
+     * see {@link #isUrlWithProtocol(String, boolean, boolean)} */
     public static boolean isUrlWithProtocol(String x) {
+        return isUrlWithProtocol(x, true, false);
+    }
+    
+    /** as {@link #isUrlWithProtocol(String)} but configurable to be strict (false, false) or allow newline chars (if e.g. in an unescaped argument) */
+    public static boolean isUrlWithProtocol(String x, boolean allowSpacesAfterCharAfterColon, boolean allowMultiline) {
         if (x==null) return false;
         for (int i=0; i<x.length(); i++) {
             char c = x.charAt(i);
-            if (c==':') return i>0;
-            if (!Character.isLetter(c)) return false; 
+            if (c==':') {
+                if (i==0 || i+1>=x.length()) return false;
+                char c2 = x.charAt(i+1);
+                // never allow a whitespace or quote mark right after the ':', that is too similar to json/yaml!
+                if (Character.isWhitespace(c2) || c2=='\'' || c2=='\"') return false;
+                if (!allowMultiline) {
+                    if (x.indexOf('\n')>=0) return false;
+                    if (x.indexOf('\r')>=0) return false;
+                }
+                if (!allowSpacesAfterCharAfterColon) {
+                    if (x.indexOf(' ')>=0) return false;
+                    if (x.indexOf('\t')>=0) return false;
+                }
+                return true;
+            }
+            if (!Character.isAlphabetic(c) && c!='+') {
+                // only letters, numbers and + allowed before colon
+                return false; 
+            }
         }
+        // no colon found
         return false;
     }
     

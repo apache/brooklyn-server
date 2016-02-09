@@ -18,7 +18,8 @@
  */
 package org.apache.brooklyn.util.javalang;
 
-import org.apache.brooklyn.util.javalang.JavaClassNames;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -73,4 +74,18 @@ public class JavaClassNamesTest {
         String anon1 = JavaClassNames.simpleClassName(new Object() {});
         Assert.assertTrue(anon1.startsWith(JavaClassNamesTest.class.getName()+"$"), "anon class is: "+anon1);
     }
+    
+    @Test
+    public void testSuperSimpleClassNames() {
+        Assert.assertEquals(JavaClassNames.superSimpleClassName(this), "JavaClassNamesTest");
+        Assert.assertEquals(JavaClassNames.superSimpleClassName(1), "number");
+        Assert.assertEquals(JavaClassNames.superSimpleClassName(true), "boolean");
+        Assert.assertEquals(JavaClassNames.superSimpleClassName("hello world"), "string");
+        Assert.assertEquals(JavaClassNames.superSimpleClassName(new String[][] { }), "list");
+        Assert.assertEquals(JavaClassNames.superSimpleClassName(new int[] { 1, 2, 3 }), "list");
+        Assert.assertEquals(JavaClassNames.superSimpleClassName(MutableMap.of("key", "val")), "map");
+        Assert.assertEquals(JavaClassNames.superSimpleClassName(MutableMap.of()), "map");
+        Assert.assertEquals(JavaClassNames.superSimpleClassName(MutableList.of()), "list");
+    }
+
 }

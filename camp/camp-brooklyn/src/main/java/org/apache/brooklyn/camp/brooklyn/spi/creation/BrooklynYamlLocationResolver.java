@@ -21,6 +21,7 @@ package org.apache.brooklyn.camp.brooklyn.spi.creation;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationDefinition;
@@ -28,6 +29,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.Maybe.Absent;
 import org.apache.brooklyn.util.text.Strings;
@@ -60,22 +62,22 @@ public class BrooklynYamlLocationResolver {
             } else if (location instanceof Map) {
                 locationFromString = resolveLocationFromMap((Map<?,?>)location);
             } else {
-                throw new IllegalStateException("Illegal parameter for 'location'; must be a string or map (but got "+location+")");
+                throw new UserFacingException("Illegal parameter for 'location'; must be a string or map (but got "+location+")");
             }
         }
         
         if (locations!=null) {
             if (!(locations instanceof Iterable))
-                throw new IllegalStateException("Illegal parameter for 'locations'; must be an iterable (but got "+locations+")");
+                throw new UserFacingException("Illegal parameter for 'locations'; must be an iterable (but got "+locations+")");
             locationsFromList = resolveLocations( (Iterable<Object>)locations );
         }
         
         if (locationFromString!=null && locationsFromList!=null) {
             if (locationsFromList.size() != 1)
-                throw new IllegalStateException("Conflicting 'location' and 'locations' ("+location+" and "+locations+"); "
+                throw new UserFacingException("Conflicting 'location' and 'locations' ("+location+" and "+locations+"); "
                     + "if both are supplied the list must have exactly one element being the same");
             if (!locationFromString.equals( Iterables.getOnlyElement(locationsFromList) ))
-                throw new IllegalStateException("Conflicting 'location' and 'locations' ("+location+" and "+locations+"); "
+                throw new UserFacingException("Conflicting 'location' and 'locations' ("+location+" and "+locations+"); "
                     + "different location specified in each");
         } else if (locationFromString!=null) {
             locationsFromList = Arrays.asList(locationFromString);
@@ -100,7 +102,7 @@ public class BrooklynYamlLocationResolver {
             return resolveLocationFromMap((Map<?,?>)location);
         }
         // could support e.g. location definition
-        throw new IllegalStateException("Illegal parameter for 'location' ("+location+"); must be a string or map");
+        throw new UserFacingException("Illegal parameter for 'location' ("+location+"); must be a string or map");
     }
     
     /** resolves the location from the given spec string, either "Named Location", or "named:Named Location" format;
@@ -112,16 +114,16 @@ public class BrooklynYamlLocationResolver {
 
     public Location resolveLocationFromMap(Map<?,?> location) {
         if (location.size() > 1) {
-            throw new IllegalStateException("Illegal parameter for 'location'; expected a single entry in map ("+location+")");
+            throw new UserFacingException("Illegal parameter for 'location'; expected a single entry in map ("+location+")");
         }
         Object key = Iterables.getOnlyElement(location.keySet());
         Object value = location.get(key);
         
         if (!(key instanceof String)) {
-            throw new IllegalStateException("Illegal parameter for 'location'; expected String key ("+location+")");
+            throw new UserFacingException("Illegal parameter for 'location'; expected String key ("+location+")");
         }
         if (!(value instanceof Map)) {
-            throw new IllegalStateException("Illegal parameter for 'location'; expected config map ("+location+")");
+            throw new UserFacingException("Illegal parameter for 'location'; expected config map ("+location+")");
         }
         return resolveLocation((String)key, (Map<?,?>)value);
     }
@@ -136,7 +138,12 @@ public class BrooklynYamlLocationResolver {
         if (l.isPresent()) return l.get();
         
         RuntimeException exception = ((Absent<?>)l).getException();
-        throw new IllegalStateException("Illegal parameter for 'location' ("+spec+"); not resolvable: "+
+        if (exception instanceof NoSuchElementException && 
+                exception.getMessage().contains("Unknown location")) {
+            // common case
+            throw new UserFacingException(exception.getMessage(), exception.getCause());
+        }
+        throw new UserFacingException("Illegal parameter for 'location' ("+spec+"); not resolvable: "+
             Exceptions.collapseText( exception ), exception);
     }
 }

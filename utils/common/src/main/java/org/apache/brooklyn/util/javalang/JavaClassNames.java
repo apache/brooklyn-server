@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.util.javalang;
 
+import java.util.Iterator;
+import java.util.Map;
+
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.text.Strings;
 
@@ -47,8 +50,26 @@ public class JavaClassNames {
         return c;
     }
 
+    /** as {@link #simpleClassName(Class)} but returning json types if appropriate,
+     * e.g. `map`, `string`, etc; else falling back to detailed type */
+    public static String superSimpleClassName(Class<?> t) {
+        if (Map.class.isAssignableFrom(t)) return "map";
+        if (Iterable.class.isAssignableFrom(t) || Iterator.class.isAssignableFrom(t) ||
+            t.isArray()) return "list";
+        if (CharSequence.class.isAssignableFrom(t)) return "string";
+        if (Number.class.isAssignableFrom(t)) return "number";
+        if (Boolean.class.isAssignableFrom(t)) return "boolean";
+        return simpleClassName(t);
+    }
+    
+    /** as {@link #simpleClassName(Object)} but looking up the type if needed */
+    public static String superSimpleClassName(Object o) {
+        return superSimpleClassName(type(o));
+    }
+    
     /**  returns a simplified name of the class, just the simple name if it seems useful, else the full name */
     public static String simpleClassName(Class<?> t) {
+        if (t==null) return null;
         int arrayCount = 0;
         while (t.isArray()) {
             arrayCount++;
@@ -71,7 +92,6 @@ public class JavaClassNames {
      * or a type-token; callers should usually do the getClass themselves, unless they aren't sure whether
      * it is already a Class-type object */
     public static String simpleClassName(Object x) {
-        if (x==null) return null;
         return simpleClassName(type(x));
     }
 
@@ -158,5 +178,5 @@ public class JavaClassNames {
     public static String niceClassAndMethod() {
         return callerNiceClassAndMethod(0);
     }
-    
+
 }

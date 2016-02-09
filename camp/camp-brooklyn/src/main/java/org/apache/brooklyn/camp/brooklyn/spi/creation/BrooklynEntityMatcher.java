@@ -32,6 +32,7 @@ import org.apache.brooklyn.camp.spi.resolve.PdpMatcher;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,7 +63,7 @@ public class BrooklynEntityMatcher implements PdpMatcher {
             Service service = (Service)deploymentPlanItem;
 
             String serviceType = service.getServiceType();
-            if (serviceType==null) throw new NullPointerException("Service must declare a type ("+service+")");
+            if (serviceType==null) throw new UserFacingException("Service must declare a type: "+service);
             BrooklynClassLoadingContext loader = BasicBrooklynCatalog.BrooklynLoaderTracker.getLoader();
             if (loader == null) loader = JavaBrooklynClassLoadingContext.create(mgmt);
             if (BrooklynComponentTemplateResolver.Factory.newInstance(loader, serviceType).canResolve())

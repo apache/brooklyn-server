@@ -50,8 +50,10 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.AggregateClassLoader;
+import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.javalang.LoadedClassLoader;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
@@ -459,7 +461,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
         if (items!=null) {
             int count = 0;
-            for (Map<?,?> i: ((List<Map<?,?>>)items)) {
+            for (Object ii: checkType(items, "items", List.class)) {
+                Map<?,?> i = checkType(ii, "entry in items list", Map.class);
                 collectCatalogItems(Yamls.getTextOfYamlAtPath(sourceYaml, "items", count).getMatchedYamlTextOrWarn(),
                         i, result, catalogMetadata);
                 count++;
@@ -599,6 +602,12 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
         dto.setManagementContext((ManagementContextInternal) mgmt);
         result.add(dto);
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> T checkType(Object x, String description, Class<T> type) {
+        if (type.isInstance(x)) return (T)x;
+        throw new UserFacingException("Expected "+JavaClassNames.superSimpleClassName(type)+" for "+description+", not "+JavaClassNames.superSimpleClassName(x));
     }
 
     private String setFromItemIfUnset(String oldValue, Map<?,?> item, String fieldAttr) {

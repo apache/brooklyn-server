@@ -228,9 +228,11 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
                     // put the legacy exception first if none of the new transformers support the type
                     // (until the new transformer is the primary pathway)
                     exceptionsInOrder.add(e);
+                    exceptionsInOrder.add(e0);
+                } else {
+                    exceptionsInOrder.add(e0);
+                    exceptionsInOrder.add(e);
                 }
-                exceptionsInOrder.add(e0);
-                exceptionsInOrder.add(e);
                 throw Exceptions.create("Unable to instantiate "+(symbolicName==null ? "item" : symbolicName), exceptionsInOrder); 
             }
         }

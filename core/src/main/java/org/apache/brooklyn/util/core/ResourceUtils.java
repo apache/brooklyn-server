@@ -293,7 +293,7 @@ public class ResourceUtils {
             throw new IOException("'"+orig+"' not found on classpath or filesystem");
         } catch (Exception e) {
             if (context!=null) {
-                throw new RuntimeException("Error getting resource '"+url+"' for "+context+": "+e, e);
+                throw Exceptions.propagate("Error getting resource '"+url+"' for "+context, e);
             } else {
                 throw Exceptions.propagate(e);
             }

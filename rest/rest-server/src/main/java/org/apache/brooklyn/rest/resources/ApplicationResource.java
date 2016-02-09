@@ -18,11 +18,24 @@
  */
 package org.apache.brooklyn.rest.resources;
 
-import com.google.common.base.Throwables;
-import com.google.common.collect.FluentIterable;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static javax.ws.rs.core.Response.created;
+import static javax.ws.rs.core.Response.status;
+import static javax.ws.rs.core.Response.Status.ACCEPTED;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.ResponseBuilder;
+import javax.ws.rs.core.UriInfo;
+
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -66,26 +79,17 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
+import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.ResponseBuilder;
-import javax.ws.rs.core.UriInfo;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-
-import static com.google.common.base.Preconditions.checkNotNull;
-import static javax.ws.rs.core.Response.Status.ACCEPTED;
-import static javax.ws.rs.core.Response.created;
-import static javax.ws.rs.core.Response.status;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 
 @HaHotStateRequired
 public class ApplicationResource extends AbstractBrooklynRestResource implements ApplicationApi {
@@ -235,27 +239,49 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     @Override
     public Response createFromYaml(String yaml) {
         // First of all, see if it's a URL
-        URI uri;
+        Preconditions.checkNotNull(yaml, "Blueprint cannot be null");
+        URI uri = null;
         try {
-            uri = new URI(yaml);
+            String yamlUrl = yaml.trim();
+            if (Urls.isUrlWithProtocol(yamlUrl)) {
+                uri = new URI(yamlUrl);
+            }
         } catch (URISyntaxException e) {
             // It's not a URI then...
             uri = null;
         }
         if (uri != null) {
             log.debug("Create app called with URI; retrieving contents: {}", uri);
-            yaml = ResourceUtils.create(mgmt()).getResourceAsString(uri.toString());
+            try {
+                yaml = ResourceUtils.create(mgmt()).getResourceAsString(uri.toString());
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                throw new UserFacingException("Cannot resolve URL: "+uri, e);
+            }
         }
 
         log.debug("Creating app from yaml:\n{}", yaml);
-        EntitySpec<? extends Application> spec = createEntitySpecForApplication(yaml);
 
+        EntitySpec<? extends Application> spec;
+        try {
+            spec = createEntitySpecForApplication(yaml);
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            Throwable root = Throwables.getRootCause(e);
+            if (root instanceof UserFacingException) throw (UserFacingException) root;
+            throw WebResourceUtils.badRequest(e, "Error in blueprint");
+        }
+        
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.DEPLOY_APPLICATION, spec)) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to start application %s",
                 Entitlements.getEntitlementContext().user(), yaml);
         }
 
-        return launch(yaml, spec);
+        try {
+            return launch(yaml, spec);
+        } catch (Exception e) {
+            throw WebResourceUtils.badRequest(e, "Error launching blueprint");
+        }
     }
 
     private Response launch(String yaml, EntitySpec<? extends Application> spec) {
@@ -308,14 +334,20 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
 
         //TODO infer encoding from request
         String potentialYaml = new String(inputToAutodetectType);
-        EntitySpec<? extends Application> spec = createEntitySpecForApplication(potentialYaml);
+        EntitySpec<? extends Application> spec;
+        try {
+            spec = createEntitySpecForApplication(potentialYaml);
+        } catch (Exception e) {
+            // TODO if not yaml/json - try ZIP, etc
+            
+            throw WebResourceUtils.badRequest(e, "Error in blueprint");
+        }
 
-        // TODO not json - try ZIP, etc
 
         if (spec != null) {
             return launch(potentialYaml, spec);
         } else if (looksLikeLegacy) {
-            throw Throwables.propagate(legacyFormatException);
+            throw Exceptions.propagate(legacyFormatException);
         } else {
             return Response.serverError().entity("Unsupported format; not able to autodetect.").build();
         }
@@ -341,18 +373,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     }
 
     private EntitySpec<? extends Application> createEntitySpecForApplication(String potentialYaml) {
-        try {
-            return EntityManagementUtils.createEntitySpecForApplication(mgmt(), potentialYaml);
-        } catch (Exception e) {
-            // An IllegalArgumentException for creating the entity spec gets wrapped in a ISE, and possibly a Compound.
-            // But we want to return a 400 rather than 500, so ensure we throw IAE.
-            IllegalArgumentException iae = (IllegalArgumentException) Exceptions.getFirstThrowableOfType(e, IllegalArgumentException.class);
-            if (iae != null) {
-                throw new IllegalArgumentException("Cannot create spec for app: "+iae.getMessage(), e);
-            } else {
-                throw Exceptions.propagate(e);
-            }
-        }
+        return EntityManagementUtils.createEntitySpecForApplication(mgmt(), potentialYaml);
     }
 
     private void checkApplicationTypesAreValid(ApplicationSpec applicationSpec) {

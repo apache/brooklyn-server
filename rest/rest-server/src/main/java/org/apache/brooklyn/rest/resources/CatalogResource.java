@@ -112,11 +112,9 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         Iterable<? extends CatalogItem<?, ?>> items; 
         try {
             items = brooklyn().getCatalog().addItems(yaml);
-        } catch (IllegalArgumentException e) {
-            return Response.status(Status.BAD_REQUEST)
-                    .type(MediaType.APPLICATION_JSON)
-                    .entity(ApiError.of(e))
-                    .build();
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            return ApiError.of(e).asBadRequestResponseJson();
         }
 
         log.info("REST created catalog items: "+items);
@@ -128,7 +126,11 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                 result.put(item.getId(), CatalogTransformer.catalogItemSummary(brooklyn(), item));
             } catch (Throwable t) {
                 log.warn("Error loading catalog item '"+item+"' (rethrowing): "+t);
-                throw Exceptions.propagate(t);
+                // unfortunately items are already added to the catalog and hard to remove,
+                // but at least let the user know;
+                // happens eg if a class refers to a missing class, like 
+                // loading nosql items including mongo without the mongo bson class on the classpath 
+                throw Exceptions.propagateAnnotated("At least one unusable item was added ("+item.getId()+")", t);
             }
         }
         return Response.status(Status.CREATED).entity(result).build();

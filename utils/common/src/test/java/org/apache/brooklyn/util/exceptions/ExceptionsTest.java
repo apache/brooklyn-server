@@ -174,6 +174,48 @@ public class ExceptionsTest {
         Assert.assertNotNull(text);
     }
     
+    @Test
+    public void testPropagateNoMessageGivesType() throws Exception {
+        Throwable t = new Throwable();
+        Assert.assertEquals(Exceptions.collapseText(t), Throwable.class.getName());
+        try { Exceptions.propagate(t); } catch (Throwable t2) { t = t2; }
+        Assert.assertEquals(Exceptions.collapseText(t), Throwable.class.getName());
+    }
+
+    @Test
+    public void testPropagateWithoutAnnotationSuppressed() throws Exception {
+        Throwable t = new Throwable("test");
+        try { Exceptions.propagate(t); } catch (Throwable t2) { t = t2; }
+        Assert.assertEquals(Exceptions.collapseText(t), "test");
+    }
+
+    @Test
+    public void testPropagateWithAnnotationNotExplicitIncludedWhenWrapped() throws Exception {
+        Throwable t = new Throwable("test");
+        try { Exceptions.propagate("important", t); } catch (Throwable t2) { t = t2; }
+        Assert.assertEquals(Exceptions.collapseText(t), "important: test");
+    }
+
+    @Test
+    public void testPropagateWithAnnotationNotExplicitIgnoredWhenNotWrapped() throws Exception {
+        Throwable t = new RuntimeException("test");
+        try { Exceptions.propagate("ignore", t); } catch (Throwable t2) { t = t2; }
+        Assert.assertEquals(Exceptions.collapseText(t), "test");
+    }
+
+    @Test
+    public void testPropagateWithAnnotationExplicitNotSuppressed() throws Exception {
+        Throwable t = new RuntimeException("test");
+        try { Exceptions.propagateAnnotated("important", t); } catch (Throwable t2) { t = t2; }
+        Assert.assertEquals(Exceptions.collapseText(t), "important: test");
+    }
+
+    @Test
+    public void testPrefixModificationRequired() throws Exception {
+        Throwable t = new NoClassDefFoundError("sample");
+        Assert.assertEquals(Exceptions.collapseText(t), "Invalid java type: sample");
+    }
+
     private void assert12StandardChecks(RuntimeException e, boolean isPropagated) {
         String collapseText = Exceptions.collapseText(e);
         log.info("Exception collapsing got: "+collapseText+" ("+e+")");

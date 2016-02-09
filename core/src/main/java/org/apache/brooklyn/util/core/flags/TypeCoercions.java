@@ -31,6 +31,7 @@ import java.math.BigInteger;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.URL;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
@@ -59,11 +60,12 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Enums;
+import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.net.Cidr;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.net.UserAndHostAndPort;
-import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.apache.brooklyn.util.yaml.Yamls;
@@ -269,6 +271,17 @@ public class TypeCoercions {
         }
 
         //not found
+        if (targetType.isEnum()) {
+            try {
+                throw new ClassCoercionException("Invalid value '"+value+"' for "+JavaClassNames.simpleClassName(targetType)+"; expected one of "+
+                    Arrays.asList((Object[])targetType.getMethod("values").invoke(null)));
+            } catch (ClassCoercionException e) {
+                throw e;
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                // fall back to below
+            }
+        }
         throw new ClassCoercionException("Cannot coerce type "+value.getClass()+" to "+targetType.getCanonicalName()+" ("+value+"): no adapter known");
     }
 

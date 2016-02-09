@@ -27,11 +27,11 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
 
 public class ApiError implements Serializable {
@@ -63,8 +63,7 @@ public class ApiError implements Serializable {
      */
     public static Builder builderFromThrowable(Throwable t) {
         checkNotNull(t, "throwable");
-        String message = Optional.fromNullable(t.getMessage())
-                .or(t.getClass().getName());
+        String message = Exceptions.collapseText(t);
         return builder()
                 .message(message)
                 .details(Throwables.getStackTraceAsString(t));
@@ -100,11 +99,14 @@ public class ApiError implements Serializable {
         }
 
         /** puts a prefix in front of the message, with the given separator if there is already a message;
-         * if there is no message, it simply sets the prefix as the message
+         * if there is no message, it simply sets the prefix as the message.
+         * if no prefix or blank, does nothing.
          */
         public Builder prefixMessage(String prefix, String separatorIfMessageNotBlank) {
-            if (Strings.isBlank(message)) message(prefix);
-            else message(prefix+separatorIfMessageNotBlank+message);
+            if (Strings.isNonBlank(prefix)) {
+                if (Strings.isBlank(message)) message(prefix);
+                else message(prefix+separatorIfMessageNotBlank+message);
+            }
             return this;
         }
 

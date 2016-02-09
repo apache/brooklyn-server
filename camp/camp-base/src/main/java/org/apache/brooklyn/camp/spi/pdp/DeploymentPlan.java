@@ -24,7 +24,9 @@ import java.util.Map;
 
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 
 public class DeploymentPlan {
@@ -60,12 +62,12 @@ public class DeploymentPlan {
                 if (service instanceof Map) {
                     result.services.add(Service.of((Map<String,Object>) service));
                 } else {
-                    throw new IllegalArgumentException("service should be map, not "+service.getClass());
+                    throw new UserFacingException("Services list should have a map for each entry, not "+JavaClassNames.superSimpleClassName(service));
                 }
             }
         } else if (services!=null) {
             // TODO "map" short form
-            throw new IllegalArgumentException("artifacts body should be iterable, not "+services.getClass());
+            throw new UserFacingException("Services block should be a list, not "+JavaClassNames.superSimpleClassName(services));
         }
         
         result.artifacts = new ArrayList<Artifact>();
@@ -75,12 +77,12 @@ public class DeploymentPlan {
                 if (artifact instanceof Map) {
                     result.artifacts.add(Artifact.of((Map<String,Object>) artifact));
                 } else {
-                    throw new IllegalArgumentException("artifact should be map, not "+artifact.getClass());
+                    throw new UserFacingException("Artifacts list should contain map items, not "+JavaClassNames.superSimpleClassName(artifact));
                 }
             }
         } else if (artifacts!=null) {
             // TODO "map" short form
-            throw new IllegalArgumentException("artifacts body should be iterable, not "+artifacts.getClass());
+            throw new UserFacingException("Artifacts block should contain a list, not "+JavaClassNames.superSimpleClassName(artifacts));
         }
         
         result.customAttributes = attrs;
