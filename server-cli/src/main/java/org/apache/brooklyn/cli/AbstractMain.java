@@ -208,8 +208,8 @@ public abstract class AbstractMain {
             if (BrooklynVersion.INSTANCE.isSnapshot()) {
                 System.out.println("Git SHA1: " + BrooklynVersion.INSTANCE.getSha1FromOsgiManifest());
             }
-            System.out.println("Website:  http://brooklyn.incubator.apache.org");
-            System.out.println("Source:   https://github.com/apache/incubator-brooklyn");
+            System.out.println("Website:  http://brooklyn.apache.org");
+            System.out.println("Source:   https://github.com/apache/brooklyn");
             System.out.println();
             System.out.println("Copyright 2011-2016 The Apache Software Foundation.");
             System.out.println("Licensed under the Apache 2.0 License");

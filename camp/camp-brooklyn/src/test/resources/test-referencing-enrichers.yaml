@@ -38,7 +38,7 @@
 #    (g1 enricher) (g2 enricher) 
 name: test-referencing-enrichers
 description: Test multi-layer application with each entity having an enricher referencing all other entities
-origin: https://github.com/apache/incubator-brooklyn
+origin: https://github.com/apache/brooklyn
 id: app1
 brooklyn.enrichers:
   - enricherType: org.apache.brooklyn.camp.brooklyn.TestReferencingEnricher

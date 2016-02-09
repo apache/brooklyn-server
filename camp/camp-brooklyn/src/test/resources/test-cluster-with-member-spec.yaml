@@ -18,7 +18,7 @@
 #
 name: test-app-with-enricher
 description: Cluster of TestEntitys with member spec
-origin: https://github.com/apache/incubator-brooklyn
+origin: https://github.com/apache/brooklyn
 location: localhost
 services:
 - type: org.apache.brooklyn.entity.group.DynamicCluster
