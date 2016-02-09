@@ -40,7 +40,6 @@ import javax.servlet.DispatcherType;
 import org.apache.brooklyn.rest.filter.SwaggerFilter;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.server.SessionManager;
 import org.eclipse.jetty.servlet.FilterHolder;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
@@ -159,6 +158,9 @@ public class BrooklynWebServer {
      */
     @SetFromFlag
     private Map<String, String> wars = new LinkedHashMap<String, String>();
+
+    // would like to remove wars in favour of this but SetFromFlag means we have no idea where it's used.
+    private Map<String, WebAppContextProvider> contextProviders = new LinkedHashMap<>();
 
     @SetFromFlag
     protected boolean ignoreWebappDeploymentFailures = false;
@@ -296,7 +298,12 @@ public class BrooklynWebServer {
     /** specifies a WAR to use at a given context path (only if server not yet started);
      * cf deploy(path, url) */
     public BrooklynWebServer addWar(String path, String warUrl) {
-        wars.put(path, warUrl);
+        contextProviders.put(path, new WebAppContextProvider(path, warUrl));
+        return this;
+    }
+
+    public BrooklynWebServer addWar(WebAppContextProvider contextProvider) {
+        contextProviders.put(contextProvider.getPath(), contextProvider);
         return this;
     }
 
@@ -319,6 +326,7 @@ public class BrooklynWebServer {
     public BrooklynWebServer addAttribute(String field, Object value) {
         return setAttribute(field, value);
     }
+
     /** Specifies an attribute passed to deployed webapps 
      * (in addition to {@link BrooklynServiceAttributes#BROOKLYN_MANAGEMENT_CONTEXT} */
     public BrooklynWebServer setAttribute(String field, Object value) {
@@ -419,17 +427,19 @@ public class BrooklynWebServer {
         
         addShutdownHook();
 
-        MutableMap<String, String> allWars = MutableMap.copyOf(wars);
-        String rootWar = allWars.remove("/");
-        if (rootWar==null) rootWar = war;
+        MutableMap<String, WebAppContextProvider> allWars = MutableMap.copyOf(contextProviders);
+        for (Map.Entry<String, String> entry : wars.entrySet()) {
+            allWars.put(entry.getKey(), new WebAppContextProvider(entry.getKey(), entry.getValue()));
+        }
+
+        WebAppContextProvider rootWar = allWars.remove("/");
+        if (rootWar==null) rootWar = new WebAppContextProvider("/", war);
         
-        for (Map.Entry<String, String> entry : allWars.entrySet()) {
-            String pathSpec = entry.getKey();
-            String warUrl = entry.getValue();
-            WebAppContext webapp = deploy(pathSpec, warUrl);
+        for (WebAppContextProvider contextProvider : allWars.values()) {
+            WebAppContext webapp = deploy(contextProvider);
             webapp.setTempDirectory(Os.mkdirs(new File(webappTempDir, newTimestampedDirName("war", 8))));
         }
-        rootContext = deploy("/", rootWar);
+        rootContext = deploy(rootWar);
         rootContext.setTempDirectory(Os.mkdirs(new File(webappTempDir, "war-root")));
 
         rootContext.addFilter(RequestTaggingFilter.class, "/*", EnumSet.allOf(DispatcherType.class));
@@ -589,50 +599,6 @@ public class BrooklynWebServer {
             log.debug("Stopped Brooklyn web console at "+root);
     }
 
-    /** serve given WAR at the given pathSpec; if not yet started, it is simply remembered until start;
-     * if server already running, the context for this WAR is started.
-     * @return the context created and added as a handler 
-     * (and possibly already started if server is started,
-     * so be careful with any changes you make to it!)  */
-    public WebAppContext deploy(final String pathSpec, final String warUrl) {
-        String cleanPathSpec = pathSpec;
-        while (cleanPathSpec.startsWith("/"))
-            cleanPathSpec = cleanPathSpec.substring(1);
-        boolean isRoot = cleanPathSpec.isEmpty();
-
-        WebAppContext context = new WebAppContext();
-        // use a unique session ID to prevent interference with other web apps on same server (esp for localhost);
-        // it might be better to make this brooklyn-only or base on the management-plane ID;
-        // but i think it actually *is* per-server instance, since we don't cache sessions server-side,
-        // so i think this is write. [Alex 2015-09] 
-        context.setInitParameter(SessionManager.__SessionCookieProperty, SessionManager.__DefaultSessionCookie+"_"+"BROOKLYN"+Identifiers.makeRandomId(6));
-        context.setAttribute(BrooklynServiceAttributes.BROOKLYN_MANAGEMENT_CONTEXT, managementContext);
-        for (Map.Entry<String, Object> attributeEntry : attributes.entrySet()) {
-            context.setAttribute(attributeEntry.getKey(), attributeEntry.getValue());
-        }
-
-        try {
-            File tmpWarFile = Os.writeToTempFile(new CustomResourceLocator(managementContext.getConfig(), ResourceUtils.create(this)).getResourceFromUrl(warUrl), 
-                    isRoot ? "ROOT" : ("embedded-" + cleanPathSpec), ".war");
-            context.setWar(tmpWarFile.getAbsolutePath());
-        } catch (Exception e) {
-            log.warn("Failed to deploy webapp "+pathSpec+" from "+warUrl
-                + (ignoreWebappDeploymentFailures ? "; launching run without WAR" : " (rethrowing)")
-                + ": "+Exceptions.collapseText(e));
-            if (!ignoreWebappDeploymentFailures) {
-                throw new IllegalStateException("Failed to deploy webapp "+pathSpec+" from "+warUrl+": "+Exceptions.collapseText(e), e);
-            }
-            log.debug("Detail on failure to deploy webapp: "+e, e);
-            context.setWar("/dev/null");
-        }
-
-        context.setContextPath("/" + cleanPathSpec);
-        context.setParentLoaderPriority(true);
-
-        deploy(context);
-        return context;
-    }
-
     private Thread shutdownHook = null;
 
     protected synchronized void addShutdownHook() {
@@ -649,6 +615,22 @@ public class BrooklynWebServer {
                 }
             }
         });
+    }
+
+    public WebAppContext deploy(String pathSpec, String war) {
+        return deploy(new WebAppContextProvider(pathSpec, war));
+    }
+
+    /**
+     * Serve the given WAR at the given pathSpec. If not yet started, it is remembered until start.
+     * If the server is already running the context for this WAR is started.
+     * @return the context created and added as a handler (and possibly already started if server is started,
+     * so be careful with any changes you make to it!)
+     */
+    public WebAppContext deploy(WebAppContextProvider contextProvider) {
+        WebAppContext context = contextProvider.get(managementContext, attributes, ignoreWebappDeploymentFailures);
+        deploy(context);
+        return context;
     }
 
     public void deploy(WebAppContext context) {

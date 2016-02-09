@@ -28,6 +28,7 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
@@ -144,7 +145,7 @@ public class BrooklynLauncher {
     private Boolean useHttps = null;
     private InetAddress bindAddress = null;
     private InetAddress publicAddress = null;
-    private Map<String,String> webApps = new LinkedHashMap<String,String>();
+    private List<WebAppContextProvider> webApps = new LinkedList<>();
     private Map<String, ?> webconsoleFlags = Maps.newLinkedHashMap();
     private Boolean skipSecurityFilter = null;
     
@@ -397,7 +398,15 @@ public class BrooklynLauncher {
      * @param warUrl The URL from which the WAR should be loaded, supporting classpath:// protocol in addition to file:// and http(s)://.
      */
     public BrooklynLauncher webapp(String contextPath, String warUrl) {
-        webApps.put(contextPath, warUrl);
+        webApps.add(new WebAppContextProvider(contextPath, warUrl));
+        return this;
+    }
+
+    /**
+     * @see #webapp(String, String)
+     */
+    public BrooklynLauncher webapp(WebAppContextProvider contextProvider) {
+        webApps.add(contextProvider);
         return this;
     }
 
@@ -809,8 +818,8 @@ public class BrooklynLauncher {
             if (skipSecurityFilter != Boolean.TRUE) {
                 webServer.setSecurityFilter(BrooklynPropertiesSecurityFilter.class);
             }
-            for (Map.Entry<String, String> webapp : webApps.entrySet()) {
-                webServer.addWar(webapp.getKey(), webapp.getValue());
+            for (WebAppContextProvider webapp : webApps) {
+                webServer.addWar(webapp);
             }
             webServer.start();
 
