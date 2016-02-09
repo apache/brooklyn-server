@@ -1510,7 +1510,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             if (image==null) throw new NullPointerException("Template does not contain an image (templateBuilder.build returned invalid template)");
         } catch (AuthorizationException e) {
             LOG.warn("Error resolving template: not authorized (rethrowing: "+e+")");
-            throw new IllegalStateException("Not authorized to access cloud "+this+" to resolve "+templateBuilder, e);
+            throw new IllegalStateException("Not authorized to access cloud "+this+"; check credentials", e);
         } catch (Exception e) {
             try {
                 IOException ioe = Exceptions.getFirstThrowableOfType(e, IOException.class);
