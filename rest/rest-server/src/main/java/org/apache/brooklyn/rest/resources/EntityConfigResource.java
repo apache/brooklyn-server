@@ -56,7 +56,7 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
     public List<EntityConfigSummary> list(final String application, final String entityToken) {
         final Entity entity = brooklyn().getEntity(application, entityToken);
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to see entity '%s'",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see entity '%s'",
                     Entitlements.getEntitlementContext().user(), entity);
         }
 
@@ -84,7 +84,7 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
         // TODO: add test
         Entity entity = brooklyn().getEntity(application, entityToken);
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to see entity '%s'",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see entity '%s'",
                     Entitlements.getEntitlementContext().user(), entity);
         }
 
@@ -141,11 +141,11 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
         ConfigKey<?> ck = findConfig(entity, configKeyName);
         
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to see entity '%s'",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see entity '%s'",
                     Entitlements.getEntitlementContext().user(), entity);
         }
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CONFIG, new EntityAndItem<String>(entity, ck.getName()))) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to see entity '%s' config '%s'",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see entity '%s' config '%s'",
                     Entitlements.getEntitlementContext().user(), entity, ck.getName());
         }
         
@@ -165,7 +165,7 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
     public void setFromMap(String application, String entityToken, Boolean recurse, Map newValues) {
         final Entity entity = brooklyn().getEntity(application, entityToken);
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_ENTITY, entity)) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to modify entity '%s'",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify entity '%s'",
                     Entitlements.getEntitlementContext().user(), entity);
         }
 
@@ -190,7 +190,7 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
     public void set(String application, String entityToken, String configName, Boolean recurse, Object newValue) {
         final Entity entity = brooklyn().getEntity(application, entityToken);
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_ENTITY, entity)) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to modify entity '%s'",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify entity '%s'",
                     Entitlements.getEntitlementContext().user(), entity);
         }
 

@@ -307,7 +307,7 @@ public class BrooklynRestResourceUtils {
         log.debug("REST creating application instance for {}", spec);
         
         if (!Entitlements.isEntitled(mgmt.getEntitlementManager(), Entitlements.DEPLOY_APPLICATION, spec)) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to deploy application %s",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to deploy application %s",
                 Entitlements.getEntitlementContext().user(), spec);
         }
         
@@ -327,7 +327,7 @@ public class BrooklynRestResourceUtils {
         }
         
         if (!Entitlements.isEntitled(mgmt.getEntitlementManager(), Entitlements.INVOKE_EFFECTOR, null)) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to create application from applicationSpec %s",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to create application from applicationSpec %s",
                 Entitlements.getEntitlementContext().user(), spec);
         }
 
@@ -525,7 +525,7 @@ public class BrooklynRestResourceUtils {
                         }
                     });
         }
-        throw WebResourceUtils.unauthorized("User '%s' is not authorized to expunge entity %s",
+        throw WebResourceUtils.forbidden("User '%s' is not authorized to expunge entity %s",
                     Entitlements.getEntitlementContext().user(), entity);
     }
 

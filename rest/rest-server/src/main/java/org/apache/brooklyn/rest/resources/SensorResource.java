@@ -53,7 +53,7 @@ public class SensorResource extends AbstractBrooklynRestResource implements Sens
     public List<SensorSummary> list(final String application, final String entityToken) {
         final Entity entity = brooklyn().getEntity(application, entityToken);
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to see entity '%s'",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see entity '%s'",
                     Entitlements.getEntitlementContext().user(), entity);
         }
 
@@ -76,7 +76,7 @@ public class SensorResource extends AbstractBrooklynRestResource implements Sens
     public Map<String, Object> batchSensorRead(final String application, final String entityToken, final Boolean raw) {
         final Entity entity = brooklyn().getEntity(application, entityToken);
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to see entity '%s'",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see entity '%s'",
                     Entitlements.getEntitlementContext().user(), entity);
         }
 
@@ -104,11 +104,11 @@ public class SensorResource extends AbstractBrooklynRestResource implements Sens
         AttributeSensor<?> sensor = findSensor(entity, sensorName);
         
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to see entity '%s'",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see entity '%s'",
                     Entitlements.getEntitlementContext().user(), entity);
         }
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_SENSOR, new EntityAndItem<String>(entity, sensor.getName()))) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to see entity '%s' sensor '%s'",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see entity '%s' sensor '%s'",
                     Entitlements.getEntitlementContext().user(), entity, sensor.getName());
         }
         
@@ -137,7 +137,7 @@ public class SensorResource extends AbstractBrooklynRestResource implements Sens
     public void setFromMap(String application, String entityToken, Map newValues) {
         final Entity entity = brooklyn().getEntity(application, entityToken);
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_ENTITY, entity)) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to modify entity '%s'",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify entity '%s'",
                 Entitlements.getEntitlementContext().user(), entity);
         }
 
@@ -157,7 +157,7 @@ public class SensorResource extends AbstractBrooklynRestResource implements Sens
     public void set(String application, String entityToken, String sensorName, Object newValue) {
         final Entity entity = brooklyn().getEntity(application, entityToken);
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_ENTITY, entity)) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to modify entity '%s'",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify entity '%s'",
                 Entitlements.getEntitlementContext().user(), entity);
         }
         
@@ -171,7 +171,7 @@ public class SensorResource extends AbstractBrooklynRestResource implements Sens
     public void delete(String application, String entityToken, String sensorName) {
         final Entity entity = brooklyn().getEntity(application, entityToken);
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_ENTITY, entity)) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to modify entity '%s'",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify entity '%s'",
                 Entitlements.getEntitlementContext().user(), entity);
         }
         

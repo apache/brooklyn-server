@@ -90,7 +90,7 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
         if (Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
             return EntityTransformer.entitySummary(entity);
         }
-        throw WebResourceUtils.unauthorized("User '%s' is not authorized to get entity '%s'",
+        throw WebResourceUtils.forbidden("User '%s' is not authorized to get entity '%s'",
                 Entitlements.getEntitlementContext().user(), entity);
     }
 
@@ -113,7 +113,7 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
     public Response addChildren(String applicationToken, String entityToken, Boolean start, String timeoutS, String yaml) {
         final Entity parent = brooklyn().getEntity(applicationToken, entityToken);
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_ENTITY, parent)) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to modify entity '%s'",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify entity '%s'",
                     Entitlements.getEntitlementContext().user(), entityToken);
         }
         CreationResult<List<Entity>, List<String>> added = EntityManagementUtils.addChildren(parent, yaml, start)

@@ -245,7 +245,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     /** @deprecated since 0.7.0 see #create */ @Deprecated
     protected Response createFromAppSpec(ApplicationSpec applicationSpec) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.DEPLOY_APPLICATION, applicationSpec)) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to start application %s",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to start application %s",
                 Entitlements.getEntitlementContext().user(), applicationSpec);
         }
 
@@ -282,7 +282,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         EntitySpec<? extends Application> spec = createEntitySpecForApplication(yaml);
         
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.DEPLOY_APPLICATION, spec)) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to start application %s",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to start application %s",
                 Entitlements.getEntitlementContext().user(), yaml);
         }
 
@@ -300,7 +300,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
                     EntityAndItem.of(app, StringAndArgument.of(Startable.START.getName(), null)));
 
             if (!isEntitled) {
-                throw WebResourceUtils.unauthorized("User '%s' is not authorized to start application %s",
+                throw WebResourceUtils.forbidden("User '%s' is not authorized to start application %s",
                     Entitlements.getEntitlementContext().user(), spec.getType());
             }
 
@@ -363,7 +363,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         Application app = brooklyn().getApplication(application);
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.INVOKE_EFFECTOR, Entitlements.EntityAndItem.of(app, 
             StringAndArgument.of(Entitlements.LifecycleEffectors.DELETE, null)))) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to delete application %s",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to delete application %s",
                 Entitlements.getEntitlementContext().user(), app);
         }
         Task<?> t = brooklyn().destroy(app);

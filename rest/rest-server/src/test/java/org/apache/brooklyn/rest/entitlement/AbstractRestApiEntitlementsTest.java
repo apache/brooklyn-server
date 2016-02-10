@@ -101,7 +101,7 @@ public abstract class AbstractRestApiEntitlementsTest extends BrooklynRestApiLau
 
     protected void assertForbidden(String user, String path) throws Exception {
         HttpToolResponse response = HttpTool.httpGet(newClient(user), URI.create(getBaseUri()).resolve(path), ImmutableMap.<String, String>of());
-        assertEquals(response.getResponseCode(), 401, "code="+response.getResponseCode()+"; reason="+response.getReasonPhrase()+"; content="+response.getContentAsString());
+        assertEquals(response.getResponseCode(), 403, "code="+response.getResponseCode()+"; reason="+response.getReasonPhrase()+"; content="+response.getContentAsString());
     }
 
     protected void assert404(String user, String path) throws Exception {
