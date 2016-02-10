@@ -43,7 +43,6 @@ import com.google.common.base.Supplier;
  * {@link JSONObject} from a JSON response in order to populate the sensor with the data at the {@code jsonPath}.
  *
  * @see SshCommandSensor
- * @see JmxAttributeSensor
  */
 @Beta
 public final class HttpRequestSensor<T> extends AddSensor<T> {
@@ -88,10 +87,12 @@ public final class HttpRequestSensor<T> extends AddSensor<T> {
                 .onSuccess(HttpValueFunctions.<T>jsonContentsFromPath(jsonPath))
                 .period(period);
 
-        HttpFeed.builder().entity(entity)
+        HttpFeed feed = HttpFeed.builder().entity(entity)
                 .baseUri(uri)
                 .credentialsIfNotNull(username, password)
                 .poll(pollConfig)
                 .build();
+
+        entity.addFeed(feed);
     }
 }
