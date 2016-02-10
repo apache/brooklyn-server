@@ -22,10 +22,12 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedStream;
+import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.rest.api.ActivityApi;
 import org.apache.brooklyn.rest.domain.TaskSummary;
 import org.apache.brooklyn.rest.transform.TaskTransformer;
@@ -39,29 +41,59 @@ public class ActivityResource extends AbstractBrooklynRestResource implements Ac
     @Override
     public TaskSummary get(String taskId) {
         Task<?> t = mgmt().getExecutionManager().getTask(taskId);
-        if (t == null)
+        if (t == null) {
             throw WebResourceUtils.notFound("Cannot find task '%s'", taskId);
+        }
+        checkEntityEntitled(t);
+        
         return TaskTransformer.FROM_TASK.apply(t);
     }
 
     @Override
     public List<TaskSummary> children(String taskId) {
         Task<?> t = mgmt().getExecutionManager().getTask(taskId);
-        if (t == null)
+        if (t == null) {
             throw WebResourceUtils.notFound("Cannot find task '%s'", taskId);
-        if (!(t instanceof HasTaskChildren))
+        }
+        checkEntityEntitled(t);
+        
+        if (!(t instanceof HasTaskChildren)) {
             return Collections.emptyList();
+        }
         return new LinkedList<TaskSummary>(Collections2.transform(Lists.newArrayList(((HasTaskChildren) t).getChildren()),
                 TaskTransformer.FROM_TASK));
     }
 
+    @Override
     public String stream(String taskId, String streamId) {
         Task<?> t = mgmt().getExecutionManager().getTask(taskId);
-        if (t == null)
+        if (t == null) {
             throw WebResourceUtils.notFound("Cannot find task '%s'", taskId);
+        }
+        checkEntityEntitled(t);
+        checkStreamEntitled(t, streamId);
+        
         WrappedStream stream = BrooklynTaskTags.stream(t, streamId);
-        if (stream == null)
+        if (stream == null) {
             throw WebResourceUtils.notFound("Cannot find stream '%s' in task '%s'", streamId, taskId);
+        }
         return stream.streamContents.get();
+    }
+    
+    protected void checkEntityEntitled(Task<?> task) {
+        Entity entity = BrooklynTaskTags.getContextEntity(task);
+        if (entity != null && !Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see activity of entity '%s'",
+                    Entitlements.getEntitlementContext().user(), entity);
+        }
+    }
+    
+    protected void checkStreamEntitled(Task<?> task, String streamId) {
+        Entity entity = BrooklynTaskTags.getContextEntity(task);
+        Entitlements.TaskAndItem<String> item = new Entitlements.TaskAndItem<String>(task, streamId);
+        if (entity != null && !Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ACTIVITY_STREAMS, item)) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see activity stream of entity '%s'",
+                    Entitlements.getEntitlementContext().user(), entity);
+        }
     }
 }
