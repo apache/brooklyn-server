@@ -59,7 +59,7 @@ public abstract class AbstractSoftwareProcessStreamsTest extends BrooklynAppLive
         return checkNotNull(stream.streamContents.get(), "Contents null: "+msg);
     }
 
-    protected Optional<Task<?>> findTaskOrSubTask(Iterable<? extends Task<?>> tasks, Predicate<? super Task<?>> matcher) {
+    public static Optional<Task<?>> findTaskOrSubTask(Iterable<? extends Task<?>> tasks, Predicate<? super Task<?>> matcher) {
         List<String> taskNames = Lists.newArrayList();
         Optional<Task<?>> result = findTaskOrSubTaskImpl(tasks, matcher, taskNames);
         if (!result.isPresent() && log.isDebugEnabled()) {
@@ -68,13 +68,11 @@ public abstract class AbstractSoftwareProcessStreamsTest extends BrooklynAppLive
         return result;
     }
 
-    protected Optional<Task<?>> findTaskOrSubTaskImpl(Iterable<? extends Task<?>> tasks, Predicate<? super Task<?>> matcher, List<String> taskNames) {
+    public static Optional<Task<?>> findTaskOrSubTaskImpl(Iterable<? extends Task<?>> tasks, Predicate<? super Task<?>> matcher, List<String> taskNames) {
         for (Task<?> task : tasks) {
             if (matcher.apply(task)) return Optional.<Task<?>>of(task);
 
-            if (!(task instanceof HasTaskChildren)) {
-                return Optional.absent();
-            } else {
+            if (task instanceof HasTaskChildren) {
                 Optional<Task<?>> subResult = findTaskOrSubTask(((HasTaskChildren) task).getChildren(), matcher);
                 if (subResult.isPresent()) return subResult;
             }
@@ -90,7 +88,7 @@ public abstract class AbstractSoftwareProcessStreamsTest extends BrooklynAppLive
             String taskNameRegex = entry.getKey();
             String echoed = entry.getValue();
 
-            Task<?> subTask = findTaskOrSubTask(tasks, TaskPredicates.displayNameMatches(StringPredicates.matchesRegex(taskNameRegex))).get();
+            Task<?> subTask = findTaskOrSubTask(tasks, TaskPredicates.displayNameSatisfies(StringPredicates.matchesRegex(taskNameRegex))).get();
 
             String stdin = getStreamOrFail(subTask, BrooklynTaskTags.STREAM_STDIN);
             String stdout = getStreamOrFail(subTask, BrooklynTaskTags.STREAM_STDOUT);

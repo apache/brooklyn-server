@@ -70,6 +70,7 @@ public class EntityEntitlementTest {
         Assert.assertTrue(mgmt.getEntitlementManager().isEntitled(null, Entitlements.SEE_ENTITY, app));
         Assert.assertTrue(mgmt.getEntitlementManager().isEntitled(null, Entitlements.INVOKE_EFFECTOR, EntityAndItem.of(app, StringAndArgument.of("any-eff", null))));
         Assert.assertTrue(mgmt.getEntitlementManager().isEntitled(null, Entitlements.SEE_SENSOR, EntityAndItem.of(app, "any-sensor")));
+        Assert.assertTrue(mgmt.getEntitlementManager().isEntitled(null, Entitlements.SEE_CONFIG, EntityAndItem.of(app, "any-config")));
         // and can invoke methods, without any user/login registered
         confirmEffectorEntitlement(true);
         confirmSensorEntitlement(true);
@@ -83,6 +84,7 @@ public class EntityEntitlementTest {
         Assert.assertTrue(mgmt.getEntitlementManager().isEntitled(null, Entitlements.SEE_ENTITY, app));
         Assert.assertTrue(mgmt.getEntitlementManager().isEntitled(null, Entitlements.INVOKE_EFFECTOR, EntityAndItem.of(app, StringAndArgument.of("any-eff", null))));
         Assert.assertTrue(mgmt.getEntitlementManager().isEntitled(null, Entitlements.SEE_SENSOR, EntityAndItem.of(app, "any-sensor")));
+        Assert.assertTrue(mgmt.getEntitlementManager().isEntitled(null, Entitlements.SEE_CONFIG, EntityAndItem.of(app, "any-config")));
         
         confirmEffectorEntitlement(true);
         confirmSensorEntitlement(true);
@@ -121,6 +123,7 @@ public class EntityEntitlementTest {
         Assert.assertTrue(mgmt.getEntitlementManager().isEntitled(null, Entitlements.SEE_ENTITY, app));
         Assert.assertFalse(mgmt.getEntitlementManager().isEntitled(null, Entitlements.INVOKE_EFFECTOR, EntityAndItem.of(app, StringAndArgument.of("any-eff", null))));
         Assert.assertTrue(mgmt.getEntitlementManager().isEntitled(null, Entitlements.SEE_SENSOR, EntityAndItem.of(app, "any-sensor")));
+        Assert.assertTrue(mgmt.getEntitlementManager().isEntitled(null, Entitlements.SEE_CONFIG, EntityAndItem.of(app, "any-config")));
         
         confirmEffectorEntitlement(false);
         confirmSensorEntitlement(true);
@@ -134,6 +137,7 @@ public class EntityEntitlementTest {
         Assert.assertFalse(mgmt.getEntitlementManager().isEntitled(null, Entitlements.SEE_ENTITY, app));
         Assert.assertFalse(mgmt.getEntitlementManager().isEntitled(null, Entitlements.INVOKE_EFFECTOR, EntityAndItem.of(app, StringAndArgument.of("any-eff", null))));
         Assert.assertFalse(mgmt.getEntitlementManager().isEntitled(null, Entitlements.SEE_SENSOR, EntityAndItem.of(app, "any-sensor")));
+        Assert.assertFalse(mgmt.getEntitlementManager().isEntitled(null, Entitlements.SEE_CONFIG, EntityAndItem.of(app, "any-config")));
         
         confirmEffectorEntitlement(false);
         confirmSensorEntitlement(false);

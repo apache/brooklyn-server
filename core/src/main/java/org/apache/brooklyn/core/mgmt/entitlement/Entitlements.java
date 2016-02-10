@@ -65,7 +65,9 @@ public class Entitlements {
     public static EntitlementClass<StringAndArgument> MODIFY_CATALOG_ITEM = new BasicEntitlementClassDefinition<StringAndArgument>("catalog.modify", StringAndArgument.class); 
     
     public static EntitlementClass<Entity> SEE_ENTITY = new BasicEntitlementClassDefinition<Entity>("entity.see", Entity.class);
-    public static EntitlementClass<EntityAndItem<String>> SEE_SENSOR = new BasicEntitlementClassDefinition<EntityAndItem<String>>("sensor.see", EntityAndItem. typeToken(String.class));
+    public static EntitlementClass<EntityAndItem<String>> SEE_SENSOR = new BasicEntitlementClassDefinition<EntityAndItem<String>>("sensor.see", EntityAndItem.typeToken(String.class));
+    public static EntitlementClass<EntityAndItem<String>> SEE_CONFIG = new BasicEntitlementClassDefinition<EntityAndItem<String>>("config.see", EntityAndItem.typeToken(String.class));
+    public static EntitlementClass<TaskAndItem<String>> SEE_ACTIVITY_STREAMS = new BasicEntitlementClassDefinition<TaskAndItem<String>>("activity.streams.see", TaskAndItem.typeToken(String.class));
     // string is effector name; argument may be a map or a list, depending how the args were supplied
     public static EntitlementClass<EntityAndItem<StringAndArgument>> INVOKE_EFFECTOR = new BasicEntitlementClassDefinition<EntityAndItem<StringAndArgument>>("effector.invoke", EntityAndItem.typeToken(StringAndArgument.class));
     public static EntitlementClass<Entity> MODIFY_ENTITY = new BasicEntitlementClassDefinition<Entity>("entity.modify", Entity.class);
@@ -139,8 +141,12 @@ public class Entitlements {
     protected static class Pair<T1,T2> {
         protected final T1 p1;
         protected final T2 p2;
-        protected Pair(T1 p1, T2 p2) { this.p1 = p1; this.p2 = p2; }
+        protected Pair(T1 p1, T2 p2) {
+            this.p1 = p1;
+            this.p2 = p2;
+        }
     }
+
     public static class EntityAndItem<T> extends Pair<Entity,T> {
         public static <TT> TypeToken<EntityAndItem<TT>> typeToken(Class<TT> type) {
             return new TypeToken<Entitlements.EntityAndItem<TT>>() {
@@ -152,6 +158,20 @@ public class Entitlements {
         public T getItem() { return p2; }
         public static <T> EntityAndItem<T> of(Entity entity, T item) {
             return new EntityAndItem<T>(entity, item);
+        }
+    }
+    
+    public static class TaskAndItem<T> extends Pair<Task<?>,T> {
+        public static <TT> TypeToken<TaskAndItem<TT>> typeToken(Class<TT> type) {
+            return new TypeToken<Entitlements.TaskAndItem<TT>>() {
+                private static final long serialVersionUID = 3103447462213439135L;
+            };
+        }
+        public TaskAndItem(Task<?> task, T item) { super(task, item); }
+        public Task<?> getTask() { return p1; }
+        public T getItem() { return p2; }
+        public static <T> TaskAndItem<T> of(Task<?> task, T item) {
+            return new TaskAndItem<T>(task, item);
         }
     }
     
@@ -274,6 +294,7 @@ public class Entitlements {
                 return "Entitlements.allowing(" + permission + " -> " + test + ")";
             }
         }
+        
         public static EntitlementManager seeNonSecretSensors() {
             return allowing(SEE_SENSOR, new Predicate<EntityAndItem<String>>() {
                 @Override
@@ -288,13 +309,28 @@ public class Entitlements {
             });
         }
         
+        public static EntitlementManager seeNonSecretConfig() {
+            return allowing(SEE_CONFIG, new Predicate<EntityAndItem<String>>() {
+                @Override
+                public boolean apply(EntityAndItem<String> input) {
+                    if (input == null) return false;
+                    return !Sanitizer.IS_SECRET_PREDICATE.apply(input.getItem());
+                }
+                @Override
+                public String toString() {
+                    return "Predicates.nonSecret";
+                }
+            });
+        }
     }
     
     /** allow read-only */
     public static EntitlementManager readOnly() {
         return FineGrainedEntitlements.anyOf(
             FineGrainedEntitlements.allowing(SEE_ENTITY),
-            FineGrainedEntitlements.seeNonSecretSensors()
+            FineGrainedEntitlements.allowing(SEE_ACTIVITY_STREAMS),
+            FineGrainedEntitlements.seeNonSecretSensors(),
+            FineGrainedEntitlements.seeNonSecretConfig()
         );
     }
 

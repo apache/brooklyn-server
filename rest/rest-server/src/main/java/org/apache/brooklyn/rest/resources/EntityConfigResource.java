@@ -18,18 +18,18 @@
  */
 package org.apache.brooklyn.rest.resources;
 
-import static com.google.common.collect.Iterables.transform;
-
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
+import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.EntityAndItem;
 import org.apache.brooklyn.rest.api.EntityConfigApi;
 import org.apache.brooklyn.rest.domain.EntityConfigSummary;
 import org.apache.brooklyn.rest.filter.HaHotStateRequired;
@@ -43,7 +43,6 @@ import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Function;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -56,15 +55,26 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
     @Override
     public List<EntityConfigSummary> list(final String application, final String entityToken) {
         final Entity entity = brooklyn().getEntity(application, entityToken);
-        // TODO merge with keys which have values
-        return Lists.newArrayList(transform(
-                entity.getEntityType().getConfigKeys(),
-                new Function<ConfigKey<?>, EntityConfigSummary>() {
-                    @Override
-                    public EntityConfigSummary apply(ConfigKey<?> config) {
-                        return EntityTransformer.entityConfigSummary(entity, config);
-                    }
-                }));
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see entity '%s'",
+                    Entitlements.getEntitlementContext().user(), entity);
+        }
+
+        // TODO merge with keys which have values:
+        //      ((EntityInternal) entity).config().getBag().getAllConfigAsConfigKeyMap();
+        List<EntityConfigSummary> result = Lists.newArrayList();
+        
+        for (ConfigKey<?> key : entity.getEntityType().getConfigKeys()) {
+            // Exclude config that user is not allowed to see
+            if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CONFIG, new EntityAndItem<String>(entity, key.getName()))) {
+                LOG.trace("User {} not authorized to see config {} of entity {}; excluding from ConfigKey list results", 
+                        new Object[] {Entitlements.getEntitlementContext().user(), key.getName(), entity});
+                continue;
+            }
+            result.add(EntityTransformer.entityConfigSummary(entity, key));
+        }
+        
+        return result;
     }
 
     // TODO support parameters  ?show=value,summary&name=xxx &format={string,json,xml}
@@ -73,16 +83,23 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
     public Map<String, Object> batchConfigRead(String application, String entityToken, Boolean raw) {
         // TODO: add test
         Entity entity = brooklyn().getEntity(application, entityToken);
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see entity '%s'",
+                    Entitlements.getEntitlementContext().user(), entity);
+        }
+
         // wrap in a task for better runtime view
-        return Entities.submit(entity, Tasks.<Map<String,Object>>builder().displayName("REST API batch config read").body(new BatchConfigRead(this, entity, raw)).build()).getUnchecked();
+        return Entities.submit(entity, Tasks.<Map<String,Object>>builder().displayName("REST API batch config read").body(new BatchConfigRead(mgmt(), this, entity, raw)).build()).getUnchecked();
     }
     
     private static class BatchConfigRead implements Callable<Map<String,Object>> {
-        private EntityConfigResource resource;
-        private Entity entity;
-        private Boolean raw;
+        private final ManagementContext mgmt;
+        private final EntityConfigResource resource;
+        private final Entity entity;
+        private final Boolean raw;
 
-        public BatchConfigRead(EntityConfigResource resource, Entity entity, Boolean raw) {
+        public BatchConfigRead(ManagementContext mgmt, EntityConfigResource resource, Entity entity, Boolean raw) {
+            this.mgmt = mgmt;
             this.resource = resource;
             this.entity = entity;
             this.raw = raw;
@@ -93,9 +110,17 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
             Map<ConfigKey<?>, ?> source = ((EntityInternal) entity).config().getBag().getAllConfigAsConfigKeyMap();
             Map<String, Object> result = Maps.newLinkedHashMap();
             for (Map.Entry<ConfigKey<?>, ?> ek : source.entrySet()) {
+                ConfigKey<?> key = ek.getKey();
                 Object value = ek.getValue();
-                result.put(ek.getKey().getName(), 
-                    resource.resolving(value).preferJson(true).asJerseyOutermostReturnValue(false).raw(raw).context(entity).timeout(Duration.ZERO).renderAs(ek.getKey()).resolve());
+                
+                // Exclude config that user is not allowed to see
+                if (!Entitlements.isEntitled(mgmt.getEntitlementManager(), Entitlements.SEE_CONFIG, new EntityAndItem<String>(entity, ek.getKey().getName()))) {
+                    LOG.trace("User {} not authorized to see sensor {} of entity {}; excluding from current-state results", 
+                            new Object[] {Entitlements.getEntitlementContext().user(), ek.getKey().getName(), entity});
+                    continue;
+                }
+                result.put(key.getName(), 
+                    resource.resolving(value).preferJson(true).asJerseyOutermostReturnValue(false).raw(raw).context(entity).timeout(Duration.ZERO).renderAs(key).resolve());
             }
             return result;
         }
@@ -114,6 +139,16 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
     public Object get(boolean preferJson, String application, String entityToken, String configKeyName, Boolean raw) {
         Entity entity = brooklyn().getEntity(application, entityToken);
         ConfigKey<?> ck = findConfig(entity, configKeyName);
+        
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see entity '%s'",
+                    Entitlements.getEntitlementContext().user(), entity);
+        }
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CONFIG, new EntityAndItem<String>(entity, ck.getName()))) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see entity '%s' config '%s'",
+                    Entitlements.getEntitlementContext().user(), entity, ck.getName());
+        }
+        
         Object value = ((EntityInternal)entity).config().getRaw(ck).orNull();
         return resolving(value).preferJson(preferJson).asJerseyOutermostReturnValue(true).raw(raw).context(entity).timeout(ValueResolver.PRETTY_QUICK_WAIT).renderAs(ck).resolve();
     }
@@ -130,7 +165,7 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
     public void setFromMap(String application, String entityToken, Boolean recurse, Map newValues) {
         final Entity entity = brooklyn().getEntity(application, entityToken);
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_ENTITY, entity)) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to modify entity '%s'",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify entity '%s'",
                     Entitlements.getEntitlementContext().user(), entity);
         }
 
@@ -155,7 +190,7 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
     public void set(String application, String entityToken, String configName, Boolean recurse, Object newValue) {
         final Entity entity = brooklyn().getEntity(application, entityToken);
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_ENTITY, entity)) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to modify entity '%s'",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify entity '%s'",
                     Entitlements.getEntitlementContext().user(), entity);
         }
 
