@@ -340,10 +340,6 @@ public class Osgis {
     }
 
 
-    /** Tells if Brooklyn is running in an OSGi environment or not. */
-    public static boolean isBrooklynInsideFramework() {
-        return FrameworkUtil.getBundle(Osgis.class) != null;
-    }
 
     /** @deprecated since 0.9.0, replaced with {@link OsgiUtils#getVersionedId(org.osgi.framework.Bundle) } */
     @Deprecated

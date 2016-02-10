@@ -30,6 +30,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.text.StringPredicates;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -168,6 +169,15 @@ public class LocationPropertiesFromBrooklynProperties {
     protected Map<String, Object> getMatchingSingleWordProperties(String fullPrefix, Map<String, ?> properties) {
         BrooklynProperties filteredProperties = ConfigUtils.filterForPrefixAndStrip(properties, fullPrefix);
         return ConfigUtils.filterFor(filteredProperties, Predicates.not(Predicates.containsPattern("\\."))).asMapWithStringKeys();
+    }
+
+    /**
+     * Gets all properties that start with the given {@code <firstPrefix>.<secondPrefix>}, stripping off
+     * the {@code firstPrefix} in the returned map.
+     */
+    protected Map<String, Object> getMatchingConcatenatedPrefixesPropertiesFirstPrefixRemoved(String firstPrefix, String secondPrefix, Map<String, ?> properties) {
+        BrooklynProperties filteredProperties = ConfigUtils.filterForPrefixAndStrip(properties, firstPrefix);
+        return ConfigUtils.filterFor(filteredProperties, StringPredicates.startsWith(secondPrefix)).asMapWithStringKeys();
     }
 
     /**

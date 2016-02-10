@@ -85,6 +85,7 @@
     <feature name="brooklyn-rest-api" version="${project.version}" description="Brooklyn REST API">
         <feature>brooklyn-utils-rest-swagger</feature>
         <feature>brooklyn-api</feature>
+        <feature>brooklyn-core</feature>
 
         <bundle>mvn:org.apache.brooklyn/brooklyn-rest-api/${project.version}</bundle>
 
@@ -98,8 +99,8 @@
         <!--<feature>jersey</feature>-->
         <bundle dependency="true">mvn:com.sun.jersey/jersey-servlet/${jersey.version}</bundle>
         <bundle dependency="true">mvn:org.apache.commons/commons-lang3/${commons-lang3.version}</bundle>
-        <bundle dependency="true">mvn:org.codehaus.jackson/jackson-core-asl/${jackson.version}</bundle>
-        <bundle dependency="true">mvn:org.codehaus.jackson/jackson-mapper-asl/${jackson.version}</bundle>
+        <bundle dependency="true">mvn:com.fasterxml.jackson.core/jackson-annotations/${fasterxml.jackson.version}</bundle>
+        <bundle dependency="true">mvn:com.fasterxml.jackson.core/jackson-databind/${fasterxml.jackson.version}</bundle>
 
         <!--<bundle dependency="true">mvn:javax.ws.rs/jsr311-api/${jsr311-api.version}</bundle>-->
         <bundle dependency="true">mvn:javax.servlet/javax.servlet-api/${javax-servlet.version}</bundle>
@@ -116,7 +117,7 @@
         <bundle>mvn:org.apache.brooklyn/brooklyn-core/${project.version}</bundle>
         <bundle>mvn:org.apache.brooklyn/brooklyn-rt-osgi/${project.version}</bundle>
         <bundle>mvn:org.apache.brooklyn/brooklyn-utils-groovy/${project.version}</bundle>
-    
+
         <bundle dependency="true">mvn:com.google.code.gson/gson/${gson.version}</bundle>
         <bundle dependency="true">mvn:com.jayway.jsonpath/json-path/${jsonPath.version}</bundle>
         <bundle dependency="true">mvn:com.fasterxml.jackson.core/jackson-core/${fasterxml.jackson.version}</bundle>
@@ -132,9 +133,6 @@
         <bundle dependency="true">mvn:org.bouncycastle/bcpkix-jdk15on/${bouncycastle.version}</bundle>
         <bundle dependency="true">mvn:commons-codec/commons-codec/${commons-codec.version}</bundle>
         <bundle dependency="true">mvn:org.apache.commons/commons-lang3/${commons-lang3.version}</bundle>
-        <bundle dependency="true">mvn:org.codehaus.jackson/jackson-core-asl/${jackson.version}</bundle>
-        <bundle dependency="true">mvn:org.codehaus.jackson/jackson-mapper-asl/${jackson.version}</bundle>
-        <bundle dependency="true">mvn:org.codehaus.jackson/jackson-jaxrs/${jackson.version}</bundle>
 
         <!-- TODO: don't use wrap -->
         <bundle dependency="true">wrap:mvn:com.google.http-client/google-http-client/1.18.0-rc</bundle> <!-- from geoip -->
@@ -168,13 +166,10 @@
         <feature>brooklyn-camp-base</feature>
         <feature>brooklyn-utils-rest-swagger</feature>
         <feature>jetty</feature> <!-- TODO: pax-jetty??? -->
-
-        <bundle dependency="true">mvn:org.codehaus.jackson/jackson-core-asl/${jackson.version}</bundle>
     </feature>
 
     <feature name="brooklyn-rest-server" version="${project.version}" description="Brooklyn REST Server">
         <bundle>mvn:org.apache.brooklyn/brooklyn-rest-server/${project.version}</bundle>
-        <feature>brooklyn-core</feature>
         <feature>brooklyn-rest-api</feature>
         <feature>brooklyn-camp-brooklyn</feature>
         <feature>brooklyn-camp-base</feature>
@@ -185,18 +180,21 @@
         <bundle dependency="true">mvn:com.sun.jersey/jersey-server/${jersey.version}</bundle>
         <bundle dependency="true">mvn:com.sun.jersey/jersey-core/${jersey.version}</bundle>
         <bundle dependency="true">mvn:com.sun.jersey/jersey-servlet/${jersey.version}</bundle>
+
+        <bundle dependency="true">mvn:com.fasterxml.jackson.datatype/jackson-datatype-guava/${fasterxml.jackson.version}</bundle>
+        <bundle dependency="true">mvn:com.fasterxml.jackson.jaxrs/jackson-jaxrs-json-provider/${fasterxml.jackson.version}</bundle>
     </feature>
 
     <feature name="brooklyn-jsgui" version="${project.version}" description="Brooklyn REST JavaScript Web GUI">
         <bundle>mvn:org.apache.brooklyn/brooklyn-jsgui/${project.version}/war</bundle>
         <feature>war</feature>
     </feature>
-  
+
     <feature name="brooklyn-commands"  version="${project.version}"  description="Brooklyn Shell Commands">
         <bundle>mvn:org.apache.brooklyn/brooklyn-commands/${project.version}</bundle>
         <!--<feature version="${project.version}">brooklyn-core</feature>-->
     </feature>
-  
+
     <feature name="brooklyn-software-winrm" version="${project.version}" description="Brooklyn WinRM Software Entities">
         <bundle>mvn:org.apache.brooklyn/brooklyn-software-winrm/${project.version}</bundle>
         <feature>brooklyn-core</feature>
@@ -213,6 +211,74 @@
         <feature>brooklyn-software-winrm</feature>
         <feature>brooklyn-policy</feature>
         <!-- python dependency required but not supported since karaf cannot handle its runtime bindings -->
+    </feature>
+
+    <feature name="brooklyn-jmxmp-agent" version="${project.version}" description="Brooklyn Secure JMXMP Agent">
+        <bundle>mvn:org.apache.brooklyn/brooklyn-jmxmp-agent/${project.version}</bundle>
+        <feature>brooklyn-core</feature>
+        <bundle dependency="true">wrap:mvn:org.glassfish.external/opendmk_jmxremote_optional_jar/${opendmk_jmxremote_optional_jar.version}</bundle>
+    </feature>
+
+    <feature name="brooklyn-jmxrmi-agent" version="${project.version}" description="Brooklyn JMX RMI Agent">
+        <bundle>mvn:org.apache.brooklyn/brooklyn-jmxrmi-agent/${project.version}</bundle>
+    </feature>
+
+    <!-- WARNING: feature brooklyn-locations-jclouds cannot really be installed, due to guava 17 issues -->
+    <feature name="brooklyn-locations-jclouds" version="${project.version}" description="Brooklyn Jclouds Location Targets">
+        <bundle>mvn:org.apache.brooklyn/brooklyn-locations-jclouds/${project.version}</bundle>
+        <feature>brooklyn-software-winrm</feature>
+        <bundle dependency="true">mvn:com.google.inject/guice/${guice.version}</bundle>
+        <bundle dependency="true">mvn:${jclouds.groupId}.driver/jclouds-bouncycastle/${jclouds.version}</bundle>
+        <bundle dependency="true">mvn:${jclouds.groupId}/jclouds-core/${jclouds.version}</bundle>
+        <bundle dependency="true">mvn:com.google.guava/guava/${guava.version}</bundle>
+    </feature>
+
+    <feature name="brooklyn-software-network" version="${project.version}" description="Brooklyn Network Software Entities">
+        <bundle>mvn:org.apache.brooklyn/brooklyn-software-network/${project.version}</bundle>
+        <feature>brooklyn-software-base</feature>
+    </feature>
+
+    <feature name="brooklyn-software-osgi" version="${project.version}" description="Brooklyn OSGi Software Entities">
+        <bundle>mvn:org.apache.brooklyn/brooklyn-software-osgi/${project.version}</bundle>
+        <feature>brooklyn-core</feature>
+        <feature>brooklyn-api</feature>
+        <feature>brooklyn-software-base</feature>
+        <bundle dependency="true">mvn:com.google.guava/guava/${guava.version}</bundle>
+    </feature>
+
+    <feature name="brooklyn-software-database" version="${project.version}" description="Brooklyn Database Software Entities">
+        <bundle>mvn:org.apache.brooklyn/brooklyn-software-database/${project.version}</bundle>
+        <feature>brooklyn-core</feature>
+        <feature>brooklyn-api</feature>
+        <feature>brooklyn-software-base</feature>
+        <bundle dependency="true">mvn:com.google.guava/guava/${guava.version}</bundle>
+    </feature>
+
+    <feature name="brooklyn-software-webapp" version="${project.version}" description="Brooklyn Web App Software Entities">
+        <bundle>mvn:org.apache.brooklyn/brooklyn-software-webapp/${project.version}</bundle>
+        <feature>brooklyn-software-base</feature>
+        <bundle dependency="true">wrap:mvn:org.hibernate/jtidy/${jtidy.version}</bundle>
+    </feature>
+
+    <feature name="brooklyn-software-messaging" version="${project.version}" description="Brooklyn Messaging Software Entities">
+        <bundle>mvn:org.apache.brooklyn/brooklyn-software-messaging/${project.version}</bundle>
+        <feature>brooklyn-software-base</feature>
+    </feature>
+
+    <feature name="brooklyn-software-nosql" version="${project.version}" description="Brooklyn NoSQL Data Store Software Entities">
+        <bundle>mvn:org.apache.brooklyn/brooklyn-software-nosql/${project.version}</bundle>
+        <feature>brooklyn-software-base</feature>
+        <feature>brooklyn-software-database</feature>
+        <feature>brooklyn-software-webapp</feature>
+        <bundle dependency="true">mvn:org.mongodb/mongo-java-driver/3.0.3</bundle>
+    </feature>
+
+    <feature name="brooklyn-software-monitoring" version="${project.version}" description="Brooklyn Monitoring Software Entities">
+        <bundle>mvn:org.apache.brooklyn/brooklyn-software-monitoring/${project.version}</bundle>
+        <feature>brooklyn-core</feature>
+        <feature>brooklyn-api</feature>
+        <feature>brooklyn-software-base</feature>
+        <bundle dependency="true">mvn:com.google.guava/guava/${guava.version}</bundle>
     </feature>
 
 </features>

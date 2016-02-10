@@ -89,7 +89,7 @@ public class PolicyConfigResource extends AbstractBrooklynRestResource implement
     public Response set(String application, String entityToken, String policyToken, String configKeyName, Object value) {
         Entity entity = brooklyn().getEntity(application, entityToken);
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_ENTITY, entity)) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to modify entity '%s'",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify entity '%s'",
                     Entitlements.getEntitlementContext().user(), entity);
         }
 

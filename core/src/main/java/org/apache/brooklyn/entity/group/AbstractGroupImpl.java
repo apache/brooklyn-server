@@ -35,6 +35,7 @@ import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.entity.stock.DelegateEntity;
 import org.apache.brooklyn.util.collections.SetFromLiveMap;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -175,7 +176,6 @@ public abstract class AbstractGroupImpl extends AbstractEntity implements Abstra
     @Override
     public boolean removeMember(final Entity member) {
         synchronized (members) {
-            member.removeGroup((Group)getProxyIfAvailable());
             boolean changed = (member != null && members.remove(member));
             if (changed) {
                 log.debug("Group {} lost member {}", this, member);
@@ -205,7 +205,25 @@ public abstract class AbstractGroupImpl extends AbstractEntity implements Abstra
                     }
                 }
 
-                getManagementSupport().getEntityChangeListener().onMembersChanged();
+            }
+            
+            Exception errorRemoving = null;
+            // suppress errors if member is being unmanaged in parallel
+            try {
+                member.removeGroup((Group)getProxyIfAvailable());
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                errorRemoving = e;
+            }
+            
+            getManagementSupport().getEntityChangeListener().onMembersChanged();
+            
+            if (errorRemoving!=null) {
+                if (Entities.isNoLongerManaged(member)) {
+                    log.debug("Ignoring error when telling group "+this+" unmanaged member "+member+" is is removed: "+errorRemoving);
+                } else {
+                    Exceptions.propagate(errorRemoving);
+                }
             }
 
             return changed;

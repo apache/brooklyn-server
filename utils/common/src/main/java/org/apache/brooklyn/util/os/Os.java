@@ -52,6 +52,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.brooklyn.util.osgi.OsgiUtil;
 
 public class Os {
 
@@ -320,7 +321,7 @@ public class Os {
     private static void addShutdownFileDeletionHook(String path, FileDeletionHook hook) {
         synchronized (deletions) {
             if (deletions.isEmpty()) {
-                Runtime.getRuntime().addShutdownHook(new Thread() {
+                Thread shutdownHook = new Thread() {
                     @Override
                     public void run() {
                         synchronized (deletions) {
@@ -335,7 +336,12 @@ public class Os {
                             }
                         }
                     }
-                });
+                };
+                
+                if (OsgiUtil.isBrooklynInsideFramework())
+                    OsgiUtil.addShutdownHook(shutdownHook); //bundle deactivator will call OsgiUtils.shutdown() to run hooks
+                else
+                    Runtime.getRuntime().addShutdownHook(shutdownHook); //jvm exit will run hooks
             }
             FileDeletionHook oldHook = deletions.put(path, hook);
             if (oldHook!=null && oldHook.recursively)

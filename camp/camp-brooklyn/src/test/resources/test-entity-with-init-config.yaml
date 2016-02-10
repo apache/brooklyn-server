@@ -18,7 +18,7 @@
 #
 name: test-entity-with-init-config
 description: Creates a TestEntityWithInitConfig entity that references a 2nd test entity during its init()
-origin: https://github.com/apache/incubator-brooklyn
+origin: https://github.com/apache/brooklyn
 services:
 - serviceType: org.apache.brooklyn.core.test.entity.TestEntity
   id: te1

@@ -105,7 +105,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     @Override
     public Response create(String yaml) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ADD_CATALOG_ITEM, yaml)) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to add catalog item",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to add catalog item",
                 Entitlements.getEntitlementContext().user());
         }
         
@@ -139,7 +139,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     public Response resetXml(String xml, boolean ignoreErrors) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_CATALOG_ITEM, null) ||
             !Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ADD_CATALOG_ITEM, null)) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to modify catalog",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify catalog",
                 Entitlements.getEntitlementContext().user());
         }
 
@@ -151,7 +151,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     @Deprecated
     public void deleteEntity(String entityId) throws Exception {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_CATALOG_ITEM, StringAndArgument.of(entityId, "delete"))) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to modify catalog",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify catalog",
                 Entitlements.getEntitlementContext().user());
         }
         try {
@@ -180,7 +180,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     @Override
     public void deleteEntity(String symbolicName, String version) throws Exception {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_CATALOG_ITEM, StringAndArgument.of(symbolicName+(Strings.isBlank(version) ? "" : ":"+version), "delete"))) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to modify catalog",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify catalog",
                 Entitlements.getEntitlementContext().user());
         }
         
@@ -197,7 +197,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     @Override
     public void deletePolicy(String policyId, String version) throws Exception {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_CATALOG_ITEM, StringAndArgument.of(policyId+(Strings.isBlank(version) ? "" : ":"+version), "delete"))) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to modify catalog",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify catalog",
                 Entitlements.getEntitlementContext().user());
         }
         
@@ -214,7 +214,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     @Override
     public void deleteLocation(String locationId, String version) throws Exception {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_CATALOG_ITEM, StringAndArgument.of(locationId+(Strings.isBlank(version) ? "" : ":"+version), "delete"))) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to modify catalog",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify catalog",
                 Entitlements.getEntitlementContext().user());
         }
         
@@ -253,7 +253,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     @Deprecated
     public CatalogEntitySummary getEntity(String entityId) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, entityId)) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to see catalog entry",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
                 Entitlements.getEntitlementContext().user());
         }
 
@@ -270,7 +270,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     @Override
     public CatalogEntitySummary getEntity(String symbolicName, String version) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, symbolicName+(Strings.isBlank(version)?"":":"+version))) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to see catalog entry",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
                 Entitlements.getEntitlementContext().user());
         }
 
@@ -312,7 +312,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     @Deprecated
     public CatalogPolicySummary getPolicy(String policyId) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, policyId)) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to see catalog entry",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
                 Entitlements.getEntitlementContext().user());
         }
 
@@ -329,7 +329,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     @Override
     public CatalogPolicySummary getPolicy(String policyId, String version) throws Exception {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, policyId+(Strings.isBlank(version)?"":":"+version))) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to see catalog entry",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
                 Entitlements.getEntitlementContext().user());
         }
 
@@ -358,7 +358,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     @Deprecated
     public CatalogLocationSummary getLocation(String locationId) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, locationId)) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to see catalog entry",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
                 Entitlements.getEntitlementContext().user());
         }
 
@@ -375,7 +375,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     @Override
     public CatalogLocationSummary getLocation(String locationId, String version) throws Exception {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, locationId+(Strings.isBlank(version)?"":":"+version))) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to see catalog entry",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
                 Entitlements.getEntitlementContext().user());
         }
 
@@ -414,7 +414,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     @Deprecated
     public Response getIcon(String itemId) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, itemId)) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to see catalog entry",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
                 Entitlements.getEntitlementContext().user());
         }
 
@@ -424,7 +424,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     @Override
     public Response getIcon(String itemId, String version) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, itemId+(Strings.isBlank(version)?"":":"+version))) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to see catalog entry",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see catalog entry",
                 Entitlements.getEntitlementContext().user());
         }
         
@@ -442,7 +442,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     @Override
     public void setDeprecated(String itemId, boolean deprecated) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_CATALOG_ITEM, StringAndArgument.of(itemId, "deprecated"))) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to modify catalog",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify catalog",
                     Entitlements.getEntitlementContext().user());
         }
         CatalogUtils.setDeprecated(mgmt(), itemId, deprecated);
@@ -452,7 +452,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     @Override
     public void setDisabled(String itemId, boolean disabled) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_CATALOG_ITEM, StringAndArgument.of(itemId, "disabled"))) {
-            throw WebResourceUtils.unauthorized("User '%s' is not authorized to modify catalog",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify catalog",
                     Entitlements.getEntitlementContext().user());
         }
         CatalogUtils.setDisabled(mgmt(), itemId, disabled);

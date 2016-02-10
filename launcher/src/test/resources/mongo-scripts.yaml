@@ -18,7 +18,7 @@
 #
 name: Mongo Demo app
 description: MongoDB sharded deployment with MongoDB (javascript) client
-origin: https://github.com/apache/incubator-brooklyn
+origin: https://github.com/apache/brooklyn
 location: localhost
 services:
 - serviceType: org.apache.brooklyn.entity.nosql.mongodb.sharding.MongoDBShardedDeployment
