@@ -24,6 +24,7 @@ import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -75,6 +76,8 @@ public class InboundPortsUtils {
         if (portsAutoInfer == null || portsAutoInfer.booleanValue()) { // auto-infer defaults to true if not specified
             Set<ConfigKey<?>> configKeys = Sets.newHashSet(extraConfigKeys);
             configKeys.addAll(entity.getEntityType().getConfigKeys());
+            // Also add dynamically added config keys
+            configKeys.addAll(((EntityInternal)entity).config().getBag().getAllConfigAsConfigKeyMap().keySet());
 
             if (portRegex == null) portRegex = ".*\\.port"; // defaults to legacy regex if not specified
             Pattern portsPattern = Pattern.compile(portRegex);
