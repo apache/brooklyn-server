@@ -61,4 +61,6 @@
         <appender-ref ref="FILE" />
     </logger>
 
+    <logger name="org.apache.cxf" level="WARN"/>
+    <logger name="io.cloudsoft.winrm4j.winrm.WinRmTool" level="WARN"/>
 </included>

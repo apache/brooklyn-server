@@ -32,7 +32,7 @@ public interface EmptyWindowsProcess extends SoftwareProcess {
     // 3389 is RDP; 5985 is WinRM (3389 isn't used by Brooklyn, but useful for the end-user subsequently)
     ConfigKey<Collection<Integer>> REQUIRED_OPEN_LOGIN_PORTS = ConfigKeys.newConfigKeyWithDefault(
             SoftwareProcess.REQUIRED_OPEN_LOGIN_PORTS,
-            ImmutableSet.of(5985, 3389));
+            ImmutableSet.of(5986, 5985, 3389));
     
     ConfigKey<Boolean> USE_WINRM_MONITORING = ConfigKeys.newConfigKey("winrmMonitoring.enabled", "WinRM monitoring enabled", Boolean.TRUE);
 }

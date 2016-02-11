@@ -27,6 +27,7 @@ import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,7 +69,7 @@ public class AdvertiseWinrmLoginPolicy extends AbstractPolicy implements SensorE
     protected void advertiseUserAsync(final Entity entity, final WinRmMachineLocation machine) {
         String user = machine.getUser();
         String hostname = machine.getHostname();
-        int port = machine.config().get(WinRmMachineLocation.WINRM_PORT);
+        int port = machine.getPort();
         String password = machine.config().get(WinRmMachineLocation.PASSWORD);
         
         String creds = user + " : " + password + " @ " +hostname + ":" + port;

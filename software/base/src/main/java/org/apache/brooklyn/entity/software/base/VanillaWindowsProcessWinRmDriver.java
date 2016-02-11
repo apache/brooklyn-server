@@ -21,6 +21,7 @@ package org.apache.brooklyn.entity.software.base;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
+import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
 import org.apache.brooklyn.util.net.UserAndHostAndPort;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
@@ -36,7 +37,7 @@ public class VanillaWindowsProcessWinRmDriver extends AbstractSoftwareProcessWin
     @Override
     public void start() {
         WinRmMachineLocation machine = (WinRmMachineLocation) location;
-        UserAndHostAndPort winrmAddress = UserAndHostAndPort.fromParts(machine.getUser(), machine.getAddress().getHostName(), machine.config().get(WinRmMachineLocation.WINRM_PORT));
+        UserAndHostAndPort winrmAddress = UserAndHostAndPort.fromParts(machine.getUser(), machine.getAddress().getHostName(), entity.getAttribute(VanillaWindowsProcess.WINRM_PORT));
         getEntity().sensors().set(Attributes.WINRM_ADDRESS, winrmAddress);
 
         super.start();

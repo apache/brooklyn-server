@@ -26,7 +26,9 @@ import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
 import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.collect.ImmutableSet;
@@ -37,7 +39,7 @@ public interface VanillaWindowsProcess extends AbstractVanillaProcess {
     // 3389 is RDP; 5985 is WinRM (3389 isn't used by Brooklyn, but useful for the end-user subsequently)
     ConfigKey<Collection<Integer>> REQUIRED_OPEN_LOGIN_PORTS = ConfigKeys.newConfigKeyWithDefault(
             SoftwareProcess.REQUIRED_OPEN_LOGIN_PORTS,
-            ImmutableSet.of(5985, 3389));
+            ImmutableSet.of(5986, 5985, 3389));
     
     @CatalogConfig(label = "Install PowerShell command", priority=5.5)
     ConfigKey<String> INSTALL_POWERSHELL_COMMAND = ConfigKeys.newStringConfigKey("install.powershell.command",
@@ -103,5 +105,5 @@ public interface VanillaWindowsProcess extends AbstractVanillaProcess {
             "duration to wait whilst waiting for a machine to finish rebooting, and thus to become available again", Duration.minutes(30));
     
     AttributeSensor<Integer> RDP_PORT = Sensors.newIntegerSensor("rdpPort");
-    AttributeSensor<Integer> WINRM_PORT = Sensors.newIntegerSensor("winrmPort");
+    AttributeSensor<Integer> WINRM_PORT = Sensors.newIntegerSensor(WinRmTool.PROP_PORT.getName());
 }

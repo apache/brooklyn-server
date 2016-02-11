@@ -28,6 +28,7 @@ import java.util.List;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
+import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.annotations.Beta;
@@ -43,7 +44,17 @@ public interface WinRmTool {
             "static final initializer classload ordering problem");
     
     ConfigKey<String> PROP_HOST = newStringConfigKey("host", "Host to connect to (required)", null);
-    ConfigKey<Integer> PROP_PORT = newIntegerConfigKey("port", "WinRM port to use when connecting to the remote machine", 5985);
+    ConfigKey<Integer> PROP_PORT = ConfigKeys.newIntegerConfigKey("port", "WinRM port to use when connecting to the remote machine");
+    ConfigKey<Boolean> USE_HTTPS_WINRM = ConfigKeys.newBooleanConfigKey("winrm.useHttps", "The parameter configures tells the machine sensors whether the winrm port is over https. If the parameter is true then 5986 will be used as a winrm port.", false);
+
+    /**
+     * Flag which tells winrm whether to use Basic Authentication
+     * or Negotiate plus NTLM.
+     * winrm.useNtlm parameter could be a subject to change.
+     * TODO Winrm supports several authentication mechanisms so it would be better to replace it with a prioritised list of authentication mechanisms to try.
+     */
+   @Beta
+    ConfigKey<Boolean> USE_NTLM = ConfigKeys.newBooleanConfigKey("winrm.useNtlm", "The parameter configures tells the machine sensors whether the winrm port is over https. If the parameter is true then 5986 will be used as a winrm port.", true);
     ConfigKey<String> PROP_USER = newStringConfigKey("user", "User to connect as", null);
     ConfigKey<String> PROP_PASSWORD = newStringConfigKey("password", "Password to use to connect", null);
 
