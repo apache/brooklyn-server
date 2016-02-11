@@ -35,7 +35,6 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.core.Version;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.fasterxml.jackson.datatype.guava.GuavaModule;
 import com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider;
 
 public class BrooklynJacksonJsonProvider extends JacksonJsonProvider implements ManagementContextInjectable {
@@ -141,7 +140,7 @@ public class BrooklynJacksonJsonProvider extends JacksonJsonProvider implements 
 
         ObjectMapper mapper = new ObjectMapper();
         mapper.setSerializerProvider(sp);
-        mapper.setVisibility(new PossiblyStrictPreferringFieldsVisibilityChecker());
+        mapper.setVisibilityChecker(new PossiblyStrictPreferringFieldsVisibilityChecker());
 
         SimpleModule mapperModule = new SimpleModule("Brooklyn", new Version(0, 0, 0, "ignored"));
 
@@ -149,7 +148,8 @@ public class BrooklynJacksonJsonProvider extends JacksonJsonProvider implements 
         new BidiSerialization.EntitySerialization(mgmt).install(mapperModule);
         new BidiSerialization.LocationSerialization(mgmt).install(mapperModule);
 
-        mapper.registerModule(new GuavaModule()).registerModule(mapperModule);
+        mapperModule.addSerializer(new MultimapSerializer());
+        mapper.registerModule(mapperModule);
 
         return mapper;
     }
