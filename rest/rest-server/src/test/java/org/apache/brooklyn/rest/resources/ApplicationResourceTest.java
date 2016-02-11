@@ -70,6 +70,7 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.http.HttpAsserts;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.http.HttpHeaders;
 import org.apache.http.entity.ContentType;
@@ -363,6 +364,12 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
         }
 
         Assert.assertNotNull(app);
+        Assert.assertFalse(Strings.isBlank((String) app.get("applicationId")),
+                "expected value for applicationId, was: " + app.get("applicationId"));
+        Assert.assertFalse(Strings.isBlank((String) app.get("serviceState")),
+                "expected value for serviceState, was: " + app.get("serviceState"));
+        Assert.assertNotNull(app.get("serviceUp"), "expected non-null value for serviceUp");
+
         Collection children = (Collection) app.get("children");
         Assert.assertEquals(children.size(), 2);
 
