@@ -18,27 +18,32 @@
  */
 package org.apache.brooklyn.rest.domain;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-
-import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
-
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
+import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+
+import java.net.URI;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 public class EntityDetail extends EntitySummary {
 
     private static final long serialVersionUID = 100490507982229165L;
 
+    private final String applicationId;
     private final String parentId;
     @JsonSerialize(include = JsonSerialize.Inclusion.NON_EMPTY)
     private final List<EntitySummary> children;
     private final List<String> groupIds;
     private final List<Map<String, String>> members;
+    private final Boolean serviceUp;
+    private final Lifecycle serviceState;
+    private final String iconUrl;
 
     public EntityDetail(
+            @JsonProperty("applicationId") String applicationId,
             @JsonProperty("id") String id,
             @JsonProperty("parentId") String parentId,
             @JsonProperty("name") String name,
@@ -50,15 +55,23 @@ public class EntityDetail extends EntitySummary {
             @JsonProperty("children") List<EntitySummary> children,
             @JsonProperty("groupIds") List<String> groupIds,
             @JsonProperty("members") List<Map<String, String>> members) {
-        super(id, name, type, catalogItemId, null);
+        super(id, name, type, catalogItemId, Collections.<String, URI>emptyMap());
+        this.applicationId = applicationId;
+        this.iconUrl = iconUrl;
         this.parentId = parentId;
         this.children = (children == null) ? ImmutableList.<EntitySummary>of() : ImmutableList.copyOf(children);
         this.groupIds = (groupIds == null) ? ImmutableList.<String>of() : ImmutableList.copyOf(groupIds);
-        this.members = (members == null) ? ImmutableList.<Map<String,String>>of() : ImmutableList.copyOf(members);
+        this.members = (members == null) ? ImmutableList.<Map<String, String>>of() : ImmutableList.copyOf(members);
+        this.serviceState = serviceState;
+        this.serviceUp = serviceUp;
     }
 
     public static long getSerialVersionUID() {
         return serialVersionUID;
+    }
+
+    public String getApplicationId() {
+        return applicationId;
     }
 
     public String getParentId() {
@@ -77,4 +90,15 @@ public class EntityDetail extends EntitySummary {
         return members;
     }
 
+    public Boolean getServiceUp() {
+        return serviceUp;
+    }
+
+    public Lifecycle getServiceState() {
+        return serviceState;
+    }
+
+    public String getIconUrl() {
+        return iconUrl;
+    }
 }

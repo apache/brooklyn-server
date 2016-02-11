@@ -181,7 +181,6 @@
         <bundle dependency="true">mvn:com.sun.jersey/jersey-core/${jersey.version}</bundle>
         <bundle dependency="true">mvn:com.sun.jersey/jersey-servlet/${jersey.version}</bundle>
 
-        <bundle dependency="true">mvn:com.fasterxml.jackson.datatype/jackson-datatype-guava/${fasterxml.jackson.version}</bundle>
         <bundle dependency="true">mvn:com.fasterxml.jackson.jaxrs/jackson-jaxrs-json-provider/${fasterxml.jackson.version}</bundle>
     </feature>
 
