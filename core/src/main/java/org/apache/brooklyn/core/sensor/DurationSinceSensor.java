@@ -41,13 +41,15 @@ public class DurationSinceSensor extends AddSensor<Duration> {
 
     public static final ConfigKey<Supplier<Long>> EPOCH_SUPPLIER = ConfigKeys.builder(new TypeToken<Supplier<Long>>() {})
             .name("duration.since.epochsupplier")
-            .description("The source of time from which durations are measured. Defaults to System.currentTimeMillis.")
+            .description("The source of time from which durations are measured. Defaults to System.currentTimeMillis when " +
+                    "if no supplier is given or the configured supplier returns null.")
             .defaultValue(CURRENT_TIME_SUPPLIER)
             .build();
 
     public static final ConfigKey<Supplier<Long>> TIME_SUPPLIER = ConfigKeys.builder(new TypeToken<Supplier<Long>>() {})
             .name("duration.since.timesupplier")
-            .description("The source of the current time. Defaults to System.currentTimeMillis.")
+            .description("The source of the current time. Defaults to System.currentTimeMillis if unconfigured or the " +
+                    "supplier returns null.")
             .defaultValue(CURRENT_TIME_SUPPLIER)
             .build();
 
@@ -67,7 +69,11 @@ public class DurationSinceSensor extends AddSensor<Duration> {
         super.apply(entity);
 
         if (entity.sensors().get(epochSensor) == null) {
-            entity.sensors().set(epochSensor, epochSupplier.get());
+            Long epoch = epochSupplier.get();
+            if (epoch == null) {
+                epoch = CURRENT_TIME_SUPPLIER.get();
+            }
+            entity.sensors().set(epochSensor, epoch);
         }
 
         FunctionFeed feed = FunctionFeed.builder()
@@ -98,7 +104,11 @@ public class DurationSinceSensor extends AddSensor<Duration> {
             Long referencePoint = entity.sensors().get(epochSensor);
             // Defensive check. Someone has done something silly if this is false.
             if (referencePoint != null) {
-                return Duration.millis(timeSupplier.get() - referencePoint);
+                Long time = timeSupplier.get();
+                if (time == null) {
+                    time = CURRENT_TIME_SUPPLIER.get();
+                }
+                return Duration.millis(time - referencePoint);
             } else {
                 throw new IllegalStateException("Cannot calculate duration since sensor: " +
                         entity + " missing required value for " + epochSensor);
