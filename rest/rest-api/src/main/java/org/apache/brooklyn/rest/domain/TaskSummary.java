@@ -52,8 +52,8 @@ public class TaskSummary implements HasId, Serializable {
 
     private final String currentStatus;
     private final Object result;
-    private final boolean error;
-    private final boolean cancelled;
+    private final boolean isError;
+    private final boolean isCancelled;
 
     private final List<LinkWithMetadata> children;
     private final LinkWithMetadata submittedByTask;
@@ -82,8 +82,8 @@ public class TaskSummary implements HasId, Serializable {
             @JsonProperty("endTimeUtc") Long endTimeUtc,
             @JsonProperty("currentStatus") String currentStatus,
             @JsonProperty("result") Object result,
-            @JsonProperty("IsError") boolean error,
-            @JsonProperty("isCancelled") boolean cancelled,
+            @JsonProperty("isError") boolean isError,
+            @JsonProperty("isCancelled") boolean isCancelled,
             @JsonProperty("children") List<LinkWithMetadata> children,
             @JsonProperty("submittedByTask") LinkWithMetadata submittedByTask,
             @JsonProperty("blockingTask") LinkWithMetadata blockingTask,
@@ -102,8 +102,8 @@ public class TaskSummary implements HasId, Serializable {
         this.endTimeUtc = endTimeUtc;
         this.currentStatus = currentStatus;
         this.result = result;
-        this.error = error;
-        this.cancelled = cancelled;
+        this.isError = isError;
+        this.isCancelled = isCancelled;
         this.children = children;
         this.blockingDetails = blockingDetails;
         this.blockingTask = blockingTask;
@@ -168,26 +168,26 @@ public class TaskSummary implements HasId, Serializable {
         return result;
     }
 
-    /** @deprecated since 0.7.0 use {@link #error} instead. */
+    /** @deprecated since 0.7.0 use {@link #isError} instead. */
     @Deprecated
     @JsonIgnore
     public boolean getIsError() {
-        return error;
+        return isError;
     }
 
-    /** @deprecated since 0.7.0 use {@link #cancelled} instead. */
+    /** @deprecated since 0.7.0 use {@link #isCancelled} instead. */
     @Deprecated
     @JsonIgnore
     public boolean getIsCancelled() {
-        return cancelled;
+        return isCancelled;
     }
 
     public boolean isError() {
-        return error;
+        return isError;
     }
 
     public boolean isCancelled() {
-        return cancelled;
+        return isCancelled;
     }
 
     public List<LinkWithMetadata> getChildren() {
@@ -223,8 +223,8 @@ public class TaskSummary implements HasId, Serializable {
         if (this == o) return true;
         if (!(o instanceof TaskSummary)) return false;
         TaskSummary that = (TaskSummary) o;
-        return error == that.error &&
-                cancelled == that.cancelled &&
+        return isError == that.isError &&
+                isCancelled == that.isCancelled &&
                 Objects.equals(id, that.id) &&
                 Objects.equals(displayName, that.displayName) &&
                 Objects.equals(entityId, that.entityId) &&
@@ -247,7 +247,7 @@ public class TaskSummary implements HasId, Serializable {
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, displayName, entityId, entityDisplayName, description, tags, submitTimeUtc, startTimeUtc, endTimeUtc, currentStatus, result, error, cancelled, children, submittedByTask, blockingTask, blockingDetails, detailedStatus, streams, links);
+        return Objects.hash(id, displayName, entityId, entityDisplayName, description, tags, submitTimeUtc, startTimeUtc, endTimeUtc, currentStatus, result, isError, isCancelled, children, submittedByTask, blockingTask, blockingDetails, detailedStatus, streams, links);
     }
 
     @Override
@@ -264,8 +264,8 @@ public class TaskSummary implements HasId, Serializable {
                 ", endTimeUtc=" + endTimeUtc +
                 ", currentStatus='" + currentStatus + '\'' +
                 ", result=" + result +
-                ", error=" + error +
-                ", cancelled=" + cancelled +
+                ", isError=" + isError +
+                ", isCancelled=" + isCancelled +
                 ", children=" + children +
                 ", submittedByTask=" + submittedByTask +
                 ", blockingTask=" + blockingTask +
