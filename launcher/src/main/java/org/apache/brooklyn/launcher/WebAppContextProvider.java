@@ -112,4 +112,10 @@ public class WebAppContextProvider {
     public String getWarUrl() {
         return warUrl;
     }
+
+    @Override
+    public String toString() {
+        return warUrl + "@" + pathSpec;
+    }
+
 }
