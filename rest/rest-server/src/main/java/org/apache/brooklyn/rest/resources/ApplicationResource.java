@@ -18,24 +18,11 @@
  */
 package org.apache.brooklyn.rest.resources;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static javax.ws.rs.core.Response.created;
-import static javax.ws.rs.core.Response.status;
-import static javax.ws.rs.core.Response.Status.ACCEPTED;
-
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.ResponseBuilder;
-import javax.ws.rs.core.UriInfo;
-
+import com.google.common.base.Throwables;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -83,11 +70,22 @@ import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Throwables;
-import com.google.common.collect.FluentIterable;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.ResponseBuilder;
+import javax.ws.rs.core.UriInfo;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static javax.ws.rs.core.Response.Status.ACCEPTED;
+import static javax.ws.rs.core.Response.created;
+import static javax.ws.rs.core.Response.status;
 
 @HaHotStateRequired
 public class ApplicationResource extends AbstractBrooklynRestResource implements ApplicationApi {
@@ -134,9 +132,19 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
                 members.addAll(entitiesIdAndNameAsList(memberEntities));
         }
 
-        return new EntityDetail(entity.getId(), parentId, entity.getDisplayName(),
-                entity.getEntityType().getName(), serviceUp, serviceState, iconUrl, entity.getCatalogItemId(),
-                children, groupIds, members);
+        return new EntityDetail(
+                entity.getApplicationId(),
+                entity.getId(),
+                parentId,
+                entity.getDisplayName(),
+                entity.getEntityType().getName(),
+                serviceUp,
+                serviceState,
+                iconUrl,
+                entity.getCatalogItemId(),
+                children,
+                groupIds,
+                members);
     }
 
     private List<Map<String, String>> entitiesIdAndNameAsList(Collection<? extends Entity> entities) {
