@@ -91,13 +91,15 @@
         <surefire.failIfNoSpecifiedTests>false</surefire.failIfNoSpecifiedTests>
         <coverage.target>${working.dir}</coverage.target>
 
-		<!-- Dependency Versions -->
+        <!-- Dependency Versions -->
         <jclouds.version>1.9.2</jclouds.version> <!-- JCLOUDS_VERSION -->
         <logback.version>1.0.7</logback.version>
         <slf4j.version>1.6.6</slf4j.version>  <!-- used for java.util.logging jul-to-slf4j interception -->
         <guava.version>17.0</guava.version>
         <xstream.version>1.4.7</xstream.version>
-        <fasterxml.jackson.version>2.7.0</fasterxml.jackson.version>  <!-- more recent jackson, but not compatible with old annotations! -->
+        <!-- double-check downstream projects before changing jackson and resteasy versions -->
+        <fasterxml.jackson.version>2.4.5</fasterxml.jackson.version>
+        <resteasy.version>3.0.8.Final</resteasy.version>
         <jersey.version>1.19</jersey.version>
         <httpclient.version>4.4.1</httpclient.version>
         <commons-lang3.version>3.3.2</commons-lang3.version>
@@ -131,7 +133,6 @@
         <solr.version>4.7.0</solr.version>
         <jtidy.version>r8-20060801</jtidy.version>
         <opendmk_jmxremote_optional_jar.version>1.0-b01-ea</opendmk_jmxremote_optional_jar.version>
-        <resteasy.version>3.0.14.Final</resteasy.version>
         <jopt.version>4.3</jopt.version>
         <concurrentlinkedhashmap.version>1.0_jdk5</concurrentlinkedhashmap.version>
         <javax-servlet.version>3.1.0</javax-servlet.version>
@@ -148,7 +149,6 @@
         <maxmind.version>0.8.1</maxmind.version>
         <jna.version>4.0.0</jna.version>
         <winrm4j.version>0.3.1</winrm4j.version>
-        
         <!-- Transitive dependencies, declared explicitly to avoid version mismatch -->
         <clojure.version>1.4.0</clojure.version>
         <zookeeper.version>3.3.4</zookeeper.version>
