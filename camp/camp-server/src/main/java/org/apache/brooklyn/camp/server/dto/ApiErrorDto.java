@@ -20,8 +20,7 @@ package org.apache.brooklyn.camp.server.dto;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import org.codehaus.jackson.annotate.JsonProperty;
-
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Throwables;
