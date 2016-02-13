@@ -27,7 +27,6 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
@@ -36,12 +35,10 @@ import org.apache.brooklyn.api.entity.drivers.EntityDriverManager;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
-import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
-import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Attributes;
@@ -59,11 +56,9 @@ import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -74,8 +69,6 @@ import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
-import com.google.common.reflect.TypeToken;
 
 /**
  * An {@link Entity} representing a piece of software which can be installed, run, and controlled.
@@ -121,7 +114,7 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
         return driver;
     }
 
-    protected SoftwareProcessDriver newDriver(MachineLocation loc){
+    protected SoftwareProcessDriver newDriver(Location loc){
         EntityDriverManager entityDriverManager = getManagementContext().getEntityDriverManager();
         return (SoftwareProcessDriver)entityDriverManager.build(this, loc);
     }
@@ -515,10 +508,10 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
         return ports;
     }
 
-    protected void initDriver(MachineLocation machine) {
-        SoftwareProcessDriver newDriver = doInitDriver(machine);
+    protected void initDriver(Location location) {
+        SoftwareProcessDriver newDriver = doInitDriver(location);
         if (newDriver == null) {
-            throw new UnsupportedOperationException("cannot start "+this+" on "+machine+": no driver available");
+            throw new UnsupportedOperationException("cannot start "+this+" on "+location+": no driver available");
         }
         driver = newDriver;
     }
@@ -527,16 +520,16 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
      * Creates the driver (if does not already exist or needs replaced for some reason). Returns either the existing driver
      * or a new driver. Must not return null.
      */
-    protected SoftwareProcessDriver doInitDriver(MachineLocation machine) {
+    protected SoftwareProcessDriver doInitDriver(Location location) {
         if (driver!=null) {
-            if ((driver instanceof AbstractSoftwareProcessDriver) && machine.equals(((AbstractSoftwareProcessDriver)driver).getLocation())) {
+            if ((driver instanceof AbstractSoftwareProcessDriver) && location.equals(((AbstractSoftwareProcessDriver)driver).getLocation())) {
                 return driver; //just reuse
             } else {
-                log.warn("driver/location change is untested for {} at {}; changing driver and continuing", this, machine);
-                return newDriver(machine);
+                log.warn("driver/location change is untested for {} at {}; changing driver and continuing", this, location);
+                return newDriver(location);
             }
         } else {
-            return newDriver(machine);
+            return newDriver(location);
         }
     }
     
