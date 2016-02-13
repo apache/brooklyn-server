@@ -82,7 +82,8 @@ import java.util.concurrent.TimeUnit;
  */
 public abstract class SoftwareProcessImpl extends AbstractEntity implements SoftwareProcess, DriverDependentEntity {
     private static final Logger log = LoggerFactory.getLogger(SoftwareProcessImpl.class);
-    
+
+    SoftwareProcessImplBehaviourFactory factory;
     private transient SoftwareProcessDriver driver;
 
     /** @see #connectServiceUpIsRunning() */
@@ -569,7 +570,7 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
     @Override
     public final void start(final Collection<? extends Location> locations) {
 
-        locationFlagSupplier = new MachineProvisioningLocationFlagsSupplier(this);
+        initFabricAndParameters(getLocation(locations));
 
         if (DynamicTasks.getTaskQueuingContext() != null) {
             getLifecycleEffectorTasks().start(locations);
@@ -578,6 +579,49 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
             Entities.submit(this, task).getUnchecked();
         }
     }
+
+    /**
+     * Adding behaviour to the entity depending on the {@link Location}
+     * @param location
+     */
+    protected void initFabricAndParameters(Location location){
+
+        if((location instanceof MachineProvisioningLocation) ||
+                (location instanceof MachineLocation)){
+            factory =  new SoftwareProcessImplMachineBehaviourFactory(this);
+        } else if(location instanceof PaasLocation){
+            factory =  new SoftwareProcessImplPaasBehaviourFactory(this);
+        }
+
+        locationFlagSupplier= factory.getLocationFlagSupplier();
+    }
+
+    /**
+     * This method was copied from {@link org.apache.brooklyn.entity.software.base.lifecycle.MachineLifecycleEffectorTasks}
+     * @param locations
+     * @return
+     */
+    //Fixme this method is duplicated on MachineLifecycleEffectorTasks.
+    protected Location getLocation(@Nullable Collection<? extends Location> locations) {
+        if (locations==null || locations.isEmpty()) locations = getLocations();
+        if (locations.isEmpty()) {
+            MachineProvisioningLocation<?> provisioner =
+                    getAttribute(SoftwareProcess.PROVISIONING_LOCATION);
+            if (provisioner!=null) locations = Arrays.<Location>asList(provisioner);
+        }
+        locations = Locations.getLocationsCheckingAncestors(locations, this);
+
+        Maybe<MachineLocation> ml = Locations.findUniqueMachineLocation(locations);
+        if (ml.isPresent()) return ml.get();
+
+        if (locations.isEmpty())
+            throw new IllegalArgumentException("No locations specified when starting " + this);
+        if (locations.size() != 1 || Iterables.getOnlyElement(locations)==null)
+            throw new IllegalArgumentException("Ambiguous locations detected when starting " +
+                    this + ": " + locations);
+        return Iterables.getOnlyElement(locations);
+    }
+
 
     /**
      * If custom behaviour is required by sub-classes, consider overriding  {@link #preStop()} or {@link #postStop()}.

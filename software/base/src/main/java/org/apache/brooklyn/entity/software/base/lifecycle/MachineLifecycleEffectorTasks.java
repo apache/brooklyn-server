@@ -128,7 +128,7 @@ public abstract class MachineLifecycleEffectorTasks {
     
     /** Attaches lifecycle effectors (start, restart, stop) to the given entity post-creation. */
     public void attachLifecycleEffectors(Entity entity) {
-        ((EntityInternal) entity).getMutableEntityType().addEffector(newStartEffector());
+        //((EntityInternal) entity).getMutableEntityType().addEffector(newStartEffector());
         ((EntityInternal) entity).getMutableEntityType().addEffector(newRestartEffector());
         ((EntityInternal) entity).getMutableEntityType().addEffector(newStopEffector());
     }

@@ -26,6 +26,7 @@ import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.entity.software.base.InboundPortsUtils;
+import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.entity.software.base.SoftwareProcessImpl;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -49,9 +50,13 @@ public class MachineProvisioningLocationFlagsSupplier extends AbstractLocationFl
         return obtainProvisioningFlags((MachineProvisioningLocation)location);
     }
 
+    public SoftwareProcessImpl entity(){
+        return (SoftwareProcessImpl) super.entity();
+    }
+
     protected Map<String,Object> obtainProvisioningFlags(MachineProvisioningLocation location) {
         ConfigBag result = ConfigBag.newInstance(location.getProvisioningFlags(ImmutableList.of(getClass().getName())));
-        result.putAll(entity().getConfig(SoftwareProcessImpl.PROVISIONING_PROPERTIES));
+        result.putAll(entity().getConfig(SoftwareProcess.PROVISIONING_PROPERTIES));
         if (result.get(CloudLocationConfig.INBOUND_PORTS) == null) {
             Collection<Integer> ports = getRequiredOpenPorts();
             Object requiredPorts = result.get(CloudLocationConfig.ADDITIONAL_INBOUND_PORTS);
@@ -71,15 +76,15 @@ public class MachineProvisioningLocationFlagsSupplier extends AbstractLocationFl
     /**
      * Returns the ports that this entity wants to be opened.
      * @see org.apache.brooklyn.entity.software.base.InboundPortsUtils#getRequiredOpenPorts(org.apache.brooklyn.api.entity.Entity, Set, Boolean, String)
-     * @see org.apache.brooklyn.entity.software.base.SoftwareProcessImpl#REQUIRED_OPEN_LOGIN_PORTS
-     * @see org.apache.brooklyn.entity.software.base.SoftwareProcessImpl#INBOUND_PORTS_AUTO_INFER
-     * @see org.apache.brooklyn.entity.software.base.SoftwareProcessImpl#INBOUND_PORTS_CONFIG_REGEX
+     * @see org.apache.brooklyn.entity.software.base.SoftwareProcess#REQUIRED_OPEN_LOGIN_PORTS
+     * @see org.apache.brooklyn.entity.software.base.SoftwareProcess#INBOUND_PORTS_AUTO_INFER
+     * @see org.apache.brooklyn.entity.software.base.SoftwareProcess#INBOUND_PORTS_CONFIG_REGEX
      */
     @SuppressWarnings("serial")
     public Collection<Integer> getRequiredOpenPorts() {
-        Set<Integer> ports = MutableSet.copyOf(entity().getConfig(SoftwareProcessImpl.REQUIRED_OPEN_LOGIN_PORTS));
-        Boolean portsAutoInfer = entity().getConfig(SoftwareProcessImpl.INBOUND_PORTS_AUTO_INFER);
-        String portsRegex = entity().getConfig(SoftwareProcessImpl.INBOUND_PORTS_CONFIG_REGEX);
+        Set<Integer> ports = MutableSet.copyOf(entity().getConfig(SoftwareProcess.REQUIRED_OPEN_LOGIN_PORTS));
+        Boolean portsAutoInfer = entity().getConfig(SoftwareProcess.INBOUND_PORTS_AUTO_INFER);
+        String portsRegex = entity().getConfig(SoftwareProcess.INBOUND_PORTS_CONFIG_REGEX);
         ports.addAll(InboundPortsUtils.getRequiredOpenPorts(entity(), entity().config().getBag().getAllConfigAsConfigKeyMap().keySet(), portsAutoInfer, portsRegex));
         return ports;
     }
