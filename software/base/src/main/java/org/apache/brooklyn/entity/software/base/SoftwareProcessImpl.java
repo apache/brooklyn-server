@@ -18,16 +18,10 @@
  */
 package org.apache.brooklyn.entity.software.base;
 
+import com.google.common.base.Functions;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import groovy.time.TimeDuration;
-
-import java.util.Collection;
-import java.util.Map;
-import java.util.Set;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.concurrent.Callable;
-import java.util.concurrent.TimeUnit;
-
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.drivers.DriverDependentEntity;
@@ -48,27 +42,36 @@ import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle.Transition;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceNotUpLogic;
-import org.apache.brooklyn.core.location.LocationConfigKeys;
-import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
+import org.apache.brooklyn.core.location.Locations;
+import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.SoftwareProcessImplBehaviourFactory;
+import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.SoftwareProcessImplMachineBehaviourFactory;
+import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.SoftwareProcessImplPaasBehaviourFactory;
+import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.supplier.LocationFlagSupplier;
+import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.supplier.MachineProvisioningLocationFlagsSupplier;
 import org.apache.brooklyn.feed.function.FunctionFeed;
 import org.apache.brooklyn.feed.function.FunctionPollConfig;
+import org.apache.brooklyn.location.paas.PaasLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Functions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
+import javax.annotation.Nullable;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 
 /**
  * An {@link Entity} representing a piece of software which can be installed, run, and controlled.
@@ -86,7 +89,9 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
     private volatile FunctionFeed serviceProcessIsRunning;
 
     protected boolean connectedSensors = false;
-    
+
+    public LocationFlagSupplier locationFlagSupplier;
+
     public SoftwareProcessImpl() {
         super(MutableMap.of(), null);
     }
@@ -126,6 +131,7 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
     @Override
     public void init() {
         super.init();
+        locationFlagSupplier = new MachineProvisioningLocationFlagsSupplier(this);
         getLifecycleEffectorTasks().attachLifecycleEffectors(this);
     }
     
@@ -473,39 +479,14 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
         Entities.waitForServiceUp(this, Duration.of(duration, units));
     }
 
-    protected Map<String,Object> obtainProvisioningFlags(MachineProvisioningLocation location) {
-        ConfigBag result = ConfigBag.newInstance(location.getProvisioningFlags(ImmutableList.of(getClass().getName())));
-        result.putAll(getConfig(PROVISIONING_PROPERTIES));
-        if (result.get(CloudLocationConfig.INBOUND_PORTS) == null) {
-            Collection<Integer> ports = getRequiredOpenPorts();
-            Object requiredPorts = result.get(CloudLocationConfig.ADDITIONAL_INBOUND_PORTS);
-            if (requiredPorts instanceof Integer) {
-                ports.add((Integer) requiredPorts);
-            } else if (requiredPorts instanceof Iterable) {
-                for (Object o : (Iterable<?>) requiredPorts) {
-                    if (o instanceof Integer) ports.add((Integer) o);
-                }
-            }
-            if (ports != null && ports.size() > 0) result.put(CloudLocationConfig.INBOUND_PORTS, ports);
-        }
-        result.put(LocationConfigKeys.CALLER_CONTEXT, this);
-        return result.getAllConfigMutable();
+    //Fixme this method should to be renamed because it is focus on IaaS and PaaS
+    protected Map<String,Object> obtainFlagsForLocation(Location location) {
+        return locationFlagSupplier.obtainFlagsForLocation(location);
     }
 
-    /**
-     * Returns the ports that this entity wants to be opened.
-     * @see InboundPortsUtils#getRequiredOpenPorts(Entity, Set, Boolean, String)
-     * @see #REQUIRED_OPEN_LOGIN_PORTS
-     * @see #INBOUND_PORTS_AUTO_INFER
-     * @see #INBOUND_PORTS_CONFIG_REGEX
-     */
-    @SuppressWarnings("serial")
-    protected Collection<Integer> getRequiredOpenPorts() {
-        Set<Integer> ports = MutableSet.copyOf(getConfig(REQUIRED_OPEN_LOGIN_PORTS));
-        Boolean portsAutoInfer = getConfig(INBOUND_PORTS_AUTO_INFER);
-        String portsRegex = getConfig(INBOUND_PORTS_CONFIG_REGEX);
-        ports.addAll(InboundPortsUtils.getRequiredOpenPorts(this, config().getBag().getAllConfigAsConfigKeyMap().keySet(), portsAutoInfer, portsRegex));
-        return ports;
+    //FIXME better, it could be called getRequiredPorts because it is focus on IaaS and PaaS
+    protected Collection<Integer> getRequiredOpenPorts(){
+        return locationFlagSupplier.getRequiredOpenPorts();
     }
 
     protected void initDriver(Location location) {
@@ -587,6 +568,9 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
      */
     @Override
     public final void start(final Collection<? extends Location> locations) {
+
+        locationFlagSupplier = new MachineProvisioningLocationFlagsSupplier(this);
+
         if (DynamicTasks.getTaskQueuingContext() != null) {
             getLifecycleEffectorTasks().start(locations);
         } else {
