@@ -125,14 +125,6 @@ public class SoftwareProcessDriverLifecycleEffectorTasks extends MachineLifecycl
         entity().preStart();
     }
 
-    /** returns how children startables should be handled (reporting none for efficiency if there are no children) */
-    protected ChildStartableMode getChildrenStartableModeEffective() {
-        if (entity().getChildren().isEmpty()) return ChildStartableMode.NONE;
-        ChildStartableMode result = entity().getConfig(SoftwareProcess.CHILDREN_STARTABLE_MODE);
-        if (result!=null) return result;
-        return ChildStartableMode.NONE;
-    }
-
     @Override
     protected String startProcessesAtMachine(final Supplier<MachineLocation> machineS) {
         ChildStartableMode mode = getChildrenStartableModeEffective();

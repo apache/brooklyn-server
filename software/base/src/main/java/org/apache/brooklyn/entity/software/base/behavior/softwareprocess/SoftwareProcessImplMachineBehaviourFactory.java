@@ -19,9 +19,14 @@
 package org.apache.brooklyn.entity.software.base.behavior.softwareprocess;
 
 
+import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.MachineLocation;
+import org.apache.brooklyn.api.location.MachineProvisioningLocation;
+import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.entity.software.base.SoftwareProcessImpl;
 import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.supplier.LocationFlagSupplier;
 import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.supplier.MachineProvisioningLocationFlagsSupplier;
+import org.apache.brooklyn.entity.software.base.lifecycle.LifecycleEffectorTasks;
 
 public class SoftwareProcessImplMachineBehaviourFactory
         implements SoftwareProcessImplBehaviourFactory {
@@ -35,6 +40,17 @@ public class SoftwareProcessImplMachineBehaviourFactory
     @Override
     public LocationFlagSupplier getLocationFlagSupplier() {
         return new MachineProvisioningLocationFlagsSupplier(entity);
+    }
+
+    @Override
+    public LifecycleEffectorTasks getLifecycleEffectorTasks() {
+        return entity.getConfig(SoftwareProcess.LIFECYCLE_EFFECTOR_TASKS);
+    }
+
+    @Override
+    public boolean isASupportedLocation(Location location) {
+        return (location instanceof MachineProvisioningLocation) ||
+                (location instanceof MachineLocation);
     }
 
 

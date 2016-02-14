@@ -16,17 +16,33 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.entity.software.base.behavior.softwareprocess;
+package org.apache.brooklyn.entity.software.base.lifecycle;
 
 
+import com.google.common.annotations.Beta;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
-import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.supplier.LocationFlagSupplier;
-import org.apache.brooklyn.entity.software.base.lifecycle.LifecycleEffectorTasks;
+import org.apache.brooklyn.util.core.config.ConfigBag;
 
-public interface SoftwareProcessImplBehaviourFactory {
+import javax.annotation.Nullable;
+import java.util.Collection;
 
-    public LocationFlagSupplier getLocationFlagSupplier();
-    public LifecycleEffectorTasks getLifecycleEffectorTasks();
-    public boolean isASupportedLocation(Location location);
+@Beta
+public interface LifecycleEffectorTasks {
 
+    void attachLifecycleEffectors(Entity entity);
+
+    void start(Collection<? extends Location> locations);
+
+    void restart(ConfigBag parameters);
+
+    void stop(ConfigBag paramters);
+
+    void suspend(ConfigBag paramters);
+
+    @Deprecated
+    void stop();
+
+    Location getLocation(@Nullable Collection<? extends Location> locations);
 }
+

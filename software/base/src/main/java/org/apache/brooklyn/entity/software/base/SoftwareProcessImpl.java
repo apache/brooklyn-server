@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.entity.software.base;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -42,12 +43,12 @@ import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle.Transition;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceNotUpLogic;
-import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.SoftwareProcessImplBehaviourFactory;
 import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.SoftwareProcessImplMachineBehaviourFactory;
 import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.SoftwareProcessImplPaasBehaviourFactory;
 import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.supplier.LocationFlagSupplier;
 import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.supplier.MachineProvisioningLocationFlagsSupplier;
+import org.apache.brooklyn.entity.software.base.lifecycle.LifecycleEffectorTasks;
 import org.apache.brooklyn.feed.function.FunctionFeed;
 import org.apache.brooklyn.feed.function.FunctionPollConfig;
 import org.apache.brooklyn.location.paas.PaasLocation;
@@ -57,15 +58,12 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nullable;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Timer;
@@ -83,7 +81,6 @@ import java.util.concurrent.TimeUnit;
 public abstract class SoftwareProcessImpl extends AbstractEntity implements SoftwareProcess, DriverDependentEntity {
     private static final Logger log = LoggerFactory.getLogger(SoftwareProcessImpl.class);
 
-    SoftwareProcessImplBehaviourFactory factory;
     private transient SoftwareProcessDriver driver;
 
     /** @see #connectServiceUpIsRunning() */
@@ -91,7 +88,9 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
 
     protected boolean connectedSensors = false;
 
+    SoftwareProcessImplBehaviourFactory factory;
     public LocationFlagSupplier locationFlagSupplier;
+    private LifecycleEffectorTasks LIFECYCLE_TASKS;
 
     public SoftwareProcessImpl() {
         super(MutableMap.of(), null);
@@ -132,8 +131,15 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
     @Override
     public void init() {
         super.init();
+        initBehavior();
+    }
+
+    @Beta
+    protected void initBehavior(){
         locationFlagSupplier = new MachineProvisioningLocationFlagsSupplier(this);
-        getLifecycleEffectorTasks().attachLifecycleEffectors(this);
+        factory =  new SoftwareProcessImplMachineBehaviourFactory(this);
+        LIFECYCLE_TASKS = getLifecycleEffectorTasks();
+        LIFECYCLE_TASKS.attachLifecycleEffectors(this);
     }
     
     @Override
@@ -570,7 +576,7 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
     @Override
     public final void start(final Collection<? extends Location> locations) {
 
-        initFabricAndParameters(getLocation(locations));
+        updateFactoryAndBehavior(getLifecycleEffectorTasks().getLocation(locations));
 
         if (DynamicTasks.getTaskQueuingContext() != null) {
             getLifecycleEffectorTasks().start(locations);
@@ -580,48 +586,38 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
         }
     }
 
-    /**
-     * Adding behaviour to the entity depending on the {@link Location}
-     * @param location
-     */
-    protected void initFabricAndParameters(Location location){
+    @Beta
+    protected void updateFactoryAndBehavior(Location location){
+        if((factory == null) || (newBehaviourFactoryIsRequired(location))) {
+            updateFactoryAndBehavior(createBehaviorFactory(location));
+        }
+    }
 
+    @Beta
+    private boolean newBehaviourFactoryIsRequired(Location location){
+        return !factory.isASupportedLocation(location);
+    }
+
+    @Beta
+    protected void updateFactoryAndBehavior(SoftwareProcessImplBehaviourFactory newFactory){
+        factory = newFactory;
+        LIFECYCLE_TASKS = factory.getLifecycleEffectorTasks();
+        log.info("Lifecycle {} was selected for {}", LIFECYCLE_TASKS, this);
+        locationFlagSupplier= factory.getLocationFlagSupplier();
+        LIFECYCLE_TASKS.attachLifecycleEffectors(this);
+    }
+
+    @Beta
+    protected SoftwareProcessImplBehaviourFactory createBehaviorFactory(Location location){
+        SoftwareProcessImplBehaviourFactory result =null;
         if((location instanceof MachineProvisioningLocation) ||
                 (location instanceof MachineLocation)){
-            factory =  new SoftwareProcessImplMachineBehaviourFactory(this);
+            result =  new SoftwareProcessImplMachineBehaviourFactory(this);
         } else if(location instanceof PaasLocation){
-            factory =  new SoftwareProcessImplPaasBehaviourFactory(this);
+            result =  new SoftwareProcessImplPaasBehaviourFactory(this);
         }
-
-        locationFlagSupplier= factory.getLocationFlagSupplier();
+        return result;
     }
-
-    /**
-     * This method was copied from {@link org.apache.brooklyn.entity.software.base.lifecycle.MachineLifecycleEffectorTasks}
-     * @param locations
-     * @return
-     */
-    //Fixme this method is duplicated on MachineLifecycleEffectorTasks.
-    protected Location getLocation(@Nullable Collection<? extends Location> locations) {
-        if (locations==null || locations.isEmpty()) locations = getLocations();
-        if (locations.isEmpty()) {
-            MachineProvisioningLocation<?> provisioner =
-                    getAttribute(SoftwareProcess.PROVISIONING_LOCATION);
-            if (provisioner!=null) locations = Arrays.<Location>asList(provisioner);
-        }
-        locations = Locations.getLocationsCheckingAncestors(locations, this);
-
-        Maybe<MachineLocation> ml = Locations.findUniqueMachineLocation(locations);
-        if (ml.isPresent()) return ml.get();
-
-        if (locations.isEmpty())
-            throw new IllegalArgumentException("No locations specified when starting " + this);
-        if (locations.size() != 1 || Iterables.getOnlyElement(locations)==null)
-            throw new IllegalArgumentException("Ambiguous locations detected when starting " +
-                    this + ": " + locations);
-        return Iterables.getOnlyElement(locations);
-    }
-
 
     /**
      * If custom behaviour is required by sub-classes, consider overriding  {@link #preStop()} or {@link #postStop()}.
@@ -658,9 +654,29 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
             Entities.submit(this, task).getUnchecked();
         }
     }
-    
-    protected SoftwareProcessDriverLifecycleEffectorTasks getLifecycleEffectorTasks() {
+
+    /**
+     * Returns current LIFECYCLE_TASK if the LIFECYCLE_TASKS is null it will return
+     * {@link #getMachineLifecycleEffectorTasks()}
+     * @return
+     */
+    @Beta
+    protected LifecycleEffectorTasks getLifecycleEffectorTasks(){
+        if(LIFECYCLE_TASKS==null){
+            log.warn("A lifecycle was not selected for entity {}, so it will be use a default " +
+                    "SoftwareProcessDriverLifecycleEffectorTasks lifecycle. Using start Effector" +
+                    " to select a lifecycle according to the target location", this);
+            return getMachineLifecycleEffectorTasks();
+        }
+        return LIFECYCLE_TASKS;
+    }
+
+    public SoftwareProcessDriverLifecycleEffectorTasks getMachineLifecycleEffectorTasks() {
         return getConfig(LIFECYCLE_EFFECTOR_TASKS);
+    }
+
+    public PaasLifecycleEffectorTasks getPaaSLifecycleEffectorTasks(){
+        return getConfig(PAAS_LIFECYCLE_EFFECTOR_TASKS);
     }
 
 }
