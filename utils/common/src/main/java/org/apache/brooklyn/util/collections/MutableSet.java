@@ -175,6 +175,16 @@ public class MutableSet<V> extends LinkedHashSet<V> {
             return this;
         }
         
+        public Builder<V> retainAll(Iterable<? extends V> iterable) {
+            if (iterable instanceof Collection) {
+                result.retainAll((Collection<? extends V>) iterable);
+            } else {
+                Set<V> toretain = Sets.newHashSet(iterable);
+                result.retainAll(toretain);
+            }
+            return this;
+        }
+        
         public MutableSet<V> build() {
           return new MutableSet<V>(result);
         }

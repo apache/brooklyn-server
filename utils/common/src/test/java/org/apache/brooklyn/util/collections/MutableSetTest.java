@@ -18,11 +18,13 @@
  */
 package org.apache.brooklyn.util.collections;
 
+import java.util.List;
 import java.util.Set;
 
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 @Test
@@ -69,6 +71,14 @@ public class MutableSetTest {
                 .add(4)
                 .build();
         Assert.assertEquals(vals, ImmutableSet.of(1,4));
+    }
+    
+    public void testBuilderRetainAll() throws Exception {
+        Set<Object> vals = MutableSet.builder()
+                .add(1,2,3)
+                .retainAll(ImmutableList.of(1,2))
+                .build();
+        Assert.assertEquals(vals, ImmutableSet.of(1,2));
     }
     
     public void testEqualsExact() {
