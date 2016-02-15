@@ -40,13 +40,14 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.objs.proxy.EntityProxy;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -57,6 +58,8 @@ import com.google.common.collect.Iterables;
 
 public class ApplicationBuilderOverridingTest {
 
+    private static final Logger LOG = LoggerFactory.getLogger(ApplicationBuilderOverridingTest.class);
+    
     private static final long TIMEOUT_MS = 10*1000;
     
     private ManagementContext spareManagementContext;
@@ -65,7 +68,7 @@ public class ApplicationBuilderOverridingTest {
     
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
-        spareManagementContext = new LocalManagementContextForTests();
+        spareManagementContext = LocalManagementContextForTests.newInstance();
         executor = Executors.newCachedThreadPool();
     }
     
@@ -147,7 +150,7 @@ public class ApplicationBuilderOverridingTest {
 
     @Test(expectedExceptions=IllegalStateException.class)
     public void testRentrantCallToManageForbidden() {
-        ManagementContext secondManagementContext = new LocalManagementContext();
+        ManagementContext secondManagementContext = LocalManagementContextForTests.newInstance();
         try {
             app = new ApplicationBuilder() {
                 @Override public void doBuild() {
@@ -192,13 +195,14 @@ public class ApplicationBuilderOverridingTest {
 
     @Test
     public void testConcurrentCallToManageForbidden() throws Exception {
+        final AtomicReference<Throwable> err = new AtomicReference<Throwable>();
         final CountDownLatch inbuildLatch = new CountDownLatch(1);
         final CountDownLatch continueLatch = new CountDownLatch(1);
         final ApplicationBuilder builder = new ApplicationBuilder() {
             @Override public void doBuild() {
+                inbuildLatch.countDown();
                 try {
-                    inbuildLatch.countDown();
-                    continueLatch.await();
+                    assertTrue(continueLatch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS));
                 } catch (InterruptedException e) {
                     throw Exceptions.propagate(e);
                 }
@@ -206,11 +210,21 @@ public class ApplicationBuilderOverridingTest {
         };
         Future<StartableApplication> future = executor.submit(new Callable<StartableApplication>() {
             public StartableApplication call() {
-                return builder.manage();
+                try {
+                    return builder.manage();
+                } catch (Throwable t) {
+                    LOG.error("Problem in simple ApplicationBuilder", t);
+                    err.set(t);
+                    inbuildLatch.countDown();
+                    throw Exceptions.propagate(t);
+                }
             }
         });
         
         inbuildLatch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        if (err.get() != null) {
+            throw Exceptions.propagate(err.get());
+        }
         
         try {
             app = builder.manage(spareManagementContext);
