@@ -457,10 +457,13 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
                     .displayName("ssh-location cache cleaner").body(new Callable<Void>() {
                     @Override public Void call() {
                         try {
-                            if (sshPoolCacheOrNull != null) sshPoolCacheOrNull.cleanUp();
+                            LoadingCache<Map<String, ?>, Pool<SshTool>> sshPoolCacheOrNullRef = sshPoolCacheOrNull;
+                            Task<?> cleanupTaskRef = cleanupTask;
+                            
+                            if (sshPoolCacheOrNullRef != null) sshPoolCacheOrNullRef.cleanUp();
                             if (!SshMachineLocation.this.isManaged()) {
-                                if (sshPoolCacheOrNull != null) sshPoolCacheOrNull.invalidateAll();
-                                cleanupTask.cancel(false);
+                                if (sshPoolCacheOrNullRef != null) sshPoolCacheOrNullRef.invalidateAll();
+                                if (cleanupTaskRef != null) cleanupTaskRef.cancel(false);
                                 sshPoolCacheOrNull = null;
                             }
                             return null;
@@ -486,17 +489,20 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
     // we should probably expose a mechanism such as that in Entity (or re-use Entity for locations!)
     @Override
     public void close() throws IOException {
-        if (sshPoolCacheOrNull != null) {
+        LoadingCache<Map<String, ?>, Pool<SshTool>> sshPoolCacheOrNullRef = sshPoolCacheOrNull;
+        Task<?> cleanupTaskRef = cleanupTask;
+        
+        if (sshPoolCacheOrNullRef != null) {
             if (LOG.isDebugEnabled()) {
-                LOG.debug("{} invalidating all entries in ssh pool cache. Final stats: {}", this, sshPoolCacheOrNull.stats());
+                LOG.debug("{} invalidating all entries in ssh pool cache. Final stats: {}", this, sshPoolCacheOrNullRef.stats());
             }
-            sshPoolCacheOrNull.invalidateAll();
+            sshPoolCacheOrNullRef.invalidateAll();
         }
-        if (cleanupTask != null) {
-            cleanupTask.cancel(false);
-            cleanupTask = null;
-            sshPoolCacheOrNull = null;
+        if (cleanupTaskRef != null) {
+            cleanupTaskRef.cancel(false);
         }
+        cleanupTask = null;
+        sshPoolCacheOrNull = null;
     }
 
     // should not be necessary, and causes objects to be kept around a lot longer than desired
