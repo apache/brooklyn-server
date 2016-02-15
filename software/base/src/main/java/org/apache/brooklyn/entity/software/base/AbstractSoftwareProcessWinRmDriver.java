@@ -84,9 +84,9 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
 
     @Override
     public void runPreInstallCommand() {
-        if (Strings.isNonBlank(getEntity().getConfig(VanillaWindowsProcess.PRE_INSTALL_COMMAND)) || Strings.isNonBlank(getEntity().getConfig(VanillaWindowsProcess.PRE_INSTALL_POWERSHELL_COMMAND))) {
+        if (Strings.isNonBlank(getEntity().getConfig(BrooklynConfigKeys.PRE_INSTALL_COMMAND)) || Strings.isNonBlank(getEntity().getConfig(VanillaWindowsProcess.PRE_INSTALL_POWERSHELL_COMMAND))) {
             executeCommandInTask(
-                    getEntity().getConfig(VanillaWindowsProcess.PRE_INSTALL_COMMAND),
+                    getEntity().getConfig(BrooklynConfigKeys.PRE_INSTALL_COMMAND),
                     getEntity().getConfig(VanillaWindowsProcess.PRE_INSTALL_POWERSHELL_COMMAND),
                     "pre-install-command");
         }
@@ -104,9 +104,29 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
     public void runPostInstallCommand() {
         if (Strings.isNonBlank(entity.getConfig(BrooklynConfigKeys.POST_INSTALL_COMMAND)) || Strings.isNonBlank(getEntity().getConfig(VanillaWindowsProcess.POST_INSTALL_POWERSHELL_COMMAND))) {
             executeCommandInTask(
-                    getEntity().getConfig(VanillaWindowsProcess.POST_INSTALL_COMMAND),
+                    getEntity().getConfig(BrooklynConfigKeys.POST_INSTALL_COMMAND),
                     getEntity().getConfig(VanillaWindowsProcess.POST_INSTALL_POWERSHELL_COMMAND),
                     "post-install-command");
+        }
+    }
+
+    @Override
+    public void runPreCustomizeCommand() {
+        if (Strings.isNonBlank(getEntity().getConfig(BrooklynConfigKeys.PRE_CUSTOMIZE_COMMAND)) || Strings.isNonBlank(getEntity().getConfig(VanillaWindowsProcess.PRE_CUSTOMIZE_POWERSHELL_COMMAND))) {
+            executeCommandInTask(
+                    getEntity().getConfig(BrooklynConfigKeys.PRE_CUSTOMIZE_COMMAND),
+                    getEntity().getConfig(VanillaWindowsProcess.PRE_CUSTOMIZE_POWERSHELL_COMMAND),
+                    "pre-customize-command");
+        }
+    }
+
+    @Override
+    public void runPostCustomizeCommand() {
+        if (Strings.isNonBlank(entity.getConfig(BrooklynConfigKeys.POST_CUSTOMIZE_COMMAND)) || Strings.isNonBlank(getEntity().getConfig(VanillaWindowsProcess.POST_CUSTOMIZE_POWERSHELL_COMMAND))) {
+            executeCommandInTask(
+                    getEntity().getConfig(BrooklynConfigKeys.POST_CUSTOMIZE_COMMAND),
+                    getEntity().getConfig(VanillaWindowsProcess.POST_CUSTOMIZE_POWERSHELL_COMMAND),
+                    "post-customize-command");
         }
     }
 
@@ -114,7 +134,7 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
     public void runPreLaunchCommand() {
         if (Strings.isNonBlank(entity.getConfig(BrooklynConfigKeys.PRE_LAUNCH_COMMAND)) || Strings.isNonBlank(entity.getConfig(VanillaWindowsProcess.PRE_LAUNCH_POWERSHELL_COMMAND))) {
             executeCommandInTask(
-                    getEntity().getConfig(VanillaWindowsProcess.PRE_LAUNCH_COMMAND),
+                    getEntity().getConfig(BrooklynConfigKeys.PRE_LAUNCH_COMMAND),
                     getEntity().getConfig(VanillaWindowsProcess.PRE_LAUNCH_POWERSHELL_COMMAND),
                     "pre-launch-command");
         }
@@ -124,7 +144,7 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
     public void runPostLaunchCommand() {
         if (Strings.isNonBlank(entity.getConfig(BrooklynConfigKeys.POST_LAUNCH_COMMAND)) || Strings.isNonBlank(entity.getConfig(VanillaWindowsProcess.POST_LAUNCH_POWERSHELL_COMMAND))) {
             executeCommandInTask(
-                    getEntity().getConfig(VanillaWindowsProcess.POST_LAUNCH_COMMAND),
+                    getEntity().getConfig(BrooklynConfigKeys.POST_LAUNCH_COMMAND),
                     getEntity().getConfig(VanillaWindowsProcess.POST_LAUNCH_POWERSHELL_COMMAND),
                     "post-launch-command");
         }

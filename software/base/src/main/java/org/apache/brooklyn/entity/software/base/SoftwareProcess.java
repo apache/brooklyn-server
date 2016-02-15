@@ -112,6 +112,12 @@ public interface SoftwareProcess extends Entity, Startable {
     @SetFromFlag("postInstallCommand")
     ConfigKey<String> POST_INSTALL_COMMAND = BrooklynConfigKeys.POST_INSTALL_COMMAND;
 
+    @SetFromFlag("preCustomizeCommand")
+    ConfigKey<String> PRE_CUSTOMIZE_COMMAND = BrooklynConfigKeys.PRE_CUSTOMIZE_COMMAND;
+
+    @SetFromFlag("postCustomizeCommand")
+    ConfigKey<String> POST_CUSTOMIZE_COMMAND = BrooklynConfigKeys.POST_CUSTOMIZE_COMMAND;
+
     @SetFromFlag("preLaunchCommand")
     ConfigKey<String> PRE_LAUNCH_COMMAND = BrooklynConfigKeys.PRE_LAUNCH_COMMAND;
 

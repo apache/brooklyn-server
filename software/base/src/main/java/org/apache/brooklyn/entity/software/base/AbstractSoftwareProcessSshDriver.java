@@ -297,8 +297,8 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
 
     @Override
     public void runPreInstallCommand() {
-        if(Strings.isNonBlank(getEntity().getConfig(VanillaSoftwareProcess.PRE_INSTALL_COMMAND))) {
-            execute(getEntity().getConfig(VanillaSoftwareProcess.PRE_INSTALL_COMMAND), "running pre-install commands");
+        if(Strings.isNonBlank(getEntity().getConfig(BrooklynConfigKeys.PRE_INSTALL_COMMAND))) {
+            execute(ImmutableList.of(getEntity().getConfig(BrooklynConfigKeys.PRE_INSTALL_COMMAND)), "running pre-install commands");
         }
     }
 
@@ -306,6 +306,20 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
     public void runPostInstallCommand() {
         if (Strings.isNonBlank(entity.getConfig(BrooklynConfigKeys.POST_INSTALL_COMMAND))) {
             execute(ImmutableList.of(entity.getConfig(BrooklynConfigKeys.POST_INSTALL_COMMAND)), "running post-install commands");
+        }
+    }
+
+    @Override
+    public void runPreCustomizeCommand() {
+        if(Strings.isNonBlank(getEntity().getConfig(BrooklynConfigKeys.PRE_CUSTOMIZE_COMMAND))) {
+            execute(ImmutableList.of(getEntity().getConfig(BrooklynConfigKeys.PRE_CUSTOMIZE_COMMAND)), "running pre-customize commands");
+        }
+    }
+
+    @Override
+    public void runPostCustomizeCommand() {
+        if (Strings.isNonBlank(entity.getConfig(BrooklynConfigKeys.POST_CUSTOMIZE_COMMAND))) {
+            execute(ImmutableList.of(entity.getConfig(BrooklynConfigKeys.POST_CUSTOMIZE_COMMAND)), "running post-customize commands");
         }
     }
 
