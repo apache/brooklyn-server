@@ -179,12 +179,14 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
     public static final ConfigKey<Boolean> DETECT_MACHINE_DETAILS = ConfigKeys.newBooleanConfigKey("detectMachineDetails",
             "Attempt to detect machine details automatically. Works with SSH-accessible Linux instances.", true);
 
+    @SuppressWarnings("serial")
     public static final ConfigKey<Iterable<String>> PRIVATE_ADDRESSES = ConfigKeys.newConfigKey(
             new TypeToken<Iterable<String>>() {},
             "privateAddresses",
             "Private addresses of this machine, e.g. those within the private network", 
             null);
 
+    @SuppressWarnings("serial")
     public static final ConfigKey<Map<Integer, String>> TCP_PORT_MAPPINGS = ConfigKeys.newConfigKey(
             new TypeToken<Map<Integer, String>>() {},
             "tcpPortMappings",
@@ -248,7 +250,7 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
      * i.e. they can be specified per command on the tool
      */
     // TODO: Fully specify.
-    public static final Set<ConfigKey<?>> REUSABLE_SSH_PROPS = ImmutableSet.of(
+    public static final Set<ConfigKey<?>> REUSABLE_SSH_PROPS = ImmutableSet.<ConfigKey<?>>of(
             STDOUT, STDERR, SCRIPT_DIR, CLOSE_CONNECTION,
             SshTool.PROP_SCRIPT_HEADER, SshTool.PROP_PERMISSIONS, SshTool.PROP_LAST_MODIFICATION_DATE,
             SshTool.PROP_LAST_ACCESS_DATE, SshTool.PROP_OWNER_UID, SshTool.PROP_SSH_RETRY_DELAY);
