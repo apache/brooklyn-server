@@ -29,7 +29,6 @@
         <relativePath>../../parent/pom.xml</relativePath>
     </parent>
 
-    <groupId>org.apache.brooklyn</groupId>
     <artifactId>brooklyn-software-winrm</artifactId>
 
     <name>Brooklyn WinRM Software Entities</name>
@@ -44,6 +43,26 @@
             <groupId>io.cloudsoft.windows</groupId>
             <artifactId>winrm4j</artifactId>
             <version>${winrm4j.version}</version>
+            <exclusions>
+                 <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>jcl-over-slf4j</artifactId>
+                </exclusion>
+                 <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!--
+            Excluded from winrm4j the wrong jcl-over-slf4j version; include the right one below.
+            Note use of explicit exclude, rather than wildcard, because maven-enforcer-plugin 1.4.1
+            does not support wildcards: https://issues.apache.org/jira/browse/MENFORCER-195
+         -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>jcl-over-slf4j</artifactId>
+            <version>${slf4j.version}</version>
         </dependency>
 
         <!-- test -->
