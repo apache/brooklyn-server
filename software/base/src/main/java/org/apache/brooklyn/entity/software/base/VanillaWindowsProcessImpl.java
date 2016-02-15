@@ -33,9 +33,13 @@ public class VanillaWindowsProcessImpl extends SoftwareProcessImpl implements Va
     protected void preStart() {
         super.preStart();
         sensors().set(RDP_PORT, 3389);
+        sensors().set(RDP_PORT_CAMEL_CASE, 3389);
+
         WinRmMachineLocation loc = Iterables.getFirst(Iterables.filter(getLocations(), WinRmMachineLocation.class), null);
         if (loc != null) {
             sensors().set(WINRM_PORT, loc.getPort());
+            sensors().set(WINRM_PORT_SHORTEN, loc.getPort());
+            sensors().set(WINRM_PORT_CAMEL_CASE, loc.getPort());
         }
     }
     
