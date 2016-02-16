@@ -102,6 +102,10 @@ public class BrooklynConfigKeys {
             "Command to be run prior to the install method being called on the driver");
     public static final ConfigKey<String> POST_INSTALL_COMMAND = ConfigKeys.newStringConfigKey("post.install.command",
             "Command to be run after the install method being called on the driver");
+    public static final ConfigKey<String> PRE_CUSTOMIZE_COMMAND = ConfigKeys.newStringConfigKey("pre.customize.command",
+            "Command to be run prior to the customize method being called on the driver");
+    public static final ConfigKey<String> POST_CUSTOMIZE_COMMAND = ConfigKeys.newStringConfigKey("post.customize.command",
+            "Command to be run after the customize method being called on the driver");
     public static final ConfigKey<String> PRE_LAUNCH_COMMAND = ConfigKeys.newStringConfigKey("pre.launch.command",
             "Command to be run prior to the launch method being called on the driver");
     public static final ConfigKey<String> POST_LAUNCH_COMMAND = ConfigKeys.newStringConfigKey("post.launch.command",

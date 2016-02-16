@@ -82,6 +82,12 @@ public interface VanillaWindowsProcess extends AbstractVanillaProcess {
     ConfigKey<String> POST_INSTALL_POWERSHELL_COMMAND = ConfigKeys.newStringConfigKey("post.install.powershell.command",
             "powershell command to run during the post-install phase");
 
+    ConfigKey<String> PRE_CUSTOMIZE_POWERSHELL_COMMAND = ConfigKeys.newStringConfigKey("pre.customize.powershell.command",
+            "powershell command to run during the pre-customize phase");
+
+    ConfigKey<String> POST_CUSTOMIZE_POWERSHELL_COMMAND = ConfigKeys.newStringConfigKey("post.customize.powershell.command",
+            "powershell command to run during the post-customize phase");
+
     ConfigKey<String> PRE_LAUNCH_POWERSHELL_COMMAND = ConfigKeys.newStringConfigKey("pre.launch.powershell.command",
             "powershell command to run during the pre-launch phase");
     

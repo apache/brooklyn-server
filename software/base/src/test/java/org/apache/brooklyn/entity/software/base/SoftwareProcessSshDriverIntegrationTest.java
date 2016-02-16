@@ -232,6 +232,28 @@ public class SoftwareProcessSshDriverIntegrationTest {
     }
 
     @Test(groups="Integration")
+    public void testPreAndPostCustomizeCommands() throws IOException {
+        File tempFile = new File(tempDataDir, "tempFile.txt");
+        localhost.config().set(BrooklynConfigKeys.ONBOX_BASE_DIR, tempDataDir.getAbsolutePath());
+        app.createAndManageChild(EntitySpec.create(VanillaSoftwareProcess.class)
+                .configure(VanillaSoftwareProcess.CHECK_RUNNING_COMMAND, "")
+                .configure(BrooklynConfigKeys.PRE_CUSTOMIZE_COMMAND, String.format("echo inPreCustomize >> %s", tempFile.getAbsoluteFile()))
+                .configure(VanillaSoftwareProcess.CUSTOMIZE_COMMAND, String.format("echo inCustomize >> %s", tempFile.getAbsoluteFile()))
+                .configure(BrooklynConfigKeys.POST_CUSTOMIZE_COMMAND, String.format("echo inPostCustomize >> %s", tempFile.getAbsoluteFile()))
+                .configure(VanillaSoftwareProcess.LAUNCH_COMMAND, String.format("echo inLaunch >> %s", tempFile.getAbsoluteFile())));
+        app.start(ImmutableList.of(localhost));
+
+        List<String> output = Files.readLines(tempFile, Charsets.UTF_8);
+        assertEquals(output.size(), 4);
+        assertEquals(output.get(0), "inPreCustomize");
+        assertEquals(output.get(1), "inCustomize");
+        assertEquals(output.get(2), "inPostCustomize");
+        // Launch command is required
+        assertEquals(output.get(3), "inLaunch");
+        tempFile.delete();
+    }
+
+    @Test(groups="Integration")
     public void testPreAndPostLaunchCommands() throws IOException {
         File tempFile = new File(tempDataDir, "tempFile.txt");
         localhost.config().set(BrooklynConfigKeys.ONBOX_BASE_DIR, tempDataDir.getAbsolutePath());

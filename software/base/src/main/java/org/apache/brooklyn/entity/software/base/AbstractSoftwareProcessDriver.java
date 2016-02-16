@@ -147,8 +147,18 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
             }});
 
             DynamicTasks.queue("customize", new Runnable() { public void run() {
-                waitForConfigKey(BrooklynConfigKeys.CUSTOMIZE_LATCH);
-                customize();
+                DynamicTasks.queue("pre-customize-command", new Runnable() { public void run() {
+                    runPreCustomizeCommand();
+                }});
+
+                DynamicTasks.queue("customize (main)", new Runnable() { public void run() {
+                    waitForConfigKey(BrooklynConfigKeys.CUSTOMIZE_LATCH);
+                    customize();
+                }});
+
+                DynamicTasks.queue("post-customize-command", new Runnable() { public void run() {
+                    runPostCustomizeCommand();
+                }});
             }});
 
             DynamicTasks.queue("launch", new Runnable() { public void run() {
@@ -189,7 +199,9 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
     public abstract void setup();
     public abstract void install();
     public abstract void runPostInstallCommand();
+    public abstract void runPreCustomizeCommand();
     public abstract void customize();
+    public abstract void runPostCustomizeCommand();
     public abstract void runPreLaunchCommand();
     public abstract void launch();
     /** Only run if launch is run (if start is not skipped). */
