@@ -179,12 +179,14 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
     public static final ConfigKey<Boolean> DETECT_MACHINE_DETAILS = ConfigKeys.newBooleanConfigKey("detectMachineDetails",
             "Attempt to detect machine details automatically. Works with SSH-accessible Linux instances.", true);
 
+    @SuppressWarnings("serial")
     public static final ConfigKey<Iterable<String>> PRIVATE_ADDRESSES = ConfigKeys.newConfigKey(
             new TypeToken<Iterable<String>>() {},
             "privateAddresses",
             "Private addresses of this machine, e.g. those within the private network", 
             null);
 
+    @SuppressWarnings("serial")
     public static final ConfigKey<Map<Integer, String>> TCP_PORT_MAPPINGS = ConfigKeys.newConfigKey(
             new TypeToken<Map<Integer, String>>() {},
             "tcpPortMappings",
@@ -248,7 +250,7 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
      * i.e. they can be specified per command on the tool
      */
     // TODO: Fully specify.
-    public static final Set<ConfigKey<?>> REUSABLE_SSH_PROPS = ImmutableSet.of(
+    public static final Set<ConfigKey<?>> REUSABLE_SSH_PROPS = ImmutableSet.<ConfigKey<?>>of(
             STDOUT, STDERR, SCRIPT_DIR, CLOSE_CONNECTION,
             SshTool.PROP_SCRIPT_HEADER, SshTool.PROP_PERMISSIONS, SshTool.PROP_LAST_MODIFICATION_DATE,
             SshTool.PROP_LAST_ACCESS_DATE, SshTool.PROP_OWNER_UID, SshTool.PROP_SSH_RETRY_DELAY);
@@ -457,10 +459,13 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
                     .displayName("ssh-location cache cleaner").body(new Callable<Void>() {
                     @Override public Void call() {
                         try {
-                            if (sshPoolCacheOrNull != null) sshPoolCacheOrNull.cleanUp();
+                            LoadingCache<Map<String, ?>, Pool<SshTool>> sshPoolCacheOrNullRef = sshPoolCacheOrNull;
+                            Task<?> cleanupTaskRef = cleanupTask;
+                            
+                            if (sshPoolCacheOrNullRef != null) sshPoolCacheOrNullRef.cleanUp();
                             if (!SshMachineLocation.this.isManaged()) {
-                                if (sshPoolCacheOrNull != null) sshPoolCacheOrNull.invalidateAll();
-                                cleanupTask.cancel(false);
+                                if (sshPoolCacheOrNullRef != null) sshPoolCacheOrNullRef.invalidateAll();
+                                if (cleanupTaskRef != null) cleanupTaskRef.cancel(false);
                                 sshPoolCacheOrNull = null;
                             }
                             return null;
@@ -486,17 +491,20 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
     // we should probably expose a mechanism such as that in Entity (or re-use Entity for locations!)
     @Override
     public void close() throws IOException {
-        if (sshPoolCacheOrNull != null) {
+        LoadingCache<Map<String, ?>, Pool<SshTool>> sshPoolCacheOrNullRef = sshPoolCacheOrNull;
+        Task<?> cleanupTaskRef = cleanupTask;
+        
+        if (sshPoolCacheOrNullRef != null) {
             if (LOG.isDebugEnabled()) {
-                LOG.debug("{} invalidating all entries in ssh pool cache. Final stats: {}", this, sshPoolCacheOrNull.stats());
+                LOG.debug("{} invalidating all entries in ssh pool cache. Final stats: {}", this, sshPoolCacheOrNullRef.stats());
             }
-            sshPoolCacheOrNull.invalidateAll();
+            sshPoolCacheOrNullRef.invalidateAll();
         }
-        if (cleanupTask != null) {
-            cleanupTask.cancel(false);
-            cleanupTask = null;
-            sshPoolCacheOrNull = null;
+        if (cleanupTaskRef != null) {
+            cleanupTaskRef.cancel(false);
         }
+        cleanupTask = null;
+        sshPoolCacheOrNull = null;
     }
 
     // should not be necessary, and causes objects to be kept around a lot longer than desired

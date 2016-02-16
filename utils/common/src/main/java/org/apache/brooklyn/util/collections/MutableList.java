@@ -31,6 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 
 public class MutableList<V> extends ArrayList<V> {
     private static final long serialVersionUID = -5533940507175152491L;
@@ -172,6 +173,16 @@ public class MutableList<V> extends ArrayList<V> {
                 for (V v : iterable) {
                     result.remove(v);
                 }
+            }
+            return this;
+        }
+
+        public Builder<V> retainAll(Iterable<? extends V> iterable) {
+            if (iterable instanceof Collection) {
+                result.retainAll((Collection<? extends V>) iterable);
+            } else {
+                List<V> toretain = Lists.newArrayList(iterable);
+                result.retainAll(toretain);
             }
             return this;
         }

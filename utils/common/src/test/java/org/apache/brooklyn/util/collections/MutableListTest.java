@@ -72,6 +72,14 @@ public class MutableListTest {
         Assert.assertEquals(vals, ImmutableList.of(1,4));
     }
     
+    public void testBuilderRetainAll() throws Exception {
+        List<Object> vals = MutableList.builder()
+                .add(1,2,3)
+                .retainAll(ImmutableList.of(1,2))
+                .build();
+        Assert.assertEquals(vals, ImmutableList.of(1,2));
+    }
+    
     public void testEqualsExact() {
         List<Object> a = MutableList.<Object>of("a", 1, "b", false);
         List<Object> b = MutableList.<Object>of("a", 1, "b", false);
