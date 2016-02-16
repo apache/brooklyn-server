@@ -37,7 +37,7 @@
 
     <properties>
         <cloudfoundry.client.version>1.1.2</cloudfoundry.client.version>
-        <springframework-webmvn.version>4.0.5.RELEASE</springframework-webmvn.version>
+        <springframework-webmvc.version>4.1.4.RELEASE</springframework-webmvc.version>
         <springframework-security.version>2.0.4.RELEASE</springframework-security.version>
     </properties>
 
@@ -78,12 +78,16 @@
                     <groupId>org.springframework.security.oauth</groupId>
                     <artifactId>spring-security-oauth2</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.springframework</groupId>
+                    <artifactId>spring-webmvc</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-webmvc</artifactId>
-            <version>${springframework-webmvn.version}</version>
+            <version>${springframework-webmvc.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>commons-logging</groupId>
