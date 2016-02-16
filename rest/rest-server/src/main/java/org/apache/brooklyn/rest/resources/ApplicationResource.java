@@ -85,7 +85,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -239,7 +238,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     @Override
     public Response createFromYaml(String yaml) {
         // First of all, see if it's a URL
-        Preconditions.checkNotNull(yaml, "Blueprint cannot be null");
+        Preconditions.checkNotNull(yaml, "Blueprint must not be null");
         URI uri = null;
         try {
             String yamlUrl = yaml.trim();
@@ -267,8 +266,11 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
             spec = createEntitySpecForApplication(yaml);
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
-            Throwable root = Throwables.getRootCause(e);
-            if (root instanceof UserFacingException) throw (UserFacingException) root;
+            UserFacingException userFacing = Exceptions.getFirstThrowableOfType(e, UserFacingException.class);
+            if (userFacing!=null) {
+                log.debug("Throwing "+userFacing+", wrapped in "+e);
+                throw userFacing;
+            }
             throw WebResourceUtils.badRequest(e, "Error in blueprint");
         }
         
@@ -338,6 +340,8 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         try {
             spec = createEntitySpecForApplication(potentialYaml);
         } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            
             // TODO if not yaml/json - try ZIP, etc
             
             throw WebResourceUtils.badRequest(e, "Error in blueprint");

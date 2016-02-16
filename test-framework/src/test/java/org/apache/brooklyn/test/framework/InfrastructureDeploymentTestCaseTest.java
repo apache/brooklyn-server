@@ -182,7 +182,7 @@ public class InfrastructureDeploymentTestCaseTest {
             app.start(ImmutableList.of(app.newSimulatedLocation()));
             Asserts.shouldHaveFailedPreviously();
         } catch (Throwable throwable) {
-            Asserts.expectedFailure(throwable);
+            Asserts.expectedFailureContains(throwable, "EntitySpec", "not configured");
         }
 
         assertThat(infrastructureDeploymentTestCase.sensors().get(SERVICE_UP)).isFalse();
@@ -201,7 +201,7 @@ public class InfrastructureDeploymentTestCaseTest {
             app.start(ImmutableList.of(app.newSimulatedLocation()));
             Asserts.shouldHaveFailedPreviously();
         } catch (Throwable throwable) {
-            Asserts.expectedFailure(throwable);
+            Asserts.expectedFailureContains(throwable, "entity.specs", "List", "not configured");
         }
         
         assertThat(infrastructureDeploymentTestCase.sensors().get(SERVICE_UP)).isFalse();

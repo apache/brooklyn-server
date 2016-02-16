@@ -1500,7 +1500,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             templateBuilder, this, config.getDescription()});
 
         // Finally try to build the template
-        Template template;
+        Template template = null;
         Image image;
         try {
             template = templateBuilder.build();
@@ -1509,7 +1509,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             LOG.debug("jclouds found template "+template+" (image "+image+") for provisioning in "+this+" for "+config.getDescription());
             if (image==null) throw new NullPointerException("Template does not contain an image (templateBuilder.build returned invalid template)");
         } catch (AuthorizationException e) {
-            LOG.warn("Error resolving template: not authorized (rethrowing: "+e+")");
+            LOG.warn("Error resolving template -- not authorized (rethrowing: "+e+"); template is: "+template);
             throw new IllegalStateException("Not authorized to access cloud "+this+"; check credentials", e);
         } catch (Exception e) {
             try {

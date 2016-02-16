@@ -47,14 +47,16 @@ import com.google.common.collect.Lists;
 
 public class Exceptions {
 
-    private static final List<Class<? extends Throwable>> ALWAYS_BORING_THROWABLE_SUPERTYPES = ImmutableList.<Class<? extends Throwable>>of(
+    /** {@link Throwable} types whose existence is unhelpful in a <b>message</b>. */
+    private static final List<Class<? extends Throwable>> ALWAYS_BORING_MESSAGE_THROWABLE_SUPERTYPES = ImmutableList.<Class<? extends Throwable>>of(
         ExecutionException.class, InvocationTargetException.class, UndeclaredThrowableException.class);
-
+    /** As {@link #ALWAYS_BORING_MESSAGE_THROWABLE_SUPERTYPES} but might carry an interesting message. */
     private static final List<Class<? extends Throwable>> BORING_IF_NO_MESSAGE_THROWABLE_SUPERTYPES = ImmutableList.<Class<? extends Throwable>>of(
         PropagatedRuntimeException.class);
 
-    private static boolean isBoring(Throwable t) {
-        for (Class<? extends Throwable> type: ALWAYS_BORING_THROWABLE_SUPERTYPES)
+    /** NB: might be useful for stack trace, e.g. {@link ExecutionException} */
+    private static boolean isBoringForMessage(Throwable t) {
+        for (Class<? extends Throwable> type: ALWAYS_BORING_MESSAGE_THROWABLE_SUPERTYPES)
             if (type.isInstance(t)) return true;
         if (Strings.isBlank(t.getMessage())) {
             for (Class<? extends Throwable> type: BORING_IF_NO_MESSAGE_THROWABLE_SUPERTYPES)
@@ -63,10 +65,10 @@ public class Exceptions {
         return false;
     }
 
-    private static final Predicate<Throwable> IS_THROWABLE_BORING = new Predicate<Throwable>() {
+    private static final Predicate<Throwable> IS_THROWABLE_BORING_FOR_MESSAGE = new Predicate<Throwable>() {
         @Override
         public boolean apply(Throwable input) {
-            return isBoring(input);
+            return isBoringForMessage(input);
         }
     };
 
@@ -77,11 +79,13 @@ public class Exceptions {
     private static List<Class<? extends Throwable>> BORING_PREFIX_THROWABLE_SUPERTYPES = ImmutableList.<Class<? extends Throwable>>of(
         ClassCastException.class, CompoundRuntimeException.class, PropagatedRuntimeException.class);
 
-    /** Returns whether this is throwable either known to be boring or to have an unhelpful type name (prefix)
-     * which should be suppressed. null is accepted but treated as not boring. */
+    /** Returns whether the prefix is throwable either known to be boring or to have an unhelpful type name (prefix)
+     * which should be suppressed in <b>messages</b>. (They may be important in stack traces.)
+     * <p>
+     * null is accepted but treated as not boring. */
     public static boolean isPrefixBoring(Throwable t) {
         if (t==null) return false;
-        if (isBoring(t))
+        if (isBoringForMessage(t))
             return true;
         if (t instanceof UserFacingException) return true;
         for (Class<? extends Throwable> type: BORING_PREFIX_THROWABLE_EXACT_TYPES)
@@ -186,12 +190,23 @@ public class Exceptions {
         return Iterables.tryFind(getCausalChain(from), filter).orNull();
     }
 
-    /** returns the first exception in the call chain which is not of common uninteresting types
-     * (ie excluding ExecutionException and PropagatedRuntimeExceptions); 
-     * or the original throwable if all are uninteresting 
+    /** returns the first exception in the call chain which whose message is potentially interesting,
+     * in the sense that it is has some chance of giving helpful information as the cause.
+     * <p>
+     * more specifically this drops those which typically wrap such causes giving chain / thread info,
+     * reporting rather than causal explanation or important context -- 
+     * ie excluding {@link ExecutionException} always,
+     * and {@link PropagatedRuntimeException} if it has no message,
+     * and similar such.
+     * <p>
+     * if all are "uninteresting" in this sense (which should not normally be the case) 
+     * this method just returns the original. 
+     * <p>
+     * often looking for a {@link UserFacingException} eg using {@link #getFirstThrowableOfType(Throwable, Class)}
+     * is a better way to give a user-facing message.
      */
     public static Throwable getFirstInteresting(Throwable throwable) {
-        return Iterables.tryFind(getCausalChain(throwable), Predicates.not(IS_THROWABLE_BORING)).or(throwable);
+        return Iterables.tryFind(getCausalChain(throwable), Predicates.not(IS_THROWABLE_BORING_FOR_MESSAGE)).or(throwable);
     }
 
     /** creates (but does not throw) a new {@link PropagatedRuntimeException} whose 
@@ -220,7 +235,7 @@ public class Exceptions {
         int collapseCount = 0;
         boolean messageIsFinal = false;
         // remove boring stack traces at the head
-        while (isBoring(collapsed)  && !messageIsFinal) {
+        while (isBoringForMessage(collapsed)  && !messageIsFinal) {
             collapseCount++;
             Throwable cause = collapsed.getCause();
             if (cause==null) {
