@@ -275,7 +275,11 @@ public class Duration implements Comparable<Duration>, Serializable {
     }
 
     public boolean isPositive() {
-        return nanos()>0;
+        return nanos() > 0;
+    }
+
+    public boolean isNegative() {
+        return nanos() < 0;
     }
 
     public boolean isLongerThan(Duration x) {
