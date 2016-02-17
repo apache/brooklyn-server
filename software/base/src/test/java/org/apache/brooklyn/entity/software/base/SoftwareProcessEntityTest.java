@@ -20,6 +20,7 @@ package org.apache.brooklyn.entity.software.base;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import java.util.ArrayList;
@@ -53,23 +54,16 @@ import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.location.Locations;
-import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.sensor.PortAttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
-import org.apache.brooklyn.entity.software.base.AbstractSoftwareProcessSshDriver;
-import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
-import org.apache.brooklyn.entity.software.base.EmptySoftwareProcessDriver;
-import org.apache.brooklyn.entity.software.base.EmptySoftwareProcessImpl;
-import org.apache.brooklyn.entity.software.base.SoftwareProcess;
-import org.apache.brooklyn.entity.software.base.SoftwareProcessDriver;
-import org.apache.brooklyn.entity.software.base.SoftwareProcessImpl;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.RestartSoftwareParameters;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.StopSoftwareParameters;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.RestartSoftwareParameters.RestartMachineMode;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.StopSoftwareParameters.StopMode;
 import org.apache.brooklyn.entity.software.base.lifecycle.MachineLifecycleEffectorTasksTest;
+import org.apache.brooklyn.location.cloudfoundry.CloudFoundryPaasLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -82,6 +76,7 @@ import org.apache.brooklyn.util.net.UserAndHostAndPort;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
+import org.cloudfoundry.client.lib.CloudFoundryClient;
 import org.jclouds.util.Throwables2;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -106,9 +101,9 @@ public class SoftwareProcessEntityTest extends BrooklynAppUnitTestSupport {
 
     private SshMachineLocation machine;
     private FixedListMachineProvisioningLocation<SshMachineLocation> loc;
-    
-    @BeforeMethod(alwaysRun=true)
+
     @Override
+    @BeforeMethod
     public void setUp() throws Exception {
         super.setUp();
         loc = getLocation();
@@ -591,6 +586,89 @@ public class SoftwareProcessEntityTest extends BrooklynAppUnitTestSupport {
         Assert.assertTrue(entity.getRequiredOpenPorts().contains(9999));
     }
 
+    @Test
+    public void testOpenPortsWithOnCloudFoundry() throws Exception {
+        CloudFoundryPaasLocation paasLoc = createFakeCloudFoundryPaasLocation();
+        MyCFService entity = app.createAndManageChild(EntitySpec.create(MyCFService.class));
+        entity.start(ImmutableList.of(paasLoc));
+
+        Collection<Integer> paasLocationFlags = entity.getRequiredOpenPorts();
+        assertNotNull(paasLocationFlags);
+        assertTrue(paasLocationFlags.isEmpty());
+    }
+
+    @Test
+    public void testBasicStartMyCFService(){
+        CloudFoundryPaasLocation paasLoc = createFakeCloudFoundryPaasLocation();
+        MyCFService entity = app.createAndManageChild(EntitySpec.create(MyCFService.class));
+        entity.start(ImmutableList.of(paasLoc));
+
+        SimulatedCloudFoundryDriver driver = (SimulatedCloudFoundryDriver) entity.getDriver();
+        List<String> events = driver.events;
+        assertNotNull(events);
+        assertEquals(events.size(), 1);
+        assertEquals(events, ImmutableList.of("start"));
+    }
+
+    @Test
+    public void testBasicStopMyCFService(){
+        CloudFoundryPaasLocation paasLoc = createFakeCloudFoundryPaasLocation();
+        MyCFService entity = app.createAndManageChild(EntitySpec.create(MyCFService.class));
+        entity.start(ImmutableList.of(paasLoc));
+        SimulatedCloudFoundryDriver driver = (SimulatedCloudFoundryDriver) entity.getDriver();
+
+        entity.stop();
+        List<String> events = driver.events;
+        assertNotNull(events);
+        assertEquals(events.size(), 2);
+        assertEquals(events, ImmutableList.of("start", "stop"));
+    }
+
+    @Test
+    public void testBasicRestartMyCFService(){
+        CloudFoundryPaasLocation paasLoc = createFakeCloudFoundryPaasLocation();
+        MyCFService entity = app.createAndManageChild(EntitySpec.create(MyCFService.class));
+        entity.start(ImmutableList.of(paasLoc));
+        assertTrue(entity.getDriver() instanceof SimulatedCloudFoundryDriver);
+        SimulatedCloudFoundryDriver driver = (SimulatedCloudFoundryDriver) entity.getDriver();
+
+        entity.restart();
+        List<String> events = driver.events;
+        assertNotNull(events);
+        assertEquals(events.size(), 1);
+        assertEquals(events, ImmutableList.of("start"));
+    }
+
+
+    @Test
+    public void testBasicStartDualServiceOnSshMachine(){
+        MyDualService entity = app.createAndManageChild(EntitySpec.create(MyDualService.class));
+        entity.start(ImmutableList.of(loc));
+        entity.stop();
+        assertTrue(entity.getDriver() instanceof SimulatedDualSshDriver);
+        SimulatedDualSshDriver driver = (SimulatedDualSshDriver) entity.getDriver();
+
+        List<String> events = driver.events;
+        assertNotNull(events);
+        assertEquals(events, ImmutableList.of("setup", "copyInstallResources", "install",
+                "customize", "copyRuntimeResources", "launch", "stop"));
+    }
+
+    @Test
+    public void testBasicStartDualServiceOnCloudFoundry(){
+        CloudFoundryPaasLocation paasLoc = createFakeCloudFoundryPaasLocation();
+        MyDualService entity = app.createAndManageChild(EntitySpec.create(MyDualService.class));
+        entity.start(ImmutableList.of(paasLoc));
+        assertTrue(entity.getDriver() instanceof SimulatedDualCloudFoundryDriver);
+        SimulatedDualCloudFoundryDriver driver =
+                (SimulatedDualCloudFoundryDriver) entity.getDriver();
+
+        List<String> events = driver.events;
+        assertNotNull(events);
+        assertEquals(events.size(), 1);
+        assertEquals(events, ImmutableList.of("start"));
+    }
+
     @ImplementedBy(MyServiceImpl.class)
     public interface MyService extends SoftwareProcess {
         PortAttributeSensorAndConfigKey HTTP_PORT = Attributes.HTTP_PORT;
@@ -623,9 +701,27 @@ public class SoftwareProcessEntityTest extends BrooklynAppUnitTestSupport {
         public static ConfigKey<String> SUGGESTED_VERSION = ConfigKeys.newConfigKeyWithDefault(SoftwareProcess.SUGGESTED_VERSION, "9.9.9");
     }
 
-    public static class MyServiceWithVersionImpl extends MyServiceImpl implements MyServiceWithVersion {
+    public static class MyServiceWithVersionImpl extends MyServiceImpl
+            implements MyServiceWithVersion {
         public MyServiceWithVersionImpl() {}
         public MyServiceWithVersionImpl(Entity parent) { super(parent); }
+    }
+
+    /**
+     * This is a SoftwareProcess entity focus on CloudFoundryLocation
+     */
+    @ImplementedBy(MyCFServiceImpl.class)
+    public interface MyCFService extends MyService {
+
+    }
+
+    public static class MyCFServiceImpl extends MyServiceImpl implements MyCFService {
+
+        @Override
+        public Class<?> getDriverInterface() {
+            return SimulatedCloudFoundryDriver.class;
+        }
+
     }
 
     public static class SimulatedFailOnStartDriver extends SimulatedDriver {
@@ -813,4 +909,136 @@ public class SoftwareProcessEntityTest extends BrooklynAppUnitTestSupport {
 
     }
 
+
+    public static class SimulatedCloudFoundryDriver
+            extends AbstractSoftwareProcessCloudFoundryDriver {
+
+        public List<String> events = new ArrayList<String>();
+        private volatile boolean deployed = false;
+
+        public SimulatedCloudFoundryDriver(EntityLocal entity,
+                                           CloudFoundryPaasLocation location) {
+            super(entity, location);
+        }
+
+        @Override
+        protected void init() {
+
+        }
+
+        @Override
+        public EntityLocal getEntity() {
+            return entity;
+        }
+
+        @Override
+        public CloudFoundryPaasLocation getLocation() {
+            return getLocation();
+        }
+
+        protected CloudFoundryClient getClient() {
+            return getClient();
+        }
+
+        @Override
+        public boolean isRunning() {
+            return deployed;
+        }
+
+        @Override
+        public void rebind() {
+            events.add("rebind");
+        }
+
+        @Override
+        public void start() {
+            events.add("start");
+            deployed = true;
+            entity.sensors().set(Startable.SERVICE_UP, true);
+            entity.sensors().set(SoftwareProcess.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        }
+
+        @Override
+        public void restart() {
+            events.add("restart");
+        }
+
+        @Override
+        public void stop() {
+            events.add("stop");
+            deployed = false;
+            entity.sensors().set(Startable.SERVICE_UP, false);
+            entity.sensors().set(SoftwareProcess.SERVICE_STATE_ACTUAL, Lifecycle.STOPPED);
+        }
+
+        @Override
+        public void kill() {
+            events.add("delete");
+            deployed = false;
+            entity.sensors().set(Startable.SERVICE_UP, false);
+        }
+
+    }
+
+    /**
+     * This is a SoftwareProcess entity that can be started using
+     * Ssh location or CloudFoundryLocation
+     */
+    @ImplementedBy(MyDualServiceImpl.class)
+    public interface MyDualService extends MyService {
+
+    }
+
+    public static class MyDualServiceImpl extends MyServiceImpl implements MyDualService {
+
+        @Override
+        public Class<?> getDriverInterface() {
+            return SimulatedDualDriver.class;
+        }
+
+    }
+
+    public static interface SimulatedDualDriver extends SoftwareProcessDriver {
+
+    }
+
+    public static class SimulatedDualCloudFoundryDriver extends SimulatedCloudFoundryDriver
+            implements SimulatedDualDriver{
+
+        public SimulatedDualCloudFoundryDriver (EntityLocal entity, Location location) {
+            super(entity, (CloudFoundryPaasLocation) location);
+        }
+    }
+
+    public static class SimulatedDualSshDriver extends SimulatedDriver
+            implements SimulatedDualDriver{
+
+        public SimulatedDualSshDriver (EntityLocal entity, Location location) {
+            super(entity, (SshMachineLocation) location);
+        }
+    }
+
+    private FakeCloudFoundryPaasLocation createFakeCloudFoundryPaasLocation(){
+        ConfigBag allConfig = ConfigBag.newInstance()
+                .configure(FakeCloudFoundryPaasLocation.CF_USER , "fake_user")
+                .configure(FakeCloudFoundryPaasLocation.CF_PASSWORD, "fake_pass")
+                .configure(FakeCloudFoundryPaasLocation.CF_ORG, "fake_org")
+                .configure(FakeCloudFoundryPaasLocation.CF_ENDPOINT, "fake_endpoint")
+                .configure(FakeCloudFoundryPaasLocation.CF_SPACE, "fake_space");
+        return mgmt.getLocationManager().createLocation(LocationSpec
+                .create(FakeCloudFoundryPaasLocation.class)
+                .configure(allConfig.getAllConfig()));
+    }
+
+    public static class FakeCloudFoundryPaasLocation extends CloudFoundryPaasLocation{
+        public FakeCloudFoundryPaasLocation(){
+            super ();
+        }
+
+        @Override
+        public void setUpClient() {
+            //avoid client setUp
+        }
+
+    }
 }
