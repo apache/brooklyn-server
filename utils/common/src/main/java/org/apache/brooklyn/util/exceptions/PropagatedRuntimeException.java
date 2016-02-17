@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.exceptions;
 
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,13 +34,19 @@ public class PropagatedRuntimeException extends RuntimeException {
     public PropagatedRuntimeException(String message, Throwable cause) {
         super(message, cause);
         warnIfWrapping(cause);
-        causeEmbeddedInMessage = message.endsWith(Exceptions.collapseText(getCause()));
+        causeEmbeddedInMessage = checkCauseEmbedded();
+    }
+
+    private boolean checkCauseEmbedded() {
+        String causalText = Exceptions.collapseText(getCause());
+        if (Strings.isBlank(causalText)) return false;
+        return getMessage().endsWith(causalText);
     }
 
     public PropagatedRuntimeException(String messagePart1, String messagePart2PossiblyIncludingPart1, Throwable cause) {
         super(messagePart2PossiblyIncludingPart1!=null && messagePart2PossiblyIncludingPart1.startsWith(messagePart1) ? messagePart2PossiblyIncludingPart1 : messagePart1+messagePart2PossiblyIncludingPart1, cause);
         warnIfWrapping(cause);
-        causeEmbeddedInMessage = getMessage().endsWith(Exceptions.collapseText(getCause()));
+        causeEmbeddedInMessage = checkCauseEmbedded();
     }
 
     public PropagatedRuntimeException(String message, Throwable cause, boolean causeEmbeddedInMessage) {

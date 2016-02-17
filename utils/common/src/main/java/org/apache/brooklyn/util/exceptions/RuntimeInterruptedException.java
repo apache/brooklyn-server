@@ -42,9 +42,10 @@ public class RuntimeInterruptedException extends RuntimeException {
         super(msg, cause);
         Thread.currentThread().interrupt();
     }
-
-    @Override
-    public InterruptedException getCause() {
-        return (InterruptedException) super.getCause();
+    
+    public RuntimeInterruptedException(String msg, RuntimeInterruptedException cause) {
+        super(msg, cause);
+        Thread.currentThread().interrupt();
     }
+
 }

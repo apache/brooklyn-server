@@ -36,6 +36,7 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.text.Strings;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Throwables;
@@ -46,34 +47,51 @@ import com.google.common.collect.Lists;
 
 public class Exceptions {
 
-    private static final List<Class<? extends Throwable>> BORING_THROWABLE_SUPERTYPES = ImmutableList.<Class<? extends Throwable>>of(
-        ExecutionException.class, InvocationTargetException.class, PropagatedRuntimeException.class, UndeclaredThrowableException.class);
+    /** {@link Throwable} types whose existence is unhelpful in a <b>message</b>. */
+    private static final List<Class<? extends Throwable>> ALWAYS_BORING_MESSAGE_THROWABLE_SUPERTYPES = ImmutableList.<Class<? extends Throwable>>of(
+        ExecutionException.class, InvocationTargetException.class, UndeclaredThrowableException.class);
+    /** As {@link #ALWAYS_BORING_MESSAGE_THROWABLE_SUPERTYPES} but might carry an interesting message. */
+    private static final List<Class<? extends Throwable>> BORING_IF_NO_MESSAGE_THROWABLE_SUPERTYPES = ImmutableList.<Class<? extends Throwable>>of(
+        PropagatedRuntimeException.class);
 
-    private static boolean isBoring(Throwable t) {
-        for (Class<? extends Throwable> type: BORING_THROWABLE_SUPERTYPES)
+    /** NB: might be useful for stack trace, e.g. {@link ExecutionException} */
+    private static boolean isBoringForMessage(Throwable t) {
+        for (Class<? extends Throwable> type: ALWAYS_BORING_MESSAGE_THROWABLE_SUPERTYPES)
             if (type.isInstance(t)) return true;
+        if (Strings.isBlank(t.getMessage())) {
+            for (Class<? extends Throwable> type: BORING_IF_NO_MESSAGE_THROWABLE_SUPERTYPES)
+                if (type.isInstance(t)) return true;
+        }
         return false;
     }
 
-    private static final Predicate<Throwable> IS_THROWABLE_BORING = new Predicate<Throwable>() {
+    private static final Predicate<Throwable> IS_THROWABLE_BORING_FOR_MESSAGE = new Predicate<Throwable>() {
         @Override
         public boolean apply(Throwable input) {
-            return isBoring(input);
+            return isBoringForMessage(input);
         }
     };
 
     private static List<Class<? extends Throwable>> BORING_PREFIX_THROWABLE_EXACT_TYPES = ImmutableList.<Class<? extends Throwable>>of(
-        IllegalStateException.class, RuntimeException.class, CompoundRuntimeException.class);
+        RuntimeException.class, Exception.class, Throwable.class,
+        IllegalStateException.class, IllegalArgumentException.class);
+    
+    private static List<Class<? extends Throwable>> BORING_PREFIX_THROWABLE_SUPERTYPES = ImmutableList.<Class<? extends Throwable>>of(
+        ClassCastException.class, CompoundRuntimeException.class, PropagatedRuntimeException.class);
 
-    /** Returns whether this is throwable either known to be boring or to have an unhelpful type name (prefix)
-     * which should be suppressed. null is accepted but treated as not boring. */
+    /** Returns whether the prefix is throwable either known to be boring or to have an unhelpful type name (prefix)
+     * which should be suppressed in <b>messages</b>. (They may be important in stack traces.)
+     * <p>
+     * null is accepted but treated as not boring. */
     public static boolean isPrefixBoring(Throwable t) {
         if (t==null) return false;
-        if (isBoring(t))
+        if (isBoringForMessage(t))
             return true;
         if (t instanceof UserFacingException) return true;
         for (Class<? extends Throwable> type: BORING_PREFIX_THROWABLE_EXACT_TYPES)
             if (t.getClass().equals(type)) return true;
+        for (Class<? extends Throwable> type: BORING_PREFIX_THROWABLE_SUPERTYPES)
+            if (type.isInstance(t)) return true;
         return false;
     }
 
@@ -109,17 +127,38 @@ public class Exceptions {
     }
 
     /**
-     * See {@link #propagate(Throwable)}. If wrapping the exception, then include the given message;
-     * otherwise the message is not used.
+     * See {@link #propagate(Throwable)}.
+     * <p>
+     * The given message is included <b>only</b> if the given {@link Throwable}
+     * needs to be wrapped; otherwise the message is not used.
+     * To always include the message, use {@link #propagateAnnotated(String, Throwable)}.
      */
     public static RuntimeException propagate(String msg, Throwable throwable) {
+        return propagate(msg, throwable, false);
+    }
+
+    /** As {@link #propagate(String, Throwable)} but always re-wraps including the given message. */
+    public static RuntimeException propagateAnnotated(String msg, Throwable throwable) {
+        return propagate(msg, throwable, true);
+    }
+
+    private static RuntimeException propagate(String msg, Throwable throwable, boolean alwaysAnnotate) {
         if (throwable instanceof InterruptedException) {
             throw new RuntimeInterruptedException(msg, (InterruptedException) throwable);
         } else if (throwable instanceof RuntimeInterruptedException) {
             Thread.currentThread().interrupt();
-            throw (RuntimeInterruptedException) throwable;
+            if (alwaysAnnotate) {
+                throw new RuntimeInterruptedException(msg, (RuntimeInterruptedException) throwable);
+            } else {
+                throw (RuntimeInterruptedException) throwable;
+            }
         }
-        Throwables.propagateIfPossible(checkNotNull(throwable));
+        if (throwable==null) {
+            throw new PropagatedRuntimeException(msg, new NullPointerException("No throwable supplied."));
+        }
+        if (!alwaysAnnotate) {
+            Throwables.propagateIfPossible(checkNotNull(throwable));
+        }
         throw new PropagatedRuntimeException(msg, throwable);
     }
     
@@ -151,12 +190,23 @@ public class Exceptions {
         return Iterables.tryFind(getCausalChain(from), filter).orNull();
     }
 
-    /** returns the first exception in the call chain which is not of common uninteresting types
-     * (ie excluding ExecutionException and PropagatedRuntimeExceptions); 
-     * or the original throwable if all are uninteresting 
+    /** returns the first exception in the call chain which whose message is potentially interesting,
+     * in the sense that it is has some chance of giving helpful information as the cause.
+     * <p>
+     * more specifically this drops those which typically wrap such causes giving chain / thread info,
+     * reporting rather than causal explanation or important context -- 
+     * ie excluding {@link ExecutionException} always,
+     * and {@link PropagatedRuntimeException} if it has no message,
+     * and similar such.
+     * <p>
+     * if all are "uninteresting" in this sense (which should not normally be the case) 
+     * this method just returns the original. 
+     * <p>
+     * often looking for a {@link UserFacingException} eg using {@link #getFirstThrowableOfType(Throwable, Class)}
+     * is a better way to give a user-facing message.
      */
     public static Throwable getFirstInteresting(Throwable throwable) {
-        return Iterables.tryFind(getCausalChain(throwable), Predicates.not(IS_THROWABLE_BORING)).or(throwable);
+        return Iterables.tryFind(getCausalChain(throwable), Predicates.not(IS_THROWABLE_BORING_FOR_MESSAGE)).or(throwable);
     }
 
     /** creates (but does not throw) a new {@link PropagatedRuntimeException} whose 
@@ -185,14 +235,14 @@ public class Exceptions {
         int collapseCount = 0;
         boolean messageIsFinal = false;
         // remove boring stack traces at the head
-        while (isBoring(collapsed)  && !messageIsFinal) {
+        while (isBoringForMessage(collapsed)  && !messageIsFinal) {
             collapseCount++;
             Throwable cause = collapsed.getCause();
             if (cause==null) {
                 // everything in the tree is boring...
                 return source;
             }
-            if (visited.add(collapsed)) {
+            if (!visited.add(collapsed)) {
                 // there is a recursive loop
                 break;
             }
@@ -201,7 +251,8 @@ public class Exceptions {
                 message = collapsed.getMessage();
                 messageIsFinal = true;
             } else if (Strings.isNonBlank(collapsedS)) {
-                collapsedS = Strings.removeAllFromEnd(collapsedS, cause.toString(), stripBoringPrefixes(cause.toString()), cause.getMessage());
+                String causeToString = getMessageWithAppropriatePrefix(cause);
+                collapsedS = Strings.removeAllFromEnd(collapsedS, cause.toString(), causeToString, stripBoringPrefixes(causeToString), cause.getMessage());
                 collapsedS = stripBoringPrefixes(collapsedS);
                 if (Strings.isNonBlank(collapsedS))
                     message = appendSeparator(message, collapsedS);
@@ -224,7 +275,7 @@ public class Exceptions {
             return source;
         
         if (collapseCount==0 && messagesCause!=null) {
-            message = messagesCause.toString();
+            message = getMessageWithAppropriatePrefix(messagesCause);
             messagesCause = messagesCause.getCause();
         }
         
@@ -233,7 +284,7 @@ public class Exceptions {
             message = appendSeparator(message, extraMessage);
         }
         if (message==null) message = "";
-        return new PropagatedRuntimeException(message, collapseCausalChain ? collapsed : source, true);
+        return new PropagatedRuntimeException(message, collapseCausalChain ? collapsed : source, Strings.isNonBlank(message));
     }
     
     static String appendSeparator(String message, String next) {
@@ -272,9 +323,12 @@ public class Exceptions {
     private static String collapseText(Throwable t, boolean includeAllCausalMessages, Set<Throwable> visited) {
         if (t == null) return null;
         if (visited.contains(t)) {
-            // IllegalStateException sometimes refers to itself; guard against stack overflows
+            // If a boring-prefix class has no message it will render as multiply-visited.
+            // Additionally IllegalStateException sometimes refers to itself as its cause.
+            // In both cases, don't stack overflow!
             if (Strings.isNonBlank(t.getMessage())) return t.getMessage();
-            else return "("+t.getClass().getName()+", recursive cause)";
+            if (t.getCause()!=null) return t.getCause().getClass().getName();
+            return t.getClass().getName();
         }
         Throwable t2 = collapse(t, true, includeAllCausalMessages, visited);
         visited = MutableSet.copyOf(visited);
@@ -288,7 +342,7 @@ public class Exceptions {
                 return collapseText(t2.getCause(), includeAllCausalMessages, ImmutableSet.copyOf(visited));
             return ""+t2.getClass();
         }
-        String result = t2.toString();
+        String result = getMessageWithAppropriatePrefix(t2);
         if (!includeAllCausalMessages) {
             return result;
         }
@@ -331,17 +385,25 @@ public class Exceptions {
     /** Some throwables require a prefix for the message to make sense,
      * for instance NoClassDefFoundError's message is often just the type.
      */
-    public static boolean isPrefixImportant(Throwable t) {
+    @Beta
+    public static boolean isPrefixRequiredForMessageToMakeSense(Throwable t) {
         if (t instanceof NoClassDefFoundError) return true;
         return false;
     }
 
-    /** For {@link Throwable} instances where know {@link #isPrefixImportant(Throwable)},
-     * this returns a nice message for use as a prefix; otherwise this returns the class name.
-     * Callers should typically suppress the prefix if {@link #isPrefixBoring(Throwable)} is true. */
-    public static String getPrefixText(Throwable t) {
-        if (t instanceof NoClassDefFoundError) return "Type not found";
+    /** For {@link Throwable} instances where know {@link #isPrefixRequiredForMessageToMakeSense(Throwable)},
+     * this returns a nice message for use as a prefix;
+     * returns empty string if {@link #isPrefixBoring(Throwable)} is true;
+     * otherwise this returns the simplified class name. */
+    private static String getPrefixText(Throwable t) {
+        if (t instanceof NoClassDefFoundError) return "Invalid java type";
+        if (isPrefixBoring(t)) return "";
         return JavaClassNames.cleanSimpleClassName(t);
+    }
+
+    /** Like {@link Throwable#toString()} except suppresses boring prefixes and replaces prefixes with sensible messages where required */
+    public static String getMessageWithAppropriatePrefix(Throwable t) {
+        return appendSeparator(getPrefixText(t), t.getMessage());
     }
 
 }

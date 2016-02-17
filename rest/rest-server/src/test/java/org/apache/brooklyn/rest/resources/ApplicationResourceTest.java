@@ -649,7 +649,7 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
                     .entity(yaml3, "application/x-yaml")
                     .post(ClientResponse.class);
             HttpAsserts.assertClientErrorStatusCode(response3.getStatus());
-            assertTrue(response3.getEntity(String.class).contains("cannot be matched"));
+            assertTrue(response3.getEntity(String.class).toLowerCase().contains("unable to match"));
             waitForPageNotFoundResponse("/v1/applications/my-app3", ApplicationSummary.class);
             
         } finally {

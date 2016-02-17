@@ -55,12 +55,19 @@ public class UrlsTest {
 
     @Test
     public void testIsUrlWithProtocol() {
+        Assert.assertTrue(Urls.isUrlWithProtocol("a1+b.c-d:/"));
         Assert.assertTrue(Urls.isUrlWithProtocol("http://localhost/"));
-        Assert.assertTrue(Urls.isUrlWithProtocol("protocol:"));
+        Assert.assertTrue(Urls.isUrlWithProtocol("protocol:xxx"));
         Assert.assertFalse(Urls.isUrlWithProtocol("protocol"));
         Assert.assertFalse(Urls.isUrlWithProtocol(":/"));
         Assert.assertFalse(Urls.isUrlWithProtocol("1:/"));
+        Assert.assertTrue(Urls.isUrlWithProtocol("a1+b.c-:those/chars/are/allowed/in/protocol"));
         Assert.assertFalse(Urls.isUrlWithProtocol(null));
+        Assert.assertTrue(Urls.isUrlWithProtocol("protocol:we allow spaces and %13 percent chars"));
+        Assert.assertFalse(Urls.isUrlWithProtocol("protocol:we allow spaces\nbut not new lines"));
+        Assert.assertFalse(Urls.isUrlWithProtocol("protocol: no space immediately after colon though"));
+        Assert.assertFalse(Urls.isUrlWithProtocol("protocol:"));
+        Assert.assertFalse(Urls.isUrlWithProtocol("protocol_underscore_disallowed:"));
     }
 
     @Test

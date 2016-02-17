@@ -23,19 +23,10 @@ import static org.apache.brooklyn.core.entity.trait.Startable.SERVICE_UP;
 import static org.apache.brooklyn.test.Asserts.fail;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.Collection;
 import java.util.List;
-
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
-
-import com.google.common.collect.ImmutableList;
-import com.google.common.reflect.TypeToken;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -47,13 +38,19 @@ import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.framework.entity.TestInfrastructure;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.text.Identifiers;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.reflect.TypeToken;
 
 /**
  * @author Graeme Miller on 27/10/2015.
  */
+@SuppressWarnings("serial")
 public class InfrastructureDeploymentTestCaseTest {
 
     private TestApplication app;
@@ -65,8 +62,7 @@ public class InfrastructureDeploymentTestCaseTest {
 
     private static final AttributeSensorAndConfigKey<Location, Location> DEPLOYMENT_LOCATION_SENSOR =
             ConfigKeys.newSensorAndConfigKey(
-                    new TypeToken<Location>() {
-                    },
+                    new TypeToken<Location>() {},
                     "deploymentLocationSensor", "The location to deploy to");
 
     @BeforeMethod
@@ -184,12 +180,9 @@ public class InfrastructureDeploymentTestCaseTest {
 
         try {
             app.start(ImmutableList.of(app.newSimulatedLocation()));
-            fail("Should have thrown execption");
+            Asserts.shouldHaveFailedPreviously();
         } catch (Throwable throwable) {
-            Throwable firstInteresting = Exceptions.getFirstInteresting(throwable);
-            assertThat(firstInteresting).isNotNull();
-            assertThat(throwable).isNotNull();
-            assertThat(firstInteresting).isInstanceOf(IllegalArgumentException.class);
+            Asserts.expectedFailureContains(throwable, "EntitySpec", "not configured");
         }
 
         assertThat(infrastructureDeploymentTestCase.sensors().get(SERVICE_UP)).isFalse();
@@ -206,14 +199,11 @@ public class InfrastructureDeploymentTestCaseTest {
 
         try {
             app.start(ImmutableList.of(app.newSimulatedLocation()));
-            fail("Should have thrown execption");
+            Asserts.shouldHaveFailedPreviously();
         } catch (Throwable throwable) {
-            Throwable firstInteresting = Exceptions.getFirstInteresting(throwable);
-            assertThat(firstInteresting).isNotNull();
-            assertThat(throwable).isNotNull();
-            assertThat(firstInteresting).isInstanceOf(IllegalArgumentException.class);
+            Asserts.expectedFailureContains(throwable, "entity.specs", "List", "not configured");
         }
-
+        
         assertThat(infrastructureDeploymentTestCase.sensors().get(SERVICE_UP)).isFalse();
     }
 
@@ -230,12 +220,9 @@ public class InfrastructureDeploymentTestCaseTest {
 
         try {
             app.start(ImmutableList.of(app.newSimulatedLocation()));
-            fail("Should have thrown execption");
+            Asserts.shouldHaveFailedPreviously();
         } catch (Throwable throwable) {
-            Throwable firstInteresting = Exceptions.getFirstInteresting(throwable);
-            assertThat(firstInteresting).isNotNull();
-            assertThat(throwable).isNotNull();
-            assertThat(firstInteresting).isInstanceOf(IllegalArgumentException.class);
+            Asserts.expectedFailure(throwable);
         }
 
         assertThat(infrastructureDeploymentTestCase.sensors().get(SERVICE_UP)).isFalse();
@@ -254,12 +241,9 @@ public class InfrastructureDeploymentTestCaseTest {
 
         try {
             app.start(ImmutableList.of(app.newSimulatedLocation()));
-            fail("Should have thrown execption");
+            Asserts.shouldHaveFailedPreviously();
         } catch (Throwable throwable) {
-            Throwable firstInteresting = Exceptions.getFirstInteresting(throwable);
-            assertThat(firstInteresting).isNotNull();
-            assertThat(throwable).isNotNull();
-            assertThat(firstInteresting).isInstanceOf(IllegalArgumentException.class);
+            Asserts.expectedFailure(throwable);
         }
 
         assertThat(infrastructureDeploymentTestCase.sensors().get(SERVICE_UP)).isFalse();

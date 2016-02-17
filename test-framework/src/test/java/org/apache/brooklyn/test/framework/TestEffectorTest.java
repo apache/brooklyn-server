@@ -19,27 +19,27 @@
 
 package org.apache.brooklyn.test.framework;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import static org.apache.brooklyn.core.entity.trait.Startable.SERVICE_UP;
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.util.List;
+import java.util.Map;
+
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.framework.entity.TestEntity;
-import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static org.apache.brooklyn.core.entity.trait.Startable.SERVICE_UP;
-import static org.apache.brooklyn.test.Asserts.fail;
-import static org.assertj.core.api.Assertions.assertThat;
-
-import java.util.List;
-import java.util.Map;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 /**
  * @author m4rkmckenna on 27/10/2015.
@@ -48,6 +48,7 @@ public class TestEffectorTest {
 
     private TestApplication app;
     private ManagementContext managementContext;
+    @SuppressWarnings("unused")
     private LocalhostMachineProvisioningLocation loc;
     private String testId;
 
@@ -136,12 +137,9 @@ public class TestEffectorTest {
 
         try {
             app.start(ImmutableList.of(app.newSimulatedLocation()));
-            fail("Should have thrown execption");
+            Asserts.shouldHaveFailedPreviously();
         } catch (Throwable throwable) {
-            Throwable firstInteresting = Exceptions.getFirstInteresting(throwable);
-            assertThat(firstInteresting).isNotNull();
-            assertThat(throwable).isNotNull();
-            assertThat(firstInteresting).isInstanceOf(AssertionError.class);
+            Asserts.expectedFailureOfType(throwable, AssertionError.class);
         }
 
         assertThat(testEffector.sensors().get(SERVICE_UP)).isFalse().withFailMessage("Service should not be up");

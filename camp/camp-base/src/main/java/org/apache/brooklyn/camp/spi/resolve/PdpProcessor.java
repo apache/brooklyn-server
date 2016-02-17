@@ -35,6 +35,7 @@ import org.apache.brooklyn.camp.spi.resolve.interpret.PlanInterpretationContext;
 import org.apache.brooklyn.camp.spi.resolve.interpret.PlanInterpretationNode;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.yaml.Yamls;
 import org.apache.commons.compress.archivers.ArchiveEntry;
@@ -163,7 +164,7 @@ public class PdpProcessor {
                     return;
             }
         }
-        throw new IllegalArgumentException("Deployment plan item cannot be matched. Please check your YAML. Item: "+deploymentPlanItem);
+        throw new UserFacingException("Unable to match plan item: "+deploymentPlanItem);
     }
 
     // ----------------------------

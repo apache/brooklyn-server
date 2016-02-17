@@ -27,14 +27,15 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.rest.domain.ApiError;
 import org.apache.brooklyn.rest.util.json.BrooklynJacksonJsonProvider;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
@@ -46,14 +47,37 @@ public class WebResourceUtils {
 
     /** @throws WebApplicationException with an ApiError as its body and the given status as its response code. */
     public static WebApplicationException throwWebApplicationException(Response.Status status, String format, Object... args) {
-        String msg = String.format(format, args);
+        return throwWebApplicationException(status, null, format, args);
+    }
+    
+    /** @throws WebApplicationException with an ApiError as its body and the given status as its response code. */
+    public static WebApplicationException throwWebApplicationException(Response.Status status, Throwable exception) {
+        return throwWebApplicationException(status, exception, null);
+    }
+    
+    /** @throws WebApplicationException with an ApiError as its body and the given status as its response code.
+     * Exception and/or format can be null, and will be filled in / prefixed as appropriate. */
+    public static WebApplicationException throwWebApplicationException(Response.Status status, Throwable exception, String format, Object... args) {
+        String suppliedMsg = format==null ? null : String.format(format, args);
+        String fullMsg = suppliedMsg;
+        if (exception!=null) {
+            if (fullMsg==null) fullMsg = Exceptions.collapseText(exception);
+            else fullMsg = suppliedMsg + ": "+Exceptions.collapseText(exception);
+        }
         if (log.isDebugEnabled()) {
             log.debug("responding {} {} ({})",
-                    new Object[]{status.getStatusCode(), status.getReasonPhrase(), msg});
+                    new Object[]{status.getStatusCode(), status.getReasonPhrase(), fullMsg});
         }
-        ApiError apiError = ApiError.builder().message(msg).errorCode(status).build();
+        ApiError apiError = 
+            (exception != null ? ApiError.builderFromThrowable(exception).prefixMessage(suppliedMsg) 
+                : ApiError.builder().message(fullMsg==null ? "" : fullMsg))
+            .errorCode(status).build();
         // including a Throwable is the only way to include a message with the WebApplicationException - ugly!
-        throw new WebApplicationException(new Throwable(apiError.toString()), apiError.asJsonResponse());
+        throw new WebApplicationException(
+            exception==null ? new Throwable(apiError.toString()) :
+                suppliedMsg==null ? exception :
+                new PropagatedRuntimeException(suppliedMsg, exception), 
+            apiError.asJsonResponse());
     }
 
     /** @throws WebApplicationException With code 500 internal server error */
@@ -64,6 +88,16 @@ public class WebResourceUtils {
     /** @throws WebApplicationException With code 400 bad request */
     public static WebApplicationException badRequest(String format, Object... args) {
         return throwWebApplicationException(Response.Status.BAD_REQUEST, format, args);
+    }
+
+    /** @throws WebApplicationException With code 400 bad request */
+    public static WebApplicationException badRequest(Throwable t) {
+        return throwWebApplicationException(Response.Status.BAD_REQUEST, t);
+    }
+
+    /** @throws WebApplicationException With code 400 bad request */
+    public static WebApplicationException badRequest(Throwable t, String prefix, Object... prefixArgs) {
+        return throwWebApplicationException(Response.Status.BAD_REQUEST, t, prefix, prefixArgs);
     }
 
     /** @throws WebApplicationException With code 401 unauthorized */

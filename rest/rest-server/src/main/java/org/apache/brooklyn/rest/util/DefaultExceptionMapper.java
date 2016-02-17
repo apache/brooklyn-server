@@ -27,9 +27,6 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.ext.ExceptionMapper;
 import javax.ws.rs.ext.Provider;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.yaml.snakeyaml.error.YAMLException;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.rest.domain.ApiError;
 import org.apache.brooklyn.rest.domain.ApiError.Builder;
@@ -38,6 +35,9 @@ import org.apache.brooklyn.util.core.flags.ClassCoercionException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.text.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.yaml.snakeyaml.error.YAMLException;
 
 @Provider
 public class DefaultExceptionMapper implements ExceptionMapper<Throwable> {
@@ -55,7 +55,6 @@ public class DefaultExceptionMapper implements ExceptionMapper<Throwable> {
      */
     @Override
     public Response toResponse(Throwable throwable1) {
-
         LOG.debug("REST request running as {} threw: {}", Entitlements.getEntitlementContext(), 
             Exceptions.collapse(throwable1));
         if (LOG.isTraceEnabled()) {
@@ -92,13 +91,17 @@ public class DefaultExceptionMapper implements ExceptionMapper<Throwable> {
                 LOG.warn("REST call generated exception type "+throwable2.getClass()+" unrecognized in "+getClass()+" (subsequent occurrences will be logged debug only): " + throwable2, throwable2);
             }
         }
+
+        // Before saying server error, look for a user-facing exception anywhere in the hierarchy
+        UserFacingException userFacing = Exceptions.getFirstThrowableOfType(throwable1, UserFacingException.class);
+        if (userFacing instanceof UserFacingException) {
+            return ApiError.of(userFacing.getMessage()).asBadRequestResponseJson();
+        }
         
         Throwable throwable3 = Exceptions.collapse(throwable2);
         Builder rb = ApiError.builderFromThrowable(throwable3);
         if (Strings.isBlank(rb.getMessage()))
             rb.message("Internal error. Contact server administrator to consult logs for more details.");
-        if (Exceptions.isPrefixImportant(throwable3))
-            rb.message(Exceptions.getPrefixText(throwable3)+": "+rb.getMessage());
         return rb.build().asResponse(Status.INTERNAL_SERVER_ERROR, MediaType.APPLICATION_JSON_TYPE);
     }
 }
