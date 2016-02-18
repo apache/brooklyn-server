@@ -798,12 +798,12 @@ public class Asserts {
         continually(ImmutableMap.<String,Object>of(), supplier, predicate);
     }
 
-    /** @deprecated since 0.9.0 use {@link #eventually(Supplier, Predicate, Duration, Duration, String)} */ @Deprecated
+    /** @deprecated since 0.9.0 use {@link #continually(Supplier, Predicate, Duration, Duration, String)} */ @Deprecated
     public static <T> void continually(Map<String,?> flags, Supplier<? extends T> supplier, Predicate<? super T> predicate) {
         continually(flags, supplier, predicate, null);
     }
 
-    /** @deprecated since 0.9.0 use {@link #eventually(Supplier, Predicate, Duration, Duration, String)} */ @Deprecated
+    /** @deprecated since 0.9.0 use {@link #continually(Supplier, Predicate, Duration, Duration, String)} */ @Deprecated
     public static <T> void continually(Map<String,?> flags, Supplier<? extends T> supplier, Predicate<T> predicate, String errMsg) {
         continually(supplier, predicate, toDuration(flags.get("timeout"), toDuration(flags.get("duration"), null)), 
             toDuration(flags.get("period"), null), null);

@@ -64,7 +64,6 @@ import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
 import org.apache.brooklyn.rest.testing.mocks.CapitalizePolicy;
 import org.apache.brooklyn.rest.testing.mocks.NameMatcherGroup;
 import org.apache.brooklyn.rest.testing.mocks.RestMockApp;
-import org.apache.brooklyn.rest.testing.mocks.RestMockAppBuilder;
 import org.apache.brooklyn.rest.testing.mocks.RestMockSimpleEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
@@ -209,10 +208,11 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
         assertEquals(client().path(appUri).get(ApplicationSummary.class).getSpec().getName(), "simple-app-interface");
     }
 
+    @SuppressWarnings("deprecation")
     @Test(dependsOnMethods = { "testDeployApplication", "testLocatedLocation" })
     public void testDeployApplicationFromBuilder() throws Exception {
         ApplicationSpec spec = ApplicationSpec.builder()
-                .type(RestMockAppBuilder.class.getCanonicalName())
+                .type(org.apache.brooklyn.rest.testing.mocks.RestMockAppBuilder.class.getCanonicalName())
                 .name("simple-app-builder")
                 .locations(ImmutableSet.of("localhost"))
                 .build();

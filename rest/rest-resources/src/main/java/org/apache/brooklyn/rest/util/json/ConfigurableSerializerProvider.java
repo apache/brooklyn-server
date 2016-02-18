@@ -33,6 +33,7 @@ import com.fasterxml.jackson.databind.ser.SerializerFactory;
 /** allows the serializer-of-last-resort to be customized, ie used for unknown-types */
 final class ConfigurableSerializerProvider extends DefaultSerializerProvider {
 
+    private static final long serialVersionUID = 6094990395562170217L;
     protected JsonSerializer<Object> unknownTypeSerializer;
 
     public ConfigurableSerializerProvider() {}

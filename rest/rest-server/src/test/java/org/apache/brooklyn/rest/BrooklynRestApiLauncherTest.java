@@ -29,7 +29,6 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.http.HttpAsserts;
 import org.apache.brooklyn.util.http.HttpTool;
 import org.apache.http.HttpStatus;
-import org.eclipse.jetty.server.NetworkConnector;
 import org.eclipse.jetty.server.Server;
 import org.testng.annotations.Test;
 
@@ -41,6 +40,7 @@ public class BrooklynRestApiLauncherTest extends BrooklynRestApiLauncherTestFixt
     }
 
     @Test
+    // doesn't work from IDE
     public void testWebAppStart() throws Exception {
         checkRestCatalogEntities(useServerForTest(baseLauncher().mode(WEB_XML).start()));
     }
@@ -52,11 +52,11 @@ public class BrooklynRestApiLauncherTest extends BrooklynRestApiLauncherTestFixt
     }
     
     private static void checkRestCatalogEntities(Server server) throws Exception {
-        final String rootUrl = "http://localhost:"+((NetworkConnector)server.getConnectors()[0]).getLocalPort();
+        final String rootUrl = getBaseUriRest(server);
         int code = Asserts.succeedsEventually(new Callable<Integer>() {
             @Override
             public Integer call() throws Exception {
-                int code = HttpTool.getHttpStatusCode(rootUrl+"/v1/catalog/entities");
+                int code = HttpTool.getHttpStatusCode(rootUrl+"catalog/entities");
                 if (code == HttpStatus.SC_FORBIDDEN) {
                     throw new RuntimeException("Retry request");
                 } else {
@@ -65,7 +65,7 @@ public class BrooklynRestApiLauncherTest extends BrooklynRestApiLauncherTestFixt
             }
         });
         HttpAsserts.assertHealthyStatusCode(code);
-        HttpAsserts.assertContentContainsText(rootUrl+"/v1/catalog/entities", BrooklynNode.class.getSimpleName());
+        HttpAsserts.assertContentContainsText(rootUrl+"catalog/entities", BrooklynNode.class.getSimpleName());
     }
     
 }

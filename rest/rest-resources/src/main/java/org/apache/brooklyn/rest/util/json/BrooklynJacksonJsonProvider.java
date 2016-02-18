@@ -158,7 +158,7 @@ public class BrooklynJacksonJsonProvider extends JacksonJsonProvider implements
         mapper.setSerializerProvider(sp);
         mapper.setVisibilityChecker(new PossiblyStrictPreferringFieldsVisibilityChecker());
 
-        SimpleModule mapperModule = new SimpleModule("Brooklyn", new Version(0, 0, 0, "ignored"));
+        SimpleModule mapperModule = new SimpleModule("Brooklyn", new Version(0, 0, 0, "ignored", null, null));
 
         new BidiSerialization.ManagementContextSerialization(mgmt).install(mapperModule);
         new BidiSerialization.EntitySerialization(mgmt).install(mapperModule);

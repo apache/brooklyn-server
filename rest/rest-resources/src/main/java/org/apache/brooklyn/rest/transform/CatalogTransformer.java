@@ -56,14 +56,19 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+
 import javax.ws.rs.core.UriBuilder;
+
 import org.apache.brooklyn.rest.api.CatalogApi;
+
 import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceUriBuilder;
 
+@SuppressWarnings("deprecation")
 public class CatalogTransformer {
 
     private static final org.slf4j.Logger log = LoggerFactory.getLogger(CatalogTransformer.class);
     
+    @SuppressWarnings({ "unchecked", "rawtypes" })
     public static <T extends Entity> CatalogEntitySummary catalogEntitySummary(BrooklynRestResourceUtils b, CatalogItem<T,EntitySpec<? extends T>> item, UriBuilder ub) {
         Set<EntityConfigSummary> config = Sets.newLinkedHashSet();
         Set<SensorSummary> sensors = Sets.newTreeSet(SummaryComparators.nameComparator());

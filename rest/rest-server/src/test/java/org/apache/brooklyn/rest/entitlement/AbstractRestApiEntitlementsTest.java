@@ -84,13 +84,13 @@ public abstract class AbstractRestApiEntitlementsTest extends BrooklynRestApiLau
     
     protected HttpClient newClient(String user) throws Exception {
         return httpClientBuilder()
-                .uri(getBaseUri())
+                .uri(getBaseUriRest())
                 .credentials(new UsernamePasswordCredentials(user, "ignoredPassword"))
                 .build();
     }
 
     protected String httpGet(String user, String path) throws Exception {
-        HttpToolResponse response = HttpTool.httpGet(newClient(user), URI.create(getBaseUri()).resolve(path), ImmutableMap.<String, String>of());
+        HttpToolResponse response = HttpTool.httpGet(newClient(user), URI.create(getBaseUriRest()).resolve(path), ImmutableMap.<String, String>of());
         assertTrue(HttpAsserts.isHealthyStatusCode(response.getResponseCode()), "code="+response.getResponseCode()+"; reason="+response.getReasonPhrase());
         return response.getContentAsString();
     }
@@ -100,12 +100,12 @@ public abstract class AbstractRestApiEntitlementsTest extends BrooklynRestApiLau
     }
 
     protected void assertForbidden(String user, String path) throws Exception {
-        HttpToolResponse response = HttpTool.httpGet(newClient(user), URI.create(getBaseUri()).resolve(path), ImmutableMap.<String, String>of());
+        HttpToolResponse response = HttpTool.httpGet(newClient(user), URI.create(getBaseUriRest()).resolve(path), ImmutableMap.<String, String>of());
         assertEquals(response.getResponseCode(), 403, "code="+response.getResponseCode()+"; reason="+response.getReasonPhrase()+"; content="+response.getContentAsString());
     }
 
     protected void assert404(String user, String path) throws Exception {
-        HttpToolResponse response = HttpTool.httpGet(newClient(user), URI.create(getBaseUri()).resolve(path), ImmutableMap.<String, String>of());
+        HttpToolResponse response = HttpTool.httpGet(newClient(user), URI.create(getBaseUriRest()).resolve(path), ImmutableMap.<String, String>of());
         assertEquals(response.getResponseCode(), 404, "code="+response.getResponseCode()+"; reason="+response.getReasonPhrase()+"; content="+response.getContentAsString());
     }
 }

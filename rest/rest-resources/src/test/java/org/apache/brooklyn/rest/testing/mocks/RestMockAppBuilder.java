@@ -24,6 +24,7 @@ import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.util.javalang.Reflections;
 
+/** @deprecated since 0.9.0 don't use {@link ApplicationBuilder} */
 public class RestMockAppBuilder extends ApplicationBuilder {
 
     public RestMockAppBuilder() {

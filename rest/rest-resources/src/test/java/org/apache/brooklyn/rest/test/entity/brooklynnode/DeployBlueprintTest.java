@@ -30,8 +30,9 @@ import org.apache.brooklyn.entity.brooklynnode.BrooklynNode;
 import org.apache.brooklyn.entity.brooklynnode.BrooklynNode.DeployBlueprintEffector;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.feed.http.JsonFunctions;
-import org.apache.brooklyn.test.HttpTestUtils;
+import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
 import org.apache.brooklyn.util.guava.Functionals;
+import org.apache.brooklyn.util.http.HttpTool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
@@ -39,7 +40,6 @@ import org.testng.annotations.Test;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
 
 public class DeployBlueprintTest extends BrooklynRestResourceTest {
 
@@ -77,11 +77,11 @@ public class DeployBlueprintTest extends BrooklynRestResourceTest {
 
         log.info("got: "+id);
 
-        String apps = HttpTestUtils.getContent(getEndpointAddress() + "/applications");
+        String apps = HttpTool.getContent(getEndpointAddress() + "/applications");
         List<String> appType = parseJsonList(apps, ImmutableList.of("spec", "type"), String.class);
         assertEquals(appType, ImmutableList.of(BasicApplication.class.getName()));
 
-        String status = HttpTestUtils.getContent(getEndpointAddress()+"/applications/"+id+"/entities/"+id+"/sensors/service.status");
+        String status = HttpTool.getContent(getEndpointAddress()+"/applications/"+id+"/entities/"+id+"/sensors/service.status");
         log.info("STATUS: "+status);
     }
 

@@ -105,12 +105,12 @@ public class BrooklynPropertiesSecurityFilterTest extends BrooklynRestApiLaunche
             String appId = startAppAtNode(server);
             String entityId = getTestEntityInApp(server, appId);
             HttpClient client = HttpTool.httpClientBuilder()
-                    .uri(getBaseUri(server))
+                    .uri(getBaseUriRest())
                     .build();
             List<? extends NameValuePair> nvps = Lists.newArrayList(
                     new BasicNameValuePair("arg", "bar"));
             String effector = String.format("/applications/%s/entities/%s/effectors/identityEffector", appId, entityId);
-            HttpToolResponse response = HttpTool.httpPost(client, URI.create(getBaseUri() + effector),
+            HttpToolResponse response = HttpTool.httpPost(client, URI.create(getBaseUriRest() + effector),
                     ImmutableMap.of(HttpHeaders.CONTENT_TYPE, ContentType.APPLICATION_FORM_URLENCODED.getMimeType()),
                     URLEncodedUtils.format(nvps, Charsets.UTF_8).getBytes());
 
@@ -127,9 +127,9 @@ public class BrooklynPropertiesSecurityFilterTest extends BrooklynRestApiLaunche
                 "services:\n" +
                 "- type: org.apache.brooklyn.test.entity.TestEntity";
         HttpClient client = HttpTool.httpClientBuilder()
-                .uri(getBaseUri(server))
+                .uri(getBaseUriRest(server))
                 .build();
-        HttpToolResponse response = HttpTool.httpPost(client, URI.create(getBaseUri() + "/applications"),
+        HttpToolResponse response = HttpTool.httpPost(client, URI.create(getBaseUriRest() + "applications"),
                 ImmutableMap.of(HttpHeaders.CONTENT_TYPE, "application/x-yaml"),
                 blueprint.getBytes());
         assertTrue(HttpTool.isStatusCodeHealthy(response.getResponseCode()), "error creating app. response code=" + response.getResponseCode());
@@ -141,10 +141,10 @@ public class BrooklynPropertiesSecurityFilterTest extends BrooklynRestApiLaunche
     @SuppressWarnings("rawtypes")
     private String getTestEntityInApp(Server server, String appId) throws Exception {
         HttpClient client = HttpTool.httpClientBuilder()
-                .uri(getBaseUri(server))
+                .uri(getBaseUriRest(server))
                 .build();
         List entities = new ObjectMapper().readValue(
-                HttpTool.httpGet(client, URI.create(getBaseUri() + "/applications/" + appId + "/entities"), MutableMap.<String, String>of()).getContent(), List.class);
+                HttpTool.httpGet(client, URI.create(getBaseUriRest(server) + "applications/" + appId + "/entities"), MutableMap.<String, String>of()).getContent(), List.class);
         LOG.info((String) ((Map) entities.get(0)).get("id"));
         return (String) ((Map) entities.get(0)).get("id");
     }

@@ -26,9 +26,10 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.entity.stock.BasicApplication;
+import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
 import org.apache.brooklyn.rest.testing.mocks.RestMockSimpleEntity;
-import org.apache.brooklyn.test.HttpTestUtils;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.http.HttpAsserts;
 import org.apache.brooklyn.util.http.HttpTool;
 import org.apache.brooklyn.util.http.HttpToolResponse;
 import org.apache.brooklyn.util.net.Urls;
@@ -39,7 +40,6 @@ import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
 
 public class SensorResourceIntegrationTest extends BrooklynRestResourceTest {
 
@@ -67,7 +67,7 @@ public class SensorResourceIntegrationTest extends BrooklynRestResourceTest {
         // Uses explicit "application/json" because failed on jenkins as though "text/plain" was the default on Ubuntu jenkins!
         HttpClient client = HttpTool.httpClientBuilder().uri(baseUri).build();
         HttpToolResponse response = HttpTool.httpGet(client, url, ImmutableMap.<String, String>of("Accept", "application/json"));
-        HttpTestUtils.assertHealthyStatusCode(response.getResponseCode());
+        HttpAsserts.assertHealthyStatusCode(response.getResponseCode());
         Assert.assertEquals(response.getContentAsString(), "\"12345 frogs\"");
     }
 

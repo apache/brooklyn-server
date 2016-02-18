@@ -65,7 +65,7 @@ public class ServerShutdownTest extends BrooklynRestResourceTest {
         assertTrue(getManagementContext().isRunning());
         assertFalse(shutdownListener.isRequested());
 
-        MultivaluedMap<String, String> formData = new MultivaluedHashMap();
+        MultivaluedMap<String, String> formData = new MultivaluedHashMap<String,String>();
         formData.add("requestTimeout", "0");
         formData.add("delayForHttpReturn", "0");
         client().path("/server/shutdown").type(MediaType.APPLICATION_FORM_URLENCODED).post(formData);

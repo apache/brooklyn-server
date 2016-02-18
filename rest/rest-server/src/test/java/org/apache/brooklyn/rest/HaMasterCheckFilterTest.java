@@ -35,17 +35,16 @@ import org.apache.brooklyn.camp.brooklyn.BrooklynCampPlatformLauncherNoServer;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestUtils;
 import org.apache.brooklyn.entity.stock.BasicApplication;
-import org.apache.http.HttpStatus;
-import org.apache.http.client.HttpClient;
-import org.eclipse.jetty.server.Server;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.Test;
 import org.apache.brooklyn.rest.security.provider.AnyoneSecurityProvider;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.http.HttpTool;
 import org.apache.brooklyn.util.http.HttpToolResponse;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.http.client.HttpClient;
+import org.eclipse.jetty.server.Server;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.Test;
 
 import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
@@ -63,7 +62,6 @@ public class HaMasterCheckFilterTest extends BrooklynRestApiLauncherTestFixture 
 
     @AfterMethod(alwaysRun=true)
     public void tearDown() throws Exception {
-System.err.println("TEAR DOWN");
         server.stop();
         Entities.destroyAll(writeMgmt);
         Entities.destroyAll(readMgmt);
@@ -74,23 +72,25 @@ System.err.println("TEAR DOWN");
     public void testEntitiesExistOnDisabledHA() throws Exception {
         initHaCluster(HighAvailabilityMode.DISABLED, HighAvailabilityMode.DISABLED);
         assertReadIsMaster();
-        assertEntityExists(new ReturnCodeCheck());
+        assertEntityExists(new ReturnCodeNotRetry());
     }
 
     @Test(groups = "Integration")
     public void testEntitiesExistOnMasterPromotion() throws Exception {
         initHaCluster(HighAvailabilityMode.AUTO, HighAvailabilityMode.AUTO);
+        assertEntityNotFound(new ReturnCodeNotRetry());
         stopWriteNode();
-        assertEntityExists(new ReturnCodeCheck());
+        assertEntityExists(new ReturnCodeNotRetryAndNodeIsMaster());
         assertReadIsMaster();
     }
 
     @Test(groups = "Integration")
     public void testEntitiesExistOnHotStandbyAndPromotion() throws Exception {
         initHaCluster(HighAvailabilityMode.AUTO, HighAvailabilityMode.HOT_STANDBY);
-        assertEntityExists(new ReturnCodeCheck());
+        assertEntityExists(new ReturnCodeNotRetry());
         stopWriteNode();
-        assertEntityExists(new ReturnCodeAndNodeState());
+        // once the node claims master we should get a 200
+        assertEntityExists(new ReturnCodeNotRetryAndNodeIsMaster());
         assertReadIsMaster();
     }
 
@@ -98,23 +98,23 @@ System.err.println("TEAR DOWN");
     public void testEntitiesExistOnHotBackup() throws Exception {
         initHaCluster(HighAvailabilityMode.AUTO, HighAvailabilityMode.HOT_BACKUP);
         Asserts.continually(
-                ImmutableMap.<String,Object>of(
-                        "timeout", Duration.THIRTY_SECONDS,
-                        "period", Duration.ZERO),
                 new ReturnCodeSupplier(),
-                Predicates.or(Predicates.equalTo(200), Predicates.equalTo(403)));
+                Predicates.or(Predicates.equalTo(200), Predicates.equalTo(403)),
+                Duration.THIRTY_SECONDS, 
+                null,
+                null);
     }
 
     private HttpClient getClient(Server server) {
         HttpClient client = HttpTool.httpClientBuilder()
-                .uri(getBaseUri(server))
+                .uri(getBaseUriRest(server))
                 .build();
         return client;
     }
 
     private int getAppResponseCode() {
         HttpToolResponse response = HttpTool.httpGet(
-                client, URI.create(getBaseUri(server) + "/applications/" + appId),
+                client, URI.create(getBaseUriRest() + "applications/" + appId),
                 ImmutableMap.<String,String>of());
         return response.getResponseCode();
     }
@@ -173,6 +173,10 @@ System.err.println("TEAR DOWN");
     private void assertEntityExists(Callable<Integer> c) {
         assertEquals((int)Asserts.succeedsEventually(c), 200);
     }
+    
+    private void assertEntityNotFound(Callable<Integer> c) {
+        assertEquals((int)Asserts.succeedsEventually(c), 404);
+    }
 
     private void assertReadIsMaster() {
         assertEquals(readMgmt.getHighAvailabilityManager().getNodeState(), ManagementNodeState.MASTER);
@@ -182,7 +186,7 @@ System.err.println("TEAR DOWN");
         writeMgmt.getHighAvailabilityManager().stop();
     }
 
-    private class ReturnCodeCheck implements Callable<Integer> {
+    private class ReturnCodeNotRetry implements Callable<Integer> {
         @Override
         public Integer call() {
             int retCode = getAppResponseCode();
@@ -194,17 +198,14 @@ System.err.println("TEAR DOWN");
         }
     }
 
-    private class ReturnCodeAndNodeState extends ReturnCodeCheck {
+    private class ReturnCodeNotRetryAndNodeIsMaster extends ReturnCodeNotRetry {
         @Override
         public Integer call() {
-            Integer ret = super.call();
-            if (ret == HttpStatus.SC_OK) {
-                ManagementNodeState state = readMgmt.getHighAvailabilityManager().getNodeState();
-                if (state != ManagementNodeState.MASTER) {
-                    throw new RuntimeException("Not master yet " + state);
-                }
+            ManagementNodeState state = readMgmt.getHighAvailabilityManager().getNodeState();
+            if (state != ManagementNodeState.MASTER) {
+                throw new RuntimeException("Not master yet " + state);
             }
-            return ret;
+            return super.call();
         }
     }
 

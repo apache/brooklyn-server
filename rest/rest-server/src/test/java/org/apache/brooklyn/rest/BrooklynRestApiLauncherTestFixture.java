@@ -69,11 +69,24 @@ public abstract class BrooklynRestApiLauncherTestFixture {
         return server;
     }
     
-    protected String getBaseUri() {
-        return getBaseUri(server);
-    }
+    /** @deprecated since 0.9.0 use {@link #getBaseUriHostAndPost(Server)} or {@link #getBaseUriRest(Server)} */
     public static String getBaseUri(Server server) {
+        return getBaseUriHostAndPost(server);
+    }
+    
+    protected String getBaseUriHostAndPost() {
+        return getBaseUriHostAndPost(server);
+    }
+    /** returns base of server, without trailing slash - e.g. <code>http://localhost:8081</code> */
+    public static String getBaseUriHostAndPost(Server server) {
         return "http://localhost:"+((NetworkConnector)server.getConnectors()[0]).getLocalPort();
+    }
+    protected String getBaseUriRest() {
+        return getBaseUriRest(server);
+    }
+    /** returns REST endpoint, with trailing slash */
+    public static String getBaseUriRest(Server server) {
+        return getBaseUriHostAndPost(server)+"/v1/";
     }
     
     public static void forceUseOfDefaultCatalogWithJavaClassPath(Server server) {

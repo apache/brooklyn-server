@@ -21,7 +21,6 @@ package org.apache.brooklyn.rest.testing.mocks;
 import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.annotation.Effector;
@@ -31,10 +30,10 @@ import org.apache.brooklyn.core.effector.MethodEffector;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
 import org.apache.brooklyn.entity.software.base.AbstractSoftwareProcessSshDriver;
 import org.apache.brooklyn.entity.software.base.SoftwareProcessImpl;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class RestMockSimpleEntity extends SoftwareProcessImpl {
 
@@ -87,7 +86,8 @@ public class RestMockSimpleEntity extends SoftwareProcessImpl {
     }
     
     public static class MockSshDriver extends AbstractSoftwareProcessSshDriver {
-        public MockSshDriver(EntityLocal entity, SshMachineLocation machine) {
+        @SuppressWarnings("deprecation")
+        public MockSshDriver(org.apache.brooklyn.api.entity.EntityLocal entity, SshMachineLocation machine) {
             super(entity, machine);
         }
         public boolean isRunning() { return true; }

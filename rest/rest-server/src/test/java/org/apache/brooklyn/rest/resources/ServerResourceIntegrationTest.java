@@ -68,10 +68,10 @@ public class ServerResourceIntegrationTest extends BrooklynRestApiLauncherTestFi
                     .withoutJsgui()
                     .securityProvider(TestSecurityProvider.class)
                     .start());
-            String baseUri = getBaseUri(server);
+            String baseUri = getBaseUriRest(server);
     
             HttpToolResponse response;
-            final URI uri = URI.create(getBaseUri() + "/server/properties/reload");
+            final URI uri = URI.create(getBaseUriRest() + "server/properties/reload");
             final Map<String, String> args = Collections.emptyMap();
     
             // Unauthorised when no credentials, and when default credentials.
@@ -112,11 +112,11 @@ public class ServerResourceIntegrationTest extends BrooklynRestApiLauncherTestFi
 
     private String getServerUser(Server server) throws Exception {
         HttpClient client = httpClientBuilder()
-                .uri(getBaseUri(server))
+                .uri(getBaseUriRest(server))
                 .credentials(TestSecurityProvider.CREDENTIAL)
                 .build();
         
-        HttpToolResponse response = HttpTool.httpGet(client, URI.create(getBaseUri(server) + "/server/user"),
+        HttpToolResponse response = HttpTool.httpGet(client, URI.create(getBaseUriRest(server) + "server/user"),
                 ImmutableMap.<String, String>of());
         HttpAsserts.assertHealthyStatusCode(response.getResponseCode());
         return response.getContentAsString();
