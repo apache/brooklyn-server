@@ -41,6 +41,7 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
@@ -207,6 +208,19 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
             return (Task<Object>) DependentConfiguration.attributeWhenReady(targetEntity, (AttributeSensor<?>)targetSensor);
         }
         @Override
+        public int hashCode() {
+            return Objects.hashCode(component, sensorName);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            AttributeWhenReady that = AttributeWhenReady.class.cast(obj);
+            return Objects.equal(this.component, that.component) &&
+                    Objects.equal(this.sensorName, that.sensorName);
+        }
+        @Override
         public String toString() {
             return (component.scope==Scope.THIS ? "" : component.toString()+".") +
                 "attributeWhenReady("+JavaStringEscapes.wrapJavaString(sensorName)+")";
@@ -235,6 +249,20 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
                     return targetEntity.getConfig(ConfigKeys.newConfigKey(Object.class, keyName));
                 }
             }).build();
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(component, keyName);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            DslConfigSupplier that = DslConfigSupplier.class.cast(obj);
+            return Objects.equal(this.component, that.component) &&
+                    Objects.equal(this.keyName, that.keyName);
         }
 
         @Override
@@ -271,6 +299,20 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
                     return Sensors.newSensor(Object.class, sensorName);
                 }
             }).build();
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(component, sensorName);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            DslSensorSupplier that = DslSensorSupplier.class.cast(obj);
+            return Objects.equal(this.component, that.component) &&
+                    Objects.equal(this.sensorName, that.sensorName);
         }
 
         @Override
@@ -318,6 +360,20 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
         }
     }
 
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(componentId, scopeComponent, scope);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        DslComponent that = DslComponent.class.cast(obj);
+        return Objects.equal(this.componentId, that.componentId) &&
+                Objects.equal(this.scopeComponent, that.scopeComponent) &&
+                Objects.equal(this.scope, that.scope);
+    }
 
     @Override
     public String toString() {
