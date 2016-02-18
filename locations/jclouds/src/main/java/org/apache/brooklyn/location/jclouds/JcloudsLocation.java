@@ -88,6 +88,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
 import org.apache.brooklyn.util.core.crypto.SecureKeys;
 import org.apache.brooklyn.util.core.flags.MethodCoercions;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
@@ -519,7 +520,8 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     }
 
     public ComputeService getComputeService(ConfigBag config) {
-        return getConfig(COMPUTE_SERVICE_REGISTRY).findComputeService(config, true);
+        ComputeServiceRegistry registry = getConfig(COMPUTE_SERVICE_REGISTRY);
+        return registry.findComputeService(ResolvingConfigBag.newInstanceExtending(getManagementContext(), config), true);
     }
 
     /** @deprecated since 0.7.0 use {@link #listMachines()} */ @Deprecated
@@ -644,7 +646,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         JcloudsPortForwarderExtension portForwarder = setup.get(PORT_FORWARDER);
         if (usePortForwarding) checkNotNull(portForwarder, "portForwarder, when use-port-forwarding enabled");
 
-        final ComputeService computeService = getConfig(COMPUTE_SERVICE_REGISTRY).findComputeService(setup, true);
+        final ComputeService computeService = getComputeService(setup);
         CloudMachineNamer cloudMachineNamer = getCloudMachineNamer(setup);
         String groupId = elvis(setup.get(GROUP_ID), cloudMachineNamer.generateNewGroupId(setup));
         NodeMetadata node = null;
@@ -1558,7 +1560,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             // TODO use key
             m1.putStringKey("anyOwner", true);
         }
-        ComputeService computeServiceLessRestrictive = getConfig(COMPUTE_SERVICE_REGISTRY).findComputeService(m1, true);
+        ComputeService computeServiceLessRestrictive = getComputeService(m1);
         Set<? extends Image> imgs = computeServiceLessRestrictive.listImages();
         LOG.info(""+imgs.size()+" available images at "+this);
         for (Image img: imgs) {
@@ -2439,7 +2441,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     protected void releaseNode(String instanceId) {
         ComputeService computeService = null;
         try {
-            computeService = getConfig(COMPUTE_SERVICE_REGISTRY).findComputeService(config().getBag(), true);
+            computeService = getComputeService(config().getBag());
             computeService.destroyNode(instanceId);
         } finally {
         /*
