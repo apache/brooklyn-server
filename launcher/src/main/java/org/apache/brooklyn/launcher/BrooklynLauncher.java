@@ -27,11 +27,11 @@ import java.net.InetAddress;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
+
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Application;
@@ -55,7 +55,6 @@ import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.StartableApplication;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.location.PortRanges;
@@ -135,7 +134,8 @@ public class BrooklynLauncher {
     private final List<Location> locations = new ArrayList<Location>();
 
     private final List<Application> appsToManage = new ArrayList<Application>();
-    private final List<ApplicationBuilder> appBuildersToManage = new ArrayList<ApplicationBuilder>();
+    @SuppressWarnings("deprecation") // TODO convert to EntitySpec; should be easy when users not allowed to pass in a builder
+    private final List<org.apache.brooklyn.core.entity.factory.ApplicationBuilder> appBuildersToManage = new ArrayList<org.apache.brooklyn.core.entity.factory.ApplicationBuilder>();
     private final List<String> yamlAppsToManage = new ArrayList<String>();
     private final List<Application> apps = new ArrayList<Application>();
     
@@ -211,9 +211,13 @@ public class BrooklynLauncher {
      * The application will not be started as part of this call (callers can
      * subsequently call {@link #start()} or {@link #getApplications()}.
      * 
-     * @see #application(Application)
+     * @see #application(EntitySpec)
+     * 
+     * @deprecated since 0.9.0; instead use {@link #application(String)} for YAML apps, or {@link #application(EntitySpec)}.
+     *             Note that apps are now auto-managed on construction through EntitySpec/YAML.
      */
-    public BrooklynLauncher application(ApplicationBuilder appBuilder) {
+    public BrooklynLauncher application(org.apache.brooklyn.core.entity.factory.ApplicationBuilder appBuilder) {
+        LOG.warn("Caller supplied ApplicationBuilder; convert to EntitySpec as this style builder may not be supported in future.");
         appBuildersToManage.add(checkNotNull(appBuilder, "appBuilder"));
         return this;
     }
@@ -226,8 +230,9 @@ public class BrooklynLauncher {
      * 
      * @see #application(Application)
      */
+    @SuppressWarnings("deprecation")  // when appsToManage is EntitySpec this will no longer be needed
     public BrooklynLauncher application(EntitySpec<? extends StartableApplication> appSpec) {
-        appBuildersToManage.add(new ApplicationBuilder(checkNotNull(appSpec, "appSpec")) {
+        appBuildersToManage.add(new org.apache.brooklyn.core.entity.factory.ApplicationBuilder(checkNotNull(appSpec, "appSpec")) {
                 @Override protected void doBuild() {
                 }});
         return this;
@@ -802,7 +807,7 @@ public class BrooklynLauncher {
                     BrooklynWebConfig.SECURITY_PROVIDER_INSTANCE,
                     new BrooklynUserWithRandomPasswordSecurityProvider(managementContext));
         } else {
-            LOG.debug("Starting Brooklyn using security properties: "+brooklynProperties.submap(ConfigPredicates.startingWith(BrooklynWebConfig.BASE_NAME_SECURITY)).asMapWithStringKeys());
+            LOG.debug("Starting Brooklyn using security properties: "+brooklynProperties.submap(ConfigPredicates.nameStartsWith(BrooklynWebConfig.BASE_NAME_SECURITY)).asMapWithStringKeys());
         }
         if (bindAddress == null) bindAddress = Networking.ANY_NIC;
 
@@ -937,8 +942,9 @@ public class BrooklynLauncher {
         rebindManager.startPersistence();
     }
 
+    @SuppressWarnings("deprecation")
     protected void createApps() {
-        for (ApplicationBuilder appBuilder : appBuildersToManage) {
+        for (org.apache.brooklyn.core.entity.factory.ApplicationBuilder appBuilder : appBuildersToManage) {
             StartableApplication app = appBuilder.manage(managementContext);
             apps.add(app);
         }
@@ -953,6 +959,8 @@ public class BrooklynLauncher {
         }
     }
 
+    @SuppressWarnings("deprecation")
+    // TODO convert to spec -- should be easy
     protected void startBrooklynNode() {
         final String classpath = System.getenv("INITIAL_CLASSPATH");
         if (Strings.isBlank(classpath)) {
@@ -963,8 +971,7 @@ public class BrooklynLauncher {
             LOG.info("Skipping BrooklynNode entity creation, BrooklynWebServer not running");
             return;
         }
-        ApplicationBuilder brooklyn = new ApplicationBuilder() {
-            @SuppressWarnings("deprecation")
+        org.apache.brooklyn.core.entity.factory.ApplicationBuilder brooklyn = new org.apache.brooklyn.core.entity.factory.ApplicationBuilder() {
             @Override
             protected void doBuild() {
                 addChild(EntitySpec.create(LocalBrooklynNode.class)
