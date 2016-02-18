@@ -30,18 +30,14 @@ import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.ws.rs.core.Response;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
-import org.apache.brooklyn.rest.domain.ApiError;
+import org.apache.brooklyn.rest.util.OsgiCompat;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
-import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.guava.Maybe;
 
 import com.google.common.collect.Sets;
-import org.apache.brooklyn.rest.util.OsgiCompat;
 
 /**
  * Checks that for requests that want HA master state, the server is up and in that state.
@@ -52,12 +48,16 @@ import org.apache.brooklyn.rest.util.OsgiCompat;
 // TODO Merge with HaHotCheckResourceFilter so the functionality is available in Karaf
 public class HaMasterCheckFilter implements Filter {
 
-    private static final Logger log = LoggerFactory.getLogger(HaMasterCheckFilter.class);
-    
     private static final Set<String> SAFE_STANDBY_METHODS = Sets.newHashSet("GET", "HEAD");
 
     protected ServletContext servletContext;
     protected ManagementContext mgmt;
+
+    private HaHotCheckHelperAbstract helper = new HaHotCheckHelperAbstract() {
+        public ManagementContext mgmt() {
+            return mgmt;
+        }
+    };
 
     @Override
     public void init(FilterConfig config) throws ServletException {
@@ -66,15 +66,15 @@ public class HaMasterCheckFilter implements Filter {
     }
 
     private String lookForProblem(ServletRequest request) {
-        if (isSkipCheckHeaderSet(request)) 
+        if (helper.isSkipCheckHeaderSet(((HttpServletRequest)request).getHeader(HaHotCheckHelperAbstract.SKIP_CHECK_HEADER))) 
             return null;
         
         if (!isMasterRequiredForRequest(request))
             return null;
         
-        String problem = HaHotCheckResourceFilter.lookForProblemIfServerNotRunning(mgmt);
-        if (Strings.isNonBlank(problem)) 
-            return problem;
+        Maybe<String> problem = helper.getProblemMessageIfServerNotRunning();
+        if (problem.isPresent()) 
+            return problem.get();
         
         if (!isMaster()) 
             return "server not in required HA master state";
@@ -86,10 +86,7 @@ public class HaMasterCheckFilter implements Filter {
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
         String problem = lookForProblem(request);
         if (problem!=null) {
-            log.warn("Disallowing web request as "+problem+": "+request.getParameterMap()+" (caller should set '"+HaHotCheckResourceFilter.SKIP_CHECK_HEADER+"' to force)");
-            WebResourceUtils.applyJsonResponse(servletContext, ApiError.builder()
-                .message("This request is only permitted against an active master Brooklyn server")
-                .errorCode(Response.Status.FORBIDDEN).build().asJsonResponse(), (HttpServletResponse)response);
+            WebResourceUtils.applyJsonResponse(servletContext, helper.disallowResponse(problem, request.getParameterMap()), (HttpServletResponse)response);
         } else {
             chain.doFilter(request, response);
         }
@@ -122,12 +119,6 @@ public class HaMasterCheckFilter implements Filter {
         }
         // previously non-HttpServletRequests were allowed but I don't think they should be
         return true;
-    }
-
-    private boolean isSkipCheckHeaderSet(ServletRequest httpRequest) {
-        if (httpRequest instanceof HttpServletRequest)
-            return "true".equalsIgnoreCase(((HttpServletRequest)httpRequest).getHeader(HaHotCheckResourceFilter.SKIP_CHECK_HEADER));
-        return false;
     }
 
 }

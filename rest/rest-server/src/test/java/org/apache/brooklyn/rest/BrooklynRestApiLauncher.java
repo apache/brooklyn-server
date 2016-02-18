@@ -36,7 +36,6 @@ import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServiceAttributes;
-import org.apache.brooklyn.rest.apidoc.RestApiResourceScanner;
 import org.apache.brooklyn.rest.filter.BrooklynPropertiesSecurityFilter;
 import org.apache.brooklyn.rest.filter.HaMasterCheckFilter;
 import org.apache.brooklyn.rest.filter.LoggingFilter;
@@ -44,7 +43,6 @@ import org.apache.brooklyn.rest.filter.RequestTaggingFilter;
 import org.apache.brooklyn.rest.security.provider.AnyoneSecurityProvider;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider;
 import org.apache.brooklyn.rest.util.ManagementContextProvider;
-import org.apache.brooklyn.rest.util.OsgiCompat;
 import org.apache.brooklyn.rest.util.ServerStoppingShutdownHandler;
 import org.apache.brooklyn.rest.util.ShutdownHandlerProvider;
 import org.apache.brooklyn.util.core.ResourceUtils;
@@ -67,8 +65,6 @@ import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.io.Files;
-
-import io.swagger.config.ScannerFactory;
 
 /** Convenience and demo for launching programmatically. Also used for automated tests.
  * <p>

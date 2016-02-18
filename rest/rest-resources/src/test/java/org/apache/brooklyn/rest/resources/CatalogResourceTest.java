@@ -126,6 +126,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         // an InterfacesTag should be created for every catalog item
         assertEquals(entityItem.getTags().size(), 1);
         Object tag = entityItem.getTags().iterator().next();
+        @SuppressWarnings("unchecked")
         List<String> actualInterfaces = ((Map<String, List<String>>) tag).get("traits");
         List<Class<?>> expectedInterfaces = Reflections.getAllInterfaces(TestEntity.class);
         assertEquals(actualInterfaces.size(), expectedInterfaces.size());
@@ -138,6 +139,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
     }
 
     @Test
+    // osgi may fail in IDE, typically works on CLI though
     public void testRegisterOsgiPolicyTopLevelSyntax() {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
 
