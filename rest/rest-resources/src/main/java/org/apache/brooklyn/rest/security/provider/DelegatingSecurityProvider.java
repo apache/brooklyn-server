@@ -19,6 +19,7 @@
 package org.apache.brooklyn.rest.security.provider;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.servlet.http.HttpSession;
@@ -97,19 +98,7 @@ public class DelegatingSecurityProvider implements SecurityProvider {
                 } else throw e;
             }
 
-            Constructor<? extends SecurityProvider> constructor;
-            try {
-                constructor = clazz.getConstructor(ManagementContext.class);
-                delegate = constructor.newInstance(mgmt);
-            } catch (Exception e) {
-                constructor = clazz.getConstructor();
-                Object delegateO = constructor.newInstance();
-                if (!(delegateO instanceof SecurityProvider)) {
-                    // if classloaders get mangled it will be a different CL's SecurityProvider
-                    throw new ClassCastException("Delegate is either not a security provider or has an incompatible classloader: "+delegateO);
-                }
-                delegate = (SecurityProvider) delegateO;
-            }
+            delegate = createSecurityProviderInstance(mgmt, clazz);
         } catch (Exception e) {
             log.warn("REST unable to instantiate security provider " + className + "; all logins are being disallowed", e);
             delegate = new BlackholeSecurityProvider();
@@ -118,6 +107,24 @@ public class DelegatingSecurityProvider implements SecurityProvider {
         ((BrooklynProperties)mgmt.getConfig()).put(BrooklynWebConfig.SECURITY_PROVIDER_INSTANCE, delegate);
         
         return delegate;
+    }
+
+    public static SecurityProvider createSecurityProviderInstance(ManagementContext mgmt,
+            Class<? extends SecurityProvider> clazz) throws NoSuchMethodException, InstantiationException,
+                    IllegalAccessException, InvocationTargetException {
+        Constructor<? extends SecurityProvider> constructor;
+        try {
+            constructor = clazz.getConstructor(ManagementContext.class);
+            return constructor.newInstance(mgmt);
+        } catch (Exception e) {
+            constructor = clazz.getConstructor();
+            Object delegateO = constructor.newInstance();
+            if (!(delegateO instanceof SecurityProvider)) {
+                // if classloaders get mangled it will be a different CL's SecurityProvider
+                throw new ClassCastException("Delegate is either not a security provider or has an incompatible classloader: "+delegateO);
+            }
+            return (SecurityProvider) delegateO;
+        }
     }
 
     /**
