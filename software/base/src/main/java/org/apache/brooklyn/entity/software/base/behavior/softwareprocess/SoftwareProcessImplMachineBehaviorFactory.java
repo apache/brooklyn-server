@@ -28,12 +28,12 @@ import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.supplie
 import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.supplier.MachineProvisioningLocationFlagsSupplier;
 import org.apache.brooklyn.entity.software.base.lifecycle.LifecycleEffectorTasks;
 
-public class SoftwareProcessImplMachineBehaviourFactory
-        implements SoftwareProcessImplBehaviourFactory {
+public class SoftwareProcessImplMachineBehaviorFactory
+        implements SoftwareProcessImplBehaviorFactory {
 
     SoftwareProcessImpl entity;
 
-    public SoftwareProcessImplMachineBehaviourFactory(SoftwareProcessImpl entity){
+    public SoftwareProcessImplMachineBehaviorFactory(SoftwareProcessImpl entity){
         this.entity = entity;
     }
 

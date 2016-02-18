@@ -43,9 +43,9 @@ import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle.Transition;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceNotUpLogic;
-import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.SoftwareProcessImplBehaviourFactory;
-import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.SoftwareProcessImplMachineBehaviourFactory;
-import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.SoftwareProcessImplPaasBehaviourFactory;
+import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.SoftwareProcessImplBehaviorFactory;
+import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.SoftwareProcessImplMachineBehaviorFactory;
+import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.SoftwareProcessImplPaasBehaviorFactory;
 import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.supplier.LocationFlagSupplier;
 import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.supplier.MachineProvisioningLocationFlagsSupplier;
 import org.apache.brooklyn.entity.software.base.lifecycle.LifecycleEffectorTasks;
@@ -88,7 +88,7 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
 
     protected boolean connectedSensors = false;
 
-    SoftwareProcessImplBehaviourFactory factory;
+    SoftwareProcessImplBehaviorFactory factory;
     public LocationFlagSupplier locationFlagSupplier;
     private LifecycleEffectorTasks LIFECYCLE_TASKS;
 
@@ -137,7 +137,7 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
     @Beta
     protected void initBehavior(){
         locationFlagSupplier = new MachineProvisioningLocationFlagsSupplier(this);
-        factory =  new SoftwareProcessImplMachineBehaviourFactory(this);
+        factory =  new SoftwareProcessImplMachineBehaviorFactory(this);
         LIFECYCLE_TASKS = getLifecycleEffectorTasks();
         LIFECYCLE_TASKS.attachLifecycleEffectors(this);
     }
@@ -570,7 +570,7 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
     }
 
     /**
-     * If custom behaviour is required by sub-classes, consider overriding {@link #preStart()} or {@link #postStart()})}.
+     * If custom behavior is required by sub-classes, consider overriding {@link #preStart()} or {@link #postStart()})}.
      * Also consider adding additional work via tasks, executed using {@link DynamicTasks#queue(String, Callable)}.
      */
     @Override
@@ -588,18 +588,18 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
 
     @Beta
     protected void updateFactoryAndBehavior(Location location){
-        if((factory == null) || (newBehaviourFactoryIsRequired(location))) {
+        if((factory == null) || (newBehaviorFactoryIsRequired(location))) {
             updateFactoryAndBehavior(createBehaviorFactory(location));
         }
     }
 
     @Beta
-    private boolean newBehaviourFactoryIsRequired(Location location){
+    private boolean newBehaviorFactoryIsRequired(Location location){
         return !factory.isASupportedLocation(location);
     }
 
     @Beta
-    protected void updateFactoryAndBehavior(SoftwareProcessImplBehaviourFactory newFactory){
+    protected void updateFactoryAndBehavior(SoftwareProcessImplBehaviorFactory newFactory){
         factory = newFactory;
         LIFECYCLE_TASKS = factory.getLifecycleEffectorTasks();
         log.info("Lifecycle {} was selected for {}", LIFECYCLE_TASKS, this);
@@ -608,19 +608,19 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
     }
 
     @Beta
-    protected SoftwareProcessImplBehaviourFactory createBehaviorFactory(Location location){
-        SoftwareProcessImplBehaviourFactory result =null;
+    protected SoftwareProcessImplBehaviorFactory createBehaviorFactory(Location location){
+        SoftwareProcessImplBehaviorFactory result =null;
         if((location instanceof MachineProvisioningLocation) ||
                 (location instanceof MachineLocation)){
-            result =  new SoftwareProcessImplMachineBehaviourFactory(this);
+            result =  new SoftwareProcessImplMachineBehaviorFactory(this);
         } else if(location instanceof PaasLocation){
-            result =  new SoftwareProcessImplPaasBehaviourFactory(this);
+            result =  new SoftwareProcessImplPaasBehaviorFactory(this);
         }
         return result;
     }
 
     /**
-     * If custom behaviour is required by sub-classes, consider overriding  {@link #preStop()} or {@link #postStop()}.
+     * If custom behavior is required by sub-classes, consider overriding  {@link #preStop()} or {@link #postStop()}.
      * Also consider adding additional work via tasks, executed using {@link DynamicTasks#queue(String, Callable)}.
      */
     @Override
@@ -642,7 +642,7 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
     }
 
     /**
-     * If custom behaviour is required by sub-classes, consider overriding {@link #preRestart()} or {@link #postRestart()}.
+     * If custom behavior is required by sub-classes, consider overriding {@link #preRestart()} or {@link #postRestart()}.
      * Also consider adding additional work via tasks, executed using {@link DynamicTasks#queue(String, Callable)}.
      */
     @Override

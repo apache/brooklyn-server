@@ -20,13 +20,36 @@ package org.apache.brooklyn.entity.software.base.behavior.softwareprocess;
 
 
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.entity.software.base.SoftwareProcess;
+import org.apache.brooklyn.entity.software.base.SoftwareProcessImpl;
 import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.supplier.LocationFlagSupplier;
+import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.supplier.PaasLocationFlagsSupplier;
 import org.apache.brooklyn.entity.software.base.lifecycle.LifecycleEffectorTasks;
+import org.apache.brooklyn.location.paas.PaasLocation;
 
-public interface SoftwareProcessImplBehaviourFactory {
+public class SoftwareProcessImplPaasBehaviorFactory
+        implements SoftwareProcessImplBehaviorFactory {
 
-    public LocationFlagSupplier getLocationFlagSupplier();
-    public LifecycleEffectorTasks getLifecycleEffectorTasks();
-    public boolean isASupportedLocation(Location location);
+    SoftwareProcessImpl entity;
+
+    public SoftwareProcessImplPaasBehaviorFactory(SoftwareProcessImpl entity){
+        this.entity = entity;
+    }
+
+    @Override
+    public LocationFlagSupplier getLocationFlagSupplier() {
+        return new PaasLocationFlagsSupplier(entity);
+    }
+
+    @Override
+    public LifecycleEffectorTasks getLifecycleEffectorTasks() {
+        return entity.getConfig(SoftwareProcess.PAAS_LIFECYCLE_EFFECTOR_TASKS);
+    }
+
+    @Override
+    public boolean isASupportedLocation(Location location) {
+        return location instanceof PaasLocation;
+    }
+
 
 }
