@@ -47,6 +47,7 @@ import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.http.HttpHeaders;
 import org.apache.http.entity.ContentType;
+import org.eclipse.jetty.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -55,7 +56,9 @@ import org.testng.reporters.Files;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.Iterables;
+
 import java.io.InputStream;
+
 import javax.ws.rs.core.GenericType;
 
 @Test( // by using a different suite name we disallow interleaving other tests between the methods of this test class, which wrecks the test fixtures
@@ -501,7 +504,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         Response response = client().path("/catalog")
                 .post(yaml);
 
-        assertEquals(response.getStatus(), Response.Status.INTERNAL_SERVER_ERROR.getStatusCode());
+        assertEquals(response.getStatus(), HttpStatus.BAD_REQUEST_400);
     }
 
     private static String ver(String id) {

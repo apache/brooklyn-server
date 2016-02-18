@@ -85,10 +85,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.MultivaluedHashMap;
+
 import org.apache.cxf.jaxrs.client.WebClient;
 
 @Test(singleThreaded = true,
@@ -645,7 +647,7 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
             Response response3 = client().path("/applications")
                     .post(Entity.entity(yaml3, "application/x-yaml"));
             HttpAsserts.assertClientErrorStatusCode(response3.getStatus());
-            assertTrue(response3.readEntity(String.class).contains("cannot be matched"));
+            assertTrue(response3.readEntity(String.class).toLowerCase().contains("unable to match"));
             waitForPageNotFoundResponse("/applications/my-app3", ApplicationSummary.class);
             
         } finally {
