@@ -65,7 +65,7 @@ public class BrooklynApiUtilTest {
         BrooklynApiUtil.deployBlueprint(api, YAML);
 
         RecordedRequest request = server.takeRequest();
-        assertEquals("/v1/applications", request.getPath());
+        assertEquals("/applications", request.getPath());
         assertEquals("POST", request.getMethod());
         assertEquals(YAML, new String(request.getBody()));
     }

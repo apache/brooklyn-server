@@ -33,7 +33,7 @@ public class ApplicationSpecTest extends AbstractDomainTest {
         EntitySpec entitySpec = new EntitySpec("Vanilla Java App", "org.apache.brooklyn.entity.java.VanillaJavaApp",
                 ImmutableMap.of("initialSize", "1", "creationScriptUrl", "http://my.brooklyn.io/storage/foo.sql"));
         return ApplicationSpec.builder().name("myapp")
-                .entities(ImmutableSet.of(entitySpec)).locations(ImmutableSet.of("/v1/locations/1"))
+                .entities(ImmutableSet.of(entitySpec)).locations(ImmutableSet.of("/locations/1"))
                 .build();
     }
 

@@ -24,10 +24,8 @@ import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.util.EnumSet;
 import java.util.List;
 
-import javax.servlet.DispatcherType;
 import javax.servlet.Filter;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -38,12 +36,11 @@ import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServiceAttributes;
+import org.apache.brooklyn.rest.apidoc.RestApiResourceScanner;
 import org.apache.brooklyn.rest.filter.BrooklynPropertiesSecurityFilter;
 import org.apache.brooklyn.rest.filter.HaMasterCheckFilter;
 import org.apache.brooklyn.rest.filter.LoggingFilter;
-import org.apache.brooklyn.rest.filter.NoCacheFilter;
 import org.apache.brooklyn.rest.filter.RequestTaggingFilter;
-import org.apache.brooklyn.rest.filter.SwaggerFilter;
 import org.apache.brooklyn.rest.security.provider.AnyoneSecurityProvider;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider;
 import org.apache.brooklyn.rest.util.ManagementContextProvider;
@@ -59,9 +56,7 @@ import org.apache.brooklyn.util.text.WildcardGlobs;
 import org.eclipse.jetty.server.NetworkConnector;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.ContextHandler;
-import org.eclipse.jetty.servlet.FilterHolder;
 import org.eclipse.jetty.servlet.ServletContextHandler;
-import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.webapp.WebAppContext;
 import org.reflections.util.ClasspathHelper;
 import org.slf4j.Logger;
@@ -72,9 +67,8 @@ import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.io.Files;
-import com.sun.jersey.api.core.DefaultResourceConfig;
-import com.sun.jersey.api.core.ResourceConfig;
-import com.sun.jersey.spi.container.servlet.ServletContainer;
+
+import io.swagger.config.ScannerFactory;
 
 /** Convenience and demo for launching programmatically. Also used for automated tests.
  * <p>
@@ -96,20 +90,19 @@ public class BrooklynRestApiLauncher {
     public static final String SCANNING_CATALOG_BOM_URL = "classpath://brooklyn/scanning.catalog.bom";
 
     enum StartMode {
-        FILTER, SERVLET, /** web-xml is not fully supported */ @Beta WEB_XML
+        SERVLET, /** web-xml is not fully supported */ @Beta WEB_XML
     }
 
     public static final List<Class<? extends Filter>> DEFAULT_FILTERS = ImmutableList.of(
             RequestTaggingFilter.class,
             BrooklynPropertiesSecurityFilter.class,
             LoggingFilter.class,
-            HaMasterCheckFilter.class,
-            SwaggerFilter.class);
+            HaMasterCheckFilter.class);
 
     private boolean forceUseOfDefaultCatalogWithJavaClassPath = false;
     private Class<? extends SecurityProvider> securityProvider;
     private List<Class<? extends Filter>> filters = DEFAULT_FILTERS;
-    private StartMode mode = StartMode.FILTER;
+    private StartMode mode = StartMode.SERVLET;
     private ManagementContext mgmt;
     private ContextHandler customContext;
     private boolean deployJsgui = true;
@@ -182,18 +175,14 @@ public class BrooklynRestApiLauncher {
         String summary;
         if (customContext == null) {
             switch (mode) {
-            case SERVLET:
-                context = servletContextHandler(mgmt);
-                summary = "programmatic Jersey ServletContainer servlet";
-                break;
             case WEB_XML:
                 context = webXmlContextHandler(mgmt);
                 summary = "from WAR at " + ((WebAppContext) context).getWar();
                 break;
-            case FILTER:
+            case SERVLET:
             default:
-                context = filterContextHandler(mgmt);
-                summary = "programmatic Jersey ServletContainer filter on webapp at " + ((WebAppContext) context).getWar();
+                context = servletContextHandler(mgmt);
+                summary = "programmatic Jersey ServletContainer servlet";
                 break;
             }
         } else {
@@ -225,10 +214,22 @@ public class BrooklynRestApiLauncher {
         return server;
     }
 
-    private ContextHandler filterContextHandler(ManagementContext mgmt) {
+    private ContextHandler servletContextHandler(ManagementContext managementContext) {
         WebAppContext context = new WebAppContext();
-        context.setAttribute(BrooklynServiceAttributes.BROOKLYN_MANAGEMENT_CONTEXT, mgmt);
+
+        context.setAttribute(BrooklynServiceAttributes.BROOKLYN_MANAGEMENT_CONTEXT, managementContext);
+
+        installWar(context);
+        RestApiSetup.installRest(context,
+                new ManagementContextProvider(managementContext),
+                new ShutdownHandlerProvider(shutdownListener));
+        RestApiSetup.installServletFilters(context, this.filters);
+
         context.setContextPath("/");
+        return context;
+    }
+
+    private void installWar(WebAppContext context) {
         // here we run with the JS GUI, for convenience, if we can find it, else set up an empty dir
         // TODO pretty sure there is an option to monitor this dir and load changes to static content
         // NOTE: When running Brooklyn from an IDE (i.e. by launching BrooklynJavascriptGuiLauncher.main())
@@ -243,28 +244,11 @@ public class BrooklynRestApiLauncher {
                 : ResourceUtils.create(this).doesUrlExist("classpath://brooklyn.war") 
                     ? Os.writeToTempFile(ResourceUtils.create(this).getResourceFromUrl("classpath://brooklyn.war"), "brooklyn", "war").getAbsolutePath()
                 : createTempWebDirWithIndexHtml("Brooklyn REST API <p> (gui not available)"));
-        installAsServletFilter(context, this.filters);
-        return context;
-    }
-
-    private ContextHandler servletContextHandler(ManagementContext managementContext) {
-        ResourceConfig config = new DefaultResourceConfig();
-        for (Object r: BrooklynRestApi.getAllResources())
-            config.getSingletons().add(r);
-        addShutdownListener(config, mgmt);
-
-        ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
-        context.setAttribute(BrooklynServiceAttributes.BROOKLYN_MANAGEMENT_CONTEXT, managementContext);
-        ServletHolder servletHolder = new ServletHolder(new ServletContainer(config));
-        context.addServlet(servletHolder, "/*");
-        context.setContextPath("/");
-
-        installBrooklynFilters(context, this.filters);
-        return context;
     }
 
     /** NB: not fully supported; use one of the other {@link StartMode}s */
     private ContextHandler webXmlContextHandler(ManagementContext mgmt) {
+        RestApiSetup.initSwagger();
         // TODO add security to web.xml
         WebAppContext context;
         if (findMatchingFile("src/main/webapp")!=null) {
@@ -328,14 +312,8 @@ public class BrooklynRestApiLauncher {
     }
 
     public static void main(String[] args) throws Exception {
-        startRestResourcesViaFilter();
+        startRestResourcesViaServlet();
         log.info("Press Ctrl-C to quit.");
-    }
-
-    public static Server startRestResourcesViaFilter() {
-        return new BrooklynRestApiLauncher()
-                .mode(StartMode.FILTER)
-                .start();
     }
 
     public static Server startRestResourcesViaServlet() throws Exception {
@@ -348,49 +326,6 @@ public class BrooklynRestApiLauncher {
         return new BrooklynRestApiLauncher()
                 .mode(StartMode.WEB_XML)
                 .start();
-    }
-
-    public void installAsServletFilter(ServletContextHandler context) {
-        installAsServletFilter(context, DEFAULT_FILTERS);
-    }
-
-    private void installAsServletFilter(ServletContextHandler context, List<Class<? extends Filter>> filters) {
-        installBrooklynFilters(context, filters);
-
-        // now set up the REST servlet resources
-        ResourceConfig config = new DefaultResourceConfig();
-        // load all our REST API modules, JSON, and Swagger
-        for (Object r: BrooklynRestApi.getAllResources())
-            config.getSingletons().add(r);
-
-        // disable caching for dynamic content
-        config.getProperties().put(ResourceConfig.PROPERTY_CONTAINER_RESPONSE_FILTERS, NoCacheFilter.class.getName());
-        // Checks if appropriate request given HA status
-        config.getProperties().put(ResourceConfig.PROPERTY_RESOURCE_FILTER_FACTORIES, org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter.class.getName());
-        // configure to match empty path, or any thing which looks like a file path with /assets/ and extension html, css, js, or png
-        // and treat that as static content
-        config.getProperties().put(ServletContainer.PROPERTY_WEB_PAGE_CONTENT_REGEX, "(/?|[^?]*/assets/[^?]+\\.[A-Za-z0-9_]+)");
-        // and anything which is not matched as a servlet also falls through (but more expensive than a regex check?)
-        config.getFeatures().put(ServletContainer.FEATURE_FILTER_FORWARD_ON_404, true);
-        // finally create this as a _filter_ which falls through to a web app or something (optionally)
-        FilterHolder filterHolder = new FilterHolder(new ServletContainer(config));
-        context.addFilter(filterHolder, "/*", EnumSet.allOf(DispatcherType.class));
-
-        ManagementContext mgmt = OsgiCompat.getManagementContext(context);
-        config.getSingletons().add(new ManagementContextProvider(mgmt));
-        addShutdownListener(config, mgmt);
-    }
-
-    protected synchronized void addShutdownListener(ResourceConfig config, ManagementContext mgmt) {
-        if (shutdownListener!=null) throw new IllegalStateException("Can only retrieve one shutdown listener");
-        shutdownListener = new ServerStoppingShutdownHandler(mgmt);
-        config.getSingletons().add(new ShutdownHandlerProvider(shutdownListener));
-    }
-
-    private static void installBrooklynFilters(ServletContextHandler context, List<Class<? extends Filter>> filters) {
-        for (Class<? extends Filter> filter : filters) {
-            context.addFilter(filter, "/*", EnumSet.allOf(DispatcherType.class));
-        }
     }
 
     /**

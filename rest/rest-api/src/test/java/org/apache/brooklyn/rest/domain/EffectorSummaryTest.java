@@ -38,7 +38,7 @@ public class EffectorSummaryTest extends AbstractDomainTest {
                 ImmutableSet.<EffectorSummary.ParameterSummary<?>>of(),
                 "Effector description",
                 ImmutableMap.of(
-                        "self", URI.create("/v1/applications/redis-app/entities/redis-ent/effectors/stop")));
+                        "self", URI.create("/applications/redis-app/entities/redis-ent/effectors/stop")));
     }
 
 }

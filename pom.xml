@@ -18,7 +18,7 @@
     under the License.
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
     <modelVersion>4.0.0</modelVersion>
     <parent>
@@ -101,6 +101,7 @@
         <fasterxml.jackson.version>2.4.5</fasterxml.jackson.version>
         <resteasy.version>3.0.8.Final</resteasy.version>
         <jersey.version>1.19</jersey.version>
+        <cxf.version>3.1.4</cxf.version>
         <httpclient.version>4.4.1</httpclient.version>
         <commons-lang3.version>3.3.2</commons-lang3.version>
         <groovy.version>2.3.7</groovy.version> <!-- Version supported by https://github.com/groovy/groovy-eclipse/wiki/Groovy-Eclipse-2.9.1-Release-Notes -->
@@ -136,6 +137,7 @@
         <jopt.version>4.3</jopt.version>
         <concurrentlinkedhashmap.version>1.0_jdk5</concurrentlinkedhashmap.version>
         <javax-servlet.version>3.1.0</javax-servlet.version>
+        <javax-servlet-jsp.version>2.0</javax-servlet-jsp.version>
         <jcommander.version>1.27</jcommander.version>
         <xml-apis.version>1.0.b2</xml-apis.version>
         <jsr250-api.version>1.0</jsr250-api.version>
@@ -146,6 +148,7 @@
         <commons-lang.version>2.4</commons-lang.version>
         <hamcrest.version>1.1</hamcrest.version>
         <jsr311-api.version>1.1.1</jsr311-api.version>
+        <jax-rs-api.version>2.0.1</jax-rs-api.version>
         <maxmind.version>0.8.1</maxmind.version>
         <jna.version>4.0.0</jna.version>
         <winrm4j.version>0.3.1</winrm4j.version>
@@ -205,9 +208,12 @@
         <module>logging/logback-xml</module>
         <module>rest/rest-api</module>
         <module>rest/rest-client</module>
+        <module>rest/rest-resources</module>
         <module>rest/rest-server</module>
+        <module>rest/rest-server-jersey</module>
         <module>test-framework</module>
         <module>test-support</module>
+
 
         <module>utils/common</module>
         <module>utils/groovy</module>
