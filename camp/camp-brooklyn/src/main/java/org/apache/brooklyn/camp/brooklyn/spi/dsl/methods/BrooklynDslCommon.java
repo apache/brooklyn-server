@@ -58,6 +58,7 @@ import org.apache.brooklyn.util.text.Strings;
 import org.apache.commons.beanutils.BeanUtils;
 
 import com.google.common.base.Function;
+import com.google.common.base.Objects;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
@@ -231,6 +232,20 @@ public class BrooklynDslCommon {
         }
 
         @Override
+        public int hashCode() {
+            return Objects.hashCode(pattern, args);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            DslFormatString that = DslFormatString.class.cast(obj);
+            return Objects.equal(this.pattern, that.pattern) &&
+                    Arrays.deepEquals(this.args, that.args);
+        }
+
+        @Override
         public String toString() {
             return "$brooklyn:formatString("+
                 JavaStringEscapes.wrapJavaString(pattern)+
@@ -255,6 +270,21 @@ public class BrooklynDslCommon {
         @Override
         public Task<String> newTask() {
             return DependentConfiguration.regexReplacement(source, pattern, replacement);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(source, pattern, replacement);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            DslRegexReplacement that = DslRegexReplacement.class.cast(obj);
+            return Objects.equal(this.pattern, that.pattern) &&
+                    Objects.equal(this.replacement, that.replacement) &&
+                    Objects.equal(this.source, that.source);
         }
 
         @Override
@@ -344,6 +374,21 @@ public class BrooklynDslCommon {
         }
 
         @Override
+        public int hashCode() {
+            return Objects.hashCode(type, fields, config);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            DslObject that = DslObject.class.cast(obj);
+            return Objects.equal(this.type, that.type) &&
+                    Objects.equal(this.fields, that.fields) &&
+                    Objects.equal(this.config, that.config);
+        }
+
+        @Override
         public String toString() {
             return "$brooklyn:object(\""+type.getName()+"\")";
         }
@@ -380,6 +425,20 @@ public class BrooklynDslCommon {
                     }
                 })
                 .build();
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(providerName, key);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            DslExternal that = DslExternal.class.cast(obj);
+            return Objects.equal(this.providerName, that.providerName) &&
+                    Objects.equal(this.key, that.key);
         }
 
         @Override
@@ -426,6 +485,20 @@ public class BrooklynDslCommon {
             @Override
             public Task<Function<String, String>> newTask() {
                 return DependentConfiguration.regexReplacement(pattern, replacement);
+            }
+
+            @Override
+            public int hashCode() {
+                return Objects.hashCode(pattern, replacement);
+            }
+
+            @Override
+            public boolean equals(Object obj) {
+                if (this == obj) return true;
+                if (obj == null || getClass() != obj.getClass()) return false;
+                DslRegexReplacer that = DslRegexReplacer.class.cast(obj);
+                return Objects.equal(this.pattern, that.pattern) &&
+                        Objects.equal(this.replacement, that.replacement);
             }
 
             @Override
