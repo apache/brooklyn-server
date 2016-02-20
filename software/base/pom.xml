@@ -46,11 +46,6 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>io.cloudsoft.windows</groupId>
-            <artifactId>winrm4j</artifactId>
-            <version>${winrm4j.version}</version>
-        </dependency>
-        <dependency>
             <groupId>org.apache.brooklyn</groupId>
             <artifactId>brooklyn-jmxmp-agent</artifactId>
             <version>${project.version}</version>
