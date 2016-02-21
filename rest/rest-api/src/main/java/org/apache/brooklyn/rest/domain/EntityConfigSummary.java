@@ -77,6 +77,9 @@ public class EntityConfigSummary extends ConfigSummary {
     @Override
     public String toString() {
         return "EntityConfigSummary{" +
+                "name='" + getName() + '\'' +
+                ", type='" + getType() + '\'' +
+                ", description='" + getDescription() + '\'' +
                 "links=" + links +
                 '}';
     }
