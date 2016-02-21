@@ -287,7 +287,7 @@ public class BrooklynWebServer {
     /** specifies a WAR to use at a given context path (only if server not yet started);
      * cf deploy(path, url) */
     public BrooklynWebServer addWar(String path, String warUrl) {
-        contextProviders.put(path, new WebAppContextProvider(path, warUrl));
+        addWar(new WebAppContextProvider(path, warUrl));
         return this;
     }
 
@@ -394,7 +394,7 @@ public class BrooklynWebServer {
             allWars.put(entry.getKey(), new WebAppContextProvider(entry.getKey(), entry.getValue()));
         }
 
-        WebAppContextProvider rootWar = allWars.remove("/");
+        WebAppContextProvider rootWar = allWars.remove(""); // leading slash stripped by WebAppContextProvider
         if (rootWar==null) rootWar = new WebAppContextProvider("/", war);
         
         for (WebAppContextProvider contextProvider : allWars.values()) {
