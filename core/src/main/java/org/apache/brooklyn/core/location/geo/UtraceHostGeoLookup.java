@@ -121,6 +121,8 @@ Beyond this you get blacklisted and requests may time out, or return none.
         return getHostGeoInfo(address, REQUEST_TIMEOUT);
     }
     
+    private static boolean loggedInternetIssues = false;
+    
     /** does a {@link #retrieveHostGeoInfo(InetAddress)} with a timeout (returning null, interrupting, and setting failure time) */
     public HostGeoInfo getHostGeoInfo(final InetAddress address, Duration timeout) throws MalformedURLException, IOException {
         final AtomicReference<HostGeoInfo> result = new AtomicReference<HostGeoInfo>();
@@ -129,8 +131,14 @@ Beyond this you get blacklisted and requests may time out, or return none.
                 try {
                     result.set(retrieveHostGeoInfo(address));
                 } catch (Exception e) {
-                    log.warn("Error computing geo info for "+address+"; internet issues or too many requests to (free) servers for "+JavaClassNames.simpleClassName(UtraceHostGeoLookup.this)+": "+e);
-                    log.debug("Detail of host geo error: "+e, e);
+                    Exceptions.propagateIfFatal(e);
+                    if (loggedInternetIssues) {
+                        log.debug("Error computing geo info for "+address+"; internet issues or too many requests to (free) servers for "+JavaClassNames.simpleClassName(UtraceHostGeoLookup.this)+" (see previous WARN message for detail): "+e);
+                    } else {
+                        loggedInternetIssues = true;
+                        log.warn("Error computing geo info for "+address+"; internet issues or too many requests to (free) servers for "+JavaClassNames.simpleClassName(UtraceHostGeoLookup.this)+" (subsequent errors at debug): "+e);
+                        log.debug("Detail of host geo error: "+e, e);
+                    }
                 }
             }
         };
