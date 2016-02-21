@@ -187,13 +187,13 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
     @Test
     public void testFilterListOfEntitiesByName() {
         List<CatalogEntitySummary> entities = client().path("/catalog/entities")
-                .query("fragment", "reDISclusTER").get(new GenericType<List<CatalogEntitySummary>>() {});
+                .query("fragment", "vaNIllasOFTWAREpROCESS").get(new GenericType<List<CatalogEntitySummary>>() {});
         assertEquals(entities.size(), 1);
 
         log.info("RedisCluster-like entities are: " + entities);
 
         List<CatalogEntitySummary> entities2 = client().path("/catalog/entities")
-                .query("regex", "[Rr]ed.[sulC]+ter").get(new GenericType<List<CatalogEntitySummary>>() {});
+                .query("regex", "[Vv]an.[alS]+oftware\\w+").get(new GenericType<List<CatalogEntitySummary>>() {});
         assertEquals(entities2.size(), 1);
 
         assertEquals(entities, entities2);
@@ -213,9 +213,10 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
     // not of the entity itself, so the test won't make sense any more.
     public void testGetCatalogEntityDetails() {
         CatalogEntitySummary details = client()
-                .path(URI.create("/catalog/entities/org.apache.brooklyn.entity.nosql.redis.RedisStore"))
+                .path(URI.create("/catalog/entities/org.apache.brooklyn.rest.resources.DummyIconEntity"))
                 .get(CatalogEntitySummary.class);
-        assertTrue(details.toString().contains("redis.port"), "expected more config, only got: "+details);
+        assertTrue(details.toString().contains("dummy.config"), "expected more config, only got: "+details);
+        // No icons in brooklyn-server entities
         String iconUrl = "/catalog/icon/" + details.getSymbolicName();
         assertTrue(details.getIconUrl().contains(iconUrl), "expected brooklyn URL for icon image, but got: " + details.getIconUrl());
     }
@@ -226,9 +227,9 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
     // not of the entity itself, so the test won't make sense any more.
     public void testGetCatalogEntityPlusVersionDetails() {
         CatalogEntitySummary details = client()
-                .path(URI.create("/catalog/entities/org.apache.brooklyn.entity.nosql.redis.RedisStore:0.0.0.SNAPSHOT"))
+                .path(URI.create("/catalog/entities/org.apache.brooklyn.rest.resources.DummyIconEntity:0.0.0.SNAPSHOT"))
                 .get(CatalogEntitySummary.class);
-        assertTrue(details.toString().contains("redis.port"), "expected more config, only got: "+details);
+        assertTrue(details.toString().contains("dummy.config"), "expected more config, only got: "+details);
         URI expectedIconUrl = URI.create(getEndpointAddress() + "/catalog/icon/" + details.getSymbolicName() + "/" + details.getVersion()).normalize();
         assertEquals(details.getIconUrl(), expectedIconUrl.getPath(), "expected brooklyn URL for icon image ("+expectedIconUrl+"), but got: "+details.getIconUrl());
     }
@@ -236,7 +237,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
     @Test
     public void testGetCatalogEntityIconDetails() throws IOException {
         String catalogItemId = "testGetCatalogEntityIconDetails";
-        addTestCatalogItemRedisAsEntity(catalogItemId);
+        addTestCatalogItemAsEntity(catalogItemId);
         Response response = client().path(URI.create("/catalog/icon/" + catalogItemId + "/" + TEST_VERSION))
                 .get();
         response.bufferEntity();
@@ -246,8 +247,8 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         Assert.assertNotNull(image);
     }
 
-    private void addTestCatalogItemRedisAsEntity(String catalogItemId) {
-        addTestCatalogItem(catalogItemId, null, TEST_VERSION, "org.apache.brooklyn.entity.nosql.redis.RedisStore");
+    private void addTestCatalogItemAsEntity(String catalogItemId) {
+        addTestCatalogItem(catalogItemId, null, TEST_VERSION, "org.apache.brooklyn.rest.resources.DummyIconEntity");
     }
 
     private void addTestCatalogItem(String catalogItemId, String itemType, String version, String service) {
@@ -257,7 +258,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                 "  name: My Catalog App\n"+
                 (itemType!=null ? "  item_type: "+itemType+"\n" : "")+
                 "  description: My description\n"+
-                "  icon_url: classpath:///redis-logo.png\n"+
+                "  icon_url: classpath:///bridge-small.png\n"+
                 "  version: " + version + "\n"+
                 "\n"+
                 "services:\n"+
