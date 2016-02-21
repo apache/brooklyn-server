@@ -67,7 +67,7 @@ var brooklyn = (function ($, _) {
             "<dl>" +
             "<dt>description</dt><dd><%=(description||'&nbsp;')%></dd>" +
             "<dt>value type</dt><dd class='java'><%=(type||'&nbsp;')%></dd>" +
-            "<dt>default value</dt><dd><%=(defaultValue||'&nbsp;')%></dd>" +
+            "<dt>default value</dt><dd><%=(data['defaultValue']||'&nbsp;')%></dd>" +
             "</dl>" +
             "</div>"
         ),

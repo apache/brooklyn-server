@@ -51,6 +51,16 @@ public class ReflectionScanner {
     protected final ClassLoader[] classLoaders;
     protected final Reflections reflections;
 
+    /** as {@link #ReflectionScanner(Iterable, String, Predicate, ClassLoader...)} using the prefix as the base for the filter */
+    public ReflectionScanner(
+            final Iterable<URL> urlsToScan, 
+            final String optionalPrefix,
+            final ClassLoader ...classLoaders) {
+        this(urlsToScan, optionalPrefix, 
+            Strings.isNonEmpty(optionalPrefix) ? new FilterBuilder.Include(FilterBuilder.prefix(optionalPrefix)) : null,
+            classLoaders);
+    }
+    
     /** scanner which will look in the given urls 
      * (or if those are null attempt to infer from the first entry in the classloaders,
      * although currently that seems to only pick up directories, not JAR's),
@@ -60,12 +70,10 @@ public class ReflectionScanner {
     public ReflectionScanner(
             final Iterable<URL> urlsToScan, 
             final String optionalPrefix,
+            final Predicate<String> filter,
             final ClassLoader ...classLoaders) {
         reflections = new Reflections(new ConfigurationBuilder() {
             {
-                final Predicate<String> filter = 
-                        Strings.isNonEmpty(optionalPrefix) ? new FilterBuilder.Include(FilterBuilder.prefix(optionalPrefix)) : null;
-
                 if (urlsToScan!=null)
                     setUrls(ImmutableSet.copyOf(urlsToScan));
                 else if (classLoaders.length>0 && classLoaders[0]!=null)

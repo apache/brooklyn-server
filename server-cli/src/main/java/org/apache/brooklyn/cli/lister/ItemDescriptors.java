@@ -18,25 +18,29 @@
  */
 package org.apache.brooklyn.cli.lister;
 
+import java.net.URI;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.brooklyn.api.catalog.BrooklynCatalog;
+import org.apache.brooklyn.api.catalog.Catalog;
+import org.apache.brooklyn.api.catalog.CatalogItem;
+import org.apache.brooklyn.api.effector.Effector;
+import org.apache.brooklyn.api.entity.EntityType;
+import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
+import org.apache.brooklyn.api.location.LocationResolver;
+import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.objs.BrooklynType;
+import org.apache.brooklyn.api.objs.SpecParameter;
+import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.objs.BrooklynDynamicType;
 import org.apache.brooklyn.core.objs.BrooklynTypes;
-import org.apache.brooklyn.api.catalog.Catalog;
-import org.apache.brooklyn.api.effector.Effector;
-import org.apache.brooklyn.api.entity.EntityType;
-import org.apache.brooklyn.api.location.LocationResolver;
-import org.apache.brooklyn.api.objs.BrooklynObject;
-import org.apache.brooklyn.api.objs.BrooklynType;
-import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.rest.domain.EffectorSummary;
 import org.apache.brooklyn.rest.domain.EntityConfigSummary;
 import org.apache.brooklyn.rest.domain.SensorSummary;
@@ -44,9 +48,12 @@ import org.apache.brooklyn.rest.domain.SummaryComparators;
 import org.apache.brooklyn.rest.transform.EffectorTransformer;
 import org.apache.brooklyn.rest.transform.EntityTransformer;
 import org.apache.brooklyn.rest.transform.SensorTransformer;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
+import org.apache.brooklyn.util.text.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -76,7 +83,7 @@ public class ItemDescriptors {
             }
         }
         
-        if (!Strings.isNullOrEmpty(sortField)) {
+        if (Strings.isNonBlank(sortField)) {
             Collections.sort(itemDescriptors, new Comparator<Map<String, Object>>() {
                 @Override public int compare(Map<String, Object> id1, Map<String, Object> id2) {
                     Object o1 = id1.get(sortField);
@@ -112,6 +119,10 @@ public class ItemDescriptors {
             result.put("name", catalogAnnotation.name());
             result.put("description", catalogAnnotation.description());
             result.put("iconUrl", catalogAnnotation.iconUrl());
+        } else {
+            // these are required in the templates
+            result.put("name", clazz.getName());
+            result.put("description", "");
         }
         
         Deprecated deprecatedAnnotation = clazz.getAnnotation(Deprecated.class);
@@ -147,7 +158,7 @@ public class ItemDescriptors {
         return toItemDescriptors(resolvers, false);
     }
     
-    public static Object toItemDescriptors(List<LocationResolver> resolvers, Boolean sort) {
+    public static List<Object> toItemDescriptors(List<LocationResolver> resolvers, Boolean sort) {
         List<Object> result = Lists.newArrayList();
         for (LocationResolver resolver : resolvers) {
             result.add(toItemDescriptor(resolver));
@@ -169,4 +180,49 @@ public class ItemDescriptors {
         // on com.sun.javadoc.*
         return resolver.getPrefix();
     }
+    
+    @SuppressWarnings({ "rawtypes", "unchecked" }) 
+    public static Map<String, Object> toItemDescriptor(BrooklynCatalog catalog, CatalogItem item, boolean headingsOnly) {
+        Map<String,Object> itemDescriptor = MutableMap.of();
+        AbstractBrooklynObjectSpec<?,?> spec = catalog.createSpec(item);
+        List<EntityConfigSummary> config = new ArrayList<>();
+
+        if (item.getDisplayName() != null) {
+            itemDescriptor.put("name", item.getDisplayName());
+        } else if (Strings.isNonBlank((String)itemDescriptor.get("name"))) {
+            itemDescriptor.put("name", blankIfNull(itemDescriptor.get("name")));
+        } else {
+            itemDescriptor.put("name", item.getSymbolicName());
+        }
+        
+        itemDescriptor.put("type", item.getCatalogItemId());
+        itemDescriptor.put("description", blankIfNull(item.getDescription()));
+        itemDescriptor.put("iconUrl", blankIfNull(item.getIconUrl()));
+
+        if (!headingsOnly) {
+            double priorityCounter = 0.0d;
+            for (SpecParameter<?> param: spec.getParameters()) {
+                Double priority;
+                if (param.isPinned()) {
+                    priority = priorityCounter;
+                    priorityCounter++;
+                } else {
+                    priority = null;
+                }
+
+                EntityConfigSummary entityConfigSummary = EntityTransformer.entityConfigSummary(param.getConfigKey(),
+                    param.getLabel(), priority, MutableMap.<String,URI>of());
+                config.add(entityConfigSummary);
+            }
+            itemDescriptor.put("config", config);
+        }
+        
+        return itemDescriptor;
+    }
+
+    private static Object blankIfNull(Object object) {
+        if (object==null) return "";
+        return object;
+    }
+    
 }
