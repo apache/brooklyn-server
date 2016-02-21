@@ -30,7 +30,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
-import java.util.Set;
 
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.Catalog;
@@ -53,7 +52,6 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
-import org.apache.brooklyn.util.core.javalang.ReflectionScanner;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.FatalConfigurationRuntimeException;
 import org.apache.brooklyn.util.net.Urls;
@@ -89,6 +87,7 @@ public class ItemLister {
     public static class ListAllCommand extends AbstractMain.BrooklynCommandCollectingArgs {
 
         @Option(name = { "--jar" }, title = "JAR to scan", description = "A JAR file to scan. If a file (not a url) pointing at a directory, will include all JAR files in that directory. "
+            + "Due to how classes are scanned the JARs for all classes up to and including brooklyn core must be included as arguments. "
             + "Argument can be supplied multiple times to scan multiple JARs. If not supplied and no YAML, this attempts to use the initial classpath")
         public List<String> jarsToScan = Lists.newLinkedList();
         
@@ -286,6 +285,7 @@ public class ItemLister {
                     urls.addAll(expanded);
                 }
             } else if (yamlToScan.isEmpty()) {
+                // NB: there is a better way; see comments on getTypes
                 String classpath = System.getenv("INITIAL_CLASSPATH");
                 if (Strings.isNonBlank(classpath)) {
                     List<String> entries = Splitter.on(":").omitEmptyStrings().trimResults().splitToList(classpath);
@@ -328,19 +328,12 @@ public class ItemLister {
         int itemCount = 0;
         
         private <T extends BrooklynObject> List<Class<? extends T>> getTypes(List<URL> urls, Class<T> type, Boolean catalogOnlyOverride) {
-            // temp hack to fix urls
-            ReflectionScanner rs = new ReflectionScanner(null, null, 
-//                Strings.isNonBlank(typeRegex) ? StringPredicates.<String>matchesRegex(typeRegex) : null, 
-                getClass().getClassLoader());
-            Set<Class<? extends T>> r1 = rs.getSubTypesOf(type);
-            
-            FluentIterable<Class<? extends T>> fluent;
-            if (!r1.isEmpty()) fluent = FluentIterable.from(r1);
-            else fluent = FluentIterable.from(ClassFinder.findClasses(urls, type));
+            // TODO this only really works if you give it lots of URLs - see comment on "--jar" argument
+            // NB if the ReflectionScanner class is given "null" then it will scan, better than INITIAL_CLASSPATH 
+            FluentIterable<Class<? extends T>> fluent = FluentIterable.from(ClassFinder.findClasses(urls, type));
             if (typeRegex != null) {
                 fluent = fluent.filter(ClassFinder.withClassNameMatching(typeRegex));
             }
-            catalogOnly = false;
             if (catalogOnlyOverride == null ? catalogOnly : catalogOnlyOverride) {
                 fluent = fluent.filter(ClassFinder.withAnnotation(Catalog.class));
             }
