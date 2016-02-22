@@ -115,7 +115,6 @@
         <feature>brooklyn-api</feature>
 
         <bundle>mvn:org.apache.brooklyn/brooklyn-core/${project.version}</bundle>
-        <bundle>mvn:org.apache.brooklyn/brooklyn-rt-osgi/${project.version}</bundle>
         <bundle>mvn:org.apache.brooklyn/brooklyn-utils-groovy/${project.version}</bundle>
 
         <bundle dependency="true">mvn:com.google.code.gson/gson/${gson.version}</bundle>
