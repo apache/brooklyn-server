@@ -18,16 +18,21 @@
  */
 package org.apache.brooklyn.core.sensor;
 
+import java.util.concurrent.Callable;
+
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.AddSensor;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.enricher.stock.Propagator;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,25 +53,45 @@ public class StaticSensor<T> extends AddSensor<T> {
     private static final Logger log = LoggerFactory.getLogger(StaticSensor.class);
     
     public static final ConfigKey<Object> STATIC_VALUE = ConfigKeys.newConfigKey(Object.class, "static.value");
+    public static final ConfigKey<Duration> TIMEOUT = ConfigKeys.newConfigKey(
+            Duration.class, "static.timeout", "Duration to wait for the value to resolve", Duration.PRACTICALLY_FOREVER);
 
     private final Object value;
+    private final Duration timeout;
 
     public StaticSensor(ConfigBag params) {
         super(params);
         value = params.get(STATIC_VALUE);
+        timeout = params.get(TIMEOUT);
     }
 
     @SuppressWarnings("unchecked")
     @Override
-    public void apply(EntityLocal entity) {
+    public void apply(final EntityLocal entity) {
         super.apply(entity);
-        
-        Maybe<T> v = Tasks.resolving(value).as((Class<T>)sensor.getType()).timeout(ValueResolver.PRETTY_QUICK_WAIT).getMaybe();
-        if (v.isPresent()) {
-            log.debug(this+" setting sensor "+sensor+" to "+v.get());
-            entity.sensors().set(sensor, v.get());
-        } else {
-            log.debug(this+" not setting sensor "+sensor+"; cannot resolve "+value);
+
+        class ResolveValue implements Callable<Maybe<T>> {
+            @Override
+            public Maybe<T> call() throws Exception {
+                return Tasks.resolving(value).as((Class<T>)sensor.getType()).timeout(timeout).getMaybe();
+            }
         }
+        final Task<Maybe<T>> resolveValue = Tasks.<Maybe<T>>builder().displayName("resolving " + value).body(new ResolveValue()).build();
+
+        class SetValue implements Callable<T> {
+            @Override
+            public T call() throws Exception {
+                Maybe<T> v = resolveValue.get();
+                if (!v.isPresent()) {
+                    log.debug(this+" not setting sensor "+sensor+"; cannot resolve "+value+" after timeout " + timeout);
+                    return null;
+                }
+                log.debug(this+" setting sensor "+sensor+" to "+v.get());
+                return entity.sensors().set(sensor, v.get());
+            }
+        }
+        Task<T> setValue = Tasks.<T>builder().displayName("setting " + sensor).body(new SetValue()).build();
+
+        Entities.submit(entity, Tasks.sequential("resolving and setting " + sensor, resolveValue, setValue));
     }
 }
