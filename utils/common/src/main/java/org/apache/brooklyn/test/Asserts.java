@@ -961,7 +961,7 @@ public class Asserts {
                     (System.currentTimeMillis()-startTime)+"ms elapsed "+
                     "(rethrowing): "+t);
             throw Exceptions.propagateAnnotated("failed succeeds-eventually, "+attempt+" attempts, "+
-                (System.currentTimeMillis()-startTime)+"ms elapsed", t);
+                (System.currentTimeMillis()-startTime)+"ms elapsed: "+Exceptions.collapseText(t), t);
         }
     }
 

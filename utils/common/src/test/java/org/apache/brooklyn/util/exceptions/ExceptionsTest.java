@@ -157,6 +157,22 @@ public class ExceptionsTest {
     }
     
     @Test
+    public void testCollapseDoesNotIncludeRootCauseTwiceIfAppendedUncollapsed() throws Exception {
+        NullPointerException npe = new NullPointerException("simulated2");
+        IllegalStateException ise = new IllegalStateException("simulated1: "+npe, npe);
+        
+        assertEquals(Exceptions.collapseText(ise), "simulated1: java.lang.NullPointerException: simulated2");
+    }
+    
+    @Test
+    public void testCollapseDoesNotIncludeRootCauseTwiceIfAppendedCollapsed() throws Exception {
+        NullPointerException npe = new NullPointerException("simulated2");
+        IllegalStateException ise = new IllegalStateException("simulated1: "+Exceptions.collapseText(npe), npe);
+        
+        assertEquals(Exceptions.collapseText(ise), "simulated1: NullPointerException: simulated2");
+    }
+    
+    @Test
     public void test12CollapseCompound() throws Exception {
         RuntimeException e = Exceptions.create("test1", MutableSet.of(new IllegalStateException("test2"), new IllegalStateException("test3")));
         assert12StandardChecks(e, false);
