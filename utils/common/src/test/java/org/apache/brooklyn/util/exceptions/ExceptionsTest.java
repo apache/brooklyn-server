@@ -149,6 +149,14 @@ public class ExceptionsTest {
     }
     
     @Test
+    public void testCollapseIncludesRootCause() throws Exception {
+        NullPointerException npe = new NullPointerException("simulated2");
+        IllegalStateException ise = new IllegalStateException("simulated1", npe);
+        
+        assertEquals(Exceptions.collapseText(ise), "simulated1: NullPointerException: simulated2");
+    }
+    
+    @Test
     public void test12CollapseCompound() throws Exception {
         RuntimeException e = Exceptions.create("test1", MutableSet.of(new IllegalStateException("test2"), new IllegalStateException("test3")));
         assert12StandardChecks(e, false);
