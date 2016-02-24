@@ -25,13 +25,9 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
 import java.io.IOException;
-import java.net.URI;
 
 import org.testng.annotations.Test;
 import org.testng.util.Strings;
-
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 
 public class ApiErrorTest extends AbstractDomainTest {
 
