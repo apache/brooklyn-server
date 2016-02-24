@@ -32,6 +32,7 @@ import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.RecordingSensorEventListener;
 import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
@@ -148,6 +149,8 @@ public class BasicStartableTest {
     @Test
     public void testTransitionsThroughLifecycles() throws Exception {
         startable = app.addChild(EntitySpec.create(BasicStartable.class));
+        EntityAsserts.assertAttributeEqualsEventually(app, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPED);
+        
         RecordingSensorEventListener<Lifecycle> listener = new RecordingSensorEventListener<Lifecycle>(true);
         managementContext.getSubscriptionContext(startable)
                 .subscribe(startable, Attributes.SERVICE_STATE_ACTUAL, listener);
