@@ -215,7 +215,9 @@ public abstract class AbstractApplication extends AbstractEntity implements Star
         ServiceStateLogic.ServiceNotUpLogic.updateNotUpIndicator(this, Attributes.SERVICE_STATE_ACTUAL, "Application stopped");
         setExpectedStateAndRecordLifecycleEvent(Lifecycle.STOPPED);
 
-        if (getParent()==null) {
+        logApplicationLifecycle("Stopped");
+        
+        if (getParent()==null && Boolean.TRUE.equals(getConfig(DESTROY_ON_STOP))) {
             synchronized (this) {
                 //TODO review mgmt destroy lifecycle
                 //  we don't necessarily want to forget all about the app on stop, 
@@ -226,8 +228,6 @@ public abstract class AbstractApplication extends AbstractEntity implements Star
                 getEntityManager().unmanage(this);
             }
         }
-
-        logApplicationLifecycle("Stopped");
     }
 
     protected void doStop() {
