@@ -73,19 +73,6 @@ public interface LocationRegistry {
     @Beta
     public Maybe<Location> resolve(String spec, Boolean manage, Map locationFlags);
     
-    /** efficiently returns for inspection only a fully populated (config etc) location from the given definition; 
-     * the value might be unmanaged so it is not meant for any use other than inspection,
-     * but callers should prefer this when they don't wish to create a new location which will be managed in perpetuity!
-     * 
-     * @deprecated since 0.7.0, use {@link #resolve(LocationDefinition, Boolean, Map)} */
-    @Deprecated
-    public Location resolveForPeeking(LocationDefinition l);
-
-    /** returns fully populated (config etc) location from the given definition, with overrides;
-     * @deprecated since 0.7.0, use {@link #resolve(LocationDefinition, Boolean, Map)} */
-    @Deprecated
-    public Location resolve(LocationDefinition l, Map<?,?> locationFlags);
-    
     /** See {@link #resolve(String, Boolean, Map)}; asks for the location to be managed, and supplies no additional flags,
      * and unwraps the result (throwing if the spec cannot be resolve) */
     public Location resolve(String spec);
@@ -102,11 +89,6 @@ public interface LocationRegistry {
      * @throws NoSuchElementException if the spec cannot be resolved */
     public Location resolve(String spec, @Nullable Map locationFlags);
     
-    /** as {@link #resolve(String)} but returning null (never throwing)
-     * @deprecated since 0.7.0 use {@link #resolve(String, Boolean, Map)} */
-    @Deprecated
-    public Location resolveIfPossible(String spec);
-
     /**
      * As {@link #resolve(String)} but takes collections (of strings or locations)
      * <p>

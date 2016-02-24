@@ -319,17 +319,6 @@ public class BasicLocationRegistry implements LocationRegistry {
         return resolve(spec, true, null).get();
     }
     
-    @Override @Deprecated
-    public final Location resolveIfPossible(String spec) {
-        if (!canMaybeResolve(spec)) return null;
-        return resolve(spec, null, null).orNull();
-    }
-    
-    @Deprecated /** since 0.7.0 not used */
-    public final Maybe<Location> resolve(String spec, boolean manage) {
-        return resolve(spec, manage, null);
-    }
-    
     public Maybe<Location> resolve(String spec, Boolean manage, Map locationFlags) {
         try {
             locationFlags = MutableMap.copyOf(locationFlags);
@@ -457,20 +446,6 @@ public class BasicLocationRegistry implements LocationRegistry {
     @Override
     public Location resolve(LocationDefinition ld) {
         return resolve(ld, null, null).get();
-    }
-
-    @Override @Deprecated
-    public Location resolveForPeeking(LocationDefinition ld) {
-        // TODO should clean up how locations are stored, figuring out whether they are shared or not;
-        // or maybe better, the API calls to this might just want to get the LocationSpec objects back
-        
-        // for now we use a 'CREATE_UNMANGED' flag to prevent management (leaks and logging)
-        return resolve(ld, ConfigBag.newInstance().configure(LocalLocationManager.CREATE_UNMANAGED, true).getAllConfig());
-    }
-
-    @Override @Deprecated
-    public Location resolve(LocationDefinition ld, Map<?,?> flags) {
-        return resolveLocationDefinition(ld, flags, null);
     }
     
     /** @deprecated since 0.7.0 not used (and optionalName was ignored anyway) */
