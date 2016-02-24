@@ -36,12 +36,15 @@ import javax.net.ssl.X509TrustManager;
 import javax.security.auth.x500.X500Principal;
 
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Utility methods for generating and working with keys, with no BC dependencies
  */
 public class SecureKeysWithoutBouncyCastle {
 
+    private static final Logger log = LoggerFactory.getLogger(SecureKeysWithoutBouncyCastle.class);
     private static KeyPairGenerator defaultKeyPairGenerator = newKeyPairGenerator("RSA", 1024);  
 
     protected SecureKeysWithoutBouncyCastle() {}
@@ -145,11 +148,17 @@ public class SecureKeysWithoutBouncyCastle {
     }
 
     public static boolean isCertificateAuthorizedBy(X509Certificate candidate, X509Certificate authority) {
+        return isCertificateAuthorizedBy(candidate, authority, true);
+    }
+    public static boolean isCertificateAuthorizedBy(X509Certificate candidate, X509Certificate authority, boolean quiet) {
         try {
             candidate = getCanonicalImpl(candidate);
             getTrustManager(authority).checkClientTrusted(new X509Certificate[] { candidate }, "RSA");
             return true;
         } catch (CertificateException e) {
+            if (!quiet) {
+                log.warn("Certificate "+candidate+" not trusted with authority "+authority+": "+e);
+            }
             return false;
         }
     }

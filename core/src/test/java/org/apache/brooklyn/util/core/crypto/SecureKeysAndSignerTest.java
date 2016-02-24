@@ -27,8 +27,6 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 
 import org.apache.brooklyn.util.core.ResourceUtils;
-import org.apache.brooklyn.util.core.crypto.FluentKeySigner;
-import org.apache.brooklyn.util.core.crypto.SecureKeys;
 import org.apache.brooklyn.util.core.crypto.SecureKeys.PassphraseProblem;
 import org.apache.brooklyn.util.crypto.AuthorizedKeysParser;
 import org.apache.brooklyn.util.os.Os;
@@ -67,13 +65,13 @@ public class SecureKeysAndSignerTest {
 //        SecureKeys.getTrustManager(signerCert).checkClientTrusted(new X509Certificate[] { aCert }, "RSA");
         // NB, the above failes; we have to convert to a canonical implementation, handled by the following
         
-        Assert.assertTrue(SecureKeys.isCertificateAuthorizedBy(signerCert, signerCert));
-        Assert.assertTrue(SecureKeys.isCertificateAuthorizedBy(aCert, signerCert));
-        Assert.assertTrue(SecureKeys.isCertificateAuthorizedBy(bCert, signerCert));
+        Assert.assertTrue(SecureKeys.isCertificateAuthorizedBy(signerCert, signerCert, false));
+        Assert.assertTrue(SecureKeys.isCertificateAuthorizedBy(aCert, signerCert, false));
+        Assert.assertTrue(SecureKeys.isCertificateAuthorizedBy(bCert, signerCert, false));
         Assert.assertFalse(SecureKeys.isCertificateAuthorizedBy(signerCert, aCert));
         Assert.assertFalse(SecureKeys.isCertificateAuthorizedBy(bCert, aCert));
         
-        Assert.assertTrue(SecureKeys.isCertificateAuthorizedBy(selfCert1, selfCert1));
+        Assert.assertTrue(SecureKeys.isCertificateAuthorizedBy(selfCert1, selfCert1, false));
         Assert.assertFalse(SecureKeys.isCertificateAuthorizedBy(selfCert1, signerCert));
     }
 
@@ -88,7 +86,7 @@ public class SecureKeysAndSignerTest {
         KeyPair aKey = SecureKeys.newKeyPair();
         X509Certificate aCert = signer.newCertificateFor("A", aKey);
         
-        Assert.assertTrue(SecureKeys.isCertificateAuthorizedBy(aCert, caCert));
+        Assert.assertTrue(SecureKeys.isCertificateAuthorizedBy(aCert, caCert, false));
     }
 
     @Test
@@ -153,7 +151,7 @@ public class SecureKeysAndSignerTest {
         KeyPair key = SecureKeys.readPem(ResourceUtils.create(this).getResourceFromUrl("classpath://brooklyn/util/crypto/sample_rsa_passphrase.pem"), "passphrase");
         checkNonTrivial(key);
         File f = Os.newTempFile(getClass(), "brooklyn-sample_rsa_passphrase_without_passphrase.pem");
-        Files.write(SecureKeys.stringPem(key), f, Charset.defaultCharset());
+        Files.write(SecureKeys.toPem(key), f, Charset.defaultCharset());
         KeyPair key2 = SecureKeys.readPem(new FileInputStream(f), null);
         checkNonTrivial(key2);
         Assert.assertEquals(key2.getPrivate().getEncoded(), key.getPrivate().getEncoded());
