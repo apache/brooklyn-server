@@ -46,6 +46,7 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.http.HttpAsserts;
 import org.jclouds.scriptbuilder.domain.OsFamily;
 import org.jclouds.scriptbuilder.domain.StatementList;
 import org.mockito.Mockito;
@@ -607,4 +608,9 @@ public class JcloudsLocationTest implements JcloudsLocationConfig {
 
     // TODO more tests, where flags come in from resolver, named locations, etc
 
+    @Test(groups="Integration")
+    public void testAwsVpcFailureDocLink() {
+        HttpAsserts.assertContentContainsText(JcloudsLocation.AWS_VPC_HELP_URL, "VPC", "Classic");
+    }
+    
 }

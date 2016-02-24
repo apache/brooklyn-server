@@ -44,7 +44,6 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.regex.Pattern;
 
 import javax.annotation.Nullable;
 
@@ -59,8 +58,10 @@ import org.apache.brooklyn.api.mgmt.AccessController;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
+import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.config.Sanitizer;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.BasicMachineMetadata;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
@@ -77,7 +78,6 @@ import org.apache.brooklyn.core.mgmt.internal.LocalLocationManager;
 import org.apache.brooklyn.core.mgmt.persist.LocationWithObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.jclouds.JcloudsBlobStoreBasedObjectStore;
-import org.apache.brooklyn.location.jclouds.JcloudsPredicates.NodeInLocation;
 import org.apache.brooklyn.location.jclouds.networking.JcloudsPortForwarderExtension;
 import org.apache.brooklyn.location.jclouds.templates.PortableTemplateBuilder;
 import org.apache.brooklyn.location.jclouds.zone.AwsAvailabilityZoneExtension;
@@ -104,6 +104,7 @@ import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
+import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Enums;
 import org.apache.brooklyn.util.javalang.Reflections;
@@ -188,7 +189,6 @@ import com.google.common.net.HostAndPort;
  * For provisioning and managing VMs in a particular provider/region, using jclouds.
  * Configuration flags are defined in {@link JcloudsLocationConfig}.
  */
-@SuppressWarnings("serial")
 public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation implements
         JcloudsLocationConfig, MachineManagementMixins.RichMachineProvisioningLocation<MachineLocation>,
         LocationWithObjectStore, MachineManagementMixins.SuspendResumeLocation {
@@ -211,10 +211,10 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     public static final List<String> ROOT_ALIASES = ImmutableList.of("ubuntu", "ec2-user");
     public static final List<String> COMMON_USER_NAMES_TO_TRY = ImmutableList.<String>builder().add(ROOT_USERNAME).addAll(ROOT_ALIASES).add("admin").build();
 
-    private static final Pattern LIST_PATTERN = Pattern.compile("^\\[(.*)\\]$");
-    private static final Pattern INTEGER_PATTERN = Pattern.compile("^\\d*$");
-
     private static final int NOTES_MAX_LENGTH = 1000;
+
+    @VisibleForTesting
+    static final String AWS_VPC_HELP_URL = "http://brooklyn.apache.org/v/"+BrooklynVersion.get()+"/ops/locations/more-clouds.html";
 
     private final AtomicBoolean loggedSshKeysHint = new AtomicBoolean(false);
     private final AtomicBoolean listedAvailableTemplatesOnNoSuchTemplate = new AtomicBoolean(false);
@@ -538,7 +538,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     @Override
     public Map<String, MachineManagementMixins.MachineMetadata> listMachines() {
         Set<? extends ComputeMetadata> nodes =
-            getRegion()!=null ? getComputeService().listNodesDetailsMatching(new NodeInLocation(getRegion(), true))
+            getRegion()!=null ? getComputeService().listNodesDetailsMatching(JcloudsPredicates.nodeInLocation(getRegion(), true))
                 : getComputeService().listNodes();
         Map<String,MachineManagementMixins.MachineMetadata> result = new LinkedHashMap<String, MachineManagementMixins.MachineMetadata>();
 
@@ -1020,13 +1020,13 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             boolean destroyNode = (node != null) && Boolean.TRUE.equals(setup.get(DESTROY_ON_FAILURE));
 
             if (e.toString().contains("VPCResourceNotSpecified")) {
-                LOG.error("Detected that your EC2 account is a legacy 'classic' account, but the recommended instance type requires VPC. "
-                    + "You can specify the 'eu-central-1' region to avoid this problem, or you can specify a classic-compatible instance type, "
-                    + "or you can specify a subnet to use with 'networkName' "
-                    + "(taking care that the subnet auto-assigns public IP's and allows ingress on all ports, "
-                    + "as Brooklyn does not currently configure security groups for non-default VPC's; "
-                    + "or setting up Brooklyn to be in the subnet or have a jump host or other subnet access configuration). "
-                    + "For more information on VPC vs classic see http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-vpc.html.");
+                String message = "Detected that your EC2 account is a legacy 'EC2 Classic' account, "
+                    + "but the most appropriate hardware instance type requires 'VPC'. "
+                    + "One quick fix is to use the 'eu-central-1' region. "
+                    + "Other remedies are described at "
+                    + AWS_VPC_HELP_URL;
+                LOG.error(message);
+                e = new UserFacingException(message, e);
             }
             
             LOG.error("Failed to start VM for "+setup.getDescription() + (destroyNode ? " (destroying)" : "")
@@ -1506,13 +1506,14 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         Image image;
         try {
             template = templateBuilder.build();
-            if (template==null) throw new NullPointerException("No template found (templateBuilder.build returned null)");
+            if (template==null) throw new IllegalStateException("No matching template; check image and hardware constraints (e.g. OS, RAM); using "+templateBuilder);
             image = template.getImage();
             LOG.debug("jclouds found template "+template+" (image "+image+") for provisioning in "+this+" for "+config.getDescription());
-            if (image==null) throw new NullPointerException("Template does not contain an image (templateBuilder.build returned invalid template)");
+            if (image==null) throw new IllegalStateException("No matching image in template at "+toStringNice()+"; check image constraints (OS, providers, ID); using "+templateBuilder);
         } catch (AuthorizationException e) {
             LOG.warn("Error resolving template -- not authorized (rethrowing: "+e+"); template is: "+template);
-            throw new IllegalStateException("Not authorized to access cloud "+this+"; check credentials", e);
+            throw new IllegalStateException("Not authorized to access cloud "+toStringNice()+"; "+
+                "check identity, credentials, and endpoint (identity='"+getIdentity()+"', credential length "+getCredential().length()+")", e);
         } catch (Exception e) {
             try {
                 IOException ioe = Exceptions.getFirstThrowableOfType(e, IOException.class);
@@ -1551,6 +1552,37 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         return template;
     }
 
+    protected String toStringNice() {
+        Entities.dumpInfo(this);
+        String s = config().get(ORIGINAL_SPEC);
+        if (Strings.isBlank(s)) s = config().get(NAMED_SPEC_NAME);
+        if (Strings.isBlank(s)) s = config().get(FINAL_SPEC);
+        if (Strings.isBlank(s)) s = getDisplayName();
+        
+        String s2 = "";
+        String provider = getProvider();
+        if (Strings.isNonBlank(s) && Strings.isNonBlank(provider) && !s.toLowerCase().contains(provider.toLowerCase()))
+            s2 += " "+provider;
+        String region = getRegion();
+        if (Strings.isNonBlank(s) && Strings.isNonBlank(region) && !s.toLowerCase().contains(region.toLowerCase()))
+            s2 += " "+region;
+        String endpoint = getEndpoint();
+        if (Strings.isNonBlank(s) && Strings.isNonBlank(endpoint) && !s.toLowerCase().contains(endpoint.toLowerCase()))
+            s2 += " "+endpoint;
+        s2 = s2.trim();
+        if (Strings.isNonBlank(s)) {
+            if (Strings.isNonBlank(s2)) {
+                return s+" ("+s2+")";
+            }
+            return s;
+        }
+        if (Strings.isNonBlank(s2)) {
+            return s2;
+        }
+        // things are bad if we get to this point!
+        return toString();
+    }
+    
     protected void logAvailableTemplates(ConfigBag config) {
         LOG.info("Loading available images at "+this+" for reference...");
         ConfigBag m1 = ConfigBag.newInstanceCopying(config);
@@ -2782,7 +2814,10 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             waitForReachable(checker, connectionDetails, credentialsToTry, setup, timeout);
         } finally {
             for (SshMachineLocation machine : machinesToTry.keySet()) {
-                getManagementContext().getLocationManager().unmanage(machine);
+                if (getManagementContext().getLocationManager().isManaged(machine)) {
+                    // get benign but unpleasant warnings if we unmanage something already unmanaged
+                    getManagementContext().getLocationManager().unmanage(machine);
+                }
                 Streams.closeQuietly(machine);
             }
         }
