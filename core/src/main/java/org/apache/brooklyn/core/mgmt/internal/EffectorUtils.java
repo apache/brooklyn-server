@@ -267,7 +267,7 @@ public class EffectorUtils {
         private static final long serialVersionUID = 6146890711493851848L;
         private String entityId;
         private String effectorName;
-        public EffectorCallPropagatedRuntimeException(Entity entity, Effector<?> effector, Throwable throwable) {
+        EffectorCallPropagatedRuntimeException(Entity entity, Effector<?> effector, Throwable throwable) {
             super(makeMessage(entity, effector), throwable);
             this.entityId = entity.getId();
             this.effectorName = effector.getName();
