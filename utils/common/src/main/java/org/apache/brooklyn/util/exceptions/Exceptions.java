@@ -95,7 +95,8 @@ public class Exceptions {
         return false;
     }
 
-    private static String stripBoringPrefixes(String s) {
+    // not used, but kept in case we might want it
+    static String stripBoringPrefixes(String s) {
         ArrayList<String> prefixes = Lists.newArrayListWithCapacity(2 + BORING_PREFIX_THROWABLE_EXACT_TYPES.size() * 3);
         for (Class<? extends Throwable> type : BORING_PREFIX_THROWABLE_EXACT_TYPES) {
             prefixes.add(type.getCanonicalName());
@@ -218,24 +219,24 @@ public class Exceptions {
     /** as {@link #collapse(Throwable)} but includes causal messages in the message as per {@link #collapseTextIncludingAllCausalMessages(Throwable)};
      * use with care (limit once) as repeated usage can result in multiple copies of the same message */ 
     public static Throwable collapseIncludingAllCausalMessages(Throwable source) {
-        return collapse(source, true, true, ImmutableSet.<Throwable>of());
+        return collapse(source, true, true, ImmutableSet.<Throwable>of(), new Object[0]);
     }
     
     /** creates (but does not throw) a new {@link PropagatedRuntimeException} whose 
      * message is taken from the first _interesting_ element in the source,
      * and optionally also the causal chain */
     public static Throwable collapse(Throwable source, boolean collapseCausalChain) {
-        return collapse(source, collapseCausalChain, false, ImmutableSet.<Throwable>of());
+        return collapse(source, collapseCausalChain, false, ImmutableSet.<Throwable>of(), new Object[0]);
     }
     
-    private static Throwable collapse(Throwable source, boolean collapseCausalChain, boolean includeAllCausalMessages, Set<Throwable> visited) {
+    private static Throwable collapse(Throwable source, boolean collapseCausalChain, boolean includeAllCausalMessages, Set<Throwable> visited, Object contexts[]) {
         visited = MutableSet.copyOf(visited);
         String message = "";
         Throwable collapsed = source;
         int collapseCount = 0;
         boolean messageIsFinal = false;
-        // remove boring stack traces at the head
-        while (isBoringForMessage(collapsed)  && !messageIsFinal) {
+        // remove boring exceptions at the head; if message is interesting append it
+        while ((isBoringForMessage(collapsed) || isSkippableInContext(collapsed, contexts)) && !messageIsFinal) {
             collapseCount++;
             Throwable cause = collapsed.getCause();
             if (cause==null) {
@@ -248,14 +249,8 @@ public class Exceptions {
             }
             String collapsedS = collapsed.getMessage();
             if (collapsed instanceof PropagatedRuntimeException && ((PropagatedRuntimeException)collapsed).isCauseEmbeddedInMessage()) {
-                message = collapsed.getMessage();
+                message = collapsedS;
                 messageIsFinal = true;
-            } else if (Strings.isNonBlank(collapsedS)) {
-                String causeToString = getMessageWithAppropriatePrefix(cause);
-                collapsedS = Strings.removeAllFromEnd(collapsedS, cause.toString(), causeToString, stripBoringPrefixes(causeToString), cause.getMessage());
-                collapsedS = stripBoringPrefixes(collapsedS);
-                if (Strings.isNonBlank(collapsedS))
-                    message = appendSeparator(message, collapsedS);
             }
             collapsed = cause;
         }
@@ -280,13 +275,24 @@ public class Exceptions {
         }
         
         if (messagesCause!=null && !messageIsFinal) {
-            String extraMessage = collapseText(messagesCause, includeAllCausalMessages, ImmutableSet.copyOf(visited));
+            String extraMessage = collapseText(messagesCause, includeAllCausalMessages, ImmutableSet.copyOf(visited), contexts);
             message = appendSeparator(message, extraMessage);
         }
         if (message==null) message = "";
         return new PropagatedRuntimeException(message, collapseCausalChain ? collapsed : source, Strings.isNonBlank(message));
     }
     
+    /** True if the given exception is skippable in any of the supplied contexts. */
+    public static boolean isSkippableInContext(Throwable e, Object... contexts) {
+        if (!(e instanceof CanSkipInContext)) return false;
+        for (Object c: contexts) { 
+            if (((CanSkipInContext)e).canSkipInContext(c)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     static String appendSeparator(String message, String next) {
         if (Strings.isBlank(message))
             return next;
@@ -309,6 +315,10 @@ public class Exceptions {
     public static String collapseText(Throwable t) {
         return collapseText(t, false);
     }
+    
+    public static String collapseTextInContext(Throwable t, Object ...contexts) {
+        return collapseText(t, false, ImmutableSet.<Throwable>of(), contexts);
+    }
 
     /** normally {@link #collapseText(Throwable)} will stop following causal chains when encountering an interesting exception
      * with a message; this variant will continue to follow such causal chains, showing all messages. 
@@ -318,9 +328,9 @@ public class Exceptions {
     }
     
     private static String collapseText(Throwable t, boolean includeAllCausalMessages) {
-        return collapseText(t, includeAllCausalMessages, ImmutableSet.<Throwable>of());
+        return collapseText(t, includeAllCausalMessages, ImmutableSet.<Throwable>of(), new Object[0]);
     }
-    private static String collapseText(Throwable t, boolean includeAllCausalMessages, Set<Throwable> visited) {
+    private static String collapseText(Throwable t, boolean includeAllCausalMessages, Set<Throwable> visited, Object contexts[]) {
         if (t == null) return null;
         if (visited.contains(t)) {
             // If a boring-prefix class has no message it will render as multiply-visited.
@@ -330,7 +340,7 @@ public class Exceptions {
             if (t.getCause()!=null) return t.getCause().getClass().getName();
             return t.getClass().getName();
         }
-        Throwable t2 = collapse(t, true, includeAllCausalMessages, visited);
+        Throwable t2 = collapse(t, true, includeAllCausalMessages, visited, contexts);
         visited = MutableSet.copyOf(visited);
         visited.add(t);
         visited.add(t2);
@@ -339,7 +349,7 @@ public class Exceptions {
                 // normally
                 return t2.getMessage();
             else if (t2.getCause()!=null)
-                return collapseText(t2.getCause(), includeAllCausalMessages, ImmutableSet.copyOf(visited));
+                return collapseText(t2.getCause(), includeAllCausalMessages, ImmutableSet.copyOf(visited), contexts);
             return ""+t2.getClass();
         }
         String result = getMessageWithAppropriatePrefix(t2);
@@ -348,7 +358,7 @@ public class Exceptions {
         }
         Throwable cause = t2.getCause();
         if (cause != null) {
-            String causeResult = collapseText(new PropagatedRuntimeException(cause));
+            String causeResult = collapseTextInContext(new PropagatedRuntimeException(cause), contexts);
             if (result.indexOf(causeResult)>=0)
                 return result;
             return result + "; caused by "+causeResult;

@@ -21,7 +21,6 @@ package org.apache.brooklyn.core.effector;
 import java.util.List;
 import java.util.concurrent.Callable;
 
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -36,8 +35,7 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.brooklyn.util.text.Strings;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -46,8 +44,6 @@ import com.google.common.collect.ImmutableList;
 
 public class EffectorBasicTest extends BrooklynAppUnitTestSupport {
 
-    private static final Logger log = LoggerFactory.getLogger(EffectorBasicTest.class);
-    
     // NB: more tests of effectors in EffectorSayHiTest and EffectorConcatenateTest
     // as well as EntityConfigMapUsageTest and others
 
@@ -75,7 +71,7 @@ public class EffectorBasicTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testInvokeEffectorStartWithArgs() {
-        Entities.invokeEffectorWithArgs((EntityLocal)app, app, Startable.START, locs).getUnchecked();
+        Entities.invokeEffectorWithArgs(app, app, Startable.START, locs).getUnchecked();
         Asserts.assertEqualsIgnoringOrder(locs, app.getLocations());
     }
 
@@ -121,7 +117,6 @@ public class EffectorBasicTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testInvokeEffectorStartFailing_EntitiesInvoke() {
         FailingEntity entity = createFailingEntity();
-        
         assertTaskFails( Entities.invokeEffectorWithArgs(entity, entity, Startable.START, locs) );
     }
 
@@ -152,6 +147,34 @@ public class EffectorBasicTest extends BrooklynAppUnitTestSupport {
         assertTaskSucceeds(task);
     }
 
+    @Test
+    public void testInvokeEffectorErrorCollapsedNicely() {
+        FailingEntity entity = createFailingEntity();
+        Task<Void> task = entity.invoke(Startable.START, MutableMap.of("locations", locs));
+        Exception e = assertTaskFails( task );
+        // normal collapse should report where we started
+        String collapsed = Exceptions.collapseText(e);
+        Assert.assertFalse(Strings.containsLiteral(collapsed, "Propagated"), "Error too verbose: "+collapsed);
+        Assert.assertTrue(Strings.containsLiteral(collapsed, "invoking"), "Error not verbose enough: "+collapsed);
+        Assert.assertTrue(Strings.containsLiteral(collapsed, "start"), "Error not verbose enough: "+collapsed);
+        Assert.assertTrue(Strings.containsLiteral(collapsed, "FailingEntity"), "Error not verbose enough: "+collapsed);
+        Assert.assertTrue(Strings.containsLiteral(collapsed, entity.getId()), "Error not verbose enough: "+collapsed);
+        Assert.assertTrue(Strings.containsLiteral(collapsed, "Simulating"), "Error not verbose enough: "+collapsed);
+        // in the context of the task we should not report where we started;
+        // it instead of
+        //    Error invoking start at FailingEntityImpl{id=wv6KwsPh}: Simulating entity stop failure for test
+        // show
+        //   Simulating entity stop failure for test
+        collapsed = Exceptions.collapseTextInContext(e, task);
+        Assert.assertFalse(Strings.containsLiteral(collapsed, "Propagated"), "Error too verbose: "+collapsed);
+        Assert.assertFalse(Strings.containsLiteral(collapsed, "invoking"), "Error too verbose: "+collapsed);
+        Assert.assertFalse(Strings.containsLiteral(collapsed, "start"), "Error too verbose: "+collapsed);
+        Assert.assertFalse(Strings.containsLiteral(collapsed, "FailingEntity"), "Error too verbose: "+collapsed);
+        Assert.assertFalse(Strings.containsLiteral(collapsed, entity.getId()), "Error too verbose: "+collapsed);
+        Assert.assertTrue(Strings.containsLiteral(collapsed, "Simulating"), "Error not verbose enough: "+collapsed);
+    }
+     
+
     private void assertTaskSucceeds(Task<Void> task) {
         task.getUnchecked();
         Assert.assertFalse(task.isError());
@@ -161,23 +184,26 @@ public class EffectorBasicTest extends BrooklynAppUnitTestSupport {
         Assert.assertTrue(Tasks.failed( ((HasTaskChildren)task).getChildren() ).iterator().hasNext());
     }
         
-    private void assertStartMethodFails(FailingEntity entity) {
+    private Exception assertStartMethodFails(FailingEntity entity) {
         try {
             entity.start(locs);
-            Assert.fail("Should have failed");
+            Asserts.shouldHaveFailedPreviously();
         } catch (Exception e) {
-            // expected
+            Asserts.expectedFailure(e);
+            return e;
         }
+        return null;
     }
      
-    protected void assertTaskFails(Task<?> t) {
+    protected Exception assertTaskFails(Task<?> t) {
         try {
             t.get();
             Assert.fail("Should have failed");
         } catch (Exception e) {
-            Exceptions.propagateIfFatal(e);
-            // expected
+            Asserts.expectedFailure(e);
+            return e;
         }
+        return null;
     }
     
 }

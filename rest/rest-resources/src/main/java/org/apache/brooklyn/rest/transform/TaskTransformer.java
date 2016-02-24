@@ -114,7 +114,7 @@ public class TaskTransformer {
                 result = null;
             }
         } catch (Throwable t) {
-            result = Exceptions.collapseText(t);
+            result = Exceptions.collapseTextInContext(t, task);
         }
         
         return new TaskSummary(task.getId(), task.getDisplayName(), task.getDescription(), entityId, entityDisplayName, 

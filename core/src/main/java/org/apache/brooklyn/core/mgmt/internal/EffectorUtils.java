@@ -41,12 +41,14 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.exceptions.CanSkipInContext;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Objects;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
@@ -261,17 +263,47 @@ public class EffectorUtils {
         }
     }
 
-    public static void handleEffectorException(Entity entity, Effector<?> effector, Throwable throwable) {
-        String message = "Error invoking " + effector.getName() + " at " + entity;
-        // Avoid throwing a PropagatedRuntimeException that just repeats the last PropagatedRuntimeException.
-        if (throwable instanceof PropagatedRuntimeException &&
-                throwable.getMessage() != null &&
-                throwable.getMessage().startsWith(message)) {
-            throw PropagatedRuntimeException.class.cast(throwable);
-        } else {
-            log.warn(message + ": " + Exceptions.collapseText(throwable));
-            throw new PropagatedRuntimeException(message, throwable);
+    static class EffectorCallPropagatedRuntimeException extends PropagatedRuntimeException implements CanSkipInContext {
+        private static final long serialVersionUID = 6146890711493851848L;
+        private String entityId;
+        private String effectorName;
+        public EffectorCallPropagatedRuntimeException(Entity entity, Effector<?> effector, Throwable throwable) {
+            super(makeMessage(entity, effector), throwable);
+            this.entityId = entity.getId();
+            this.effectorName = effector.getName();
         }
+        @Override
+        public boolean canSkipInContext(Object context) {
+            if (context instanceof Task) {
+                Entity entity = BrooklynTaskTags.getContextEntity((Task<?>)context);
+                if (entity==null || !Objects.equal(entityId, entity.getId())) return false;
+                if (!Objects.equal(effectorName, BrooklynTaskTags.getEffectorName((Task<?>)context))) return false;
+                // matching entity and effector name is enough to skip the prefix;
+                // means a self-referential effector message might match others but that's probably desired
+                // so we can see the underlying error quickly.
+                // (the trace includes the near-self calls)
+                return true;
+            }
+            return false;
+        }
+        private static String makeMessage(Entity entity, Effector<?> effector) {
+            return "Error invoking " + effector.getName() + " at " + entity;
+        }
+        private static RuntimeException propagate(Entity entity, Effector<?> effector, Throwable throwable) {
+            if (throwable instanceof EffectorCallPropagatedRuntimeException &&
+                    Objects.equal(makeMessage(entity, effector), throwable.getMessage())) {
+                // Avoid throwing a PropagatedRuntimeException that just repeats the last PropagatedRuntimeException.
+                throw (EffectorCallPropagatedRuntimeException)throwable;
+            }
+                
+            EffectorCallPropagatedRuntimeException result = new EffectorCallPropagatedRuntimeException(entity, effector, throwable);
+            log.warn(Exceptions.collapseText(result));
+            throw result;
+        }
+    }
+    
+    public static void handleEffectorException(Entity entity, Effector<?> effector, Throwable throwable) {
+        throw EffectorCallPropagatedRuntimeException.propagate(entity, effector, throwable);
     }
 
     public static <T> Task<T> invokeEffectorAsync(Entity entity, Effector<T> eff, Map<String,?> parameters) {
