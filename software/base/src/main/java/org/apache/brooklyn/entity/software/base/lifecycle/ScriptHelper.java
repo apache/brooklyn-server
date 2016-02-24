@@ -425,11 +425,11 @@ public class ScriptHelper {
     }
     
     public String getResultStdout() {
-        if (stdout==null) throw new IllegalStateException("output not available on "+this+"; ensure gatherOutput(true) is set");
+        if (stdout==null) throw new IllegalStateException("stdour not available on "+this+"; ensure task has completed and gatherOutput(true) is set");
         return stdout.toString();
     }
     public String getResultStderr() {
-        if (stderr==null) throw new IllegalStateException("output not available on "+this+"; ensure gatherOutput(true) is set");
+        if (stderr==null) throw new IllegalStateException("stderr not available on "+this+"; ensure task has completed and gatherOutput(true) is set");
         return stderr.toString();
     }
 
