@@ -37,7 +37,7 @@ public class StaticSensorTest extends BrooklynAppUnitTestSupport {
                         StaticSensor.SENSOR_TYPE, String.class.getName(),
                         StaticSensor.STATIC_VALUE, "myval")))));
         
-        EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(String.class, "myname"), "myval");
+        EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newSensor(String.class, "myname"), "myval");
     }
     
     @Test
@@ -48,6 +48,6 @@ public class StaticSensorTest extends BrooklynAppUnitTestSupport {
                         StaticSensor.SENSOR_TYPE, Integer.class.getName(),
                         StaticSensor.STATIC_VALUE, "1")))));
         
-        EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(Integer.class, "myname"), 1);
+        EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newSensor(Integer.class, "myname"), 1);
     }
 }
