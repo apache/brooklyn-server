@@ -21,6 +21,11 @@ package org.apache.brooklyn.core.entity;
 import java.util.Collection;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.ImmutableSet;
+
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
@@ -35,10 +40,6 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Time;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.ImmutableSet;
 
 /**
  * Users can extend this to define the entities in their application, and the relationships between
@@ -132,12 +133,12 @@ public abstract class AbstractApplication extends AbstractEntity implements Star
     @Override
     protected void initEnrichers() {
         super.initEnrichers();
-        
+
         // default app logic; easily overridable by adding a different enricher with the same tag
         ServiceStateLogic.newEnricherFromChildren().checkChildrenAndMembers().addTo(this);
         ServiceStateLogic.ServiceNotUpLogic.updateNotUpIndicator(this, Attributes.SERVICE_STATE_ACTUAL, "Application created but not yet started, at "+Time.makeDateString());
     }
-    
+
     /**
      * Default start will start all Startable children (child.start(Collection<? extends Location>)),
      * calling preStart(locations) first and postStart(locations) afterwards.
@@ -152,15 +153,19 @@ public abstract class AbstractApplication extends AbstractEntity implements Star
         setExpectedStateAndRecordLifecycleEvent(Lifecycle.STARTING);
         try {
             preStart(locationsToUse);
-            // if there are other items which should block service_up, they should be done in preStart
-            ServiceStateLogic.ServiceNotUpLogic.clearNotUpIndicator(this, Attributes.SERVICE_STATE_ACTUAL);
-            
+
+            // Opportunity to block startup until other dependent components are available
+            Object val = config().get(START_LATCH);
+            if (val != null) log.debug("{} finished waiting for start-latch; continuing...", this);
+
             doStart(locationsToUse);
             postStart(locationsToUse);
+
+            ServiceStateLogic.ServiceNotUpLogic.clearNotUpIndicator(this, Attributes.SERVICE_STATE_ACTUAL);
         } catch (Exception e) {
             // TODO should probably remember these problems then clear?  if so, do it here ... or on all effectors?
-//            ServiceProblemsLogic.updateProblemsIndicator(this, START, e);
-            
+            // ServiceProblemsLogic.updateProblemsIndicator(this, START, e);
+
             recordApplicationEvent(Lifecycle.ON_FIRE);
             // no need to log here; the effector invocation should do that
             throw Exceptions.propagate(e);

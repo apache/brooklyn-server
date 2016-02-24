@@ -20,10 +20,8 @@ package org.apache.brooklyn.entity.stock;
 
 import org.apache.brooklyn.core.entity.AbstractApplication;
 
-
-
 public class BasicApplicationImpl extends AbstractApplication implements BasicApplication {
-    
+
     @Override
     public void init() {
         super.init();

@@ -22,6 +22,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Predicates;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -35,12 +42,6 @@ import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.entity.trait.StartableMethods;
 import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Predicates;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 
 public class BasicStartableImpl extends AbstractEntity implements BasicStartable {
 
@@ -50,6 +51,10 @@ public class BasicStartableImpl extends AbstractEntity implements BasicStartable
     public void start(Collection<? extends Location> locations) {
         try {
             ServiceStateLogic.setExpectedState(this, Lifecycle.STARTING);
+
+            // Opportunity to block startup until other dependent components are available
+            Object val = config().get(START_LATCH);
+            if (val != null) log.debug("{} finished waiting for start-latch; continuing...", this);
 
             addLocations(locations);
             locations = Locations.getLocationsCheckingAncestors(locations, this);
