@@ -20,16 +20,18 @@ package org.apache.brooklyn.util.core.text;
 
 import static org.testng.Assert.assertEquals;
 
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.entity.group.DynamicCluster;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.test.FixedLocaleTest;
-import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -173,7 +175,21 @@ public class TemplateProcessorTest extends BrooklynAppUnitTestSupport {
         String result = TemplateProcessor.processTemplateContents(templateContents, entity, ImmutableMap.<String,Object>of());
         assertEquals(result, "myval");
     }
-    
+
+    @Test
+    public void testApplyTemplatedConfigWithAtributeWhenReadyInSpec() {
+        DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class).configure(DynamicCluster.INITIAL_SIZE, 0).location(
+                app.getManagementContext().getLocationManager().createLocation(LocationSpec.create(LocalhostMachineProvisioningLocation.LocalhostMachine.class))));
+        cluster.config().set(DynamicCluster.MEMBER_SPEC,
+                EntitySpec.create(TestEntity.class).configure(TestEntity.CONF_NAME,
+                        DependentConfiguration.attributeWhenReady(cluster, TestEntity.NAME)));
+        cluster.sensors().set(TestEntity.NAME, "myval");
+        cluster.resize(1);
+        String templateContents = "${config['"+TestEntity.CONF_NAME.getName()+"']}";
+        String result = TemplateProcessor.processTemplateContents(templateContents, (EntityInternal)Iterables.getOnlyElement(cluster.getChildren()), ImmutableMap.<String,Object>of());
+        assertEquals(result, "myval");
+    }
+
     @Test
     public void testDotSeparatedKey() {
         String templateContents = "${a.b}";
