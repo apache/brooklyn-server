@@ -43,6 +43,7 @@ import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -158,7 +159,16 @@ public class RebindCatalogItemTest extends RebindTestFixtureWithApp {
     }
 
     @Test
-    public void testAddAndRebindAndDeleteLocation() {
+    public void testAddAndRebindAndDeleteLocation() throws Exception {
+        doTestAddAndRebindAndDeleteLocation(false);
+    }
+
+    @Test
+    public void testAddAndRebindAndDeleteLocationWithoutIntermediateDeltaWrite() throws Exception {
+        doTestAddAndRebindAndDeleteLocation(true);
+    }
+
+    private void doTestAddAndRebindAndDeleteLocation(boolean suppressPeriodicCheckpointing) throws Exception {
         String symbolicName = "sample_location";
         String yaml = Joiner.on("\n").join(ImmutableList.of(
                 "name: Test Location",
@@ -177,16 +187,26 @@ public class RebindCatalogItemTest extends RebindTestFixtureWithApp {
                     .build();
         origManagementContext.getCatalog().addItem(item);
         assertEquals(item.getCatalogItemType(), CatalogItemType.LOCATION);
-        rebindAndAssertCatalogsAreEqual();
+        if (!suppressPeriodicCheckpointing) {
+            rebindAndAssertCatalogsAreEqual();
+        } else {
+            LocalManagementContext nmc = RebindTestUtils.managementContextBuilder(mementoDir, classLoader)
+                .forLive(useLiveManagementContext())
+                .emptyCatalog(useEmptyCatalog())
+                .persistPeriod(Duration.PRACTICALLY_FOREVER)
+                .buildUnstarted();
+            rebind(RebindOptions.create().newManagementContext(nmc));
+        }
         
         deleteItem(newManagementContext, item.getSymbolicName(), item.getVersion());
         
         switchOriginalToNewManagementContext();
         rebindAndAssertCatalogsAreEqual();
     }
-
+    
     @Test(enabled = false)
     public void testAddAndRebindEnricher() {
+        // TODO
         fail("unimplemented");
     }
 

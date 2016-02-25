@@ -200,7 +200,6 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
         this.persistFeedsEnabled = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_FEED_PERSISTENCE_PROPERTY);
     }
     
-    @SuppressWarnings("unchecked")
     public void start() {
         synchronized (startStopMutex) {
             if (state==ListenerState.RUNNING || (scheduledTask!=null && !scheduledTask.isDone())) {
@@ -219,7 +218,7 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
                 }
             };
             scheduledTask = (ScheduledTask) executionContext.submit(new ScheduledTask(MutableMap.of("displayName", "scheduled[periodic-persister]",
-                "tags", MutableSet.of(BrooklynTaskTags.TRANSIENT_TASK_TAG)), taskFactory).period(period));
+                "tags", MutableSet.of(BrooklynTaskTags.TRANSIENT_TASK_TAG)), taskFactory).period(period).delay(period));
         }
     }
 
@@ -317,7 +316,7 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
     }
     
     private void addReferencedObjects(DeltaCollector deltaCollector) {
-        Set<BrooklynObject> referencedObjects = Sets.newLinkedHashSet();
+        MutableSet<BrooklynObject> referencedObjects = MutableSet.of();
         
         // collect references
         for (Entity entity : deltaCollector.entities) {
@@ -327,10 +326,10 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
                 referencedObjects.addAll(findLocationsInHierarchy);
             }
             if (persistPoliciesEnabled) {
-                referencedObjects.addAll(entity.getPolicies());
+                referencedObjects.addAll(entity.policies());
             }
             if (persistEnrichersEnabled) {
-                referencedObjects.addAll(entity.getEnrichers());
+                referencedObjects.addAll(entity.enrichers());
             }
             if (persistFeedsEnabled) {
                 referencedObjects.addAll(((EntityInternal)entity).feeds().getFeeds());
