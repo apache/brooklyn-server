@@ -39,8 +39,7 @@ import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.api.mgmt.ha.ManagementPlaneSyncRecordPersister;
 import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.mgmt.ha.HighAvailabilityManagerImpl;
-import org.apache.brooklyn.core.mgmt.ha.ManagementPlaneSyncRecordPersisterToObjectStore;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.mgmt.internal.AbstractManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
@@ -49,14 +48,15 @@ import org.apache.brooklyn.core.mgmt.persist.ListeningObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
 import org.apache.brooklyn.core.mgmt.rebind.PersistenceExceptionHandlerImpl;
-import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
-import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixture;
 import org.apache.brooklyn.core.mgmt.rebind.RebindFeedTest.MyEntityWithFunctionFeedImpl;
 import org.apache.brooklyn.core.mgmt.rebind.RebindFeedTest.MyEntityWithNewFeedsEachTimeImpl;
+import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
+import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixture;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.test.EntityTestUtils;
+import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation.LocalhostMachine;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
@@ -70,7 +70,6 @@ import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation.LocalhostMachine;
 
 import com.google.common.collect.Iterables;
 
@@ -200,9 +199,9 @@ public class HotStandbyTest {
         if (immediate) {
             forcePersistNow(master);
             forceRebindNow(hotStandby);
-            EntityTestUtils.assertAttributeEquals(appRO, TestEntity.SEQUENCE, expectedSensorSequenceValue);
+            EntityAsserts.assertAttributeEquals(appRO, TestEntity.SEQUENCE, expectedSensorSequenceValue);
         } else {
-            EntityTestUtils.assertAttributeEqualsEventually(appRO, TestEntity.SEQUENCE, expectedSensorSequenceValue);
+            EntityAsserts.assertAttributeEqualsEventually(appRO, TestEntity.SEQUENCE, expectedSensorSequenceValue);
         }
         
         log.info("got sequence number "+expectedSensorSequenceValue+" from "+appRO);
@@ -324,7 +323,7 @@ public class HotStandbyTest {
         app.sensors().set(TestEntity.SEQUENCE, 5);
         appRO = expectRebindSequenceNumber(n1, n2, app, 5, immediate);
         
-        EntityTestUtils.assertAttributeEqualsEventually(appRO, TestEntity.SEQUENCE, 5);
+        EntityAsserts.assertAttributeEqualsEventually(appRO, TestEntity.SEQUENCE, 5);
         assertEquals(n2.mgmt.getEntityManager().getEntities().size(), 1);
         assertEquals(appRO.getChildren().size(), 0);
         assertEquals(n2.mgmt.getApplications().size(), 1);
@@ -515,12 +514,12 @@ public class HotStandbyTest {
 
     @Test
     public void testChangeMode() throws Exception {
-        HaMgmtNode n1 = createMaster(Duration.PRACTICALLY_FOREVER);
+        final HaMgmtNode n1 = createMaster(Duration.PRACTICALLY_FOREVER);
         TestApplication app = createFirstAppAndPersist(n1);
         HaMgmtNode n2 = createHotStandby(Duration.PRACTICALLY_FOREVER);
 
-        TestEntity child = app.addChild(EntitySpec.create(TestEntity.class).configure(TestEntity.CONF_NAME, "first-child"));
-        TestApplication app2 = TestApplication.Factory.newManagedInstanceForTests(n1.mgmt);
+        app.addChild(EntitySpec.create(TestEntity.class).configure(TestEntity.CONF_NAME, "first-child"));
+        final TestApplication app2 = TestApplication.Factory.newManagedInstanceForTests(n1.mgmt);
         app2.config().set(TestEntity.CONF_NAME, "second-app");
 
         forcePersistNow(n1);
@@ -532,9 +531,16 @@ public class HotStandbyTest {
         assertHotStandby(n2);
         
         assertEquals(n1.mgmt.getApplications().size(), 2);
+        Asserts.succeedsEventually(new Runnable() {
+            @Override
+            public void run() {
+                Application app2RO = n1.mgmt.lookup(app2.getId(), Application.class);
+                Assert.assertNotNull(app2RO);
+                EntityAsserts.assertConfigEquals(app2RO, TestEntity.CONF_NAME, "second-app");
+            }
+        });
+
         Application app2RO = n1.mgmt.lookup(app2.getId(), Application.class);
-        Assert.assertNotNull(app2RO);
-        assertEquals(app2RO.getConfig(TestEntity.CONF_NAME), "second-app");
         try {
             ((TestApplication)app2RO).sensors().set(TestEntity.SEQUENCE, 4);
             Assert.fail("Should not have allowed sensor to be set");
@@ -563,7 +569,7 @@ public class HotStandbyTest {
         forceRebindNow(n1);
         Application app2BRO = n1.mgmt.lookup(app2.getId(), Application.class);
         Assert.assertNotNull(app2BRO);
-        EntityTestUtils.assertAttributeEquals(app2BRO, TestEntity.SEQUENCE, 4);
+        EntityAsserts.assertAttributeEquals(app2BRO, TestEntity.SEQUENCE, 4);
     }
 
     @Test(groups="Integration", invocationCount=20)
