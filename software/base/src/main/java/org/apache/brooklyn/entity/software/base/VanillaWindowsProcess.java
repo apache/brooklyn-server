@@ -109,7 +109,25 @@ public interface VanillaWindowsProcess extends AbstractVanillaProcess {
     // TODO If automatic updates are enabled and there are updates waiting to be installed, thirty minutes may not be sufficient...
     ConfigKey<Duration> REBOOT_COMPLETED_TIMEOUT = ConfigKeys.newDurationConfigKey("reboot.completed.timeout",
             "duration to wait whilst waiting for a machine to finish rebooting, and thus to become available again", Duration.minutes(30));
-    
-    AttributeSensor<Integer> RDP_PORT = Sensors.newIntegerSensor("rdpPort");
-    AttributeSensor<Integer> WINRM_PORT = Sensors.newIntegerSensor(WinRmTool.PROP_PORT.getName());
+
+    AttributeSensor<Integer> RDP_PORT = Sensors.newIntegerSensor("rdp.port", "RDP port used by the machine of this entity.");
+    AttributeSensor<Integer> WINRM_PORT = Sensors.newIntegerSensor("winrm.port", "WinRM port used by the machine of this entity.");
+
+    /**
+     * @deprecated since 0.9.0; use {@link #RDP_PORT} instead.
+     */
+    @Deprecated
+    AttributeSensor<Integer> RDP_PORT_CAMEL_CASE = Sensors.newIntegerSensor("rdpPort", "[DEPRECATED] instead use 'rdp.port'");
+
+    /**
+     * @deprecated since 0.9.0; use {@link #WINRM_PORT} instead.
+     */
+    @Deprecated
+    AttributeSensor<Integer> WINRM_PORT_CAMEL_CASE = Sensors.newIntegerSensor("winrmPort", "[DEPRECATED] instead use 'winrm.port'");
+
+    /**
+     * @deprecated since 0.9.0; use {@link #WINRM_PORT} instead.
+     */
+    @Deprecated
+    AttributeSensor<Integer> WINRM_PORT_SHORTEN = Sensors.newIntegerSensor("port", "[DEPRECATED] instead use 'winrm.port'");
 }

@@ -53,7 +53,7 @@ public interface WinRmTool {
      * winrm.useNtlm parameter could be a subject to change.
      * TODO Winrm supports several authentication mechanisms so it would be better to replace it with a prioritised list of authentication mechanisms to try.
      */
-   @Beta
+    @Beta
     ConfigKey<Boolean> USE_NTLM = ConfigKeys.newBooleanConfigKey("winrm.useNtlm", "The parameter configures tells the machine sensors whether the winrm port is over https. If the parameter is true then 5986 will be used as a winrm port.", true);
     ConfigKey<String> PROP_USER = newStringConfigKey("user", "User to connect as", null);
     ConfigKey<String> PROP_PASSWORD = newStringConfigKey("password", "Password to use to connect", null);
