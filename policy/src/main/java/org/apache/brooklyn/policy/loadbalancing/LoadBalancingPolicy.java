@@ -43,6 +43,7 @@ import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.policy.autoscaling.AutoScalerPolicy;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
@@ -196,8 +197,12 @@ public class LoadBalancingPolicy<NodeType extends Entity, ItemType extends Movab
             long delay = Math.max(0, (executorTime + minPeriodBetweenExecs) - now);
             
             executor.schedule(new Runnable() {
-                @SuppressWarnings("rawtypes")
                 public void run() {
+                    runWithRetries(3);
+                }
+                
+                @SuppressWarnings("rawtypes")
+                private void runWithRetries(int retriesRemaining) {
                     try {
                         executorTime = System.currentTimeMillis();
                         executorQueued.set(false);
@@ -245,10 +250,17 @@ public class LoadBalancingPolicy<NodeType extends Entity, ItemType extends Movab
                         }
 
                     } catch (Exception e) {
+                        Exceptions.propagateIfFatal(e);
                         if (isRunning()) {
-                            LOG.error("Error rebalancing", e);
+                            if (retriesRemaining>0) {
+                                // probably we failed because a container was leaving, trying again should fix it
+                                LOG.error("Error rebalancing (ignoring and retrying, "+retriesRemaining+" left): "+Exceptions.collapseText(e), e);
+                                runWithRetries(retriesRemaining-1);
+                            } else {
+                                LOG.error("Error rebalancing (ignoring, another event may trigger a rebalance): "+Exceptions.collapseText(e), e);
+                            }
                         } else {
-                            LOG.debug("Error rebalancing, but no longer running", e);
+                            LOG.debug("Error rebalancing, but no longer running: "+Exceptions.collapseText(e), e);
                         }
                     }
                 }},
