@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.rest.client;
 
+import static org.testng.Assert.assertEquals;
+
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
@@ -29,6 +31,7 @@ import javax.ws.rs.core.Response;
 
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.location.BasicLocationRegistry;
@@ -55,7 +58,7 @@ public class BrooklynApiRestClientTest {
     private static final Logger log = LoggerFactory.getLogger(BrooklynApiRestClientTest.class);
 
     private ManagementContext manager;
-
+    private Server server;
     private BrooklynApi api;
 
     protected synchronized ManagementContext getManagementContext() throws Exception {
@@ -70,7 +73,7 @@ public class BrooklynApiRestClientTest {
 
     @BeforeClass
     public void setUp() throws Exception {
-        Server server = BrooklynRestApiLauncher.launcher()
+        server = BrooklynRestApiLauncher.launcher()
                 .managementContext(manager)
                 .securityProvider(TestSecurityProvider.class)
                 .start();
@@ -89,6 +92,14 @@ public class BrooklynApiRestClientTest {
             }
         }
         Entities.destroyAll(getManagementContext());
+        server.stop();
+    }
+
+    public void testNoV1InUrl() {
+        api = BrooklynApi.newInstance("http://localhost:" + ((NetworkConnector)server.getConnectors()[0]).getPort(),
+                TestSecurityProvider.USER, TestSecurityProvider.PASSWORD);
+
+        assertEquals(api.getServerApi().getVersion().getVersion(), BrooklynVersion.get());
     }
 
     public void testLocationApi() throws Exception {
