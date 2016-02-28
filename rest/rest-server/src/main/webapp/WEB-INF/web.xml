@@ -96,6 +96,8 @@
                 io.swagger.jaxrs.listing.SwaggerSerializers,
                 org.apache.brooklyn.rest.util.FormMapProvider,
                 com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider
+                org.apache.brooklyn.rest.util.ManagementContextProvider
+                <!-- org.apache.brooklyn.rest.util.ShutdownHandlerProvider -->
             </param-value>
         </init-param>
 

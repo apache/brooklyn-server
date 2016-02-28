@@ -432,7 +432,7 @@ public class BrooklynWebServer {
 
     private WebAppContext deployRestApi(WebAppContext context) {
         RestApiSetup.installRest(context,
-                new ManagementContextProvider(managementContext),
+                new ManagementContextProvider(),
                 new ShutdownHandlerProvider(shutdownHandler),
                 new NoCacheFilter(),
                 new HaHotCheckResourceFilter());
