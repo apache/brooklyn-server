@@ -45,7 +45,6 @@ import org.apache.brooklyn.launcher.common.BasicLauncher;
 import org.apache.brooklyn.launcher.common.BrooklynPropertiesFactoryHelper;
 import org.apache.brooklyn.launcher.config.StopWhichAppsOnShutdown;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
-import org.apache.brooklyn.rest.filter.BrooklynPropertiesSecurityFilter;
 import org.apache.brooklyn.rest.security.provider.BrooklynUserWithRandomPasswordSecurityProvider;
 import org.apache.brooklyn.rest.util.ShutdownHandler;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -308,9 +307,7 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
             if (useHttps!=null) webServer.setHttpsEnabled(useHttps);
             webServer.setShutdownHandler(shutdownHandler);
             webServer.putAttributes(brooklynProperties);
-            if (skipSecurityFilter != Boolean.TRUE) {
-                webServer.setSecurityFilter(BrooklynPropertiesSecurityFilter.class);
-            }
+            webServer.skipSecurity(Boolean.TRUE.equals(skipSecurityFilter));
             for (WebAppContextProvider webapp : webApps) {
                 webServer.addWar(webapp);
             }
