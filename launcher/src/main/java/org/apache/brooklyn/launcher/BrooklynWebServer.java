@@ -54,6 +54,9 @@ import org.apache.brooklyn.rest.filter.HaMasterCheckFilter;
 import org.apache.brooklyn.rest.filter.LoggingFilter;
 import org.apache.brooklyn.rest.filter.NoCacheFilter;
 import org.apache.brooklyn.rest.filter.RequestTaggingFilter;
+import org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule;
+import org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule.RolePrincipal;
+import org.apache.brooklyn.rest.security.jaas.JaasUtils;
 import org.apache.brooklyn.rest.util.ManagementContextProvider;
 import org.apache.brooklyn.rest.util.ShutdownHandler;
 import org.apache.brooklyn.rest.util.ShutdownHandlerProvider;
@@ -212,6 +215,7 @@ public class BrooklynWebServer {
             log.warn("Ignoring unknown flags " + leftovers);
         
         webappTempDir = BrooklynServerPaths.getBrooklynWebTmpDir(managementContext);
+        JaasUtils.init(managementContext);
     }
 
     public BrooklynWebServer(ManagementContext managementContext, int port) {
@@ -359,6 +363,14 @@ public class BrooklynWebServer {
         threadPool.setName("brooklyn-jetty-server-"+actualPort+"-"+threadPool.getName());
 
         server = new Server(threadPool);
+
+        // Can be moved to jetty-web.xml inside wars or a global jetty.xml.
+        JAASLoginService loginService = new JAASLoginService();
+        loginService.setName("webconsole");
+        loginService.setLoginModuleName("webconsole");
+        loginService.setRoleClassNames(new String[] {RolePrincipal.class.getName()});
+        server.addBean(loginService);
+
         final ServerConnector connector;
 
         if (getHttpsEnabled()) {

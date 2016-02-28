@@ -164,7 +164,7 @@
 
         <feature>brooklyn-camp-base</feature>
         <feature>brooklyn-utils-rest-swagger</feature>
-        <feature>jetty</feature> <!-- TODO: pax-jetty??? -->
+        <feature>pax-jetty</feature>
     </feature>
 
     <feature name="brooklyn-rest-resources" version="${project.version}" description="Brooklyn REST Resources">
@@ -188,6 +188,8 @@
     </feature>
 
     <feature name="brooklyn-jsgui" version="${project.version}" description="Brooklyn REST JavaScript Web GUI">
+        <feature>pax-jetty</feature> <!-- jaas bundle -->
+        <bundle>mvn:org.apache.brooklyn/brooklyn-karaf-jetty-config/${project.version}</bundle>
         <bundle>mvn:org.apache.brooklyn/brooklyn-jsgui/${project.version}/war</bundle>
         <feature>war</feature>
     </feature>

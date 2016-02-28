@@ -23,7 +23,6 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
-import java.security.Principal;
 import java.util.Map;
 
 import javax.security.auth.Subject;
@@ -40,12 +39,13 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.ImmutableSet;
 
 // http://docs.oracle.com/javase/7/docs/technotes/guides/security/jaas/JAASLMDevGuide.html
 public class BrooklynLoginModuleTest extends BrooklynMgmtUnitTestSupport {
     private static final String ACCEPTED_USER = "user";
     private static final String ACCEPTED_PASSWORD = "password";
+    private static final String DEFAULT_ROLE = "webconsole";
     private CallbackHandler GOOD_CB_HANDLER = new TestCallbackHandler(
             ACCEPTED_USER,
             ACCEPTED_PASSWORD);
@@ -153,6 +153,15 @@ public class BrooklynLoginModuleTest extends BrooklynMgmtUnitTestSupport {
         assertTrue(module.abort(), "abort");
         assertEmptyPrincipals();
     }
+    
+    @Test
+    public void testCustomRole() throws LoginException {
+        String role = "users";
+        options = ImmutableMap.<String, Object>of(BrooklynLoginModule.PROPERTY_ROLE, role);
+        goodLogin();
+        assertTrue(module.commit(), "commit");
+        assertBrooklynPrincipal(role);
+    }
 
     private void goodLogin() throws LoginException {
         module.initialize(subject, GOOD_CB_HANDLER, sharedState, options);
@@ -171,8 +180,12 @@ public class BrooklynLoginModuleTest extends BrooklynMgmtUnitTestSupport {
     }
 
     private void assertBrooklynPrincipal() {
-        Principal principal = Iterables.getOnlyElement(subject.getPrincipals());
-        assertEquals(principal.getName(), "brooklyn");
+        assertBrooklynPrincipal(DEFAULT_ROLE);
+    }
+    private void assertBrooklynPrincipal(String role) {
+        assertEquals(subject.getPrincipals(), ImmutableSet.of(
+                new BrooklynLoginModule.UserPrincipal(ACCEPTED_USER),
+                new BrooklynLoginModule.RolePrincipal(role)));
     }
 
     private void assertEmptyPrincipals() {

@@ -137,7 +137,7 @@ public class StockSecurityProviderTest {
     private void assertResponseEquals(CloseableHttpClient httpclient, int code) throws IOException, ClientProtocolException {
         // TODO get this dynamically (from CXF service?)
         // TODO port is static, should make it dynamic
-        HttpGet httpGet = new HttpGet("http://localhost:8181/v1/server/ha/state");
+        HttpGet httpGet = new HttpGet("http://localhost:8081/v1/server/ha/state");
         try (CloseableHttpResponse response = httpclient.execute(httpGet)) {
             assertEquals(code, response.getStatusLine().getStatusCode());
         }

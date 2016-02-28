@@ -20,11 +20,13 @@ package org.apache.brooklyn.security;
 
 import static org.apache.brooklyn.KarafTestUtils.defaultOptionsWith;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertEquals;
 import static org.ops4j.pax.exam.CoreOptions.streamBundle;
 
 import java.io.IOException;
 
 import javax.inject.Inject;
+import javax.security.auth.Subject;
 import javax.security.auth.callback.Callback;
 import javax.security.auth.callback.CallbackHandler;
 import javax.security.auth.callback.NameCallback;
@@ -38,6 +40,7 @@ import javax.security.auth.login.LoginException;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
+import org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.IntegrationTest;
 import org.apache.karaf.features.BootFinished;
@@ -52,6 +55,8 @@ import org.ops4j.pax.exam.spi.reactors.ExamReactorStrategy;
 import org.ops4j.pax.exam.spi.reactors.PerClass;
 import org.ops4j.pax.tinybundles.core.TinyBundles;
 import org.osgi.framework.Constants;
+
+import com.google.common.collect.ImmutableSet;
 
 @RunWith(PaxExam.class)
 @ExamReactorStrategy(PerClass.class)
@@ -104,8 +109,13 @@ public class CustomSecurityProviderTest {
     @Test
     public void checkLoginSucceeds() throws LoginException {
         assertRealmRegisteredEventually(WEBCONSOLE_REALM);
-        LoginContext lc = doLogin("custom", "password");
-        assertNotNull(lc.getSubject());
+        String user = "custom";
+        LoginContext lc = doLogin(user, "password");
+        Subject subject = lc.getSubject();
+        assertNotNull(subject);
+        assertEquals(subject.getPrincipals(), ImmutableSet.of(
+                new BrooklynLoginModule.UserPrincipal(user),
+                new BrooklynLoginModule.RolePrincipal("users")));
     }
 
     private LoginContext doLogin(final String username, final String password) throws LoginException {

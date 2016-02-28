@@ -162,6 +162,10 @@
         </dependency>
         <dependency>
             <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-jaas</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
             <artifactId>jetty-server</artifactId>
         </dependency>
         <dependency>
@@ -267,6 +271,22 @@
                         </configuration>
                     </execution>
                     <execution>
+                        <id>copy-rest-resources</id>
+                        <phase>generate-resources</phase>
+                        <goals><goal>copy-resources</goal></goals>
+                        <configuration>
+                          <outputDirectory>target/generated-resources/rest-deps</outputDirectory>
+                          <resources>
+                            <resource>
+                              <directory>../rest-resources/src/main/resources</directory>
+                              <includes>
+                                <include>**/jaas.conf</include>
+                              </includes>
+                            </resource>
+                          </resources>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>copy-rest-test-resources</id>
                         <phase>generate-test-resources</phase>
                         <goals><goal>copy-resources</goal></goals>
@@ -300,6 +320,18 @@
                     </execution>
                     <execution>
                         <id>rest-resources</id>
+                        <phase>generate-resources</phase>
+                        <goals><goal>add-resource</goal></goals>
+                        <configuration>
+                          <resources>
+                            <resource>
+                                <directory>target/generated-resources/rest-deps</directory>
+                            </resource>
+                          </resources>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>rest-test-resources</id>
                         <phase>generate-test-resources</phase>
                         <goals><goal>add-test-resource</goal></goals>
                         <configuration>

@@ -245,7 +245,6 @@ public class BrooklynRestApiLauncher {
     /** NB: not fully supported; use one of the other {@link StartMode}s */
     private ContextHandler webXmlContextHandler(ManagementContext mgmt) {
         RestApiSetup.initSwagger();
-        // TODO add security to web.xml
         WebAppContext context;
         if (findMatchingFile("src/main/webapp")!=null) {
             // running in source mode; need to use special classpath
@@ -290,7 +289,9 @@ public class BrooklynRestApiLauncher {
     @Deprecated
     public static Server startServer(ContextHandler context, String summary, InetSocketAddress bindLocation) {
         Server server = new Server(bindLocation);
-        
+
+        initJaas(server);
+
         server.setHandler(context);
         try {
             server.start();
@@ -301,6 +302,15 @@ public class BrooklynRestApiLauncher {
         log.info("  http://localhost:"+((NetworkConnector)server.getConnectors()[0]).getLocalPort()+"/");
 
         return server;
+    }
+
+    // TODO Why parallel code for server init here and in BrooklynWebServer?
+    private static void initJaas(Server server) {
+        JAASLoginService loginService = new JAASLoginService();
+        loginService.setName("webconsole");
+        loginService.setLoginModuleName("webconsole");
+        loginService.setRoleClassNames(new String[] {RolePrincipal.class.getName()});
+        server.addBean(loginService);
     }
 
     public static BrooklynRestApiLauncher launcher() {

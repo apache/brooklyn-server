@@ -44,6 +44,9 @@ import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.rest.security.provider.DelegatingSecurityProvider;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.text.Strings;
+import org.eclipse.jetty.server.HttpChannel;
+import org.eclipse.jetty.server.Request;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.slf4j.Logger;
@@ -83,9 +86,17 @@ import org.slf4j.LoggerFactory;
 public class BrooklynLoginModule implements LoginModule {
     private static final Logger log = LoggerFactory.getLogger(BrooklynLoginModule.class);
 
-    private static class BrooklynPrincipal implements Principal {
+    /**
+     * The session attribute set for authenticated users; for reference
+     * (but should not be relied up to confirm authentication, as
+     * the providers may impose additional criteria such as timeouts,
+     * or a null user (no login) may be permitted)
+     */
+    public static final String AUTHENTICATED_USER_SESSION_ATTRIBUTE = "brooklyn.user";
+
+    private static class BasicPrincipal implements Principal {
         private String name;
-        public BrooklynPrincipal(String name) {
+        public BasicPrincipal(String name) {
             this.name = checkNotNull(name, "name");
         }
         @Override
@@ -98,19 +109,32 @@ public class BrooklynLoginModule implements LoginModule {
         }
         @Override
         public boolean equals(Object obj) {
-            if (obj instanceof BrooklynPrincipal) {
-                return name.equals(((BrooklynPrincipal)obj).name);
+            if (obj instanceof BasicPrincipal) {
+                return name.equals(((BasicPrincipal)obj).name);
             }
             return false;
         }
         @Override
         public String toString() {
-            return "BrooklynPrincipal[" +name + "]";
+            return getClass().getSimpleName() + "[" +name + "]";
         }
     }
-    private static final Principal DEFAULT_PRINCIPAL = new BrooklynPrincipal("brooklyn");
+    public static class UserPrincipal extends BasicPrincipal {
+        public UserPrincipal(String name) {
+            super(name);
+        }
+    }
+    public static class RolePrincipal extends BasicPrincipal {
+        public RolePrincipal(String name) {
+            super(name);
+        }
+    }
+
     public static final String PROPERTY_BUNDLE_SYMBOLIC_NAME = BrooklynWebConfig.SECURITY_PROVIDER_CLASSNAME.getName() + ".symbolicName";
     public static final String PROPERTY_BUNDLE_VERSION = BrooklynWebConfig.SECURITY_PROVIDER_CLASSNAME.getName() + ".version";
+    /** SecurityProvider doesn't know about roles, just attach one by default. Use the one specified here or DEFAULT_ROLE */
+    public static final String PROPERTY_ROLE = BrooklynWebConfig.SECURITY_PROVIDER_CLASSNAME.getName() + ".role";
+    public static final String DEFAULT_ROLE = "webconsole";
 
     private Map<String, ?> options;
     private BundleContext bundleContext;
@@ -123,6 +147,7 @@ public class BrooklynLoginModule implements LoginModule {
     private CallbackHandler callbackHandler;
     private boolean loginSuccess;
     private boolean commitSuccess;
+    private Collection<Principal> principals;
 
     public BrooklynLoginModule() {
     }
@@ -246,11 +271,34 @@ public class BrooklynLoginModule implements LoginModule {
         String password = new String(cbPassword.getPassword());
 
         providerSession = new SecurityProviderHttpSession();
+
+        Request req = getJettyRequest();
+        if (req != null) {
+            String remoteAddr = req.getRemoteAddr();
+            providerSession.setAttribute(BrooklynWebConfig.REMOTE_ADDRESS_SESSION_ATTRIBUTE, remoteAddr);
+        }
+
         if (!provider.authenticate(providerSession, user, password)) {
             loginSuccess = false;
             throw new FailedLoginException("Incorrect username or password");
         }
 
+        if (user != null) {
+            providerSession.setAttribute(AUTHENTICATED_USER_SESSION_ATTRIBUTE, user);
+        }
+
+        principals = new ArrayList<>(2);
+        principals.add(new UserPrincipal(user));
+        // Could introduce a new interface SecurityRoleAware, implemented by
+        // the SecurityProviders, returning the roles a user has assigned.
+        // For now a static role is good enough.
+        String role = (String) options.get(PROPERTY_ROLE);
+        if (role == null) {
+            role = DEFAULT_ROLE;
+        }
+        if (Strings.isNonEmpty(role)) {
+            principals.add(new RolePrincipal(role));
+        }
         loginSuccess = true;
         return true;
     }
@@ -261,7 +309,7 @@ public class BrooklynLoginModule implements LoginModule {
             if (subject.isReadOnly()) {
                 throw new LoginException("Can't commit read-only subject");
             }
-            subject.getPrincipals().add(DEFAULT_PRINCIPAL);
+            subject.getPrincipals().addAll(principals);
         }
 
         commitSuccess = true;
@@ -273,16 +321,24 @@ public class BrooklynLoginModule implements LoginModule {
         if (loginSuccess && commitSuccess) {
             removePrincipal();
         }
+        clear();
         return loginSuccess;
     }
 
     @Override
     public boolean logout() throws LoginException {
+        Request req = getJettyRequest();
+        if (req != null) {
+            log.info("REST logging {} out",
+                    providerSession.getAttribute(AUTHENTICATED_USER_SESSION_ATTRIBUTE));
+            provider.logout(req.getSession());
+            req.getSession().removeAttribute(AUTHENTICATED_USER_SESSION_ATTRIBUTE);
+        } else {
+            log.error("Request object not available for logout");
+        }
+
         removePrincipal();
-
-        subject = null;
-        callbackHandler = null;
-
+        clear();
         return true;
     }
 
@@ -290,7 +346,22 @@ public class BrooklynLoginModule implements LoginModule {
         if (subject.isReadOnly()) {
             throw new LoginException("Read-only subject");
         }
-        subject.getPrincipals().remove(DEFAULT_PRINCIPAL);
+        subject.getPrincipals().removeAll(principals);
+    }
+
+    private void clear() {
+        subject = null;
+        callbackHandler = null;
+        principals = null;
+    }
+
+    private Request getJettyRequest() {
+        HttpChannel<?> channel = HttpChannel.getCurrentHttpChannel();
+        if (channel != null) {
+             return channel.getRequest();
+        } else {
+            return null;
+        }
     }
 
 }
