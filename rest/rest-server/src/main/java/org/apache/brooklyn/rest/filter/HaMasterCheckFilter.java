@@ -44,8 +44,10 @@ import com.google.common.collect.Sets;
  * <p>
  * Post POSTs and PUTs are assumed to need master state, with the exception of shutdown.
  * Requests with {@link #SKIP_CHECK_HEADER} set as a header skip this check.
+ * 
+ * @deprecated since 0.9.0. Use JAX-RS {@link HaHotCheckResourceFilter} instead.
  */
-// TODO Merge with HaHotCheckResourceFilter so the functionality is available in Karaf
+@Deprecated
 public class HaMasterCheckFilter implements Filter {
 
     private static final Set<String> SAFE_STANDBY_METHODS = Sets.newHashSet("GET", "HEAD");

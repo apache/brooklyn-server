@@ -28,10 +28,10 @@ import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
-import org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter;
 import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
 import org.apache.brooklyn.rest.util.HaHotStateCheckClassResource;
 import org.apache.brooklyn.rest.util.HaHotStateCheckResource;
+import org.apache.brooklyn.rest.util.HaMasterCheckResource;
 import org.apache.cxf.jaxrs.client.WebClient;
 import org.testng.annotations.Test;
 
@@ -42,6 +42,7 @@ public class HaHotCheckTest extends BrooklynRestResourceTest {
         addResource(new HaHotCheckResourceFilter());
         addResource(new HaHotStateCheckResource());
         addResource(new HaHotStateCheckClassResource());
+        addResource(new HaMasterCheckResource());
         
         ((LocalManagementContext)getManagementContext()).noteStartupComplete();
     }
@@ -58,6 +59,8 @@ public class HaHotCheckTest extends BrooklynRestResourceTest {
         testResourceFetch("/ha/method/ok", 200);
         testResourceFetch("/ha/method/fail", 200);
         testResourceFetch("/ha/class/fail", 200);
+        testResourcePost("/ha/post", 204);
+        testResourcePost("/server/shutdown", 204);
 
         getManagementContext().getHighAvailabilityManager().changeMode(HighAvailabilityMode.STANDBY);
         assertEquals(ha.getNodeState(), ManagementNodeState.STANDBY);
@@ -65,6 +68,8 @@ public class HaHotCheckTest extends BrooklynRestResourceTest {
         testResourceFetch("/ha/method/ok", 200);
         testResourceFetch("/ha/method/fail", 403);
         testResourceFetch("/ha/class/fail", 403);
+        testResourcePost("/ha/post", 403);
+        testResourcePost("/server/shutdown", 204);
 
         ((ManagementContextInternal)getManagementContext()).terminate();
         assertEquals(ha.getNodeState(), ManagementNodeState.TERMINATED);
@@ -72,6 +77,8 @@ public class HaHotCheckTest extends BrooklynRestResourceTest {
         testResourceFetch("/ha/method/ok", 200);
         testResourceFetch("/ha/method/fail", 403);
         testResourceFetch("/ha/class/fail", 403);
+        testResourcePost("/ha/post", 403);
+        testResourcePost("/server/shutdown", 204);
     }
 
     @Test
@@ -81,6 +88,8 @@ public class HaHotCheckTest extends BrooklynRestResourceTest {
         testResourceForcedFetch("/ha/method/ok", 200);
         testResourceForcedFetch("/ha/method/fail", 200);
         testResourceForcedFetch("/ha/class/fail", 200);
+        testResourceForcedPost("/ha/post", 204);
+        testResourceForcedPost("/server/shutdown", 204);
 
         getManagementContext().getHighAvailabilityManager().changeMode(HighAvailabilityMode.STANDBY);
         assertEquals(ha.getNodeState(), ManagementNodeState.STANDBY);
@@ -88,6 +97,8 @@ public class HaHotCheckTest extends BrooklynRestResourceTest {
         testResourceForcedFetch("/ha/method/ok", 200);
         testResourceForcedFetch("/ha/method/fail", 200);
         testResourceForcedFetch("/ha/class/fail", 200);
+        testResourceForcedPost("/ha/post", 204);
+        testResourceForcedPost("/server/shutdown", 204);
 
         ((ManagementContextInternal)getManagementContext()).terminate();
         assertEquals(ha.getNodeState(), ManagementNodeState.TERMINATED);
@@ -95,6 +106,8 @@ public class HaHotCheckTest extends BrooklynRestResourceTest {
         testResourceForcedFetch("/ha/method/ok", 200);
         testResourceForcedFetch("/ha/method/fail", 200);
         testResourceForcedFetch("/ha/class/fail", 200);
+        testResourceForcedPost("/ha/post", 204);
+        testResourceForcedPost("/server/shutdown", 204);
     }
 
 
@@ -102,8 +115,16 @@ public class HaHotCheckTest extends BrooklynRestResourceTest {
         testResourceFetch(resourcePath, false, code);
     }
 
+    private void testResourcePost(String resourcePath, int code) {
+        testResourcePost(resourcePath, false, code);
+    }
+
     private void testResourceForcedFetch(String resourcePath, int code) {
         testResourceFetch(resourcePath, true, code);
+    }
+
+    private void testResourceForcedPost(String resourcePath, int code) {
+        testResourcePost(resourcePath, true, code);
     }
 
     private void testResourceFetch(String resourcePath, boolean force, int code) {
@@ -114,6 +135,16 @@ public class HaHotCheckTest extends BrooklynRestResourceTest {
         }
         Response response = resource
                 .get();
+        assertEquals(response.getStatus(), code);
+    }
+
+    private void testResourcePost(String resourcePath, boolean force, int code) {
+        WebClient resource = client().path(resourcePath)
+                .accept(MediaType.APPLICATION_JSON_TYPE);
+        if (force) {
+            resource.header(HaHotCheckResourceFilter.SKIP_CHECK_HEADER, "true");
+        }
+        Response response = resource.post(null);
         assertEquals(response.getStatus(), code);
     }
 

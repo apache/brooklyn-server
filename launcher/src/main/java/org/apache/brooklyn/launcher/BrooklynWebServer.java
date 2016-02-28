@@ -438,8 +438,7 @@ public class BrooklynWebServer {
                 new HaHotCheckResourceFilter());
         RestApiSetup.installServletFilters(context,
                 RequestTaggingFilter.class,
-                LoggingFilter.class,
-                HaMasterCheckFilter.class);
+                LoggingFilter.class);
         if (securityFilterClazz != null) {
             RestApiSetup.installServletFilters(context, securityFilterClazz);
         }
