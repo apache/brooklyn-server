@@ -434,8 +434,10 @@ public class BrooklynWebServer {
         RestApiSetup.installRest(context,
                 new ManagementContextProvider(),
                 new ShutdownHandlerProvider(shutdownHandler),
+                new RequestTaggingRsFilter(),
                 new NoCacheFilter(),
-                new HaHotCheckResourceFilter());
+                new HaHotCheckResourceFilter(),
+                new EntitlementContextFilter());
         RestApiSetup.installServletFilters(context,
                 RequestTaggingFilter.class,
                 LoggingFilter.class);

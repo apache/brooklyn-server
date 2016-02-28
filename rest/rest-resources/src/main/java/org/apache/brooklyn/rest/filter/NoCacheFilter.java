@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.rest.filter;
 
+import javax.annotation.Priority;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.container.ContainerResponseContext;
 import javax.ws.rs.container.ContainerResponseFilter;
@@ -26,6 +27,7 @@ import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.ext.Provider;
 
 @Provider
+@Priority(200)
 public class NoCacheFilter implements ContainerResponseFilter {
 
     @Override

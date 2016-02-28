@@ -259,6 +259,9 @@
                                 <exclude>**/HaHotCheckResourceFilter.java</exclude>
                                 <exclude>**/FormMapProvider.java</exclude>
                                 <exclude>**/ApidocResource.java</exclude>
+                                <exclude>**/RequestTaggingFilter.java</exclude>
+                                <exclude>**/EntitlementContextFilter.java</exclude>
+                                <exclude>**/RequestTaggingRsFilter.java</exclude>
                               </excludes>
                             </resource>
                             <resource>

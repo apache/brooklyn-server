@@ -35,6 +35,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
+import org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule;
 import org.apache.brooklyn.rest.security.provider.DelegatingSecurityProvider;
 import org.apache.brooklyn.rest.util.OsgiCompat;
 import org.apache.brooklyn.util.text.Strings;
@@ -44,7 +45,10 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Provides basic HTTP authentication.
+ * 
+ * @deprecated since 0.9.0, use JAAS authentication instead, see {@link BrooklynLoginModule}.
  */
+@Deprecated
 public class BrooklynPropertiesSecurityFilter implements Filter {
 
     /**
@@ -53,7 +57,7 @@ public class BrooklynPropertiesSecurityFilter implements Filter {
      * the providers may impose additional criteria such as timeouts,
      * or a null user (no login) may be permitted)
      */
-    public static final String AUTHENTICATED_USER_SESSION_ATTRIBUTE = "brooklyn.user";
+    public static final String AUTHENTICATED_USER_SESSION_ATTRIBUTE = BrooklynLoginModule.AUTHENTICATED_USER_SESSION_ATTRIBUTE;
 
     /**
      * The session attribute set to indicate the remote address of the HTTP request.
