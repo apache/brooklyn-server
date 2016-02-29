@@ -69,6 +69,8 @@ import org.apache.brooklyn.rest.api.UsageApi;
 import org.apache.brooklyn.rest.api.VersionApi;
 import org.apache.brooklyn.rest.client.util.http.BuiltResponsePreservingError;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.net.Urls;
+import org.apache.brooklyn.util.os.Os;
 
 import io.swagger.annotations.ApiOperation;
 
@@ -143,7 +145,7 @@ public class BrooklynApi {
      * @see #getClientExecutor(org.apache.http.auth.Credentials)
      */
     public BrooklynApi(URL endpoint, ClientExecutor clientExecutor) {
-        this.target = checkNotNull(endpoint, "endpoint").toString();
+        this.target = addV1SuffixIfNeeded(checkNotNull(endpoint, "endpoint").toString());
         this.maxPoolSize = -1;
         this.timeOutInMillis = -1;
         this.clientExecutor = checkNotNull(clientExecutor, "clientExecutor");
@@ -163,10 +165,18 @@ public class BrooklynApi {
         } catch (MalformedURLException e) {
             throw new IllegalArgumentException(e);
         }
-        this.target = endpoint;
+        this.target = addV1SuffixIfNeeded(endpoint);
         this.maxPoolSize = maxPoolSize;
         this.timeOutInMillis = timeOutInMillis;
         this.clientExecutor = getClientExecutor(credentials);
+    }
+
+    private String addV1SuffixIfNeeded(String endpoint) {
+        if (!endpoint.endsWith("/v1/") && !endpoint.endsWith("/v1")) {
+            return Urls.mergePaths(endpoint, "v1");
+        } else {
+            return endpoint;
+        }
     }
 
     private Supplier<PoolingHttpClientConnectionManager> connectionManagerSupplier = Suppliers.memoize(new Supplier<PoolingHttpClientConnectionManager>() {
