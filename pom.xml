@@ -196,6 +196,7 @@
         <module>policy</module>
 
         <module>locations/jclouds</module>
+        <module>locations/cloudfoundry</module>
 
         <module>software/base</module>
         <module>software/winrm</module>

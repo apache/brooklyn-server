@@ -18,17 +18,11 @@
  */
 package org.apache.brooklyn.entity.software.base;
 
+import com.google.common.annotations.Beta;
+import com.google.common.base.Functions;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import groovy.time.TimeDuration;
-
-import java.util.Collection;
-import java.util.Map;
-import java.util.Set;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.concurrent.Callable;
-import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
-
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.drivers.DriverDependentEntity;
@@ -36,12 +30,10 @@ import org.apache.brooklyn.api.entity.drivers.EntityDriverManager;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
-import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
-import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Attributes;
@@ -51,31 +43,33 @@ import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle.Transition;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceNotUpLogic;
-import org.apache.brooklyn.core.location.LocationConfigKeys;
-import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
+import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.SoftwareProcessImplBehaviorFactory;
+import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.SoftwareProcessImplMachineBehaviorFactory;
+import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.SoftwareProcessImplPaasBehaviorFactory;
+import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.supplier.LocationFlagSupplier;
+import org.apache.brooklyn.entity.software.base.behavior.softwareprocess.supplier.MachineProvisioningLocationFlagsSupplier;
+import org.apache.brooklyn.entity.software.base.lifecycle.LifecycleEffectorTasks;
 import org.apache.brooklyn.feed.function.FunctionFeed;
 import org.apache.brooklyn.feed.function.FunctionPollConfig;
+import org.apache.brooklyn.location.paas.PaasLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Functions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
-import com.google.common.reflect.TypeToken;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 
 /**
  * An {@link Entity} representing a piece of software which can be installed, run, and controlled.
@@ -86,14 +80,18 @@ import com.google.common.reflect.TypeToken;
  */
 public abstract class SoftwareProcessImpl extends AbstractEntity implements SoftwareProcess, DriverDependentEntity {
     private static final Logger log = LoggerFactory.getLogger(SoftwareProcessImpl.class);
-    
+
     private transient SoftwareProcessDriver driver;
 
     /** @see #connectServiceUpIsRunning() */
     private volatile FunctionFeed serviceProcessIsRunning;
 
     protected boolean connectedSensors = false;
-    
+
+    SoftwareProcessImplBehaviorFactory factory;
+    public LocationFlagSupplier locationFlagSupplier;
+    private LifecycleEffectorTasks LIFECYCLE_TASKS;
+
     public SoftwareProcessImpl() {
         super(MutableMap.of(), null);
     }
@@ -121,7 +119,7 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
         return driver;
     }
 
-    protected SoftwareProcessDriver newDriver(MachineLocation loc){
+    protected SoftwareProcessDriver newDriver(Location loc){
         EntityDriverManager entityDriverManager = getManagementContext().getEntityDriverManager();
         return (SoftwareProcessDriver)entityDriverManager.build(this, loc);
     }
@@ -133,7 +131,15 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
     @Override
     public void init() {
         super.init();
-        getLifecycleEffectorTasks().attachLifecycleEffectors(this);
+        initBehavior();
+    }
+
+    @Beta
+    protected void initBehavior(){
+        locationFlagSupplier = new MachineProvisioningLocationFlagsSupplier(this);
+        factory =  new SoftwareProcessImplMachineBehaviorFactory(this);
+        LIFECYCLE_TASKS = getLifecycleEffectorTasks();
+        LIFECYCLE_TASKS.attachLifecycleEffectors(this);
     }
     
     @Override
@@ -480,45 +486,20 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
         Entities.waitForServiceUp(this, Duration.of(duration, units));
     }
 
-    protected Map<String,Object> obtainProvisioningFlags(MachineProvisioningLocation location) {
-        ConfigBag result = ConfigBag.newInstance(location.getProvisioningFlags(ImmutableList.of(getClass().getName())));
-        result.putAll(getConfig(PROVISIONING_PROPERTIES));
-        if (result.get(CloudLocationConfig.INBOUND_PORTS) == null) {
-            Collection<Integer> ports = getRequiredOpenPorts();
-            Object requiredPorts = result.get(CloudLocationConfig.ADDITIONAL_INBOUND_PORTS);
-            if (requiredPorts instanceof Integer) {
-                ports.add((Integer) requiredPorts);
-            } else if (requiredPorts instanceof Iterable) {
-                for (Object o : (Iterable<?>) requiredPorts) {
-                    if (o instanceof Integer) ports.add((Integer) o);
-                }
-            }
-            if (ports != null && ports.size() > 0) result.put(CloudLocationConfig.INBOUND_PORTS, ports);
-        }
-        result.put(LocationConfigKeys.CALLER_CONTEXT, this);
-        return result.getAllConfigMutable();
+    //Fixme this method should to be renamed because it is focus on IaaS and PaaS
+    protected Map<String,Object> obtainFlagsForLocation(Location location) {
+        return locationFlagSupplier.obtainFlagsForLocation(location);
     }
 
-    /**
-     * Returns the ports that this entity wants to be opened.
-     * @see InboundPortsUtils#getRequiredOpenPorts(Entity, Set, Boolean, String)
-     * @see #REQUIRED_OPEN_LOGIN_PORTS
-     * @see #INBOUND_PORTS_AUTO_INFER
-     * @see #INBOUND_PORTS_CONFIG_REGEX
-     */
-    @SuppressWarnings("serial")
-    protected Collection<Integer> getRequiredOpenPorts() {
-        Set<Integer> ports = MutableSet.copyOf(getConfig(REQUIRED_OPEN_LOGIN_PORTS));
-        Boolean portsAutoInfer = getConfig(INBOUND_PORTS_AUTO_INFER);
-        String portsRegex = getConfig(INBOUND_PORTS_CONFIG_REGEX);
-        ports.addAll(InboundPortsUtils.getRequiredOpenPorts(this, config().getBag().getAllConfigAsConfigKeyMap().keySet(), portsAutoInfer, portsRegex));
-        return ports;
+    //FIXME better, it could be called getRequiredPorts because it is focus on IaaS and PaaS
+    protected Collection<Integer> getRequiredOpenPorts(){
+        return locationFlagSupplier.getRequiredOpenPorts();
     }
 
-    protected void initDriver(MachineLocation machine) {
-        SoftwareProcessDriver newDriver = doInitDriver(machine);
+    protected void initDriver(Location location) {
+        SoftwareProcessDriver newDriver = doInitDriver(location);
         if (newDriver == null) {
-            throw new UnsupportedOperationException("cannot start "+this+" on "+machine+": no driver available");
+            throw new UnsupportedOperationException("cannot start "+this+" on "+location+": no driver available");
         }
         driver = newDriver;
     }
@@ -527,16 +508,16 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
      * Creates the driver (if does not already exist or needs replaced for some reason). Returns either the existing driver
      * or a new driver. Must not return null.
      */
-    protected SoftwareProcessDriver doInitDriver(MachineLocation machine) {
+    protected SoftwareProcessDriver doInitDriver(Location location) {
         if (driver!=null) {
-            if ((driver instanceof AbstractSoftwareProcessDriver) && machine.equals(((AbstractSoftwareProcessDriver)driver).getLocation())) {
+            if ((driver instanceof AbstractSoftwareProcessDriver) && location.equals(((AbstractSoftwareProcessDriver)driver).getLocation())) {
                 return driver; //just reuse
             } else {
-                log.warn("driver/location change is untested for {} at {}; changing driver and continuing", this, machine);
-                return newDriver(machine);
+                log.warn("driver/location change is untested for {} at {}; changing driver and continuing", this, location);
+                return newDriver(location);
             }
         } else {
-            return newDriver(machine);
+            return newDriver(location);
         }
     }
     
@@ -589,11 +570,14 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
     }
 
     /**
-     * If custom behaviour is required by sub-classes, consider overriding {@link #preStart()} or {@link #postStart()})}.
+     * If custom behavior is required by sub-classes, consider overriding {@link #preStart()} or {@link #postStart()})}.
      * Also consider adding additional work via tasks, executed using {@link DynamicTasks#queue(String, Callable)}.
      */
     @Override
     public final void start(final Collection<? extends Location> locations) {
+
+        updateFactoryAndBehavior(getLifecycleEffectorTasks().getLocation(locations));
+
         if (DynamicTasks.getTaskQueuingContext() != null) {
             getLifecycleEffectorTasks().start(locations);
         } else {
@@ -602,8 +586,41 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
         }
     }
 
+    @Beta
+    protected void updateFactoryAndBehavior(Location location){
+        if((factory == null) || (newBehaviorFactoryIsRequired(location))) {
+            updateFactoryAndBehavior(createBehaviorFactory(location));
+        }
+    }
+
+    @Beta
+    private boolean newBehaviorFactoryIsRequired(Location location){
+        return !factory.isASupportedLocation(location);
+    }
+
+    @Beta
+    protected void updateFactoryAndBehavior(SoftwareProcessImplBehaviorFactory newFactory){
+        factory = newFactory;
+        LIFECYCLE_TASKS = factory.getLifecycleEffectorTasks();
+        log.info("Lifecycle {} was selected for {}", LIFECYCLE_TASKS, this);
+        locationFlagSupplier= factory.getLocationFlagSupplier();
+        LIFECYCLE_TASKS.attachLifecycleEffectors(this);
+    }
+
+    @Beta
+    protected SoftwareProcessImplBehaviorFactory createBehaviorFactory(Location location){
+        SoftwareProcessImplBehaviorFactory result =null;
+        if((location instanceof MachineProvisioningLocation) ||
+                (location instanceof MachineLocation)){
+            result =  new SoftwareProcessImplMachineBehaviorFactory(this);
+        } else if(location instanceof PaasLocation){
+            result =  new SoftwareProcessImplPaasBehaviorFactory(this);
+        }
+        return result;
+    }
+
     /**
-     * If custom behaviour is required by sub-classes, consider overriding  {@link #preStop()} or {@link #postStop()}.
+     * If custom behavior is required by sub-classes, consider overriding  {@link #preStop()} or {@link #postStop()}.
      * Also consider adding additional work via tasks, executed using {@link DynamicTasks#queue(String, Callable)}.
      */
     @Override
@@ -625,7 +642,7 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
     }
 
     /**
-     * If custom behaviour is required by sub-classes, consider overriding {@link #preRestart()} or {@link #postRestart()}.
+     * If custom behavior is required by sub-classes, consider overriding {@link #preRestart()} or {@link #postRestart()}.
      * Also consider adding additional work via tasks, executed using {@link DynamicTasks#queue(String, Callable)}.
      */
     @Override
@@ -637,9 +654,29 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
             Entities.submit(this, task).getUnchecked();
         }
     }
-    
-    protected SoftwareProcessDriverLifecycleEffectorTasks getLifecycleEffectorTasks() {
+
+    /**
+     * Returns current LIFECYCLE_TASK if the LIFECYCLE_TASKS is null it will return
+     * {@link #getMachineLifecycleEffectorTasks()}
+     * @return
+     */
+    @Beta
+    protected LifecycleEffectorTasks getLifecycleEffectorTasks(){
+        if(LIFECYCLE_TASKS==null){
+            log.warn("A lifecycle was not selected for entity {}, so it will be use a default " +
+                    "SoftwareProcessDriverLifecycleEffectorTasks lifecycle. Using start Effector" +
+                    " to select a lifecycle according to the target location", this);
+            return getMachineLifecycleEffectorTasks();
+        }
+        return LIFECYCLE_TASKS;
+    }
+
+    public SoftwareProcessDriverLifecycleEffectorTasks getMachineLifecycleEffectorTasks() {
         return getConfig(LIFECYCLE_EFFECTOR_TASKS);
+    }
+
+    public PaasLifecycleEffectorTasks getPaaSLifecycleEffectorTasks(){
+        return getConfig(PAAS_LIFECYCLE_EFFECTOR_TASKS);
     }
 
 }

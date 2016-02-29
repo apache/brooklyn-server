@@ -22,13 +22,10 @@ import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.location.MachineLocation;
+import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
 import org.apache.brooklyn.core.test.entity.TestApplication;
-import org.apache.brooklyn.entity.java.UsesJmx;
-import org.apache.brooklyn.entity.java.VanillaJavaAppImpl;
-import org.apache.brooklyn.entity.java.VanillaJavaAppSshDriver;
 import org.apache.brooklyn.entity.java.UsesJmx.JmxAgentModes;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.entity.software.base.test.jmx.JmxService;
@@ -98,7 +95,7 @@ public class EntityPollingTest {
         }
 
         @Override
-        public VanillaJavaAppSshDriver newDriver(MachineLocation loc) {
+        public VanillaJavaAppSshDriver newDriver(Location loc) {
             return new VanillaJavaAppSshDriver(this, (SshMachineLocation)loc) {
                 @Override public void install() {
                     // no-op

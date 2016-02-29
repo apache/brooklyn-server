@@ -20,20 +20,14 @@ package org.apache.brooklyn.entity.software.base;
 
 import java.util.Collection;
 import java.util.Map;
-import java.util.Set;
-import java.util.regex.Pattern;
 
-import com.google.common.collect.Sets;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
-import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.annotation.Effector;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.config.MapConfigKey;
-import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
@@ -42,10 +36,7 @@ import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
-import org.apache.brooklyn.util.core.flags.TypeCoercions;
-import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.annotations.Beta;
@@ -264,6 +255,13 @@ public interface SoftwareProcess extends Entity, Startable {
     ConfigKey<SoftwareProcessDriverLifecycleEffectorTasks> LIFECYCLE_EFFECTOR_TASKS = ConfigKeys.newConfigKey(SoftwareProcessDriverLifecycleEffectorTasks.class,
             "softwareProcess.lifecycleTasks", "An object that handles lifecycle of an entity's associated machine.",
             new SoftwareProcessDriverLifecycleEffectorTasks());
+
+    @Beta
+    @SetFromFlag("paasLifecycleEffectorTasks")
+    ConfigKey<PaasLifecycleEffectorTasks> PAAS_LIFECYCLE_EFFECTOR_TASKS = ConfigKeys.newConfigKey(
+            PaasLifecycleEffectorTasks.class,
+            "softwareProcess.paaslifecycleTasks", "An object that handles lifecycle of an entity's associated machine.",
+            new PaasLifecycleEffectorTasks());
 
     ConfigKey<Boolean> RETRIEVE_USAGE_METRICS = ConfigKeys.newBooleanConfigKey(
             "metrics.usage.retrieve",

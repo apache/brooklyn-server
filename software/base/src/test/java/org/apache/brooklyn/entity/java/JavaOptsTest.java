@@ -29,8 +29,8 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
-import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -150,7 +150,7 @@ public class JavaOptsTest extends BrooklynAppUnitTestSupport {
     }
     
     public static class TestingJavaOptsVanillaJavaAppImpl extends VanillaJavaAppImpl {
-        @Override public VanillaJavaAppSshDriver newDriver(MachineLocation loc) {
+        @Override public VanillaJavaAppSshDriver newDriver(Location loc) {
             return new VanillaJavaAppSshDriver(this, (SshMachineLocation)loc) {
                 @Override protected List<String> getCustomJavaConfigOptions() {
                     return MutableList.<String>builder()
