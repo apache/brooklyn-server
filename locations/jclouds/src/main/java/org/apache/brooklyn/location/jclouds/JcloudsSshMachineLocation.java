@@ -197,7 +197,6 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
         imageId = node.getImageId();
         privateAddresses = node.getPrivateAddresses();
         publicAddresses = node.getPublicAddresses();
-        hostname = node.getHostname();
         _node = Optional.of(node);
     }
 
@@ -281,7 +280,7 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
         // was wrong on some clouds (e.g. vcloud-director, where VMs are often given a random 
         // hostname that does not resolve on the VM and is not in any DNS).
         // Now delegates to jcloudsParent.getPublicHostname(node).
-        if (privateHostname == null) {
+        if (hostname == null) {
             Optional<NodeMetadata> node = getOptionalNode();
             if (node.isPresent()) {
                 HostAndPort sshHostAndPort = getSshHostAndPort();

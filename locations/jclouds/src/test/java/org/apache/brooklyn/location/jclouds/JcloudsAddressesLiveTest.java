@@ -80,8 +80,8 @@ public class JcloudsAddressesLiveTest extends AbstractJcloudsLiveTest {
         Set<String> publicAddresses = machine.getPublicAddresses();
         Set<String> privateAddresses = machine.getPrivateAddresses();
         String subnetIp = machine.getSubnetIp();
-        String hostname = machine.getHostname();
         String subnetHostname = machine.getSubnetHostname();
+        String hostname = machine.getHostname();
         String msg = "locationAddress="+locationAddress+"; address="+address+"; publicAddrs="+publicAddresses+"; privateAddrs="+privateAddresses+"; subnetIp="+subnetIp+"; hostname="+hostname+"; subnetHostname="+subnetHostname;
         LOG.info("node: "+msg);
 
