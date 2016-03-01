@@ -77,6 +77,7 @@ public class WinRmMachineLocation extends AbstractLocation implements MachineLoc
             "Address of the remote machine");
 
     public static final ConfigKey<Integer> WINRM_CONFIG_PORT = newConfigKeyWithPrefix(BrooklynConfigKeys.BROOKLYN_WINRM_CONFIG_KEY_PREFIX, WinRmTool.PROP_PORT);
+    public static final ConfigKey<String> OPERATION_TIMEOUT = newConfigKeyWithPrefix(BrooklynConfigKeys.BROOKLYN_WINRM_CONFIG_KEY_PREFIX, WinRmTool.OPERATION_TIMEOUT);
     public static final ConfigKey<Boolean> USE_HTTPS_WINRM = WinRmTool.USE_HTTPS_WINRM;
 
 
@@ -339,7 +340,6 @@ public class WinRmMachineLocation extends AbstractLocation implements MachineLoc
             args.putAll(props);
             args.configure(SshTool.PROP_HOST, getAddress().getHostAddress());
             args.configure(WinRmTool.USE_NTLM, getConfig(WinRmMachineLocation.USE_NTLM));
-            args.configure(WinRmTool.USE_HTTPS_WINRM, getConfig(WinRmMachineLocation.USE_HTTPS_WINRM));
             args.configure(WinRmTool.PROP_PORT, getPort());
 
             if (LOG.isTraceEnabled()) LOG.trace("creating WinRM session for "+Sanitizer.sanitize(args));
