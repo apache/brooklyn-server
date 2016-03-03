@@ -29,6 +29,13 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
+
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -48,12 +55,6 @@ import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 
 public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwareProcessDriver implements NativeWindowsScriptRunner {
     private static final Logger LOG = LoggerFactory.getLogger(AbstractSoftwareProcessWinRmDriver.class);
@@ -176,6 +177,28 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
     @Override
     public int executePsCommand(Map flags, String command, String phase) {
         return executeNativeOrPsCommand(flags, null, command, phase, true);
+    }
+    
+    /**
+     * @deprecated since 0.5.0; instead rely on {@link org.apache.brooklyn.api.entity.drivers.downloads.DownloadResolverManager} to inc
+     *
+     * <pre>
+     * {@code
+     * DownloadResolver resolver = Entities.newDownloader(this);
+     * List<String> urls = resolver.getTargets();
+     * }
+     * </pre>
+     */
+    protected String getEntityVersionLabel() {
+        return getEntityVersionLabel("_");
+    }
+
+    /**
+     * @deprecated since 0.5.0; instead rely on {@link org.apache.brooklyn.api.entity.drivers.downloads.DownloadResolverManager} to inc
+     */
+    protected String getEntityVersionLabel(String separator) {
+        return elvis(entity.getEntityType().getSimpleName(),
+               entity.getClass().getName())+(getVersion() != null ? separator+getVersion() : "");
     }
 
     @Override

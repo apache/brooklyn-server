@@ -27,19 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.brooklyn.api.entity.EntityLocal;
-import org.apache.brooklyn.api.entity.drivers.downloads.DownloadResolver;
-import org.apache.brooklyn.core.BrooklynLogging;
-import org.apache.brooklyn.core.effector.EffectorTasks;
-import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
-import org.apache.brooklyn.core.entity.Attributes;
-import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.core.feed.ConfigToAttributes;
-import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
-import org.apache.brooklyn.entity.software.base.lifecycle.NaiveScriptRunner;
-import org.apache.brooklyn.entity.software.base.lifecycle.ScriptHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,6 +37,18 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
+import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.entity.drivers.downloads.DownloadResolver;
+import org.apache.brooklyn.core.BrooklynLogging;
+import org.apache.brooklyn.core.effector.EffectorTasks;
+import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
+import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
+import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.feed.ConfigToAttributes;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.entity.software.base.lifecycle.NaiveScriptRunner;
+import org.apache.brooklyn.entity.software.base.lifecycle.ScriptHelper;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.internal.ssh.sshj.SshjTool;
@@ -57,7 +56,6 @@ import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.ssh.BashCommands;
 import org.apache.brooklyn.util.stream.KnownSizeInputStream;
@@ -83,9 +81,25 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
     private volatile String installDir;
     private volatile String runDir;
     private volatile String expandedInstallDir;
+
     private final Object installDirSetupMutex = new Object();
 
     protected volatile DownloadResolver resolver;
+
+    @Override
+    public void prepare() {
+        // Check if we should create a download resolver?
+        String downloadUrl = getEntity().config().get(SoftwareProcess.DOWNLOAD_URL);
+        if (Strings.isNonEmpty(downloadUrl)) {
+            resolver = Entities.newDownloader(this);
+            String formatString = getArchiveNameFormat();
+            if (Strings.isNonEmpty(formatString)) {
+                setExpandedInstallDir(Os.mergePaths(getInstallDir(), resolver.getUnpackedDirectoryName(String.format(formatString, getVersion()))));
+            } else {
+                setExpandedInstallDir(getInstallDir());
+            }
+        }
+    }
 
     /** include this flag in newScript creation to prevent entity-level flags from being included;
      * any SSH-specific flags passed to newScript override flags from the entity,
@@ -130,17 +144,6 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
             // *before* we computed the install label, or that label may have changed since previous install; now force a recompute
             setInstallLabel();
 
-            // deprecated in 0.7.0 - "brooklyn.dirs.install" is no longer supported
-            Maybe<Object> minstallDir = getEntity().getConfigRaw(SoftwareProcess.INSTALL_DIR, false);
-            if (!minstallDir.isPresent() || minstallDir.get()==null) {
-                String installBasedir = ((EntityInternal)entity).getManagementContext().getConfig().getFirst("brooklyn.dirs.install");
-                if (installBasedir != null) {
-                    log.warn("Using legacy 'brooklyn.dirs.install' setting for "+entity+"; may be removed in future versions.");
-                    setInstallDir(Os.tidyPath(Os.mergePathsUnix(installBasedir, getEntityVersionLabel()+"_"+entity.getId())));
-                    return installDir;
-                }
-            }
-
             // set it null first so that we force a recompute
             setInstallDir(null);
             setInstallDir(Os.tidyPath(ConfigToAttributes.apply(getEntity(), SoftwareProcess.INSTALL_DIR)));
@@ -179,19 +182,6 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
         if (Strings.isNonBlank(existingVal)) { // e.g. on rebind
             runDir = existingVal;
             return runDir;
-        }
-
-        // deprecated in 0.7.0
-        Maybe<Object> mRunDir = getEntity().getConfigRaw(SoftwareProcess.RUN_DIR, true);
-        if (!mRunDir.isPresent() || mRunDir.get()==null) {
-            String runBasedir = ((EntityInternal)entity).getManagementContext().getConfig().getFirst("brooklyn.dirs.run");
-            if (runBasedir != null) {
-                log.warn("Using legacy 'brooklyn.dirs.run' setting for "+entity+"; may be removed in future versions.");
-                runDir = Os.mergePathsUnix(runBasedir, entity.getApplication().getId()+"/"+"entities"+"/"+getEntityVersionLabel()+"_"+entity.getId());
-                runDir = Os.tidyPath(runDir);
-                getEntity().sensors().set(SoftwareProcess.RUN_DIR, runDir);
-                return runDir;
-            }
         }
 
         setRunDir(Os.tidyPath(ConfigToAttributes.apply(getEntity(), SoftwareProcess.RUN_DIR)));

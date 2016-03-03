@@ -91,7 +91,7 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
      * skipped, {@link BrooklynConfigKeys#SKIP_ENTITY_START} can be set on the entity.
      * The {@link BrooklynConfigKeys#SKIP_ENTITY_INSTALLATION} key can also be used to
      * skip the {@link #setup()}, {@link #copyInstallResources()} and
-     * {@link #install()} methods if set on the entity or location. 
+     * {@link #install()} methods if set on the entity or location.
      *
      * @see #stop()
      */
@@ -106,26 +106,31 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
         } else {
             skipStart = entityStarted.or(false);
         }
+
+        DynamicTasks.queue("prepare", new Runnable() { public void run() {
+            prepare();
+        }});
+
         if (!skipStart) {
             DynamicTasks.queue("install", new Runnable() { public void run() {
                 Optional<Boolean> locationInstalled = Optional.fromNullable(getLocation().getConfig(BrooklynConfigKeys.SKIP_ENTITY_INSTALLATION));
                 Optional<Boolean> entityInstalled = Optional.fromNullable(entity.getConfig(BrooklynConfigKeys.SKIP_ENTITY_INSTALLATION));
 
-                DynamicTasks.queue("copy-pre-install-resources", new Runnable() { public void run() {
-                    waitForConfigKey(BrooklynConfigKeys.PRE_INSTALL_RESOURCES_LATCH);
-                    copyPreInstallResources();
-                }});
-
-                DynamicTasks.queue("pre-install", new Runnable() { public void run() {
-                    preInstall();
-                }});
-
-                DynamicTasks.queue("pre-install-command", new Runnable() { public void run() {
-                    runPreInstallCommand();
-                }});
-
                 boolean skipInstall = locationInstalled.or(entityInstalled).or(false);
                 if (!skipInstall) {
+                    DynamicTasks.queue("copy-pre-install-resources", new Runnable() { public void run() {
+                        waitForConfigKey(BrooklynConfigKeys.PRE_INSTALL_RESOURCES_LATCH);
+                        copyPreInstallResources();
+                    }});
+
+                    DynamicTasks.queue("pre-install", new Runnable() { public void run() {
+                        preInstall();
+                    }});
+
+                    DynamicTasks.queue("pre-install-command", new Runnable() { public void run() {
+                        runPreInstallCommand();
+                    }});
+
                     DynamicTasks.queue("setup", new Runnable() { public void run() {
                         waitForConfigKey(BrooklynConfigKeys.SETUP_LATCH);
                         setup();
@@ -190,6 +195,11 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
 
     @Override
     public abstract void stop();
+
+    /**
+     * Prepare the entity instance before running any commands. Always executed during {@link #start()}.
+     */
+    public void prepare() {}
 
     /**
      * Implement this method in child classes to add some pre-install behavior
@@ -313,10 +323,10 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
         boolean hasAnythingToCopy = ((files != null && files.size() > 0) || (templates != null && templates.size() > 0));
         if (hasAnythingToCopy) {
             createDirectory(getInstallDir(), "create install directory");
-    
+
             // TODO see comment in copyResource, that should be queued as a task like the above
             // (better reporting in activities console)
-    
+
             if (files != null && files.size() > 0) {
                 for (String source : files.keySet()) {
                     String target = files.get(source);
@@ -324,7 +334,7 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
                     copyResource(source, destination, true);
                 }
             }
-    
+
             if (templates != null && templates.size() > 0) {
                 for (String source : templates.keySet()) {
                     String target = templates.get(source);
@@ -492,34 +502,16 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
     }
 
     protected void waitForConfigKey(ConfigKey<?> configKey) {
-        Object val = entity.getConfig(configKey);
+        Object val = entity.config().get(configKey);
         if (val != null) log.debug("{} finished waiting for {} (value {}); continuing...", new Object[] {this, configKey, val});
     }
 
-    /**
-     * @deprecated since 0.5.0; instead rely on {@link org.apache.brooklyn.api.entity.drivers.downloads.DownloadResolverManager} to include local-repo, such as:
-     *
-     * <pre>
-     * {@code
-     * DownloadResolver resolver = Entities.newDownloader(this);
-     * List<String> urls = resolver.getTargets();
-     * }
-     * </pre>
-     */
-    protected String getEntityVersionLabel() {
-        return getEntityVersionLabel("_");
-    }
-
-    /**
-     * @deprecated since 0.5.0; instead rely on {@link org.apache.brooklyn.api.entity.drivers.downloads.DownloadResolverManager} to include local-repo
-     */
-    protected String getEntityVersionLabel(String separator) {
-        return elvis(entity.getEntityType().getSimpleName(),
-                entity.getClass().getName())+(getVersion() != null ? separator+getVersion() : "");
+    public String getArchiveNameFormat() {
+        return getEntity().config().get(SoftwareProcess.ARCHIVE_DIRECTORY_NAME_FORMAT);
     }
 
     public String getVersion() {
-        return getEntity().getConfig(SoftwareProcess.SUGGESTED_VERSION);
+        return getEntity().config().get(SoftwareProcess.SUGGESTED_VERSION);
     }
 
     public abstract String getRunDir();

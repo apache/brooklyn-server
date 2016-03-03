@@ -88,8 +88,7 @@ public class BrooklynNodeSshDriver extends JavaSoftwareProcessSshDriver implemen
     }
 
     @Override
-    public void preInstall() {
-        resolver = Entities.newDownloader(this);
+    public String getArchiveNameFormat() {
         String subpath = entity.getConfig(BrooklynNode.SUBPATH_IN_ARCHIVE);
         if (subpath==null) {
             // assume the dir name is `basename-VERSION` where download link is `basename-VERSION-dist.tar.gz`
@@ -112,8 +111,8 @@ public class BrooklynNodeSshDriver extends JavaSoftwareProcessSshDriver implemen
                 }
             }
         }
-        if (subpath==null) subpath = format("brooklyn-dist-%s", getVersion());
-        setExpandedInstallDir(Os.mergePaths(getInstallDir(), resolver.getUnpackedDirectoryName(subpath)));
+        if (subpath==null) subpath = "brooklyn-dist-%s";
+        return subpath;
     }
 
     @Override
