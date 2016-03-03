@@ -29,8 +29,8 @@ import org.apache.brooklyn.core.annotation.EffectorParam;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 
 /**
  * Created by graememiller on 04/12/2015.
@@ -65,13 +65,13 @@ public class InfrastructureDeploymentTestCaseImpl extends TestCaseImpl implement
         }
 
         //Start the child entity
-        List<EntitySpec<? extends SoftwareProcess>> entitySpecsToDeploy = config().get(ENTITY_SPEC_TO_DEPLOY);
+        List<EntitySpec<? extends Startable>> entitySpecsToDeploy = config().get(ENTITY_SPEC_TO_DEPLOY);
         if (entitySpecsToDeploy == null || entitySpecsToDeploy.isEmpty()) {
             setServiceState(false, Lifecycle.ON_FIRE);
             throw new IllegalArgumentException(ENTITY_SPEC_TO_DEPLOY + " not configured");
         }
-        for (EntitySpec<? extends SoftwareProcess> softwareProcessEntitySpec : entitySpecsToDeploy) {
-            SoftwareProcess entityToDeploy = this.addChild(softwareProcessEntitySpec);
+        for (EntitySpec<? extends Startable> entitySpec : entitySpecsToDeploy) {
+            Startable entityToDeploy = this.addChild(entitySpec);
             entityToDeploy.start(ImmutableList.of(locationToDeployTo));
         }
 

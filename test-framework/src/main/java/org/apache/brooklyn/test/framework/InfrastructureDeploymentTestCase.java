@@ -27,6 +27,7 @@ import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.StartableApplication;
+import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 
 /**
@@ -39,7 +40,7 @@ public interface InfrastructureDeploymentTestCase extends TargetableTestComponen
      * Entity specs to deploy. These will be deployed second, after the INFRASTRUCTURE_SPEC has been deployed. These specs will be deployed to the DEPLOYMENT_LOCATION.
      * All children will be deployed after this
      */
-    ConfigKey<List<EntitySpec<? extends SoftwareProcess>>> ENTITY_SPEC_TO_DEPLOY = ConfigKeys.newConfigKey(new TypeToken<List<EntitySpec<? extends SoftwareProcess>>>(){}, "infrastructure.deployment.entity.specs", "Entity specs to deploy to infrastructure");
+    ConfigKey<List<EntitySpec<? extends Startable>>> ENTITY_SPEC_TO_DEPLOY = ConfigKeys.newConfigKey(new TypeToken<List<EntitySpec<? extends Startable>>>(){}, "infrastructure.deployment.entity.specs", "Entity specs to deploy to infrastructure");
 
 
     /**

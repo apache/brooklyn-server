@@ -32,10 +32,10 @@ import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.StartableApplication;
+import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.test.entity.TestApplication;
-import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
-import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.test.Asserts;
@@ -89,7 +89,7 @@ public class InfrastructureDeploymentTestCaseTest {
         EntitySpec<TestInfrastructure> infrastructureSpec = EntitySpec.create(TestInfrastructure.class);
         infrastructureSpec.configure(DEPLOYMENT_LOCATION_SENSOR, infrastructureLoc);
 
-        List<EntitySpec<? extends SoftwareProcess>> testSpecs = ImmutableList.<EntitySpec<? extends SoftwareProcess>>of(EntitySpec.create(EmptySoftwareProcess.class));
+        List<EntitySpec<? extends Startable>> testSpecs = ImmutableList.<EntitySpec<? extends Startable>>of(EntitySpec.create(BasicApplication.class));
 
         InfrastructureDeploymentTestCase infrastructureDeploymentTestCase = app.createAndManageChild(EntitySpec.create(InfrastructureDeploymentTestCase.class));
         infrastructureDeploymentTestCase.config().set(InfrastructureDeploymentTestCase.INFRASTRUCTURE_SPEC, infrastructureSpec);
@@ -105,17 +105,14 @@ public class InfrastructureDeploymentTestCaseTest {
         boolean seenEntity = false;
 
         for (Entity entity : infrastructureDeploymentTestCase.getChildren()) {
-            if (entity instanceof BasicApplication) {
-                assertThat(entity.getLocations().size()).isEqualTo(1);
+            assertThat(entity.getLocations().size()).isEqualTo(1);
+            assertThat(entity.sensors().get(SERVICE_UP)).isTrue();
+
+            if (entity instanceof TestInfrastructure  && !seenInfrastructure) {
                 assertThat(entity.getLocations().iterator().next().getDisplayName()).isEqualTo(LOC_NAME);
-                assertThat(entity.sensors().get(SERVICE_UP)).isTrue();
-
                 seenInfrastructure = true;
-            } else if (entity instanceof EmptySoftwareProcess) {
-                assertThat(entity.getLocations().size()).isEqualTo(1);
+            } else if (entity instanceof BasicApplication){
                 assertThat(entity.getLocations().iterator().next().getDisplayName()).isEqualTo(INFRASTRUCTURE_LOC_NAME);
-                assertThat(entity.sensors().get(SERVICE_UP)).isTrue();
-
                 seenEntity = true;
             } else {
                 fail("Unknown child of InfrastructureDeploymentTestCase");
@@ -131,9 +128,9 @@ public class InfrastructureDeploymentTestCaseTest {
         EntitySpec<TestInfrastructure> infrastructureSpec = EntitySpec.create(TestInfrastructure.class);
         infrastructureSpec.configure(DEPLOYMENT_LOCATION_SENSOR, infrastructureLoc);
 
-        List<EntitySpec<? extends SoftwareProcess>> testSpecs = ImmutableList.<EntitySpec<? extends SoftwareProcess>>of
-                (EntitySpec.create(EmptySoftwareProcess.class),
-                        (EntitySpec.create(EmptySoftwareProcess.class)));
+        List<EntitySpec<? extends Startable>> testSpecs = ImmutableList.<EntitySpec<? extends Startable>>of
+                (EntitySpec.create(BasicApplication.class),
+                        (EntitySpec.create(BasicApplication.class)));
 
         InfrastructureDeploymentTestCase infrastructureDeploymentTestCase = app.createAndManageChild(EntitySpec.create(InfrastructureDeploymentTestCase.class));
         infrastructureDeploymentTestCase.config().set(InfrastructureDeploymentTestCase.INFRASTRUCTURE_SPEC, infrastructureSpec);
@@ -149,17 +146,14 @@ public class InfrastructureDeploymentTestCaseTest {
         int entitiesSeen = 0;
 
         for (Entity entity : infrastructureDeploymentTestCase.getChildren()) {
-            if (entity instanceof BasicApplication) {
-                assertThat(entity.getLocations().size()).isEqualTo(1);
+            assertThat(entity.sensors().get(SERVICE_UP)).isTrue();
+            assertThat(entity.getLocations().size()).isEqualTo(1);
+
+            if (entity instanceof TestInfrastructure && !seenInfrastructure) {
                 assertThat(entity.getLocations().iterator().next().getDisplayName()).isEqualTo(LOC_NAME);
-                assertThat(entity.sensors().get(SERVICE_UP)).isTrue();
-
                 seenInfrastructure = true;
-            } else if (entity instanceof EmptySoftwareProcess) {
-                assertThat(entity.getLocations().size()).isEqualTo(1);
+            } else if (entity instanceof BasicApplication) {
                 assertThat(entity.getLocations().iterator().next().getDisplayName()).isEqualTo(INFRASTRUCTURE_LOC_NAME);
-                assertThat(entity.sensors().get(SERVICE_UP)).isTrue();
-
                 entitiesSeen++;
             } else {
                 fail("Unknown child of InfrastructureDeploymentTestCase");
@@ -172,7 +166,7 @@ public class InfrastructureDeploymentTestCaseTest {
 
     @Test
     public void testNoInfrastructureSpec() {
-        List<EntitySpec<? extends SoftwareProcess>> testSpecs = ImmutableList.<EntitySpec<? extends SoftwareProcess>>of(EntitySpec.create(EmptySoftwareProcess.class));
+        List<EntitySpec<? extends Startable>> testSpecs = ImmutableList.<EntitySpec<? extends Startable>>of(EntitySpec.create(StartableApplication.class));
 
         InfrastructureDeploymentTestCase infrastructureDeploymentTestCase = app.createAndManageChild(EntitySpec.create(InfrastructureDeploymentTestCase.class));
         infrastructureDeploymentTestCase.config().set(InfrastructureDeploymentTestCase.ENTITY_SPEC_TO_DEPLOY, testSpecs);
@@ -203,7 +197,7 @@ public class InfrastructureDeploymentTestCaseTest {
         } catch (Throwable throwable) {
             Asserts.expectedFailureContains(throwable, "entity.specs", "List", "not configured");
         }
-        
+
         assertThat(infrastructureDeploymentTestCase.sensors().get(SERVICE_UP)).isFalse();
     }
 
@@ -212,7 +206,7 @@ public class InfrastructureDeploymentTestCaseTest {
         EntitySpec<TestInfrastructure> infrastructureSpec = EntitySpec.create(TestInfrastructure.class);
         infrastructureSpec.configure(DEPLOYMENT_LOCATION_SENSOR, infrastructureLoc);
 
-        List<EntitySpec<? extends SoftwareProcess>> testSpecs = ImmutableList.<EntitySpec<? extends SoftwareProcess>>of(EntitySpec.create(EmptySoftwareProcess.class));
+        List<EntitySpec<? extends Startable>> testSpecs = ImmutableList.<EntitySpec<? extends Startable>>of(EntitySpec.create(BasicApplication.class));
 
         InfrastructureDeploymentTestCase infrastructureDeploymentTestCase = app.createAndManageChild(EntitySpec.create(InfrastructureDeploymentTestCase.class));
         infrastructureDeploymentTestCase.config().set(InfrastructureDeploymentTestCase.INFRASTRUCTURE_SPEC, infrastructureSpec);
@@ -232,7 +226,7 @@ public class InfrastructureDeploymentTestCaseTest {
     public void testInfrastrucutreHasNoLocation() {
         EntitySpec<TestInfrastructure> infrastructureSpec = EntitySpec.create(TestInfrastructure.class);
 
-        List<EntitySpec<? extends SoftwareProcess>> testSpecs = ImmutableList.<EntitySpec<? extends SoftwareProcess>>of(EntitySpec.create(EmptySoftwareProcess.class));
+        List<EntitySpec<? extends Startable>> testSpecs = ImmutableList.<EntitySpec<? extends Startable>>of(EntitySpec.create(BasicApplication.class));
 
         InfrastructureDeploymentTestCase infrastructureDeploymentTestCase = app.createAndManageChild(EntitySpec.create(InfrastructureDeploymentTestCase.class));
         infrastructureDeploymentTestCase.config().set(InfrastructureDeploymentTestCase.INFRASTRUCTURE_SPEC, infrastructureSpec);
