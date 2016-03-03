@@ -149,6 +149,15 @@ public class ConfigKeys {
         return new BasicConfigKeyOverwriting<T>(parent, newDescription, defaultValue);
     }
 
+
+    public static <T> AttributeSensorAndConfigKey<T, T> newSensorAndConfigKeyWithDefault(AttributeSensorAndConfigKey<T, T> parent, T defaultValue) {
+        return new BasicAttributeSensorAndConfigKey(parent, defaultValue);
+    }
+
+    public static PortAttributeSensorAndConfigKey newPortSensorAndConfigKeyWithDefault(PortAttributeSensorAndConfigKey parent, Object defaultValue) {
+        return new PortAttributeSensorAndConfigKey(parent, defaultValue);
+    }
+
     public static <T> ConfigKey<T> newConfigKeyRenamed(String newName, ConfigKey<T> key) {
         return new BasicConfigKey<T>(key.getTypeToken(), newName, key.getDescription(), key.getDefaultValue());
     }
