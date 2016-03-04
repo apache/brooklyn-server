@@ -294,8 +294,9 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
                 "services:",
                 "- type: " + ver(SYMBOLIC_NAME));
         List<SpecParameter<?>> params = spec.getParameters();
-        assertEquals(params.size(), 2); // sample + defaultDisplayName
-        assertEquals(ImmutableSet.copyOf(params), ImmutableSet.copyOf(BasicSpecParameter.fromClass(mgmt(), ConfigAppForTest.class)));
+        assertEquals(params.size(), 3, "Wrong number of params: "+params); // sample + defaultDisplayName + destroy_on_stop
+        assertEquals(ImmutableSet.copyOf(params), 
+            ImmutableSet.copyOf(BasicSpecParameter.fromClass(mgmt(), ConfigAppForTest.class)));
     }
 
     @Test
