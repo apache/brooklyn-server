@@ -31,6 +31,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
@@ -81,7 +82,9 @@ import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.net.Urls;
+import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -229,6 +232,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         List<Location> locations = brooklyn().getLocations(applicationSpec);
         Application app = brooklyn().create(applicationSpec);
         Task<?> t = brooklyn().start(app, locations);
+        waitForStart(app, Duration.millis(100));
         TaskSummary ts = TaskTransformer.fromTask(ui.getBaseUriBuilder()).apply(t);
         URI ref = serviceAbsoluteUriBuilder(uriInfo.getBaseUriBuilder(), ApplicationApi.class, "get")
                 .build(app.getApplicationId());
@@ -290,6 +294,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         try {
             Application app = EntityManagementUtils.createUnstarted(mgmt(), spec);
             CreationResult<Application,Void> result = EntityManagementUtils.start(app);
+            waitForStart(app, Duration.millis(100));
 
             boolean isEntitled = Entitlements.isEntitled(
                     mgmt().getEntitlementManager(),
@@ -313,6 +318,21 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         } catch (Exception e) {
             throw Exceptions.propagate(e);
         }
+    }
+
+    private void waitForStart(final Application app, Duration timeout) {
+        // without this UI shows "stopped" sometimes esp if brooklyn has just started,
+        // because app goes to stopped state if it sees unstarted children,
+        // and that gets returned too quickly, before the start has taken effect
+        Repeater.create("wait a bit for app start").every(Duration.millis(10)).limitTimeTo(timeout).until(
+            new Callable<Boolean>() {
+                @Override
+                public Boolean call() throws Exception {
+                    Lifecycle state = app.getAttribute(Attributes.SERVICE_STATE_ACTUAL);
+                    if (state==Lifecycle.CREATED || state==Lifecycle.STOPPED) return false;
+                    return true;
+                }
+            }).run();
     }
 
     @Override

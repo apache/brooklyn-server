@@ -55,17 +55,6 @@ public interface JcloudsLocationConfig extends CloudLocationConfig {
             "Custom password for the user who logs in initially", null);
     public static final ConfigKey<String> LOGIN_USER_PRIVATE_KEY_DATA = ConfigKeys.newStringConfigKey("loginUser.privateKeyData",
             "Custom private key for the user who logs in initially", null);   
-    public static final ConfigKey<String> KEY_PAIR = ConfigKeys.newStringConfigKey("keyPair",
-            "Custom keypair name to be re-used", null);
-    public static final ConfigKey<Boolean> AUTO_GENERATE_KEYPAIRS = ConfigKeys.newBooleanConfigKey("jclouds.openstack-nova.auto-generate-keypairs",
-            "Whether to generate keypairs for Nova");
-    /**
-     * @deprecated since 0.7.0 Use {@link #AUTO_ASSIGN_FLOATING_IP} instead
-     */
-    public static final ConfigKey<Boolean> AUTO_CREATE_FLOATING_IPS = ConfigKeys.newBooleanConfigKey("jclouds.openstack-nova.auto-create-floating-ips",
-            "Whether to generate floating ips for Nova");
-    public static final ConfigKey<Boolean> AUTO_ASSIGN_FLOATING_IP = ConfigKeys.newBooleanConfigKey("autoAssignFloatingIp",
-            "Whether to generate floating ips (in Nova paralance), or elastic IPs (in CloudStack parlance)");
     // not supported in jclouds
 //    public static final ConfigKey<String> LOGIN_USER_PRIVATE_KEY_PASSPHRASE = ConfigKeys.newStringKey("loginUser.privateKeyPassphrase", 
 //            "Passphrase for the custom private key for the user who logs in initially", null);
@@ -76,6 +65,19 @@ public interface JcloudsLocationConfig extends CloudLocationConfig {
     @SuppressWarnings("serial")
     public static final ConfigKey<List<String>> EXTRA_PUBLIC_KEY_URLS_TO_AUTH = ConfigKeys.newConfigKey(new TypeToken<List<String>>() {}, 
         "extraSshPublicKeyUrls", "Additional public keys (files or URLs, in SSH2/RFC4716/id_rsa.pub format) to add to authorized_keys", null);
+
+    public static final ConfigKey<String> KEY_PAIR = ConfigKeys.newStringConfigKey("keyPair",
+        "Custom keypair (name) known at the cloud to be installed on machines for initial login (selected clouds only); "
+        + "you may also need to set "+LOGIN_USER_PRIVATE_KEY_FILE.getName(), null);
+    public static final ConfigKey<Boolean> AUTO_GENERATE_KEYPAIRS = ConfigKeys.newBooleanConfigKey("jclouds.openstack-nova.auto-generate-keypairs",
+        "Whether to generate keypairs automatically (OpenStack Nova)");
+
+    /** @deprecated since 0.9.0 Use {@link #AUTO_ASSIGN_FLOATING_IP} instead (deprecated in 0.7.0 but warning not given until 0.9.0) */
+    @Deprecated
+    public static final ConfigKey<Boolean> AUTO_CREATE_FLOATING_IPS = ConfigKeys.newBooleanConfigKey("jclouds.openstack-nova.auto-create-floating-ips",
+            "Whether to generate floating ips for Nova");
+    public static final ConfigKey<Boolean> AUTO_ASSIGN_FLOATING_IP = ConfigKeys.newBooleanConfigKey("autoAssignFloatingIp",
+            "Whether to generate floating ips (in Nova paralance), or elastic IPs (in CloudStack parlance)");
 
     public static final ConfigKey<Boolean> DONT_CREATE_USER = ConfigKeys.newBooleanConfigKey("dontCreateUser", 
             "Whether to skip creation of 'user' when provisioning machines (default false)", false);

@@ -74,11 +74,11 @@ public class EffectorSayHiTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testFindEffectorMetaData() {
-        assertEquals("sayHi1", e.SAY_HI_1.getName());
-        assertEquals("says hello", e.SAY_HI_1.getDescription());
+        assertEquals("sayHi1", MyEntity.SAY_HI_1.getName());
+        assertEquals("says hello", MyEntity.SAY_HI_1.getDescription());
         
-        assertEquals(ImmutableList.of("name", "greeting"), getParameterNames(e.SAY_HI_1));
-        assertEquals(MutableMap.of("name", null, "greeting", "what to say"), getParameterDescriptions(e.SAY_HI_1));
+        assertEquals(ImmutableList.of("name", "greeting"), getParameterNames(MyEntity.SAY_HI_1));
+        assertEquals(MutableMap.of("name", null, "greeting", "what to say"), getParameterDescriptions(MyEntity.SAY_HI_1));
     }
 
     @Test
@@ -90,12 +90,12 @@ public class EffectorSayHiTest extends BrooklynAppUnitTestSupport {
     public void testInvokeEffectors1() throws Exception {
         assertEquals("hi Bob", e.sayHi1("Bob", "hi"));
 
-        assertEquals("hi Bob", e.SAY_HI_1.call(e, ImmutableMap.of("name", "Bob", "greeting", "hi")) );
-        assertEquals("hi Bob", e.invoke(e.SAY_HI_1, ImmutableMap.of("name", "Bob", "greeting", "hi")).get() );
+        assertEquals("hi Bob", MyEntity.SAY_HI_1.call(e, ImmutableMap.of("name", "Bob", "greeting", "hi")) );
+        assertEquals("hi Bob", e.invoke(MyEntity.SAY_HI_1, ImmutableMap.of("name", "Bob", "greeting", "hi")).get() );
         
         // and with default greeting param value
-        assertEquals("hi Bob", e.SAY_HI_1.call(e, ImmutableMap.of("name", "Bob", "greeting", "hi")) );
-        assertEquals("hello Bob", e.invoke(e.SAY_HI_1, ImmutableMap.of("name", "Bob")).get() );
+        assertEquals("hi Bob", MyEntity.SAY_HI_1.call(e, ImmutableMap.of("name", "Bob", "greeting", "hi")) );
+        assertEquals("hello Bob", e.invoke(MyEntity.SAY_HI_1, ImmutableMap.of("name", "Bob")).get() );
     }
 
     @Test

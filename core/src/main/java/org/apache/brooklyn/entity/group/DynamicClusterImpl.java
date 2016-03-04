@@ -247,7 +247,8 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
 
     @Override
     protected void initEnrichers() {
-        if (config().getRaw(UP_QUORUM_CHECK).isAbsent() && getConfig(INITIAL_SIZE)==0) {
+        if (config().getRaw(UP_QUORUM_CHECK).isAbsent() && 
+                Preconditions.checkNotNull(getConfig(INITIAL_SIZE), "Cluster initial size overridden to be null. Must be set explicitly.")==0) {
             // if initial size is 0 then override up check to allow zero if empty
             config().set(UP_QUORUM_CHECK, QuorumChecks.atLeastOneUnlessEmpty());
             sensors().set(SERVICE_UP, true);
@@ -807,7 +808,7 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
             addedEntities.add(entity);
             addedEntityLocations.put(entity, loc);
             if (entity instanceof Startable) {
-                Map<String, ?> args = ImmutableMap.of("locations", ImmutableList.of(loc));
+                Map<String, ?> args = ImmutableMap.of("locations", MutableList.builder().addIfNotNull(loc).buildImmutable());
                 Task<Void> task = Effectors.invocation(entity, Startable.START, args).asTask();
                 tasks.put(entity, task);
             }

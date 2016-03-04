@@ -26,9 +26,8 @@ import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAdjuncts;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
-import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ComputeServiceIndicatorsFromChildrenAndMembers;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceNotUpLogic;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceProblemsLogic;
@@ -37,7 +36,6 @@ import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl.TestEntityWithoutEnrichers;
 import org.apache.brooklyn.entity.group.DynamicCluster;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.collections.QuorumCheck.QuorumChecks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
@@ -267,25 +265,25 @@ public class ServiceStateLogicTest extends BrooklynAppUnitTestSupport {
                 .configure(DynamicCluster.INITIAL_SIZE, 1));
 
         cluster.start(ImmutableList.of(app.newSimulatedLocation()));
-        EntityTestUtils.assertGroupSizeEqualsEventually(cluster, 1);
+        EntityAsserts.assertGroupSizeEqualsEventually(cluster, 1);
 
         //manually set state to healthy as enrichers are disabled
         EntityInternal child = (EntityInternal) cluster.getMembers().iterator().next();
         child.sensors().set(Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
         child.sensors().set(Attributes.SERVICE_UP, Boolean.TRUE);
 
-        EntityTestUtils.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        EntityAsserts.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
 
         //set untyped service state, the quorum check should be able to handle coercion
         AttributeSensor<Object> stateSensor = Sensors.newSensor(Object.class, Attributes.SERVICE_STATE_ACTUAL.getName());
         child.sensors().set(stateSensor, "running");
 
-        EntityTestUtils.assertAttributeEqualsContinually(cluster, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        EntityAsserts.assertAttributeEqualsContinually(cluster, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
     }
 
     private static <T> void assertAttributeEqualsEventually(Entity x, AttributeSensor<T> sensor, T value) {
         try {
-            EntityTestUtils.assertAttributeEqualsEventually(ImmutableMap.of("timeout", Duration.seconds(3)), x, sensor, value);
+            EntityAsserts.assertAttributeEqualsEventually(ImmutableMap.of("timeout", Duration.seconds(3)), x, sensor, value);
         } catch (Throwable e) {
             log.warn("Expected "+x+" eventually to have "+sensor+" = "+value+"; instead:");
             Entities.dumpInfo(x);
@@ -294,7 +292,7 @@ public class ServiceStateLogicTest extends BrooklynAppUnitTestSupport {
     }
     private static <T> void assertAttributeEqualsContinually(Entity x, AttributeSensor<T> sensor, T value) {
         try {
-            EntityTestUtils.assertAttributeEqualsContinually(ImmutableMap.of("timeout", Duration.millis(25)), x, sensor, value);
+            EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", Duration.millis(25)), x, sensor, value);
         } catch (Throwable e) {
             log.warn("Expected "+x+" continually to have "+sensor+" = "+value+"; instead:");
             Entities.dumpInfo(x);
@@ -303,7 +301,7 @@ public class ServiceStateLogicTest extends BrooklynAppUnitTestSupport {
     }
     private static <T> void assertAttributeEquals(Entity x, AttributeSensor<T> sensor, T value) {
         try {
-            EntityTestUtils.assertAttributeEquals(x, sensor, value);
+            EntityAsserts.assertAttributeEquals(x, sensor, value);
         } catch (Throwable e) {
             log.warn("Expected "+x+" to have "+sensor+" = "+value+"; instead:");
             Entities.dumpInfo(x);

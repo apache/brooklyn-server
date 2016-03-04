@@ -955,12 +955,13 @@ public class Asserts {
             log.info("succeedsEventually exceeded max attempts or timeout - {} attempts lasting {} ms, for {}", new Object[] {attempt, System.currentTimeMillis()-startTime, c});
             if (lastException != null)
                 throw lastException;
-            throw fail("invalid result: "+result);
+            throw fail("invalid results; last was: "+result);
         } catch (Throwable t) {
             if (logException) log.info("failed succeeds-eventually, "+attempt+" attempts, "+
                     (System.currentTimeMillis()-startTime)+"ms elapsed "+
                     "(rethrowing): "+t);
-            throw propagate(t);
+            throw Exceptions.propagateAnnotated("failed succeeds-eventually, "+attempt+" attempts, "+
+                (System.currentTimeMillis()-startTime)+"ms elapsed: "+Exceptions.collapseText(t), t);
         }
     }
 
@@ -1293,12 +1294,7 @@ public class Asserts {
     }
     
     private static RuntimeException propagate(Throwable t) {
-        if (t instanceof InterruptedException) {
-            Thread.currentThread().interrupt();
-        }
-        if (t instanceof RuntimeException) throw (RuntimeException)t;
-        if (t instanceof Error) throw (Error)t;
-        throw new RuntimeException(t);
+        throw Exceptions.propagate(t);
     }
 
     /** As {@link #eventuallyOnNotify(Object, Supplier, Predicate, Duration, boolean)} with default timeout. */
