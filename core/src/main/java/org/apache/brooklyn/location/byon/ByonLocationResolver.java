@@ -161,9 +161,10 @@ public class ByonLocationResolver extends AbstractLocationResolver {
         String host;
         int port;
         if (ssh != null) {
-            userAndHostAndPort = parseUserAndHostAndPort((String)ssh, 22);
+            userAndHostAndPort = parseUserAndHostAndPort(ssh, 22);
         } else {
-            userAndHostAndPort = parseUserAndHostAndPort((String)winrm, 5985);
+            // TODO set to null and rely on the MachineLocation. If not then make a dependency to WinRmMachineLocation and use its config key name.
+            userAndHostAndPort = parseUserAndHostAndPort(winrm, vals.get("winrm.useHttps") != null && (Boolean)vals.get("winrm.useHttps") ? 5986 : 5985);
         }
         
         // If there is a tcpPortMapping defined for the connection-port, then use that for ssh/winrm machine
