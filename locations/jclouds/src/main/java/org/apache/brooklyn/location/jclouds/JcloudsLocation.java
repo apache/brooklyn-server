@@ -1347,6 +1347,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     }})
             .put(AUTO_CREATE_FLOATING_IPS, new CustomizeTemplateOptions() {
                     public void apply(TemplateOptions t, ConfigBag props, Object v) {
+                        LOG.warn("Using deprecated "+AUTO_CREATE_FLOATING_IPS+"; use "+AUTO_ASSIGN_FLOATING_IP+" instead");
                         if (t instanceof NovaTemplateOptions) {
                             ((NovaTemplateOptions)t).autoAssignFloatingIp((Boolean)v);
                         } else {
@@ -1553,7 +1554,6 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     }
 
     protected String toStringNice() {
-        Entities.dumpInfo(this);
         String s = config().get(ORIGINAL_SPEC);
         if (Strings.isBlank(s)) s = config().get(NAMED_SPEC_NAME);
         if (Strings.isBlank(s)) s = config().get(FINAL_SPEC);
@@ -1561,13 +1561,13 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         
         String s2 = "";
         String provider = getProvider();
-        if (Strings.isNonBlank(s) && Strings.isNonBlank(provider) && !s.toLowerCase().contains(provider.toLowerCase()))
+        if (Strings.isBlank(s) || (Strings.isNonBlank(provider) && !s.toLowerCase().contains(provider.toLowerCase())))
             s2 += " "+provider;
         String region = getRegion();
-        if (Strings.isNonBlank(s) && Strings.isNonBlank(region) && !s.toLowerCase().contains(region.toLowerCase()))
+        if (Strings.isBlank(s) || (Strings.isNonBlank(region) && !s.toLowerCase().contains(region.toLowerCase())))
             s2 += " "+region;
         String endpoint = getEndpoint();
-        if (Strings.isNonBlank(s) && Strings.isNonBlank(endpoint) && !s.toLowerCase().contains(endpoint.toLowerCase()))
+        if (Strings.isBlank(s) || (Strings.isNonBlank(endpoint) && !s.toLowerCase().contains(endpoint.toLowerCase())))
             s2 += " "+endpoint;
         s2 = s2.trim();
         if (Strings.isNonBlank(s)) {
@@ -2714,7 +2714,10 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             waitForReachable(checker, connectionDetails, credentialsToTry, setup, timeout);
         } finally {
             for (WinRmMachineLocation machine : machinesToTry.keySet()) {
-                getManagementContext().getLocationManager().unmanage(machine);
+                if (getManagementContext().getLocationManager().isManaged(machine)) {
+                    // get benign but unpleasant warnings if we unmanage something already unmanaged
+                    getManagementContext().getLocationManager().unmanage(machine);
+                }
             }
         }
 

@@ -72,9 +72,8 @@ public interface JcloudsLocationConfig extends CloudLocationConfig {
     public static final ConfigKey<Boolean> AUTO_GENERATE_KEYPAIRS = ConfigKeys.newBooleanConfigKey("jclouds.openstack-nova.auto-generate-keypairs",
         "Whether to generate keypairs automatically (OpenStack Nova)");
 
-    /**
-     * @deprecated since 0.7.0 Use {@link #AUTO_ASSIGN_FLOATING_IP} instead
-     */
+    /** @deprecated since 0.9.0 Use {@link #AUTO_ASSIGN_FLOATING_IP} instead (deprecated in 0.7.0 but warning not given until 0.9.0) */
+    @Deprecated
     public static final ConfigKey<Boolean> AUTO_CREATE_FLOATING_IPS = ConfigKeys.newBooleanConfigKey("jclouds.openstack-nova.auto-create-floating-ips",
             "Whether to generate floating ips for Nova");
     public static final ConfigKey<Boolean> AUTO_ASSIGN_FLOATING_IP = ConfigKeys.newBooleanConfigKey("autoAssignFloatingIp",

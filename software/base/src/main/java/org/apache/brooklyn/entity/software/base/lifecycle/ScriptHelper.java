@@ -425,7 +425,7 @@ public class ScriptHelper {
     }
     
     public String getResultStdout() {
-        if (stdout==null) throw new IllegalStateException("stdour not available on "+this+"; ensure task has completed and gatherOutput(true) is set");
+        if (stdout==null) throw new IllegalStateException("stdout not available on "+this+"; ensure task has completed and gatherOutput(true) is set");
         return stdout.toString();
     }
     public String getResultStderr() {

@@ -95,7 +95,8 @@ public class Exceptions {
         return false;
     }
 
-    // not used, but kept in case we might want it
+    /** @deprecated never used, but kept as it might be useful */
+    @Deprecated
     static String stripBoringPrefixes(String s) {
         ArrayList<String> prefixes = Lists.newArrayListWithCapacity(2 + BORING_PREFIX_THROWABLE_EXACT_TYPES.size() * 3);
         for (Class<? extends Throwable> type : BORING_PREFIX_THROWABLE_EXACT_TYPES) {
