@@ -200,7 +200,10 @@
     <feature name="brooklyn-software-winrm" version="${project.version}" description="Brooklyn WinRM Software Entities">
         <bundle>mvn:org.apache.brooklyn/brooklyn-software-winrm/${project.version}</bundle>
         <feature>brooklyn-core</feature>
-        <bundle dependency="true">wrap:mvn:io.cloudsoft.windows/winrm4j/${winrm4j.version}</bundle>
+        <bundle dependency="true">mvn:io.cloudsoft.windows/winrm4j/${winrm4j.version}</bundle>
+        <bundle dependency="true">mvn:io.cloudsoft.windows/winrm4j-client/${winrm4j.version}</bundle>
+        <feature>cxf-jaxws</feature>
+        <feature>cxf-http-async</feature>
     </feature>
 
     <feature name="brooklyn-policy"  version="${project.version}" description="Brooklyn Policies">
