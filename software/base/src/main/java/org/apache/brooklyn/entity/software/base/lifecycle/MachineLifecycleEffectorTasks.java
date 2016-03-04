@@ -124,7 +124,7 @@ public abstract class MachineLifecycleEffectorTasks {
     public static final ConfigKey<Duration> STOP_PROCESS_TIMEOUT = ConfigKeys.newConfigKey(Duration.class,
             "process.stop.timeout", "How long to wait for the processes to be stopped; use null to mean forever", Duration.TWO_MINUTES);
 
-    protected final MachineInitTasks machineInitTasks = new MachineInitTasks();
+    protected final transient MachineInitTasks machineInitTasks = new MachineInitTasks();
     
     /** Attaches lifecycle effectors (start, restart, stop) to the given entity post-creation. */
     public void attachLifecycleEffectors(Entity entity) {
@@ -451,7 +451,6 @@ public abstract class MachineLifecycleEffectorTasks {
             entity().sensors().set(Attributes.HOSTNAME, machine.getAddress().getHostName());
             entity().sensors().set(Attributes.ADDRESS, machine.getAddress().getHostAddress());
             if (machine instanceof SshMachineLocation) {
-                @SuppressWarnings("resource")
                 SshMachineLocation sshMachine = (SshMachineLocation) machine;
                 UserAndHostAndPort sshAddress = UserAndHostAndPort.fromParts(sshMachine.getUser(), sshMachine.getAddress().getHostName(), sshMachine.getPort());
                 entity().sensors().set(Attributes.SSH_ADDRESS, sshAddress);
@@ -459,6 +458,7 @@ public abstract class MachineLifecycleEffectorTasks {
 
             if (Boolean.TRUE.equals(entity().getConfig(SoftwareProcess.OPEN_IPTABLES))) {
                 if (machine instanceof SshMachineLocation) {
+                    @SuppressWarnings("unchecked")
                     Iterable<Integer> inboundPorts = (Iterable<Integer>) machine.config().get(CloudLocationConfig.INBOUND_PORTS);
                     machineInitTasks.openIptablesAsync(inboundPorts, (SshMachineLocation)machine);
                 } else {

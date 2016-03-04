@@ -36,8 +36,6 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskQueueingContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
@@ -50,6 +48,8 @@ import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Predicate;
@@ -403,14 +403,16 @@ public class ScriptHelper {
         return setFlag(flag.getName(), value);
     }
     
-    /** ensures the script runs with no environment variables; by default they will be inherited */
+    /** ensures the script runs with no environment variables; 
+     * by default they will be inherited from the entity/driver (eg getShellEnvironment()) */
     public ScriptHelper environmentVariablesReset() {
         return environmentVariablesReset(MutableMap.of());
     }
     
-    /** overrides the default environment variables to use the given set; by default they will be inherited.
-     * TODO would be nice to have a way to add just a few, but there is no way currently to access the
-     * getShellEnvironment() from the driver which is what gets inherited (at execution time) */
+    /** overrides the default environment variables to use the given set; 
+     * by default "env" is inherited from the entity/driver (eg getShellEnvironment());
+     * TODO would be nice to have a way to add just a few, 
+     * but there is no way currently to access that so it's a bit hard to do that */
     public ScriptHelper environmentVariablesReset(Map<?,?> envVarsToSet) {
         setFlag("env", envVarsToSet);
         return this;
