@@ -21,7 +21,6 @@ package org.apache.brooklyn.entity.stock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -41,11 +40,15 @@ import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Predicates;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -151,7 +154,7 @@ public class BasicStartableTest {
         startable = app.addChild(EntitySpec.create(BasicStartable.class));
         EntityAsserts.assertAttributeEqualsEventually(app, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPED);
         
-        RecordingSensorEventListener<Lifecycle> listener = new RecordingSensorEventListener<Lifecycle>(true);
+        final RecordingSensorEventListener<Lifecycle> listener = new RecordingSensorEventListener<Lifecycle>(true);
         managementContext.getSubscriptionContext(startable)
                 .subscribe(startable, Attributes.SERVICE_STATE_ACTUAL, listener);
 
@@ -159,14 +162,17 @@ public class BasicStartableTest {
         app.config().set(StartableApplication.DESTROY_ON_STOP, false);
         app.stop();
 
-        ArrayList<Lifecycle> expected = Lists.newArrayList(
+        Iterable<Lifecycle> expected = Lists.newArrayList(
                 Lifecycle.STARTING,
                 Lifecycle.RUNNING,
                 Lifecycle.STOPPING,
                 Lifecycle.STOPPED);
-        Iterable<Lifecycle> actual = listener.getEventValuesSortedByTimestamp();
-        assertEquals(actual, expected,
-                "Expected=" + Iterables.toString(expected) + ", actual=" + Iterables.toString(actual));
+        Asserts.eventually(new Supplier<Iterable<Lifecycle>>() {
+            @Override
+            public Iterable<Lifecycle> get() {
+                return MutableList.copyOf(listener.getEventValuesSortedByTimestamp());
+            }
+        }, Predicates.equalTo(expected));
     }
     
     private void assertEqualsIgnoringOrder(Iterable<? extends Object> col1, Iterable<? extends Object> col2) {
