@@ -124,7 +124,7 @@ public abstract class MachineLifecycleEffectorTasks {
     public static final ConfigKey<Duration> STOP_PROCESS_TIMEOUT = ConfigKeys.newConfigKey(Duration.class,
             "process.stop.timeout", "How long to wait for the processes to be stopped; use null to mean forever", Duration.TWO_MINUTES);
 
-    protected final transient MachineInitTasks machineInitTasks = new MachineInitTasks();
+    protected final MachineInitTasks machineInitTasks = new MachineInitTasks();
     
     /** Attaches lifecycle effectors (start, restart, stop) to the given entity post-creation. */
     public void attachLifecycleEffectors(Entity entity) {
