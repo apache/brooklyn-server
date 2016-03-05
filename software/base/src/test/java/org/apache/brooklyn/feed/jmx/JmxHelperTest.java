@@ -35,9 +35,7 @@ import javax.management.StandardEmitterMBean;
 
 import org.apache.brooklyn.entity.software.base.test.jmx.GeneralisedDynamicMBean;
 import org.apache.brooklyn.entity.software.base.test.jmx.JmxService;
-import org.apache.brooklyn.feed.jmx.JmxHelper;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.test.TestUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.jclouds.util.Throwables2;
@@ -56,7 +54,9 @@ public class JmxHelperTest {
 
     private static final Logger log = LoggerFactory.getLogger(JmxHelperTest.class);
     
-    private static final String LOCALHOST_NAME = "localhost";
+    // NB: "localhost" resolves to the public-facing IP often which on the occasional box
+    // (eg ubuntu-us1 at apache) makes the ports not locally accessible.  so use loopback explicitly.
+    static final String LOCALHOST_NAME = "127.0.0.1";
     
     private static final int TIMEOUT_MS = 5000;
     private static final int SHORT_WAIT_MS = 250;

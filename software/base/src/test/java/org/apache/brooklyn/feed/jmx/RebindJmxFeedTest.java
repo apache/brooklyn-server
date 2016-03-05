@@ -58,7 +58,7 @@ public class RebindJmxFeedTest extends RebindTestFixtureWithApp {
 
     private static final Logger log = LoggerFactory.getLogger(RebindJmxFeedTest.class);
 
-    private static final String LOCALHOST_NAME = "localhost";
+    private static final String LOCALHOST_NAME = JmxHelperTest.LOCALHOST_NAME;
 
     static final AttributeSensor<String> SENSOR_STRING = Sensors.newStringSensor("aString", "");
     static final AttributeSensor<Integer> SENSOR_INT = Sensors.newIntegerSensor( "aLong", "");
