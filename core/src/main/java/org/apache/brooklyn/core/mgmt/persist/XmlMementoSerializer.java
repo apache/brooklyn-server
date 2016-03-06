@@ -66,6 +66,7 @@ import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.thoughtworks.xstream.MarshallingStrategy;
 import com.thoughtworks.xstream.converters.Converter;
 import com.thoughtworks.xstream.converters.MarshallingContext;
 import com.thoughtworks.xstream.converters.SingleValueConverter;
@@ -137,12 +138,13 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
         xstream.registerLocalConverter(BasicCatalogItemMemento.class, "libraries", new CatalogItemLibrariesConverter());
     }
     
-    // Warning: this is called in the super-class constuctor, so before this constructor!
+    // Warning: this is called in the super-class constructor, so before this constructor!
     @Override
     protected MapperWrapper wrapMapperForNormalUsage(Mapper next) {
         MapperWrapper mapper = super.wrapMapperForNormalUsage(next);
         mapper = new CustomMapper(mapper, Entity.class, "entityProxy");
         mapper = new CustomMapper(mapper, Location.class, "locationProxy");
+        mapper = new UnwantedStateLoggingMapper(mapper);
         return mapper;
     }
 

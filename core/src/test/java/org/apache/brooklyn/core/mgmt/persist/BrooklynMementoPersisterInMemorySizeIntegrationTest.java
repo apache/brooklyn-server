@@ -36,8 +36,14 @@ import org.testng.annotations.Test;
 @Test
 public class BrooklynMementoPersisterInMemorySizeIntegrationTest extends BrooklynMementoPersisterTestFixture {
 
+    protected static int pass1MaxFiles = 30;
+    protected static int pass1MaxKb = 30;
+    protected static int pass2MaxFiles = 40;
+    protected static int pass2MaxKb = 50;
+    protected static int pass3MaxKb = 50;
+
     protected RecordingTransactionListener recorder;
-    
+
     protected ManagementContext newPersistingManagementContext() {
         recorder = new RecordingTransactionListener("in-mem-test-"+Identifiers.makeRandomId(4));
         return RebindTestUtils.managementContextBuilder(classLoader, 
@@ -46,26 +52,26 @@ public class BrooklynMementoPersisterInMemorySizeIntegrationTest extends Brookly
     }
     
     public void testPersistenceVolumeFast() throws IOException, TimeoutException, InterruptedException {
-        doTestPersistenceVolume(50*1000, false, true);
+        doTestPersistenceVolume(false, true);
     }
     @Test(groups="Integration",invocationCount=20)
     public void testPersistenceVolumeFastManyTimes() throws IOException, TimeoutException, InterruptedException {
-        doTestPersistenceVolume(50*1000, false, true);
+        doTestPersistenceVolume(false, true);
     }
     @Test(groups="Integration")
     public void testPersistenceVolumeWaiting() throws IOException, TimeoutException, InterruptedException {
         // by waiting we ensure there aren't extra writes going on
-        doTestPersistenceVolume(50*1000, true, true);
+        doTestPersistenceVolume(true, true);
     }
     public void testPersistenceVolumeFastNoTrigger() throws IOException, TimeoutException, InterruptedException {
-        doTestPersistenceVolume(50*1000, false, false);
+        doTestPersistenceVolume(false, false);
     }
     @Test(groups="Integration",invocationCount=20)
     public void testPersistenceVolumeFastNoTriggerManyTimes() throws IOException, TimeoutException, InterruptedException {
-        doTestPersistenceVolume(50*1000, false, false);
+        doTestPersistenceVolume(false, false);
     }
     
-    protected void doTestPersistenceVolume(int bigBlockSize, boolean forceDelay, boolean canTrigger) throws IOException, TimeoutException, InterruptedException {
+    protected void doTestPersistenceVolume(boolean forceDelay, boolean canTrigger) throws IOException, TimeoutException, InterruptedException {
         if (forceDelay) Time.sleep(Duration.FIVE_SECONDS);
         else recorder.blockUntilDataWrittenExceeds(512, Duration.FIVE_SECONDS);
         localManagementContext.getRebindManager().waitForPendingComplete(Duration.FIVE_SECONDS, canTrigger);
@@ -73,8 +79,8 @@ public class BrooklynMementoPersisterInMemorySizeIntegrationTest extends Brookly
         long out1 = recorder.getBytesOut();
         int filesOut1 = recorder.getCountDataOut();
         Assert.assertTrue(out1>512, "should have written at least 0.5k, only wrote "+out1);
-        Assert.assertTrue(out1<30*1000, "should have written less than 30k, wrote "+out1);
-        Assert.assertTrue(filesOut1<30, "should have written fewer than 30 files, wrote "+out1);
+        Assert.assertTrue(out1<pass1MaxKb*1000, "should have written less than " + pass1MaxKb + "k, wrote "+out1);
+        Assert.assertTrue(filesOut1<pass1MaxFiles, "should have written fewer than " + pass1MaxFiles + " files, wrote "+filesOut1);
         
         ((EntityInternal)app).sensors().set(TestEntity.NAME, "hello world");
         if (forceDelay) Time.sleep(Duration.FIVE_SECONDS);
@@ -86,21 +92,18 @@ public class BrooklynMementoPersisterInMemorySizeIntegrationTest extends Brookly
         int filesOut2 = recorder.getCountDataOut();
         Assert.assertTrue(filesOut2>filesOut1, "should have written more files");
         
-        Assert.assertTrue(out2<50*1000, "should have written less than 50k, wrote "+out1);
-        Assert.assertTrue(filesOut2<40, "should have written fewer than 40 files, wrote "+out1);
+        Assert.assertTrue(out2<pass2MaxKb*1000, "should have written less than " + pass2MaxKb + "k, wrote "+out2);
+        Assert.assertTrue(filesOut2<pass2MaxFiles, "should have written fewer than " + pass2MaxFiles + " files, wrote "+filesOut2);
         
-        ((EntityInternal)entity).sensors().set(TestEntity.NAME, Identifiers.makeRandomId(bigBlockSize));
+        ((EntityInternal)entity).sensors().set(TestEntity.NAME, Identifiers.makeRandomId(pass3MaxKb));
         if (forceDelay) Time.sleep(Duration.FIVE_SECONDS);
-        else recorder.blockUntilDataWrittenExceeds(out2+bigBlockSize, Duration.FIVE_SECONDS);
+        else recorder.blockUntilDataWrittenExceeds(out2+pass3MaxKb, Duration.FIVE_SECONDS);
         localManagementContext.getRebindManager().waitForPendingComplete(Duration.FIVE_SECONDS, canTrigger);
 
         long out3 = recorder.getBytesOut();
-        Assert.assertTrue(out3-out2 > bigBlockSize, "should have written 50k more data, only wrote "+out3+" compared with "+out2);
+        Assert.assertTrue(out3-out2 > pass3MaxKb, "should have written " + pass3MaxKb + "k more data, only wrote "+out3+" compared with "+out2);
         int filesOut3 = recorder.getCountDataOut();
         Assert.assertTrue(filesOut3>filesOut2, "should have written more files");
-        
-        Assert.assertTrue(out2<100*1000+bigBlockSize, "should have written less than 100k+block, wrote "+out1);
-        Assert.assertTrue(filesOut2<60, "should have written fewer than 60 files, wrote "+out1);
     }
     
 }
