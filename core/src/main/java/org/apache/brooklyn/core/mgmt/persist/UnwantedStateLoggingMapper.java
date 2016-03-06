@@ -30,6 +30,7 @@ import com.thoughtworks.xstream.mapper.MapperWrapper;
 public class UnwantedStateLoggingMapper extends MapperWrapper {
     private static final Logger LOG = LoggerFactory.getLogger(UnwantedStateLoggingMapper.class);
     private static final AtomicLong WARN_CNT = new AtomicLong();
+    private static Class<?>[] TYPES_TO_WARN_IF_SERIALIZE = {Task.class, Thread.class, ThreadLocal.class};
 
     public UnwantedStateLoggingMapper(Mapper wrapped) {
         super(wrapped);
@@ -43,21 +44,19 @@ public class UnwantedStateLoggingMapper extends MapperWrapper {
 
     private void logIfInteresting(Class<?> type) {
         if (type != null) {
-            if (Task.class.isAssignableFrom(type)) {
-                long cnt = WARN_CNT.getAndIncrement();
-                if (cnt < 5 || cnt % 10000 == 0) {
-                    LOG.warn("Trying to serialize a Task object of type " + type + ". " +
-                            "Task object serialization is not supported or recommended. " +
-                            "Check if the Task object is set as a config or sensor value by mistake.");
+            for (Class<?> warnClass : TYPES_TO_WARN_IF_SERIALIZE) {
+                if (warnClass.isAssignableFrom(type)) {
+                    long cnt = WARN_CNT.getAndIncrement();
+                    if (cnt < 5 || cnt % 10000 == 0) {
+                        LOG.warn("Trying to serialize a " + warnClass.getSimpleName() + " object of type " + type + " which could lead " +
+                                "to unexpected behaviour upon rebind. " + warnClass.getSimpleName() + " object serialization is not " +
+                                "supported or recommended. Check if the " + warnClass.getSimpleName() + " object (or its container) " +
+                                "is set as a config or sensor value by mistake.");
+                    }
                 }
-            } else if (ThreadLocal.class.isAssignableFrom(type)) {
-                long cnt = WARN_CNT.getAndIncrement();
-                if (cnt < 5 || cnt % 10000 == 0) {
-                    LOG.warn("Trying to serialize a ThreadLocal object of type " + type + ", which could lead to unexpected" +
-                            "behaviour upon rebind. ThreadLocal object serialization is not supported or recommended. " +
-                            "Check if a wrapper for ThreadLocal object is set as a config or sensor value by mistake.");
-                }
-            } else if (LOG.isTraceEnabled()) {
+            }
+
+            if (LOG.isTraceEnabled()) {
                 LOG.trace("Serializing object of type " + type.getName());
             }
             // TODO could add more checks to guide developers, for example
