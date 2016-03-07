@@ -19,17 +19,16 @@
 package org.apache.brooklyn.rest.resources;
 
 import javax.annotation.Nullable;
-import javax.servlet.ServletContext;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.UriInfo;
+import javax.ws.rs.ext.ContextResolver;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.config.render.RendererHints;
-import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.rest.util.BrooklynRestResourceUtils;
-import org.apache.brooklyn.rest.util.OsgiCompat;
+import org.apache.brooklyn.rest.util.ManagementContextProvider;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.rest.util.json.BrooklynJacksonJsonProvider;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -37,57 +36,35 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 
-public abstract class AbstractBrooklynRestResource implements ManagementContextInjectable {
-
-    // can be injected by jersey when ManagementContext in not injected manually
-    // (seems there is no way to make this optional so note it _must_ be injected;
-    // most of the time that happens for free, but with test framework it doesn't,
-    // so we have set up a NullServletContextProvider in our tests) 
-    private @Context ServletContext servletContext;
+public abstract class AbstractBrooklynRestResource {
 
     protected @Context UriInfo ui;
 
-    
-    private ManagementContext managementContext;
-    private ManagementContextInternal managementContextInternal;
+    @Context
+    private ContextResolver<ManagementContext> mgmt;
 
     private BrooklynRestResourceUtils brooklynRestResourceUtils;
     private ObjectMapper mapper;
 
     public ManagementContext mgmt() {
-        return mgmtMaybe().get();
+        return Preconditions.checkNotNull(mgmt.getContext(ManagementContext.class), "mgmt");
     }
 
     public ManagementContextInternal mgmtInternal() {
-        return managementContextInternal;
+        return (ManagementContextInternal) mgmt();
     }
-    
+
     protected synchronized Maybe<ManagementContext> mgmtMaybe() {
-        if (managementContext!=null) return Maybe.of(managementContext);
-        managementContext = OsgiCompat.getManagementContext(servletContext);
-        if (managementContext!=null) return Maybe.of(managementContext);
-        
-        return Maybe.absent("ManagementContext not available for Brooklyn Jersey Resource "+this);
+        return Maybe.of(mgmt());
     }
-    
-    @Override
+
+    @VisibleForTesting
     public void setManagementContext(ManagementContext managementContext) {
-        if (this.managementContext!=null) {
-            if (this.managementContext.equals(managementContext)) return;
-            throw new IllegalStateException("ManagementContext cannot be changed: specified twice for Brooklyn Jersey Resource "+this);
-        }
-        this.managementContext = managementContext;
-        if (managementContext instanceof ManagementContextInternal) {
-            // when running outside OSGi container
-            this.managementContextInternal = (ManagementContextInternal)managementContext;
-        }
+        this.mgmt = new ManagementContextProvider(managementContext);
     }
-
-    public void setManagementContextInternal(ManagementContextInternal managementContextInternal) {
-        this.managementContextInternal = managementContextInternal;
-    }
-
 
     public synchronized BrooklynRestResourceUtils brooklyn() {
         if (brooklynRestResourceUtils!=null) return brooklynRestResourceUtils;
@@ -96,8 +73,12 @@ public abstract class AbstractBrooklynRestResource implements ManagementContextI
     }
     
     protected ObjectMapper mapper() {
+        return mapper(mgmt());
+    }
+
+    protected ObjectMapper mapper(ManagementContext mgmt) {
         if (mapper==null)
-            mapper = BrooklynJacksonJsonProvider.findAnyObjectMapper(servletContext, managementContext);
+            mapper = BrooklynJacksonJsonProvider.findAnyObjectMapper(mgmt);
         return mapper;
     }
 
@@ -107,7 +88,11 @@ public abstract class AbstractBrooklynRestResource implements ManagementContextI
     }
 
     protected RestValueResolver resolving(Object v) {
-        return new RestValueResolver(v).mapper(mapper());
+        return resolving(v, mgmt());
+    }
+
+    protected RestValueResolver resolving(Object v, ManagementContext mgmt) {
+        return new RestValueResolver(v).mapper(mapper(mgmt));
     }
 
     public static class RestValueResolver {

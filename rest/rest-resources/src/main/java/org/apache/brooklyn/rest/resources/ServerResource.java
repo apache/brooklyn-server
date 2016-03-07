@@ -52,6 +52,7 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
 import org.apache.brooklyn.core.mgmt.persist.FileBasedObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
@@ -132,13 +133,13 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         final AtomicBoolean completed = new AtomicBoolean();
         final AtomicBoolean hasAppErrorsOrTimeout = new AtomicBoolean();
 
-        //shutdownHandler is thread local
+        //shutdownHandler & mgmt is thread local
         final ShutdownHandler handler = shutdownHandler.getContext(ShutdownHandler.class);
+        final ManagementContext mgmt = mgmt();
         new Thread("shutdown") {
             @Override
             public void run() {
                 boolean terminateTried = false;
-                ManagementContext mgmt = mgmt();
                 try {
                     if (stopAppsFirst) {
                         CountdownTimer shutdownTimeoutTimer = null;
@@ -189,7 +190,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
                     }
 
                     terminateTried = true;
-                    mgmtInternal().terminate(); 
+                    ((ManagementContextInternal)mgmt).terminate(); 
 
                 } catch (Throwable e) {
                     Throwable interesting = Exceptions.getFirstInteresting(e);

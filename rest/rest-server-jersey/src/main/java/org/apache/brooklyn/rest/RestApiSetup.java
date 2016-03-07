@@ -18,39 +18,50 @@
  */
 package org.apache.brooklyn.rest;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.List;
 
 import javax.servlet.DispatcherType;
 import javax.servlet.Filter;
+import javax.ws.rs.ext.ContextResolver;
 
 import org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter;
 import org.apache.brooklyn.rest.filter.SwaggerFilter;
+import org.apache.brooklyn.rest.util.ManagementContextProvider;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.eclipse.jetty.servlet.FilterHolder;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 
-import com.google.common.collect.ImmutableList;
 import com.sun.jersey.api.container.filter.GZIPContentEncodingFilter;
 import com.sun.jersey.api.core.DefaultResourceConfig;
 import com.sun.jersey.api.core.ResourceConfig;
+import com.sun.jersey.spi.container.ContainerRequestFilter;
+import com.sun.jersey.spi.container.ContainerResponseFilter;
+import com.sun.jersey.spi.container.ResourceFilterFactory;
 import com.sun.jersey.spi.container.servlet.ServletContainer;
 
 public class RestApiSetup {
 
     public static void installRest(ServletContextHandler context, Object... providers) {
+        List<Object> providerList = MutableList.copyOf(Arrays.asList(providers))
+                .append(new GZIPContentEncodingFilter());
+
+        injectHa(providers);
+
         ResourceConfig config = new DefaultResourceConfig();
         // load all our REST API modules, JSON, and Swagger
         for (Object r: BrooklynRestApi.getAllResources())
             config.getSingletons().add(r);
-        for (Object o: providers)
+        for (Object o: getProvidersOfType(providerList, ContextResolver.class))
             config.getSingletons().add(o);
 
-        // Accept gzipped requests and responses, disable caching for dynamic content
-        config.getProperties().put(ResourceConfig.PROPERTY_CONTAINER_REQUEST_FILTERS, GZIPContentEncodingFilter.class.getName());
-        config.getProperties().put(ResourceConfig.PROPERTY_CONTAINER_RESPONSE_FILTERS, ImmutableList.of(GZIPContentEncodingFilter.class/*, NoCacheFilter.class*/));
-        // Checks if appropriate request given HA status
-        config.getProperties().put(ResourceConfig.PROPERTY_RESOURCE_FILTER_FACTORIES, HaHotCheckResourceFilter.class.getName());
+        config.getProperties().put(ResourceConfig.PROPERTY_CONTAINER_REQUEST_FILTERS, getProvidersOfType(providerList, ContainerRequestFilter.class));
+        config.getProperties().put(ResourceConfig.PROPERTY_CONTAINER_RESPONSE_FILTERS, getProvidersOfType(providerList, ContainerResponseFilter.class));
+        config.getProperties().put(ResourceConfig.PROPERTY_RESOURCE_FILTER_FACTORIES, getProvidersOfType(providerList, ResourceFilterFactory.class));
+
         // configure to match empty path, or any thing which looks like a file path with /assets/ and extension html, css, js, or png
         // and treat that as static content
         config.getProperties().put(ServletContainer.PROPERTY_WEB_PAGE_CONTENT_REGEX, "(/?|[^?]*/assets/[^?]+\\.[A-Za-z0-9_]+)");
@@ -63,6 +74,30 @@ public class RestApiSetup {
         context.addFilter(filterHolder, "/v1/*", EnumSet.allOf(DispatcherType.class));
 
         installServletFilters(context, SwaggerFilter.class);
+    }
+    
+    // An ugly hack to work around injection missing for HaHotCheckProvider
+    private static void injectHa(Object[] providers) {
+        HaHotCheckResourceFilter haFilter = null;
+        ManagementContextProvider mgmtProvider = null;
+        for (Object o : providers) {
+            if (o instanceof HaHotCheckResourceFilter) {
+                haFilter = (HaHotCheckResourceFilter) o;
+            } else if (o instanceof ManagementContextProvider) {
+                mgmtProvider = (ManagementContextProvider) o;
+            }
+        }
+        haFilter.setManagementContext(mgmtProvider);
+    }
+
+    private static List<Object> getProvidersOfType(List<Object> providers, Class<?> type) {
+        List<Object> ret = new ArrayList<>();
+        for (Object o : providers) {
+            if (type.isInstance(o)) {
+                ret.add(o);
+            }
+        }
+        return ret;
     }
 
     @SafeVarargs

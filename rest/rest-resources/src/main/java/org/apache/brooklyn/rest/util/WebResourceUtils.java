@@ -26,10 +26,13 @@ import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.UriBuilder;
 
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.rest.domain.ApiError;
 import org.apache.brooklyn.rest.util.json.BrooklynJacksonJsonProvider;
+import org.apache.brooklyn.util.core.osgi.Compat;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
 import org.apache.brooklyn.util.net.Urls;
@@ -39,7 +42,6 @@ import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
-import javax.ws.rs.core.UriBuilder;
 
 public class WebResourceUtils {
 
@@ -183,14 +185,20 @@ public class WebResourceUtils {
         }
     }
 
+    /** @deprecated since 0.9.0, use {@link #applyJsonResponse(ManagementContext, Response, HttpServletResponse)} */
+    @Deprecated
+    public static void applyJsonResponse(ServletContext servletContext, Response source, HttpServletResponse target) throws IOException {
+        applyJsonResponse(OsgiCompat.getManagementContext(servletContext), source, target);
+    }
+
     /** Sets the {@link HttpServletResponse} target (last argument) from the given source {@link Response};
      * useful in filters where we might have a {@link Response} and need to set up an {@link HttpServletResponse}.
      */
-    public static void applyJsonResponse(ServletContext servletContext, Response source, HttpServletResponse target) throws IOException {
+    public static void applyJsonResponse(ManagementContext mgmt, Response source, HttpServletResponse target) throws IOException {
         target.setStatus(source.getStatus());
         target.setContentType(MediaType.APPLICATION_JSON);
         target.setCharacterEncoding("UTF-8");
-        target.getWriter().write(BrooklynJacksonJsonProvider.findAnyObjectMapper(servletContext, null).writeValueAsString(source.getEntity()));
+        target.getWriter().write(BrooklynJacksonJsonProvider.findAnyObjectMapper(mgmt).writeValueAsString(source.getEntity()));
     }
 
     /**

@@ -120,7 +120,7 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
                     continue;
                 }
                 result.put(key.getName(), 
-                    resource.resolving(value).preferJson(true).asJerseyOutermostReturnValue(false).raw(raw).context(entity).timeout(Duration.ZERO).renderAs(key).resolve());
+                    resource.resolving(value, mgmt).preferJson(true).asJerseyOutermostReturnValue(false).raw(raw).context(entity).timeout(Duration.ZERO).renderAs(key).resolve()); 
             }
             return result;
         }
