@@ -179,9 +179,7 @@ public class Osgis {
             for (Bundle b: framework.getBundleContext().getBundles()) {
                 if (symbolicName!=null && !symbolicName.equals(b.getSymbolicName())) continue;
                 if (version!=null && !Version.parseVersion(version).equals(b.getVersion())) continue;
-                for (Predicate<? super Bundle> predicate: predicates) {
-                    if (!predicate.apply(b)) continue;
-                }
+                if (!Predicates.and(predicates).apply(b)) continue;
 
                 // check url last, because if it isn't mandatory we should only clear if we find a url
                 // for which the other items also match

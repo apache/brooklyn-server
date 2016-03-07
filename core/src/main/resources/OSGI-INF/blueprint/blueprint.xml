@@ -17,10 +17,8 @@ limitations under the License.
 
 <blueprint xmlns="http://www.osgi.org/xmlns/blueprint/v1.0.0"
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-           xmlns:cm="http://aries.apache.org/blueprint/xmlns/blueprint-cm/v1.2.0"
            xsi:schemaLocation="
              http://www.osgi.org/xmlns/blueprint/v1.0.0 http://www.osgi.org/xmlns/blueprint/v1.0.0/blueprint.xsd
-             http://aries.apache.org/schemas/blueprint-cm/blueprint-cm-1.1.0.xsd
              ">
 
    <bean id="brooklynVersion"
@@ -30,10 +28,6 @@ limitations under the License.
    <service ref="brooklynVersion"
             interface="org.apache.brooklyn.core.BrooklynVersionService" />
 
-    <bean id="containerFramework"
-          class="org.apache.brooklyn.util.core.osgi.ContainerFramework" />
-    <service ref="containerFramework"
-          interface="org.apache.brooklyn.util.osgi.SystemFramework" />
 
     <bean id="apiObjectsFactoryImpl" class="org.apache.brooklyn.core.internal.ApiObjectsFactoryImpl" />
 
@@ -43,13 +37,15 @@ limitations under the License.
         </interfaces>
     </service>
 
-    <bean id="javaClassNameTypePlanTransformer"
-          class="org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer"
-          scope="prototype"/>
+    <bean id="containerFramework"
+          class="org.apache.brooklyn.util.core.osgi.ContainerFramework" />
+    <service ref="containerFramework"
+          interface="org.apache.brooklyn.util.osgi.SystemFramework" />
 
+    <bean id="javaClassNameTypePlanTransformer" scope="prototype"
+          class="org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer"/>
     <service id="javaClassNameTypePlanTransformerService" ref="javaClassNameTypePlanTransformer"
              interface="org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer" />
-
 
     <bean id="javaCatalogToSpecTransformer" scope="prototype"
           class="org.apache.brooklyn.core.catalog.internal.JavaCatalogToSpecTransformer"/>
