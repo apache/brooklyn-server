@@ -70,6 +70,7 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
     private final boolean logCredentials;
     private final Boolean useSecureWinrm;
     private final String authenticationScheme;
+    private final String operationTimeout;
     
     public Winrm4jTool(Map<String,?> config) {
         this(ConfigBag.newInstance(config));
@@ -86,6 +87,7 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
         execTries = getRequiredConfig(config, PROP_EXEC_TRIES);
         execRetryDelay = getRequiredConfig(config, PROP_EXEC_RETRY_DELAY);
         logCredentials = getRequiredConfig(config, LOG_CREDENTIALS);
+        operationTimeout = config.get(OPERATION_TIMEOUT);
     }
     
     @Override
@@ -149,6 +151,7 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
             Duration execTimestamp = null;
             try {
                 WinRmTool tool = connect();
+                tool.setOperationTimeout(Duration.of(operationTimeout).toMilliseconds());
                 connectTimestamp = Duration.of(stopwatch);
                 WinRmToolResponse result = task.apply(tool);
                 execTimestamp = Duration.of(stopwatch);
