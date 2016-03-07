@@ -22,11 +22,15 @@ import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.trait.Startable;
+import org.apache.brooklyn.util.core.flags.SetFromFlag;
 
 public interface StartableApplication extends Application, Startable {
     
     ConfigKey<Boolean> DESTROY_ON_STOP = ConfigKeys.newBooleanConfigKey("application.stop.shouldDestroy",
         "Whether the app should be removed from management after a successful stop (if it is a root); "
         + "true by default.", true);
-    
+
+    @SetFromFlag("startLatch")
+    ConfigKey<Boolean> START_LATCH = BrooklynConfigKeys.START_LATCH;
+
 }

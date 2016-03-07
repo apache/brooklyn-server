@@ -20,21 +20,29 @@ package org.apache.brooklyn.entity.stock;
 
 import java.util.List;
 
+import com.google.common.collect.ImmutableList;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.location.Locations;
-
-import com.google.common.collect.ImmutableList;
+import org.apache.brooklyn.util.core.flags.SetFromFlag;
 
 /**
  * Provides a pass-through Startable entity used for keeping hierarchies tidy. 
  */
 @ImplementedBy(BasicStartableImpl.class)
 public interface BasicStartable extends Entity, Startable {
+
+    @SetFromFlag("startLatch")
+    ConfigKey<Boolean> START_LATCH = BrooklynConfigKeys.START_LATCH;
+
+    ConfigKey<Locations.LocationsFilter> LOCATIONS_FILTER = ConfigKeys.newConfigKey(Locations.LocationsFilter.class,
+            "brooklyn.locationsFilter", "Provides a hook for customizing locations to be used for a given context");
 
     /** @deprecated since 0.7.0; use {@link Locations#LocationFilter} */
     @Deprecated
@@ -51,6 +59,4 @@ public interface BasicStartable extends Entity, Startable {
         };
     }
 
-    public static final ConfigKey<Locations.LocationsFilter> LOCATIONS_FILTER = ConfigKeys.newConfigKey(Locations.LocationsFilter.class,
-            "brooklyn.locationsFilter", "Provides a hook for customizing locations to be used for a given context");
 }

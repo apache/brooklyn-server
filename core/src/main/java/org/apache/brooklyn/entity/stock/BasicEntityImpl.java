@@ -20,11 +20,8 @@ package org.apache.brooklyn.entity.stock;
 
 import org.apache.brooklyn.core.entity.AbstractEntity;
 
-
-
-
 public class BasicEntityImpl extends AbstractEntity implements BasicEntity {
-    
-    public BasicEntityImpl() {
-    }
+
+    public BasicEntityImpl() { }
+
 }

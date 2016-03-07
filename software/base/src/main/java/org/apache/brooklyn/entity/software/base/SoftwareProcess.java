@@ -20,20 +20,18 @@ package org.apache.brooklyn.entity.software.base;
 
 import java.util.Collection;
 import java.util.Map;
-import java.util.Set;
-import java.util.regex.Pattern;
 
-import com.google.common.collect.Sets;
+import com.google.common.annotations.Beta;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.reflect.TypeToken;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
-import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.annotation.Effector;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.config.MapConfigKey;
-import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
@@ -42,15 +40,8 @@ import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
-import org.apache.brooklyn.util.core.flags.TypeCoercions;
-import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
-
-import com.google.common.annotations.Beta;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.reflect.TypeToken;
 
 public interface SoftwareProcess extends Entity, Startable {
 
@@ -136,6 +127,11 @@ public interface SoftwareProcess extends Entity, Startable {
     @SetFromFlag("downloadAddonUrls")
     AttributeSensorAndConfigKey<Map<String,String>,Map<String,String>> DOWNLOAD_ADDON_URLS = Attributes.DOWNLOAD_ADDON_URLS;
 
+    @SetFromFlag("archiveNameFormat")
+    ConfigKey<String> ARCHIVE_DIRECTORY_NAME_FORMAT = ConfigKeys.newStringConfigKey("archive.nameFormat",
+            "The format for the directory created when the installation archive is extracted, if required. " +
+            "The version string will be passed in as the first argument, replacing the %s format specifier");
+
     @SetFromFlag("installLabel")
     ConfigKey<String> INSTALL_UNIQUE_LABEL = BrooklynConfigKeys.INSTALL_UNIQUE_LABEL;
 
@@ -144,30 +140,26 @@ public interface SoftwareProcess extends Entity, Startable {
 
     @SetFromFlag("installDir")
     AttributeSensorAndConfigKey<String,String> INSTALL_DIR = BrooklynConfigKeys.INSTALL_DIR;
-    @Deprecated
-    ConfigKey<String> SUGGESTED_INSTALL_DIR = BrooklynConfigKeys.SUGGESTED_INSTALL_DIR;
 
     @SetFromFlag("runDir")
     AttributeSensorAndConfigKey<String,String> RUN_DIR = BrooklynConfigKeys.RUN_DIR;
-    @Deprecated
-    ConfigKey<String> SUGGESTED_RUN_DIR = BrooklynConfigKeys.SUGGESTED_RUN_DIR;
 
-    public static final ConfigKey<Boolean> OPEN_IPTABLES = ConfigKeys.newBooleanConfigKey("openIptables", 
+    ConfigKey<Boolean> OPEN_IPTABLES = ConfigKeys.newBooleanConfigKey("openIptables",
             "Whether to open the INBOUND_PORTS via iptables rules; " +
             "if true then ssh in to run iptables commands, as part of machine provisioning", false);
 
-    public static final ConfigKey<Boolean> STOP_IPTABLES = ConfigKeys.newBooleanConfigKey("stopIptables", 
+    ConfigKey<Boolean> STOP_IPTABLES = ConfigKeys.newBooleanConfigKey("stopIptables",
             "Whether to stop iptables entirely; " +
             "if true then ssh in to stop the iptables service, as part of machine provisioning", false);
 
-    public static final ConfigKey<Boolean> DONT_REQUIRE_TTY_FOR_SUDO = ConfigKeys.newBooleanConfigKey("dontRequireTtyForSudo", 
+    ConfigKey<Boolean> DONT_REQUIRE_TTY_FOR_SUDO = ConfigKeys.newBooleanConfigKey("dontRequireTtyForSudo",
             "Whether to explicitly set /etc/sudoers, so don't need tty (will leave unchanged if 'false'); " +
             "some machines require a tty for sudo; brooklyn by default does not use a tty " +
             "(so that it can get separate error+stdout streams); you can enable a tty as an " +
             "option to every ssh command, or you can do it once and " +
             "modify the machine so that a tty is not subsequently required.",
             false);
-    
+
     /**
      * Files to be copied to the server before pre-install.
      * <p>
