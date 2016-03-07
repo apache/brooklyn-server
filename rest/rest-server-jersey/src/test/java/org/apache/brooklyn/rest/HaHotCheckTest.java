@@ -29,9 +29,9 @@ import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter;
 import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
-import org.apache.brooklyn.rest.util.HaHotStateCheckClassResource;
-import org.apache.brooklyn.rest.util.HaHotStateCheckResource;
-import org.apache.brooklyn.rest.util.HaMasterCheckResource;
+import org.apache.brooklyn.rest.util.TestingHaHotStateCheckClassResource;
+import org.apache.brooklyn.rest.util.TestingHaHotStateCheckResource;
+import org.apache.brooklyn.rest.util.TestingHaMasterCheckResource;
 import org.apache.brooklyn.rest.util.ManagementContextProvider;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -55,9 +55,9 @@ public class HaHotCheckTest extends BrooklynRestResourceTest {
     protected void addBrooklynResources() {
         config.getProperties().put(ResourceConfig.PROPERTY_RESOURCE_FILTER_FACTORIES,
             new HaHotCheckResourceFilter(new ManagementContextProvider(getManagementContext())));
-        addResource(new HaHotStateCheckResource());
-        addResource(new HaHotStateCheckClassResource());
-        addResource(new HaMasterCheckResource());
+        addResource(new TestingHaHotStateCheckResource());
+        addResource(new TestingHaHotStateCheckClassResource());
+        addResource(new TestingHaMasterCheckResource());
         
         ((LocalManagementContext)getManagementContext()).noteStartupComplete();
     }

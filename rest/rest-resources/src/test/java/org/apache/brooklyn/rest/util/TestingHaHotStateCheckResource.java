@@ -18,23 +18,27 @@
  */
 package org.apache.brooklyn.rest.util;
 
-import javax.ws.rs.POST;
+import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 
+import org.apache.brooklyn.rest.filter.HaHotStateRequired;
+
+@Path("/ha/method")
 @Produces(MediaType.APPLICATION_JSON)
-public class HaMasterCheckResource {
+public class TestingHaHotStateCheckResource {
 
-    @POST
-    @Path("/server/shutdown")
-    public void shutdown() {
-
+    @GET
+    @Path("ok")
+    public String ok() {
+        return "OK";
     }
 
-    @POST
-    @Path("/ha/post")
-    public void post() {
+    @GET
+    @Path("fail")
+    @HaHotStateRequired
+    public String fail() {
+        return "FAIL";
     }
-
 }

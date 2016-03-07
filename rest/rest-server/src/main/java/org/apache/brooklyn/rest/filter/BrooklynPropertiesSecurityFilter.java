@@ -35,6 +35,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
+import org.apache.brooklyn.rest.resources.LogoutResource;
 import org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule;
 import org.apache.brooklyn.rest.security.provider.DelegatingSecurityProvider;
 import org.apache.brooklyn.rest.util.OsgiCompat;
@@ -46,7 +47,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Provides basic HTTP authentication.
  * 
- * @deprecated since 0.9.0, use JAAS authentication instead, see {@link BrooklynLoginModule}.
+ * @deprecated since 0.9.0, use JAAS authentication instead, see {@link BrooklynLoginModule}, {@link LogoutResource}, {@link EntitlementContextFilter}.
  */
 @Deprecated
 public class BrooklynPropertiesSecurityFilter implements Filter {
