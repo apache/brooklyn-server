@@ -23,12 +23,19 @@ limitations under the License.
              http://aries.apache.org/schemas/blueprint-cm/blueprint-cm-1.1.0.xsd
              ">
 
+    <bean id="campTypePlanTransformer"
+            class="org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformerFactory"
+            factory-method="newInstance"/>
+
     <bean id="campToSpecTransformer"
-          class="org.apache.brooklyn.camp.brooklyn.spi.creation.CampToSpecTransformerFactory"
-          factory-method="newInstance" />
+           class="org.apache.brooklyn.camp.brooklyn.spi.creation.CampToSpecTransformerFactory"
+           factory-method="newInstance" />
 
     <service id="campToSpecTransformerService" ref="campToSpecTransformer"
-         interface="org.apache.brooklyn.camp.brooklyn.spi.creation.CampToSpecTransformer" />
+           interface="org.apache.brooklyn.camp.brooklyn.spi.creation.CampToSpecTransformer" />
+
+    <service id="campTypePlanTransformerService" ref="campTypePlanTransformer"
+           interface="org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer" />
 
 
 </blueprint>

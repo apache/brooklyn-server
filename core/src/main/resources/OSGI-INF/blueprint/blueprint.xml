@@ -30,4 +30,12 @@ limitations under the License.
    <service ref="brooklynVersion"
             interface="org.apache.brooklyn.core.BrooklynVersionService" />
 
+    <bean id="javaClassNameTypePlanTransformer"
+          class="org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformerFactory"
+          factory-method="newInstance"/>
+
+    <service id="javaClassNameTypePlanTransformerService" ref="javaClassNameTypePlanTransformer"
+             interface="org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer" />
+
+
 </blueprint>
