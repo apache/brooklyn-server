@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.UnknownHostException;
 import java.util.Collection;
 import java.util.List;
 
@@ -128,11 +127,9 @@ public class TestHttpServer {
     }
 
     private InetAddress getLocalAddress() {
-        try {
-            return InetAddress.getLocalHost();
-        } catch (UnknownHostException e) {
-            throw Exceptions.propagate(e);
-        }
+//        return Networking.getLocalHost();
+        // above sometimes not contactable; loopback may be more portable
+        return InetAddress.getLoopbackAddress();
     }
 
     public String getUrl() {

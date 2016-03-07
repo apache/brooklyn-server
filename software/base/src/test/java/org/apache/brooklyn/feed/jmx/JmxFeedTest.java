@@ -113,7 +113,7 @@ public class JmxFeedTest {
     
     public static class TestEntityWithJmx extends TestEntityImpl {
         @Override public void init() {
-            sensors().set(Attributes.HOSTNAME, "localhost");
+            sensors().set(Attributes.HOSTNAME, JmxHelperTest.LOCALHOST_NAME);
             sensors().set(UsesJmx.JMX_PORT, 
                     LocalhostMachineProvisioningLocation.obtainPort(PortRanges.fromString(
                         // just doing "40123+" was not enough to avoid collisions (on 40125),
