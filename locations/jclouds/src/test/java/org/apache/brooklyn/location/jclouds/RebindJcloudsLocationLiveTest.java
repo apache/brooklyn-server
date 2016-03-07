@@ -156,7 +156,8 @@ public class RebindJcloudsLocationLiveTest extends AbstractJcloudsLiveTest {
         assertEquals(machine2.getPrivateAddresses(), ImmutableSet.of("10.144.66.5"), errmsg);
         assertEquals(machine2.getPublicAddresses(), ImmutableSet.of("54.254.23.53"), errmsg);
         assertEquals(machine2.getPrivateAddress(), Optional.of("10.144.66.5"), errmsg);
-        assertEquals(machine2.getHostname(), "ip-10-144-66-5", errmsg); // TODO would prefer the hostname that works inside and out
+        assertEquals(machine2.getSubnetHostname(), "10.144.66.5", errmsg);
+        assertEquals(machine2.getHostname(), "54.254.23.53", errmsg);
         assertEquals(machine2.getOsDetails().isWindows(), false, errmsg);
         assertEquals(machine2.getOsDetails().isLinux(), true, errmsg);
         assertEquals(machine2.getOsDetails().isMac(), false, errmsg);
@@ -188,7 +189,7 @@ public class RebindJcloudsLocationLiveTest extends AbstractJcloudsLiveTest {
         assertEquals(machine3.getPrivateAddresses(), ImmutableSet.of("10.144.66.5"), errmsg);
         assertEquals(machine3.getPublicAddresses(), ImmutableSet.of("54.254.23.53"), errmsg);
         assertEquals(machine3.getPrivateAddress(), Optional.of("10.144.66.5"), errmsg);
-        assertEquals(machine3.getHostname(), "ip-10-144-66-5", errmsg); // TODO would prefer the hostname that works inside and out
+        assertEquals(machine3.getHostname(), "54.254.23.53", errmsg);
         
         // The VM is no longer running, so won't be able to infer OS Details.
         assertFalse(machine3.getOptionalOsDetails().isPresent(), errmsg);

@@ -206,5 +206,15 @@
             <artifactId>mockito-all</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <!-- 
+                jsr311 excluded above, this module is JAX-RS version independent. Version decided at user.
+                For tests running in the module still need to use a specific dependency - use JAX-RS 2.0 as
+                that's what is used in standard build.
+            -->
+            <groupId>javax.ws.rs</groupId>
+            <artifactId>javax.ws.rs-api</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>
