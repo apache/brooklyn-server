@@ -19,13 +19,14 @@
 package org.apache.brooklyn.api.framework;
 
 import org.apache.brooklyn.util.guava.Maybe;
-import org.osgi.framework.Bundle;
-import org.osgi.framework.BundleContext;
-import org.osgi.framework.FrameworkUtil;
-import org.osgi.framework.ServiceReference;
+import org.apache.brooklyn.util.osgi.OsgiUtil;
+import org.osgi.framework.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.ServiceLoader;
 
 /**
@@ -41,27 +42,68 @@ public class FrameworkLookup {
 
     /**
      * Find an instance of the given class in the framework.
-     * This first performs an OSGI lookup if the OSGI framework is available. If it is not, or no implementation is
-     * found in OSGI, then it falls back to attempting a lookup from the current context classpath via a ServiceLoader.
+     * This first performs an OSGI lookup if the OSGI framework is available. If it is not then it falls back to
+     * attempting a lookup from the current context classpath via a ServiceLoader.
      *
      * @param clazz The class (typically the class of an interface) to search in the framework.
      * @param <T>  The type for the class.
      * @return  A maybe of the instance found in the framework.
      */
     public static <T> Maybe<T> lookup (Class<T> clazz) {
-        Maybe<T> result = lookupInOsgi(clazz);
 
-        if (result.isAbsent()) {
+        Maybe<T> result;
+        if (OsgiUtil.isBrooklynInsideFramework()) {
+            result = lookupInOsgi(clazz);
+        } else {
             result = lookupViaServiceLoader(clazz);
         }
 
         return result;
     }
 
-    private static <T> Maybe<T> lookupViaServiceLoader(Class<T> clazz) {
-        LOG.debug("Looking up  via ServiceLoader");
+    /**
+     * Find all instances of the given class in the framework.
+     * This first performs an OSGI lookup if the OSGI framework is available. If it is not then it falls back to
+     * attempting a lookup from the current context classpath via a ServiceLoader.
+     *
+     * @param clazz The class (typically the class of an interface) to search in the framework.
+     * @param <T>  The type for the class.
+     * @return  An iterable over the instances found in the framework.
+     */
+    public static <T> Iterable<T> lookupAll(Class<T> clazz) {
 
-        Maybe<T> result = Maybe.absent("No result found with ServiceLoader");
+        Iterable<T> result;
+        if (OsgiUtil.isBrooklynInsideFramework()) {
+            result = lookupAllInOsgi(clazz);
+        } else {
+            result = lookupAllViaServiceLoader(clazz);
+        }
+        return result;
+    }
+
+    private static <T> Iterable<T> lookupAllViaServiceLoader(Class<T> clazz) {
+        LOG.debug("Looking up all " + clazz.getSimpleName() + "  via ServiceLoader");
+
+        return ServiceLoader.load(clazz);
+    }
+
+    private static <T> Iterable<T> lookupAllInOsgi(Class<T> clazz) {
+        final List<T> result = Collections.emptyList();
+        final Bundle bundle = FrameworkUtil.getBundle(clazz);
+        if (bundle != null) {
+            LOG.debug("Looking up all " + clazz.getSimpleName() + " in OSGI");
+            BundleContext ctx = bundle.getBundleContext();
+            for (ServiceReference<T> reference: getServiceReferences(clazz, ctx)) {
+                result.add(ctx.getService(reference));
+            }
+        }
+        return result;
+    }
+
+    private static <T> Maybe<T> lookupViaServiceLoader(Class<T> clazz) {
+        LOG.debug("Looking up " + clazz.getSimpleName() + "  via ServiceLoader");
+
+        Maybe<T> result = Maybe.absent("No class " + clazz.getSimpleName() + " found with ServiceLoader");
         ServiceLoader<T> LOADER = ServiceLoader.load(clazz);
         for (T item : LOADER) {
             return Maybe.of(item);
@@ -70,11 +112,11 @@ public class FrameworkLookup {
     }
 
     private static <T> Maybe<T> lookupInOsgi(Class<T> clazz) {
-        Maybe<T> result = Maybe.absent("No result found with OSGI");
+        Maybe<T> result = Maybe.absent("No class " + clazz.getSimpleName() + " found with OSGI");
 
         final Bundle bundle = FrameworkUtil.getBundle(clazz);
         if (bundle != null) {
-            LOG.debug("Looking up T in OSGI");
+            LOG.debug("Looking up " + clazz.getSimpleName() + " in OSGI");
             BundleContext ctx = bundle.getBundleContext();
             final ServiceReference<T> reference = ctx.getServiceReference(clazz);
             final T service = ctx.getService(reference);
@@ -82,4 +124,16 @@ public class FrameworkLookup {
         }
         return result;
     }
+
+    private static <T> Collection<ServiceReference<T>> getServiceReferences(Class<T> clazz, BundleContext ctx) {
+        try {
+            return ctx.getServiceReferences(clazz, null);
+        } catch (InvalidSyntaxException e) {
+            // handle the checked(!) exception declared on the method, we pass null as filter above
+            throw new RuntimeException(e);
+        }
+    }
+
+
+
 }

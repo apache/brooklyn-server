@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.ServiceLoader;
 
+import org.apache.brooklyn.api.framework.FrameworkLookup;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.TypePlanTransformers;
@@ -48,13 +49,13 @@ public class PlanToSpecFactory {
     private static final Logger log = LoggerFactory.getLogger(PlanToSpecFactory.class);
 
     private static Collection<PlanToSpecTransformer> getAll(boolean includeDeprecated) {
-        ServiceLoader<PlanToSpecTransformer> loader = ServiceLoader.load(PlanToSpecTransformer.class);
-        return ImmutableList.copyOf(includeDeprecated ? loader : filterDeprecated(loader));
+        Iterable<PlanToSpecTransformer> transformers = FrameworkLookup.lookupAll(PlanToSpecTransformer.class);
+        return ImmutableList.copyOf(includeDeprecated ? transformers : filterDeprecated(transformers));
     }
 
-    private static Iterable<PlanToSpecTransformer> filterDeprecated(ServiceLoader<PlanToSpecTransformer> loader) {
+    private static Iterable<PlanToSpecTransformer> filterDeprecated(Iterable<PlanToSpecTransformer> transformers) {
         List<PlanToSpecTransformer> result = MutableList.of();
-        for (PlanToSpecTransformer t: loader) {
+        for (PlanToSpecTransformer t: transformers) {
             if (!isDeprecated(t.getClass())) {
                 result.add(t);
             }

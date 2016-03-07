@@ -18,5 +18,13 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.creation;
 
+/**
+ * Deprecated class.  Only required for OSGI integration.
+ */
+@Deprecated /** @deprecated since 0.9.0 use CampTypePlanTransformer */
 public class CampToSpecTransformerFactory {
+
+    public static CampToSpecTransformer newInstance() {
+        return new CampToSpecTransformer();
+    }
 }

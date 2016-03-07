@@ -23,27 +23,12 @@ limitations under the License.
              http://aries.apache.org/schemas/blueprint-cm/blueprint-cm-1.1.0.xsd
              ">
 
-<!--    <cm:property-placeholder persistent-id="org.apache.brooklyn.properties" update-strategy="reload">
-        <cm:default-properties>
-            <cm:property name="some-property" value="${karaf.data}/some-path"/>
-        </cm:default-properties>
-    </cm:property-placeholder>-->
+    <bean id="campToSpecTransformer"
+          class="org.apache.brooklyn.camp.brooklyn.spi.creation.CampToSpecTransformerFactory"
+          factory-method="newInstance" />
 
-    <bean id="localManagementContextService"
-          class="org.apache.brooklyn.core.mgmt.internal.LocalManagementContext" />
+    <service id="campToSpecTransformerService" ref="campToSpecTransformer"
+         interface="org.apache.brooklyn.camp.brooklyn.spi.creation.CampToSpecTransformer" />
 
-    <bean id="apiObjectsFactoryImpl" class="org.apache.brooklyn.core.internal.ApiObjectsFactoryImpl" />
-
-    <service ref="apiObjectsFactoryImpl">
-        <interfaces>
-            <value>org.apache.brooklyn.api.internal.ApiObjectsFactoryInterface</value>
-        </interfaces>
-    </service>
-
-    <service ref="localManagementContextService"
-             interface="org.apache.brooklyn.api.mgmt.ManagementContext" />
-
-<!--    <service ref="localManagementContextService"
-             interface="org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal" />-->
 
 </blueprint>
