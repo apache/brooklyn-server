@@ -20,17 +20,30 @@ package org.apache.brooklyn.rest.api;
 
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
 import javax.ws.rs.core.Response;
 
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
+import io.swagger.annotations.ApiResponse;
+import io.swagger.annotations.ApiResponses;
 
 @Path("/logout")
 @Api("Logout")
 public interface LogoutApi {
 
     @POST
-    @ApiOperation(value = "Logout and clean session")
+    @ApiOperation(value = "Request a logout and clean session")
+    @ApiResponses(value = {
+            @ApiResponse(code = 307, message = "Redirect to /logout/user, keeping the request method")
+    })
     Response logout();
 
+    @POST
+    @Path("/{user}")
+    @ApiOperation(value = "Logout and clean session if matching user logged")
+    Response logoutUser(
+        @ApiParam(value = "User to log out", required = true)
+        @PathParam("user") final String user);
 }
