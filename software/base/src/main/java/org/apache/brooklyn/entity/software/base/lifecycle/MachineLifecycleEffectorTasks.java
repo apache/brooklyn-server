@@ -451,7 +451,6 @@ public abstract class MachineLifecycleEffectorTasks {
             entity().sensors().set(Attributes.HOSTNAME, machine.getAddress().getHostName());
             entity().sensors().set(Attributes.ADDRESS, machine.getAddress().getHostAddress());
             if (machine instanceof SshMachineLocation) {
-                @SuppressWarnings("resource")
                 SshMachineLocation sshMachine = (SshMachineLocation) machine;
                 UserAndHostAndPort sshAddress = UserAndHostAndPort.fromParts(sshMachine.getUser(), sshMachine.getAddress().getHostName(), sshMachine.getPort());
                 entity().sensors().set(Attributes.SSH_ADDRESS, sshAddress);
@@ -459,6 +458,7 @@ public abstract class MachineLifecycleEffectorTasks {
 
             if (Boolean.TRUE.equals(entity().getConfig(SoftwareProcess.OPEN_IPTABLES))) {
                 if (machine instanceof SshMachineLocation) {
+                    @SuppressWarnings("unchecked")
                     Iterable<Integer> inboundPorts = (Iterable<Integer>) machine.config().get(CloudLocationConfig.INBOUND_PORTS);
                     machineInitTasks.openIptablesAsync(inboundPorts, (SshMachineLocation)machine);
                 } else {

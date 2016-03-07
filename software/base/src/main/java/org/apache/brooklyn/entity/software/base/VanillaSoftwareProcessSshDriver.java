@@ -126,7 +126,6 @@ public class VanillaSoftwareProcessSshDriver extends AbstractSoftwareProcessSshD
         if (downloadedFilename != null) {
             newScript(CUSTOMIZING)
                     .failOnNonZeroResultCode()
-                    // don't set vars yet -- it resolves dependencies (e.g. DB) which we don't want until we start
                     .environmentVariablesReset()
                     .body.append(ArchiveUtils.extractCommands(downloadedFilename, getInstallDir()))
                     .execute();

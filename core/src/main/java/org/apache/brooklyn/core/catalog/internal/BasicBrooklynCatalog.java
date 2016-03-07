@@ -354,7 +354,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         value = map.get(foundKey);
         if (type.equals(String.class) && Number.class.isInstance(value)) value = value.toString();
         if (!type.isInstance(value)) 
-            throw new IllegalArgumentException("Entry for '"+firstKey+"' should be of type "+type+", not "+value.getClass());
+            throw new IllegalArgumentException("Entry for '"+firstKey+"' should be of type "+type+", not "+(value==null ? "null" : value.getClass()));
         return Maybe.of((T)value);
     }
     

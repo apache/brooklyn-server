@@ -557,6 +557,7 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
             }
             if (ImmutableSet.of(CUSTOMIZING, LAUNCHING, CHECK_RUNNING, STOPPING, KILLING, RESTARTING).contains(phase)) {
                 s.header.append(
+                        "export INSTALL_DIR=\""+getInstallDir()+"\"",
                         "export RUN_DIR=\""+getRunDir()+"\"",
                         "mkdir -p $RUN_DIR",
                         "cd $RUN_DIR"
