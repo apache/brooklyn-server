@@ -244,8 +244,13 @@ public class BrooklynWebServer {
         this.securityFilterClazz = filterClazz;
     }
 
-    public void skipSecurity(boolean skipSecurity) {
+    public BrooklynWebServer skipSecurity() {
+        return skipSecurity(true);
+    }
+
+    public BrooklynWebServer skipSecurity(boolean skipSecurity) {
         this.skipSecurity = skipSecurity;
+        return this;
     }
 
     public void setShutdownHandler(@Nullable ShutdownHandler shutdownHandler) {
