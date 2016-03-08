@@ -31,16 +31,28 @@ limitations under the License.
             interface="org.apache.brooklyn.core.BrooklynVersionService" />
 
     <bean id="javaClassNameTypePlanTransformer"
-          class="org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer"
-          scope="prototype"/>
+             class="org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer"
+             scope="prototype"/>
 
     <service id="javaClassNameTypePlanTransformerService" ref="javaClassNameTypePlanTransformer"
              interface="org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer" />
 
 
     <bean id="javaCatalogToSpecTransformer" scope="prototype"
-          class="org.apache.brooklyn.core.catalog.internal.JavaCatalogToSpecTransformer"/>
+             class="org.apache.brooklyn.core.catalog.internal.JavaCatalogToSpecTransformer"/>
     <service id="javaCatalogToSpecTransformerService" ref="javaCatalogToSpecTransformer"
              interface="org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer"/>
+
+
+    <bean id="javaEntitySpecResolver" scope="prototype"
+             class="org.apache.brooklyn.core.resolve.entity.JavaEntitySpecResolver"/>
+    <bean id="catalogEntitySpecResolver" scope="prototype"
+             class="org.apache.brooklyn.core.resolve.entity.CatalogEntitySpecResolver"/>
+
+    <service id="javaEntitySpecResolverService" ref="javaEntitySpecResolver"
+             interface="org.apache.brooklyn.core.resolve.entity.EntitySpecResolver" />
+    <service id="catalogEntitySpecResolverService" ref="catalogEntitySpecResolver"
+             interface="org.apache.brooklyn.core.resolve.entity.EntitySpecResolver" />
+
 
 </blueprint>
