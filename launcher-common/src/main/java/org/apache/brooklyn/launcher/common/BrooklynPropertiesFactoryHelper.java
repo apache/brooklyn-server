@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 
 import org.apache.brooklyn.core.internal.BrooklynProperties;
+import org.apache.brooklyn.core.internal.BrooklynProperties.Factory.Builder;
 import org.apache.brooklyn.util.exceptions.FatalRuntimeException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.io.FileUtil;
@@ -36,41 +37,61 @@ public class BrooklynPropertiesFactoryHelper {
 
     private final String globalBrooklynPropertiesFile;
     private final String localBrooklynPropertiesFile;
+    private final BrooklynProperties brooklynProperties;
 
     public BrooklynPropertiesFactoryHelper(String globalBrooklynPropertiesFile, String localBrooklynPropertiesFile) {
+        this(globalBrooklynPropertiesFile, localBrooklynPropertiesFile, null);
+    }
+
+    public BrooklynPropertiesFactoryHelper(BrooklynProperties brooklynProperties) {
+        this(null, null, brooklynProperties);
+    }
+
+    public BrooklynPropertiesFactoryHelper(String globalBrooklynPropertiesFile,
+            String localBrooklynPropertiesFile,
+            BrooklynProperties brooklynProperties) {
         this.globalBrooklynPropertiesFile = globalBrooklynPropertiesFile;
         this.localBrooklynPropertiesFile = localBrooklynPropertiesFile;
+        this.brooklynProperties = brooklynProperties;
     }
 
     public BrooklynProperties.Factory.Builder createPropertiesBuilder() {
-        BrooklynProperties.Factory.Builder builder = BrooklynProperties.Factory.builderDefault();
-
-        if (Strings.isNonEmpty(globalBrooklynPropertiesFile)) {
-            File globalProperties = new File(Os.tidyPath(globalBrooklynPropertiesFile));
-            if (globalProperties.exists()) {
-                globalProperties = resolveSymbolicLink(globalProperties);
-                checkFileReadable(globalProperties);
-                // brooklyn.properties stores passwords (web-console and cloud credentials),
-                // so ensure it has sensible permissions
-                checkFilePermissionsX00(globalProperties);
-                LOG.debug("Using global properties file " + globalProperties);
+        if (brooklynProperties == null) {
+            BrooklynProperties.Factory.Builder builder = BrooklynProperties.Factory.builderDefault();
+    
+            if (Strings.isNonEmpty(globalBrooklynPropertiesFile)) {
+                File globalProperties = new File(Os.tidyPath(globalBrooklynPropertiesFile));
+                if (globalProperties.exists()) {
+                    globalProperties = resolveSymbolicLink(globalProperties);
+                    checkFileReadable(globalProperties);
+                    // brooklyn.properties stores passwords (web-console and cloud credentials),
+                    // so ensure it has sensible permissions
+                    checkFilePermissionsX00(globalProperties);
+                    LOG.debug("Using global properties file " + globalProperties);
+                } else {
+                    LOG.debug("Global properties file " + globalProperties + " does not exist, will ignore");
+                }
+                builder.globalPropertiesFile(globalProperties.getAbsolutePath());
             } else {
-                LOG.debug("Global properties file " + globalProperties + " does not exist, will ignore");
+                LOG.debug("Global properties file disabled");
+                builder.globalPropertiesFile(null);
             }
-            builder.globalPropertiesFile(globalProperties.getAbsolutePath());
+            
+            if (Strings.isNonEmpty(localBrooklynPropertiesFile)) {
+                File localProperties = new File(Os.tidyPath(localBrooklynPropertiesFile));
+                localProperties = resolveSymbolicLink(localProperties);
+                checkFileReadable(localProperties);
+                checkFilePermissionsX00(localProperties);
+                builder.localPropertiesFile(localProperties.getAbsolutePath());
+            }
+            return builder;
         } else {
-            LOG.debug("Global properties file disabled");
-            builder.globalPropertiesFile(null);
+            if (globalBrooklynPropertiesFile != null)
+                LOG.warn("Ignoring globalBrooklynPropertiesFile "+globalBrooklynPropertiesFile+" because explicit brooklynProperties supplied");
+            if (localBrooklynPropertiesFile != null)
+                LOG.warn("Ignoring localBrooklynPropertiesFile "+localBrooklynPropertiesFile+" because explicit brooklynProperties supplied");
+            return Builder.fromProperties(brooklynProperties);
         }
-        
-        if (Strings.isNonEmpty(localBrooklynPropertiesFile)) {
-            File localProperties = new File(Os.tidyPath(localBrooklynPropertiesFile));
-            localProperties = resolveSymbolicLink(localProperties);
-            checkFileReadable(localProperties);
-            checkFilePermissionsX00(localProperties);
-            builder.localPropertiesFile(localProperties.getAbsolutePath());
-        }
-        return builder;
     }
 
     /**

@@ -29,9 +29,6 @@ limitations under the License.
 
     <cxf:bus>
         <cxf:features>
-<!--            <bean class="org.apache.cxf.interceptor.security.JAASAuthenticationFeature">
-                    <property name="reportFault" value="true"/>
-            </bean>-->
             <cxf:logging/>
         </cxf:features>
     </cxf:bus>

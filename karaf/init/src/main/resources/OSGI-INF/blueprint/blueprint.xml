@@ -23,6 +23,10 @@ limitations under the License.
              http://aries.apache.org/schemas/blueprint-cm/blueprint-cm-1.1.0.xsd
              ">
 
+    <!-- Make sure core bundle is already started -->
+    <reference id="brooklynVersion"
+               interface="org.apache.brooklyn.core.BrooklynVersionService" />
+
     <cm:property-placeholder persistent-id="org.apache.brooklyn.osgilauncher" update-strategy="reload">
         <cm:default-properties>
             <cm:property name="ignoreCatalogErrors" value="true" />
@@ -36,36 +40,24 @@ limitations under the License.
             <cm:property name="localBrooklynPropertiesFile" value="" /> <!-- used to be settable through cli params -->
         </cm:default-properties>
     </cm:property-placeholder>
-    
+
     <bean id="propertiesBuilderFactory"
           class="org.apache.brooklyn.launcher.common.BrooklynPropertiesFactoryHelper">
         <argument value="${globalBrooklynPropertiesFile}" />
         <argument value="${localBrooklynPropertiesFile}" />
     </bean>
-    
+
     <bean id="propertiesBuilder"
           class="org.apache.brooklyn.core.internal.BrooklynProperties.Factory.Builder"
           factory-ref="propertiesBuilderFactory"
           factory-method="createPropertiesBuilder" />
 
-    <bean id="localManagementContextService"
-          class="org.apache.brooklyn.core.mgmt.internal.LocalManagementContext"
-          destroy-method="terminate">
-        <argument ref="propertiesBuilder" />
-    </bean>
-
-    <service ref="localManagementContextService">
-        <interfaces>
-            <value>org.apache.brooklyn.api.mgmt.ManagementContext</value>
-            <value>org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal</value>
-        </interfaces>
-    </service>
-
     <bean id="launcher"
-          class="org.apache.brooklyn.core.OsgiLauncher"
-          init-method="start">
+          class="org.apache.brooklyn.launcher.osgi.OsgiLauncher"
+          init-method="init">
 
-        <property name="managementContext" ref="localManagementContextService" />
+        <property name="brooklynVersion" ref="brooklynVersion" />
+        <property name="brooklynPropertiesBuilder" ref="propertiesBuilder" />
 
         <property name="ignoreCatalogErrors" value="${ignoreCatalogErrors}" />
         <property name="ignorePersistenceErrors" value="${ignorePersistenceErrors}" />
@@ -75,5 +67,24 @@ limitations under the License.
         <property name="persistenceLocation" value="${persistenceLocation}" />
         <property name="persistPeriod" value="${persistPeriod}" />
     </bean>
+
+    <bean id="localManagementContextService"
+          class="org.apache.brooklyn.core.mgmt.internal.LocalManagementContext"
+          factory-ref="launcher"
+          factory-method="getManagementContext" />
+          
+    <bean id="campPlatform"
+          class="org.apache.brooklyn.camp.CampPlatform"
+          factory-ref="launcher"
+          factory-method="getCampPlatform" />
+
+    <!-- TODO shutdown -->
+
+    <service ref="localManagementContextService">
+        <interfaces>
+            <value>org.apache.brooklyn.api.mgmt.ManagementContext</value>
+            <value>org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal</value>
+        </interfaces>
+    </service>
 
 </blueprint>
