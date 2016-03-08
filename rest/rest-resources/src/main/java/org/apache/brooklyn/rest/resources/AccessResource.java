@@ -21,7 +21,6 @@ package org.apache.brooklyn.rest.resources;
 import javax.ws.rs.core.Response;
 
 import org.apache.brooklyn.core.mgmt.internal.AccessManager;
-import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.rest.api.AccessApi;
 import org.apache.brooklyn.rest.domain.AccessSummary;
 import org.apache.brooklyn.rest.transform.AccessTransformer;
@@ -33,13 +32,13 @@ public class AccessResource extends AbstractBrooklynRestResource implements Acce
 
     @Override
     public AccessSummary get() {
-        AccessManager accessManager = ((ManagementContextInternal) mgmt()).getAccessManager();
+        AccessManager accessManager = mgmtInternal().getAccessManager();
         return AccessTransformer.accessSummary(accessManager, ui.getBaseUriBuilder());
     }
 
     @Override
     public Response locationProvisioningAllowed(boolean allowed) {
-        AccessManager accessManager = ((ManagementContextInternal) mgmt()).getAccessManager();
+        AccessManager accessManager = mgmtInternal().getAccessManager();
         accessManager.setLocationProvisioningAllowed(allowed);
         return Response.status(Response.Status.OK).build();
     }

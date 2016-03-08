@@ -115,7 +115,6 @@
         <feature>brooklyn-api</feature>
 
         <bundle>mvn:org.apache.brooklyn/brooklyn-core/${project.version}</bundle>
-        <bundle>mvn:org.apache.brooklyn/brooklyn-rt-osgi/${project.version}</bundle>
         <bundle>mvn:org.apache.brooklyn/brooklyn-utils-groovy/${project.version}</bundle>
 
         <bundle dependency="true">mvn:com.google.code.gson/gson/${gson.version}</bundle>
@@ -182,6 +181,10 @@
         <!-- should be deps of jax-rs-2.0 rest-api project -->
         <bundle dependency="true">mvn:javax.servlet/javax.servlet-api/${javax-servlet.version}</bundle>
         <bundle dependency="true">mvn:javax.ws.rs/javax.ws.rs-api/${jax-rs-api.version}</bundle>
+
+        <config name="org.apache.cxf.osgi">
+            org.apache.cxf.servlet.context = /v1
+        </config>
     </feature>
 
     <feature name="brooklyn-jsgui" version="${project.version}" description="Brooklyn REST JavaScript Web GUI">
@@ -197,7 +200,10 @@
     <feature name="brooklyn-software-winrm" version="${project.version}" description="Brooklyn WinRM Software Entities">
         <bundle>mvn:org.apache.brooklyn/brooklyn-software-winrm/${project.version}</bundle>
         <feature>brooklyn-core</feature>
-        <bundle dependency="true">wrap:mvn:io.cloudsoft.windows/winrm4j/${winrm4j.version}</bundle>
+        <bundle dependency="true">mvn:io.cloudsoft.windows/winrm4j/${winrm4j.version}</bundle>
+        <bundle dependency="true">mvn:io.cloudsoft.windows/winrm4j-client/${winrm4j.version}</bundle>
+        <feature>cxf-jaxws</feature>
+        <feature>cxf-http-async</feature>
     </feature>
 
     <feature name="brooklyn-policy"  version="${project.version}" description="Brooklyn Policies">
