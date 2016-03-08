@@ -23,7 +23,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.util.Arrays;
+import java.util.Dictionary;
 import java.util.Enumeration;
+import java.util.Hashtable;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicReference;
@@ -31,7 +35,21 @@ import java.util.jar.Attributes;
 
 import javax.annotation.Nullable;
 
+import org.apache.brooklyn.api.catalog.CatalogItem;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
+import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.rt.felix.ManifestHelper;
+import org.apache.brooklyn.util.core.ResourceUtils;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.osgi.OsgiUtil;
+import org.apache.brooklyn.util.stream.Streams;
+import org.apache.brooklyn.util.text.Strings;
+import org.osgi.framework.Bundle;
 import org.osgi.framework.Constants;
+import org.osgi.framework.FrameworkUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,33 +59,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import java.util.Arrays;
-import java.util.Dictionary;
-import java.util.Hashtable;
-import java.util.List;
-
-import org.apache.brooklyn.api.catalog.CatalogItem;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
-import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
-import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
-import org.apache.brooklyn.util.core.ResourceUtils;
-import org.apache.brooklyn.rt.felix.ManifestHelper;
-import org.apache.brooklyn.util.core.osgi.Osgis;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.osgi.OsgiUtil;
-import org.apache.brooklyn.util.stream.Streams;
-import org.apache.brooklyn.util.text.Strings;
-import org.osgi.framework.Bundle;
-import org.osgi.framework.FrameworkUtil;
 
 /**
  * Wraps the version of Brooklyn.
  * <p>
  * Also retrieves the SHA-1 from any OSGi bundle, and checks that the maven and osgi versions match.
  */
-public class BrooklynVersion {
+public class BrooklynVersion implements BrooklynVersionService {
 
     private static final Logger log = LoggerFactory.getLogger(BrooklynVersion.class);
 
@@ -101,6 +99,7 @@ public class BrooklynVersion {
         checkVersions();
     }
 
+    @Override
     public void checkVersions() {
         String mvnVersion = getVersionFromMavenProperties();
         if (mvnVersion != null && !VERSION_FROM_STATIC.equals(mvnVersion)) {
@@ -129,16 +128,19 @@ public class BrooklynVersion {
         return "0.0.0-SNAPSHOT";
     }
 
+    @Override
     @Nullable
     public String getVersionFromMavenProperties() {
         return versionProperties.getProperty(MVN_VERSION_PROPERTY_NAME);
     }
 
+    @Override
     @Nullable
     public String getVersionFromOsgiManifest() {
         return versionProperties.getProperty(OSGI_VERSION_PROPERTY_NAME);
     }
 
+    @Override
     @Nullable
     /** SHA1 of the last commit to brooklyn at the time this build was made.
      * For SNAPSHOT builds of course there may have been further non-committed changes. */
@@ -146,10 +148,12 @@ public class BrooklynVersion {
         return versionProperties.getProperty(OSGI_SHA1_PROPERTY_NAME);
     }
 
+    @Override
     public String getVersion() {
         return VERSION_FROM_STATIC;
     }
 
+    @Override
     public boolean isSnapshot() {
         return (getVersion().indexOf("-SNAPSHOT") >= 0);
     }
@@ -268,6 +272,7 @@ public class BrooklynVersion {
         return false;
     }
 
+    @Override
     public void logSummary() {
         log.debug("Brooklyn version " + getVersion() + " (git SHA1 " + getSha1FromOsgiManifest() + ")");
     }
@@ -282,6 +287,10 @@ public class BrooklynVersion {
 
     public static String get() {
         return INSTANCE.getVersion();
+    }
+
+    public static BrooklynVersion getInstance() {
+        return INSTANCE;
     }
 
     /**
