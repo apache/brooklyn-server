@@ -48,6 +48,11 @@
         </dependency>
         <dependency>
             <groupId>org.apache.brooklyn</groupId>
+            <artifactId>brooklyn-launcher-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.brooklyn</groupId>
             <artifactId>brooklyn-rest-server${rest-server-classifier}</artifactId>
             <version>${project.version}</version>
         </dependency>
@@ -199,6 +204,13 @@
             <classifier>tests</classifier>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.apache.brooklyn</groupId>
+            <artifactId>brooklyn-launcher-common</artifactId>
+            <version>${project.version}</version>
+            <classifier>tests</classifier>
+            <scope>test</scope>
+        </dependency>
 
     </dependencies>
 
@@ -233,23 +245,6 @@
                      </execution>
                  </executions>
              </plugin>
-            <plugin>
-                <groupId>org.apache.felix</groupId>
-                <artifactId>maven-bundle-plugin</artifactId>
-                <configuration>
-                    <instructions>
-                        <Include-Resource>{maven-resources}, target/classes/brooklyn.war</Include-Resource>
-                        <Bundle-Activator>brooklyn.launcher.Activator</Bundle-Activator>
-                        <Main-class>brooklyn.launcher.Main</Main-class>
-                    </instructions>
-                </configuration>
-            </plugin>
-            <plugin>
-                <artifactId>maven-site-plugin</artifactId>
-                <configuration>
-                    <generateReports>false</generateReports>
-                </configuration>
-            </plugin>
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

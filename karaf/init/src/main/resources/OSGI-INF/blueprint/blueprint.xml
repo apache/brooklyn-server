@@ -32,12 +32,27 @@ limitations under the License.
             <cm:property name="persistenceDir" value="" />
             <cm:property name="persistenceLocation" value="" />
             <cm:property name="persistPeriod" value="1s" />
+            <cm:property name="globalBrooklynPropertiesFile" value="~/.brooklyn/brooklyn.properties" />
+            <cm:property name="localBrooklynPropertiesFile" value="" /> <!-- used to be settable through cli params -->
         </cm:default-properties>
     </cm:property-placeholder>
+    
+    <bean id="propertiesBuilderFactory"
+          class="org.apache.brooklyn.launcher.common.BrooklynPropertiesFactoryHelper">
+        <argument value="${globalBrooklynPropertiesFile}" />
+        <argument value="${localBrooklynPropertiesFile}" />
+    </bean>
+    
+    <bean id="propertiesBuilder"
+          class="org.apache.brooklyn.core.internal.BrooklynProperties.Factory.Builder"
+          factory-ref="propertiesBuilderFactory"
+          factory-method="createPropertiesBuilder" />
 
     <bean id="localManagementContextService"
-          class="org.apache.brooklyn.core.mgmt.internal.LocalManagementContext" 
-          destroy-method="terminate" />
+          class="org.apache.brooklyn.core.mgmt.internal.LocalManagementContext"
+          destroy-method="terminate">
+        <argument ref="propertiesBuilder" />
+    </bean>
 
     <service ref="localManagementContextService">
         <interfaces>

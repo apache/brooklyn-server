@@ -22,9 +22,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.io.Closeable;
 import java.io.File;
-import java.io.IOException;
 import java.net.InetAddress;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -76,6 +74,7 @@ import org.apache.brooklyn.core.server.BrooklynServerPaths;
 import org.apache.brooklyn.entity.brooklynnode.BrooklynNode;
 import org.apache.brooklyn.entity.brooklynnode.LocalBrooklynNode;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
+import org.apache.brooklyn.launcher.common.BrooklynPropertiesFactoryHelper;
 import org.apache.brooklyn.launcher.config.StopWhichAppsOnShutdown;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation.LocalhostMachine;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
@@ -86,8 +85,6 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.FatalConfigurationRuntimeException;
 import org.apache.brooklyn.util.exceptions.FatalRuntimeException;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
-import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.io.FileUtil;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.stream.Streams;
@@ -676,35 +673,9 @@ public class BrooklynLauncher {
         // Create the management context
         if (managementContext == null) {
             if (brooklynProperties == null) {
-                BrooklynProperties.Factory.Builder builder = BrooklynProperties.Factory.builderDefault();
-
-                if (globalBrooklynPropertiesFile != null) {
-                    File globalProperties = new File(Os.tidyPath(globalBrooklynPropertiesFile));
-                    if (globalProperties.exists()) {
-                        globalProperties = resolveSymbolicLink(globalProperties);
-                        checkFileReadable(globalProperties);
-                        // brooklyn.properties stores passwords (web-console and cloud credentials),
-                        // so ensure it has sensible permissions
-                        checkFilePermissionsX00(globalProperties);
-                        LOG.debug("Using global properties file " + globalProperties);
-                    } else {
-                        LOG.debug("Global properties file " + globalProperties + " does not exist, will ignore");
-                    }
-                    builder.globalPropertiesFile(globalProperties.getAbsolutePath());
-                } else {
-                    LOG.debug("Global properties file disabled");
-                    builder.globalPropertiesFile(null);
-                }
-                
-                if (localBrooklynPropertiesFile != null) {
-                    File localProperties = new File(Os.tidyPath(localBrooklynPropertiesFile));
-                    localProperties = resolveSymbolicLink(localProperties);
-                    checkFileReadable(localProperties);
-                    checkFilePermissionsX00(localProperties);
-                    builder.localPropertiesFile(localProperties.getAbsolutePath());
-                }
-
-                managementContext = new LocalManagementContext(builder, brooklynAdditionalProperties);
+                managementContext = new LocalManagementContext(
+                        new BrooklynPropertiesFactoryHelper(globalBrooklynPropertiesFile, localBrooklynPropertiesFile).createPropertiesBuilder(),
+                        brooklynAdditionalProperties);
 
             } else {
                 if (globalBrooklynPropertiesFile != null)
@@ -733,46 +704,6 @@ public class BrooklynLauncher {
         }
     }
 
-    /**
-     * @return The canonical path of the argument.
-     */
-    private File resolveSymbolicLink(File f) {
-        File f2 = f;
-        try {
-            f2 = f.getCanonicalFile();
-            if (Files.isSymbolicLink(f.toPath())) {
-                LOG.debug("Resolved symbolic link: {} -> {}", f, f2);
-            }
-        } catch (IOException e) {
-            LOG.warn("Could not determine canonical name of file "+f+"; returning original file", e);
-        }
-        return f2;
-    }
-
-    private void checkFileReadable(File f) {
-        if (!f.exists()) {
-            throw new FatalRuntimeException("File " + f + " does not exist");
-        }
-        if (!f.isFile()) {
-            throw new FatalRuntimeException(f + " is not a file");
-        }
-        if (!f.canRead()) {
-            throw new FatalRuntimeException(f + " is not readable");
-        }
-    }
-    
-    private void checkFilePermissionsX00(File f) {
-
-        Maybe<String> permission = FileUtil.getFilePermissions(f);
-        if (permission.isAbsent()) {
-            LOG.debug("Could not determine permissions of file; assuming ok: "+f);
-        } else {
-            if (!permission.get().subSequence(4, 10).equals("------")) {
-                throw new FatalRuntimeException("Invalid permissions for file " + f + "; expected ?00 but was " + permission.get());
-            }
-        }
-    }
-    
     private void handleSubsystemStartupError(boolean ignoreSuchErrors, String system, Exception e) {
         Exceptions.propagateIfFatal(e);
         if (ignoreSuchErrors) {

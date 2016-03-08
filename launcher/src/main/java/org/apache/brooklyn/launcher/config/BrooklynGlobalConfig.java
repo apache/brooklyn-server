@@ -40,7 +40,10 @@ import org.apache.brooklyn.util.time.Duration;
  * <li> {@link BrooklynSystemProperties}
  * <li> {@link BrooklynServiceAttributes}
  * <li> {@link CloudLocationConfig} and classes in that hierarchy.
+ * 
+ * @deprecated since 0.9.0 - not used
  */
+@Deprecated
 public class BrooklynGlobalConfig {
 
     public static final ConfigKey<Boolean> REQUIRE_HTTPS = BrooklynWebConfig.HTTPS_REQUIRED;

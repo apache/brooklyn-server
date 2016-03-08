@@ -72,6 +72,7 @@ import org.slf4j.LoggerFactory;
  *
  * Temporarily here; should be totally contained in blueprint beans' init-methods.
  */
+// TODO move to brooklyn-karaf-init
 public class OsgiLauncher {
 
     private static final Logger log = LoggerFactory.getLogger(OsgiLauncher.class);
