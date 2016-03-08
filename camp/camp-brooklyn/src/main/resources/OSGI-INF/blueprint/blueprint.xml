@@ -24,12 +24,12 @@ limitations under the License.
              ">
 
     <bean id="campTypePlanTransformer"
-            class="org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformerFactory"
-            factory-method="newInstance"/>
+            class="org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer"
+            scope="prototype"/>
 
     <bean id="campToSpecTransformer"
-           class="org.apache.brooklyn.camp.brooklyn.spi.creation.CampToSpecTransformerFactory"
-           factory-method="newInstance" />
+           class="org.apache.brooklyn.camp.brooklyn.spi.creation.CampToSpecTransformer"
+           scope="prototype"/>
 
     <service id="campToSpecTransformerService" ref="campToSpecTransformer"
            interface="org.apache.brooklyn.camp.brooklyn.spi.creation.CampToSpecTransformer" />

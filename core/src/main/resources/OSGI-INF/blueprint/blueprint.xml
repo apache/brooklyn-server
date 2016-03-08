@@ -31,11 +31,16 @@ limitations under the License.
             interface="org.apache.brooklyn.core.BrooklynVersionService" />
 
     <bean id="javaClassNameTypePlanTransformer"
-          class="org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformerFactory"
-          factory-method="newInstance"/>
+          class="org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer"
+          scope="prototype"/>
 
     <service id="javaClassNameTypePlanTransformerService" ref="javaClassNameTypePlanTransformer"
              interface="org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer" />
 
+
+    <bean id="javaCatalogToSpecTransformer" scope="prototype"
+          class="org.apache.brooklyn.core.catalog.internal.JavaCatalogToSpecTransformer"/>
+    <service id="javaCatalogToSpecTransformerService" ref="javaCatalogToSpecTransformer"
+             interface="org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer"/>
 
 </blueprint>
