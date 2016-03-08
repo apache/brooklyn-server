@@ -46,13 +46,58 @@ limitations under the License.
 
     <bean id="javaEntitySpecResolver" scope="prototype"
              class="org.apache.brooklyn.core.resolve.entity.JavaEntitySpecResolver"/>
-    <bean id="catalogEntitySpecResolver" scope="prototype"
-             class="org.apache.brooklyn.core.resolve.entity.CatalogEntitySpecResolver"/>
-
     <service id="javaEntitySpecResolverService" ref="javaEntitySpecResolver"
              interface="org.apache.brooklyn.core.resolve.entity.EntitySpecResolver" />
+
+    <bean id="catalogEntitySpecResolver" scope="prototype"
+             class="org.apache.brooklyn.core.resolve.entity.CatalogEntitySpecResolver"/>
     <service id="catalogEntitySpecResolverService" ref="catalogEntitySpecResolver"
              interface="org.apache.brooklyn.core.resolve.entity.EntitySpecResolver" />
 
+
+    <bean id="definedLocationByIdResolver" scope="prototype"
+          class="org.apache.brooklyn.core.location.DefinedLocationByIdResolver"/>
+    <service id="definedLocationByIdResolverService" ref="definedLocationByIdResolver"
+             interface="org.apache.brooklyn.api.location.LocationResolver"/>
+
+    <bean id="namedLocationResolver" scope="prototype"
+          class="org.apache.brooklyn.core.location.NamedLocationResolver" />
+    <service id="namedLocationResolverService" ref="namedLocationResolver"
+             interface="org.apache.brooklyn.api.location.LocationResolver"/>
+
+    <bean id="catalogLocationResolver" scope="prototype"
+          class="org.apache.brooklyn.core.location.CatalogLocationResolver"/>
+    <service id="catalogLocationResolverService" ref="catalogLocationResolver"
+             interface="org.apache.brooklyn.api.location.LocationResolver"/>
+
+    <bean id="portForwardManagerLocationResolver" scope="prototype"
+          class="org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver"/>
+    <service id="portForwardManagerLocationResolverService" ref="portForwardManagerLocationResolver"
+             interface="org.apache.brooklyn.api.location.LocationResolver"/>
+
+    <bean id="byonLocationResolver" scope="prototype"
+          class="org.apache.brooklyn.location.byon.ByonLocationResolver" />
+    <service id="byonLocationResolverService" ref="byonLocationResolver"
+             interface="org.apache.brooklyn.api.location.LocationResolver"/>
+
+    <bean id="singleMachineLocationResolver" scope="prototype"
+          class="org.apache.brooklyn.location.byon.SingleMachineLocationResolver"/>
+    <service id="singleMachineLocationResolverService" ref="singleMachineLocationResolver"
+             interface="org.apache.brooklyn.api.location.LocationResolver"/>
+
+    <bean id="hostLocationResolver" scope="prototype"
+          class="org.apache.brooklyn.location.byon.HostLocationResolver"/>
+    <service id="hostLocationResolverService" ref="hostLocationResolver"
+             interface="org.apache.brooklyn.api.location.LocationResolver"/>
+
+    <bean id="localhostLocationResolver" scope="prototype"
+          class="org.apache.brooklyn.location.localhost.LocalhostLocationResolver"/>
+    <service id="localhostLocationResolverService" ref="localhostLocationResolver"
+             interface="org.apache.brooklyn.api.location.LocationResolver"/>
+
+    <bean id="multiLocationResolver" scope="prototype"
+          class="org.apache.brooklyn.location.multi.MultiLocationResolver" />
+    <service id="multiLocationResolverService" ref="multiLocationResolver"
+             interface="org.apache.brooklyn.api.location.LocationResolver"/>
 
 </blueprint>

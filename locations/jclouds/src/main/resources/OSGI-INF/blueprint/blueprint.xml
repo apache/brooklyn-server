@@ -23,19 +23,16 @@ limitations under the License.
              http://aries.apache.org/schemas/blueprint-cm/blueprint-cm-1.1.0.xsd
              ">
 
-    <bean id="chefEntitySpecResolver" scope="prototype"
-             class="org.apache.brooklyn.entity.resolve.ChefEntitySpecResolver"/>
-    <service id="chefEntitySpecResolverService" ref="chefEntitySpecResolver"
-             interface="org.apache.brooklyn.core.resolve.entity.EntitySpecResolver" />
 
-    <bean id="hardcodedCatalogEntitySpecResolver" scope="prototype"
-             class="org.apache.brooklyn.entity.resolve.HardcodedCatalogEntitySpecResolver"/>
-    <service id="hardcodedCatalogEntitySpecResolverService" ref="hardcodedCatalogEntitySpecResolver"
-             interface="org.apache.brooklyn.core.resolve.entity.EntitySpecResolver" />
+    <bean id="jcloudsLocationResolver" scope="prototype"
+          class="org.apache.brooklyn.location.jclouds.JcloudsLocationResolver"/>
+    <service id="jcloudsLocationResolverService" ref="jcloudsLocationResolver"
+             interface="org.apache.brooklyn.api.location.LocationResolver"/>
 
-    <bean id="serverPoolLocationResolver" scope="prototype"
-          class="org.apache.brooklyn.entity.machine.pool.ServerPoolLocationResolver"/>
-    <service id="serverPoolLocationResolverService" ref="serverPoolLocationResolver"
-             interface="org.apache.brooklyn.api.location.LocationResolver" />
+    <bean id="jcloudsByonLocationResolver" scope="prototype"
+          class="org.apache.brooklyn.location.jclouds.JcloudsByonLocationResolver"/>
+    <service id="jcloudsByonLocationResolverService" ref="jcloudsByonLocationResolver"
+             interface="org.apache.brooklyn.api.location.LocationResolver"/>
+
 
 </blueprint>

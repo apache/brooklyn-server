@@ -36,6 +36,7 @@ import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.ImplementedBy;
+import org.apache.brooklyn.api.framework.FrameworkLookup;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationResolver;
 import org.apache.brooklyn.api.objs.BrooklynObject;
@@ -216,7 +217,8 @@ public class ItemLister {
                 policies.addAll(ItemDescriptors.toItemDescriptors(getTypes(urls, Policy.class), headingsOnly, "name"));
                 enrichers.addAll(ItemDescriptors.toItemDescriptors(getTypes(urls, Enricher.class), headingsOnly, "name"));
                 locations.addAll(ItemDescriptors.toItemDescriptors(getTypes(urls, Location.class, false), headingsOnly, "type"));
-                locationResolvers.addAll(ItemDescriptors.toItemDescriptors(ImmutableList.copyOf(ServiceLoader.load(LocationResolver.class)), true));
+                locationResolvers.addAll(ItemDescriptors.toItemDescriptors(
+                    ImmutableList.copyOf(FrameworkLookup.lookupAll(LocationResolver.class)), true));
             }
             if (!yamlToScan.isEmpty()) {
                 List<URL> urls = getYamlUrls();
