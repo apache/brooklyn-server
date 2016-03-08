@@ -24,8 +24,8 @@ import org.osgi.framework.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.ServiceLoader;
 
@@ -118,7 +118,7 @@ public class FrameworkLookup {
     }
 
     private static <T> Iterable<T> lookupAllInOsgi(Class<T> clazz) {
-        final List<T> result = Collections.emptyList();
+        final List<T> result = new ArrayList<>();
         final Bundle bundle = FrameworkUtil.getBundle(clazz);
         if (bundle != null) {
             LOG.debug("Looking up all " + clazz.getSimpleName() + " in OSGI");
