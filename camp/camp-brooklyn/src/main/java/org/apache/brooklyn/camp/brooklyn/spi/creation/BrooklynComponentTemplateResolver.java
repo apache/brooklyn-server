@@ -18,19 +18,14 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.creation;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.ServiceLoader;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.framework.FrameworkLookup;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
@@ -180,7 +175,7 @@ public class BrooklynComponentTemplateResolver {
 
     private List<EntitySpecResolver> getServiceTypeResolverOverrides() {
         List<EntitySpecResolver> overrides = new ArrayList<>();
-        ServiceLoader<ServiceTypeResolver> loader = ServiceLoader.load(ServiceTypeResolver.class, mgmt.getCatalogClassLoader());
+        Iterable<ServiceTypeResolver> loader = FrameworkLookup.lookupAll(ServiceTypeResolver.class, mgmt.getCatalogClassLoader());
         for (ServiceTypeResolver resolver : loader) {
            overrides.add(new ServiceTypeResolverAdaptor(this, resolver));
         }

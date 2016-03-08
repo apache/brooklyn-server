@@ -41,7 +41,7 @@ limitations under the License.
     <bean id="javaCatalogToSpecTransformer" scope="prototype"
              class="org.apache.brooklyn.core.catalog.internal.JavaCatalogToSpecTransformer"/>
     <service id="javaCatalogToSpecTransformerService" ref="javaCatalogToSpecTransformer"
-             interface="org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer"/>
+             interface="org.apache.brooklyn.core.plan.PlanToSpecTransformer"/>
 
 
     <bean id="javaEntitySpecResolver" scope="prototype"

@@ -50,12 +50,27 @@ public class FrameworkLookup {
      * @return  A maybe of the instance found in the framework.
      */
     public static <T> Maybe<T> lookup (Class<T> clazz) {
+        return lookup(clazz, null);
+    }
+
+    /**
+     * Find an instance of the given class in the framework.
+     * This first performs an OSGI lookup if the OSGI framework is available. If it is not then it falls back to
+     * attempting a lookup from the current context classpath via a ServiceLoader.
+     *
+     * @param clazz The class (typically the class of an interface) to search in the framework.
+     * @param loader If falling back to ServiceLoader, this class loader is used to load the class. If <tt>null</tt>,
+     *         the system class loader (or, failing that, the bootstrap class loader) is used.
+     * @param <T>  The type for the class.
+     * @return  A maybe of the instance found in the framework.
+     */
+    public static <T> Maybe<T> lookup (Class<T> clazz, ClassLoader loader) {
 
         Maybe<T> result;
         if (OsgiUtil.isBrooklynInsideFramework()) {
             result = lookupInOsgi(clazz);
         } else {
-            result = lookupViaServiceLoader(clazz);
+            result = lookupViaServiceLoader(clazz, loader);
         }
 
         return result;
@@ -71,20 +86,35 @@ public class FrameworkLookup {
      * @return  An iterable over the instances found in the framework.
      */
     public static <T> Iterable<T> lookupAll(Class<T> clazz) {
+        return lookupAll(clazz, null);
+    }
+
+    /**
+     * Find all instances of the given class in the framework.
+     * This first performs an OSGI lookup if the OSGI framework is available. If it is not then it falls back to
+     * attempting a lookup from the current context classpath via a ServiceLoader.
+     *
+     * @param clazz The class (typically the class of an interface) to search in the framework.
+     * @param loader If falling back to ServiceLoader, this class loader is used to load the class. If <tt>null</tt>,
+     *         the system class loader (or, failing that, the bootstrap class loader) is used.
+     * @param <T>  The type for the class.
+     * @return  An iterable over the instances found in the framework.
+     */
+    public static <T> Iterable<T> lookupAll(Class<T> clazz, ClassLoader loader) {
 
         Iterable<T> result;
         if (OsgiUtil.isBrooklynInsideFramework()) {
             result = lookupAllInOsgi(clazz);
         } else {
-            result = lookupAllViaServiceLoader(clazz);
+            result = lookupAllViaServiceLoader(clazz, loader);
         }
         return result;
     }
 
-    private static <T> Iterable<T> lookupAllViaServiceLoader(Class<T> clazz) {
+    private static <T> Iterable<T> lookupAllViaServiceLoader(Class<T> clazz, ClassLoader loader) {
         LOG.debug("Looking up all " + clazz.getSimpleName() + "  via ServiceLoader");
 
-        return ServiceLoader.load(clazz);
+        return ServiceLoader.load(clazz, loader);
     }
 
     private static <T> Iterable<T> lookupAllInOsgi(Class<T> clazz) {
@@ -100,11 +130,11 @@ public class FrameworkLookup {
         return result;
     }
 
-    private static <T> Maybe<T> lookupViaServiceLoader(Class<T> clazz) {
+    private static <T> Maybe<T> lookupViaServiceLoader(Class<T> clazz, ClassLoader loader) {
         LOG.debug("Looking up " + clazz.getSimpleName() + "  via ServiceLoader");
 
         Maybe<T> result = Maybe.absent("No class " + clazz.getSimpleName() + " found with ServiceLoader");
-        ServiceLoader<T> LOADER = ServiceLoader.load(clazz);
+        ServiceLoader<T> LOADER = ServiceLoader.load(clazz, loader);
         for (T item : LOADER) {
             return Maybe.of(item);
         }
