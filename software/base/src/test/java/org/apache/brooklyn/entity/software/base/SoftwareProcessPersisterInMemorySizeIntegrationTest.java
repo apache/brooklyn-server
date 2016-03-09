@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.entity.software.base;
 
+import java.io.IOException;
+import java.util.concurrent.TimeoutException;
+
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterInMemorySizeIntegrationTest;
 import org.testng.annotations.BeforeMethod;
@@ -29,9 +32,9 @@ import com.google.common.collect.ImmutableList;
 public class SoftwareProcessPersisterInMemorySizeIntegrationTest extends BrooklynMementoPersisterInMemorySizeIntegrationTest {
 
     public SoftwareProcessPersisterInMemorySizeIntegrationTest() {
-        pass1MaxFiles = 60;
+        pass1MaxFiles = 80;
         pass1MaxKb = 150;
-        pass2MaxFiles = 80;
+        pass2MaxFiles = 100;
         pass2MaxKb = 150;
         pass3MaxKb = 50;
     }
@@ -43,6 +46,11 @@ public class SoftwareProcessPersisterInMemorySizeIntegrationTest extends Brookly
         app.createAndManageChild(EntitySpec.create(DoNothingSoftwareProcess.class)
                 .configure(SoftwareProcess.LIFECYCLE_EFFECTOR_TASKS, new SoftwareProcessDriverLifecycleEffectorTasks()));
         app.start(ImmutableList.of(location));
+    }
+
+    // to allow selection for running in IDE
+    public void testPersistenceVolumeFast() throws IOException, TimeoutException, InterruptedException {
+        super.testPersistenceVolumeFast();
     }
 
 }
