@@ -30,27 +30,36 @@ limitations under the License.
    <service ref="brooklynVersion"
             interface="org.apache.brooklyn.core.BrooklynVersionService" />
 
+
+    <bean id="apiObjectsFactoryImpl" class="org.apache.brooklyn.core.internal.ApiObjectsFactoryImpl" />
+
+    <service ref="apiObjectsFactoryImpl">
+        <interfaces>
+            <value>org.apache.brooklyn.api.internal.ApiObjectsFactoryInterface</value>
+        </interfaces>
+    </service>
+
     <bean id="javaClassNameTypePlanTransformer"
-             class="org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer"
-             scope="prototype"/>
+          class="org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer"
+          scope="prototype"/>
 
     <service id="javaClassNameTypePlanTransformerService" ref="javaClassNameTypePlanTransformer"
              interface="org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer" />
 
 
     <bean id="javaCatalogToSpecTransformer" scope="prototype"
-             class="org.apache.brooklyn.core.catalog.internal.JavaCatalogToSpecTransformer"/>
+          class="org.apache.brooklyn.core.catalog.internal.JavaCatalogToSpecTransformer"/>
     <service id="javaCatalogToSpecTransformerService" ref="javaCatalogToSpecTransformer"
              interface="org.apache.brooklyn.core.plan.PlanToSpecTransformer"/>
 
 
     <bean id="javaEntitySpecResolver" scope="prototype"
-             class="org.apache.brooklyn.core.resolve.entity.JavaEntitySpecResolver"/>
+          class="org.apache.brooklyn.core.resolve.entity.JavaEntitySpecResolver"/>
     <service id="javaEntitySpecResolverService" ref="javaEntitySpecResolver"
              interface="org.apache.brooklyn.core.resolve.entity.EntitySpecResolver" />
 
     <bean id="catalogEntitySpecResolver" scope="prototype"
-             class="org.apache.brooklyn.core.resolve.entity.CatalogEntitySpecResolver"/>
+          class="org.apache.brooklyn.core.resolve.entity.CatalogEntitySpecResolver"/>
     <service id="catalogEntitySpecResolverService" ref="catalogEntitySpecResolver"
              interface="org.apache.brooklyn.core.resolve.entity.EntitySpecResolver" />
 

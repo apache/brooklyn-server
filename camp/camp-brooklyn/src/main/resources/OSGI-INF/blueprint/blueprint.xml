@@ -32,7 +32,7 @@ limitations under the License.
            scope="prototype"/>
 
     <service id="campToSpecTransformerService" ref="campToSpecTransformer"
-           interface="org.apache.brooklyn.camp.brooklyn.spi.creation.CampToSpecTransformer" />
+           interface="org.apache.brooklyn.core.plan.PlanToSpecTransformer" />
 
     <service id="campTypePlanTransformerService" ref="campTypePlanTransformer"
            interface="org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer" />
