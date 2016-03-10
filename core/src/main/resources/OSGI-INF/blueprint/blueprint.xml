@@ -23,42 +23,11 @@ limitations under the License.
              http://aries.apache.org/schemas/blueprint-cm/blueprint-cm-1.1.0.xsd
              ">
 
-    <cm:property-placeholder persistent-id="org.apache.brooklyn.osgilauncher" update-strategy="reload">
-        <cm:default-properties>
-            <cm:property name="ignoreCatalogErrors" value="true" />
-            <cm:property name="ignorePersistenceErrors" value="true" />
-            <cm:property name="highAvailabilityMode" value="DISABLED" />
-            <cm:property name="persistMode" value="DISABLED" />
-            <cm:property name="persistenceDir" value="" />
-            <cm:property name="persistenceLocation" value="" />
-            <cm:property name="persistPeriod" value="1s" />
-        </cm:default-properties>
-    </cm:property-placeholder>
+   <bean id="brooklynVersion"
+         class="org.apache.brooklyn.core.BrooklynVersion"
+         factory-method="getInstance" />
 
-    <bean id="localManagementContextService"
-          class="org.apache.brooklyn.core.mgmt.internal.LocalManagementContext" 
-          destroy-method="terminate" />
-
-    <service ref="localManagementContextService">
-        <interfaces>
-            <value>org.apache.brooklyn.api.mgmt.ManagementContext</value>
-            <value>org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal</value>
-        </interfaces>
-    </service>
-
-    <bean id="launcher"
-          class="org.apache.brooklyn.core.OsgiLauncher"
-          init-method="start">
-
-        <property name="managementContext" ref="localManagementContextService" />
-
-        <property name="ignoreCatalogErrors" value="${ignoreCatalogErrors}" />
-        <property name="ignorePersistenceErrors" value="${ignorePersistenceErrors}" />
-        <property name="highAvailabilityMode" value="${highAvailabilityMode}" />
-        <property name="persistMode" value="${persistMode}" />
-        <property name="persistenceDir" value="${persistenceDir}" />
-        <property name="persistenceLocation" value="${persistenceLocation}" />
-        <property name="persistPeriod" value="${persistPeriod}" />
-    </bean>
+   <service ref="brooklynVersion"
+            interface="org.apache.brooklyn.core.BrooklynVersionService" />
 
 </blueprint>

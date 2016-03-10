@@ -115,6 +115,7 @@
             <bootFeature>system</bootFeature>
             <bootFeature>wrap</bootFeature>
             <!-- brooklyn features -->
+            <bootFeature>brooklyn-osgi-launcher</bootFeature>
             <bootFeature>brooklyn-jsgui</bootFeature>
             <bootFeature>brooklyn-rest-resources</bootFeature>
           </bootFeatures>

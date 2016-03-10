@@ -16,26 +16,24 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.launcher;
+package org.apache.brooklyn.core;
 
-import org.osgi.framework.BundleActivator;
-import org.osgi.framework.BundleContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+public interface BrooklynVersionService {
 
-public class Activator implements BundleActivator {
+    void checkVersions();
 
-    public static final Logger log = LoggerFactory.getLogger(Activator.class);
+    String getVersionFromMavenProperties();
 
-    @Override
-    public void start(BundleContext context) throws Exception {
-        //does nothing on startup, just makes resources available
-        //TODO maybe it wants to register a service that others could use?
-        log.info("Starting brooklyn-launcher OSGi bundle");
-    }
+    String getVersionFromOsgiManifest();
 
-    @Override
-    public void stop(BundleContext context) throws Exception {
-        log.info("Stopping brooklyn-launcher OSGi bundle");
-    }
+    /** SHA1 of the last commit to brooklyn at the time this build was made.
+     * For SNAPSHOT builds of course there may have been further non-committed changes. */
+    String getSha1FromOsgiManifest();
+
+    String getVersion();
+
+    boolean isSnapshot();
+
+    void logSummary();
+
 }

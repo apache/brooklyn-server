@@ -203,6 +203,7 @@
         <module>storage/hazelcast</module>
 
         <module>server-cli</module>
+        <module>launcher-common</module>
         <module>launcher</module>
         <module>logging/logback-includes</module>
         <module>logging/logback-xml</module>

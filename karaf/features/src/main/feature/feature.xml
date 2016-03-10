@@ -286,4 +286,11 @@
         <bundle dependency="true">mvn:com.google.guava/guava/${guava.version}</bundle>
     </feature>
 
+    <feature name="brooklyn-osgi-launcher" version="${project.version}" description="Brooklyn init">
+        <feature>brooklyn-core</feature>
+        <feature>brooklyn-software-base</feature>
+        <bundle>mvn:org.apache.brooklyn/brooklyn-launcher-common/${project.version}</bundle>
+        <bundle>mvn:org.apache.brooklyn/brooklyn-karaf-init/${project.version}</bundle>
+    </feature>
+
 </features>

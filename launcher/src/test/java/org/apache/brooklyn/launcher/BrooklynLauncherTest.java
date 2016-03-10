@@ -18,6 +18,15 @@
  */
 package org.apache.brooklyn.launcher;
 
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertSame;
+import static org.testng.Assert.assertTrue;
+
+import java.io.File;
+import java.net.URI;
+
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
@@ -27,40 +36,21 @@ import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
-import org.apache.brooklyn.core.mgmt.rebind.RebindTestUtils;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestApplicationImpl;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertSame;
-import static org.testng.Assert.assertTrue;
-
-import java.io.File;
-import java.io.IOException;
-import java.io.StringWriter;
-import java.io.Writer;
-import java.net.URI;
-import java.nio.charset.Charset;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Properties;
-
+import org.apache.brooklyn.launcher.common.BrooklynPropertiesFactoryHelperTest;
+import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.test.HttpTestUtils;
-import org.apache.brooklyn.util.exceptions.FatalRuntimeException;
 import org.apache.brooklyn.util.io.FileUtil;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.os.Os;
-import org.apache.brooklyn.util.text.StringFunctions;
 import org.apache.brooklyn.util.text.Strings;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
-import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
@@ -68,7 +58,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.common.io.Files;
 
 public class BrooklynLauncherTest {
@@ -240,7 +229,7 @@ public class BrooklynLauncherTest {
         FileUtil.setFilePermissionsTo600(globalPropertiesFile);
         try {
             String property = "mykey=myval";
-            Files.append(getMinimalLauncherPropertiesString()+property, globalPropertiesFile, Charsets.UTF_8);
+            Files.append(BrooklynPropertiesFactoryHelperTest.getMinimalLauncherPropertiesString()+property, globalPropertiesFile, Charsets.UTF_8);
             launcher = newLauncherForTests(false)
                     .webconsole(false)
                     .globalBrooklynPropertiesFile(globalPropertiesFile.getAbsolutePath())
@@ -248,7 +237,7 @@ public class BrooklynLauncherTest {
             LocalManagementContext managementContext = (LocalManagementContext)launcher.getServerDetails().getManagementContext();
             assertEquals(managementContext.getConfig().getFirst("mykey"), "myval");
             property = "mykey=newval";
-            Files.write(getMinimalLauncherPropertiesString()+property, globalPropertiesFile, Charsets.UTF_8);
+            Files.write(BrooklynPropertiesFactoryHelperTest.getMinimalLauncherPropertiesString()+property, globalPropertiesFile, Charsets.UTF_8);
             managementContext.reloadBrooklynProperties();
             assertEquals(managementContext.getConfig().getFirst("mykey"), "newval");
         } finally {
@@ -256,89 +245,6 @@ public class BrooklynLauncherTest {
         }
     }
 
-    @Test(groups="Integration")
-    public void testChecksGlobalBrooklynPropertiesPermissionsX00() throws Exception {
-        File propsFile = File.createTempFile("testChecksGlobalBrooklynPropertiesPermissionsX00", ".properties");
-        propsFile.setReadable(true, false);
-        try {
-            launcher = newLauncherForTests(false)
-                    .webconsole(false)
-                    .globalBrooklynPropertiesFile(propsFile.getAbsolutePath())
-                    .start();
-
-            Assert.fail("Should have thrown");
-        } catch (FatalRuntimeException e) {
-            if (!e.toString().contains("Invalid permissions for file")) throw e;
-        } finally {
-            propsFile.delete();
-        }
-    }
-
-    @Test(groups="Integration")
-    public void testChecksLocalBrooklynPropertiesPermissionsX00() throws Exception {
-        File propsFile = File.createTempFile("testChecksLocalBrooklynPropertiesPermissionsX00", ".properties");
-        propsFile.setReadable(true, false);
-        try {
-            launcher = newLauncherForTests(false)
-                    .webconsole(false)
-                    .localBrooklynPropertiesFile(propsFile.getAbsolutePath())
-                    .start();
-            
-            Assert.fail("Should have thrown");
-        } catch (FatalRuntimeException e) {
-            if (!e.toString().contains("Invalid permissions for file")) throw e;
-        } finally {
-            propsFile.delete();
-        }
-    }
-
-    @Test(groups="Integration")
-    public void testStartsWithSymlinkedBrooklynPropertiesPermissionsX00() throws Exception {
-        File dir = Files.createTempDir();
-        Path globalPropsFile = java.nio.file.Files.createFile(Paths.get(dir.toString(), "globalProps.properties"));
-        Path globalSymlink = java.nio.file.Files.createSymbolicLink(Paths.get(dir.toString(), "globalLink"), globalPropsFile);
-        Path localPropsFile = java.nio.file.Files.createFile(Paths.get(dir.toString(), "localPropsFile.properties"));
-        Path localSymlink = java.nio.file.Files.createSymbolicLink(Paths.get(dir.toString(), "localLink"), localPropsFile);
-
-        Files.write(getMinimalLauncherPropertiesString() + "key_in_global=1", globalPropsFile.toFile(), Charset.defaultCharset());
-        Files.write("key_in_local=2", localPropsFile.toFile(), Charset.defaultCharset());
-        FileUtil.setFilePermissionsTo600(globalPropsFile.toFile());
-        FileUtil.setFilePermissionsTo600(localPropsFile.toFile());
-        try {
-            launcher = newLauncherForTests(false)
-                    .webconsole(false)
-                    .localBrooklynPropertiesFile(localSymlink.toAbsolutePath().toString())
-                    .globalBrooklynPropertiesFile(globalSymlink.toAbsolutePath().toString())
-                    .start();
-            assertEquals(launcher.getServerDetails().getManagementContext().getConfig().getFirst("key_in_global"), "1");
-            assertEquals(launcher.getServerDetails().getManagementContext().getConfig().getFirst("key_in_local"), "2");
-        } finally {
-            Os.deleteRecursively(dir);
-        }
-    }
-
-    @Test(groups="Integration")
-    public void testStartsWithBrooklynPropertiesPermissionsX00() throws Exception {
-        File globalPropsFile = File.createTempFile("testChecksLocalBrooklynPropertiesPermissionsX00_global", ".properties");
-        Files.write(getMinimalLauncherPropertiesString()+"key_in_global=1", globalPropsFile, Charset.defaultCharset());
-        File localPropsFile = File.createTempFile("testChecksLocalBrooklynPropertiesPermissionsX00_local", ".properties");
-        Files.write("key_in_local=2", localPropsFile, Charset.defaultCharset());
-        FileUtil.setFilePermissionsTo600(globalPropsFile);
-        FileUtil.setFilePermissionsTo600(localPropsFile);
-        try {
-            launcher = newLauncherForTests(false)
-                    .webconsole(false)
-                    .localBrooklynPropertiesFile(localPropsFile.getAbsolutePath())
-                    .globalBrooklynPropertiesFile(globalPropsFile.getAbsolutePath())
-                    .start();
-            assertEquals(launcher.getServerDetails().getManagementContext().getConfig().getFirst("key_in_global"), "1");
-            assertEquals(launcher.getServerDetails().getManagementContext().getConfig().getFirst("key_in_local"), "2");
-        } finally {
-            globalPropsFile.delete();
-            localPropsFile.delete();
-        }
-    }
-    
     @Test  // takes a bit of time because starts webapp, but also tests rest api so useful
     public void testErrorsCaughtByApiAndRestApiWorks() throws Exception {
         launcher = newLauncherForTests(true)
@@ -368,16 +274,6 @@ public class BrooklynLauncherTest {
         if (minimal)
             launcher.brooklynProperties(LocalManagementContextForTests.builder(true).buildProperties());
         return launcher;
-    }
-
-    private String getMinimalLauncherPropertiesString() throws IOException {
-        BrooklynProperties p1 = LocalManagementContextForTests.builder(true).buildProperties();
-        Properties p = new Properties();
-        p.putAll(Maps.transformValues(p1.asMapWithStringKeys(), StringFunctions.toStringFunction()));
-        Writer w = new StringWriter();
-        p.store(w, "test");
-        w.close();
-        return w.toString()+"\n";
     }
 
     private void assertOnlyApp(BrooklynLauncher launcher, Class<? extends Application> expectedType) {
