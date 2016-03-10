@@ -47,12 +47,10 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
-            <version>${fasterxml.jackson.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>${fasterxml.jackson.version}</version>
         </dependency>
         <dependency>
             <groupId>javax.validation</groupId>
@@ -255,6 +253,7 @@
                                 <exclude>**/HaHotCheckResourceFilter.java</exclude>
                                 <exclude>**/FormMapProvider.java</exclude>
                                 <exclude>**/ApidocResource.java</exclude>
+                                <exclude>**/ScannerInjectHelper.java</exclude>
                               </excludes>
                             </resource>
                             <resource>

@@ -49,7 +49,7 @@ limitations under the License.
         <property name="managementContext" ref="localManagementContext" />
         <property name="managementContextInternal" ref="localManagementContextInternal" />
     </bean>
-    <!--<bean id="apidocResourceBean" class="org.apache.brooklyn.rest.resources.ApidocResource" />-->
+    <bean id="apidocResourceBean" class="org.apache.brooklyn.rest.resources.ApidocResource" />
     <bean id="applicationResourceBean" class="org.apache.brooklyn.rest.resources.ApplicationResource">
         <property name="managementContext" ref="localManagementContext" />
         <property name="managementContextInternal" ref="localManagementContextInternal" />
@@ -107,7 +107,7 @@ limitations under the License.
         <jaxrs:serviceBeans>
             <ref component-id="accessResourceBean" />
             <ref component-id="activityResourceBean" />
-            <!--<ref component-id="apidocResourceBean" />-->
+            <ref component-id="apidocResourceBean" />
             <ref component-id="applicationResourceBean" />
             <ref component-id="catalogResourceBean" />
             <ref component-id="effectorResourceBean" />
@@ -127,6 +127,11 @@ limitations under the License.
             <bean class="org.apache.brooklyn.rest.util.DefaultExceptionMapper"/>
             <bean class="com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider"/>
             <bean class="org.apache.brooklyn.rest.util.FormMapProvider"/>
+            <bean class="io.swagger.jaxrs.listing.SwaggerSerializers" />
         </jaxrs:providers>
     </jaxrs:server>
+
+    <bean class="org.apache.brooklyn.rest.util.ScannerInjectHelper">
+      <property name="server" ref="brooklynRestApiV1" />
+    </bean>
 </blueprint>

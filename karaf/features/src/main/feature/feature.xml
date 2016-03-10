@@ -24,15 +24,14 @@
 
     <repository>mvn:org.apache.cxf.karaf/apache-cxf/${cxf.version}/xml/features</repository>
 
-    <!-- temporary feature until we migrate to swagger-1.5.4, which is properly bundled -->
-    <feature name="swagger-crippled" version="${swagger.version}" description="Swagger Annotations+Core+JAXRS+Models">
+    <feature name="swagger" version="${swagger.version}" description="Swagger Annotations+Core+JAXRS+Models">
+        <bundle dependency='true'>mvn:com.google.guava/guava/${guava-swagger.version}</bundle>
+
         <bundle>mvn:io.swagger/swagger-annotations/${swagger.version}</bundle>
-<!--        <bundle>wrap:mvn:io.swagger/swagger-core/${swagger.version}</bundle>
-        <bundle>wrap:mvn:io.swagger/swagger-jaxrs/${swagger.version}</bundle>-->
+        <bundle>wrap:mvn:io.swagger/swagger-core/${swagger.version}</bundle>
+        <bundle>wrap:mvn:io.swagger/swagger-jaxrs/${swagger.version}</bundle>
         <bundle>mvn:io.swagger/swagger-models/${swagger.version}</bundle>
 
-        <!--<bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.javassist/${javassist.bundle.version}</bundle>-->
-        <!--<bundle dependency='true'>mvn:com.google.guava/guava/${guava.version}</bundle>-->
         <bundle dependency='true'>mvn:com.fasterxml.jackson.core/jackson-annotations/${fasterxml.jackson.version}</bundle>
         <bundle dependency='true'>mvn:com.fasterxml.jackson.core/jackson-core/${fasterxml.jackson.version}</bundle>
         <bundle dependency='true'>mvn:com.fasterxml.jackson.core/jackson-databind/${fasterxml.jackson.version}</bundle>
@@ -65,15 +64,9 @@
 
     <feature name="brooklyn-utils-rest-swagger" version="${project.version}" description="Brooklyn REST Swagger Apidoc Utilities">
         <feature>brooklyn-utils-common</feature>
-        <feature version="${swagger.version}">swagger-crippled</feature>
+        <feature version="${swagger.version}">swagger</feature>
 
         <bundle>mvn:org.apache.brooklyn/brooklyn-utils-rest-swagger/${project.version}</bundle>
-
-        <!--<feature>jersey</feature>-->
-        <bundle dependency="true">mvn:com.sun.jersey/jersey-server/${jersey.version}</bundle>
-        <bundle dependency="true">mvn:com.sun.jersey/jersey-core/${jersey.version}</bundle>
-        <bundle dependency="true">mvn:com.sun.jersey/jersey-servlet/${jersey.version}</bundle>
-        <bundle dependency="true">mvn:org.apache.commons/commons-lang3/${commons-lang3.version}</bundle>
 
         <bundle dependency="true">mvn:javax.servlet/javax.servlet-api/${javax-servlet.version}</bundle>
         <bundle dependency="true">mvn:javax.ws.rs/javax.ws.rs-api/${jax-rs-api.version}</bundle>
