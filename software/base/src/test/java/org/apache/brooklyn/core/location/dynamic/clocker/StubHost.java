@@ -24,10 +24,10 @@ import org.apache.brooklyn.core.location.dynamic.LocationOwner;
 import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.entity.group.DynamicCluster;
-import org.apache.brooklyn.entity.machine.MachineEntity;
+import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 
 @ImplementedBy(StubHostImpl.class)
-public interface StubHost extends MachineEntity, LocationOwner<StubHostLocation, StubHost> {
+public interface StubHost extends EmptySoftwareProcess, LocationOwner<StubHostLocation, StubHost> {
     AttributeSensorAndConfigKey<StubInfrastructure, StubInfrastructure> DOCKER_INFRASTRUCTURE = StubAttributes.DOCKER_INFRASTRUCTURE;
     
     AttributeSensor<DynamicCluster> DOCKER_CONTAINER_CLUSTER = Sensors.newSensor(DynamicCluster.class,

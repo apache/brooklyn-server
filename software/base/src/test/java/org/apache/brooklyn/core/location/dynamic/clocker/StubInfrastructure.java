@@ -29,6 +29,8 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.location.dynamic.LocationOwner;
+import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
+import org.apache.brooklyn.core.sensor.BasicAttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.entity.group.DynamicCluster;
 import org.apache.brooklyn.entity.group.DynamicGroup;
@@ -81,8 +83,9 @@ import org.apache.brooklyn.entity.group.DynamicMultiGroup;
  */
 @ImplementedBy(StubInfrastructureImpl.class)
 public interface StubInfrastructure extends Application, Startable, LocationOwner<StubInfrastructureLocation, StubInfrastructure> {
-    ConfigKey<String> LOCATION_NAME = ConfigKeys.newConfigKeyWithDefault(LocationOwner.LOCATION_NAME.getConfigKey(), "my-stub-cloud");
-    
+    AttributeSensorAndConfigKey<String, String> LOCATION_NAME = ConfigKeys.newSensorAndConfigKeyWithDefault(LocationOwner.LOCATION_NAME, "my-stub-cloud");
+    ConfigKey<Integer> DOCKER_HOST_CLUSTER_MIN_SIZE = ConfigKeys.newConfigKeyWithPrefix("docker.host.", DynamicCluster.INITIAL_SIZE);
+
     AttributeSensor<DynamicCluster> DOCKER_HOST_CLUSTER = Sensors.newSensor(DynamicCluster.class, "docker.hosts", "Docker host cluster");
     AttributeSensor<DynamicGroup> DOCKER_CONTAINER_FABRIC = Sensors.newSensor(DynamicGroup.class, "docker.fabric", "Docker container fabric");
     AttributeSensor<DynamicMultiGroup> DOCKER_APPLICATIONS = Sensors.newSensor(DynamicMultiGroup.class, "docker.buckets", "Docker applications");

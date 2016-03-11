@@ -21,23 +21,20 @@ package org.apache.brooklyn.core.location.dynamic.clocker;
 import java.util.Map;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationDefinition;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.core.feed.ConfigToAttributes;
-import org.apache.brooklyn.core.location.BasicLocationDefinition;
 import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.entity.group.Cluster;
 import org.apache.brooklyn.entity.group.DynamicCluster;
-import org.apache.brooklyn.entity.machine.MachineEntityImpl;
+import org.apache.brooklyn.entity.software.base.EmptySoftwareProcessImpl;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
-import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.QuorumCheck.QuorumChecks;
-import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class StubHostImpl extends MachineEntityImpl implements StubHost {
+public class StubHostImpl extends EmptySoftwareProcessImpl implements StubHost {
     
     private static final Logger LOG = LoggerFactory.getLogger(StubHostImpl.class);
 
@@ -81,14 +78,7 @@ public class StubHostImpl extends MachineEntityImpl implements StubHost {
         super.preStart();
         ConfigToAttributes.apply(this);
         
-        Maybe<SshMachineLocation> found = Machines.findUniqueMachineLocation(getLocations(), SshMachineLocation.class);
-
-        Map<String, ?> flags = MutableMap.<String, Object>builder()
-                .putAll(config().get(LOCATION_FLAGS))
-                .put("machine", found.get())
-                .build();
-
-        createLocation(flags);
+        createLocation(config().get(LOCATION_FLAGS));
         sensors().get(DOCKER_CONTAINER_CLUSTER).sensors().set(SERVICE_UP, Boolean.TRUE);
     }
 
@@ -96,18 +86,25 @@ public class StubHostImpl extends MachineEntityImpl implements StubHost {
     public StubHostLocation createLocation(Map<String, ?> flags) {
         StubInfrastructure infrastructure = getInfrastructure();
         StubInfrastructureLocation docker = infrastructure.getDynamicLocation();
+        SshMachineLocation machine = Machines.findUniqueMachineLocation(getLocations(), SshMachineLocation.class).get();
         String locationName = docker.getId() + "-" + getId();
 
-        String locationSpec = String.format(StubResolver.DOCKER_HOST_MACHINE_SPEC, infrastructure.getId(), getId()) + String.format(":(name=\"%s\")", locationName);
-        sensors().set(LOCATION_SPEC, locationSpec);
+        StubHostLocation location = getManagementContext().getLocationManager().createLocation(LocationSpec.create(StubHostLocation.class)
+                .parent(infrastructure.getDynamicLocation())
+                .displayName("Docker Host("+getId()+")")
+                .configure(flags)
+                .configure("owner", getProxy())
+                .configure("machine", machine)
+                .configure("locationName", locationName));
+        
+        LocationDefinition definition = location.register();
 
-        LocationDefinition definition = new BasicLocationDefinition(locationName, locationSpec, flags);
-        Location location = getManagementContext().getLocationRegistry().resolve(definition);
+        sensors().set(LOCATION_SPEC, definition.getSpec());
+        sensors().set(LOCATION_NAME, locationName);
         sensors().set(DYNAMIC_LOCATION, location);
-        sensors().set(LOCATION_NAME, location.getId());
 
         LOG.info("New Docker host location {} created", location);
-        return (StubHostLocation) location;
+        return location;
     }
 
     @Override
@@ -119,6 +116,7 @@ public class StubHostImpl extends MachineEntityImpl implements StubHost {
     public void deleteLocation() {
         StubHostLocation loc = (StubHostLocation) sensors().get(DYNAMIC_LOCATION);
         if (loc != null) {
+            loc.deregister();
             Locations.unmanage(loc);
         }
         sensors().set(DYNAMIC_LOCATION, null);

@@ -30,15 +30,13 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationDefinition;
-import org.apache.brooklyn.api.mgmt.LocationManager;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.core.entity.AbstractApplication;
-import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.feed.ConfigToAttributes;
-import org.apache.brooklyn.core.location.BasicLocationDefinition;
+import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.location.dynamic.LocationOwner;
 import org.apache.brooklyn.entity.group.BasicGroup;
 import org.apache.brooklyn.entity.group.Cluster;
@@ -48,11 +46,13 @@ import org.apache.brooklyn.entity.group.DynamicMultiGroup;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.QuorumCheck.QuorumChecks;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
+import com.google.common.base.Joiner;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -73,7 +73,7 @@ public class StubInfrastructureImpl extends AbstractApplication implements StubI
                 .configure(SoftwareProcess.CHILDREN_STARTABLE_MODE, SoftwareProcess.ChildStartableMode.BACKGROUND_LATE);
 
         DynamicCluster hosts = addChild(EntitySpec.create(DynamicCluster.class)
-                .configure(Cluster.INITIAL_SIZE, 1)
+                .configure(Cluster.INITIAL_SIZE, config().get(DOCKER_HOST_CLUSTER_MIN_SIZE))
                 .configure(DynamicCluster.QUARANTINE_FAILED_ENTITIES, true)
                 .configure(DynamicCluster.MEMBER_SPEC, dockerHostSpec)
                 .configure(DynamicCluster.RUNNING_QUORUM_CHECK, QuorumChecks.atLeastOneUnlessEmpty())
@@ -103,17 +103,6 @@ public class StubInfrastructureImpl extends AbstractApplication implements StubI
         sensors().set(DOCKER_APPLICATIONS, buckets);
     }
     
-    @Override
-    public void rebind() {
-        super.rebind();
-
-        // Reload our location definition on rebind
-        ManagementContext.PropertiesReloadListener listener = sensors().get(Attributes.PROPERTIES_RELOAD_LISTENER);
-        if (listener != null) {
-            listener.reloaded();
-        }
-    }
-
     @Override
     public StubInfrastructureLocation getDynamicLocation() {
         return (StubInfrastructureLocation) sensors().get(DYNAMIC_LOCATION);
@@ -178,27 +167,25 @@ public class StubInfrastructureImpl extends AbstractApplication implements StubI
     @Override
     public StubInfrastructureLocation createLocation(Map<String, ?> flags) {
         String locationName = config().get(LOCATION_NAME);
-
-        LocationDefinition check = getManagementContext().getLocationRegistry().getDefinedLocationByName(locationName);
-        if (check != null) {
-            throw new IllegalStateException("Location " + locationName + " is already defined: " + check);
+        if (Strings.isBlank(locationName)) {
+            String prefix = config().get(LOCATION_NAME_PREFIX);
+            String suffix = config().get(LOCATION_NAME_SUFFIX);
+            locationName = Joiner.on("-").skipNulls().join(prefix, getId(), suffix);
         }
 
-        String locationSpec = String.format(StubResolver.DOCKER_INFRASTRUCTURE_SPEC, getId()) + String.format(":(name=\"%s\")", locationName);
-        sensors().set(LOCATION_SPEC, locationSpec);
-        LocationDefinition definition = new BasicLocationDefinition(locationName, locationSpec, flags);
-        Location location = getManagementContext().getLocationRegistry().resolve(definition);
-        getManagementContext().getLocationRegistry().updateDefinedLocation(definition);
-
-        ManagementContext.PropertiesReloadListener listener = StubUtils.reloadLocationListener(getManagementContext(), definition);
-        getManagementContext().addPropertiesReloadListener(listener);
-        sensors().set(Attributes.PROPERTIES_RELOAD_LISTENER, listener);
-
-        sensors().set(LocationOwner.LOCATION_DEFINITION, definition);
-        sensors().set(LocationOwner.DYNAMIC_LOCATION, location);
-        sensors().set(LocationOwner.LOCATION_NAME, location.getId());
+        StubInfrastructureLocation location = getManagementContext().getLocationManager().createLocation(LocationSpec.create(StubInfrastructureLocation.class)
+                .displayName("Docker Infrastructure("+getId()+")")
+                .configure(flags)
+                .configure("owner", getProxy())
+                .configure("locationName", locationName));
         
-        return (StubInfrastructureLocation) location;
+        LocationDefinition definition = location.register();
+
+        sensors().set(LocationOwner.LOCATION_SPEC, definition.getSpec());
+        sensors().set(LocationOwner.DYNAMIC_LOCATION, location);
+        sensors().set(LocationOwner.LOCATION_NAME, locationName);
+        
+        return location;
     }
 
     @Override
@@ -211,21 +198,10 @@ public class StubInfrastructureImpl extends AbstractApplication implements StubI
         StubInfrastructureLocation location = getDynamicLocation();
 
         if (location != null) {
-            LocationManager mgr = getManagementContext().getLocationManager();
-            if (mgr.isManaged(location)) {
-                mgr.unmanage(location);
-            }
-            final LocationDefinition definition = sensors().get(LocationOwner.LOCATION_DEFINITION);
-            if (definition != null) {
-                getManagementContext().getLocationRegistry().removeDefinedLocation(definition.getId());
-            }
-        }
-        ManagementContext.PropertiesReloadListener listener = sensors().get(Attributes.PROPERTIES_RELOAD_LISTENER);
-        if (listener != null) {
-            getManagementContext().removePropertiesReloadListener(listener);
+            location.deregister();
+            Locations.unmanage(location);
         }
 
-        sensors().set(LocationOwner.LOCATION_DEFINITION, null);
         sensors().set(LocationOwner.DYNAMIC_LOCATION, null);
         sensors().set(LocationOwner.LOCATION_NAME, null);
     }

@@ -26,21 +26,23 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationRegistry;
-import org.apache.brooklyn.api.location.LocationResolver.EnableableLocationResolver;
+import org.apache.brooklyn.api.location.LocationResolver;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.location.BasicLocationRegistry;
-import org.apache.brooklyn.core.location.LocationPropertiesFromBrooklynProperties;
-import org.apache.brooklyn.core.location.dynamic.DynamicLocation;
-import org.apache.brooklyn.core.location.internal.LocationInternal;
-import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.core.objs.proxy.SpecialBrooklynObjectConstructor;
+import org.apache.brooklyn.core.objs.proxy.SpecialBrooklynObjectConstructor.Config;
 import org.apache.brooklyn.util.text.KeyValueParser;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -54,17 +56,17 @@ import com.google.common.collect.Sets;
  *     <li>docker:infrastructureId:dockerHostId:(name=dockerHost-brooklyn-1234,user=docker)
  *   </ul>
  */
-public class StubResolver implements EnableableLocationResolver {
+public class StubResolver implements LocationResolver {
 
     private static final Logger LOG = LoggerFactory.getLogger(StubResolver.class);
 
-    public static final String DOCKER = "docker";
+    public static final String DOCKER = "stub";
     public static final Pattern PATTERN = Pattern.compile("("+DOCKER+"|"+DOCKER.toUpperCase()+")" + ":([a-zA-Z0-9]+)" +
             "(:([a-zA-Z0-9]+))?" + "(:\\((.*)\\))?$");
-    public static final Set<String> ACCEPTABLE_ARGS = ImmutableSet.of("name", "displayName");
+    public static final String DOCKER_INFRASTRUCTURE_SPEC = "stub:%s";
+    public static final String DOCKER_HOST_MACHINE_SPEC = "stub:%s:%s";
 
-    public static final String DOCKER_INFRASTRUCTURE_SPEC = "docker:%s";
-    public static final String DOCKER_HOST_MACHINE_SPEC = "docker:%s:%s";
+    private static final Set<String> ACCEPTABLE_ARGS = ImmutableSet.of("name");
 
     private ManagementContext managementContext;
 
@@ -79,118 +81,79 @@ public class StubResolver implements EnableableLocationResolver {
     }
 
     @Override
-    public Location newLocationFromString(Map locationFlags, String spec, LocationRegistry registry) {
-        return newLocationFromString(spec, registry, registry.getProperties(), locationFlags);
-    }
-
-    protected Location newLocationFromString(String spec, LocationRegistry registry, Map properties, Map locationFlags) {
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Resolving location '" + spec + "' with flags " + Joiner.on(",").withKeyValueSeparator("=").join(locationFlags));
-        }
-        String namedLocation = (String) locationFlags.get(LocationInternal.NAMED_SPEC_NAME.getName());
-
-        Matcher matcher = PATTERN.matcher(spec);
-        if (!matcher.matches()) {
-            throw new IllegalArgumentException("Invalid location '"+spec+"'; must specify something like docker:entityId or docker:entityId:(name=abc)");
-        }
-
-        String argsPart = matcher.group(6);
-        Map<String, String> argsMap = (argsPart != null) ? KeyValueParser.parseMap(argsPart) : Collections.<String,String>emptyMap();
-        String displayNamePart = argsMap.get("displayName");
-        String namePart = argsMap.get("name");
-
-        if (!ACCEPTABLE_ARGS.containsAll(argsMap.keySet())) {
-            Set<String> illegalArgs = Sets.difference(argsMap.keySet(), ACCEPTABLE_ARGS);
-            throw new IllegalArgumentException("Invalid location '"+spec+"'; illegal args "+illegalArgs+"; acceptable args are "+ACCEPTABLE_ARGS);
-        }
-        if (argsMap.containsKey("displayName") && Strings.isEmpty(displayNamePart)) {
-            throw new IllegalArgumentException("Invalid location '"+spec+"'; if displayName supplied then value must be non-empty");
-        }
-        if (argsMap.containsKey("name") && Strings.isEmpty(namePart)) {
-            throw new IllegalArgumentException("Invalid location '"+spec+"'; if name supplied then value must be non-empty");
-        }
-
-        Map<String, Object> filteredProperties = new LocationPropertiesFromBrooklynProperties().getLocationProperties(DOCKER, namedLocation, properties);
-        MutableMap<String, Object> flags = MutableMap.<String, Object>builder().putAll(filteredProperties).putAll(locationFlags).build();
-
-        String infrastructureId = matcher.group(2);
-        if (Strings.isBlank(infrastructureId)) {
-            throw new IllegalArgumentException("Invalid location '"+spec+"'; infrastructure entity id must be non-empty");
-        }
-        String dockerHostId = matcher.group(4);
-
-        // Build the display name
-        StringBuilder name = new StringBuilder();
-        if (displayNamePart != null) {
-            name.append(displayNamePart);
-        } else {
-            name.append("Docker ");
-            if (dockerHostId == null) {
-                name.append("Infrastructure ").append(infrastructureId);
-            } else {
-                name.append("Host ").append(dockerHostId);
-            }
-        }
-        final String displayName =  name.toString();
-
-        // Build the location name
-        name = new StringBuilder();
-        if (namePart != null) {
-            name.append(namePart);
-        } else {
-            name.append("docker-");
-            name.append(infrastructureId);
-            if (dockerHostId != null) {
-                name.append("-").append(dockerHostId);
-            }
-        }
-        final String locationName =  name.toString();
-        StubInfrastructure infrastructure = (StubInfrastructure) managementContext.getEntityManager().getEntity(infrastructureId);
-        Iterable<Location> managedLocations = managementContext.getLocationManager().getLocations();
-
-        if (dockerHostId == null) {
-            for (Location location : managedLocations) {
-                if (location instanceof StubInfrastructureLocation) {
-                    if (((StubInfrastructureLocation) location).getOwner().getId().equals(infrastructureId)) {
-                        return location;
-                    }
-                }
-            }
-            LocationSpec<StubInfrastructureLocation> locationSpec = LocationSpec.create(StubInfrastructureLocation.class)
-                    .configure(flags)
-                    .configure(DynamicLocation.OWNER, infrastructure)
-                    .configure(LocationInternal.NAMED_SPEC_NAME, locationName)
-                    .displayName(displayName);
-            return managementContext.getLocationManager().createLocation(locationSpec);
-        } else {
-            StubHost dockerHost = (StubHost) managementContext.getEntityManager().getEntity(dockerHostId);
-            for (Location location : managedLocations) {
-                if (location instanceof StubHostLocation) {
-                    if (((StubHostLocation) location).getOwner().getId().equals(dockerHostId)) {
-                        return location;
-                    }
-                }
-            }
-
-            LocationSpec<StubHostLocation> locationSpec = LocationSpec.create(StubHostLocation.class)
-                    .parent(infrastructure.getDynamicLocation())
-                    .configure(flags)
-                    .configure(DynamicLocation.OWNER, dockerHost)
-                    .configure(LocationInternal.NAMED_SPEC_NAME, locationName)
-                    .displayName(displayName);
-            return managementContext.getLocationManager().createLocation(locationSpec);
-        }
-    }
-
-    @Override
     public boolean accepts(String spec, LocationRegistry registry) {
         return BasicLocationRegistry.isResolverPrefixForSpec(this, spec, true);
     }
 
     @Override
     public boolean isEnabled() {
+        // TODO Should we base enablement on whether the required location/entity exists?
         return true;
-//        return Iterables.tryFind(managementContext.getEntityManager().getEntities(), Predicates.instanceOf(StubInfrastructure.class)).isPresent();
     }
 
+    @Override
+    public LocationSpec<? extends Location> newLocationSpecFromString(String spec, Map<?,?> locationFlags, LocationRegistry registry) {
+        Map<?,?> properties = registry.getProperties();
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Resolving location '" + spec + "' with flags " + Joiner.on(",").withKeyValueSeparator("=").join(locationFlags));
+        }
+
+        Matcher matcher = PATTERN.matcher(spec);
+        if (!matcher.matches()) {
+            throw new IllegalArgumentException("Invalid location '"+spec+"'; must specify something like stub:entityId or stub:entityId:(name=abc)");
+        }
+
+        String infrastructureLocId = matcher.group(2);
+        if (Strings.isBlank(infrastructureLocId)) {
+            throw new IllegalArgumentException("Invalid location '"+spec+"'; infrastructure location id must be non-empty");
+        }
+        String hostLocId = matcher.group(4);
+
+        // TODO Could validate that the namePart matches the existing loc
+        String argsPart = matcher.group(6);
+        Map<String, String> argsMap = (argsPart != null) ? KeyValueParser.parseMap(argsPart) : Collections.<String,String>emptyMap();
+        @SuppressWarnings("unused")
+        String namePart = argsMap.get("name");
+
+        if (!ACCEPTABLE_ARGS.containsAll(argsMap.keySet())) {
+            Set<String> illegalArgs = Sets.difference(argsMap.keySet(), ACCEPTABLE_ARGS);
+            throw new IllegalArgumentException("Invalid location '"+spec+"'; illegal args "+illegalArgs+"; acceptable args are "+ACCEPTABLE_ARGS);
+        }
+
+        Location infrastructureLoc = managementContext.getLocationManager().getLocation(infrastructureLocId);
+        if (infrastructureLoc == null) {
+            throw new IllegalArgumentException("Unknown Clocker infrastructure location id "+infrastructureLocId+", spec "+spec);
+        } else if (!(infrastructureLoc instanceof StubInfrastructureLocation)) {
+            throw new IllegalArgumentException("Invalid location id for Clocker infrastructure, spec "+spec+"; instead matches "+infrastructureLoc);
+        }
+
+        if (hostLocId != null) {
+            Location hostLoc = managementContext.getLocationManager().getLocation(hostLocId);
+            if (hostLoc == null) {
+                throw new IllegalArgumentException("Unknown Clocker host location id "+hostLocId+", spec "+spec);
+            } else if (!(hostLoc instanceof StubHostLocation)) {
+                throw new IllegalArgumentException("Invalid location id for Clocker host, spec "+spec+"; instead matches "+hostLoc);
+            }
+            
+            return LocationSpec.create(StubHostLocation.class)
+                    .configure(StubLocationConstructor.LOCATION, hostLoc)
+                    .configure(Config.SPECIAL_CONSTRUCTOR, StubLocationConstructor.class);
+        } else {
+            return LocationSpec.create(StubInfrastructureLocation.class)
+                    .configure(StubLocationConstructor.LOCATION, infrastructureLoc)
+                    .configure(Config.SPECIAL_CONSTRUCTOR, StubLocationConstructor.class);
+        }
+    }
+
+    @Beta
+    public static class StubLocationConstructor implements SpecialBrooklynObjectConstructor {
+        public static ConfigKey<Location> LOCATION = ConfigKeys.newConfigKey(Location.class, "stubresolver.location");
+        
+        @SuppressWarnings("unchecked")
+        @Override
+        public <T> T create(ManagementContext mgmt, Class<T> type, AbstractBrooklynObjectSpec<?, ?> spec) {
+            return (T) checkNotNull(spec.getConfig().get(LOCATION), LOCATION.getName());
+        }
+    }
 }

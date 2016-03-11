@@ -18,16 +18,22 @@
  */
 package org.apache.brooklyn.core.location.dynamic.clocker;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.util.Collection;
 import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.location.LocationDefinition;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.location.AbstractLocation;
+import org.apache.brooklyn.core.location.BasicLocationDefinition;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.location.dynamic.DynamicLocation;
@@ -46,12 +52,68 @@ public class StubHostLocation extends AbstractLocation implements MachineProvisi
 
     private static final Logger LOG = LoggerFactory.getLogger(StubHostLocation.class);
 
-    @SetFromFlag("machine")
-    private SshMachineLocation machine;
+    public static final ConfigKey<String> LOCATION_NAME = ConfigKeys.newStringConfigKey("locationName");
 
-    @SetFromFlag("owner")
-    private StubHost dockerHost;
+    public static final ConfigKey<SshMachineLocation> MACHINE = ConfigKeys.newConfigKey(
+            SshMachineLocation.class, 
+            "machine");
 
+    @SetFromFlag("locationRegistrationId")
+    private String locationRegistrationId;
+
+    private transient StubHost dockerHost;
+    private transient SshMachineLocation machine;
+    
+    @Override
+    public void init() {
+        super.init();
+        dockerHost = (StubHost) checkNotNull(getConfig(OWNER), "owner");
+        machine = (SshMachineLocation) checkNotNull(getConfig(MACHINE), "machine");
+    }
+    
+    @Override
+    public void rebind() {
+        super.rebind();
+
+        dockerHost = (StubHost) getConfig(OWNER);
+        machine = (SshMachineLocation) getConfig(MACHINE);
+        
+        if (getConfig(LOCATION_NAME) != null) {
+            register();
+        }
+    }
+
+    @Override
+    public LocationDefinition register() {
+        String locationName = checkNotNull(getConfig(LOCATION_NAME), "config %s", LOCATION_NAME.getName());
+
+        LocationDefinition check = getManagementContext().getLocationRegistry().getDefinedLocationByName(locationName);
+        if (check != null) {
+            throw new IllegalStateException("Location " + locationName + " is already defined: " + check);
+        }
+
+        String hostLocId = getId();
+        String infraLocId = (getParent() != null) ? getParent().getId() : "";
+        String locationSpec = String.format(StubResolver.DOCKER_HOST_MACHINE_SPEC, infraLocId, hostLocId) + String.format(":(name=\"%s\")", locationName);
+
+        LocationDefinition definition = new BasicLocationDefinition(locationName, locationSpec, ImmutableMap.<String, Object>of());
+        getManagementContext().getLocationRegistry().updateDefinedLocation(definition);
+        
+        locationRegistrationId = definition.getId();
+        requestPersist();
+        
+        return definition;
+    }
+    
+    @Override
+    public void deregister() {
+        if (locationRegistrationId != null) {
+            getManagementContext().getLocationRegistry().removeDefinedLocation(locationRegistrationId);
+            locationRegistrationId = null;
+            requestPersist();
+        }
+    }
+    
     @Override
     public StubHost getOwner() {
         return (StubHost) getConfig(OWNER);

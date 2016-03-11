@@ -20,13 +20,16 @@ package org.apache.brooklyn.core.location.dynamic.clocker;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertSame;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.MachineLocation;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.location.BasicLocationRegistry;
 import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -35,6 +38,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
+/**
+ * See explanation of what we're testing in {@link StubInfrastructure}.
+ */
 public class ClockerDynamicLocationPatternTest extends BrooklynAppUnitTestSupport {
 
     private LocalhostMachineProvisioningLocation loc;
@@ -51,7 +57,8 @@ public class ClockerDynamicLocationPatternTest extends BrooklynAppUnitTestSuppor
     
     @Test
     public void testCreateAndReleaseDirectly() throws Exception {
-        StubInfrastructure infra = mgmt.getEntityManager().createEntity(EntitySpec.create(StubInfrastructure.class));
+        StubInfrastructure infra = mgmt.getEntityManager().createEntity(EntitySpec.create(StubInfrastructure.class)
+                .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, shouldSkipOnBoxBaseDirResolution()));
         infra.start(ImmutableList.of(loc));
         
         StubInfrastructureLocation loc = infra.getDynamicLocation();
@@ -72,17 +79,24 @@ public class ClockerDynamicLocationPatternTest extends BrooklynAppUnitTestSuppor
     
     @Test
     public void testThroughLocationRegistry() throws Exception {
-        StubInfrastructure infra = mgmt.getEntityManager().createEntity(EntitySpec.create(StubInfrastructure.class));
+        StubInfrastructure infra = mgmt.getEntityManager().createEntity(EntitySpec.create(StubInfrastructure.class)
+                .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, shouldSkipOnBoxBaseDirResolution()));
         infra.start(ImmutableList.of(loc));
         
         String infraLocSpec = infra.sensors().get(StubInfrastructure.LOCATION_SPEC);
+        String infraLocName = infra.sensors().get(StubInfrastructure.LOCATION_NAME);
         StubInfrastructureLocation infraLoc = (StubInfrastructureLocation) mgmt.getLocationRegistry().resolve(infraLocSpec);
-
+        StubInfrastructureLocation infraLoc2 = (StubInfrastructureLocation) mgmt.getLocationRegistry().resolve(infraLocName);
+        assertSame(infraLoc, infraLoc2);
+        
         MachineLocation machine = infraLoc.obtain(ImmutableMap.of());
         
         StubHost host = (StubHost) Iterables.getOnlyElement(infra.getStubHostCluster().getMembers());
-        String hostLocSpec = host.sensors().get(StubInfrastructure.LOCATION_SPEC);
+        String hostLocSpec = host.sensors().get(StubHost.LOCATION_SPEC);
+        String hostLocName = host.sensors().get(StubHost.LOCATION_NAME);
         StubHostLocation hostLoc = (StubHostLocation) mgmt.getLocationRegistry().resolve(hostLocSpec);
+        StubHostLocation hostLoc2 = (StubHostLocation) mgmt.getLocationRegistry().resolve(hostLocName);
+        assertSame(hostLoc, hostLoc2);
 
         StubContainer container = (StubContainer) Iterables.getOnlyElement(host.getDockerContainerCluster().getMembers());
         StubContainerLocation containerLoc = container.getDynamicLocation();

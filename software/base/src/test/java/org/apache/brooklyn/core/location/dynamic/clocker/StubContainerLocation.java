@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.location.dynamic.clocker;
 
+import org.apache.brooklyn.api.location.LocationDefinition;
 import org.apache.brooklyn.core.location.dynamic.DynamicLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
@@ -37,5 +38,15 @@ public class StubContainerLocation extends SshMachineLocation implements Dynamic
 
     public SshMachineLocation getMachine() {
         return machine;
+    }
+
+    @Override
+    public LocationDefinition register() {
+        throw new UnsupportedOperationException("Container location type definition cannot be persisted");
+    }
+
+    @Override
+    public void deregister() {
+        // no-op
     }
 }

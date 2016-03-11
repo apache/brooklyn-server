@@ -18,14 +18,20 @@
  */
 package org.apache.brooklyn.core.location.dynamic.clocker;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.brooklyn.api.location.LocationDefinition;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.location.AbstractLocation;
+import org.apache.brooklyn.core.location.BasicLocationDefinition;
 import org.apache.brooklyn.core.location.dynamic.DynamicLocation;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.slf4j.Logger;
@@ -43,15 +49,65 @@ public class StubInfrastructureLocation extends AbstractLocation implements Mach
     @SuppressWarnings("unused")
     private static final Logger LOG = LoggerFactory.getLogger(StubInfrastructureLocation.class);
 
-    @SetFromFlag("owner")
-    private StubInfrastructure infrastructure;
+    public static final ConfigKey<String> LOCATION_NAME = ConfigKeys.newStringConfigKey("locationName");
+
+    @SetFromFlag("locationRegistrationId")
+    private String locationRegistrationId;
 
     @SetFromFlag("machines")
     private final SetMultimap<StubHostLocation, String> containers = Multimaps.synchronizedSetMultimap(HashMultimap.<StubHostLocation, String>create());
 
+    private transient StubInfrastructure infrastructure;
+
+    @Override
+    public void init() {
+        super.init();
+        infrastructure = (StubInfrastructure) checkNotNull(getConfig(OWNER), "owner");
+    }
+    
+    @Override
+    public void rebind() {
+        super.rebind();
+
+        infrastructure = (StubInfrastructure) getConfig(OWNER);
+        
+        if (getConfig(LOCATION_NAME) != null) {
+            register();
+        }
+    }
+
+    @Override
+    public LocationDefinition register() {
+        String locationName = checkNotNull(getConfig(LOCATION_NAME), "config %s", LOCATION_NAME.getName());
+
+        LocationDefinition check = getManagementContext().getLocationRegistry().getDefinedLocationByName(locationName);
+        if (check != null) {
+            throw new IllegalStateException("Location " + locationName + " is already defined: " + check);
+        }
+
+        String locationSpec = String.format(StubResolver.DOCKER_INFRASTRUCTURE_SPEC, getId()) + String.format(":(name=\"%s\")", locationName);
+
+        LocationDefinition definition = new BasicLocationDefinition(locationName, locationSpec, ImmutableMap.<String, Object>of());
+        getManagementContext().getLocationRegistry().updateDefinedLocation(definition);
+        
+        locationRegistrationId = definition.getId();
+        requestPersist();
+        
+        return definition;
+    }
+    
+    @Override
+    public void deregister() {
+        if (locationRegistrationId != null) {
+            getManagementContext().getLocationRegistry().removeDefinedLocation(locationRegistrationId);
+            locationRegistrationId = null;
+            requestPersist();
+        }
+    }
+    
     @Override
     public StubInfrastructure getOwner() {
-        return infrastructure;
+        return (StubInfrastructure) getConfig(OWNER);
     }
 
     @Override
