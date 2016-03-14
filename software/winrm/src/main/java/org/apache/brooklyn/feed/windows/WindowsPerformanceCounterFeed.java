@@ -71,7 +71,7 @@ import com.google.common.reflect.TypeToken;
  * <p>To use this feed, you must provide the entity, and a collection of mappings between Windows performance counter
  * names and Brooklyn attribute sensors.</p>
  *
- * <p>This feed uses SSH to invoke the windows utility <tt>typeperf</tt> to query for a specific set of performance
+ * <p>This feed uses WinRM to invoke the windows utility <tt>typeperf</tt> to query for a specific set of performance
  * counters, by name. The values are extracted from the response, and published to the entity's sensors.</p>
  *
  * <p>Example:</p>
