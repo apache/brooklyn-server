@@ -29,21 +29,17 @@ import java.util.Set;
 
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.location.Location;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
-import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
-import org.apache.brooklyn.core.mgmt.usage.UsageListener.ApplicationMetadata;
 import org.apache.brooklyn.core.mgmt.usage.ApplicationUsage;
 import org.apache.brooklyn.core.mgmt.usage.ApplicationUsage.ApplicationEvent;
+import org.apache.brooklyn.core.mgmt.usage.UsageListener.ApplicationMetadata;
 import org.apache.brooklyn.core.objs.proxy.EntityProxy;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Predicates;
@@ -51,32 +47,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
-public class ApplicationUsageTrackingTest {
+public class ApplicationUsageTrackingTest extends BrooklynMgmtUnitTestSupport {
 
     private static final Logger LOG = LoggerFactory.getLogger(ApplicationUsageTrackingTest.class);
 
     protected TestApplication app;
-    protected ManagementContextInternal mgmt;
-
-    protected boolean shouldSkipOnBoxBaseDirResolution() {
-        return true;
-    }
-
-    @BeforeMethod(alwaysRun=true)
-    public void setUp() throws Exception {
-        mgmt = LocalManagementContextForTests.newInstance();
-    }
-
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        try {
-            if (mgmt != null) Entities.destroyAll(mgmt);
-        } catch (Throwable t) {
-            LOG.error("Caught exception in tearDown method", t);
-        } finally {
-            mgmt = null;
-        }
-    }
 
     @Test
     public void testUsageInitiallyEmpty() {
