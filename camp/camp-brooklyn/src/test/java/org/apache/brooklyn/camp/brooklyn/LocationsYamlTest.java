@@ -281,5 +281,5 @@ public class LocationsYamlTest extends AbstractYamlTest {
     protected Logger getLogger() {
         return log;
     }
-    
+
 }

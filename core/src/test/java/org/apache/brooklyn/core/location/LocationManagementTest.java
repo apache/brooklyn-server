@@ -24,11 +24,14 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
+import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.LocationManager;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -58,6 +61,7 @@ public class LocationManagementTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testCreateLocationUsingResolver() {
         String spec = "byon:(hosts=\"1.1.1.1\")";
+        @SuppressWarnings("unchecked")
         FixedListMachineProvisioningLocation<SshMachineLocation> loc = (FixedListMachineProvisioningLocation<SshMachineLocation>) mgmt.getLocationRegistry().resolve(spec);
         SshMachineLocation machine = Iterables.getOnlyElement(loc.getAllMachines());
         
@@ -68,6 +72,7 @@ public class LocationManagementTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testChildrenOfManagedLocationAutoManaged() {
         String spec = "byon:(hosts=\"1.1.1.1\")";
+        @SuppressWarnings("unchecked")
         FixedListMachineProvisioningLocation<SshMachineLocation> loc = (FixedListMachineProvisioningLocation<SshMachineLocation>) mgmt.getLocationRegistry().resolve(spec);
         SshMachineLocation machine = new SshMachineLocation(ImmutableMap.of("address", "1.2.3.4"));
 
@@ -79,4 +84,36 @@ public class LocationManagementTest extends BrooklynAppUnitTestSupport {
         assertNull(locationManager.getLocation(machine.getId()));
         assertFalse(machine.isManaged());
     }
+    
+    @Test
+    public void testManagedLocationsSimpleCreateAndCleanup() {
+        Asserts.assertThat(locationManager.getLocations(), CollectionFunctionals.sizeEquals(0));
+        Location loc = mgmt.getLocationRegistry().resolve("localhost");
+        Asserts.assertThat(locationManager.getLocations(), CollectionFunctionals.sizeEquals(1));
+        mgmt.getLocationManager().unmanage(loc);
+        Asserts.assertThat(locationManager.getLocations(), CollectionFunctionals.sizeEquals(0));
+    }
+
+    @Test
+    public void testManagedLocationsNamedCreateAndCleanup() {
+        Asserts.assertThat(mgmt.getLocationRegistry().getDefinedLocations().keySet(), CollectionFunctionals.sizeEquals(0));
+        Asserts.assertThat(mgmt.getCatalog().getCatalogItems(), CollectionFunctionals.sizeEquals(0));
+        Asserts.assertThat(locationManager.getLocations(), CollectionFunctionals.sizeEquals(0));
+        
+        mgmt.getLocationRegistry().updateDefinedLocation( new BasicLocationDefinition("lh1", "localhost", null) );
+        
+        Asserts.assertThat(mgmt.getLocationRegistry().getDefinedLocations().keySet(), CollectionFunctionals.sizeEquals(1));
+        Asserts.assertThat(locationManager.getLocations(), CollectionFunctionals.sizeEquals(0));
+        // currently such defined locations do NOT appear in catalog -- see CatalogYamlLocationTest
+        Asserts.assertThat(mgmt.getCatalog().getCatalogItems(), CollectionFunctionals.sizeEquals(0));
+        
+        Location loc = mgmt.getLocationRegistry().resolve("lh1");
+        Asserts.assertThat(mgmt.getLocationRegistry().getDefinedLocations().keySet(), CollectionFunctionals.sizeEquals(1));
+        Asserts.assertThat(locationManager.getLocations(), CollectionFunctionals.sizeEquals(1));
+        
+        mgmt.getLocationManager().unmanage(loc);
+        Asserts.assertThat(mgmt.getLocationRegistry().getDefinedLocations().keySet(), CollectionFunctionals.sizeEquals(1));
+        Asserts.assertThat(locationManager.getLocations(), CollectionFunctionals.sizeEquals(0));
+    }
+
 }
