@@ -23,6 +23,7 @@ import java.util.Map;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.ImplementedBy;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.EntityInternal;
@@ -40,11 +41,17 @@ import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocati
 public interface TestApplication extends StartableApplication, EntityInternal {
 
     public static final AttributeSensor<String> MY_ATTRIBUTE = Sensors.newStringSensor("test.myattribute", "Test attribute sensor");
+    
+    public static final LocationSpec<LocalhostMachineProvisioningLocation> LOCALHOST_PROVISIONER_SPEC = LocationSpec.create(LocalhostMachineProvisioningLocation.class);
+    public static final LocationSpec<LocalhostMachineProvisioningLocation.LocalhostMachine> LOCALHOST_MACHINE_SPEC = LocationSpec.create(LocalhostMachineProvisioningLocation.LocalhostMachine.class);
 
     public <T extends Entity> T createAndManageChild(EntitySpec<T> spec);
 
-    public SimulatedLocation newSimulatedLocation();
+    /** @deprecated since 0.9.0 give the location spec spec to the entity spec instead, 
+     * using {@link #LOCALHOST_PROVISIONER_SPEC} or {@link #LOCALHOST_MACHINE_SPEC} */ @Deprecated
     public LocalhostMachineProvisioningLocation newLocalhostProvisioningLocation();
+    // items below it would be nice to update; there are fewer of them but they are more involved 
+    public SimulatedLocation newSimulatedLocation();
     public LocalhostMachineProvisioningLocation newLocalhostProvisioningLocation(Map<?,?> flags);
 
     public static class Factory {

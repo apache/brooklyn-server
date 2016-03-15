@@ -18,18 +18,18 @@
  */
 package org.apache.brooklyn.core.sensor.http;
 
-import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.test.http.TestHttpRequestHandler;
-import org.apache.brooklyn.test.http.TestHttpServer;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.test.EntityTestUtils;
+import org.apache.brooklyn.test.http.TestHttpRequestHandler;
+import org.apache.brooklyn.test.http.TestHttpServer;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.AfterMethod;
@@ -43,7 +43,7 @@ public class HttpRequestSensorTest {
     final static String TARGET_TYPE = "java.lang.String";
 
     private TestApplication app;
-    private EntityLocal entity;
+    private Entity entity;
 
     private TestHttpServer server;
     private String serverUrl;
@@ -57,7 +57,7 @@ public class HttpRequestSensorTest {
 
         app = TestApplication.Factory.newManagedInstanceForTests();
         entity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
-                .location(app.newLocalhostProvisioningLocation().obtain()));
+                .location(TestApplication.LOCALHOST_MACHINE_SPEC));
         app.start(ImmutableList.<Location>of());
     }
 
@@ -67,6 +67,7 @@ public class HttpRequestSensorTest {
         server.stop();
     }
 
+    @SuppressWarnings("deprecation")
     @Test
     public void testHttpSensor() throws Exception {
         HttpRequestSensor<Integer> sensor = new HttpRequestSensor<Integer>(ConfigBag.newInstance()
@@ -75,10 +76,10 @@ public class HttpRequestSensorTest {
                 .configure(HttpRequestSensor.SENSOR_TYPE, TARGET_TYPE)
                 .configure(HttpRequestSensor.JSON_PATH, "$.myKey")
                 .configure(HttpRequestSensor.SENSOR_URI, serverUrl + "/myKey/myValue"));
-        sensor.apply(entity);
+        sensor.apply((org.apache.brooklyn.api.entity.EntityLocal)entity);
         entity.sensors().set(Attributes.SERVICE_UP, true);
 
-        EntityTestUtils.assertAttributeEqualsEventually(entity, SENSOR_STRING, "myValue");
+        EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_STRING, "myValue");
     }
 
 }

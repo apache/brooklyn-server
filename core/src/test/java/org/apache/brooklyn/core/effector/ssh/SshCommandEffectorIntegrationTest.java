@@ -25,6 +25,7 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
@@ -51,8 +52,8 @@ public class SshCommandEffectorIntegrationTest {
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         app = TestApplication.Factory.newManagedInstanceForTests();
-        machine = app.newLocalhostProvisioningLocation().obtain();
-        entity = app.createAndManageChild(EntitySpec.create(TestEntity.class).location(machine));
+        entity = app.createAndManageChild(EntitySpec.create(TestEntity.class).location(TestApplication.LOCALHOST_MACHINE_SPEC));
+        machine = Locations.findUniqueSshMachineLocation(entity.getLocations()).get();
         app.start(ImmutableList.<Location>of());
     }
 

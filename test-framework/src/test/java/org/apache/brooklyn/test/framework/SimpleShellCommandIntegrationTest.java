@@ -18,21 +18,16 @@
  */
 package org.apache.brooklyn.test.framework;
 
-import com.google.common.collect.ImmutableList;
-import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
-import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
-import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
-import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
-import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.text.Identifiers;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import static org.apache.brooklyn.core.entity.trait.Startable.SERVICE_UP;
+import static org.apache.brooklyn.test.framework.SimpleShellCommandTest.ASSERT_OUT;
+import static org.apache.brooklyn.test.framework.SimpleShellCommandTest.ASSERT_STATUS;
+import static org.apache.brooklyn.test.framework.SimpleShellCommandTest.COMMAND;
+import static org.apache.brooklyn.test.framework.SimpleShellCommandTest.DOWNLOAD_URL;
+import static org.apache.brooklyn.test.framework.SimpleShellCommandTest.RUN_DIR;
+import static org.apache.brooklyn.test.framework.TargetableTestComponent.TARGET_ENTITY;
+import static org.apache.brooklyn.test.framework.TestFrameworkAssertions.CONTAINS;
+import static org.apache.brooklyn.test.framework.TestFrameworkAssertions.EQUALS;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -41,24 +36,25 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static org.apache.brooklyn.test.framework.BaseTest.TARGET_ENTITY;
-import static org.apache.brooklyn.test.framework.SimpleShellCommandTest.*;
-import static org.apache.brooklyn.test.framework.TestFrameworkAssertions.CONTAINS;
-import static org.apache.brooklyn.test.framework.TestFrameworkAssertions.EQUALS;
-import static org.assertj.core.api.Assertions.assertThat;
+import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.text.Identifiers;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
+
+import com.google.common.collect.ImmutableList;
 
 public class SimpleShellCommandIntegrationTest extends BrooklynAppUnitTestSupport {
 
     private static final String UP = "up";
-    private LocalhostMachineProvisioningLocation loc;
-    private SshMachineLocation machine;
-
-    @BeforeMethod(alwaysRun = true)
-    public void setUp() throws Exception {
-        super.setUp();
-        loc = app.newLocalhostProvisioningLocation();
-        machine = loc.obtain();
-    }
 
     @DataProvider(name = "shouldInsistOnJustOneOfCommandAndScript")
     public Object[][] createData1() {
@@ -79,7 +75,7 @@ public class SimpleShellCommandIntegrationTest extends BrooklynAppUnitTestSuppor
             scriptPath = createTempScript("pwd", "pwd");
             scriptUrl = "file:" + scriptPath;
         }
-        TestEntity testEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class).location(machine));
+        TestEntity testEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class).location(TestApplication.LOCALHOST_MACHINE_SPEC));
 
         app.createAndManageChild(EntitySpec.create(SimpleShellCommandTest.class)
             .configure(TARGET_ENTITY, testEntity)
@@ -87,7 +83,7 @@ public class SimpleShellCommandIntegrationTest extends BrooklynAppUnitTestSuppor
             .configure(DOWNLOAD_URL, scriptUrl));
 
         try {
-            app.start(ImmutableList.of(loc));
+            app.start(ImmutableList.<Location>of());
             if (!valid) {
                 Asserts.shouldHaveFailedPreviously();
             }
@@ -114,13 +110,13 @@ public class SimpleShellCommandIntegrationTest extends BrooklynAppUnitTestSuppor
 
     @Test(groups = "Integration")
     public void shouldSucceedUsingSuccessfulExitAsDefaultCondition() {
-        TestEntity testEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class).location(machine));
+        TestEntity testEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class).location(TestApplication.LOCALHOST_MACHINE_SPEC));
 
         SimpleShellCommandTest uptime = app.createAndManageChild(EntitySpec.create(SimpleShellCommandTest.class)
             .configure(TARGET_ENTITY, testEntity)
             .configure(COMMAND, "uptime"));
 
-        app.start(ImmutableList.of(loc));
+        app.start(ImmutableList.<Location>of());
 
         assertThat(uptime.sensors().get(SERVICE_UP)).isTrue()
             .withFailMessage("Service should be up");
@@ -131,14 +127,14 @@ public class SimpleShellCommandIntegrationTest extends BrooklynAppUnitTestSuppor
 
     @Test(groups = "Integration")
     public void shouldFailUsingSuccessfulExitAsDefaultCondition() {
-        TestEntity testEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class).location(machine));
+        TestEntity testEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class).location(TestApplication.LOCALHOST_MACHINE_SPEC));
 
         SimpleShellCommandTest uptime = app.createAndManageChild(EntitySpec.create(SimpleShellCommandTest.class)
             .configure(TARGET_ENTITY, testEntity)
             .configure(COMMAND, "ls /tmp/bogus-" + Identifiers.randomLong()));
 
         try {
-            app.start(ImmutableList.of(loc));
+            app.start(ImmutableList.<Location>of());
         } catch (Throwable t) {
             Asserts.expectedFailureContains(t, "exit code equals 0");
         }
@@ -153,7 +149,7 @@ public class SimpleShellCommandIntegrationTest extends BrooklynAppUnitTestSuppor
 
     @Test(groups = "Integration")
     public void shouldInvokeCommand() {
-        TestEntity testEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class).location(machine));
+        TestEntity testEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class).location(TestApplication.LOCALHOST_MACHINE_SPEC));
 
         Map<String, Object> equalsZero = MutableMap.of();
         equalsZero.put(EQUALS, 0);
@@ -167,7 +163,7 @@ public class SimpleShellCommandIntegrationTest extends BrooklynAppUnitTestSuppor
             .configure(ASSERT_STATUS, makeAssertions(equalsZero))
             .configure(ASSERT_OUT, makeAssertions(containsUp)));
 
-        app.start(ImmutableList.of(loc));
+        app.start(ImmutableList.<Location>of());
 
         assertThat(uptime.sensors().get(SERVICE_UP)).isTrue()
             .withFailMessage("Service should be up");
@@ -178,7 +174,7 @@ public class SimpleShellCommandIntegrationTest extends BrooklynAppUnitTestSuppor
 
     @Test(groups = "Integration")
     public void shouldNotBeUpIfAssertionsFail() {
-        TestEntity testEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class).location(machine));
+        TestEntity testEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class).location(TestApplication.LOCALHOST_MACHINE_SPEC));
 
         Map<String, Object> equalsOne = MutableMap.of();
         equalsOne.put(EQUALS, 1);
@@ -192,7 +188,7 @@ public class SimpleShellCommandIntegrationTest extends BrooklynAppUnitTestSuppor
             .configure(ASSERT_STATUS, makeAssertions(equalsOne, equals255)));
 
         try {
-            app.start(ImmutableList.of(loc));
+            app.start(ImmutableList.<Location>of());
         } catch (Exception e) {
             Asserts.expectedFailureContains(e, "exit code equals 1", "exit code equals 255");
         }
@@ -204,7 +200,7 @@ public class SimpleShellCommandIntegrationTest extends BrooklynAppUnitTestSuppor
 
     @Test(groups = "Integration")
     public void shouldInvokeScript() throws Exception {
-        TestEntity testEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class).location(machine));
+        TestEntity testEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class).location(TestApplication.LOCALHOST_MACHINE_SPEC));
 
         String text = "hello world";
         Path testScript = createTempScript("script", "echo " + text);
@@ -223,7 +219,7 @@ public class SimpleShellCommandIntegrationTest extends BrooklynAppUnitTestSuppor
                 .configure(ASSERT_STATUS, makeAssertions(equalsZero))
                 .configure(ASSERT_OUT, makeAssertions(containsText)));
 
-            app.start(ImmutableList.of(loc));
+            app.start(ImmutableList.<Location>of());
 
             assertThat(uptime.sensors().get(SERVICE_UP)).isTrue()
                 .withFailMessage("Service should be up");
@@ -237,7 +233,7 @@ public class SimpleShellCommandIntegrationTest extends BrooklynAppUnitTestSuppor
 
     @Test(groups = "Integration")
     public void shouldExecuteInTheRunDir() throws Exception {
-        TestEntity testEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class).location(machine));
+        TestEntity testEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class).location(TestApplication.LOCALHOST_MACHINE_SPEC));
 
         Path pwdPath = createTempScript("pwd", "pwd");
 
@@ -264,7 +260,7 @@ public class SimpleShellCommandIntegrationTest extends BrooklynAppUnitTestSuppor
                 .configure(ASSERT_STATUS, makeAssertions(equalsZero))
                 .configure(ASSERT_OUT, makeAssertions(containsTmp)));
 
-            app.start(ImmutableList.of(loc));
+            app.start(ImmutableList.<Location>of());
 
             assertThat(pwd.sensors().get(SERVICE_UP)).isTrue().withFailMessage("Service should be up");
             assertThat(ServiceStateLogic.getExpectedState(pwd)).isEqualTo(Lifecycle.RUNNING)

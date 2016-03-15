@@ -38,6 +38,7 @@ import org.apache.brooklyn.core.feed.AttributePollHandler;
 import org.apache.brooklyn.core.feed.DelegatingPollHandler;
 import org.apache.brooklyn.core.feed.Poller;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.entity.brooklynnode.BrooklynCluster;
 import org.apache.brooklyn.entity.brooklynnode.BrooklynClusterImpl;
 import org.apache.brooklyn.entity.brooklynnode.BrooklynNode;
@@ -90,7 +91,7 @@ public class SelectMasterEffectorTest extends BrooklynAppUnitTestSupport {
         super.setUpApp();
         http = new HttpCallback();
         cluster = app.createAndManageChild(EntitySpec.create(BrooklynCluster.class)
-            .location(app.newLocalhostProvisioningLocation())
+            .location(TestApplication.LOCALHOST_PROVISIONER_SPEC)
             .configure(BrooklynCluster.MEMBER_SPEC, EntitySpec.create(BrooklynNode.class)
                 .impl(MockBrooklynNode.class)
                 .configure(MockBrooklynNode.HTTP_CLIENT_CALLBACK, http)));

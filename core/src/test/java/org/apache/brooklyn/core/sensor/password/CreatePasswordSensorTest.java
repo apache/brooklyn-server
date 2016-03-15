@@ -24,6 +24,7 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -42,7 +43,7 @@ public class CreatePasswordSensorTest extends BrooklynAppUnitTestSupport{
         super.setUp();
 
         entity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
-                .location(app.newLocalhostProvisioningLocation().obtain()));
+                .location(TestApplication.LOCALHOST_MACHINE_SPEC));
         app.start(ImmutableList.<Location>of());
     }
 
