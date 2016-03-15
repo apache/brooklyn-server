@@ -50,15 +50,19 @@ import org.apache.brooklyn.entity.software.base.SoftwareProcess.StopSoftwarePara
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicApplicationImpl;
 import org.apache.brooklyn.feed.http.JsonFunctions;
+import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.test.HttpTestUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.http.HttpTool;
-import org.apache.brooklyn.util.http.HttpToolResponse;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Functionals;
+import org.apache.brooklyn.util.http.HttpAsserts;
+import org.apache.brooklyn.util.http.HttpTool;
+import org.apache.brooklyn.util.http.HttpToolResponse;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.net.Urls;
@@ -73,11 +77,10 @@ import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -110,7 +113,9 @@ public class BrooklynNodeIntegrationTest extends BrooklynAppUnitTestSupport {
     
     private File pseudoBrooklynPropertiesFile;
     private File pseudoBrooklynCatalogFile;
+    private File brooklynCatalogSourceFile;
     private File persistenceDir;
+    
     private LocalhostMachineProvisioningLocation loc;
     private List<LocalhostMachineProvisioningLocation> locs;
 
@@ -119,10 +124,8 @@ public class BrooklynNodeIntegrationTest extends BrooklynAppUnitTestSupport {
     public void setUp() throws Exception {
         super.setUp();
         pseudoBrooklynPropertiesFile = Os.newTempFile("brooklynnode-test", ".properties");
-        pseudoBrooklynPropertiesFile.delete();
-
         pseudoBrooklynCatalogFile = Os.newTempFile("brooklynnode-test", ".catalog");
-        pseudoBrooklynCatalogFile.delete();
+        brooklynCatalogSourceFile = Os.newTempFile("brooklynnode-test-source", ".catalog");
 
         loc = app.newLocalhostProvisioningLocation();
         locs = ImmutableList.of(loc);
@@ -136,6 +139,7 @@ public class BrooklynNodeIntegrationTest extends BrooklynAppUnitTestSupport {
         } finally {
             if (pseudoBrooklynPropertiesFile != null) pseudoBrooklynPropertiesFile.delete();
             if (pseudoBrooklynCatalogFile != null) pseudoBrooklynCatalogFile.delete();
+            if (brooklynCatalogSourceFile != null) brooklynCatalogSourceFile.delete();
             if (persistenceDir != null) Os.deleteRecursively(persistenceDir);
         }
     }
@@ -229,7 +233,6 @@ services:
 
     @Test(groups="Integration")
     public void testSetsBrooklynCatalogFromUri() throws Exception {
-        File brooklynCatalogSourceFile = File.createTempFile("brooklynnode-test", ".catalog");
         Files.write("abc=def", brooklynCatalogSourceFile, Charsets.UTF_8);
 
         BrooklynNode brooklynNode = app.createAndManageChild(newBrooklynNodeSpecForTest()
@@ -239,6 +242,59 @@ services:
         log.info("started "+app+" containing "+brooklynNode+" for "+JavaClassNames.niceClassAndMethod());
 
         assertEquals(Files.readLines(pseudoBrooklynCatalogFile, Charsets.UTF_8), ImmutableList.of("abc=def"));
+    }
+
+    @Test(groups="Integration")
+    public void testSetsBrooklynCatalogInitialBomFromContents() throws Exception {
+        runBrooklynCatalogInitialBom(false);
+    }
+    
+    @Test(groups="Integration")
+    public void testSetsBrooklynCatalogInitialBomFromUri() throws Exception {
+        runBrooklynCatalogInitialBom(true);
+    }
+    
+    @Test(groups="Integration")
+    public void runBrooklynCatalogInitialBom(boolean useUri) throws Exception {
+        String catalogContents = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  id: BrooklynNodeIntegrationTest.mycatalog",
+                "  version: 1.0",
+                "  item:",
+                "    services:",
+                "    - type: org.apache.brooklyn.entity.stock.BasicApplication");
+
+        EntitySpec<BrooklynNode> spec = newBrooklynNodeSpecForTest()
+                .configure(BrooklynNode.BROOKLYN_CATALOG_INITIAL_BOM_REMOTE_PATH, pseudoBrooklynCatalogFile.getAbsolutePath())
+                .configure(BrooklynNode.HTTP_PORT, PortRanges.fromString("8081+"));
+        if (useUri) {
+            Files.write(catalogContents, brooklynCatalogSourceFile, Charsets.UTF_8);
+            spec.configure(BrooklynNode.BROOKLYN_CATALOG_INITIAL_BOM_URI, brooklynCatalogSourceFile.toURI().toString());
+        } else {
+            spec.configure(BrooklynNode.BROOKLYN_CATALOG_INITIAL_BOM_CONTENTS, catalogContents);
+        }
+        
+        BrooklynNode brooklynNode = app.createAndManageChild(spec);
+        app.start(locs);
+        log.info("started "+app+" containing "+brooklynNode+" for "+JavaClassNames.niceClassAndMethod());
+
+        assertEquals(ResourceUtils.create().getResourceAsString(pseudoBrooklynCatalogFile.getAbsolutePath()), catalogContents);
+        
+        // Confirm the catalog item has taken effect (by deploying an app)
+        final URI webConsoleUri = brooklynNode.getAttribute(BrooklynNode.WEB_CONSOLE_URI);
+        waitForApps(webConsoleUri.toString());
+
+        final String id = brooklynNode.invoke(BrooklynNode.DEPLOY_BLUEPRINT, ConfigBag.newInstance()
+            .configure(DeployBlueprintEffector.BLUEPRINT_TYPE, "BrooklynNodeIntegrationTest.mycatalog:1.0")
+            .getAllConfig()).get();
+        
+        String apps = HttpTestUtils.getContent(webConsoleUri.toString()+"/v1/applications");
+        List<String> appType = parseJsonList(apps, ImmutableList.of("spec", "type"), String.class);
+        assertEquals(appType, ImmutableList.of(BasicApplication.class.getName()));
+        
+        HttpAsserts.assertContentEventuallyMatches(
+            webConsoleUri.toString()+"/v1/applications/"+id+"/entities/"+id+"/sensors/service.state",
+            "\"?(running|RUNNING)\"?");
     }
 
     @Test(groups="Integration")
