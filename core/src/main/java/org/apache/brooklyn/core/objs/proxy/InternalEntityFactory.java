@@ -23,7 +23,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
@@ -34,6 +33,7 @@ import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.EntityTypeRegistry;
 import org.apache.brooklyn.api.entity.Group;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
@@ -326,6 +326,10 @@ public class InternalEntityFactory extends InternalFactory {
             public void run() {
                 ((AbstractEntity)entity).init();
 
+                for (LocationSpec<?> locationSpec : spec.getLocationSpecs()) {
+                    ((AbstractEntity)entity).addLocations(MutableList.of(
+                        managementContext.getLocationManager().createLocation(locationSpec)));
+                }
                 ((AbstractEntity)entity).addLocations(spec.getLocations());
 
                 for (EntityInitializer initializer: spec.getInitializers()) {

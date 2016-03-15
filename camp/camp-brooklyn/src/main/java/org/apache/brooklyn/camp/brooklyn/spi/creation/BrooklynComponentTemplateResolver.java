@@ -224,6 +224,7 @@ public class BrooklynComponentTemplateResolver {
         if (planId != null)
             spec.configure(BrooklynCampConstants.PLAN_ID, planId);
 
+        // XXX use location spec
         List<Location> locations = new BrooklynYamlLocationResolver(mgmt).resolveLocations(attrs.getAllConfig(), true);
         if (locations != null) {
             // override locations defined in the type if locations are specified here
