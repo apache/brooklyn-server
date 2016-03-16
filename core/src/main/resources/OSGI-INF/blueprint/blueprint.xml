@@ -61,4 +61,8 @@ limitations under the License.
         <property name="persistPeriod" value="${persistPeriod}" />
     </bean>
 
+    <bean id="containerFramework"
+          class="org.apache.brooklyn.util.core.osgi.ContainerFramework" />
+    <service ref="containerFramework"
+          interface="org.apache.brooklyn.util.osgi.SystemFramework" />
 </blueprint>

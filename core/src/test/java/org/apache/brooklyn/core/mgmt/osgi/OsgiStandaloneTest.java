@@ -20,11 +20,11 @@ package org.apache.brooklyn.core.mgmt.osgi;
 
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.rt.felix.EmbeddedFelixFramework;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.osgi.OsgiTestBase;
 import org.apache.brooklyn.util.core.osgi.Osgis;
+import org.apache.brooklyn.util.core.osgi.SystemFrameworkLoader;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.maven.MavenArtifact;
 import org.apache.brooklyn.util.maven.MavenRetriever;
@@ -106,7 +106,7 @@ public class OsgiStandaloneTest extends OsgiTestBase {
         //Make sure that we still get the initially loaded
         //bundle after trying to install the same version.
         Bundle bundle = install(url);
-        Assert.assertTrue(EmbeddedFelixFramework.isExtensionBundle(bundle));
+        Assert.assertTrue(SystemFrameworkLoader.get().isSystemBundle(bundle));
     }
 
     @Test
