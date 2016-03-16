@@ -111,9 +111,12 @@ public class FrameworkLookup {
         return result;
     }
 
-    private static <T> Iterable<T> lookupAllViaServiceLoader(Class<T> clazz, ClassLoader loader) {
+    private static <T> ServiceLoader<T> lookupAllViaServiceLoader(Class<T> clazz, ClassLoader loader) {
         LOG.debug("Looking up all " + clazz.getSimpleName() + "  via ServiceLoader");
 
+        if (null == loader) {
+            return ServiceLoader.load(clazz);
+        }
         return ServiceLoader.load(clazz, loader);
     }
 
@@ -134,7 +137,7 @@ public class FrameworkLookup {
         LOG.debug("Looking up " + clazz.getSimpleName() + "  via ServiceLoader");
 
         Maybe<T> result = Maybe.absent("No class " + clazz.getSimpleName() + " found with ServiceLoader");
-        ServiceLoader<T> LOADER = ServiceLoader.load(clazz, loader);
+        ServiceLoader<T> LOADER = lookupAllViaServiceLoader(clazz, loader);
         for (T item : LOADER) {
             return Maybe.of(item);
         }
