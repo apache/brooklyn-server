@@ -50,7 +50,7 @@ public class JcloudsByonLocationResolverSoftlayerLiveTest extends AbstractJcloud
     @BeforeClass(groups="Live")
     public void setUpClass() throws Exception {
         classManagementContext = newManagementContext();
-        classEc2Loc = (JcloudsLocation) classManagementContext.getLocationRegistry().resolve(SOFTLAYER_LOCATION_SPEC);
+        classEc2Loc = (JcloudsLocation) classManagementContext.getLocationRegistry().getLocationManaged(SOFTLAYER_LOCATION_SPEC);
         classVm = (JcloudsSshMachineLocation)classEc2Loc.obtain(MutableMap.<String,Object>builder()
                 .put("inboundPorts", ImmutableList.of(22))
                 .build());
@@ -98,7 +98,7 @@ public class JcloudsByonLocationResolverSoftlayerLiveTest extends AbstractJcloud
 
     @SuppressWarnings("unchecked")
     private FixedListMachineProvisioningLocation<JcloudsSshMachineLocation> resolve(String spec) {
-        return (FixedListMachineProvisioningLocation<JcloudsSshMachineLocation>) managementContext.getLocationRegistry().resolve(spec);
+        return (FixedListMachineProvisioningLocation<JcloudsSshMachineLocation>) managementContext.getLocationRegistry().getLocationManaged(spec);
     }
     
 }

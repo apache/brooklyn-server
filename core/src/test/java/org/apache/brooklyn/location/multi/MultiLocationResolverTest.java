@@ -43,7 +43,6 @@ import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
-import org.apache.brooklyn.location.multi.MultiLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -98,6 +97,7 @@ public class MultiLocationResolverTest {
     }
 
 
+    @SuppressWarnings("rawtypes")
     @Test
     public void testResolvesSubLocs() {
         assertMultiLocation(resolve("multi:(targets=localhost)"), 1, ImmutableList.of(Predicates.instanceOf(LocalhostMachineProvisioningLocation.class)));
@@ -107,6 +107,7 @@ public class MultiLocationResolverTest {
         assertMultiLocation(resolve("multi:(targets=byon:(hosts=\"1.1.1.1\"))"), 1, ImmutableList.of(Predicates.and(
                 Predicates.instanceOf(FixedListMachineProvisioningLocation.class),
                 new Predicate<MachineProvisioningLocation>() {
+                    @SuppressWarnings("unchecked")
                     @Override public boolean apply(MachineProvisioningLocation input) {
                         SshMachineLocation machine;
                         try {
@@ -141,10 +142,10 @@ public class MultiLocationResolverTest {
 
     @Test
     public void testResolvesFromMap() throws NoMachinesAvailableException {
-        Location l = managementContext.getLocationRegistry().resolve("multi", MutableMap.of("targets", 
+        Location l = managementContext.getLocationRegistry().getLocationManaged("multi", MutableMap.of("targets", 
             MutableList.of("localhost", MutableMap.of("byon", MutableMap.of("hosts", "127.0.0.127")))));
         MultiLocation<?> ml = (MultiLocation<?>)l;
-        Iterator<MachineProvisioningLocation<?>> ci = ml.getSubLocations().iterator();
+        Iterator<MachineProvisioningLocation<?>> ci = ml.getSubLocationsAsLocations().iterator();
         
         l = ci.next();
         Assert.assertTrue(l instanceof LocalhostMachineProvisioningLocation, "Expected localhost, got "+l);
@@ -178,10 +179,10 @@ public class MultiLocationResolverTest {
     
     @SuppressWarnings("unchecked")
     private MultiLocation<SshMachineLocation> resolve(String val) {
-        return (MultiLocation<SshMachineLocation>) managementContext.getLocationRegistry().resolve(val);
+        return (MultiLocation<SshMachineLocation>) managementContext.getLocationRegistry().getLocationManaged(val);
     }
     
-    @SuppressWarnings("rawtypes")
+    @SuppressWarnings({ "rawtypes", "unchecked" })
     private void assertMultiLocation(MultiLocation<?> multiLoc, int expectedSize, List<? extends Predicate> expectedSubLocationPredicates) {
         AvailabilityZoneExtension zones = multiLoc.getExtension(AvailabilityZoneExtension.class);
         List<Location> subLocs = zones.getAllSubLocations();

@@ -106,7 +106,7 @@ public abstract class AbstractSoftlayerLiveTest {
                 .put("vmNameMaxLength", MAX_VM_NAME_LENGTH)
                 .putAll(flags)
                 .build();
-        jcloudsLocation = ctx.getLocationRegistry().resolve(PROVIDER, allFlags);
+        jcloudsLocation = ctx.getLocationRegistry().getLocationManaged(PROVIDER, allFlags);
 
         doTest(jcloudsLocation);
     }

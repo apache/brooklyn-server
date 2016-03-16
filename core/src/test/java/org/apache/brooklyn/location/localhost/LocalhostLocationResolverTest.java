@@ -150,7 +150,7 @@ public class LocalhostLocationResolverTest {
 
     @Test
     public void testAcceptsList() {
-        List<Location> l = getLocationResolver().resolve(ImmutableList.of("localhost"));
+        List<Location> l = getLocationResolver().getListOfLocationsManaged(ImmutableList.of("localhost"));
         assertEquals(l.size(), 1, "l="+l);
         assertTrue(l.get(0) instanceof LocalhostMachineProvisioningLocation, "l="+l);
     }
@@ -159,14 +159,14 @@ public class LocalhostLocationResolverTest {
     @Test
     public void testRegistryCommaResolution() throws NoMachinesAvailableException {
         List<Location> l;
-        l = getLocationResolver().resolve(JavaStringEscapes.unwrapJsonishListIfPossible("localhost,localhost,localhost"));
+        l = getLocationResolver().getListOfLocationsManaged(JavaStringEscapes.unwrapJsonishListIfPossible("localhost,localhost,localhost"));
         assertEquals(l.size(), 3, "l="+l);
         assertTrue(l.get(0) instanceof LocalhostMachineProvisioningLocation, "l="+l);
         assertTrue(l.get(1) instanceof LocalhostMachineProvisioningLocation, "l="+l);
         assertTrue(l.get(2) instanceof LocalhostMachineProvisioningLocation, "l="+l);
 
         // And check works if comma in brackets
-        l = getLocationResolver().resolve(JavaStringEscapes.unwrapJsonishListIfPossible(
+        l = getLocationResolver().getListOfLocationsManaged(JavaStringEscapes.unwrapJsonishListIfPossible(
             "[ \"byon:(hosts=\\\"192.168.0.1\\\",user=bob)\", \"byon:(hosts=\\\"192.168.0.2\\\",user=bob2)\" ]"));
         assertEquals(l.size(), 2, "l="+l);
         assertTrue(l.get(0) instanceof FixedListMachineProvisioningLocation, "l="+l);
@@ -178,26 +178,26 @@ public class LocalhostLocationResolverTest {
     @Test(expectedExceptions={NoSuchElementException.class})
     public void testRegistryCommaResolutionInListNotAllowed1() throws NoMachinesAvailableException {
         // disallowed since 0.7.0
-        getLocationResolver().resolve(ImmutableList.of("localhost,localhost,localhost"));
+        getLocationResolver().getListOfLocationsManaged(ImmutableList.of("localhost,localhost,localhost"));
     }
 
     @Test(expectedExceptions={IllegalArgumentException.class})
     public void testRegistryCommaResolutionInListNotAllowed2() throws NoMachinesAvailableException {
         // disallowed since 0.7.0
         // fails because it interprets the entire string as a single spec, which does not parse
-        getLocationResolver().resolve(ImmutableList.of("localhost(),localhost()"));
+        getLocationResolver().getListOfLocationsManaged(ImmutableList.of("localhost(),localhost()"));
     }
 
     @Test(expectedExceptions={IllegalArgumentException.class})
     public void testRegistryCommaResolutionInListNotAllowed3() throws NoMachinesAvailableException {
         // disallowed since 0.7.0
         // fails because it interprets the entire string as a single spec, which does not parse
-        getLocationResolver().resolve(ImmutableList.of("localhost(name=a),localhost(name=b)"));
+        getLocationResolver().getListOfLocationsManaged(ImmutableList.of("localhost(name=a),localhost(name=b)"));
     }
 
     @Test(expectedExceptions={IllegalArgumentException.class})
     public void testDoesNotAcceptsListOLists() {
-        ((BasicLocationRegistry)managementContext.getLocationRegistry()).resolve(ImmutableList.of(ImmutableList.of("localhost")));
+        ((BasicLocationRegistry)managementContext.getLocationRegistry()).getListOfLocationsManaged(ImmutableList.of(ImmutableList.of("localhost")));
     }
 
     @Test
@@ -238,7 +238,7 @@ public class LocalhostLocationResolverTest {
     }
     
     private LocationInternal resolve(String val) {
-        Location l = managementContext.getLocationRegistry().resolve(val);
+        Location l = managementContext.getLocationRegistry().getLocationManaged(val);
         Assert.assertNotNull(l);
         return (LocationInternal) l;
     }
@@ -252,7 +252,7 @@ public class LocalhostLocationResolverTest {
         }
 
         // and check the long form returns an Absent (not throwing)
-        Assert.assertTrue(managementContext.getLocationRegistry().resolve(val, false, null).isAbsent());
+        Assert.assertTrue(managementContext.getLocationRegistry().getLocationSpec(val).isAbsent());
     }
     
     private void assertThrowsIllegalArgument(String val) {
@@ -264,6 +264,6 @@ public class LocalhostLocationResolverTest {
         }
         
         // and check the long form returns an Absent (not throwing)
-        Assert.assertTrue(managementContext.getLocationRegistry().resolve(val, false, null).isAbsent());
+        Assert.assertTrue(managementContext.getLocationRegistry().getLocationSpec(val).isAbsent());
     }
 }

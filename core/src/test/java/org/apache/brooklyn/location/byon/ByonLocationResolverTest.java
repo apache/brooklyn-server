@@ -30,6 +30,8 @@ import java.util.Set;
 
 import javax.annotation.Nullable;
 
+import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
@@ -54,7 +56,6 @@ import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Function;
@@ -158,7 +159,7 @@ public class ByonLocationResolverTest {
     public void testRegistryCommaResolutionInListNotAllowed() throws NoMachinesAvailableException {
         // disallowed since 0.7.0
         // fails because it interprets the entire string as a single byon spec, which does not parse
-        managementContext.getLocationRegistry().resolve(ImmutableList.of("byon(hosts=\"192.168.0.1\",user=bob),byon(hosts=\"192.168.0.2\",user=bob2)"));
+        managementContext.getLocationRegistry().getListOfLocationsManaged(ImmutableList.of("byon(hosts=\"192.168.0.1\",user=bob),byon(hosts=\"192.168.0.2\",user=bob2)"));
     }
 
     @Test
@@ -248,8 +249,8 @@ public class ByonLocationResolverTest {
                 "brooklyn.location.named.foo.user", "bob"));
         ((BasicLocationRegistry)managementContext.getLocationRegistry()).updateDefinedLocations();
         
-        MachineProvisioningLocation<SshMachineLocation> ll = (MachineProvisioningLocation<SshMachineLocation>)
-                new NamedLocationResolver().newLocationFromString(MutableMap.of(), "named:foo", managementContext.getLocationRegistry());
+        LocationSpec<? extends Location> lspec = new NamedLocationResolver().newLocationSpecFromString("named:foo", MutableMap.of(), managementContext.getLocationRegistry());
+        MachineProvisioningLocation<SshMachineLocation> ll = (MachineProvisioningLocation<SshMachineLocation>) managementContext.getLocationManager().createLocation(lspec);
         SshMachineLocation l = ll.obtain(MutableMap.of());
         Assert.assertEquals("bob", l.getUser());
     }
@@ -273,8 +274,8 @@ public class ByonLocationResolverTest {
                 "brooklyn.location.named.foo.privateKeyFile", "/tmp/x"));
         ((BasicLocationRegistry)managementContext.getLocationRegistry()).updateDefinedLocations();
         
-        MachineProvisioningLocation<SshMachineLocation> ll = (MachineProvisioningLocation<SshMachineLocation>) 
-                new NamedLocationResolver().newLocationFromString(MutableMap.of(), "named:foo", managementContext.getLocationRegistry());
+        LocationSpec<? extends Location> lspec = new NamedLocationResolver().newLocationSpecFromString("named:foo", MutableMap.of(), managementContext.getLocationRegistry());
+        MachineProvisioningLocation<SshMachineLocation> ll = (MachineProvisioningLocation<SshMachineLocation>) managementContext.getLocationManager().createLocation(lspec);
         
         Assert.assertEquals("/tmp/x", ll.getConfig(LocationConfigKeys.PRIVATE_KEY_FILE));
         Assert.assertTrue(((LocationInternal)ll).config().getLocalRaw(LocationConfigKeys.PRIVATE_KEY_FILE).isPresent());
@@ -401,11 +402,11 @@ public class ByonLocationResolverTest {
     
     @SuppressWarnings("unchecked")
     private FixedListMachineProvisioningLocation<MachineLocation> resolve(String val) {
-        return (FixedListMachineProvisioningLocation<MachineLocation>) managementContext.getLocationRegistry().resolve(val);
+        return (FixedListMachineProvisioningLocation<MachineLocation>) managementContext.getLocationRegistry().getLocationManaged(val);
     }
     
     @SuppressWarnings("unchecked")
     private FixedListMachineProvisioningLocation<MachineLocation> resolve(String val, Map<?, ?> locationFlags) {
-        return (FixedListMachineProvisioningLocation<MachineLocation>) managementContext.getLocationRegistry().resolve(val, locationFlags);
+        return (FixedListMachineProvisioningLocation<MachineLocation>) managementContext.getLocationRegistry().getLocationManaged(val, locationFlags);
     }
 }

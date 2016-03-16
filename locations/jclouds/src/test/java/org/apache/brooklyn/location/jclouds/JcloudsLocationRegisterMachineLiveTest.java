@@ -46,7 +46,7 @@ public class JcloudsLocationRegisterMachineLiveTest extends AbstractJcloudsLiveT
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        jcloudsLocation = (JcloudsLocation) managementContext.getLocationRegistry().resolve(AWS_EC2_PROVIDER+":"+AWS_EC2_EUWEST_REGION_NAME);
+        jcloudsLocation = (JcloudsLocation) managementContext.getLocationRegistry().getLocationManaged(AWS_EC2_PROVIDER+":"+AWS_EC2_EUWEST_REGION_NAME);
     }
 
     @Test(groups = { "Live", "Live-sanity" })
@@ -78,7 +78,7 @@ public class JcloudsLocationRegisterMachineLiveTest extends AbstractJcloudsLiveT
         String user = checkNotNull(machine.getUser(), "user");
         
         // Create a new jclouds location, and re-bind the existing VM to that
-        JcloudsLocation loc2 = (JcloudsLocation) managementContext.getLocationRegistry().resolve(AWS_EC2_PROVIDER+":"+AWS_EC2_EUWEST_REGION_NAME);
+        JcloudsLocation loc2 = (JcloudsLocation) managementContext.getLocationRegistry().getLocationManaged(AWS_EC2_PROVIDER+":"+AWS_EC2_EUWEST_REGION_NAME);
         MachineLocation machineLocation = loc2.registerMachine(ImmutableMap.of("id", id, "hostname", hostname, "user", user));
         assertTrue(machineLocation instanceof SshMachineLocation);
         SshMachineLocation machine2 = (SshMachineLocation) machineLocation;
@@ -109,7 +109,7 @@ public class JcloudsLocationRegisterMachineLiveTest extends AbstractJcloudsLiveT
         String username = machine.getUser();
         
         // Create a new jclouds location, and re-bind the existing VM to that
-        JcloudsLocation loc2 = (JcloudsLocation) managementContext.getLocationRegistry().resolve(AWS_EC2_PROVIDER+":"+AWS_EC2_EUWEST_REGION_NAME);
+        JcloudsLocation loc2 = (JcloudsLocation) managementContext.getLocationRegistry().getLocationManaged(AWS_EC2_PROVIDER+":"+AWS_EC2_EUWEST_REGION_NAME);
         // pass deprecated userName
         MachineLocation machineLocation = loc2.registerMachine(ImmutableMap.of("id", id, "hostname", hostname, "userName", username));
         assertTrue(machineLocation instanceof SshMachineLocation);

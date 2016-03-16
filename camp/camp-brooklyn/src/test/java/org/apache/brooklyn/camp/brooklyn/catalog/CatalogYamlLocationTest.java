@@ -266,7 +266,7 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
         assertCatalogCount(1);
         assertLocationManagerInstancesCount(0);
 
-        Location loc = mgmt().getLocationRegistry().resolve("lh1");
+        Location loc = mgmt().getLocationRegistry().getLocationManaged("lh1");
 
         assertLocationRegistryCount(1);
         assertCatalogCount(1);

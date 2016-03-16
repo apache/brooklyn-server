@@ -42,7 +42,7 @@ public class EntityFunctionsTest extends BrooklynAppUnitTestSupport {
     public void setUp() throws Exception {
         super.setUp();
         entity = app.createAndManageChild(EntitySpec.create(TestEntity.class).displayName("mydisplayname"));
-        loc = app.getManagementContext().getLocationRegistry().resolve("localhost");
+        loc = app.getManagementContext().getLocationRegistry().getLocationManaged("localhost");
     }
 
     @Test

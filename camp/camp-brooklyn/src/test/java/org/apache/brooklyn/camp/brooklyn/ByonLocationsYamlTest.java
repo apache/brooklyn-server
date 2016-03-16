@@ -200,7 +200,7 @@ public class ByonLocationsYamlTest extends AbstractYamlTest {
 
         Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
         FixedListMachineProvisioningLocation<MachineLocation> loc = (FixedListMachineProvisioningLocation<MachineLocation>) Iterables.get(app.getLocations(), 0);
-        PortForwardManager pfm = (PortForwardManager) mgmt().getLocationRegistry().resolve("portForwardManager(scope=global)");
+        PortForwardManager pfm = (PortForwardManager) mgmt().getLocationRegistry().getLocationManaged("portForwardManager(scope=global)");
         
         Set<MachineLocation> machines = loc.getAvailable();
         assertEquals(machines.size(), 2, "machines="+machines);

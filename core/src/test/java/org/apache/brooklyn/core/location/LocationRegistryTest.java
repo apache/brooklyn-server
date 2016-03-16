@@ -23,8 +23,6 @@ import org.apache.brooklyn.api.location.LocationDefinition;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
-import org.apache.brooklyn.core.location.BasicLocationRegistry;
-import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
@@ -71,19 +69,23 @@ public class LocationRegistryTest {
         locdef = mgmt.getLocationRegistry().getDefinedLocationByName("foo");
         log.info("testResovlesBy has defined locations: "+mgmt.getLocationRegistry().getDefinedLocations());
         
-        Location l = mgmt.getLocationRegistry().resolve("named:foo");
+        LocationSpec<?> ls = mgmt.getLocationRegistry().getLocationSpec("named:foo").get();
+        Location l = mgmt.getLocationManager().createLocation(ls);
         Assert.assertNotNull(l);
         Assert.assertEquals(l.getConfig(LocationConfigKeys.PRIVATE_KEY_FILE), "~/.ssh/foo.id_rsa");
         
-        l = mgmt.getLocationRegistry().resolve("foo");
+        ls = mgmt.getLocationRegistry().getLocationSpec("foo").get();
+        l = mgmt.getLocationManager().createLocation(ls);
         Assert.assertNotNull(l);
         Assert.assertEquals(l.getConfig(LocationConfigKeys.PRIVATE_KEY_FILE), "~/.ssh/foo.id_rsa");
         
-        l = mgmt.getLocationRegistry().resolve("id:"+locdef.getId());
+        ls = mgmt.getLocationRegistry().getLocationSpec("id:"+locdef.getId()).get();
+        l = mgmt.getLocationManager().createLocation(ls);
         Assert.assertNotNull(l);
         Assert.assertEquals(l.getConfig(LocationConfigKeys.PRIVATE_KEY_FILE), "~/.ssh/foo.id_rsa");
         
-        l = mgmt.getLocationRegistry().resolve(locdef.getId());
+        ls = mgmt.getLocationRegistry().getLocationSpec(locdef.getId()).get();
+        l = mgmt.getLocationManager().createLocation(ls);
         Assert.assertNotNull(l);
         Assert.assertEquals(l.getConfig(LocationConfigKeys.PRIVATE_KEY_FILE), "~/.ssh/foo.id_rsa");
     }
@@ -94,7 +96,8 @@ public class LocationRegistryTest {
         properties.put("brooklyn.location.named.foo", "byon:(hosts=\"root@192.168.1.{1,2,3,4}\")");
         properties.put("brooklyn.location.named.foo.displayName", "My Foo");
         mgmt = LocalManagementContextForTests.newInstance(properties);
-        Location l = mgmt.getLocationRegistry().resolve("foo");
+        LocationSpec<?> ls = mgmt.getLocationRegistry().getLocationSpec("foo").get();
+        Location l = mgmt.getLocationManager().createLocation(ls);
         Assert.assertEquals(l.getDisplayName(), "My Foo");
     }
     
@@ -103,7 +106,8 @@ public class LocationRegistryTest {
         BrooklynProperties properties = BrooklynProperties.Factory.newEmpty();
         properties.put("brooklyn.location.named.foo", "byon:(hosts=\"root@192.168.1.{1,2,3,4}\")");
         mgmt = LocalManagementContextForTests.newInstance(properties);
-        Location l = mgmt.getLocationRegistry().resolve("foo");
+        LocationSpec<? extends Location> ls = mgmt.getLocationRegistry().getLocationSpec("foo").get();
+        Location l = mgmt.getLocationManager().createLocation(ls);
         Assert.assertNotNull(l.getDisplayName());
         Assert.assertTrue(l.getDisplayName().startsWith(FixedListMachineProvisioningLocation.class.getSimpleName()), "name="+l.getDisplayName());
         // TODO currently it gives default name; it would be nice to use 'foo', 
@@ -124,17 +128,12 @@ public class LocationRegistryTest {
         properties.put("brooklyn.location.named.bar", "named:bar");
         mgmt = LocalManagementContextForTests.newInstance(properties);
         log.info("bar properties gave defined locations: "+mgmt.getLocationRegistry().getDefinedLocations());
-        boolean resolved = false;
         try {
-            mgmt.getLocationRegistry().resolve("bar");
-            resolved = true;
+            mgmt.getLocationRegistry().getLocationSpec("bar").get();
+            Asserts.shouldHaveFailedPreviously("Circular reference gave a location");
         } catch (IllegalStateException e) {
-            //expected
-            log.info("bar properties correctly caught circular reference: "+e);
+            Asserts.expectedFailureContainsIgnoreCase(e, "bar");
         }
-        if (resolved)
-            // probably won't happen, if test fails will loop endlessly above
-            Assert.fail("Circular reference resolved location");
     }
 
     protected boolean findLocationMatching(String regex) {
@@ -172,7 +171,7 @@ public class LocationRegistryTest {
         mgmt = LocalManagementContextForTests.newInstance(properties);
         
         Assert.assertTrue( findLocationMatching("localhost_allowed") );
-        Maybe<Location> l = mgmt.getLocationRegistry().resolve("localhost_allowed", false, null);
+        Maybe<LocationSpec<?>> l = mgmt.getLocationRegistry().getLocationSpec("localhost_allowed");
         Assert.assertTrue( l.isPresent(), "Should have resolved: "+l );
         l.get();
     }
@@ -185,7 +184,7 @@ public class LocationRegistryTest {
         mgmt = LocalManagementContextForTests.newInstance(properties);
         
         Assert.assertTrue( findLocationMatching("bogus_will_fail_eventually") );
-        Maybe<Location> l = mgmt.getLocationRegistry().resolve("bogus_will_fail_eventually", false, null);
+        Maybe<LocationSpec<?>> l = mgmt.getLocationRegistry().getLocationSpec("bogus_will_fail_eventually");
         Assert.assertTrue( l.isAbsent(), "Should not have resolved: "+l );
         try {
             l.get();
@@ -203,7 +202,7 @@ public class LocationRegistryTest {
         mgmt = LocalManagementContextForTests.newInstance(properties);
         
         Assert.assertTrue( findLocationMatching("local_host_not_allowed") );
-        Maybe<Location> l = mgmt.getLocationRegistry().resolve("local_host_not_allowed", false, null);
+        Maybe<LocationSpec<?>> l = mgmt.getLocationRegistry().getLocationSpec("local_host_not_allowed");
         Assert.assertTrue( l.isAbsent(), "Should not have resolved: "+l );
         try {
             l.get();

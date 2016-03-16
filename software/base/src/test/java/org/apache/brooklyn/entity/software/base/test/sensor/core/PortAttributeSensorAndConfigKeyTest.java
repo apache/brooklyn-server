@@ -53,14 +53,14 @@ public class PortAttributeSensorAndConfigKeyTest extends BrooklynAppUnitTestSupp
      */
     @Test(enabled=false, groups="Integration") // test is slow (for some reason - why?)
     public void testStoppingEntityReleasesPortFromMachineForReuse() throws Exception {
-        LocalhostMachineProvisioningLocation loc = (LocalhostMachineProvisioningLocation) mgmt.getLocationRegistry().resolve("localhost");
+        LocalhostMachineProvisioningLocation loc = (LocalhostMachineProvisioningLocation) mgmt.getLocationRegistry().getLocationManaged("localhost");
         SshMachineLocation machine = loc.obtain();
         runStoppingEntityReleasesPortFromLocalhostForReuse(machine);
     }
 
     @Test(groups="Integration") // test is slow (for some reason - why?)
     public void testStoppingEntityReleasesPortFromLocalhostProvisioningLocationForReuse() throws Exception {
-        LocalhostMachineProvisioningLocation loc = (LocalhostMachineProvisioningLocation) mgmt.getLocationRegistry().resolve("localhost");
+        LocalhostMachineProvisioningLocation loc = (LocalhostMachineProvisioningLocation) mgmt.getLocationRegistry().getLocationManaged("localhost");
         runStoppingEntityReleasesPortFromLocalhostForReuse(loc);
     }
     

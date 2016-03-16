@@ -181,7 +181,7 @@ public class JcloudsRebindStubTest extends RebindTestFixtureWithApp {
                 "myHostname");
         
         ByonComputeServiceRegistry computeServiceRegistry = new ByonComputeServiceRegistry(node);
-        JcloudsLocation origJcloudsLoc = (JcloudsLocation) mgmt().getLocationRegistry().resolve("jclouds:softlayer", ImmutableMap.of(
+        JcloudsLocation origJcloudsLoc = (JcloudsLocation) mgmt().getLocationRegistry().getLocationManaged("jclouds:softlayer", ImmutableMap.of(
                 JcloudsLocation.COMPUTE_SERVICE_REGISTRY, computeServiceRegistry,
                 JcloudsLocation.WAIT_FOR_SSHABLE, false,
                 JcloudsLocation.USE_JCLOUDS_SSH_INIT, false));

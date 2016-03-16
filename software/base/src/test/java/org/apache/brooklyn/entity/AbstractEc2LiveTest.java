@@ -144,7 +144,7 @@ public abstract class AbstractEc2LiveTest extends BrooklynAppLiveTestSupport {
                 .put("tags", ImmutableList.of(getClass().getName()))
                 .putAll(flags)
                 .build();
-        jcloudsLocation = mgmt.getLocationRegistry().resolve(LOCATION_SPEC, allFlags);
+        jcloudsLocation = mgmt.getLocationRegistry().getLocationManaged(LOCATION_SPEC, allFlags);
 
         doTest(jcloudsLocation);
     }

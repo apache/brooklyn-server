@@ -145,7 +145,7 @@ public abstract class AbstractJcloudsLocationTest {
     	useMgmt(newMockManagementContext());
     	
         Map<String, Object> dummy = ImmutableMap.<String, Object>of("identity", "DUMMY", "credential", "DUMMY");
-        loc = (JcloudsLocation) mgmt().getLocationRegistry().resolve(provider + (regionName == null ? "" : ":" + regionName), dummy);
+        loc = (JcloudsLocation) mgmt().getLocationRegistry().getLocationManaged(provider + (regionName == null ? "" : ":" + regionName), dummy);
         ImmutableMap.Builder<String, Object> builder = ImmutableMap.<String, Object>builder().put("imageId", imageId);
         if (imageOwner != null) builder.put("imageOwner", imageOwner);
         Map<String, Object> tagMapping = builder.build();
@@ -157,7 +157,7 @@ public abstract class AbstractJcloudsLocationTest {
 
     @Test(groups = "Live", dataProvider="fromImageId")
     public void testProvisionVmUsingImageId(String regionName, String imageId, String imageOwner) {
-        loc = (JcloudsLocation) mgmt().getLocationRegistry().resolve(provider + (regionName == null ? "" : ":" + regionName));
+        loc = (JcloudsLocation) mgmt().getLocationRegistry().getLocationManaged(provider + (regionName == null ? "" : ":" + regionName));
         SshMachineLocation machine = obtainMachine(MutableMap.of("imageId", imageId, "imageOwner", imageOwner, JcloudsLocation.MACHINE_CREATE_ATTEMPTS, 2));
 
         LOG.info("Provisioned {} vm {}; checking if ssh'able", provider, machine);
@@ -166,7 +166,7 @@ public abstract class AbstractJcloudsLocationTest {
     
     @Test(groups = "Live", dataProvider="fromImageNamePattern")
     public void testProvisionVmUsingImageNamePattern(String regionName, String imageNamePattern, String imageOwner) {
-        loc = (JcloudsLocation) mgmt().getLocationRegistry().resolve(provider + (regionName == null ? "" : ":" + regionName));
+        loc = (JcloudsLocation) mgmt().getLocationRegistry().getLocationManaged(provider + (regionName == null ? "" : ":" + regionName));
         SshMachineLocation machine = obtainMachine(MutableMap.of("imageNameRegex", imageNamePattern, "imageOwner", imageOwner, JcloudsLocation.MACHINE_CREATE_ATTEMPTS, 2));
         
         LOG.info("Provisioned {} vm {}; checking if ssh'able", provider, machine);
@@ -175,7 +175,7 @@ public abstract class AbstractJcloudsLocationTest {
     
     @Test(groups = "Live", dataProvider="fromImageDescriptionPattern")
     public void testProvisionVmUsingImageDescriptionPattern(String regionName, String imageDescriptionPattern, String imageOwner) {
-        loc = (JcloudsLocation) mgmt().getLocationRegistry().resolve(provider + (regionName == null ? "" : ":" + regionName));
+        loc = (JcloudsLocation) mgmt().getLocationRegistry().getLocationManaged(provider + (regionName == null ? "" : ":" + regionName));
         SshMachineLocation machine = obtainMachine(MutableMap.of("imageDescriptionRegex", imageDescriptionPattern, "imageOwner", imageOwner, JcloudsLocation.MACHINE_CREATE_ATTEMPTS, 2));
         
         LOG.info("Provisioned {} vm {}; checking if ssh'able", provider, machine);

@@ -49,7 +49,7 @@ public class EntityLocationUtilsTest extends BrooklynAppUnitTestSupport {
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        loc = mgmt.getLocationRegistry().resolve("localhost");
+        loc = mgmt.getLocationRegistry().getLocationManaged("localhost");
         ((AbstractLocation)loc).setHostGeoInfo(new HostGeoInfo("localhost", "localhost", 50, 0));
     }
     

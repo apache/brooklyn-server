@@ -106,13 +106,13 @@ public class JcloudsByonRebindLiveTest extends RebindTestFixtureWithApp {
                 .put("imageId", SOFTLAYER_IMAGE_ID)
                 .put("inboundPorts", ImmutableList.of(22))
                 .build();
-        JcloudsLocation provisioningLoc = (JcloudsLocation) provisioningManagementContext.getLocationRegistry().resolve(SOFTLAYER_LOCATION_SPEC);
+        JcloudsLocation provisioningLoc = (JcloudsLocation) provisioningManagementContext.getLocationRegistry().getLocationManaged(SOFTLAYER_LOCATION_SPEC);
         provisionedMachine = (JcloudsSshMachineLocation) provisioningLoc.obtain(obtainFlags);
         
         // Test with a jclouds-byon
         String locSpec = "jcloudsByon:(provider=\""+SOFTLAYER_PROVIDER+"\",region=\""+SOFTLAYER_REGION+"\",user=\""+provisionedMachine.getUser()+"\",hosts=\""+provisionedMachine.getNode().getProviderId()+"\")";
         
-        FixedListMachineProvisioningLocation<?> origByon = (FixedListMachineProvisioningLocation<?>) mgmt().getLocationRegistry().resolve(locSpec);
+        FixedListMachineProvisioningLocation<?> origByon = (FixedListMachineProvisioningLocation<?>) mgmt().getLocationRegistry().getLocationManaged(locSpec);
         
         JcloudsSshMachineLocation origMachine = (JcloudsSshMachineLocation)origByon.obtain(ImmutableMap.<String,Object>of());
         JcloudsLocation origJcloudsLocation = origMachine.getParent();

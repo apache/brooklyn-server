@@ -55,7 +55,7 @@ public class AwsEc2LocationWindowsLiveTest {
     public void setUp() {
         ctx = Entities.newManagementContext(ImmutableMap.of("provider", PROVIDER));
 
-        loc = (JcloudsLocation) ctx.getLocationRegistry().resolve(LOCATION_ID);
+        loc = (JcloudsLocation) ctx.getLocationRegistry().getLocationManaged(LOCATION_ID);
     }
 
     @AfterMethod(groups = "Live")

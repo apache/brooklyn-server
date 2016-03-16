@@ -47,10 +47,11 @@ public interface TestApplication extends StartableApplication, EntityInternal {
 
     public <T extends Entity> T createAndManageChild(EntitySpec<T> spec);
 
-    /** @deprecated since 0.9.0 give the location spec spec to the entity spec instead, 
-     * using {@link #LOCALHOST_PROVISIONER_SPEC} or {@link #LOCALHOST_MACHINE_SPEC} */ @Deprecated
+    /** Create a managed location instance for use in tests.
+     * Note that it is typically preferred to pass a location spec to the entity spec instead,
+     * e.g. using {@link #LOCALHOST_PROVISIONER_SPEC} or {@link #LOCALHOST_MACHINE_SPEC};
+     * however in many tests this is simpler. */
     public LocalhostMachineProvisioningLocation newLocalhostProvisioningLocation();
-    // items below it would be nice to update; there are fewer of them but they are more involved 
     public SimulatedLocation newSimulatedLocation();
     public LocalhostMachineProvisioningLocation newLocalhostProvisioningLocation(Map<?,?> flags);
 
