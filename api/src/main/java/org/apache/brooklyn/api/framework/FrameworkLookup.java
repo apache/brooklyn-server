@@ -35,6 +35,13 @@ import java.util.ServiceLoader;
  * The intention of this class is to provide a means to lookup beans in the OSGI service registry that were
  * previously looked up via a ServiceLoader, but still maintain the backward compatible behaviour when not running
  * in an OSGI container.
+ *
+ * NOTE, when OSGI bundle registry is used, this code performs a BundleContext.getService(). When calling
+ * BundleContext.getService() the reference count for the service in question is increased, and without any calls to
+ * BundleContext.ungetService() the only moment it will drop to zero is when the client bundle is unloaded,
+ * which this code does not do.  Therefore this class is not suitable for use in a situation where client code needs
+ * to take account of services coming and going, and explicitly avoid using the service when its reference count has
+ * gone to zero.
  */
 public class FrameworkLookup {
 
