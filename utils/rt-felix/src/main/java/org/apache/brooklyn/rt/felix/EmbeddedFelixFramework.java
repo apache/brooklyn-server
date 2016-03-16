@@ -256,11 +256,6 @@ public class EmbeddedFelixFramework {
         return atts.containsKey(new Attributes.Name(Constants.BUNDLE_MANIFESTVERSION));
     }
 
-    public static boolean isSystemBundle(Bundle bundle) {
-        String versionedId = OsgiUtils.getVersionedId( bundle );
-        return SYSTEM_BUNDLES.contains(versionedId);
-    }
-
     public static boolean isExtensionBundle(Bundle bundle) {
         String location = bundle.getLocation();
         return location != null && 

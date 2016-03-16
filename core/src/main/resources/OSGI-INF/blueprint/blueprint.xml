@@ -30,6 +30,10 @@ limitations under the License.
    <service ref="brooklynVersion"
             interface="org.apache.brooklyn.core.BrooklynVersionService" />
 
+    <bean id="containerFramework"
+          class="org.apache.brooklyn.util.core.osgi.ContainerFramework" />
+    <service ref="containerFramework"
+          interface="org.apache.brooklyn.util.osgi.SystemFramework" />
 
     <bean id="apiObjectsFactoryImpl" class="org.apache.brooklyn.core.internal.ApiObjectsFactoryImpl" />
 

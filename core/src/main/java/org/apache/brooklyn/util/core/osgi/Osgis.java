@@ -31,7 +31,6 @@ import java.util.jar.JarInputStream;
 import java.util.jar.Manifest;
 
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
-import org.apache.brooklyn.rt.felix.EmbeddedFelixFramework;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -42,13 +41,9 @@ import org.apache.brooklyn.util.osgi.OsgiUtils;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.osgi.framework.Bundle;
-import org.osgi.framework.BundleContext;
 import org.osgi.framework.BundleException;
-import org.osgi.framework.FrameworkUtil;
-import org.osgi.framework.ServiceReference;
 import org.osgi.framework.Version;
 import org.osgi.framework.launch.Framework;
-import org.osgi.framework.launch.FrameworkFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -291,12 +286,6 @@ public class Osgis {
         return bundleFinder(framework).symbolicName(symbolicName).version(Predicates.equalTo(version)).findUnique();
     }
 
-    /** @deprecated since 0.9.0, replaced by {@link EmbeddedFelixFramework#newFrameworkFactory() */
-    @Deprecated
-    public static FrameworkFactory newFrameworkFactory() {
-        return EmbeddedFelixFramework.newFrameworkFactory();
-    }
-
     /** @deprecated since 0.9.0, replaced by {@link #getFramework(java.lang.String, boolean) } */
     @Deprecated
     public static Framework newFrameworkStarted(String felixCacheDir, boolean clean, Map<?,?> extraStartupConfig) {
@@ -315,14 +304,7 @@ public class Osgis {
      * @todo Use felixCacheDir ?
      */
     public static Framework getFramework(String felixCacheDir, boolean clean) {
-        final Bundle bundle = FrameworkUtil.getBundle(Osgis.class);
-        if (bundle != null) {
-            // already running inside an OSGi container
-            return (Framework) bundle.getBundleContext().getBundle(0);
-        } else {
-            // not running inside OSGi container
-            return EmbeddedFelixFramework.newFrameworkStarted(felixCacheDir, clean, null);
-        }
+        return SystemFrameworkLoader.get().getFramework(felixCacheDir, clean);
     }
 
     /**
@@ -333,10 +315,7 @@ public class Osgis {
      * @param framework
      */
     public static void ungetFramework(Framework framework) {
-        final Bundle bundle = FrameworkUtil.getBundle(Osgis.class);
-        if (bundle == null) {
-            EmbeddedFelixFramework.stopFramework(framework);
-        }
+        SystemFrameworkLoader.get().ungetFramework(framework);
     }
 
 
@@ -425,7 +404,7 @@ public class Osgis {
         String versionedId = OsgiUtils.getVersionedId(manifest);
         for (Bundle installedBundle : framework.getBundleContext().getBundles()) {
             if (versionedId.equals(OsgiUtils.getVersionedId(installedBundle))) {
-                if (EmbeddedFelixFramework.isSystemBundle(installedBundle)) {
+                if (SystemFrameworkLoader.get().isSystemBundle(installedBundle)) {
                     LOG.debug("Already have system bundle "+versionedId+" from "+installedBundle+"/"+installedBundle.getLocation()+" when requested "+url+"; not installing");
                     // "System bundles" (ie things on the classpath) cannot be overridden
                     return installedBundle;
@@ -442,11 +421,11 @@ public class Osgis {
     private static InputStream getUrlStream(String url) {
         return ResourceUtils.create(Osgis.class).getResourceFromUrl(url);
     }
-    
-    /** @deprecated since 0.9.0, replaced with {@link EmbeddedFelixFramework#isExtensionBundle(Bundle)} */
+
+    /** @deprecated since 0.9.0, replaced with {@code SystemFrameworkLoader.get().isSystemBundle(bundle)} */
     @Deprecated
     public static boolean isExtensionBundle(Bundle bundle) {
-        return EmbeddedFelixFramework.isExtensionBundle(bundle);
+        return SystemFrameworkLoader.get().isSystemBundle(bundle);
     }
 
     /** @deprecated since 0.9.0, replaced with {@link OsgiUtils#parseOsgiIdentifier(java.lang.String) } */
@@ -461,9 +440,4 @@ public class Osgis {
         });
     }
 
-    /** @deprecated since 0.9.0, replaced with {@link org.apache.brooklyn.rt.felix.ManifestHelper} */
-    @Deprecated
-    public static class ManifestHelper extends org.apache.brooklyn.rt.felix.ManifestHelper {
-
-    }
 }
