@@ -52,7 +52,7 @@ public interface Startable {
             "The location or locations to start in, as a string, a location object, a list of strings, "
             + "or a list of location objects");
         @Override public Void call(ConfigBag parameters) {
-            parameters.put(LOCATIONS, entity().getManagementContext().getLocationRegistry().resolveList(parameters.get(LOCATIONS)));
+            parameters.put(LOCATIONS, entity().getManagementContext().getLocationRegistry().getListOfLocationsManaged(parameters.get(LOCATIONS)));
             return new MethodEffector<Void>(Startable.class, "start").call(entity(), parameters.getAllConfig());
         }
     }

@@ -25,6 +25,7 @@ import java.util.NoSuchElementException;
 
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationDefinition;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -45,16 +46,16 @@ public class BrooklynYamlLocationResolver {
     }
 
     /** returns list of locations, if any were supplied, or null if none indicated */
-    @SuppressWarnings("unchecked")
-    public List<Location> resolveLocations(Map<? super String,?> attrs, boolean removeUsedAttributes) {
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    public List<LocationSpec<?>> resolveLocations(Map<? super String,?> attrs, boolean removeUsedAttributes) {
         Object location = attrs.get("location");
         Object locations = attrs.get("locations");
 
         if (location==null && locations==null)
             return null;
         
-        Location locationFromString = null;
-        List<Location> locationsFromList = null;
+        LocationSpec<?> locationFromString = null;
+        List<LocationSpec<?>> locationsFromList = null;
         
         if (location!=null) {
             if (location instanceof String) {
@@ -80,22 +81,22 @@ public class BrooklynYamlLocationResolver {
                 throw new UserFacingException("Conflicting 'location' and 'locations' ("+location+" and "+locations+"); "
                     + "different location specified in each");
         } else if (locationFromString!=null) {
-            locationsFromList = Arrays.asList(locationFromString);
+            locationsFromList = (List) Arrays.asList(locationFromString);
         }
         
         return locationsFromList;
     }
 
-    public List<Location> resolveLocations(Iterable<Object> locations) {
-        List<Location> result = MutableList.of();
+    public List<LocationSpec<?>> resolveLocations(Iterable<Object> locations) {
+        List<LocationSpec<?>> result = MutableList.of();
         for (Object l: locations) {
-            Location ll = resolveLocation(l);
+            LocationSpec<?> ll = resolveLocation(l);
             if (ll!=null) result.add(ll);
         }
         return result;
     }
 
-    public Location resolveLocation(Object location) {
+    public LocationSpec<?> resolveLocation(Object location) {
         if (location instanceof String) {
             return resolveLocationFromString((String)location);
         } else if (location instanceof Map) {
@@ -107,12 +108,12 @@ public class BrooklynYamlLocationResolver {
     
     /** resolves the location from the given spec string, either "Named Location", or "named:Named Location" format;
      * returns null if input is blank (or null); otherwise guaranteed to resolve or throw error */
-    public Location resolveLocationFromString(String location) {
+    public LocationSpec<?> resolveLocationFromString(String location) {
         if (Strings.isBlank(location)) return null;
         return resolveLocation(location, MutableMap.of());
     }
 
-    public Location resolveLocationFromMap(Map<?,?> location) {
+    public LocationSpec<?> resolveLocationFromMap(Map<?,?> location) {
         if (location.size() > 1) {
             throw new UserFacingException("Illegal parameter for 'location'; expected a single entry in map ("+location+")");
         }
@@ -128,13 +129,13 @@ public class BrooklynYamlLocationResolver {
         return resolveLocation((String)key, (Map<?,?>)value);
     }
     
-    protected Location resolveLocation(String spec, Map<?,?> flags) {
+    protected LocationSpec<?> resolveLocation(String spec, Map<?,?> flags) {
         LocationDefinition ldef = mgmt.getLocationRegistry().getDefinedLocationByName((String)spec);
         if (ldef!=null)
             // found it as a named location
-            return mgmt.getLocationRegistry().resolve(ldef, null, flags).get();
+            return mgmt.getLocationRegistry().getLocationSpec(ldef, flags).get();
         
-        Maybe<Location> l = mgmt.getLocationRegistry().resolve(spec, null, flags);
+        Maybe<LocationSpec<?>> l = mgmt.getLocationRegistry().getLocationSpec(spec, flags);
         if (l.isPresent()) return l.get();
         
         RuntimeException exception = ((Absent<?>)l).getException();

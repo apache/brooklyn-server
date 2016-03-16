@@ -49,8 +49,12 @@ public class CatalogLocationResolver implements LocationResolver {
     }
     
     @Override
-    @SuppressWarnings({ "rawtypes", "unchecked" })
-    public Location newLocationFromString(Map locationFlags, String spec, LocationRegistry registry) {
+    public boolean isEnabled() {
+        return true;
+    }
+    
+    @Override
+    public LocationSpec<? extends Location> newLocationSpecFromString(String spec, Map<?, ?> locationFlags, LocationRegistry registry) {
         String id = spec.substring(NAME.length()+1);
         RegisteredType item = managementContext.getTypeRegistry().get(id);
         if (item.isDisabled()) {
@@ -59,10 +63,9 @@ public class CatalogLocationResolver implements LocationResolver {
             log.warn("Use of deprecated catalog item "+item.getSymbolicName()+":"+item.getVersion());
         }
         
-        LocationSpec<?> origLocSpec = (LocationSpec) managementContext.getTypeRegistry().createSpec(item, null, LocationSpec.class);
-        LocationSpec locSpec = LocationSpec.create(origLocSpec)
-                .configure(locationFlags);
-        return managementContext.getLocationManager().createLocation(locSpec);
+        LocationSpec<?> origLocSpec = (LocationSpec<?>) managementContext.getTypeRegistry().createSpec(item, null, LocationSpec.class);
+        LocationSpec<?> locSpec = LocationSpec.create(origLocSpec).configure(locationFlags);
+        return locSpec;
     }
 
     @Override

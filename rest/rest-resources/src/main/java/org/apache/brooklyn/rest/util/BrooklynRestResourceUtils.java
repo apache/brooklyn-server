@@ -403,7 +403,8 @@ public class BrooklynRestResourceUtils {
             @Override
             public Location apply(String id) {
                 id = fixLocation(id);
-                return getLocationRegistry().resolve(id);
+                // XXX
+                return getLocationRegistry().getLocationManaged(id);
             }
         };
 

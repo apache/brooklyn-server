@@ -68,7 +68,7 @@ public class SingleMachineProvisioningLocation<T extends MachineLocation> extend
     public synchronized T obtain() throws NoMachinesAvailableException {
         if (singleLocation == null) {
             if (provisioningLocation == null) {
-                provisioningLocation = (MachineProvisioningLocation) getManagementContext().getLocationRegistry().resolve(
+                provisioningLocation = (MachineProvisioningLocation) getManagementContext().getLocationRegistry().getLocationManaged(
                     location, locationFlags);
             }
             singleLocation = provisioningLocation.obtain(ImmutableMap.of());

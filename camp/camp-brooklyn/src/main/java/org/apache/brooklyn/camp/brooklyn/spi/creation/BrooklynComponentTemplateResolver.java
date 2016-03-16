@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -224,13 +224,12 @@ public class BrooklynComponentTemplateResolver {
         if (planId != null)
             spec.configure(BrooklynCampConstants.PLAN_ID, planId);
 
-        // XXX use location spec
-        List<Location> locations = new BrooklynYamlLocationResolver(mgmt).resolveLocations(attrs.getAllConfig(), true);
+        List<LocationSpec<?>> locations = new BrooklynYamlLocationResolver(mgmt).resolveLocations(attrs.getAllConfig(), true);
         if (locations != null) {
             // override locations defined in the type if locations are specified here
             // empty list can be used by caller to clear, so they are inherited
             spec.clearLocations();
-            spec.locations(locations);
+            spec.locationSpecs(locations);
         }
 
         decorateSpec(spec, encounteredRegisteredTypeIds);

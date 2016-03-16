@@ -30,7 +30,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
  * a name that matches a named location defined in the brooklyn poperties.
  * 
  * Users are not expected to implement this, or to use the interface directly. See
- * {@link LocationRegistry#resolve(String)} and {@link ManagementContext#getLocationRegistry()}.
+ * {@link ManagementContext#getLocationRegistry()}.
  */
 public interface LocationDefinition {
 

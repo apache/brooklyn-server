@@ -40,9 +40,8 @@ public class HostLocationResolver extends AbstractLocationResolver {
     
     private static final String HOST = "host";
     
-    @SuppressWarnings("rawtypes")
     @Override
-    public Location newLocationFromString(Map locationFlags, String spec, LocationRegistry registry) {
+    public LocationSpec<?> newLocationSpecFromString(String spec, Map<?, ?> locationFlags, LocationRegistry registry) {
         // Extract args from spec
         ParsedSpec parsedSpec = specParser.parse(spec);
         Map<String, String> argsMap = parsedSpec.argsMap;
@@ -64,16 +63,16 @@ public class HostLocationResolver extends AbstractLocationResolver {
 
         // Generate target spec
         String target = "byon("+KeyValueParser.toLine(argsMap)+")";
-        Maybe<Location> testResolve = managementContext.getLocationRegistry().resolve(target, false, null);
+        Maybe<LocationSpec<?>> testResolve = managementContext.getLocationRegistry().getLocationSpec(target);
         if (!testResolve.isPresent()) {
             throw new IllegalArgumentException("Invalid target location '" + target + "' for location '"+HOST+"': "+
                 Exceptions.collapseText( ((Absent<?>)testResolve).getException() ), ((Absent<?>)testResolve).getException());
         }
         
-        return managementContext.getLocationManager().createLocation(LocationSpec.create(SingleMachineProvisioningLocation.class)
+        return LocationSpec.create(SingleMachineProvisioningLocation.class)
                 .configure("location", target)
                 .configure("locationFlags", flags.getAllConfig())
-                .configure(LocationConfigUtils.finalAndOriginalSpecs(spec, locationFlags, globalProperties, namedLocation)));
+                .configure(LocationConfigUtils.finalAndOriginalSpecs(spec, locationFlags, globalProperties, namedLocation));
     }
     
     @Override

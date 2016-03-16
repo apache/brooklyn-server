@@ -26,6 +26,7 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationDefinition;
 import org.apache.brooklyn.api.location.LocationRegistry;
 import org.apache.brooklyn.api.location.LocationResolver;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,16 +47,20 @@ public class DefinedLocationByIdResolver implements LocationResolver {
         this.managementContext = checkNotNull(managementContext, "managementContext");
     }
     
-    @SuppressWarnings({ "rawtypes" })
     @Override
-    public Location newLocationFromString(Map locationFlags, String spec, LocationRegistry registry) {
+    public boolean isEnabled() {
+        return true;
+    }
+    
+    @Override
+    public LocationSpec<? extends Location> newLocationSpecFromString(String spec, Map<?, ?> locationFlags, LocationRegistry registry) {
         String id = spec;
         if (spec.toLowerCase().startsWith(ID+":")) {
             id = spec.substring( (ID+":").length() );
         }
         LocationDefinition ld = registry.getDefinedLocationById(id);
         ld.getSpec();
-        return ((BasicLocationRegistry)registry).resolveLocationDefinition(ld, locationFlags, null);
+        return ((BasicLocationRegistry)registry).getLocationSpec(ld, locationFlags).get();
     }
 
     @Override

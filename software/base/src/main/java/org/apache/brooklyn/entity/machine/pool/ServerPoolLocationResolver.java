@@ -27,15 +27,18 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationRegistry;
+import org.apache.brooklyn.api.location.LocationResolver;
 import org.apache.brooklyn.api.location.LocationSpec;
-import org.apache.brooklyn.api.location.LocationResolver.EnableableLocationResolver;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.location.BasicLocationRegistry;
+import org.apache.brooklyn.core.location.LocationConfigUtils;
 import org.apache.brooklyn.core.location.LocationPropertiesFromBrooklynProperties;
 import org.apache.brooklyn.core.location.dynamic.DynamicLocation;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.text.KeyValueParser;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,11 +46,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.text.KeyValueParser;
-import org.apache.brooklyn.util.text.Strings;
-
-public class ServerPoolLocationResolver implements EnableableLocationResolver {
+public class ServerPoolLocationResolver implements LocationResolver {
 
     private static final Logger LOG = LoggerFactory.getLogger(ServerPoolLocationResolver.class);
     private static final String PREFIX = "pool";
@@ -62,7 +61,7 @@ public class ServerPoolLocationResolver implements EnableableLocationResolver {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        return LocationConfigUtils.isResolverPrefixEnabled(managementContext, getPrefix());
     }
 
     @Override
@@ -82,7 +81,7 @@ public class ServerPoolLocationResolver implements EnableableLocationResolver {
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
     @Override
-    public Location newLocationFromString(Map locationFlags, String spec, LocationRegistry registry) {
+    public LocationSpec newLocationSpecFromString(String spec, Map locationFlags, LocationRegistry registry) {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Resolving location '" + spec + "' with flags " + Joiner.on(",").withKeyValueSeparator("=").join(locationFlags));
         }
@@ -127,12 +126,11 @@ public class ServerPoolLocationResolver implements EnableableLocationResolver {
         final String locationName = namePart != null ? namePart : "serverpool-" + poolId;
 
         Entity pool = managementContext.getEntityManager().getEntity(poolId);
-        LocationSpec<ServerPoolLocation> locationSpec = LocationSpec.create(ServerPoolLocation.class)
+        return LocationSpec.create(ServerPoolLocation.class)
                 .configure(flags)
                 .configure(DynamicLocation.OWNER, pool)
                 .configure(LocationInternal.NAMED_SPEC_NAME, locationName)
                 .displayName(displayName);
-        return managementContext.getLocationManager().createLocation(locationSpec);
     }
 
 }

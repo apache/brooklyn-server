@@ -443,7 +443,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     private void checkLocationsAreValid(ApplicationSpec applicationSpec) {
         for (String locationId : applicationSpec.getLocations()) {
             locationId = BrooklynRestResourceUtils.fixLocation(locationId);
-            if (!brooklyn().getLocationRegistry().canMaybeResolve(locationId) && brooklyn().getLocationRegistry().getDefinedLocationById(locationId)==null) {
+            if (brooklyn().getLocationRegistry().getLocationSpec(locationId).isAbsent() && brooklyn().getLocationRegistry().getDefinedLocationById(locationId)==null) {
                 throw WebResourceUtils.notFound("Undefined location '%s'", locationId);
             }
         }

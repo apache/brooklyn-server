@@ -80,19 +80,18 @@ public class BrooklynPersistenceUtils {
     
     /** Creates a {@link PersistenceObjectStore} for use with a specified set of modes. */
     public static PersistenceObjectStore newPersistenceObjectStore(ManagementContext managementContext,
-            String locationSpec, String locationContainer, PersistMode persistMode, HighAvailabilityMode highAvailabilityMode) {
+            String locationSpecString, String locationContainer, PersistMode persistMode, HighAvailabilityMode highAvailabilityMode) {
         PersistenceObjectStore destinationObjectStore;
-        locationContainer = BrooklynServerPaths.newMainPersistencePathResolver(managementContext).location(locationSpec).dir(locationContainer).resolve();
+        locationContainer = BrooklynServerPaths.newMainPersistencePathResolver(managementContext).location(locationSpecString).dir(locationContainer).resolve();
 
-        Location location = null;
-        if (Strings.isBlank(locationSpec)) {
-            location = managementContext.getLocationManager().createLocation(LocationSpec.create(LocalhostMachineProvisioningLocation.class)
+        LocationSpec<?> locationSpec = Strings.isBlank(locationSpecString) ?
+            LocationSpec.create(LocalhostMachineProvisioningLocation.class) :
+                managementContext.getLocationRegistry().getLocationSpec(locationSpecString).get();
+            
+        Location location = managementContext.getLocationManager().createLocation(locationSpec
                 .configure(LocalLocationManager.CREATE_UNMANAGED, true));
-        } else {
-            location = managementContext.getLocationRegistry().resolve(locationSpec, false, null).get();
-            if (!(location instanceof LocationWithObjectStore)) {
-                throw new IllegalArgumentException("Destination location "+location+" does not offer a persistent store");
-            }
+        if (!(location instanceof LocationWithObjectStore)) {
+            throw new IllegalArgumentException("Destination location "+location+" does not offer a persistent store");
         }
         destinationObjectStore = ((LocationWithObjectStore)location).newPersistenceObjectStore(locationContainer);
         

@@ -24,16 +24,16 @@ import java.util.NoSuchElementException;
 
 import javax.annotation.Nullable;
 
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.mgmt.LocationManager;
 import org.apache.brooklyn.util.guava.Maybe;
-
-import com.google.common.annotations.Beta;
 
 /**
  * The registry of the sorts of locations that brooklyn knows about. Given a
  * {@LocationDefinition} or a {@link String} representation of a spec, this can
  * be used to create a {@link Location} instance.
  */
-@SuppressWarnings("rawtypes")
 public interface LocationRegistry {
 
     /** map of ID (possibly randomly generated) to the definition (spec, name, id, and props; 
@@ -59,24 +59,32 @@ public interface LocationRegistry {
      * <p>
      * The manage parameter is {@link Boolean} so that null can be used to say rely on anything in the flags.
      * 
-     * @since 0.7.0, but beta and likely to change as the semantics of this class are tuned */
-    @Beta
+     * @since 0.7.0, but beta and likely to change as the semantics of this class are tuned 
+     * @deprecated since 0.9.0 use {@link #getLocationSpec(String, Map)} or {@link #getLocationManaged(String, Map)} */
+    @SuppressWarnings("rawtypes")
+    @Deprecated
     public Maybe<Location> resolve(LocationDefinition ld, Boolean manage, Map locationFlags);
     
     /** As {@link #resolve(LocationDefinition, Boolean, Map), with the location managed, and no additional flags,
-     * unwrapping the result (throwing if not resolvable) */
+     * unwrapping the result (throwing if not resolvable) 
+     * @deprecated since 0.9.0 use {@link #getLocationSpec(LocationDefinition, Map)} and then manage it as needed*/
+    @Deprecated
     public Location resolve(LocationDefinition l);
 
     /** Returns a location created from the given spec, which might correspond to a definition, or created on-the-fly.
      * Optional flags can be passed through to underlying the location. 
-     * @since 0.7.0, but beta and likely to change as the semantics of this class are tuned */
-    @Beta
+     * @since 0.7.0, but beta and likely to change as the semantics of this class are tuned 
+     * @deprecated since 0.9.0 use {@link #getLocationSpec(String, Map)} or {@link #getLocationManaged(String, Map)} */
+    @SuppressWarnings("rawtypes")
+    @Deprecated
     public Maybe<Location> resolve(String spec, Boolean manage, Map locationFlags);
-    
+
     /** See {@link #resolve(String, Boolean, Map)}; asks for the location to be managed, and supplies no additional flags,
-     * and unwraps the result (throwing if the spec cannot be resolve) */
+     * and unwraps the result (throwing if the spec cannot be resolve).
+     * @deprecated since 0.9.0 use {@link #getLocationSpec(String)} or {@link #getLocationManaged(String)} */
+    @Deprecated
     public Location resolve(String spec);
-    
+        
     /** Returns true/false depending whether spec seems like a valid location,
      * that is it has a chance of being resolved (depending on the spec) but NOT guaranteed,
      * as it is not passed to the spec;
@@ -86,25 +94,62 @@ public interface LocationRegistry {
     public boolean canMaybeResolve(String spec);
     
     /** As {@link #resolve(String, Boolean, Map)}, but unwrapped
-     * @throws NoSuchElementException if the spec cannot be resolved */
+     * @throws NoSuchElementException if the spec cannot be resolved 
+     * @deprecated since 0.9.0 use {@link #getLocationSpec(String, Map)} and then manage it as needed*/
+    @SuppressWarnings("rawtypes")
+    @Deprecated
     public Location resolve(String spec, @Nullable Map locationFlags);
     
     /**
-     * As {@link #resolve(String)} but takes collections (of strings or locations)
+     * As {@link #getLocationManaged(String)} but takes collections (of strings or locations)
      * <p>
      * Expects a collection of elements being individual location spec strings or locations, 
      * and returns a list of resolved (newly created and managed) locations.
      * <p>
      * From 0.7.0 this no longer flattens lists (nested lists are disallowed) 
      * or parses comma-separated elements (they are resolved as-is)
-     */
+     * @deprecated since 0.9.0 use {@link #getListOfLocationsManaged(Object)} */
+    @Deprecated
     public List<Location> resolve(Iterable<?> spec);
     
     /** Takes a string, interpreted as a comma-separated (or JSON style, when you need internal double quotes or commas) list;
      * or a list, passed to {@link #resolve(Iterable)}; or null/empty (empty list),
-     * and returns a list of resolved (created and managed) locations */
+     * and returns a list of resolved (created and managed) locations 
+     * @deprecated since 0.9.0 use {@link #getListOfLocationsManaged(Object)} */
+    @Deprecated
     public List<Location> resolveList(Object specList);
+
+    /** Create a {@link LocationSpec} representing the given spec string such as a named location 
+     * or using a resolver prefix such as jclouds:aws-ec2. 
+     * This can then be inspected, assigned to an {@link EntitySpec}, 
+     * or passed to {@link LocationManager#createLocation(LocationSpec)} to create directly.
+     * (For that last case, common in tests, see {@link #getLocationManaged(String)}.) */
+    public Maybe<LocationSpec<? extends Location>> getLocationSpec(String spec);
+    /** As {@link #getLocationSpec(String)} but also setting the given flags configured on the resulting spec. */
+    public Maybe<LocationSpec<? extends Location>> getLocationSpec(String spec, Map<?,?> locationFlags);
+
+    /** As {@link #getLocationSpec(String)} where the caller has a {@link LocationDefinition}. */
+    public Maybe<LocationSpec<? extends Location>> getLocationSpec(LocationDefinition ld);
+    /** As {@link #getLocationSpec(String,Map)} where the caller has a {@link LocationDefinition}. */
+    public Maybe<LocationSpec<? extends Location>> getLocationSpec(LocationDefinition ld, Map<?,?> locationFlags);
     
+    /** A combination of {@link #getLocationSpec(String)} then {@link LocationManager#createLocation(LocationSpec)},
+     * mainly for use in tests or specialised situations where a managed location is needed directly.
+     * The caller is responsible for ensuring that the resulting {@link Location} 
+     * is cleaned up, ie removed from management via {@link LocationManager#unmanage(Location)} directly or linking it to 
+     * an {@link Entity} or another {@link Location} which will unmanage it. */
+    public Location getLocationManaged(String spec);
+    /** As {@link #getLocationManaged(String)} applying the config as per {@link #getLocationSpec(String, Map)}. */
+    public Location getLocationManaged(String spec, Map<?,?> locationFlags);
+    
+    /** Takes a string, interpreted as a comma-separated (or JSON style, when you need internal double quotes or commas) list;
+     * or a list of strings, or null (giving the empty list) and returns a list of managed locations.
+     * Note that lists of lists are not permitted.
+     * <p>
+     * The caller is responsible for ensuring these get cleaned up, as described at {@link #getLocationManaged(String)}. */
+    public List<Location> getListOfLocationsManaged(Object specList);
+
+    @SuppressWarnings("rawtypes")
     public Map getProperties();
     
 }

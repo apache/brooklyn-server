@@ -151,7 +151,7 @@ public class ConfigKeys {
 
 
     public static <T> AttributeSensorAndConfigKey<T, T> newSensorAndConfigKeyWithDefault(AttributeSensorAndConfigKey<T, T> parent, T defaultValue) {
-        return new BasicAttributeSensorAndConfigKey(parent, defaultValue);
+        return new BasicAttributeSensorAndConfigKey<T>(parent, defaultValue);
     }
 
     public static PortAttributeSensorAndConfigKey newPortSensorAndConfigKeyWithDefault(PortAttributeSensorAndConfigKey parent, Object defaultValue) {

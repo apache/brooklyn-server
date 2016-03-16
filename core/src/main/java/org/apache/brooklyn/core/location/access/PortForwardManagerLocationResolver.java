@@ -47,7 +47,7 @@ public class PortForwardManagerLocationResolver extends AbstractLocationResolver
     }
 
     @Override
-    public Location newLocationFromString(Map locationFlags, String spec, LocationRegistry registry) {
+    public LocationSpec<?> newLocationSpecFromString(String spec, Map<?, ?> locationFlags, LocationRegistry registry) {
         ConfigBag config = extractConfig(locationFlags, spec, registry);
         Map globalProperties = registry.getProperties();
         String namedLocation = (String) locationFlags.get(LocationInternal.NAMED_SPEC_NAME.getName());
@@ -59,11 +59,13 @@ public class PortForwardManagerLocationResolver extends AbstractLocationResolver
                         LocationPredicates.configEqualTo(PortForwardManager.SCOPE, scope)));
         
         if (result.isPresent()) {
-            return result.get();
+            // XXX
+//            return result.get();
+            return null;
         } else {
-            PortForwardManager loc = managementContext.getLocationManager().createLocation(LocationSpec.create(PortForwardManagerImpl.class)
+            LocationSpec<PortForwardManagerImpl> loc = LocationSpec.create(PortForwardManagerImpl.class)
                     .configure(config.getAllConfig())
-                    .configure(LocationConfigUtils.finalAndOriginalSpecs(spec, locationFlags, globalProperties, namedLocation)));
+                    .configure(LocationConfigUtils.finalAndOriginalSpecs(spec, locationFlags, globalProperties, namedLocation));
             
             if (LOG.isDebugEnabled()) LOG.debug("Created "+loc+" for scope "+scope);
             return loc;

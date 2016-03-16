@@ -93,7 +93,7 @@ public class JcloudsBlobStoreBasedObjectStore implements PersistenceObjectStore 
             if (location==null) {
                 Preconditions.checkNotNull(locationSpec, "locationSpec required for remote object store when location is null");
                 Preconditions.checkNotNull(mgmt, "mgmt not injected / object store not prepared");
-                location = (JcloudsLocation) mgmt.getLocationRegistry().resolve(locationSpec);
+                location = (JcloudsLocation) mgmt.getLocationRegistry().getLocationManaged(locationSpec);
             }
             
             String identity = checkNotNull(location.getConfig(LocationConfigKeys.ACCESS_IDENTITY), "identity must not be null");

@@ -37,11 +37,8 @@ import com.google.common.annotations.Beta;
  */
 public interface LocationInternal extends BrooklynObjectInternal, Location {
 
-    @Beta
     public static final ConfigKey<String> ORIGINAL_SPEC = ConfigKeys.newStringConfigKey("spec.original", "The original spec used to instantiate a location");
-    @Beta
     public static final ConfigKey<String> FINAL_SPEC = ConfigKeys.newStringConfigKey("spec.final", "The actual spec (in a chain) which instantiates a location");
-    @Beta
     public static final ConfigKey<String> NAMED_SPEC_NAME = ConfigKeys.newStringConfigKey("spec.named.name", "The name on the (first) named spec in a chain");
     
     /**

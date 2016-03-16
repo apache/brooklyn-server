@@ -75,7 +75,6 @@ import com.google.common.net.HostAndPort;
  *        such as the jcloudsMachine.getJcloudsId().
  * </ul>
  */
-@SuppressWarnings("serial")
 public class PortForwardManagerImpl extends AbstractLocation implements PortForwardManager {
 
     private static final Logger log = LoggerFactory.getLogger(PortForwardManagerImpl.class);

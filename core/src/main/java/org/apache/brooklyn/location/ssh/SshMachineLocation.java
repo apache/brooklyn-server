@@ -300,7 +300,7 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
         // Register any pre-existing port-mappings with the PortForwardManager
         Map<Integer, String> tcpPortMappings = getConfig(TCP_PORT_MAPPINGS);
         if (tcpPortMappings != null) {
-            PortForwardManager pfm = (PortForwardManager) getManagementContext().getLocationRegistry().resolve("portForwardManager(scope=global)");
+            PortForwardManager pfm = (PortForwardManager) getManagementContext().getLocationRegistry().getLocationManaged("portForwardManager(scope=global)");
             for (Map.Entry<Integer, String> entry : tcpPortMappings.entrySet()) {
                 int targetPort = entry.getKey();
                 HostAndPort publicEndpoint = HostAndPort.fromString(entry.getValue());

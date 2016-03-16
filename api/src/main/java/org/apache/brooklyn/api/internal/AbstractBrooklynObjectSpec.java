@@ -247,6 +247,11 @@ public abstract class AbstractBrooklynObjectSpec<T,SpecT extends AbstractBrookly
     /** strings inserted as flags, config keys inserted as config keys; 
      * if you want to force one or the other, create a ConfigBag and convert to the appropriate map type */
     public SpecT configure(Map<?,?> val) {
+        if (val==null) {
+            log.warn("Null supplied when configuring "+this);
+            log.debug("Source for null supplied when configuring "+this, new Throwable("Source for null supplied when configuring "+this));
+            return self();
+        }
         for (Map.Entry<?, ?> entry: val.entrySet()) {
             if (entry.getKey()==null) throw new NullPointerException("Null key not permitted");
             if (entry.getKey() instanceof CharSequence)
