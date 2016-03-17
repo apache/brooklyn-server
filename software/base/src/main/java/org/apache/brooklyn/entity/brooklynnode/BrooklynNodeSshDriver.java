@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.drivers.downloads.DownloadSubstituters;
 import org.apache.brooklyn.entity.brooklynnode.BrooklynNode.ExistingFileBehaviour;
 import org.apache.brooklyn.entity.java.JavaSoftwareProcessSshDriver;
@@ -46,13 +45,17 @@ import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.ssh.BashCommands;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 
 public class BrooklynNodeSshDriver extends JavaSoftwareProcessSshDriver implements BrooklynNodeDriver {
-    
+
+    private static final Logger log = LoggerFactory.getLogger(BrooklynNodeSshDriver.class);
+
     public BrooklynNodeSshDriver(BrooklynNodeImpl entity, SshMachineLocation machine) {
         super(entity, machine);
     }
@@ -192,6 +195,10 @@ public class BrooklynNodeSshDriver extends JavaSoftwareProcessSshDriver implemen
         String brooklynCatalogContents = entity.getConfig(BrooklynNode.BROOKLYN_CATALOG_CONTENTS);
         String brooklynCatalogUri = entity.getConfig(BrooklynNode.BROOKLYN_CATALOG_URI);
 
+        String brooklynCatalogInitialBomRemotePath = processTemplateContents(entity.getConfig(BrooklynNode.BROOKLYN_CATALOG_INITIAL_BOM_REMOTE_PATH));
+        String brooklynCatalogInitialBomUri = entity.getConfig(BrooklynNode.BROOKLYN_CATALOG_INITIAL_BOM_URI);
+        String brooklynCatalogInitialBomContents = entity.getConfig(BrooklynNode.BROOKLYN_CATALOG_INITIAL_BOM_CONTENTS);
+        
         // Override the ~/.brooklyn/brooklyn.properties if required
         if (brooklynGlobalPropertiesContents != null || brooklynGlobalPropertiesUri != null) {
             ExistingFileBehaviour onExisting = entity.getConfig(BrooklynNode.ON_EXISTING_PROPERTIES_FILE);
@@ -224,8 +231,18 @@ public class BrooklynNodeSshDriver extends JavaSoftwareProcessSshDriver implemen
             uploadFileContents(brooklynLocalPropertiesContents, brooklynLocalPropertiesUri, brooklynLocalPropertiesRemotePath);
         }
 
+        // Upload a local-catalog.bom if required
+        if (brooklynCatalogInitialBomContents != null || brooklynCatalogInitialBomUri != null) {
+            uploadFileContents(brooklynCatalogInitialBomContents, brooklynCatalogInitialBomUri, brooklynCatalogInitialBomRemotePath);
+        }
+
         // Override the ~/.brooklyn/catalog.xml if required
         if (brooklynCatalogContents != null || brooklynCatalogUri != null) {
+            log.warn("Deprecated (since 0.7.0) use of config"
+                    + (brooklynCatalogContents != null ? " [" + BrooklynNode.BROOKLYN_CATALOG_CONTENTS.getName() + "]" : "")
+                    + (brooklynCatalogUri != null ? " [" + BrooklynNode.BROOKLYN_CATALOG_URI.getName() + "]" : "")
+                    + "; instead use "+BrooklynNode.BROOKLYN_CATALOG_INITIAL_BOM_URI.getName()
+                    + " or "+BrooklynNode.BROOKLYN_CATALOG_INITIAL_BOM_CONTENTS.getName());
             uploadFileContents(brooklynCatalogContents, brooklynCatalogUri, brooklynCatalogRemotePath);
         }
 
@@ -284,13 +301,14 @@ public class BrooklynNodeSshDriver extends JavaSoftwareProcessSshDriver implemen
         return destFile;
     }
 
-    @SuppressWarnings("deprecation")
     @Override
     public void launch() {
         String app = getEntity().getAttribute(BrooklynNode.APP);
         String locations = getEntity().getAttribute(BrooklynNode.LOCATIONS);
         boolean hasLocalBrooklynProperties = getEntity().getConfig(BrooklynNode.BROOKLYN_LOCAL_PROPERTIES_CONTENTS) != null || getEntity().getConfig(BrooklynNode.BROOKLYN_LOCAL_PROPERTIES_URI) != null;
+        boolean hasLocalCatalogInitialBom = getEntity().getConfig(BrooklynNode.BROOKLYN_CATALOG_INITIAL_BOM_CONTENTS) != null || getEntity().getConfig(BrooklynNode.BROOKLYN_CATALOG_INITIAL_BOM_URI) != null;
         String localBrooklynPropertiesPath = processTemplateContents(getEntity().getConfig(BrooklynNode.BROOKLYN_LOCAL_PROPERTIES_REMOTE_PATH));
+        String localCatalogInitialBomPath = processTemplateContents(getEntity().getConfig(BrooklynNode.BROOKLYN_CATALOG_INITIAL_BOM_REMOTE_PATH));
         InetAddress bindAddress = getEntity().getAttribute(BrooklynNode.WEB_CONSOLE_BIND_ADDRESS);
         InetAddress publicAddress = getEntity().getAttribute(BrooklynNode.WEB_CONSOLE_PUBLIC_ADDRESS);
 
@@ -308,6 +326,9 @@ public class BrooklynNodeSshDriver extends JavaSoftwareProcessSshDriver implemen
         }
         if (hasLocalBrooklynProperties) {
             cmd += " --localBrooklynProperties "+localBrooklynPropertiesPath;
+        }
+        if (hasLocalCatalogInitialBom) {
+            cmd += " --catalogInitial "+localCatalogInitialBomPath;
         }
         Integer webPort = null;
         if (getEntity().isHttpProtocolEnabled("http")) {

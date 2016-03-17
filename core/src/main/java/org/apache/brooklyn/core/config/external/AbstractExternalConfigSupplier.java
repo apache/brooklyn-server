@@ -18,8 +18,9 @@
  */
 package org.apache.brooklyn.core.config.external;
 
-import org.apache.brooklyn.api.mgmt.ManagementContext;
+import static com.google.common.base.Preconditions.checkNotNull;
 
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 
 /**
  * Default superclass for all {@link ExternalConfigSupplier} implementations.
@@ -30,8 +31,8 @@ abstract public class AbstractExternalConfigSupplier implements ExternalConfigSu
     private final String name;
 
     protected AbstractExternalConfigSupplier(ManagementContext managementContext, String name) {
-        this.managementContext = managementContext;
-        this.name = name;
+        this.managementContext = checkNotNull(managementContext, "managementContext");
+        this.name = checkNotNull(name, "name");
     }
 
     public ManagementContext getManagementContext() {
