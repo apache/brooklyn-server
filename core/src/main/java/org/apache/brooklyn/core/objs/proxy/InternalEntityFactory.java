@@ -372,9 +372,11 @@ public class InternalEntityFactory extends InternalFactory {
      * The new-style no-arg constructor is preferred, and   
      * configuration from the {@link EntitySpec} is <b>not</b> normally applied,
      * although for old-style entities flags from the spec are passed to the constructor.
-     */
+     * <p>
+     * @deprecated since 0.9.0 becoming private
+     */ @Deprecated
     public <T extends Entity> T constructEntity(Class<? extends T> clazz, EntitySpec<T> spec) {
-        T entity = constructEntityImpl(clazz, spec.getFlags());
+        T entity = constructEntityImpl(clazz, spec, null, null);
         if (((AbstractEntity)entity).getProxy() == null) ((AbstractEntity)entity).setProxy(createEntityProxy(spec, entity));
         return entity;
     }
@@ -383,9 +385,9 @@ public class InternalEntityFactory extends InternalFactory {
      * Constructs a new-style entity (fails if no no-arg constructor).
      * Sets the entity's id and proxy.
      * <p>
-     * As {@link #constructEntity(Class, EntitySpec)} but when no spec is used.
+     * For use during rebind.
      */
-    // TODO would it be cleaner to have callers just create a spec? and deprecate this?
+    // TODO would it be cleaner to have rebind create a spec and deprecate this?
     public <T extends Entity> T constructEntity(Class<T> clazz, Iterable<Class<?>> interfaces, String entityId) {
         if (!isNewStyle(clazz)) {
             throw new IllegalStateException("Cannot construct old-style entity "+clazz);
@@ -393,7 +395,7 @@ public class InternalEntityFactory extends InternalFactory {
         checkNotNull(entityId, "entityId");
         checkState(interfaces != null && !Iterables.isEmpty(interfaces), "must have at least one interface for entity %s:%s", clazz, entityId);
         
-        T entity = constructEntityImpl(clazz, ImmutableMap.<String, Object>of(), entityId);
+        T entity = constructEntityImpl(clazz, null, null, entityId);
         if (((AbstractEntity)entity).getProxy() == null) {
             Entity proxy = managementContext.getEntityManager().getEntity(entity.getId());
             if (proxy==null) {
@@ -408,15 +410,11 @@ public class InternalEntityFactory extends InternalFactory {
         return entity;
     }
 
-    protected <T extends Entity> T constructEntityImpl(Class<? extends T> clazz, Map<String, ?> constructionFlags) {
-        return constructEntityImpl(clazz, constructionFlags, null);
-    }
-    
-    protected <T extends Entity> T constructEntityImpl(Class<? extends T> clazz, Map<String, ?> constructionFlags, String entityId) {
-        T entity = super.construct(clazz, constructionFlags);
+    private <T extends Entity> T constructEntityImpl(Class<? extends T> clazz, EntitySpec<?> optionalSpec, Map<String, ?> optionalConstructorFlags, String optionalEntityId) {
+        T entity = construct(clazz, optionalSpec, optionalConstructorFlags);
         
-        if (entityId != null) {
-            FlagUtils.setFieldsFromFlags(ImmutableMap.of("id", entityId), entity);
+        if (optionalEntityId != null) {
+            FlagUtils.setFieldsFromFlags(ImmutableMap.of("id", optionalEntityId), entity);
         }
         if (entity instanceof AbstractApplication) {
             FlagUtils.setFieldsFromFlags(ImmutableMap.of("mgmt", managementContext), entity);
