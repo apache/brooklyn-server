@@ -69,6 +69,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -602,6 +603,11 @@ public class ServiceStateLogic {
         }
         public ComputeServiceIndicatorsFromChildrenAndMembersSpec requireRunningChildren(QuorumCheck check) {
             configure(ComputeServiceIndicatorsFromChildrenAndMembers.RUNNING_QUORUM_CHECK, check);
+            return self();
+        }
+        
+        public ComputeServiceIndicatorsFromChildrenAndMembersSpec entityFilter(Predicate<? super Entity> val) {
+            configure(ComputeServiceIndicatorsFromChildrenAndMembers.ENTITY_FILTER, val);
             return self();
         }
     }
