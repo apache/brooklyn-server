@@ -259,7 +259,7 @@ public class BrooklynRestResourceUtils {
         private RegisteredType getCatalogItemForType(String typeName) {
             final RegisteredType resultI;
             if (CatalogUtils.looksLikeVersionedId(typeName)) {
-                //All catalog identifiers of the form xxxx:yyyy are composed of symbolicName+version.
+                //All catalog identifiers of the form aaaa:bbbb are composed of symbolicName+version.
                 //No javaType is allowed as part of the identifier.
                 resultI = mgmt.getTypeRegistry().get(typeName);
             } else {
@@ -389,7 +389,7 @@ public class BrooklynRestResourceUtils {
     }
     
     public Task<?> start(Application app, ApplicationSpec spec) {
-        return start(app, getLocations(spec));
+        return start(app, getLocationsManaged(spec));
     }
 
     public Task<?> start(Application app, List<? extends Location> locations) {
@@ -397,13 +397,12 @@ public class BrooklynRestResourceUtils {
                 MutableMap.of("locations", locations));
     }
 
-    public List<Location> getLocations(ApplicationSpec spec) {
+    public List<Location> getLocationsManaged(ApplicationSpec spec) {
         // Start all the managed entities by asking the app instance to start in background
         Function<String, Location> buildLocationFromId = new Function<String, Location>() {
             @Override
             public Location apply(String id) {
                 id = fixLocation(id);
-                // XXX
                 return getLocationRegistry().getLocationManaged(id);
             }
         };

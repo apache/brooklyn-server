@@ -118,8 +118,20 @@ import com.google.common.collect.Sets;
  *     </ol>
  * </ol>
  * 
- * TODO There is no concept of a location version in this registry. The version
- * in the catalog is generally ignored.
+ * TODO we should change the registry to be a pass-through facade on top of the catalog,
+ * and shift to preferring catalog access mechanisms.
+ * this brings it in line with how we do other things;
+ * also this does not understand versions.
+ * to do this we will need to:
+ * <li> update the catalog on addition, setting a plan (ensuring serialization);
+ *      in case of a definition CHANGED in brooklyn.properties give an error if it means the plan has changed
+ *      (user could then remove from brooklyn.properties, if persistence on, or apply the update in the catalog;
+ *      ie similar semantics to defining an initial catalog via the CLI)
+ * <li> find and return the RegisteredType from the type-registry/catalog here
+ * <p>
+ * Once done, update the UI use /v1/catalog/locations instead of /v1/locations
+ * (currently the latter is the only way to list locations known in the LocationRegistry 
+ * ie those from brookln.properties.)
  */
 @SuppressWarnings({"rawtypes","unchecked"})
 public class BasicLocationRegistry implements LocationRegistry {
@@ -218,7 +230,7 @@ public class BasicLocationRegistry implements LocationRegistry {
     public void updateDefinedLocation(CatalogItem<Location, LocationSpec<?>> item) {
         String id = item.getCatalogItemId();
         String symbolicName = item.getSymbolicName();
-        String spec = CatalogLocationResolver.NAME + ":" + id;
+        String spec = CatalogLocationResolver.createLegacyWrappedReference(id);
         Map<String, Object> config = ImmutableMap.<String, Object>of();
         BasicLocationDefinition locDefinition = new BasicLocationDefinition(symbolicName, symbolicName, spec, config);
         
@@ -233,7 +245,7 @@ public class BasicLocationRegistry implements LocationRegistry {
     public void updateDefinedLocation(RegisteredType item) {
         String id = item.getId();
         String symbolicName = item.getSymbolicName();
-        String spec = CatalogLocationResolver.NAME + ":" + id;
+        String spec = CatalogLocationResolver.createLegacyWrappedReference(id);
         Map<String, Object> config = ImmutableMap.<String, Object>of();
         BasicLocationDefinition locDefinition = new BasicLocationDefinition(symbolicName, symbolicName, spec, config);
         

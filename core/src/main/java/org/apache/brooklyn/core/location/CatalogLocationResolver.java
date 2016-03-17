@@ -28,8 +28,11 @@ import org.apache.brooklyn.api.location.LocationResolver;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.annotations.Beta;
 
 /**
  * Given a location spec in the form {@code brooklyn.catalog:<symbolicName>:<version>}, 
@@ -74,7 +77,7 @@ public class CatalogLocationResolver implements LocationResolver {
     }
     
     /**
-     * accepts anything that looks like it will be a YAML catalog item (e.g. starting "brooklyn.locations")
+     * accepts anything that looks like it will be a YAML catalog item (e.g. starting "brooklyn.catalog:")
      */
     @Override
     public boolean accepts(String spec, LocationRegistry registry) {
@@ -83,4 +86,18 @@ public class CatalogLocationResolver implements LocationResolver {
         return false;
     }
 
+    @Beta /** for transitioning away from LocationDefinition */
+    public static boolean isLegacyWrappedReference(String spec) {
+        if (spec==null) return false;
+        if (spec.startsWith(NAME+":")) return true;
+        return false;
+    }
+    @Beta /** for transitioning away from LocationDefinition */
+    public static String createLegacyWrappedReference(String id) {
+        return NAME + ":" + id;
+    }
+    @Beta /** for transitioning away from LocationDefinition */
+    public static String unwrapLegacyWrappedReference(String id) {
+        return Strings.removeFromStart(id, NAME+":");
+    }
 }
