@@ -20,7 +20,6 @@ package org.apache.brooklyn.enricher.stock;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -37,7 +36,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
 
 /** Building on {@link AbstractAggregator} for a single source sensor (on multiple children and/or members) */
 public abstract class AbstractMultipleSensorAggregator<U> extends AbstractAggregator<Object,U> implements SensorEventListener<Object> {
@@ -129,15 +127,17 @@ public abstract class AbstractMultipleSensorAggregator<U> extends AbstractAggreg
     @Override
     public void onEvent(SensorEvent<Object> event) {
         Entity e = event.getSource();
-        synchronized (values) {
-            Map<Entity,Object> vs = values.get(event.getSensor().getName());
-            if (vs==null) {
-                LOG.debug(this+" received event when no entry for sensor ("+event+"); likely just added or removed, and will initialize subsequently if needed");
-            } else {
-                vs.put(e, event.getValue());
+        if (entityFilter.apply(e)) {
+            synchronized (values) {
+                Map<Entity,Object> vs = values.get(event.getSensor().getName());
+                if (vs==null) {
+                    LOG.debug(this+" received event when no entry for sensor ("+event+"); likely just added or removed, and will initialize subsequently if needed");
+                } else {
+                    vs.put(e, event.getValue());
+                }
             }
+            onUpdated();
         }
-        onUpdated();
     }
 
     public <T> Map<Entity,T> getValues(Sensor<T> sensor) {
