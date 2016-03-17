@@ -30,12 +30,11 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.entity.machine.pool.ServerPool;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -62,15 +61,14 @@ public abstract class AbstractServerPoolTest {
         createdApps.clear();
         mgmt = createManagementContext();
         location = createLocation();
-        EntitySpec<TestApplication> appSpec = EntitySpec.create(TestApplication.class)
-                .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, shouldSkipOnBoxBaseDirResolution());
-        poolApp = ApplicationBuilder.newManagedApp(appSpec, mgmt);
+        poolApp = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class)
+                .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, shouldSkipOnBoxBaseDirResolution()));
 
         pool = poolApp.createAndManageChild(EntitySpec.create(ServerPool.class)
                 .configure(ServerPool.INITIAL_SIZE, getInitialPoolSize())
                 .configure(ServerPool.MEMBER_SPEC, EntitySpec.create(EmptySoftwareProcess.class)));
         poolApp.start(ImmutableList.of(location));
-        EntityTestUtils.assertAttributeEqualsEventually(pool, Attributes.SERVICE_UP, true);
+        EntityAsserts.assertAttributeEqualsEventually(pool, Attributes.SERVICE_UP, true);
         assertAvailableCountEventuallyEquals(getInitialPoolSize());
     }
 
@@ -120,7 +118,7 @@ public abstract class AbstractServerPoolTest {
     }
 
     protected void assertAvailableCountEventuallyEquals(ServerPool pool, int count) {
-        EntityTestUtils.assertAttributeEqualsEventually(pool, ServerPool.AVAILABLE_COUNT, count);
+        EntityAsserts.assertAttributeEqualsEventually(pool, ServerPool.AVAILABLE_COUNT, count);
     }
 
     protected void assertClaimedCountEventuallyEquals(int count) {
@@ -128,16 +126,17 @@ public abstract class AbstractServerPoolTest {
     }
 
     protected void assertClaimedCountEventuallyEquals(ServerPool pool, Integer count) {
-        EntityTestUtils.assertAttributeEqualsEventually(pool, ServerPool.CLAIMED_COUNT, count);
+        EntityAsserts.assertAttributeEqualsEventually(pool, ServerPool.CLAIMED_COUNT, count);
     }
 
     protected TestApplication createAppWithChildren(int numChildren) {
         if (numChildren < 0) fail("Invalid number of children for app: " + numChildren);
-        EntitySpec<TestApplication> appSpec = EntitySpec.create(TestApplication.class)
-                .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, shouldSkipOnBoxBaseDirResolution());
-        TestApplication app = ApplicationBuilder.newManagedApp(appSpec, mgmt);
+
+        TestApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class)
+                .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, shouldSkipOnBoxBaseDirResolution()));
+
         while (numChildren-- > 0) {
-            app.createAndManageChild(EntitySpec.create(EmptySoftwareProcess.class));
+            app.addChild(EntitySpec.create(EmptySoftwareProcess.class));
         }
         createdApps.add(app);
         return app;

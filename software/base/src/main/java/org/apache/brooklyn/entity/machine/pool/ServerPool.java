@@ -21,8 +21,6 @@ package org.apache.brooklyn.entity.machine.pool;
 import java.util.Collection;
 import java.util.Map;
 
-import com.google.common.annotations.Beta;
-
 import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -40,6 +38,8 @@ import org.apache.brooklyn.core.location.dynamic.LocationOwner;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.entity.group.DynamicCluster;
 import org.apache.brooklyn.entity.machine.MachineEntity;
+
+import com.google.common.annotations.Beta;
 
 /**
  * A preallocated server pool is an entity that other applications can deploy to.
@@ -70,6 +70,7 @@ import org.apache.brooklyn.entity.machine.MachineEntity;
 @ImplementedBy(ServerPoolImpl.class)
 @Beta
 public interface ServerPool extends DynamicCluster, LocationOwner<ServerPoolLocation, ServerPool> {
+    ConfigKey<String> LOCATION_NAME_PREFIX = ConfigKeys.newConfigKeyWithDefault(LocationOwner.LOCATION_NAME_PREFIX, "server-pool");
 
     ConfigKey<Integer> INITIAL_SIZE = ConfigKeys.newConfigKeyWithDefault(DynamicCluster.INITIAL_SIZE, 2);
 

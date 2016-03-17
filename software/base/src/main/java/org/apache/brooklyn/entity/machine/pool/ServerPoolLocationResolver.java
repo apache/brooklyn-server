@@ -26,22 +26,24 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
+import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationRegistry;
 import org.apache.brooklyn.api.location.LocationResolver;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.location.BasicLocationRegistry;
 import org.apache.brooklyn.core.location.LocationConfigUtils;
-import org.apache.brooklyn.core.location.LocationPropertiesFromBrooklynProperties;
-import org.apache.brooklyn.core.location.dynamic.DynamicLocation;
-import org.apache.brooklyn.core.location.internal.LocationInternal;
-import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.core.objs.proxy.SpecialBrooklynObjectConstructor;
+import org.apache.brooklyn.core.objs.proxy.SpecialBrooklynObjectConstructor.Config;
 import org.apache.brooklyn.util.text.KeyValueParser;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -55,7 +57,7 @@ public class ServerPoolLocationResolver implements LocationResolver {
             ":([a-zA-Z0-9]+)" + // pool Id
             "(:\\((.*)\\))?$"); // arguments, e.g. displayName
 
-    private static final Set<String> ACCEPTABLE_ARGS = ImmutableSet.of("name", "displayName");
+    private static final Set<String> ACCEPTABLE_ARGS = ImmutableSet.of("name");
 
     private ManagementContext managementContext;
 
@@ -85,7 +87,6 @@ public class ServerPoolLocationResolver implements LocationResolver {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Resolving location '" + spec + "' with flags " + Joiner.on(",").withKeyValueSeparator("=").join(locationFlags));
         }
-        String namedLocation = (String) locationFlags.get(LocationInternal.NAMED_SPEC_NAME.getName());
 
         Matcher matcher = PATTERN.matcher(spec);
         if (!matcher.matches()) {
@@ -94,43 +95,42 @@ public class ServerPoolLocationResolver implements LocationResolver {
             throw new IllegalArgumentException(m);
         }
 
+        // TODO Could validate that the namePart matches the existing poolLoc
         String argsPart = matcher.group(4);
         Map<String, String> argsMap = (argsPart != null) ? KeyValueParser.parseMap(argsPart) : Collections.<String,String>emptyMap();
-        String displayNamePart = argsMap.get("displayName");
+        @SuppressWarnings("unused")
         String namePart = argsMap.get("name");
 
         if (!ACCEPTABLE_ARGS.containsAll(argsMap.keySet())) {
             Set<String> illegalArgs = Sets.difference(argsMap.keySet(), ACCEPTABLE_ARGS);
             throw new IllegalArgumentException("Invalid location '"+spec+"'; illegal args "+illegalArgs+"; acceptable args are "+ACCEPTABLE_ARGS);
         }
-        if (argsMap.containsKey("displayName") && Strings.isEmpty(displayNamePart)) {
-            throw new IllegalArgumentException("Invalid location '"+spec+"'; if displayName supplied then value must be non-empty");
-        }
-        if (argsMap.containsKey("name") && Strings.isEmpty(namePart)) {
-            throw new IllegalArgumentException("Invalid location '"+spec+"'; if name supplied then value must be non-empty");
-        }
 
-        Map<String, Object> filteredProperties = new LocationPropertiesFromBrooklynProperties()
-                .getLocationProperties(PREFIX, namedLocation, registry.getProperties());
-        MutableMap<String, Object> flags = MutableMap.<String, Object>builder()
-                .putAll(filteredProperties)
-                .putAll(locationFlags)
-                .build();
-
-        String poolId = matcher.group(2);
-        if (Strings.isBlank(poolId)) {
-            throw new IllegalArgumentException("Invalid location '"+spec+"'; pool's entity id must be non-empty");
+        String poolLocId = matcher.group(2);
+        if (Strings.isBlank(poolLocId)) {
+            throw new IllegalArgumentException("Invalid location '"+spec+"'; pool's location id must be non-empty");
         }
 
-        final String displayName = displayNamePart != null ? displayNamePart : "Server Pool " + poolId;
-        final String locationName = namePart != null ? namePart : "serverpool-" + poolId;
+        Location poolLoc = managementContext.getLocationManager().getLocation(poolLocId);
+        if (poolLoc == null) {
+            throw new IllegalArgumentException("Unknown ServerPool location id "+poolLocId+", spec "+spec);
+        } else if (!(poolLoc instanceof ServerPoolLocation)) {
+            throw new IllegalArgumentException("Invalid location id for ServerPool, spec "+spec+"; instead matches "+poolLoc);
+        }
 
-        Entity pool = managementContext.getEntityManager().getEntity(poolId);
         return LocationSpec.create(ServerPoolLocation.class)
-                .configure(flags)
-                .configure(DynamicLocation.OWNER, pool)
-                .configure(LocationInternal.NAMED_SPEC_NAME, locationName)
-                .displayName(displayName);
+                .configure(LocationConstructor.LOCATION, poolLoc)
+                .configure(Config.SPECIAL_CONSTRUCTOR, LocationConstructor.class);
     }
-
+    
+    @Beta
+    public static class LocationConstructor implements SpecialBrooklynObjectConstructor {
+        public static ConfigKey<Location> LOCATION = ConfigKeys.newConfigKey(Location.class, "serverpoolresolver.location");
+        
+        @SuppressWarnings("unchecked")
+        @Override
+        public <T> T create(ManagementContext mgmt, Class<T> type, AbstractBrooklynObjectSpec<?, ?> spec) {
+            return (T) checkNotNull(spec.getConfig().get(LOCATION), LOCATION.getName());
+        }
+    }
 }
