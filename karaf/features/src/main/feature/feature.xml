@@ -136,6 +136,7 @@
         <!-- TODO: don't use wrap -->
         <bundle dependency="true">wrap:mvn:com.google.http-client/google-http-client/1.18.0-rc</bundle> <!-- from geoip -->
         <bundle dependency="true">wrap:mvn:com.maxmind.geoip2/geoip2/${maxmind.version}</bundle> <!-- from geoip2 -->
+        <bundle dependency="true">wrap:mvn:com.maxmind.db/maxmind-db/${maxmind-db.version}</bundle>
         <bundle dependency="true">wrap:mvn:xpp3/xpp3_min/1.1.4c</bundle> <!-- from com.thoughtworks.xstream/xstream -->
 
         <bundle dependency="true">mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.reflections/${reflections.bundle.version}</bundle>
