@@ -129,7 +129,7 @@ public class FrameworkLookup {
 
     private static <T> Iterable<T> lookupAllInOsgi(Class<T> clazz) {
         final List<T> result = new ArrayList<>();
-        final Bundle bundle = FrameworkUtil.getBundle(clazz);
+        final Bundle bundle = FrameworkUtil.getBundle(FrameworkLookup.class);
         if (bundle != null) {
             LOG.debug("Looking up all " + clazz.getSimpleName() + " in OSGI");
             BundleContext ctx = bundle.getBundleContext();
@@ -154,7 +154,7 @@ public class FrameworkLookup {
     private static <T> Maybe<T> lookupInOsgi(Class<T> clazz) {
         Maybe<T> result = Maybe.absent("No class " + clazz.getSimpleName() + " found with OSGI");
 
-        final Bundle bundle = FrameworkUtil.getBundle(clazz);
+        final Bundle bundle = FrameworkUtil.getBundle(FrameworkLookup.class);
         if (bundle != null) {
             LOG.debug("Looking up " + clazz.getSimpleName() + " in OSGI");
             BundleContext ctx = bundle.getBundleContext();
