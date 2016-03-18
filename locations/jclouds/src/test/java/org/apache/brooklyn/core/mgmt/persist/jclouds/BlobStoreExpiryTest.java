@@ -95,7 +95,7 @@ public class BlobStoreExpiryTest {
             if (location==null) {
                 Preconditions.checkNotNull(locationSpec, "locationSpec required for remote object store when location is null");
                 Preconditions.checkNotNull(mgmt, "mgmt required for remote object store when location is null");
-                location = (JcloudsLocation) mgmt.getLocationRegistry().resolve(locationSpec);
+                location = (JcloudsLocation) mgmt.getLocationRegistry().getLocationManaged(locationSpec);
             }
             
             identity = checkNotNull(location.getConfig(LocationConfigKeys.ACCESS_IDENTITY), "identity must not be null");

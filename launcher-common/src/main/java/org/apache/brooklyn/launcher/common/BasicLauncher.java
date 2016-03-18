@@ -470,7 +470,7 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
         // Create the locations. Must happen after persistence is started in case the
         // management context's catalog is loaded from persisted state. (Location
         // resolution uses the catalog's classpath to scan for resolvers.)
-        locations.addAll(managementContext.getLocationRegistry().resolve(locationSpecs));
+        locations.addAll(managementContext.getLocationRegistry().getListOfLocationsManaged(locationSpecs));
     }
 
     protected void startingUp() {

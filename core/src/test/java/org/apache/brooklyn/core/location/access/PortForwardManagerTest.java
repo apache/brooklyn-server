@@ -55,7 +55,7 @@ public class PortForwardManagerTest extends BrooklynAppUnitTestSupport {
     public void setUp() throws Exception {
         super.setUp();
 
-        pfm = (PortForwardManager) mgmt.getLocationRegistry().resolve("portForwardManager(scope=global)");
+        pfm = (PortForwardManager) mgmt.getLocationRegistry().getLocationManaged("portForwardManager(scope=global)");
 
         machine1 = mgmt.getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
                 .configure("address", Networking.getInetAddressWithFixedName("1.2.3.4"))
@@ -104,7 +104,7 @@ public class PortForwardManagerTest extends BrooklynAppUnitTestSupport {
         props.put(PortForwardManager.PORT_FORWARD_MANAGER_STARTING_PORT, 1234);
         LocalManagementContextForTests mgmt2 = new LocalManagementContextForTests(props);
         try {
-            PortForwardManager pfm2 = (PortForwardManager) mgmt2.getLocationRegistry().resolve("portForwardManager(scope=global)");
+            PortForwardManager pfm2 = (PortForwardManager) mgmt2.getLocationRegistry().getLocationManaged("portForwardManager(scope=global)");
             int port = pfm2.acquirePublicPort("myipid");
             assertEquals(port, 1234);
         } finally {

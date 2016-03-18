@@ -31,6 +31,9 @@ public interface LocationManager {
 
     /**
      * Creates a new location, which is tracked by the management context.
+     * <p>
+     * Some sub-interfaces may expose an option to suppress management
+     * (e.g. <code>CREATE_UNMANAGED</code> on the Brooklyn LocationManagerInternal sub-interface). 
      * 
      * @param spec
      */
@@ -41,7 +44,9 @@ public interface LocationManager {
      * Equivalent to {@code createLocation(LocationSpec.create(type).configure(config))}
      * 
      * @see #createLocation(LocationSpec)
+     * @deprecated in 0.9.0, use {@link LocationSpec} instead
      */
+    @Deprecated
     <T extends Location> T createLocation(Map<?,?> config, Class<T> type);
 
     /**

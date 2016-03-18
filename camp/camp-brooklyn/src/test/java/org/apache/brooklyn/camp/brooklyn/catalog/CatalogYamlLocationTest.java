@@ -36,8 +36,11 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
+import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.text.StringFunctions;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
@@ -248,6 +251,67 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
 
     private int countCatalogLocations() {
         return Iterables.size(mgmt().getTypeRegistry().getMatching(RegisteredTypePredicates.IS_LOCATION));
+    }
+
+    @Test
+    public void testManagedLocationsCreateAndCleanup() {
+        assertLocationRegistryCount(0);
+        assertLocationManagerInstancesCount(0);
+        assertCatalogCount(0);
+        
+        String symbolicName = "lh1";
+        addCatalogLocation(symbolicName, LOCALHOST_LOCATION_TYPE, null);
+
+        assertLocationRegistryCount(1);
+        assertCatalogCount(1);
+        assertLocationManagerInstancesCount(0);
+
+        Location loc = mgmt().getLocationRegistry().getLocationManaged("lh1");
+
+        assertLocationRegistryCount(1);
+        assertCatalogCount(1);
+        assertLocationManagerInstancesCount(1);
+
+        mgmt().getLocationManager().unmanage(loc);
+        
+
+        assertLocationRegistryCount(1);
+        assertCatalogCount(1);
+        assertLocationManagerInstancesCount(0);
+
+        deleteCatalogEntity("lh1");
+        
+        assertLocationRegistryCount(0);
+        assertCatalogCount(0);
+        assertLocationManagerInstancesCount(0);
+    }
+    
+    private void assertLocationRegistryCount(int size) {
+        Asserts.assertThat(mgmt().getLocationRegistry().getDefinedLocations().keySet(), CollectionFunctionals.sizeEquals(size));
+    }
+    private void assertLocationManagerInstancesCount(int size) {
+        Asserts.assertThat(mgmt().getLocationManager().getLocations(), CollectionFunctionals.sizeEquals(size));
+    }
+    private void assertCatalogCount(int size) {
+        Asserts.assertThat(mgmt().getCatalog().getCatalogItems(), CollectionFunctionals.sizeEquals(size));
+    }
+    
+    @Test
+    public void testLocationPartOfBlueprintDoesntLeak() {
+        String symbolicName = "my.catalog.app.id.load";
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  id: " + symbolicName,
+            "  version: " + TEST_VERSION,
+            "  item:",
+            "    type: "+ BasicEntity.class.getName(),
+            "    location:",
+            "      jclouds:aws-ec2: { identity: ignore, credential: ignore }"
+            );
+        
+        assertLocationRegistryCount(0);
+        assertCatalogCount(1);
+        assertLocationManagerInstancesCount(0);
     }
 
 }

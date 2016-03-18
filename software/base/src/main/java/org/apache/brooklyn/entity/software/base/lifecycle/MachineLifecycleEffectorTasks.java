@@ -184,7 +184,7 @@ public abstract class MachineLifecycleEffectorTasks {
                 Collection<? extends Location> locations  = null;
 
                 Object locationsRaw = parameters.getStringKey(LOCATIONS.getName());
-                locations = Locations.coerceToCollection(entity().getManagementContext(), locationsRaw);
+                locations = Locations.coerceToCollectionOfLocationsManaged(entity().getManagementContext(), locationsRaw);
 
                 if (locations==null) {
                     // null/empty will mean to inherit from parent
@@ -204,7 +204,7 @@ public abstract class MachineLifecycleEffectorTasks {
             Collection<? extends Location> locations = null;
 
             Object locationsRaw = parameters.getStringKey(LOCATIONS.getName());
-            locations = Locations.coerceToCollection(entity().getManagementContext(), locationsRaw);
+            locations = Locations.coerceToCollectionOfLocationsManaged(entity().getManagementContext(), locationsRaw);
 
             if (locations == null) {
                 // null/empty will mean to inherit from parent

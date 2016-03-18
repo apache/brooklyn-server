@@ -113,7 +113,7 @@ public abstract class AbstractJcloudsStubbedLiveTest extends AbstractJcloudsLive
                 return new StubbedComputeService(delegate, nodeCreator);
             }
         };
-        jcloudsLocation = (JcloudsLocation) managementContext.getLocationRegistry().resolve(
+        jcloudsLocation = (JcloudsLocation) managementContext.getLocationRegistry().getLocationManaged(
                 LOCATION_SPEC, 
                 ImmutableMap.of(
                         JcloudsLocationConfig.COMPUTE_SERVICE_REGISTRY, computeServiceRegistry,

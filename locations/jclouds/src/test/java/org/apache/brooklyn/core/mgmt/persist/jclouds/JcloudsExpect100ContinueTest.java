@@ -59,7 +59,7 @@ public class JcloudsExpect100ContinueTest {
         setInfoLevel("org.jclouds");
 
         mgmt = new LocalManagementContextForTests(BrooklynProperties.Factory.newDefault());
-        JcloudsLocation jcloudsLocation = (JcloudsLocation) mgmt.getLocationRegistry().resolve(LOCATION_SPEC);
+        JcloudsLocation jcloudsLocation = (JcloudsLocation) mgmt.getLocationRegistry().getLocationManaged(LOCATION_SPEC);
         context = JcloudsUtil.newBlobstoreContext(
                 jcloudsLocation.getProvider(),
                 jcloudsLocation.getEndpoint(),

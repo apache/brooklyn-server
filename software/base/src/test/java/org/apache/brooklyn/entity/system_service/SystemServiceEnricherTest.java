@@ -53,7 +53,7 @@ public class SystemServiceEnricherTest extends BrooklynAppLiveTestSupport {
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();
-        location = (JcloudsLocation) mgmt.getLocationRegistry().resolve(LOCATION_SPEC);
+        location = (JcloudsLocation) mgmt.getLocationRegistry().getLocationManaged(LOCATION_SPEC);
     }
 
     @Test(groups = "Live")

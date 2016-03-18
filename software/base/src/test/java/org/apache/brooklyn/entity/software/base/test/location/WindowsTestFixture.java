@@ -51,7 +51,7 @@ public class WindowsTestFixture {
         mgmt.getBrooklynProperties().remove("brooklyn.location.jclouds.userMetadata");
         mgmt.getBrooklynProperties().remove("brooklyn.location.userMetadata");
         
-        return (JcloudsLocation) mgmt.getLocationRegistry().resolve("jclouds:aws-ec2:us-west-2", MutableMap.<String, Object>builder()
+        return (JcloudsLocation) mgmt.getLocationRegistry().getLocationManaged("jclouds:aws-ec2:us-west-2", MutableMap.<String, Object>builder()
                 .put("inboundPorts", ImmutableList.of(5985, 3389))
                 .put("displayName", "AWS Oregon (Windows)")
                 .put("imageOwner", "801119661308")
@@ -73,6 +73,6 @@ public class WindowsTestFixture {
         config.put("useJcloudsSshInit", "false");
         config.put("byonIdentity", "123");
         config.putAll(props);
-        return (MachineProvisioningLocation<?>) mgmt.getLocationRegistry().resolve("byon", config);
+        return (MachineProvisioningLocation<?>) mgmt.getLocationRegistry().getLocationManaged("byon", config);
     }
 }

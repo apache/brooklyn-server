@@ -19,6 +19,7 @@
 package org.apache.brooklyn.location.winrm;
 
 import static org.testng.Assert.assertEquals;
+
 import java.util.Map;
 
 import org.apache.brooklyn.api.location.MachineLocation;
@@ -27,32 +28,24 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.util.text.StringPredicates;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
 
 public class ByonLocationResolverTest {
 
-    private static final Logger log = LoggerFactory.getLogger(ByonLocationResolverTest.class);
-    
     private BrooklynProperties brooklynProperties;
     private LocalManagementContext managementContext;
-    private Predicate<CharSequence> defaultNamePredicate;
     
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         managementContext = LocalManagementContextForTests.newInstance();
         brooklynProperties = managementContext.getBrooklynProperties();
-        defaultNamePredicate = StringPredicates.startsWith(FixedListMachineProvisioningLocation.class.getSimpleName());
     }
     
     @AfterMethod(alwaysRun=true)
@@ -83,13 +76,8 @@ public class ByonLocationResolverTest {
     }
 
     @SuppressWarnings("unchecked")
-    private FixedListMachineProvisioningLocation<MachineLocation> resolve(String val) {
-        return (FixedListMachineProvisioningLocation<MachineLocation>) managementContext.getLocationRegistry().resolve(val);
-    }
-
-    @SuppressWarnings("unchecked")
     private FixedListMachineProvisioningLocation<MachineLocation> resolve(String val, Map<?, ?> locationFlags) {
-        return (FixedListMachineProvisioningLocation<MachineLocation>) managementContext.getLocationRegistry().resolve(val, locationFlags);
+        return (FixedListMachineProvisioningLocation<MachineLocation>) managementContext.getLocationRegistry().getLocationManaged(val, locationFlags);
     }
 
 }

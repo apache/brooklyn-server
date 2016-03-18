@@ -128,7 +128,7 @@ public class RebindPolicyTest extends RebindTestFixtureWithApp {
 
     @Test
     public void testExpungesOnEntityUnmanaged() throws Exception {
-        Location loc = origManagementContext.getLocationRegistry().resolve("localhost");
+        Location loc = origManagementContext.getLocationRegistry().getLocationManaged("localhost");
         TestEntity entity = origApp.createAndManageChild(EntitySpec.create(TestEntity.class));
         MyPolicy policy = entity.policies().add(PolicySpec.create(MyPolicy.class));
         MyEnricher enricher = entity.enrichers().add(EnricherSpec.create(MyEnricher.class));

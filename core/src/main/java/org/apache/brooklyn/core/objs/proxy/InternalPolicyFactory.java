@@ -20,10 +20,7 @@ package org.apache.brooklyn.core.objs.proxy;
 
 import java.util.Map;
 
-import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.api.objs.BrooklynObject;
-import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.Enricher;
@@ -32,7 +29,6 @@ import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigConstraints;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
-import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -106,7 +102,7 @@ public class InternalPolicyFactory extends InternalFactory {
         try {
             Class<? extends T> clazz = spec.getType();
 
-            T pol = construct(clazz, spec.getFlags());
+            T pol = construct(clazz, spec, null);
 
             if (spec.getDisplayName()!=null) {
                 ((AbstractPolicy)pol).setDisplayName(spec.getDisplayName());
@@ -148,7 +144,7 @@ public class InternalPolicyFactory extends InternalFactory {
         try {
             Class<? extends T> clazz = spec.getType();
             
-            T enricher = construct(clazz, spec.getFlags());
+            T enricher = construct(clazz, spec, null);
             
             if (spec.getDisplayName()!=null)
                 ((AbstractEnricher)enricher).setDisplayName(spec.getDisplayName());

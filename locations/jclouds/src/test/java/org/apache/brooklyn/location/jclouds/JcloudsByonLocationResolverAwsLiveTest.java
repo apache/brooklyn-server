@@ -52,7 +52,7 @@ public class JcloudsByonLocationResolverAwsLiveTest extends AbstractJcloudsLiveT
     @BeforeClass(groups="Live")
     public void setUpClass() throws Exception {
         classManagementContext = newManagementContext();
-        classEc2Loc = (JcloudsLocation) classManagementContext.getLocationRegistry().resolve(AWS_LOCATION_SPEC);
+        classEc2Loc = (JcloudsLocation) classManagementContext.getLocationRegistry().getLocationManaged(AWS_LOCATION_SPEC);
         classEc2Vm = (JcloudsSshMachineLocation)classEc2Loc.obtain(MutableMap.<String,Object>builder()
                 .put("hardwareId", AWS_EC2_SMALL_HARDWARE_ID)
                 .put("inboundPorts", ImmutableList.of(22))
@@ -172,6 +172,6 @@ public class JcloudsByonLocationResolverAwsLiveTest extends AbstractJcloudsLiveT
     
     @SuppressWarnings("unchecked")
     private FixedListMachineProvisioningLocation<JcloudsSshMachineLocation> resolve(String spec) {
-        return (FixedListMachineProvisioningLocation<JcloudsSshMachineLocation>) managementContext.getLocationRegistry().resolve(spec);
+        return (FixedListMachineProvisioningLocation<JcloudsSshMachineLocation>) managementContext.getLocationRegistry().getLocationManaged(spec);
     }
 }

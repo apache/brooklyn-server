@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
+import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationRegistry;
 import org.apache.brooklyn.api.location.LocationResolver;
 import org.apache.brooklyn.api.location.LocationSpec;
@@ -33,13 +34,14 @@ import org.apache.brooklyn.core.location.BasicLocationRegistry;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.location.LocationConfigUtils;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.text.Strings;
 import org.jclouds.apis.ApiMetadata;
 import org.jclouds.apis.Apis;
 import org.jclouds.providers.ProviderMetadata;
 import org.jclouds.providers.Providers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -80,6 +82,11 @@ public class JcloudsLocationResolver implements LocationResolver {
     @Override
     public void init(ManagementContext managementContext) {
         this.managementContext = checkNotNull(managementContext, "managementContext");
+    }
+    
+    @Override
+    public boolean isEnabled() {
+        return LocationConfigUtils.isResolverPrefixEnabled(managementContext, getPrefix());
     }
     
     protected class JcloudsSpecParser {
@@ -147,8 +154,7 @@ public class JcloudsLocationResolver implements LocationResolver {
     }
     
     @Override
-    @SuppressWarnings("unchecked")
-    public JcloudsLocation newLocationFromString(Map locationFlags, String spec, LocationRegistry registry) {
+    public LocationSpec<? extends Location> newLocationSpecFromString(String spec, Map<?, ?> locationFlags, LocationRegistry registry) {
         Map globalProperties = registry.getProperties();
 
         JcloudsSpecParser details = new JcloudsSpecParser().parse(spec, false);
@@ -170,10 +176,10 @@ public class JcloudsLocationResolver implements LocationResolver {
         // But for everything passed in via locationFlags, pass those as-is.
         // TODO Should revisit the locationFlags: where are these actually used? Reason accepting properties without
         //      full prefix is that the map's context is explicitly this location, rather than being generic properties.
-        Map allProperties = getAllProperties(registry, globalProperties);
+        Map<String,Object> allProperties = getAllProperties(registry, globalProperties);
         String regionOrEndpoint = details.parameter;
         if (regionOrEndpoint==null && isProvider) regionOrEndpoint = (String)locationFlags.get(LocationConfigKeys.CLOUD_REGION_ID.getName());
-        Map jcloudsProperties = new JcloudsPropertiesFromBrooklynProperties().getJcloudsProperties(providerOrApi, regionOrEndpoint, namedLocation, allProperties);
+        Map<Object,Object> jcloudsProperties = MutableMap.<Object,Object>copyOf(new JcloudsPropertiesFromBrooklynProperties().getJcloudsProperties(providerOrApi, regionOrEndpoint, namedLocation, allProperties));
         jcloudsProperties.putAll(locationFlags);
         
         if (regionOrEndpoint!=null) {
@@ -192,14 +198,14 @@ public class JcloudsLocationResolver implements LocationResolver {
             }
         }
         
-        return managementContext.getLocationManager().createLocation(LocationSpec.create(getLocationClass())
+        return LocationSpec.create(getLocationClass())
                 .configure(LocationConfigUtils.finalAndOriginalSpecs(spec, jcloudsProperties, globalProperties, namedLocation))
-                .configure(jcloudsProperties) );
+                .configure(jcloudsProperties);
     }
 
     @SuppressWarnings("unchecked")
-    private Map getAllProperties(LocationRegistry registry, Map<?,?> properties) {
-        Map<Object,Object> allProperties = Maps.newHashMap();
+    private Map<String,Object> getAllProperties(LocationRegistry registry, Map properties) {
+        Map<String,Object> allProperties = MutableMap.of();
         if (registry!=null) allProperties.putAll(registry.getProperties());
         allProperties.putAll(properties);
         return allProperties;

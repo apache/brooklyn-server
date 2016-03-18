@@ -52,7 +52,6 @@ import com.google.common.collect.ImmutableList;
  * 
  * @author aled
  */
-@SuppressWarnings({"unchecked","rawtypes"})
 public abstract class AbstractLocationResolver implements LocationResolver {
 
     public static final Logger log = LoggerFactory.getLogger(AbstractLocationResolver.class);
@@ -77,22 +76,29 @@ public abstract class AbstractLocationResolver implements LocationResolver {
     }
 
     @Override
-    public Location newLocationFromString(Map locationFlags, String spec, LocationRegistry registry) {
+    public boolean isEnabled() {
+        return LocationConfigUtils.isResolverPrefixEnabled(managementContext, getPrefix());
+    }
+
+    @Override
+    public LocationSpec<?> newLocationSpecFromString(String spec, Map<?,?> locationFlags, LocationRegistry registry) {
         ConfigBag config = extractConfig(locationFlags, spec, registry);
-        Map globalProperties = registry.getProperties();
+        @SuppressWarnings("unchecked")
+        Map<String,?> globalProperties = registry.getProperties();
         String namedLocation = (String) locationFlags.get(LocationInternal.NAMED_SPEC_NAME.getName());
         
         if (registry != null) {
             LocationPropertiesFromBrooklynProperties.setLocalTempDir(globalProperties, config);
         }
 
-        return managementContext.getLocationManager().createLocation(LocationSpec.create(getLocationType())
+        return LocationSpec.create(getLocationType())
             .configure(config.getAllConfig())
-            .configure(LocationConfigUtils.finalAndOriginalSpecs(spec, locationFlags, globalProperties, namedLocation)));
+            .configure(LocationConfigUtils.finalAndOriginalSpecs(spec, locationFlags, globalProperties, namedLocation));        
     }
 
     protected ConfigBag extractConfig(Map<?,?> locationFlags, String spec, LocationRegistry registry) {
-        Map globalProperties = registry.getProperties();
+        @SuppressWarnings("unchecked")
+        Map<String,?> globalProperties = registry.getProperties();
         ParsedSpec parsedSpec = specParser.parse(spec);
         String namedLocation = (String) locationFlags.get(LocationInternal.NAMED_SPEC_NAME.getName());
         

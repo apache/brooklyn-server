@@ -80,7 +80,7 @@ public class SetHostnameCustomizerLiveTest extends BrooklynAppLiveTestSupport {
         
         super.setUp();
         
-        loc = (MachineProvisioningLocation<SshMachineLocation>) mgmt.getLocationRegistry().resolve(LOCATION_SPEC);
+        loc = (MachineProvisioningLocation<SshMachineLocation>) mgmt.getLocationRegistry().getLocationManaged(LOCATION_SPEC);
     }
 
     @Test(groups = {"Live"})

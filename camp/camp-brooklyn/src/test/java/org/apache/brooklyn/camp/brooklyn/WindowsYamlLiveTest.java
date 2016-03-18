@@ -34,13 +34,13 @@ import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.entity.software.base.VanillaWindowsProcess;
 import org.apache.brooklyn.entity.software.base.test.location.WindowsTestFixture;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.core.task.TaskPredicates;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.text.Strings;
@@ -301,7 +301,7 @@ public class WindowsYamlLiveTest extends AbstractYamlTest {
             
             VanillaWindowsProcess entity = (VanillaWindowsProcess) app.getChildren().iterator().next();
             
-            EntityTestUtils.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, true);
+            EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, true);
             assertStreams(entity, stdouts);
             
         } else if (cmdFailed.equals("stop-command")) {
@@ -310,7 +310,7 @@ public class WindowsYamlLiveTest extends AbstractYamlTest {
             log.info("App started:");
             Entities.dumpInfo(app);
             VanillaWindowsProcess entity = (VanillaWindowsProcess) app.getChildren().iterator().next();
-            EntityTestUtils.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, true);
+            EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, true);
             
             entity.stop();
             assertSubTaskFailures(entity, ImmutableMap.of(taskRegexFailed, StringPredicates.containsLiteral("for "+cmdFailed)));

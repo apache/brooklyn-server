@@ -49,7 +49,7 @@ public class LocalhostProvisioningAndAccessTest {
 
     @Test(groups="Integration")
     public void testProvisionAndConnect() throws Exception {
-        Location location = mgmt.getLocationRegistry().resolve("localhost");
+        Location location = mgmt.getLocationRegistry().getLocationManaged("localhost");
         assertTrue(location instanceof LocalhostMachineProvisioningLocation);
         SshMachineLocation m = ((LocalhostMachineProvisioningLocation)location).obtain();
         int result = m.execCommands("test", Arrays.asList("echo hello world"));

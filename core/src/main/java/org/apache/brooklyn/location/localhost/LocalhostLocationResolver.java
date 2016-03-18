@@ -22,7 +22,6 @@ import java.util.Map;
 
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationRegistry;
-import org.apache.brooklyn.api.location.LocationResolver;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.location.AbstractLocationResolver;
@@ -41,9 +40,9 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
  * 
  * @author alex, aled
  */
-public class LocalhostLocationResolver extends AbstractLocationResolver implements LocationResolver.EnableableLocationResolver {
+public class LocalhostLocationResolver extends AbstractLocationResolver {
 
-    private static String BROOKLYN_LOCATION_LOCALHOST_PREFIX = "brooklyn.location.localhost";
+    private static String BROOKLYN_LOCATION_LOCALHOST_PREFIX = LocationConfigUtils.BROOKLYN_LOCATION_PREFIX + "." + "localhost";
     
     public static ConfigKey<Boolean> LOCALHOST_ENABLED = ConfigKeys.newConfigKeyWithPrefix(BROOKLYN_LOCATION_LOCALHOST_PREFIX+".", LocationConfigKeys.ENABLED);
     
@@ -56,7 +55,8 @@ public class LocalhostLocationResolver extends AbstractLocationResolver implemen
 
     @Override
     public boolean isEnabled() {
-        return LocationConfigUtils.isEnabled(managementContext, BROOKLYN_LOCATION_LOCALHOST_PREFIX);
+        // right now these two checks, but in case the generic mechanism in super changes...
+        return super.isEnabled() && LocationConfigUtils.isEnabled(managementContext, BROOKLYN_LOCATION_LOCALHOST_PREFIX);
     }
 
     @Override

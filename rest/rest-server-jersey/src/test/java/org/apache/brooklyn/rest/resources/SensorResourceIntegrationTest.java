@@ -60,7 +60,7 @@ public class SensorResourceIntegrationTest extends BrooklynRestApiLauncherTestFi
         app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class).displayName("simple-app")
             .child(EntitySpec.create(Entity.class, RestMockSimpleEntity.class).displayName("simple-ent")));
         mgmt.getEntityManager().manage(app);
-        app.start(MutableList.of(mgmt.getLocationRegistry().resolve("localhost")));
+        app.start(MutableList.of(mgmt.getLocationRegistry().getLocationManaged("localhost")));
     }
     
     // marked integration because of time

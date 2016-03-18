@@ -728,15 +728,19 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
 
         // choose locations to be deployed to
         List<Location> chosenLocations;
-        List<Location> memberLocations = getMemberSpec() == null ? null : getMemberSpec().getLocations();
-        if (memberLocations != null && memberLocations.size() > 0) {
+
+        EntitySpec<?> memberSpec = getMemberSpec();
+        boolean memberSpecHasLocation = memberSpec!=null && (!memberSpec.getLocationSpecs().isEmpty() || !memberSpec.getLocations().isEmpty());
+        if (memberSpecHasLocation) {
             // The memberSpec overrides the location passed to cluster.start(); use
             // the location defined on the member.
             if (isAvailabilityZoneEnabled()) {
                 LOG.warn("Cluster {} has availability-zone enabled, but memberSpec overrides location with {}; using "
-                        + "memberSpec's location; availability-zone behaviour will not apply", this, memberLocations);
+                        + "memberSpec's location; availability-zone behaviour will not apply", this, 
+                        ""+memberSpec.getLocationSpecs()+"+"+memberSpec.getLocations());
             }
-            chosenLocations = Collections.nCopies(delta, memberLocations.get(0));
+            // null means create an instance but don't set a location
+            chosenLocations = Collections.nCopies(delta, null);
         } else if (isAvailabilityZoneEnabled()) {
             List<Location> subLocations = getNonFailedSubLocations();
             Multimap<Location, Entity> membersByLocation = getMembersByLocation();

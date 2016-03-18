@@ -18,33 +18,34 @@
  */
 package org.apache.brooklyn.location.ssh;
 
+import static org.testng.Assert.assertEquals;
+
 import java.io.ByteArrayOutputStream;
 import java.security.KeyPair;
 import java.util.Arrays;
 import java.util.Map;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-
+import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.crypto.SecureKeys;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.internal.ssh.sshj.SshjTool;
 import org.apache.brooklyn.util.core.internal.ssh.sshj.SshjTool.SshjToolBuilder;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Preconditions;
-
-import static org.testng.Assert.assertEquals;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 public class SshMachineLocationIntegrationTest {
 
@@ -75,8 +76,9 @@ public class SshMachineLocationIntegrationTest {
     //      brooklyn.location.named.localhost-passphrase.privateKeyPassphrase=brooklyn
     @Test(groups = "Integration")
     public void testExtractingConnectablePassphraselessKey() throws Exception {
-        LocalhostMachineProvisioningLocation lhp = (LocalhostMachineProvisioningLocation) mgmt.getLocationRegistry().resolve("named:localhost-passphrase", true, null).orNull();
-        Preconditions.checkNotNull(lhp, "This test requires a localhost named location called 'localhost-passphrase' (which should have a passphrase set)");
+        Maybe<LocationSpec<? extends Location>> lhps = mgmt.getLocationRegistry().getLocationSpec("named:localhost-passphrase");
+        Preconditions.checkArgument(lhps.isPresent(), "This test requires a localhost named location called 'localhost-passphrase' (which should have a passphrase set)");
+        LocalhostMachineProvisioningLocation lhp = (LocalhostMachineProvisioningLocation) mgmt.getLocationManager().createLocation(lhps.get());
         SshMachineLocation sm = lhp.obtain();
         
         SshjToolBuilder builder = SshjTool.builder().host(sm.getAddress().getHostName()).user(sm.getUser());
@@ -98,7 +100,7 @@ public class SshMachineLocationIntegrationTest {
         // For explanation of (some of) the magic behind this command, see http://stackoverflow.com/a/229606/68898
         final String command = "if [[ \"$0\" == \"/var/tmp/\"* ]]; then true; else false; fi";
 
-        LocalhostMachineProvisioningLocation lhp = (LocalhostMachineProvisioningLocation) mgmt.getLocationRegistry().resolve("localhost", true, null).orNull();
+        LocalhostMachineProvisioningLocation lhp = mgmt.getLocationManager().createLocation(LocationSpec.create(LocalhostMachineProvisioningLocation.class));
         SshMachineLocation sm = lhp.obtain();
 
         Map<String, Object> props = ImmutableMap.<String, Object>builder()
@@ -117,7 +119,9 @@ public class SshMachineLocationIntegrationTest {
                 .put(SshMachineLocation.SCRIPT_DIR.getName(), "/var/tmp")
                 .build();
 
-        LocalhostMachineProvisioningLocation lhp = (LocalhostMachineProvisioningLocation) mgmt.getLocationRegistry().resolve("localhost", locationConfig);
+        LocalhostMachineProvisioningLocation lhp = 
+            mgmt.getLocationManager().createLocation(LocationSpec.create(LocalhostMachineProvisioningLocation.class)
+                .configure(locationConfig));
         SshMachineLocation sm = lhp.obtain();
 
         int rc = sm.execScript("Test script directory execution", ImmutableList.of(command));
@@ -132,7 +136,9 @@ public class SshMachineLocationIntegrationTest {
 //                .put(SshMachineLocation.SCRIPT_DIR.getName(), "/var/tmp")
                 .build();
 
-        LocalhostMachineProvisioningLocation lhp = (LocalhostMachineProvisioningLocation) mgmt.getLocationRegistry().resolve("localhost", locationConfig);
+        LocalhostMachineProvisioningLocation lhp = 
+            mgmt.getLocationManager().createLocation(LocationSpec.create(LocalhostMachineProvisioningLocation.class)
+                .configure(locationConfig));
         SshMachineLocation sm = lhp.obtain();
 
         int rc = sm.execScript("Test script directory execution", ImmutableList.of(command));

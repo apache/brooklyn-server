@@ -19,9 +19,17 @@
 package org.apache.brooklyn.core.mgmt.internal;
 
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.LocationManager;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 
 public interface LocationManagerInternal extends LocationManager, BrooklynObjectManagerInternal<Location> {
+
+    /** Indicates that a call to {@link #createLocation(LocationSpec)} should create a location instance not
+     * linked to the management context. This allows clients to peek at the result but not to use it. */
+    public static final ConfigKey<Boolean> CREATE_UNMANAGED = ConfigKeys.newBooleanConfigKey("brooklyn.internal.location.createUnmanaged",
+        "If set on a location or spec, causes the manager to create it in an unmanaged state (for peeking)", false);
 
     public Iterable<String> getLocationIds();
 

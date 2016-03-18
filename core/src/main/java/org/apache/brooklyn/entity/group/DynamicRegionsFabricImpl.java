@@ -42,7 +42,7 @@ public class DynamicRegionsFabricImpl extends DynamicFabricImpl implements Dynam
     @Override
     public String addRegion(String location) {
         Preconditions.checkNotNull(location, "location");
-        Location l = getManagementContext().getLocationRegistry().resolve(location);
+        Location l = getManagementContext().getLocationRegistry().getLocationManaged(location);
         addLocations(Arrays.asList(l));
         
         Entity e = addCluster(l);

@@ -115,7 +115,7 @@ private static final Logger log = LoggerFactory.getLogger(SingleMachineProvision
     @SuppressWarnings("unchecked")
     private SingleMachineProvisioningLocation<JcloudsSshMachineLocation> resolve(String spec) {
         SingleMachineProvisioningLocation<JcloudsSshMachineLocation> result = (SingleMachineProvisioningLocation<JcloudsSshMachineLocation>) 
-                managementContext.getLocationRegistry().resolve(spec);
+                managementContext.getLocationRegistry().getLocationManaged(spec);
         // FIXME Do we really need to setManagementContext?!
         //result.setManagementContext(managementContext);
         return result;

@@ -35,7 +35,7 @@ public class LocationSummaryTest extends AbstractDomainTest {
         Map<String, URI> links = Maps.newLinkedHashMap();
         links.put("self", URI.create("/v1/locations/123"));
 
-        return new LocationSummary("123", "localhost", "localhost", null, null, links);
+        return new LocationSummary("123", "localhost", "localhost", null, null, null, links);
     }
 
 }

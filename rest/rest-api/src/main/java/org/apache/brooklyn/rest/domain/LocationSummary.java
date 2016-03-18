@@ -30,6 +30,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableMap;
 
+@SuppressWarnings("deprecation") 
+// parent will be removed but this will be kept, just for reporting Location instances
+// CatalogLocationSummary should be used for items in the catalog
 public class LocationSummary extends LocationSpec implements HasName, HasId {
 
     private static final long serialVersionUID = -4559153719273573670L;
@@ -39,6 +42,8 @@ public class LocationSummary extends LocationSpec implements HasName, HasId {
     /** only intended for instantiated Locations, not definitions */
     @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
     private final String type;
+    @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
+    private final CatalogLocationSummary catalog;
     private final Map<String, URI> links;
 
     public LocationSummary(
@@ -47,10 +52,12 @@ public class LocationSummary extends LocationSpec implements HasName, HasId {
             @JsonProperty("spec") String spec,
             @JsonProperty("type") String type,
             @JsonProperty("config") @Nullable Map<String, ?> config,
+            @JsonProperty("catalog") @Nullable CatalogLocationSummary catalog,
             @JsonProperty("links") Map<String, URI> links) {
         super(name, spec, config);
         this.id = checkNotNull(id);
         this.type = type;
+        this.catalog = catalog;
         this.links = (links == null) ? ImmutableMap.<String, URI> of() : ImmutableMap.copyOf(links);
     }
 
@@ -63,6 +70,10 @@ public class LocationSummary extends LocationSpec implements HasName, HasId {
         return type;
     }
 
+    public CatalogLocationSummary getCatalog() {
+        return catalog;
+    }
+    
     public Map<String, URI> getLinks() {
         return links;
     }
@@ -75,12 +86,13 @@ public class LocationSummary extends LocationSpec implements HasName, HasId {
         LocationSummary that = (LocationSummary) o;
         return Objects.equals(id, that.id) &&
                 Objects.equals(type, that.type) &&
+                Objects.equals(catalog, that.catalog) &&
                 Objects.equals(links, that.links);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), id, type, links);
+        return Objects.hash(super.hashCode(), id, type, catalog, links);
     }
 
     @Override
@@ -88,6 +100,7 @@ public class LocationSummary extends LocationSpec implements HasName, HasId {
         return "LocationSummary{" +
                 "id='" + id + '\'' +
                 ", type='" + type + '\'' +
+                ", catalog='" + catalog + '\'' +
                 ", links=" + links +
                 '}';
     }

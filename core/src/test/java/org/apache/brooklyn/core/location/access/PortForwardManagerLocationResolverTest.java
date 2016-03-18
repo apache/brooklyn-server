@@ -61,7 +61,7 @@ public class PortForwardManagerLocationResolverTest {
     }
 
     private Location resolve(String val) {
-        Location l = managementContext.getLocationRegistry().resolve(val);
+        Location l = managementContext.getLocationRegistry().getLocationManaged(val);
         Assert.assertNotNull(l);
         return l;
     }

@@ -60,6 +60,8 @@ public class LocationConfigUtils {
 
     private static final Logger log = LoggerFactory.getLogger(LocationConfigUtils.class);
 
+    public static String BROOKLYN_LOCATION_PREFIX = "brooklyn.location";
+    
     /** Creates an instance of {@link OsCredential} by inspecting {@link LocationConfigKeys#PASSWORD}; 
      * {@link LocationConfigKeys#PRIVATE_KEY_DATA} and {@link LocationConfigKeys#PRIVATE_KEY_FILE};
      * {@link LocationConfigKeys#PRIVATE_KEY_PASSPHRASE} if needed, and
@@ -548,9 +550,14 @@ public class LocationConfigUtils {
         return result;
     }
 
-    public static boolean isEnabled(ManagementContext mgmt, String prefix) {
-        ConfigKey<Boolean> key = ConfigKeys.newConfigKeyWithPrefix(prefix+".", LocationConfigKeys.ENABLED);
-        Boolean enabled = mgmt.getConfig().getConfig(key);
+    public static boolean isResolverPrefixEnabled(ManagementContext mgmt, String resolverIdPrefix) {
+        return isEnabled(mgmt, BROOKLYN_LOCATION_PREFIX+"."+resolverIdPrefix);
+    }
+    
+    /** checks enablement, by looking at <code>key + ".enabled"</code> */
+    public static boolean isEnabled(ManagementContext mgmt, String key) {
+        ConfigKey<Boolean> k = ConfigKeys.newConfigKeyWithPrefix(key+".", LocationConfigKeys.ENABLED);
+        Boolean enabled = mgmt.getConfig().getConfig(k);
         if (enabled!=null) return enabled.booleanValue();
         return true;
     }

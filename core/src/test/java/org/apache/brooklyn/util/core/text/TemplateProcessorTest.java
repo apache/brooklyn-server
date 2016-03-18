@@ -178,8 +178,8 @@ public class TemplateProcessorTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testApplyTemplatedConfigWithAtributeWhenReadyInSpec() {
-        DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class).configure(DynamicCluster.INITIAL_SIZE, 0).location(
-                app.getManagementContext().getLocationManager().createLocation(LocationSpec.create(LocalhostMachineProvisioningLocation.LocalhostMachine.class))));
+        DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class).configure(DynamicCluster.INITIAL_SIZE, 0)
+            .location(LocationSpec.create(LocalhostMachineProvisioningLocation.LocalhostMachine.class)));
         cluster.config().set(DynamicCluster.MEMBER_SPEC,
                 EntitySpec.create(TestEntity.class).configure(TestEntity.CONF_NAME,
                         DependentConfiguration.attributeWhenReady(cluster, TestEntity.NAME)));

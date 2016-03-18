@@ -128,7 +128,7 @@ public abstract class AbstractGoogleComputeLiveTest {
                 .put("tags", ImmutableList.of(tag))
                 .putAll(flags)
                 .build();
-        jcloudsLocation = ctx.getLocationRegistry().resolve(LOCATION_SPEC, allFlags);
+        jcloudsLocation = ctx.getLocationRegistry().getLocationManaged(LOCATION_SPEC, allFlags);
 
         doTest(jcloudsLocation);
     }

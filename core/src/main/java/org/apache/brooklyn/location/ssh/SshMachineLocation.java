@@ -69,6 +69,7 @@ import org.apache.brooklyn.core.location.LocationConfigUtils.OsCredential;
 import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.mgmt.internal.LocalLocationManager;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -300,7 +301,7 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
         // Register any pre-existing port-mappings with the PortForwardManager
         Map<Integer, String> tcpPortMappings = getConfig(TCP_PORT_MAPPINGS);
         if (tcpPortMappings != null) {
-            PortForwardManager pfm = (PortForwardManager) getManagementContext().getLocationRegistry().resolve("portForwardManager(scope=global)");
+            PortForwardManager pfm = (PortForwardManager) getManagementContext().getLocationRegistry().getLocationManaged("portForwardManager(scope=global)");
             for (Map.Entry<Integer, String> entry : tcpPortMappings.entrySet()) {
                 int targetPort = entry.getKey();
                 HostAndPort publicEndpoint = HostAndPort.fromString(entry.getValue());
@@ -452,6 +453,12 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
             LOG.debug("No management context for "+this+"; ssh-pool cache will only be closed when machine is closed");
             return;
         }
+        if (Boolean.TRUE.equals(config().get(LocalLocationManager.CREATE_UNMANAGED))) {
+            // Assume the caller will deal with the cleanup in a timely manner, given they have 
+            // asking that the management context not treat the location as "managed".
+            LOG.debug("Create-unmanaged for "+this+"; no explicit cleanup task; ssh-pool cache will only be closed when machine is closed");
+            return;
+        }
         
         Callable<Task<?>> cleanupTaskFactory = new Callable<Task<?>>() {
             @Override public Task<Void> call() {
@@ -484,7 +491,9 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
         
         Duration expiryDuration = getConfig(SSH_CACHE_EXPIRY_DURATION);
         cleanupTask = getManagementContext().getExecutionManager().submit(new ScheduledTask(
-            MutableMap.of("displayName", "scheduled[ssh-location cache cleaner]"), cleanupTaskFactory).period(expiryDuration));
+            MutableMap.of("displayName", "scheduled[ssh-location cache cleaner]"), cleanupTaskFactory)
+                .period(expiryDuration)
+                .delay(expiryDuration));
     }
     
     // TODO close has been used for a long time to perform clean-up wanted on unmanagement, but that's not clear; 

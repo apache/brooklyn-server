@@ -23,8 +23,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
 
+import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.Reflections;
 
@@ -80,19 +82,43 @@ public class InternalFactory {
 
     /**
      * Constructs an instance (e.g. of entity, location, enricher or policy.
-     * If new-style, calls no-arg constructor; if old-style, uses spec to pass in config.
+     * Checks if special instructions on the spec, if supplied;
+     * else if new-style class, calls no-arg constructor (ignoring spec); 
+     * else if old-style, uses flags if avail as args or as spec and passes to constructor.
      */
-    protected <T> T construct(Class<? extends T> clazz, Map<String, ?> constructorFlags) {
+    protected <T> T construct(Class<? extends T> clazz, AbstractBrooklynObjectSpec<?,?> optionalSpec, Map<String,?> optionalOldStyleConstructorFlags) {
         try {
+            if (optionalSpec!=null) {
+                ConfigBag bag = ConfigBag.newInstance(optionalSpec.getConfig());
+                Class<? extends SpecialBrooklynObjectConstructor> special = bag.get(SpecialBrooklynObjectConstructor.Config.SPECIAL_CONSTRUCTOR);
+                if (special!=null) {
+                    // special construction requested; beta and very limited scope; see SpecialBrooklynObjectConstructor 
+                    return constructWithSpecial(special, clazz, optionalSpec);
+                }
+            }
+            
             if (isNewStyle(clazz)) {
                 return constructNewStyle(clazz);
             } else {
+                MutableMap<String,Object> constructorFlags = MutableMap.of();
+                if (optionalOldStyleConstructorFlags!=null) constructorFlags.add(optionalOldStyleConstructorFlags);
+                else constructorFlags.add(optionalSpec.getFlags());
+                
                 return constructOldStyle(clazz, MutableMap.copyOf(constructorFlags));
             }
         } catch (Exception e) {
             throw Exceptions.propagate(e);
          }
      }
+
+    private <T> T constructWithSpecial(Class<? extends SpecialBrooklynObjectConstructor> special, Class<? extends T> clazz, AbstractBrooklynObjectSpec<?, ?> spec) {
+        try {
+            return special.newInstance().create(managementContext, clazz, spec);
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            throw Exceptions.propagate("Unable to create "+clazz+" "+spec+" using special "+special, e);
+        }
+    }
 
     /**
      * Constructs a new instance (fails if no no-arg constructor).

@@ -56,7 +56,7 @@ public class AwsAvailabilityZoneExtensionTest {
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         mgmt = new LocalManagementContext();
-        loc = (JcloudsLocation) mgmt.getLocationRegistry().resolve(LOCATION_SPEC);
+        loc = (JcloudsLocation) mgmt.getLocationRegistry().getLocationManaged(LOCATION_SPEC);
         zoneExtension = new AwsAvailabilityZoneExtension(mgmt, loc);
     }
     

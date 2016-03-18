@@ -91,7 +91,7 @@ public abstract class AbstractDockerLiveTest {
                 .put("tags", ImmutableList.of(tag))
                 .putAll(flags)
                 .build();
-        jcloudsLocation = ctx.getLocationRegistry().resolve(PROVIDER, allFlags);
+        jcloudsLocation = ctx.getLocationRegistry().getLocationManaged(PROVIDER, allFlags);
         doTest(jcloudsLocation);
     }
 

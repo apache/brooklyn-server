@@ -34,7 +34,7 @@ public class MachineEntityRebindTest extends RebindTestFixtureWithApp {
     @Test(groups = "Integration")
     public void testRebindToMachineEntity() throws Exception {
         EmptySoftwareProcess machine = origApp.createAndManageChild(EntitySpec.create(EmptySoftwareProcess.class));
-        origApp.start(ImmutableList.of(origManagementContext.getLocationRegistry().resolve("localhost")));
+        origApp.start(ImmutableList.of(origManagementContext.getLocationRegistry().getLocationManaged("localhost")));
         EntityTestUtils.assertAttributeEqualsEventually(machine, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
         rebind(false);
         Entity machine2 = newManagementContext.getEntityManager().getEntity(machine.getId());

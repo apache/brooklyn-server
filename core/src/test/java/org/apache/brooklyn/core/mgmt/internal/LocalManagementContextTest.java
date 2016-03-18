@@ -64,12 +64,12 @@ public class LocalManagementContextTest {
             .globalPropertiesFile(globalPropertiesFile.getAbsolutePath());
         // no builder support in LocalManagementContextForTests (we are testing that the builder's files are reloaded so we need it here)
         context = new LocalManagementContext(propsBuilder);
-        Location location = context.getLocationRegistry().resolve("localhost");
+        Location location = context.getLocationRegistry().getLocationManaged("localhost");
         assertEquals(location.getDisplayName(), "myname");
         String newGlobalPropertiesContents = "brooklyn.location.localhost.displayName=myname2";
         Files.write(newGlobalPropertiesContents, globalPropertiesFile, Charsets.UTF_8);
         context.reloadBrooklynProperties();
-        Location location2 = context.getLocationRegistry().resolve("localhost");
+        Location location2 = context.getLocationRegistry().getLocationManaged("localhost");
         assertEquals(location.getDisplayName(), "myname");
         assertEquals(location2.getDisplayName(), "myname2");
     }
@@ -82,12 +82,12 @@ public class LocalManagementContextTest {
             .globalPropertiesFile(globalPropertiesFile.getAbsolutePath())
             .build();
         context = LocalManagementContextForTests.builder(true).useProperties(brooklynProperties).build();
-        Location location = context.getLocationRegistry().resolve("localhost");
+        Location location = context.getLocationRegistry().getLocationManaged("localhost");
         assertEquals(location.getDisplayName(), "myname");
         String newGlobalPropertiesContents = "brooklyn.location.localhost.displayName=myname2";
         Files.write(newGlobalPropertiesContents, globalPropertiesFile, Charsets.UTF_8);
         context.reloadBrooklynProperties();
-        Location location2 = context.getLocationRegistry().resolve("localhost");
+        Location location2 = context.getLocationRegistry().getLocationManaged("localhost");
         assertEquals(location.getDisplayName(), "myname");
         assertEquals(location2.getDisplayName(), "myname");
     }

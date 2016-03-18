@@ -79,7 +79,7 @@ public class LocationResourceTest extends BrooklynRestResourceTest {
         assertEquals(location.getSpec(), "brooklyn.catalog:"+legacyLocationName+":"+legacyLocationVersion);
         assertTrue(addedLegacyLocationUri.getPath().startsWith("/locations/"));
 
-        JcloudsLocation l = (JcloudsLocation) getManagementContext().getLocationRegistry().resolve(legacyLocationName);
+        JcloudsLocation l = (JcloudsLocation) getManagementContext().getLocationRegistry().getLocationManaged(legacyLocationName);
         Assert.assertEquals(l.getProvider(), "aws-ec2");
         Assert.assertEquals(l.getRegion(), "us-east-1");
         Assert.assertEquals(l.getIdentity(), "bob");
@@ -119,7 +119,7 @@ public class LocationResourceTest extends BrooklynRestResourceTest {
         Assert.assertEquals(locationSummary.getSpec(), "brooklyn.catalog:"+locationName+":"+locationVersion);
 
         // Ensure location is usable - can instantiate, and has right config
-        JcloudsLocation l = (JcloudsLocation) getManagementContext().getLocationRegistry().resolve(locationName);
+        JcloudsLocation l = (JcloudsLocation) getManagementContext().getLocationRegistry().getLocationManaged(locationName);
         Assert.assertEquals(l.getProvider(), "aws-ec2");
         Assert.assertEquals(l.getRegion(), "us-east-1");
         Assert.assertEquals(l.getIdentity(), "bob");

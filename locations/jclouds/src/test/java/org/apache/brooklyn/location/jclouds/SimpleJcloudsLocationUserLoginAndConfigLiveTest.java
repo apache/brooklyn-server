@@ -243,6 +243,6 @@ public class SimpleJcloudsLocationUserLoginAndConfigLiveTest extends AbstractJcl
     }
 
     private JcloudsLocation resolve(String spec) {
-        return (JcloudsLocation) managementContext.getLocationRegistry().resolve("jclouds:"+spec);
+        return (JcloudsLocation) managementContext.getLocationRegistry().getLocationManaged("jclouds:"+spec);
     }
 }

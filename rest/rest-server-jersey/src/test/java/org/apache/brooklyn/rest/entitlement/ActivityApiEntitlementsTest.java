@@ -32,9 +32,9 @@ import org.apache.brooklyn.api.mgmt.entitlement.EntitlementManager;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
+import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.entity.machine.MachineEntity;
 import org.apache.brooklyn.entity.software.base.AbstractSoftwareProcessStreamsTest;
-import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.util.core.task.TaskPredicates;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.testng.annotations.BeforeMethod;
@@ -55,10 +55,9 @@ public class ActivityApiEntitlementsTest extends AbstractRestApiEntitlementsTest
     public void setUp() throws Exception {
         super.setUp();
         
-        LocalhostMachineProvisioningLocation loc = app.newLocalhostProvisioningLocation();
         machineEntity = app.addChild(EntitySpec.create(MachineEntity.class)
                 .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, true)
-                .location(loc));
+                .location(TestApplication.LOCALHOST_PROVISIONER_SPEC));
         machineEntity.start(ImmutableList.<Location>of());
         
         machineEntity.execCommand("echo myval");

@@ -29,17 +29,16 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.api.policy.PolicySpec;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.policy.jclouds.os.CreateUserPolicy;
-import org.apache.brooklyn.test.EntityTestUtils;
+import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
-import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -61,7 +60,7 @@ public class CreateUserPolicyLiveTest extends BrooklynAppLiveTestSupport {
     public void testLiveCreatesUserOnCentos() throws Exception {
         String locSpec = "jclouds:softlayer:ams01";
         ImmutableMap<String, String> locArgs = ImmutableMap.of("imageId", "CENTOS_6_64");
-        Location loc = mgmt.getLocationRegistry().resolve(locSpec, locArgs);
+        Location loc = mgmt.getLocationRegistry().getLocationManaged(locSpec, locArgs);
         runTestCreatesUser((MachineProvisioningLocation<SshMachineLocation>) loc);
     }
     
@@ -71,7 +70,7 @@ public class CreateUserPolicyLiveTest extends BrooklynAppLiveTestSupport {
         // No SUSE images on Softlayer, so test on AWS
         String locSpec = "jclouds:aws-ec2:us-east-1";
         ImmutableMap<String, String> locArgs = ImmutableMap.of("imageId", "us-east-1/ami-8dd105e6", "loginUser", "ec2-user");
-        Location loc = mgmt.getLocationRegistry().resolve(locSpec, locArgs);
+        Location loc = mgmt.getLocationRegistry().getLocationManaged(locSpec, locArgs);
         runTestCreatesUser((MachineProvisioningLocation<SshMachineLocation>) loc);
     }
     
@@ -88,7 +87,7 @@ public class CreateUserPolicyLiveTest extends BrooklynAppLiveTestSupport {
 
             app.start(ImmutableList.of(machine));
             
-            String creds = EntityTestUtils.assertAttributeEventuallyNonNull(entity, CreateUserPolicy.VM_USER_CREDENTIALS);
+            String creds = EntityAsserts.assertAttributeEventuallyNonNull(entity, CreateUserPolicy.VM_USER_CREDENTIALS);
             Pattern pattern = Pattern.compile("(.*) : (.*) @ (.*):(.*)");
             Matcher matcher = pattern.matcher(creds);
             assertTrue(matcher.matches());

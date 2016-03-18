@@ -96,7 +96,7 @@ public class SshMachineLocationSshToolTest extends BrooklynAppUnitTestSupport {
         mgmt.getBrooklynProperties().putAll(ImmutableMap.of(
                 "brooklyn.location.named.localhostWithCustomTool", "localhost",
                 "brooklyn.location.named.localhostWithCustomTool."+SshMachineLocation.SSH_TOOL_CLASS.getName(), RecordingSshTool.class.getName()));
-        MachineProvisioningLocation<SshMachineLocation> loc = (MachineProvisioningLocation<SshMachineLocation>) mgmt.getLocationRegistry().resolve("localhostWithCustomTool");
+        MachineProvisioningLocation<SshMachineLocation> loc = (MachineProvisioningLocation<SshMachineLocation>) mgmt.getLocationRegistry().getLocationManaged("localhostWithCustomTool");
         SshMachineLocation machine = loc.obtain(ImmutableMap.of());
         runCustomSshToolClass(machine);
     }
@@ -108,7 +108,7 @@ public class SshMachineLocationSshToolTest extends BrooklynAppUnitTestSupport {
                 "brooklyn.location.named.localhostWithCustomTool", "byon:(hosts=127.0.0.1, user=myname)",
                 "brooklyn.location.named.localhostWithCustomTool."+SshMachineLocation.SSH_TOOL_CLASS.getName(), RecordingSshTool.class.getName(),
                 "brooklyn.location.named.localhostWithCustomTool."+SshMachineLocation.SSH_TOOL_CLASS.getName()+".myparam", "myvalue"));
-        MachineProvisioningLocation<SshMachineLocation> loc = (MachineProvisioningLocation<SshMachineLocation>) mgmt.getLocationRegistry().resolve("localhostWithCustomTool");
+        MachineProvisioningLocation<SshMachineLocation> loc = (MachineProvisioningLocation<SshMachineLocation>) mgmt.getLocationRegistry().getLocationManaged("localhostWithCustomTool");
         SshMachineLocation machine = loc.obtain(ImmutableMap.of());
         runCustomSshToolClass(machine);
         

@@ -45,7 +45,7 @@ public class LocationPredicatesTest {
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         managementContext = LocalManagementContextForTests.newInstance();
-        loc = (LocalhostMachineProvisioningLocation) managementContext.getLocationRegistry().resolve("localhost:(name=mydisplayname)");
+        loc = (LocalhostMachineProvisioningLocation) managementContext.getLocationRegistry().getLocationManaged("localhost:(name=mydisplayname)");
         childLoc = loc.obtain();
         grandchildLoc = managementContext.getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class).parent(childLoc));
     }

@@ -126,7 +126,7 @@ public class SingleMachineLocationResolverTest {
     
     @SuppressWarnings("unchecked")
     private SingleMachineProvisioningLocation<SshMachineLocation> resolve(String val) {
-        return (SingleMachineProvisioningLocation<SshMachineLocation>) managementContext.getLocationRegistry().resolve(val);
+        return (SingleMachineProvisioningLocation<SshMachineLocation>) managementContext.getLocationRegistry().getLocationManaged(val);
     }
     
 }
