@@ -49,7 +49,7 @@ public class JcloudsSshingLiveTest extends AbstractJcloudsLiveTest {
     protected void runCreatesUser(boolean useJcloudsSshInit) throws Exception {
         brooklynProperties.put(BROOKLYN_PROPERTIES_PREFIX+JcloudsLocationConfig.USE_JCLOUDS_SSH_INIT.getName(), Boolean.toString(useJcloudsSshInit));
         brooklynProperties.put(BROOKLYN_PROPERTIES_PREFIX+JcloudsLocationConfig.USER.getName(), "myname");
-        jcloudsLocation = (JcloudsLocation) managementContext.getLocationRegistry().resolve(SOTLAYER_LOCATION_SPEC);
+        jcloudsLocation = (JcloudsLocation) managementContext.getLocationRegistry().getLocationManaged(SOTLAYER_LOCATION_SPEC);
         
         JcloudsSshMachineLocation machine = obtainMachine(MutableMap.<String,Object>builder()
                 .putIfAbsent("inboundPorts", ImmutableList.of(22))

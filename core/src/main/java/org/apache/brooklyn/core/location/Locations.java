@@ -26,6 +26,7 @@ import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.LocationRegistry;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.mgmt.LocationManager;
@@ -111,7 +112,11 @@ public class Locations {
         }
     }
 
-    public static Location coerce(ManagementContext mgmt, Object rawO) {
+    /**
+     * As {@link LocationRegistry#getLocationManaged(String, Map)} but also accepting maps and yaml representations of maps.
+     * <p>
+     * The caller is responsible for ensuring the resulting {@link Location} is unmanaged. */
+    public static Location coerceToLocationManaged(ManagementContext mgmt, Object rawO) {
         if (rawO==null)
             return null;
         if (rawO instanceof Location)
@@ -138,23 +143,29 @@ public class Locations {
         } else {
             throw new IllegalArgumentException("Location "+rawO+" is invalid; can only parse strings or maps");
         }
-        return mgmt.getLocationRegistry().resolve(name, flags);
+        return mgmt.getLocationRegistry().getLocationManaged(name, flags);
     }
     
-    public static Collection<? extends Location> coerceToCollection(ManagementContext mgmt, Object rawO) {
+    /**
+     * As {@link LocationRegistry#getListOfLocationsManaged(Object)}, 
+     * but using {@link #coerceToLocationManaged(ManagementContext, Object)}
+     * for more forgiving interpretations.
+     * <p>
+     * The caller is responsible for ensuring the resulting {@link Location} is unmanaged. */
+    public static Collection<? extends Location> coerceToCollectionOfLocationsManaged(ManagementContext mgmt, Object rawO) {
         if (rawO==null) return null;
         Object raw = rawO;
         if (raw instanceof Collection) {
             List<Location> result = MutableList.<Location>of();
             for (Object o: (Collection<?>)raw)
-                result.add(coerce(mgmt, o));
+                result.add(coerceToLocationManaged(mgmt, o));
             return result;
         }
         if (raw instanceof String) {
             raw = Yamls.parseAll((String)raw).iterator().next();
             if (raw instanceof Collection)
-                return coerceToCollection(mgmt, raw);
+                return Locations.coerceToCollectionOfLocationsManaged(mgmt, raw);
         }
-        return Collections.singletonList( coerce(mgmt, raw) );
+        return Collections.singletonList( coerceToLocationManaged(mgmt, raw) );
     }
 }

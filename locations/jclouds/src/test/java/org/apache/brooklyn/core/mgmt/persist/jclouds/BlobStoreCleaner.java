@@ -41,7 +41,7 @@ public class BlobStoreCleaner {
     
     public static void main(String[] args) {
         LocalManagementContextForTests mgmt = new LocalManagementContextForTests(BrooklynProperties.Factory.newDefault()); 
-        JcloudsLocation location = (JcloudsLocation) mgmt.getLocationRegistry().resolve(locationSpec);
+        JcloudsLocation location = (JcloudsLocation) mgmt.getLocationRegistry().getLocationManaged(locationSpec);
             
         String identity = checkNotNull(location.getConfig(LocationConfigKeys.ACCESS_IDENTITY), "identity must not be null");
         String credential = checkNotNull(location.getConfig(LocationConfigKeys.ACCESS_CREDENTIAL), "credential must not be null");

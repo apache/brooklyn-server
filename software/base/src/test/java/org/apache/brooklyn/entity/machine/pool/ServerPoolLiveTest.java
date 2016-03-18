@@ -50,7 +50,7 @@ public class ServerPoolLiveTest extends AbstractServerPoolTest {
                 .put("vmNameMaxLength", 30)
                 .put("imageId", "CENTOS_6_64")
                 .build();
-        return mgmt.getLocationRegistry().resolve(PROVIDER, allFlags);
+        return mgmt.getLocationRegistry().getLocationManaged(PROVIDER, allFlags);
     }
 
     @Override

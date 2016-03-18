@@ -27,6 +27,7 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationDefinition;
 import org.apache.brooklyn.api.location.LocationRegistry;
 import org.apache.brooklyn.api.location.LocationResolver;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -56,7 +57,6 @@ public class NamedLocationResolver implements LocationResolver {
 
     public static final String NAMED = "named";
     
-    @SuppressWarnings("unused")
     private ManagementContext managementContext;
 
     @Override
@@ -65,8 +65,12 @@ public class NamedLocationResolver implements LocationResolver {
     }
     
     @Override
-    @SuppressWarnings({ "rawtypes" })
-    public Location newLocationFromString(Map locationFlags, String spec, LocationRegistry registry) {
+    public boolean isEnabled() {
+        return LocationConfigUtils.isResolverPrefixEnabled(managementContext, getPrefix());
+    }
+    
+    @Override
+    public LocationSpec<? extends Location> newLocationSpecFromString(String spec, Map<?, ?> locationFlags, LocationRegistry registry) {
         String name = spec;
         ConfigBag lfBag = ConfigBag.newInstance(locationFlags).putIfAbsent(LocationInternal.ORIGINAL_SPEC, name);
         name = Strings.removeFromStart(spec, getPrefix()+":");
@@ -78,7 +82,7 @@ public class NamedLocationResolver implements LocationResolver {
         
         LocationDefinition ld = registry.getDefinedLocationByName(name);
         if (ld==null) throw new NoSuchElementException("No named location defined matching '"+name+"'");
-        return ((BasicLocationRegistry)registry).resolveLocationDefinition(ld, lfBag.getAllConfig(), name);
+        return registry.getLocationSpec(ld, lfBag.getAllConfig()).get();
     }
 
     @Override
@@ -86,7 +90,7 @@ public class NamedLocationResolver implements LocationResolver {
         return NAMED;
     }
     
-    /** accepts anything starting  named:xxx  or  xxx where xxx is a defined location name */
+    /** accepts anything starting named:, such as named:my-loc, or just my-loc, so long as my-loc is a defined location name */
     @Override
     public boolean accepts(String spec, LocationRegistry registry) {
         if (BasicLocationRegistry.isResolverPrefixForSpec(this, spec, false)) return true;

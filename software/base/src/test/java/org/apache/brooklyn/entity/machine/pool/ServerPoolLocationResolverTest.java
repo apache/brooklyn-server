@@ -82,7 +82,7 @@ public class ServerPoolLocationResolverTest {
 
     private ServerPoolLocation resolve(String val) {
         Map<String, Object> flags = MutableMap.<String, Object>of(DynamicLocation.OWNER.getName(), locationOwner);
-        Location l = managementContext.getLocationRegistry().resolve(val, flags);
+        Location l = managementContext.getLocationRegistry().getLocationManaged(val, flags);
         Assert.assertNotNull(l);
         return (ServerPoolLocation) l;
     }

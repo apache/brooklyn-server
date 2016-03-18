@@ -204,7 +204,7 @@ public class LocalhostMachineProvisioningLocationTest {
         // bogus location so very little chance of it being what maxmind returns!
         mgmt.getBrooklynProperties().put("brooklyn.location.named.lhx.latitude", 42d);
         mgmt.getBrooklynProperties().put("brooklyn.location.named.lhx.longitude", -20d);
-        MachineProvisioningLocation<?> p = (MachineProvisioningLocation<?>) mgmt.getLocationRegistry().resolve("named:lhx");
+        MachineProvisioningLocation<?> p = (MachineProvisioningLocation<?>) mgmt.getLocationRegistry().getLocationManaged("named:lhx");
         SshMachineLocation m = (SshMachineLocation) p.obtain(MutableMap.of());
         HostGeoInfo geo = HostGeoInfo.fromLocation(m);
         log.info("Geo info for "+m+" is: "+geo);

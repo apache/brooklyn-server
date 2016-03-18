@@ -29,35 +29,28 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.ProvisioningLocation;
 import org.apache.brooklyn.api.mgmt.AccessController;
-import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynLogging;
 import org.apache.brooklyn.core.BrooklynLogging.LoggingLevel;
-import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.internal.storage.BrooklynStorage;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.objs.proxy.InternalLocationFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.stream.Streams;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 
 public class LocalLocationManager implements LocationManagerInternal {
-
-    @Beta /* expect to remove when API returns LocationSpec or similar */
-    public static final ConfigKey<Boolean> CREATE_UNMANAGED = ConfigKeys.newBooleanConfigKey("brooklyn.internal.location.createUnmanaged",
-        "If set on a location or spec, causes the manager to create it in an unmanaged state (for peeking)", false);
     
     private static final Logger log = LoggerFactory.getLogger(LocalLocationManager.class);
 

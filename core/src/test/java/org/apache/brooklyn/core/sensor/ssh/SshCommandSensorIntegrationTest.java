@@ -30,11 +30,12 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.time.Duration;
 import org.testng.Assert;
@@ -58,8 +59,8 @@ public class SshCommandSensorIntegrationTest {
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         app = TestApplication.Factory.newManagedInstanceForTests();
-        machine = app.newLocalhostProvisioningLocation().obtain();
-        entity = app.createAndManageChild(EntitySpec.create(TestEntity.class).location(machine));
+        entity = app.createAndManageChild(EntitySpec.create(TestEntity.class).location(TestApplication.LOCALHOST_MACHINE_SPEC));
+        machine = Locations.findUniqueSshMachineLocation(entity.getLocations()).get();
         app.start(ImmutableList.<Location>of());
         tempFile = File.createTempFile("testSshCommand", ".txt");
     }
@@ -80,7 +81,7 @@ public class SshCommandSensorIntegrationTest {
             .apply(entity);
         entity.sensors().set(Attributes.SERVICE_UP, true);
 
-        String val = EntityTestUtils.assertAttributeEventuallyNonNull(entity, SENSOR_STRING);
+        String val = EntityAsserts.assertAttributeEventuallyNonNull(entity, SENSOR_STRING);
         assertTrue(val.contains("1"), "val="+val);
         String[] counts = val.trim().split("\\s+");
         Assert.assertEquals(counts.length, 4, "val="+val);

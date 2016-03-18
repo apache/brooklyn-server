@@ -22,19 +22,18 @@ import java.io.File;
 import java.io.IOException;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
-import org.apache.brooklyn.entity.chef.ChefConfig;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.testng.annotations.BeforeMethod;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.io.FileUtil;
 import org.apache.brooklyn.util.stream.InputStreamSupplier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.testng.annotations.BeforeMethod;
 
 import com.google.common.base.Throwables;
 import com.google.common.io.Files;
@@ -61,17 +60,19 @@ public class ChefLiveTestSupport extends BrooklynAppLiveTestSupport {
      * (because you might not want to set up Chef on localhost) 
      * and ensuring tests against Chef use the same configured location 
      **/
-    @SuppressWarnings("unchecked")
     public static MachineProvisioningLocation<? extends SshMachineLocation> createLocation(ManagementContext mgmt) {
-        Location bestLocation = mgmt.getLocationRegistry().resolve("named:ChefTests", true, null).orNull();
+        LocationSpec<?> bestLocation = mgmt.getLocationRegistry().getLocationSpec("named:ChefTests").orNull();
         if (bestLocation==null) {
             log.info("using AWS for chef tests because named:ChefTests does not exist");
-            bestLocation = mgmt.getLocationRegistry().resolve("jclouds:aws-ec2:us-east-1");
+            bestLocation = mgmt.getLocationRegistry().getLocationSpec("jclouds:aws-ec2:us-east-1").orNull();
         }
         if (bestLocation==null) {
             throw new IllegalStateException("Need a location called named:ChefTests or AWS configured for these tests");
         }
-        return (MachineProvisioningLocation<? extends SshMachineLocation>)bestLocation; 
+        @SuppressWarnings("unchecked")
+        MachineProvisioningLocation<? extends SshMachineLocation> result = (MachineProvisioningLocation<? extends SshMachineLocation>) 
+        mgmt.getLocationManager().createLocation(bestLocation);
+        return result;
     }
     
     private static String defaultConfigFile = null; 

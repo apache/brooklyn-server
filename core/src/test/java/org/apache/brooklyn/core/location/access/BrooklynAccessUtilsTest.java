@@ -52,7 +52,7 @@ public class BrooklynAccessUtilsTest extends BrooklynAppUnitTestSupport {
     public void setUp() throws Exception {
         super.setUp();
         
-        pfm = (PortForwardManager) mgmt.getLocationRegistry().resolve("portForwardManager(scope=global)");
+        pfm = (PortForwardManager) mgmt.getLocationRegistry().getLocationManaged("portForwardManager(scope=global)");
     }
     
     @Test

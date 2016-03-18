@@ -43,7 +43,7 @@ import com.google.common.io.Files;
 
 public class BrooklynPropertiesFactoryHelperTest {
 
-    @Test
+    @Test(groups="UNIX")
     public void testChecksGlobalBrooklynPropertiesPermissionsX00() throws Exception {
         File propsFile = File.createTempFile("testChecksGlobalBrooklynPropertiesPermissionsX00", ".properties");
         propsFile.setReadable(true, false);
@@ -59,7 +59,7 @@ public class BrooklynPropertiesFactoryHelperTest {
         }
     }
 
-    @Test
+    @Test(groups="UNIX")
     public void testChecksLocalBrooklynPropertiesPermissionsX00() throws Exception {
         File propsFile = File.createTempFile("testChecksLocalBrooklynPropertiesPermissionsX00", ".properties");
         propsFile.setReadable(true, false);

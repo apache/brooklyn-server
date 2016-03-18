@@ -47,7 +47,7 @@ public class EntityPredicatesTest extends BrooklynAppUnitTestSupport {
         super.setUp();
         entity = app.createAndManageChild(EntitySpec.create(TestEntity.class).displayName("mydisplayname"));
         group = app.createAndManageChild(EntitySpec.create(BasicGroup.class));
-        loc = app.getManagementContext().getLocationRegistry().resolve("localhost");
+        loc = app.getManagementContext().getLocationRegistry().getLocationManaged("localhost");
     }
 
     @Test

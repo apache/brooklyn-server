@@ -41,7 +41,7 @@ public class JcloudsLocationSuspendResumeMachineLiveTest extends AbstractJclouds
     public void setUp() throws Exception {
         super.setUp();
         jcloudsLocation = (JcloudsLocation) managementContext.getLocationRegistry()
-                .resolve(AWS_EC2_PROVIDER + ":" + AWS_EC2_EUWEST_REGION_NAME);
+                .getLocationManaged(AWS_EC2_PROVIDER + ":" + AWS_EC2_EUWEST_REGION_NAME);
     }
 
     @Test(groups = "Live")

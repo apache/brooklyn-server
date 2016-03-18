@@ -29,7 +29,6 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.collections.Jsonya;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

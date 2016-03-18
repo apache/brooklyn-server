@@ -40,7 +40,7 @@ public class RebindJcloudsLocationTest extends RebindTestFixtureWithApp {
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        origLoc = (JcloudsLocation) origManagementContext.getLocationRegistry().resolve(LOC_SPEC);
+        origLoc = (JcloudsLocation) origManagementContext.getLocationRegistry().getLocationManaged(LOC_SPEC);
     }
 
     // Previously, the rebound config contained "id" which was then passed to createTemporarySshMachineLocation, causing

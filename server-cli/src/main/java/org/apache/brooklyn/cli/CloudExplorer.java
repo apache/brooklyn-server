@@ -86,13 +86,13 @@ public class CloudExplorer {
                 if (location != null && allLocations) {
                     throw new FatalConfigurationRuntimeException("Must not specify --location and --all-locations");
                 } else if (location != null) {
-                    JcloudsLocation loc = (JcloudsLocation) mgmt.getLocationRegistry().resolve(location);
+                    JcloudsLocation loc = (JcloudsLocation) mgmt.getLocationRegistry().getLocationManaged(location);
                     locs.add(loc);
                 } else if (allLocations) {
                     // Find all named locations that point at different target clouds
                     Map<String, LocationDefinition> definedLocations = mgmt.getLocationRegistry().getDefinedLocations();
                     for (LocationDefinition locationDef : definedLocations.values()) {
-                        Location loc = mgmt.getLocationRegistry().resolve(locationDef);
+                        Location loc = mgmt.getLocationManager().createLocation( mgmt.getLocationRegistry().getLocationSpec(locationDef).get() );
                         if (loc instanceof JcloudsLocation) {
                             boolean found = false;
                             for (JcloudsLocation existing : locs) {

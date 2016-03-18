@@ -70,7 +70,7 @@ public class JcloudsAddressesLiveTest extends AbstractJcloudsLiveTest {
     
     @Test(groups = {"Live"})
     protected void testAwsEc2Addresses() throws Exception {
-        jcloudsLocation = (JcloudsLocation) managementContext.getLocationRegistry().resolve(AWS_EC2_LOCATION_SPEC);
+        jcloudsLocation = (JcloudsLocation) managementContext.getLocationRegistry().getLocationManaged(AWS_EC2_LOCATION_SPEC);
         
         machine = createEc2Machine(ImmutableMap.<String,Object>of());
         assertSshable(machine);
@@ -117,7 +117,7 @@ public class JcloudsAddressesLiveTest extends AbstractJcloudsLiveTest {
 
     @Test(groups = {"Live"})
     protected void testRackspaceAddresses() throws Exception {
-        jcloudsLocation = (JcloudsLocation) managementContext.getLocationRegistry().resolve(RACKSPACE_LOCATION_SPEC);
+        jcloudsLocation = (JcloudsLocation) managementContext.getLocationRegistry().getLocationManaged(RACKSPACE_LOCATION_SPEC);
         
         machine = createRackspaceMachine(ImmutableMap.<String,Object>of());
         assertSshable(machine);

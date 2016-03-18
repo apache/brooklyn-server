@@ -48,7 +48,7 @@ public class JcloudsSuseLiveTest extends AbstractJcloudsLiveTest {
     // TODO Also requires https://github.com/jclouds/jclouds/pull/827
     @Test(groups = {"Live", "WIP"})
     protected void testSuseUsingJcloudsSshInit() throws Exception {
-        jcloudsLocation = (JcloudsLocation) managementContext.getLocationRegistry().resolve(AWS_EC2_LOCATION_SPEC);
+        jcloudsLocation = (JcloudsLocation) managementContext.getLocationRegistry().getLocationManaged(AWS_EC2_LOCATION_SPEC);
         
         JcloudsSshMachineLocation machine = createEc2Machine(ImmutableMap.<String,Object>of(
                 JcloudsLocation.USE_JCLOUDS_SSH_INIT.getName(), true,
@@ -65,7 +65,7 @@ public class JcloudsSuseLiveTest extends AbstractJcloudsLiveTest {
     // TODO Also requires https://github.com/jclouds/jclouds/pull/??? (see BROOKLYN-188, for checking if group exists)
     @Test(groups = {"Live", "WIP"})
     protected void testSuseSkippingJcloudsSshInit() throws Exception {
-        jcloudsLocation = (JcloudsLocation) managementContext.getLocationRegistry().resolve(AWS_EC2_LOCATION_SPEC);
+        jcloudsLocation = (JcloudsLocation) managementContext.getLocationRegistry().getLocationManaged(AWS_EC2_LOCATION_SPEC);
         
         JcloudsSshMachineLocation machine = createEc2Machine(ImmutableMap.<String,Object>of(
                 JcloudsLocation.USE_JCLOUDS_SSH_INIT.getName(), false,

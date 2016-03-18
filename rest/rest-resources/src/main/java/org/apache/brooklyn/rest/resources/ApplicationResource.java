@@ -228,8 +228,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
 
         checkApplicationTypesAreValid(applicationSpec);
         checkLocationsAreValid(applicationSpec);
-        // TODO duplicate prevention
-        List<Location> locations = brooklyn().getLocations(applicationSpec);
+        List<Location> locations = brooklyn().getLocationsManaged(applicationSpec);
         Application app = brooklyn().create(applicationSpec);
         Task<?> t = brooklyn().start(app, locations);
         waitForStart(app, Duration.millis(100));
@@ -443,7 +442,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     private void checkLocationsAreValid(ApplicationSpec applicationSpec) {
         for (String locationId : applicationSpec.getLocations()) {
             locationId = BrooklynRestResourceUtils.fixLocation(locationId);
-            if (!brooklyn().getLocationRegistry().canMaybeResolve(locationId) && brooklyn().getLocationRegistry().getDefinedLocationById(locationId)==null) {
+            if (brooklyn().getLocationRegistry().getLocationSpec(locationId).isAbsent() && brooklyn().getLocationRegistry().getDefinedLocationById(locationId)==null) {
                 throw WebResourceUtils.notFound("Undefined location '%s'", locationId);
             }
         }

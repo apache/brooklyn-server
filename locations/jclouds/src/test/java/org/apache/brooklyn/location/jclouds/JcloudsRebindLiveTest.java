@@ -129,7 +129,7 @@ public class JcloudsRebindLiveTest extends RebindTestFixtureWithApp {
     }
     
     protected void runTest(String locSpec, Map<String, ?> obtainFlags) throws Exception {
-        JcloudsLocation location = (JcloudsLocation) mgmt().getLocationRegistry().resolve(locSpec);
+        JcloudsLocation location = (JcloudsLocation) mgmt().getLocationRegistry().getLocationManaged(locSpec);
         
         JcloudsMachineLocation origMachine = obtainMachine(location, obtainFlags);
         String origHostname = origMachine.getHostname();

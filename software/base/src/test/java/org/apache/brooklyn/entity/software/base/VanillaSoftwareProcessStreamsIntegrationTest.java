@@ -34,7 +34,7 @@ public class VanillaSoftwareProcessStreamsIntegrationTest extends AbstractSoftwa
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        localhost = app.getManagementContext().getLocationRegistry().resolve("localhost");
+        localhost = app.getManagementContext().getLocationRegistry().getLocationManaged("localhost");
     }
 
     @Test(groups = "Integration")

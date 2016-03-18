@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationRegistry;
 import org.apache.brooklyn.api.location.LocationResolver;
 import org.apache.brooklyn.api.location.LocationSpec;
@@ -35,8 +36,6 @@ import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.location.LocationConfigUtils;
 import org.apache.brooklyn.core.location.LocationPropertiesFromBrooklynProperties;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -45,6 +44,8 @@ import org.apache.brooklyn.util.text.KeyValueParser;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.text.WildcardGlobs;
 import org.apache.brooklyn.util.text.WildcardGlobs.PhraseTreatment;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -75,9 +76,14 @@ public class JcloudsByonLocationResolver implements LocationResolver {
         this.managementContext = checkNotNull(managementContext, "managementContext");
     }
     
+    @Override
+    public boolean isEnabled() {
+        return LocationConfigUtils.isResolverPrefixEnabled(managementContext, getPrefix());
+    }
+    
     // TODO Remove some duplication from JcloudsResolver; needs more careful review
     @Override
-    public FixedListMachineProvisioningLocation<JcloudsSshMachineLocation> newLocationFromString(Map locationFlags, String spec, LocationRegistry registry) {
+    public LocationSpec<? extends Location> newLocationSpecFromString(String spec, Map<?, ?> locationFlags, LocationRegistry registry) {
         Map globalProperties = registry.getProperties();
 
         Matcher matcher = PATTERN.matcher(spec);
@@ -139,6 +145,7 @@ public class JcloudsByonLocationResolver implements LocationResolver {
                     .putIfNotNull("privateKeyFile", privateKeyFile)
                     .build();
             try {
+                // TODO management of these machines may be odd, as it is passed in as a key as config to a spec
                 JcloudsSshMachineLocation machine = jcloudsLocation.rebindMachine(jcloudsLocation.config().getBag().putAll(machineFlags));
                 machines.add(machine);
             } catch (NoMachinesAvailableException e) {
@@ -158,9 +165,9 @@ public class JcloudsByonLocationResolver implements LocationResolver {
 
         log.debug("Created Jclouds BYON location "+name+": "+machines);
         
-        return managementContext.getLocationManager().createLocation(LocationSpec.create(FixedListMachineProvisioningLocation.class)
+        return LocationSpec.create(FixedListMachineProvisioningLocation.class)
                 .configure(flags.getAllConfig())
-                .configure(LocationConfigUtils.finalAndOriginalSpecs(spec, locationFlags, globalProperties, namedLocation)));
+                .configure(LocationConfigUtils.finalAndOriginalSpecs(spec, locationFlags, globalProperties, namedLocation));
     }
     
     private Map getAllProperties(LocationRegistry registry, Map<?,?> properties) {

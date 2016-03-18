@@ -36,10 +36,10 @@ public class SingleMachineLocationResolver extends AbstractLocationResolver {
     
     private static final String SINGLE = "single";
     
-    @SuppressWarnings({ "rawtypes", "unchecked" })
     @Override
-    public Location newLocationFromString(Map locationFlags, String spec, LocationRegistry registry) {
+    public LocationSpec<?> newLocationSpecFromString(String spec, Map<?, ?> locationFlags, LocationRegistry registry) {
         ConfigBag config = extractConfig(locationFlags, spec, registry);
+        @SuppressWarnings("rawtypes")
         Map globalProperties = registry.getProperties();
         String namedLocation = (String) locationFlags.get(LocationInternal.NAMED_SPEC_NAME.getName());
         
@@ -52,16 +52,16 @@ public class SingleMachineLocationResolver extends AbstractLocationResolver {
         }
         String target = config.getStringKey("target").toString();
         config.remove("target");
-        Maybe<Location> testResolve = managementContext.getLocationRegistry().resolve(target, false, null);
+        Maybe<LocationSpec<?>> testResolve = managementContext.getLocationRegistry().getLocationSpec(target);
         if (!testResolve.isPresent()) {
             throw new IllegalArgumentException("Invalid target location '" + target + "' for location '"+SINGLE+"': "+
                 Exceptions.collapseText( ((Absent<?>)testResolve).getException() ));
         }
         
-        return managementContext.getLocationManager().createLocation(LocationSpec.create(SingleMachineProvisioningLocation.class)
+        return LocationSpec.create(SingleMachineProvisioningLocation.class)
                 .configure("location", target)
                 .configure("locationFlags", config.getAllConfig())
-                .configure(LocationConfigUtils.finalAndOriginalSpecs(spec, locationFlags, globalProperties, namedLocation)));
+                .configure(LocationConfigUtils.finalAndOriginalSpecs(spec, locationFlags, globalProperties, namedLocation));
     }
     
     @Override

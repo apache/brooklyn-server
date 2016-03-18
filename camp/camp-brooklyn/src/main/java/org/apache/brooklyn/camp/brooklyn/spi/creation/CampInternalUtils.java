@@ -47,8 +47,8 @@ import org.apache.brooklyn.camp.spi.pdp.DeploymentPlan;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog.BrooklynLoaderTracker;
 import org.apache.brooklyn.core.objs.BasicSpecParameter;
-import org.apache.brooklyn.core.objs.BrooklynObjectInternal.ConfigurationSupportInternal;
 import org.apache.brooklyn.entity.stock.BasicApplicationImpl;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.stream.Streams;
@@ -170,6 +170,7 @@ class CampInternalUtils {
 
         String type = (String) checkNotNull(Yamls.getMultinameAttribute(itemMap, "location_type", "locationType", "type"), "location type");
         Map<String, Object> brooklynConfig = (Map<String, Object>) itemMap.get("brooklyn.config");
+        if (brooklynConfig==null) brooklynConfig = MutableMap.of();
         LocationSpec<?> locationSpec = resolveLocationSpec(type, brooklynConfig, loader);
         List<?> explicitParams = (List<?>) itemMap.get(BrooklynCampReservedKeys.BROOKLYN_PARAMETERS);
         initParameters(explicitParams, locationSpec, loader);
@@ -227,17 +228,9 @@ class CampInternalUtils {
             }
             return spec;
         } else {
-            Maybe<Location> loc = loader.getManagementContext().getLocationRegistry().resolve(type, false, brooklynConfig);
+            Maybe<LocationSpec<? extends Location>> loc = loader.getManagementContext().getLocationRegistry().getLocationSpec(type);
             if (loc.isPresent()) {
-                // TODO extensions?
-                Map<String, Object> locConfig = ((ConfigurationSupportInternal)loc.get().config()).getBag().getAllConfig();
-                Class<? extends Location> locType = loc.get().getClass();
-                Set<Object> locTags = loc.get().tags().getTags();
-                String locDisplayName = loc.get().getDisplayName();
-                return LocationSpec.create(locType)
-                        .configure(locConfig)
-                        .displayName(locDisplayName)
-                        .tags(locTags);
+                return loc.get().configure(brooklynConfig);
             } else {
                 throw new IllegalStateException("No class or resolver found for location type "+type);
             }

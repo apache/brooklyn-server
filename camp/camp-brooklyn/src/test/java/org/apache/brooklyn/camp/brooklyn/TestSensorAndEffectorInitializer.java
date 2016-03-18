@@ -22,7 +22,6 @@ import java.util.Map;
 
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.EntityInitializer;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.effector.EffectorBody;
 import org.apache.brooklyn.core.effector.Effectors;
@@ -42,7 +41,7 @@ public class TestSensorAndEffectorInitializer implements EntityInitializer {
 
     protected String helloWord() { return "Hello"; }
     
-    public void apply(EntityLocal entity) {
+    public void apply(@SuppressWarnings("deprecation") org.apache.brooklyn.api.entity.EntityLocal entity) {
         Effector<String> eff = Effectors.effector(String.class, EFFECTOR_SAY_HELLO).parameter(String.class, "name").impl(
             new EffectorBody<String>() {
                 @Override

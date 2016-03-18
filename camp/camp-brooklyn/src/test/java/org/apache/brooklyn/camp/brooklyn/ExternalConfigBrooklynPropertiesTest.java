@@ -85,7 +85,7 @@ public class ExternalConfigBrooklynPropertiesTest extends AbstractYamlTest {
         props.put("brooklyn.location.jclouds.aws-ec2.identity", "$brooklyn:external(\"myprovider\", \"mykey\")");
         props.put("brooklyn.location.jclouds.aws-ec2.credential", "$brooklyn:external(\"myprovider\", \"mykey2\")");
         
-        JcloudsLocation loc = (JcloudsLocation) mgmt().getLocationRegistry().resolve("jclouds:aws-ec2:us-east-1");
+        JcloudsLocation loc = (JcloudsLocation) mgmt().getLocationRegistry().getLocationManaged("jclouds:aws-ec2:us-east-1");
         assertEquals(loc.getIdentity(), "myval");
         assertEquals(loc.getCredential(), "myval2");
     }

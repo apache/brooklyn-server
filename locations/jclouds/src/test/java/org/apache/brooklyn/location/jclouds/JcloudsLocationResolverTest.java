@@ -273,7 +273,7 @@ public class JcloudsLocationResolverTest {
         conf = resolve("named:softlayer-was2").config().getBag().getAllConfig();
         assertEquals(conf.get("region"), "was02");
         
-        conf = ((LocationInternal) managementContext.getLocationRegistry().resolve("named:softlayer-was2", MutableMap.of("region", "was03")))
+        conf = ((LocationInternal) managementContext.getLocationRegistry().getLocationManaged("named:softlayer-was2", MutableMap.of("region", "was03")))
             .config().getBag().getAllConfig();;
         assertEquals(conf.get("region"), "was03");
     }
@@ -391,6 +391,6 @@ public class JcloudsLocationResolverTest {
     }
     
     private JcloudsLocation resolve(String spec) {
-        return (JcloudsLocation) managementContext.getLocationRegistry().resolve(spec);
+        return (JcloudsLocation) managementContext.getLocationRegistry().getLocationManaged(spec);
     }
 }

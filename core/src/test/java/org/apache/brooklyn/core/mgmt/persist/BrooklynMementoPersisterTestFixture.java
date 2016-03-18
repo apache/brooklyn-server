@@ -81,10 +81,9 @@ public abstract class BrooklynMementoPersisterTestFixture {
             objectStore = ((BrooklynMementoPersisterToObjectStore)persister).getObjectStore();
         }
         app = ApplicationBuilder.newManagedApp(EntitySpec.create(TestApplication.class), localManagementContext);
-        location =  localManagementContext.getLocationManager()
-            .createLocation(LocationSpec.create(SshMachineLocation.class)
-                .configure("address", "localhost"));
-        entity = app.createAndManageChild(EntitySpec.create(TestEntity.class).location(location));
+        entity = app.createAndManageChild(EntitySpec.create(TestEntity.class).location(
+            LocationSpec.create(SshMachineLocation.class).configure("address", "localhost")));
+        location = Iterables.getOnlyElement( entity.getLocations() );
         enricher = app.enrichers().add(Enrichers.builder().propagatingAll().from(entity).build());
         app.policies().add(policy = new TestPolicy());
     }

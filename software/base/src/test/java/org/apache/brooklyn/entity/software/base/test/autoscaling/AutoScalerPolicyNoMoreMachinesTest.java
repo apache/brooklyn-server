@@ -70,7 +70,7 @@ public class AutoScalerPolicyNoMoreMachinesTest extends BrooklynAppUnitTestSuppo
                 .configure(TestCluster.INITIAL_SIZE, 0)
                 .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(EmptySoftwareProcess.class)
                         .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, true)));
-        loc = mgmt.getLocationRegistry().resolve("byon(hosts='1.1.1.1,1.1.1.2')");
+        loc = mgmt.getLocationRegistry().getLocationManaged("byon(hosts='1.1.1.1,1.1.1.2')");
         app.start(ImmutableList.of(loc));
         
         entitiesAdded = Sets.newLinkedHashSet();

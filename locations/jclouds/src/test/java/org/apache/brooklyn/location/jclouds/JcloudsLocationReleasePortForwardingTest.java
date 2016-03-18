@@ -68,8 +68,8 @@ public class JcloudsLocationReleasePortForwardingTest extends BrooklynAppLiveTes
     public void setUp() throws Exception {
         super.setUp();
         stopwatch = Stopwatch.createStarted();
-        portForwardManager = (PortForwardManager) mgmt.getLocationRegistry().resolve("portForwardManager(scope=global)");
-        loc = (JcloudsLocation) mgmt.getLocationRegistry().resolve("jclouds:aws-ec2:us-east-1");
+        portForwardManager = (PortForwardManager) mgmt.getLocationRegistry().getLocationManaged("portForwardManager(scope=global)");
+        loc = (JcloudsLocation) mgmt.getLocationRegistry().getLocationManaged("jclouds:aws-ec2:us-east-1");
 
         node = Mockito.mock(NodeMetadata.class);
         Mockito.when(node.getId()).thenReturn("mynodeid");

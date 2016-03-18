@@ -58,7 +58,7 @@ public class SoftwareProcessOpenIptablesStreamsLiveTest extends BrooklynAppLiveT
 
         mgmt = new LocalManagementContextForTests(BrooklynProperties.Factory.newDefault());
 
-        jcloudsLocation = mgmt.getLocationRegistry().resolve("jclouds:aws-ec2:us-west-1", ImmutableMap.<String, Object>builder()
+        jcloudsLocation = mgmt.getLocationRegistry().getLocationManaged("jclouds:aws-ec2:us-west-1", ImmutableMap.<String, Object>builder()
                 .put("osFamily", "centos")
                 .put("osVersionRegex", "6\\..*")
                 .put("inboundPorts", ImmutableList.of(22, 31880, 31001, 8080, 8443, 1099))

@@ -62,7 +62,7 @@ public class RebindJcloudsLocationLiveTest extends AbstractJcloudsLiveTest {
     public void setUp() throws Exception {
         super.setUp();
 
-        jcloudsLocation = (JcloudsLocation) managementContext.getLocationRegistry().resolve(AWS_EC2_LOCATION_SPEC);
+        jcloudsLocation = (JcloudsLocation) managementContext.getLocationRegistry().getLocationManaged(AWS_EC2_LOCATION_SPEC);
         jcloudsLocation.config().set(JcloudsLocation.HARDWARE_ID, AWS_EC2_SMALL_HARDWARE_ID);
         
         origApp = TestApplication.Factory.newManagedInstanceForTests(managementContext);

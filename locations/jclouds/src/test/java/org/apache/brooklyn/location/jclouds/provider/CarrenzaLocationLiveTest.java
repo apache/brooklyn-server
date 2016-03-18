@@ -90,7 +90,7 @@ class CarrenzaLocationLiveTest {
         brooklynProperties.put("brooklyn.jclouds."+PROVIDER+".natMapping", ImmutableMap.of("192.168.0.100", "195.3.186.200", "192.168.0.101", "195.3.186.42"));
 
         managementContext = new LocalManagementContext(brooklynProperties);
-        loc = (JcloudsLocation) managementContext.getLocationRegistry().resolve(LOCATION_ID);
+        loc = (JcloudsLocation) managementContext.getLocationRegistry().getLocationManaged(LOCATION_ID);
     }
     
     @AfterMethod(groups = "Live")

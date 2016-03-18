@@ -187,8 +187,8 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
 
     @Test
     public void testRestoresEntityLocationAndCleansUp() throws Exception {
-        MyLocation loc = origManagementContext.getLocationManager().createLocation(LocationSpec.create(MyLocation.class));
-        origApp.createAndManageChild(EntitySpec.create(MyEntity.class).location(loc));
+        MyEntity child = origApp.createAndManageChild(EntitySpec.create(MyEntity.class).location(LocationSpec.create(MyLocation.class)));
+        Location loc = Iterables.getOnlyElement(child.getLocations());
         
         newApp = rebind();
         MyEntity newE = (MyEntity) Iterables.find(newApp.getChildren(), Predicates.instanceOf(MyEntity.class));

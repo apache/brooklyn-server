@@ -75,7 +75,7 @@ public class WindowsPerformanceCounterFeedLiveTest extends BrooklynAppLiveTestSu
                 .put("tags", ImmutableList.of(getClass().getName()))
                 .build();
         MachineProvisioningLocation<?> provisioningLocation = (MachineProvisioningLocation<?>) 
-                mgmt.getLocationRegistry().resolve(LOCATION_SPEC, allFlags);
+                mgmt.getLocationRegistry().getLocationManaged(LOCATION_SPEC, allFlags);
         loc = provisioningLocation.obtain(ImmutableMap.of());
 
         entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));

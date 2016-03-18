@@ -94,7 +94,7 @@ public class InternalLocationFactory extends InternalFactory {
         try {
             Class<? extends T> clazz = spec.getType();
             
-            T loc = construct(clazz, spec.getFlags());
+            T loc = construct(clazz, spec, null);
 
             if (spec.getId() != null) {
                 FlagUtils.setFieldsFromFlags(ImmutableMap.of("id", spec.getId()), loc);

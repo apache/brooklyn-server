@@ -28,6 +28,7 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.Enricher;
@@ -108,6 +109,7 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
     private final List<Enricher> enrichers = Lists.newArrayList();
     private final List<EnricherSpec<?>> enricherSpecs = Lists.newArrayList();
     private final List<Location> locations = Lists.newArrayList();
+    private final List<LocationSpec<?>> locationSpecs = Lists.newArrayList();
     private final Set<Class<?>> additionalInterfaces = Sets.newLinkedHashSet();
     private final List<EntityInitializer> entityInitializers = Lists.newArrayList();
     private final List<EntitySpec<?>> children = Lists.newArrayList();
@@ -131,6 +133,7 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
                 .children(copyFromSpecs(otherSpec.getChildren()))
                 .members(otherSpec.getMembers())
                 .groups(otherSpec.getGroups())
+                .locationSpecs(otherSpec.getLocationSpecs())
                 .locations(otherSpec.getLocations());
         
         if (otherSpec.getParent() != null) parent(otherSpec.getParent());
@@ -207,6 +210,7 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
         return policySpecs;
     }
     
+    /** @deprecated since 0.9.0 in future only {@link #getPolicySpecs()} will be supported */ @Deprecated
     public List<Policy> getPolicies() {
         return policies;
     }
@@ -215,10 +219,16 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
         return enricherSpecs;
     }
     
+    /** @deprecated since 0.9.0 in future only {@link #getEnricherSpecs()} will be supported */ @Deprecated
     public List<Enricher> getEnrichers() {
         return enrichers;
     }
     
+    public List<LocationSpec<?>> getLocationSpecs() {
+        return locationSpecs;
+    }
+
+    /** @deprecated since 0.9.0 in future only {@link #getLocationSpecs()} will be supported */ @Deprecated
     public List<Location> getLocations() {
         return locations;
     }
@@ -311,7 +321,8 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
         return this;
     }
 
-    /** adds a policy to the spec */
+    /** adds a policy to the spec 
+     * @deprecated since 0.9.0 pass a spec, using {@link #policy(EnricherSpec)} */ @Deprecated
     public <V> EntitySpec<T> policy(Policy val) {
         checkMutable();
         policies.add(checkNotNull(val, "policy"));
@@ -332,21 +343,23 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
         return this;
     }
     
-    /** adds the supplied policies to the spec */
+    /** adds the supplied policies to the spec 
+     * @deprecated since 0.9.0 pass a spec, using {@link #policySpecs(Iterable)} */ @Deprecated
     public <V> EntitySpec<T> policies(Iterable<? extends Policy> val) {
         checkMutable();
         policies.addAll(MutableList.copyOf(checkNotNull(val, "policies")));
         return this;
     }
     
-    /** adds a policy to the spec */
+    /** adds an enricher to the spec 
+     * @deprecated since 0.9.0 pass a spec, using {@link #enricher(EnricherSpec)} */ @Deprecated
     public <V> EntitySpec<T> enricher(Enricher val) {
         checkMutable();
         enrichers.add(checkNotNull(val, "enricher"));
         return this;
     }
 
-    /** adds a policy to the spec */
+    /** adds an enricher to the spec */
     public <V> EntitySpec<T> enricher(EnricherSpec<?> val) {
         checkMutable();
         enricherSpecs.add(checkNotNull(val, "enricherSpec"));
@@ -360,34 +373,56 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
         return this;
     }
     
-    /** adds the supplied policies to the spec */
+    /** adds the supplied policies to the spec 
+     * @deprecated since 0.9.0 pass a spec, using {@link #enricherSpecs(Iterable)} */ @Deprecated
     public <V> EntitySpec<T> enrichers(Iterable<? extends Enricher> val) {
         checkMutable();
         enrichers.addAll(MutableList.copyOf(checkNotNull(val, "enrichers")));
         return this;
     }
     
+     /** adds a location to the spec
+      * @deprecated since 0.9.0 pass a spec, using {@link #enricherSpecs(Iterable)} */ 
+     @Deprecated
+     // there are still many places in tests where we use this;
+     // in some we want to force the use of a given location.
+     // TODO we could perhaps introduce an ExistingLocation class which can generate a spec based on an ID to formalize this?
+     public <V> EntitySpec<T> location(Location val) {
+         checkMutable();
+         locations.add(checkNotNull(val, "location"));
+         return this;
+     }
+     
     /** adds a location to the spec */
-    public <V> EntitySpec<T> location(Location val) {
+    public <V> EntitySpec<T> location(LocationSpec<?> val) {
         checkMutable();
-        locations.add(checkNotNull(val, "location"));
+        locationSpecs.add(checkNotNull(val, "location"));
         return this;
     }
     
-    /** clears locations defined in the spec */
-    public <V> EntitySpec<T> clearLocations() {
+    /** adds the supplied locations to the spec */
+    public <V> EntitySpec<T> locationSpecs(Iterable<? extends LocationSpec<?>> val) {
         checkMutable();
-        locations.clear();
-        return this;        
+        locationSpecs.addAll(MutableList.copyOf(checkNotNull(val, "locations")));
+        return this;
     }
     
-    /** adds the supplied locations to the spec */
+    /** adds the supplied locations to the spec
+     * @deprecated since 0.9.0 pass a spec, using {@link #locationSpecs(Iterable)} */ @Deprecated
     public <V> EntitySpec<T> locations(Iterable<? extends Location> val) {
         checkMutable();
         locations.addAll(MutableList.copyOf(checkNotNull(val, "locations")));
         return this;
     }
 
+    /** clears locations defined in the spec */
+    public <V> EntitySpec<T> clearLocations() {
+        checkMutable();
+        locationSpecs.clear();
+        locations.clear();
+        return this;        
+    }
+    
     /** "seals" this spec, preventing any future changes */
     public EntitySpec<T> immutable() {
         immutable = true;

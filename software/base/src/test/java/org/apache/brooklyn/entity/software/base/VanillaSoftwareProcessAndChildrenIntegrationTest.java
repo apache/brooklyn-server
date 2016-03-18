@@ -69,7 +69,7 @@ public class VanillaSoftwareProcessAndChildrenIntegrationTest {
     @BeforeMethod(alwaysRun=true)
     public void setup() {
         app = TestApplication.Factory.newManagedInstanceForTests();
-        localhost = app.getManagementContext().getLocationRegistry().resolve("localhost");
+        localhost = app.getManagementContext().getLocationRegistry().getLocationManaged("localhost");
     }
 
     @AfterMethod(alwaysRun=true)

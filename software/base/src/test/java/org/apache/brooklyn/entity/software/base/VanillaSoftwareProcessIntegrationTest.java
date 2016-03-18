@@ -44,7 +44,7 @@ public class VanillaSoftwareProcessIntegrationTest extends BrooklynAppLiveTestSu
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        localhost = app.getManagementContext().getLocationRegistry().resolve("localhost");
+        localhost = app.getManagementContext().getLocationRegistry().getLocationManaged("localhost");
         
         runRecord = Files.createTempFile("testVanillaSoftwareProcess-runRecord", ".txt");
     }

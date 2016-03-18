@@ -57,7 +57,7 @@ public class JcloudsByonLocationResolverTest {
 
     @SuppressWarnings("unchecked")
     private FixedListMachineProvisioningLocation<JcloudsSshMachineLocation> resolve(String spec) {
-        return (FixedListMachineProvisioningLocation<JcloudsSshMachineLocation>) managementContext.getLocationRegistry().resolve(spec);
+        return (FixedListMachineProvisioningLocation<JcloudsSshMachineLocation>) managementContext.getLocationRegistry().getLocationManaged(spec);
     }
     
     private void assertThrowsNoSuchElement(String val) {

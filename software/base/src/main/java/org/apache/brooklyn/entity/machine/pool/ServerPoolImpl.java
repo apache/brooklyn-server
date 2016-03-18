@@ -41,6 +41,8 @@ import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.location.BasicLocationDefinition;
 import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.location.dynamic.DynamicLocation;
+import org.apache.brooklyn.core.location.internal.LocationInternal;
+import org.apache.brooklyn.core.mgmt.internal.LocalLocationManager;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.entity.group.AbstractMembershipTrackingPolicy;
 import org.apache.brooklyn.entity.group.DynamicClusterImpl;
@@ -172,7 +174,7 @@ public class ServerPoolImpl extends DynamicClusterImpl implements ServerPool {
         String locationSpec = String.format(ServerPoolLocationResolver.POOL_SPEC, getId()) + String.format(":(name=\"%s\")", locationName);
         LocationDefinition definition = new BasicLocationDefinition(locationName, locationSpec, flags);
         getManagementContext().getLocationRegistry().updateDefinedLocation(definition);
-        Location location = getManagementContext().getLocationRegistry().resolve(definition);
+        Location location = getManagementContext().getLocationManager().createLocation( getManagementContext().getLocationRegistry().getLocationSpec(definition).get() );
         LOG.info("Resolved and registered dynamic location {}: {}", locationName, location);
 
         sensors().set(LOCATION_SPEC, locationSpec);
@@ -252,7 +254,10 @@ public class ServerPoolImpl extends DynamicClusterImpl implements ServerPool {
 
     @Override
     public Collection<Entity> addExistingMachinesFromSpec(String spec) {
-        Location location = getManagementContext().getLocationRegistry().resolve(spec, true, null).orNull();
+        Location location = getManagementContext().getLocationManager().createLocation( 
+            getManagementContext().getLocationRegistry().getLocationSpec(spec).get()
+                .configure(LocalLocationManager.CREATE_UNMANAGED, true) );
+        
         List<Entity> additions = Lists.newLinkedList();
         if (location == null) {
             LOG.warn("Spec was unresolvable: {}", spec);

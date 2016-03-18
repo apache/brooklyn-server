@@ -121,6 +121,6 @@ public class HostLocationResolverTest {
     
     @SuppressWarnings("unchecked")
     private MachineProvisioningLocation<SshMachineLocation> resolve(String val) {
-        return (MachineProvisioningLocation<SshMachineLocation>) managementContext.getLocationRegistry().resolve(val);
+        return (MachineProvisioningLocation<SshMachineLocation>) managementContext.getLocationRegistry().getLocationManaged(val);
     }
 }

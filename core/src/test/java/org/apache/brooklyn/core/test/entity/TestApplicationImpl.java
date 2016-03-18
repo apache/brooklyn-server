@@ -78,7 +78,7 @@ public class TestApplicationImpl extends AbstractApplication implements TestAppl
 
     @Override
     public LocalhostMachineProvisioningLocation newLocalhostProvisioningLocation() {
-        return (LocalhostMachineProvisioningLocation) getManagementContext().getLocationRegistry().resolve("localhost");
+        return (LocalhostMachineProvisioningLocation) getManagementContext().getLocationRegistry().getLocationManaged("localhost");
     }
     
     @Override
