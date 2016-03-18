@@ -293,8 +293,9 @@ public class HttpTool {
             this.credentials = checkNotNull(val, "credentials");
             return this;
         }
-        public void credential(Optional<Credentials> val) {
+        public HttpClientBuilder credential(Optional<Credentials> val) {
             if (val.isPresent()) credentials = val.get();
+            return this;
         }
         /** similar to curl --post301 -L` */
         public HttpClientBuilder laxRedirect(boolean val) {

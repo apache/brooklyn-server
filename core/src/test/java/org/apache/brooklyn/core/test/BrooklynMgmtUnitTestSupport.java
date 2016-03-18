@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.test;
 
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.slf4j.Logger;
@@ -40,7 +41,12 @@ public class BrooklynMgmtUnitTestSupport {
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         if (mgmt == null) {
-            mgmt = LocalManagementContextForTests.newInstance();
+            BrooklynProperties brooklynProperties = getBrooklynProperties();
+            if (brooklynProperties != null) {
+                mgmt = LocalManagementContextForTests.newInstance(brooklynProperties);
+            } else {
+                mgmt = LocalManagementContextForTests.newInstance();
+            }
         }
     }
 
@@ -56,6 +62,10 @@ public class BrooklynMgmtUnitTestSupport {
         } finally {
             mgmt = null;
         }
+    }
+
+    protected BrooklynProperties getBrooklynProperties() {
+        return null;
     }
 
 }
