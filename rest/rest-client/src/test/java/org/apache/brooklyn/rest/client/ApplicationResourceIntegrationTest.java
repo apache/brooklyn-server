@@ -75,7 +75,7 @@ public class ApplicationResourceIntegrationTest {
         if (manager == null) {
             manager = new LocalManagementContext();
             BrooklynRestApiLauncherTest.forceUseOfDefaultCatalogWithJavaClassPath(manager);
-            BasicLocationRegistry.setupLocationRegistryForTesting(manager);
+            BasicLocationRegistry.addNamedLocationLocalhost(manager);
             BrooklynRestApiLauncherTest.enableAnyoneLogin(manager);
         }
         return manager;

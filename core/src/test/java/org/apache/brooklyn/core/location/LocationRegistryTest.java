@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.location;
 
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationDefinition;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.location.BasicLocationRegistry;
@@ -27,6 +28,9 @@ import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
+import org.apache.brooklyn.location.localhost.LocalhostLocationResolver;
+import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -110,7 +114,7 @@ public class LocationRegistryTest {
     @Test
     public void testSetupForTesting() {
         mgmt = LocalManagementContextForTests.newInstance();
-        BasicLocationRegistry.setupLocationRegistryForTesting(mgmt);
+        BasicLocationRegistry.addNamedLocationLocalhost(mgmt);
         Assert.assertNotNull(mgmt.getLocationRegistry().getDefinedLocationByName("localhost"));
     }
 
@@ -145,17 +149,68 @@ public class LocationRegistryTest {
         BrooklynProperties properties = BrooklynProperties.Factory.newEmpty();
         properties.put("brooklyn.location.localhost.enabled", true);
         mgmt = LocalManagementContextForTests.newInstance(properties);
+        BasicLocationRegistry.addNamedLocationLocalhost(mgmt);
+
         Assert.assertTrue( findLocationMatching("localhost") );
     }
 
     @Test
-    public void testLocalhostDisabled() {
+    public void testLocalhostNotPresentByDefault() {
         BrooklynProperties properties = BrooklynProperties.Factory.newEmpty();
-        properties.put("brooklyn.location.localhost.enabled", false);
+        properties.put(LocalhostLocationResolver.LOCALHOST_ENABLED.getName(), false);
         mgmt = LocalManagementContextForTests.newInstance(properties);
+        
         log.info("RESOLVERS: "+mgmt.getLocationRegistry().getDefinedLocations());
         log.info("DEFINED LOCATIONS: "+mgmt.getLocationRegistry().getDefinedLocations());
         Assert.assertFalse( findLocationMatching("localhost") );
+    }
+
+    @Test
+    public void testLocalhostAllowedByDefault() {
+        BrooklynProperties properties = BrooklynProperties.Factory.newEmpty();
+        properties.put("brooklyn.location.named.localhost_allowed", "localhost");
+        mgmt = LocalManagementContextForTests.newInstance(properties);
+        
+        Assert.assertTrue( findLocationMatching("localhost_allowed") );
+        Maybe<Location> l = mgmt.getLocationRegistry().resolve("localhost_allowed", false, null);
+        Assert.assertTrue( l.isPresent(), "Should have resolved: "+l );
+        l.get();
+    }
+
+    @Test
+    public void testNonsenseParentSupported() {
+        BrooklynProperties properties = BrooklynProperties.Factory.newEmpty();
+        properties.put(LocalhostLocationResolver.LOCALHOST_ENABLED.getName(), false);
+        properties.put("brooklyn.location.named.bogus_will_fail_eventually", "totally_bogus");
+        mgmt = LocalManagementContextForTests.newInstance(properties);
+        
+        Assert.assertTrue( findLocationMatching("bogus_will_fail_eventually") );
+        Maybe<Location> l = mgmt.getLocationRegistry().resolve("bogus_will_fail_eventually", false, null);
+        Assert.assertTrue( l.isAbsent(), "Should not have resolved: "+l );
+        try {
+            l.get();
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "bogus_will_fail", "totally_bogus");
+        }
+    }
+    
+    @Test
+    public void testLocalhostDisallowedIfDisabled() {
+        BrooklynProperties properties = BrooklynProperties.Factory.newEmpty();
+        properties.put(LocalhostLocationResolver.LOCALHOST_ENABLED.getName(), false);
+        properties.put("brooklyn.location.named.local_host_not_allowed", "localhost");
+        mgmt = LocalManagementContextForTests.newInstance(properties);
+        
+        Assert.assertTrue( findLocationMatching("local_host_not_allowed") );
+        Maybe<Location> l = mgmt.getLocationRegistry().resolve("local_host_not_allowed", false, null);
+        Assert.assertTrue( l.isAbsent(), "Should not have resolved: "+l );
+        try {
+            l.get();
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "local_host", "localhost");
+        }
     }
     
 }

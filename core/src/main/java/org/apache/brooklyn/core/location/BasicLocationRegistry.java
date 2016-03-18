@@ -47,6 +47,7 @@ import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.mgmt.internal.LocalLocationManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
+import org.apache.brooklyn.location.localhost.LocalhostLocationResolver;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -278,16 +279,6 @@ public class BasicLocationRegistry implements LocationRegistry {
             }
             if (log.isDebugEnabled())
                 log.debug("Found "+count+" defined locations from properties (*.named.* syntax): "+definedLocations.values());
-            if (getDefinedLocationByName("localhost")==null && !BasicOsDetails.Factory.newLocalhostInstance().isWindows()
-                    && LocationConfigUtils.isEnabled(mgmt, "brooklyn.location.localhost")) {
-                log.debug("Adding a defined location for localhost");
-                // add 'localhost' *first*
-                ImmutableMap<String, LocationDefinition> oldDefined = ImmutableMap.copyOf(definedLocations);
-                definedLocations.clear();
-                String id = Identifiers.makeRandomId(8);
-                definedLocations.put(id, localhost(id));
-                definedLocations.putAll(oldDefined);
-            }
             
             for (RegisteredType item: mgmt.getTypeRegistry().getMatching(RegisteredTypePredicates.IS_LOCATION)) {
                 updateDefinedLocation(item);
@@ -296,13 +287,7 @@ public class BasicLocationRegistry implements LocationRegistry {
         }
     }
     
-    @VisibleForTesting
-    void disablePersistence() {
-        // persistence isn't enabled yet anyway (have to manually save things,
-        // defining the format and file etc)
-    }
-
-    protected static BasicLocationDefinition localhost(String id) {
+    private static BasicLocationDefinition localhost(String id) {
         return new BasicLocationDefinition(id, "localhost", "localhost", null);
     }
     
@@ -477,12 +462,15 @@ public class BasicLocationRegistry implements LocationRegistry {
     }
 
     @VisibleForTesting
-    public static void setupLocationRegistryForTesting(ManagementContext mgmt) {
-        // ensure localhost is added (even on windows)
+    public static void addNamedLocationLocalhost(ManagementContext mgmt) {
+        if (!mgmt.getConfig().getConfig(LocalhostLocationResolver.LOCALHOST_ENABLED)) {
+            throw new IllegalStateException("Localhost is disabled.");
+        }
+        
+        // ensure localhost is added (even on windows, it's just for testing)
         LocationDefinition l = mgmt.getLocationRegistry().getDefinedLocationByName("localhost");
         if (l==null) mgmt.getLocationRegistry().updateDefinedLocation(
                 BasicLocationRegistry.localhost(Identifiers.makeRandomId(8)) );
-        
-        ((BasicLocationRegistry)mgmt.getLocationRegistry()).disablePersistence();
     }
+    
 }

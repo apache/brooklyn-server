@@ -146,7 +146,7 @@ public abstract class BrooklynRestApiTest {
                 manager = new LocalManagementContextForTests();
             }
             manager.getHighAvailabilityManager().disabled();
-            BasicLocationRegistry.setupLocationRegistryForTesting(manager);
+            BasicLocationRegistry.addNamedLocationLocalhost(manager);
             
             new BrooklynCampPlatformLauncherNoServer()
                 .useManagementContext(manager)

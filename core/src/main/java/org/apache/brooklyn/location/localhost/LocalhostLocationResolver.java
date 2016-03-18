@@ -23,7 +23,10 @@ import java.util.Map;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationRegistry;
 import org.apache.brooklyn.api.location.LocationResolver;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.location.AbstractLocationResolver;
+import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.location.LocationConfigUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 
@@ -40,6 +43,10 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
  */
 public class LocalhostLocationResolver extends AbstractLocationResolver implements LocationResolver.EnableableLocationResolver {
 
+    private static String BROOKLYN_LOCATION_LOCALHOST_PREFIX = "brooklyn.location.localhost";
+    
+    public static ConfigKey<Boolean> LOCALHOST_ENABLED = ConfigKeys.newConfigKeyWithPrefix(BROOKLYN_LOCATION_LOCALHOST_PREFIX+".", LocationConfigKeys.ENABLED);
+    
     public static final String LOCALHOST = "localhost";
 
     @Override
@@ -49,7 +56,7 @@ public class LocalhostLocationResolver extends AbstractLocationResolver implemen
 
     @Override
     public boolean isEnabled() {
-        return LocationConfigUtils.isEnabled(managementContext, "brooklyn.location.localhost");
+        return LocationConfigUtils.isEnabled(managementContext, BROOKLYN_LOCATION_LOCALHOST_PREFIX);
     }
 
     @Override
