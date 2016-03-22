@@ -20,6 +20,8 @@ package org.apache.brooklyn.core.location.dynamic;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.LocationDefinition;
+import org.apache.brooklyn.api.location.LocationRegistry;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
@@ -47,4 +49,14 @@ public interface DynamicLocation<E extends Entity & LocationOwner<L, E>, L exten
 
     E getOwner();
 
+    /**
+     * An opportunity to register this location (e.g. with the {@link LocationRegistry} or the 
+     * catalog, so that it will be persisted).
+     */
+    LocationDefinition register();
+    
+    /**
+     * The complement of {@link #register()}, to deregister this location.
+     */
+    void deregister();
 }

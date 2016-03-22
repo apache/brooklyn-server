@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.entity.machine.pool;
+package org.apache.brooklyn.core.location.dynamic.clocker;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -35,7 +35,6 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.location.BasicLocationRegistry;
-import org.apache.brooklyn.core.location.LocationConfigUtils;
 import org.apache.brooklyn.core.objs.proxy.SpecialBrooklynObjectConstructor;
 import org.apache.brooklyn.core.objs.proxy.SpecialBrooklynObjectConstructor.Config;
 import org.apache.brooklyn.util.text.KeyValueParser;
@@ -48,23 +47,28 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
-public class ServerPoolLocationResolver implements LocationResolver {
+/**
+ * Examples of valid specs:
+ *   <ul>
+ *     <li>docker:infrastructureId
+ *     <li>docker:infrastructureId:(name=docker-infrastructure)
+ *     <li>docker:infrastructureId:dockerHostId
+ *     <li>docker:infrastructureId:dockerHostId:(name=dockerHost-brooklyn-1234,user=docker)
+ *   </ul>
+ */
+public class StubResolver implements LocationResolver {
 
-    private static final Logger LOG = LoggerFactory.getLogger(ServerPoolLocationResolver.class);
-    private static final String PREFIX = "pool";
-    public static final String POOL_SPEC = PREFIX + ":%s";
-    private static final Pattern PATTERN = Pattern.compile("("+PREFIX+"|"+PREFIX.toUpperCase()+")" +
-            ":([a-zA-Z0-9]+)" + // pool Id
-            "(:\\((.*)\\))?$"); // arguments, e.g. displayName
+    private static final Logger LOG = LoggerFactory.getLogger(StubResolver.class);
+
+    public static final String DOCKER = "stub";
+    public static final Pattern PATTERN = Pattern.compile("("+DOCKER+"|"+DOCKER.toUpperCase()+")" + ":([a-zA-Z0-9]+)" +
+            "(:([a-zA-Z0-9]+))?" + "(:\\((.*)\\))?$");
+    public static final String DOCKER_INFRASTRUCTURE_SPEC = "stub:%s";
+    public static final String DOCKER_HOST_MACHINE_SPEC = "stub:%s:%s";
 
     private static final Set<String> ACCEPTABLE_ARGS = ImmutableSet.of("name");
 
     private ManagementContext managementContext;
-
-    @Override
-    public boolean isEnabled() {
-        return LocationConfigUtils.isResolverPrefixEnabled(managementContext, getPrefix());
-    }
 
     @Override
     public void init(ManagementContext managementContext) {
@@ -73,7 +77,7 @@ public class ServerPoolLocationResolver implements LocationResolver {
 
     @Override
     public String getPrefix() {
-        return PREFIX;
+        return DOCKER;
     }
 
     @Override
@@ -81,22 +85,33 @@ public class ServerPoolLocationResolver implements LocationResolver {
         return BasicLocationRegistry.isResolverPrefixForSpec(this, spec, true);
     }
 
-    @SuppressWarnings({ "rawtypes", "unchecked" })
     @Override
-    public LocationSpec newLocationSpecFromString(String spec, Map locationFlags, LocationRegistry registry) {
+    public boolean isEnabled() {
+        // TODO Should we base enablement on whether the required location/entity exists?
+        return true;
+    }
+
+    @Override
+    public LocationSpec<? extends Location> newLocationSpecFromString(String spec, Map<?,?> locationFlags, LocationRegistry registry) {
+        Map<?,?> properties = registry.getProperties();
+
         if (LOG.isDebugEnabled()) {
             LOG.debug("Resolving location '" + spec + "' with flags " + Joiner.on(",").withKeyValueSeparator("=").join(locationFlags));
         }
 
         Matcher matcher = PATTERN.matcher(spec);
         if (!matcher.matches()) {
-            String m = String.format("Invalid location '%s'; must specify either %s:entityId or %s:entityId:(key=argument)",
-                    spec, PREFIX, PREFIX);
-            throw new IllegalArgumentException(m);
+            throw new IllegalArgumentException("Invalid location '"+spec+"'; must specify something like stub:entityId or stub:entityId:(name=abc)");
         }
 
-        // TODO Could validate that the namePart matches the existing poolLoc
-        String argsPart = matcher.group(4);
+        String infrastructureLocId = matcher.group(2);
+        if (Strings.isBlank(infrastructureLocId)) {
+            throw new IllegalArgumentException("Invalid location '"+spec+"'; infrastructure location id must be non-empty");
+        }
+        String hostLocId = matcher.group(4);
+
+        // TODO Could validate that the namePart matches the existing loc
+        String argsPart = matcher.group(6);
         Map<String, String> argsMap = (argsPart != null) ? KeyValueParser.parseMap(argsPart) : Collections.<String,String>emptyMap();
         @SuppressWarnings("unused")
         String namePart = argsMap.get("name");
@@ -106,26 +121,34 @@ public class ServerPoolLocationResolver implements LocationResolver {
             throw new IllegalArgumentException("Invalid location '"+spec+"'; illegal args "+illegalArgs+"; acceptable args are "+ACCEPTABLE_ARGS);
         }
 
-        String poolLocId = matcher.group(2);
-        if (Strings.isBlank(poolLocId)) {
-            throw new IllegalArgumentException("Invalid location '"+spec+"'; pool's location id must be non-empty");
+        Location infrastructureLoc = managementContext.getLocationManager().getLocation(infrastructureLocId);
+        if (infrastructureLoc == null) {
+            throw new IllegalArgumentException("Unknown Clocker infrastructure location id "+infrastructureLocId+", spec "+spec);
+        } else if (!(infrastructureLoc instanceof StubInfrastructureLocation)) {
+            throw new IllegalArgumentException("Invalid location id for Clocker infrastructure, spec "+spec+"; instead matches "+infrastructureLoc);
         }
 
-        Location poolLoc = managementContext.getLocationManager().getLocation(poolLocId);
-        if (poolLoc == null) {
-            throw new IllegalArgumentException("Unknown ServerPool location id "+poolLocId+", spec "+spec);
-        } else if (!(poolLoc instanceof ServerPoolLocation)) {
-            throw new IllegalArgumentException("Invalid location id for ServerPool, spec "+spec+"; instead matches "+poolLoc);
+        if (hostLocId != null) {
+            Location hostLoc = managementContext.getLocationManager().getLocation(hostLocId);
+            if (hostLoc == null) {
+                throw new IllegalArgumentException("Unknown Clocker host location id "+hostLocId+", spec "+spec);
+            } else if (!(hostLoc instanceof StubHostLocation)) {
+                throw new IllegalArgumentException("Invalid location id for Clocker host, spec "+spec+"; instead matches "+hostLoc);
+            }
+            
+            return LocationSpec.create(StubHostLocation.class)
+                    .configure(StubLocationConstructor.LOCATION, hostLoc)
+                    .configure(Config.SPECIAL_CONSTRUCTOR, StubLocationConstructor.class);
+        } else {
+            return LocationSpec.create(StubInfrastructureLocation.class)
+                    .configure(StubLocationConstructor.LOCATION, infrastructureLoc)
+                    .configure(Config.SPECIAL_CONSTRUCTOR, StubLocationConstructor.class);
         }
-
-        return LocationSpec.create(ServerPoolLocation.class)
-                .configure(LocationConstructor.LOCATION, poolLoc)
-                .configure(Config.SPECIAL_CONSTRUCTOR, LocationConstructor.class);
     }
-    
+
     @Beta
-    public static class LocationConstructor implements SpecialBrooklynObjectConstructor {
-        public static ConfigKey<Location> LOCATION = ConfigKeys.newConfigKey(Location.class, "serverpoolresolver.location");
+    public static class StubLocationConstructor implements SpecialBrooklynObjectConstructor {
+        public static ConfigKey<Location> LOCATION = ConfigKeys.newConfigKey(Location.class, "stubresolver.location");
         
         @SuppressWarnings("unchecked")
         @Override

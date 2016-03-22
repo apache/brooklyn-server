@@ -22,7 +22,6 @@ import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
-import org.apache.brooklyn.api.location.LocationDefinition;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -70,9 +69,6 @@ public interface LocationOwner<L extends Location & DynamicLocation<E, L>, E ext
 
     AttributeSensor<Boolean> DYNAMIC_LOCATION_STATUS = Sensors.newBooleanSensor(
             "entity.dynamicLocation.status", "The status of the location owned by this entity");
-
-    AttributeSensor<LocationDefinition> LOCATION_DEFINITION = Sensors.newSensor(
-        LocationDefinition.class, "entity.dynamicLocation.definition", "The location definition for the location owned by this entity");
 
     L getDynamicLocation();
 

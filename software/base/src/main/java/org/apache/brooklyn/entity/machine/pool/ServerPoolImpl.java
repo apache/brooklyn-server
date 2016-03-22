@@ -25,6 +25,8 @@ import java.util.Map;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationDefinition;
+import org.apache.brooklyn.api.location.LocationRegistry;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
 import org.apache.brooklyn.api.mgmt.LocationManager;
@@ -38,19 +40,19 @@ import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.trait.Startable;
-import org.apache.brooklyn.core.location.BasicLocationDefinition;
 import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.location.dynamic.DynamicLocation;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.mgmt.internal.LocalLocationManager;
+import org.apache.brooklyn.core.location.dynamic.LocationOwner;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.entity.group.AbstractMembershipTrackingPolicy;
 import org.apache.brooklyn.entity.group.DynamicClusterImpl;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -64,6 +66,19 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.reflect.TypeToken;
 
+/**
+ * The normal usage pattern is to instantiate this entity to create your cluster, which will
+ * automatically create a {@link ServerPoolLocation}. The location can be looked up from the 
+ * {@link LocationRegistry} (e.g. {@code mgmt.getLocationRegistry().resolve("my-pool-name")}),
+ * which uses the {@link ServerPoolLocationResolver}.
+ * 
+ * Each location delegates to the associated {@link ServerPool} to claim machines (which are
+ * provisioned as required), and to release machines back to the pool.
+ * 
+ * This differs from Clocker's use of {@link DynamicLocation} in that the ServerPool has <em>multiple</em>
+ * locations. This makes the use of {@link LocationOwner} a little confusing 
+ * (e.g. {@link LocationOwner#DYNAMIC_LOCATION} is not set).
+ */
 public class ServerPoolImpl extends DynamicClusterImpl implements ServerPool {
 
     private static final Logger LOG = LoggerFactory.getLogger(ServerPoolImpl.class);
@@ -95,9 +110,6 @@ public class ServerPoolImpl extends DynamicClusterImpl implements ServerPool {
     @SuppressWarnings("serial")
     public static final AttributeSensor<Map<MachineLocation, Entity>> MACHINE_ENTITY = Sensors.newSensor(new TypeToken<Map<MachineLocation, Entity>>() {},
             "pool.machineEntityMap", "A mapping of machine locations and their entities");
-
-    public static final AttributeSensor<LocationDefinition> DYNAMIC_LOCATION_DEFINITION = Sensors.newSensor(LocationDefinition.class,
-            "pool.locationDefinition", "The location definition used to create the pool's dynamic location");
 
     public static final ConfigKey<Boolean> REMOVABLE = ConfigKeys.newBooleanConfigKey(
             "pool.member.removable", "Whether a pool member is removable from the cluster. Used to denote additional " +
@@ -171,16 +183,18 @@ public class ServerPoolImpl extends DynamicClusterImpl implements ServerPool {
             locationName = Joiner.on("-").skipNulls().join(prefix, getId(), suffix);
         }
 
-        String locationSpec = String.format(ServerPoolLocationResolver.POOL_SPEC, getId()) + String.format(":(name=\"%s\")", locationName);
-        LocationDefinition definition = new BasicLocationDefinition(locationName, locationSpec, flags);
-        getManagementContext().getLocationRegistry().updateDefinedLocation(definition);
-        Location location = getManagementContext().getLocationManager().createLocation( getManagementContext().getLocationRegistry().getLocationSpec(definition).get() );
-        LOG.info("Resolved and registered dynamic location {}: {}", locationName, location);
+        ServerPoolLocation location = getManagementContext().getLocationManager().createLocation(LocationSpec.create(ServerPoolLocation.class)
+                .displayName("Server Pool(" + getId() + ")")
+                .configure(flags)
+                .configure("owner", getProxy())
+                .configure("locationName", locationName));
+        
+        LocationDefinition definition = location.register();
+        LOG.info("Resolved and registered dynamic location {} for server pool {}: {}", new Object[] {locationName, this, location});
 
-        sensors().set(LOCATION_SPEC, locationSpec);
+        sensors().set(LOCATION_SPEC, definition.getSpec());
+        sensors().set(LOCATION_NAME, locationName);
         sensors().set(DYNAMIC_LOCATION, location);
-        sensors().set(LOCATION_NAME, location.getId());
-        sensors().set(DYNAMIC_LOCATION_DEFINITION, definition);
 
         return (ServerPoolLocation) location;
     }
@@ -189,20 +203,15 @@ public class ServerPoolImpl extends DynamicClusterImpl implements ServerPool {
     public void deleteLocation() {
         LocationManager mgr = getManagementContext().getLocationManager();
         ServerPoolLocation location = getDynamicLocation();
-        if (mgr.isManaged(location)) {
+        if (location != null && mgr.isManaged(location)) {
             LOG.debug("{} deleting and unmanaging location {}", this, location);
+            location.deregister();
             mgr.unmanage(location);
         }
-        // definition will only be null if deleteLocation has already been called, e.g. by two calls to stop().
-        LocationDefinition definition = getAttribute(DYNAMIC_LOCATION_DEFINITION);
-        if (definition != null) {
-            LOG.debug("{} unregistering dynamic location {}", this, definition);
-            getManagementContext().getLocationRegistry().removeDefinedLocation(definition.getId());
-        }
+        
         sensors().set(LOCATION_SPEC, null);
         sensors().set(DYNAMIC_LOCATION, null);
         sensors().set(LOCATION_NAME, null);
-        sensors().set(DYNAMIC_LOCATION_DEFINITION, null);
     }
 
     @Override
