@@ -27,12 +27,15 @@ import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.location.AbstractLocation;
+import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.mgmt.internal.LocalLocationManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -45,6 +48,8 @@ import com.google.common.collect.ImmutableMap;
  * @author aled
  */
 public class InternalLocationFactory extends InternalFactory {
+
+    private static final Logger LOG = LoggerFactory.getLogger(InternalLocationFactory.class);
 
     /**
      * Returns true if this is a "new-style" location (i.e. where not expected to call the constructor to instantiate it).
@@ -96,9 +101,17 @@ public class InternalLocationFactory extends InternalFactory {
             
             T loc = construct(clazz, spec, null);
 
+            if (Locations.isManaged(loc)) {
+                // Construct can return an existing instance, if using SpecialBrooklynObjectConstructor.Config.SPECIAL_CONSTRUCTOR.
+                // In which case, don't reconfigure it (don't change its parent, etc).
+                LOG.debug("Location-factory returning pre-existing location; skipping initialization of {}", loc);
+                return loc;
+            }
+
             if (spec.getId() != null) {
                 FlagUtils.setFieldsFromFlags(ImmutableMap.of("id", spec.getId()), loc);
             }
+            
             managementContext.prePreManage(loc);
 
             if (spec.getDisplayName()!=null)
