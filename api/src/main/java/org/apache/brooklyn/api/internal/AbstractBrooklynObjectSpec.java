@@ -235,6 +235,8 @@ public abstract class AbstractBrooklynObjectSpec<T,SpecT extends AbstractBrookly
         if (!Objects.equal(getCatalogItemId(), other.getCatalogItemId())) return false;
         if (!Objects.equal(getType(), other.getType())) return false;
         if (!Objects.equal(getTags(), other.getTags())) return false;
+        if (!Objects.equal(getConfig(), other.getConfig())) return false;
+        if (!Objects.equal(getFlags(), other.getFlags())) return false;
         if (!Objects.equal(getParameters(), other.getParameters())) return false;
         return true;
     }

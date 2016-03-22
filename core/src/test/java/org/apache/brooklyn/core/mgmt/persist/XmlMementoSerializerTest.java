@@ -30,6 +30,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Executors;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Entity;
@@ -70,7 +72,12 @@ import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 
 public class XmlMementoSerializerTest {
 
@@ -297,6 +304,34 @@ public class XmlMementoSerializerTest {
     public void testEntitySpec() throws Exception {
         EntitySpec<?> obj = EntitySpec.create(TestEntity.class);
         assertSerializeAndDeserialize(obj);
+    }
+    
+    @Test
+    public void testEntitySpecNested() throws Exception {
+        EntitySpec<?> obj = EntitySpec.create(TestEntity.class)
+                .configure("nest1", EntitySpec.create(TestEntity.class)
+                        .configure("nest2", EntitySpec.create(TestEntity.class)));
+        assertSerializeAndDeserialize(obj);
+    }
+    
+    @Test
+    public void testEntitySpecManyConcurrently() throws Exception {
+        ListeningExecutorService executor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool());
+        List<ListenableFuture<Void>> futures = Lists.newArrayList();
+        try {
+            for (int i = 0; i < 100; i++) {
+                futures.add(executor.submit(new Callable<Void>() {
+                    @Override public Void call() throws Exception {
+                        EntitySpec<?> obj = EntitySpec.create(TestEntity.class);
+                        assertSerializeAndDeserialize(obj);
+                        return null;
+                    }}));
+            }
+            Futures.allAsList(futures).get();
+            
+        } finally {
+            executor.shutdownNow();
+        }
     }
     
     @Test
