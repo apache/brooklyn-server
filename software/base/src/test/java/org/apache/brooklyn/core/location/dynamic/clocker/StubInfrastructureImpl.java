@@ -34,6 +34,7 @@ import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.core.entity.AbstractApplication;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityPredicates;
+import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.feed.ConfigToAttributes;
 import org.apache.brooklyn.core.location.Locations;
@@ -132,6 +133,7 @@ public class StubInfrastructureImpl extends AbstractApplication implements StubI
      */
     @Override
     public void stop() {
+        setExpectedStateAndRecordLifecycleEvent(Lifecycle.STOPPING);
         sensors().set(SERVICE_UP, Boolean.FALSE);
 
         // Find all applications and stop, blocking for up to five minutes until ended
@@ -158,10 +160,10 @@ public class StubInfrastructureImpl extends AbstractApplication implements StubI
             LOG.warn("Error stopping hosts", e);
         }
 
+        deleteLocation();
+
         // Stop anything else left over
         super.stop();
-
-        deleteLocation();
     }
 
     @Override
