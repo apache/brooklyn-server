@@ -393,12 +393,6 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
         }
     }
 
-    // Would prefer this as a field of SpecConverter, but can't do that because the class is not static.
-    // Must use thread-local storage because a single instance of the SpecConverter is used by this 
-    // XmlMementoSerializer. In BrooklynMementoPersisterToObjectStore.visitMemento, it uses a thread-pool
-    // for concurrently deserializing multiple objects.
-    private static final ThreadLocal<Object> SpecConverterLocalInstance = new ThreadLocal<Object>();
-
     /** When reading/writing specs, it checks whether there is a catalog item id set and uses it to load */
     public class SpecConverter extends ReflectionConverter {
         SpecConverter() {
@@ -460,7 +454,7 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
                 result.catalogItemId(catalogItemId);
                 return result;
             } finally {
-                SpecConverterLocalInstance.remove();
+                context.put("SpecConverter.instance", null);
                 if (customLoaderSet) {
                     popXstreamCustomClassLoader();
                 }
@@ -470,15 +464,19 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
         @Override
         protected Object instantiateNewInstance(HierarchicalStreamReader reader, UnmarshallingContext context) {
             // the super calls getAttribute which requires that we have not yet done moveDown,
-            // so we do this earlier and cache it for when we call super.unmarshal
-            Object instance = SpecConverterLocalInstance.get();
+            // so we do this earlier and cache it for when we call super.unmarshal.
+            // Store this in the UnmarshallingContext. Note that we *must not* use a field of SpecConverter,
+            // because that same instance is used by everything calling XmlMementoSerializer (including multiple
+            // threads).
+            Object instance = context.get("SpecConverter.instance");
             if (instance==null)
                 throw new IllegalStateException("Instance should be created and cached");
             return instance;
         }
+        
         protected void instantiateNewInstanceSettingCache(HierarchicalStreamReader reader, UnmarshallingContext context) {
             Object instance = super.instantiateNewInstance(reader, context);
-            SpecConverterLocalInstance.set(instance);
+            context.put("SpecConverter.instance", instance);
         }
     }
     
