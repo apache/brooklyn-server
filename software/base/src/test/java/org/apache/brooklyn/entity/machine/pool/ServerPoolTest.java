@@ -28,10 +28,10 @@ import java.util.Iterator;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.entity.machine.pool.ServerPoolImpl;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
@@ -59,7 +59,7 @@ public class ServerPoolTest extends AbstractServerPoolTest {
     public void testFailureWhenNotEnoughServersAvailable() {
         TestApplication app = createAppWithChildren(getInitialPoolSize() + 1);
         assertNoMachinesAvailableForApp(app);
-        EntityTestUtils.assertAttributeEqualsEventually(app, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertAttributeEqualsEventually(app, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
     }
 
     @Test
@@ -68,7 +68,7 @@ public class ServerPoolTest extends AbstractServerPoolTest {
         TestApplication app2 = createAppWithChildren(1);
 
         app.start(ImmutableList.of(pool.getDynamicLocation()));
-        EntityTestUtils.assertAttributeEqualsEventually(app, Attributes.SERVICE_UP, true);
+        EntityAsserts.assertAttributeEqualsEventually(app, Attributes.SERVICE_UP, true);
         assertAvailableCountEventuallyEquals(0);
         assertNoMachinesAvailableForApp(app2);
 
@@ -77,7 +77,7 @@ public class ServerPoolTest extends AbstractServerPoolTest {
         assertAvailableCountEventuallyEquals(getInitialPoolSize());
 
         app2.start(ImmutableList.of(pool.getDynamicLocation()));
-        EntityTestUtils.assertAttributeEqualsEventually(app2, Attributes.SERVICE_UP, true);
+        EntityAsserts.assertAttributeEqualsEventually(app2, Attributes.SERVICE_UP, true);
         
         assertAvailableCountEventuallyEquals(getInitialPoolSize() - 1);
         assertClaimedCountEventuallyEquals(1);

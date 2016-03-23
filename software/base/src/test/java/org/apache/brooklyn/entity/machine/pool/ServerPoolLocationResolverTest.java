@@ -20,71 +20,44 @@ package org.apache.brooklyn.entity.machine.pool;
 
 import static org.testng.Assert.assertEquals;
 
-import java.util.Map;
-
-import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
-import org.apache.brooklyn.core.internal.BrooklynProperties;
-import org.apache.brooklyn.core.location.dynamic.DynamicLocation;
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.core.test.entity.TestApplication;
-import org.apache.brooklyn.entity.machine.pool.ServerPool;
-import org.apache.brooklyn.entity.machine.pool.ServerPoolLocation;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
+import org.apache.brooklyn.core.location.dynamic.LocationOwner;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.testng.Assert;
-import org.testng.annotations.AfterMethod;
+import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
 
-import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
+public class ServerPoolLocationResolverTest extends BrooklynAppUnitTestSupport {
 
-public class ServerPoolLocationResolverTest {
-
-    private LocalManagementContext managementContext;
-    private Entity locationOwner;
+    private ServerPool serverPool;
 
     @BeforeMethod(alwaysRun=true)
+    @Override
     public void setUp() throws Exception {
-        managementContext = new LocalManagementContextForTests(BrooklynProperties.Factory.newEmpty());
-        TestApplication t = ApplicationBuilder.newManagedApp(TestApplication.class, managementContext);
-        locationOwner = t.createAndManageChild(EntitySpec.create(ServerPool.class)
+        super.setUp();
+        serverPool = app.createAndManageChild(EntitySpec.create(ServerPool.class)
+                .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, shouldSkipOnBoxBaseDirResolution())
                 .configure(ServerPool.INITIAL_SIZE, 0)
                 .configure(ServerPool.MEMBER_SPEC, EntitySpec.create(EmptySoftwareProcess.class)));
-        Location poolLocation = managementContext.getLocationManager()
+        Location localhostLoc = mgmt.getLocationManager()
                 .createLocation(LocationSpec.create(LocalhostMachineProvisioningLocation.class));
-        t.start(ImmutableList.of(poolLocation));
-    }
-
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        if (managementContext != null) Entities.destroyAll(managementContext);
+        app.start(ImmutableList.of(localhostLoc));
     }
 
     @Test
     public void testResolve() {
-        ServerPoolLocation location = resolve("pool:" + locationOwner.getId());
-        assertEquals(location.getOwner().getId(), locationOwner.getId());
+        String spec = "pool:" + serverPool.getDynamicLocation().getId();
+        ServerPoolLocation loc = (ServerPoolLocation) mgmt.getLocationRegistry().getLocationManaged(spec);
+        assertEquals(loc, serverPool.getDynamicLocation());
+        
+        String spec2 = serverPool.sensors().get(LocationOwner.LOCATION_SPEC);
+        ServerPoolLocation loc2 = (ServerPoolLocation) mgmt.getLocationRegistry().getLocationManaged(spec2);
+        assertEquals(loc2, serverPool.getDynamicLocation());
     }
-
-    @Test
-    public void testSetsDisplayName() {
-        ServerPoolLocation location = resolve("pool:" + locationOwner.getId() + ":(displayName=xyz)");
-        assertEquals(location.getDisplayName(), "xyz");
-    }
-
-    private ServerPoolLocation resolve(String val) {
-        Map<String, Object> flags = MutableMap.<String, Object>of(DynamicLocation.OWNER.getName(), locationOwner);
-        Location l = managementContext.getLocationRegistry().getLocationManaged(val, flags);
-        Assert.assertNotNull(l);
-        return (ServerPoolLocation) l;
-    }
-
 }

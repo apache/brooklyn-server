@@ -706,7 +706,9 @@ public abstract class AbstractLocation extends AbstractBrooklynObject implements
             }
             child.setParent(null);
             
-            if (isManaged()) {
+            if (isManaged() && Locations.isManaged(child)) {
+                // This is called as part of child's LocalLocationManager.unmanage; don't try to 
+                // unmanage it yet again as then would get a log.warn!
                 getManagementContext().getLocationManager().unmanage(child);
             }
         }

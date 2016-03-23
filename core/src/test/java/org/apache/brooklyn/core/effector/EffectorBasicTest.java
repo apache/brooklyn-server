@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.core.effector;
 
+import static org.testng.Assert.assertEquals;
+
 import java.util.List;
 import java.util.concurrent.Callable;
 
@@ -25,6 +27,7 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.trait.FailingEntity;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.location.SimulatedLocation;
@@ -36,11 +39,13 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 
 public class EffectorBasicTest extends BrooklynAppUnitTestSupport {
 
@@ -90,6 +95,30 @@ public class EffectorBasicTest extends BrooklynAppUnitTestSupport {
         Task<Void> starting = app.invoke(Startable.START, MutableMap.of("locations", locs));
 //        log.info("TAGS: "+starting.getTags());
         Assert.assertTrue(starting.getTags().contains(ManagementContextInternal.EFFECTOR_TAG));
+    }
+
+    @Test
+    public void testInvokeEffectorListWithEmpty() throws Exception{
+        Entities.invokeEffectorList(app, ImmutableList.<StartableApplication>of(), Startable.STOP).get(Duration.THIRTY_SECONDS); 
+    }
+
+    @Test
+    public void testInvokeEffectorList() throws Exception{
+        List<TestEntity> entities = Lists.newArrayList();
+        for (int i = 0; i < 10; i++) {
+            entities.add(app.addChild(EntitySpec.create(TestEntity.class)));
+        }
+        Entities.invokeEffectorList(app, entities, Startable.STOP).get(Duration.THIRTY_SECONDS);
+        for (TestEntity entity : entities) {
+            assertEquals(entity.getCallHistory(), ImmutableList.of("stop"));
+        }
+    }
+
+    @Test(expectedExceptions=IllegalStateException.class, expectedExceptionsMessageRegExp=".*no longer managed.*")
+    public void testInvokeEffectorListWithEmptyUsingUnmanagedContext() throws Exception{
+        TestEntity entity = app.addChild(EntitySpec.create(TestEntity.class));
+        Entities.unmanage(entity);
+        Entities.invokeEffectorList(entity, ImmutableList.<StartableApplication>of(), Startable.STOP).get(Duration.THIRTY_SECONDS);
     }
 
     // check various failure situations

@@ -451,7 +451,16 @@ public class BasicTask<T> implements TaskInternal<T> {
         }
         Long remaining = end==null ? null : end -  System.currentTimeMillis();
         if (isDone()) {
-            return internalFuture.get(1, TimeUnit.MILLISECONDS);
+            // Don't just call internalFuture.get(1ms) - see comment in isDone() about setting of endTimeUtc,
+            // and see BROOKLYN-242.
+            if (internalFuture == null) {
+                assert cancelled: "task="+this+"; endTimeUtc="+endTimeUtc+"; cancelled="+cancelled+"; isDone=true; null internal future";
+                throw new CancellationException();
+            } else if (remaining == null) {
+                return internalFuture.get();
+            } else {
+                return internalFuture.get(Math.max(remaining, 1000), TimeUnit.MILLISECONDS);
+            }
         } else if (remaining == null) {
             return internalFuture.get();
         } else if (remaining > 0) {
