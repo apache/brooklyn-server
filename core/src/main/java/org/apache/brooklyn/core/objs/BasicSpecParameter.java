@@ -69,6 +69,19 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
     private final ConfigKey<T> configKey;
     private final AttributeSensor<?> sensor;
 
+    // For backwards compatibility of persisted state.
+    // Automatically called by xstream (which is used under the covers by XmlMementoSerializer).
+    // Required for those who have state from a version between
+    // 29th October 2015 and 21st January 2016 (when this class was introduced, and then when it was changed).
+    private ConfigKey<T> type;
+    private Object readResolve() {
+        if (type != null && configKey == null) {
+            return new BasicSpecParameter(label, pinned, type, sensor);
+        } else {
+            return this;
+        }
+    }
+    
     @Beta // TBD whether "pinned" stays
     public BasicSpecParameter(String label, boolean pinned, ConfigKey<T> config) {
         this(label, pinned, config, null);
