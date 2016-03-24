@@ -318,7 +318,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         // * "build-metadata.properties" is probably the wrong name
         // * we should include brooklyn.version and a build timestamp in this file
         // * the authority for brooklyn should probably be core rather than brooklyn-rest-server
-        InputStream input = ResourceUtils.create().getResourceFromUrl("classpath://build-metadata.properties");
+        InputStream input = ResourceUtils.create(this).getResourceFromUrl("classpath://build-metadata.properties");
         Properties properties = new Properties();
         String gitSha1 = null, gitBranch = null;
         try {

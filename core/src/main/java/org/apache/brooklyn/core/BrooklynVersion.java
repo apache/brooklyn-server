@@ -23,7 +23,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
-import java.util.Arrays;
 import java.util.Dictionary;
 import java.util.Enumeration;
 import java.util.Hashtable;
@@ -58,6 +57,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 /**
@@ -299,7 +299,7 @@ public class BrooklynVersion implements BrooklynVersionService {
      */
     public static Iterable<BrooklynFeature> getFeatures(ManagementContext mgmt) {
         if (OsgiUtil.isBrooklynInsideFramework()) {
-            List<Bundle> bundles = Arrays.asList(
+            List<Bundle> bundles = Lists.newArrayList(
                     FrameworkUtil.getBundle(BrooklynVersion.class)
                             .getBundleContext()
                             .getBundles()
