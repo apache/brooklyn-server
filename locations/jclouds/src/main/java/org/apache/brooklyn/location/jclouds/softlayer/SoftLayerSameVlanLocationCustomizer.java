@@ -325,14 +325,15 @@ public class SoftLayerSameVlanLocationCustomizer extends BasicJcloudsLocationCus
      */
     protected CountDownLatch createCountDownLatch(JcloudsLocation location, String scopeUid) {
         synchronized (lock) {
-            Map<String, CountDownLatch> map = location.config().get(COUNTDOWN_LATCH_MAP);
-            if (map == null) { map = MutableMap.of(); }
+            Map<String, CountDownLatch> map = MutableMap.copyOf(location.config().get(COUNTDOWN_LATCH_MAP));
 
             if (!map.containsKey(scopeUid)) {
                 map.put(scopeUid, new CountDownLatch(1));
             }
             CountDownLatch latch = map.get(scopeUid);
-            location.config().set(COUNTDOWN_LATCH_MAP, map);
+
+            location.config().set(COUNTDOWN_LATCH_MAP, ImmutableMap.copyOf(map));
+            location.getManagementContext().getRebindManager().forcePersistNow(false, null);
 
             return latch;
         }
@@ -343,21 +344,25 @@ public class SoftLayerSameVlanLocationCustomizer extends BasicJcloudsLocationCus
      */
     protected void removeCountDownLatch(JcloudsLocation location, String scopeUid) {
         synchronized (lock) {
-            Map<String, CountDownLatch> map = location.config().get(COUNTDOWN_LATCH_MAP);
-            if (map != null) {
-                map.remove(scopeUid);
-            }
+            Map<String, CountDownLatch> map = MutableMap.copyOf(location.config().get(COUNTDOWN_LATCH_MAP));
+
+            map.remove(scopeUid);
+
+            location.config().set(COUNTDOWN_LATCH_MAP, ImmutableMap.copyOf(map));
+            location.getManagementContext().getRebindManager().forcePersistNow(false, null);
         }
     }
 
     /** Return the public VLAN number for a scope. */
     protected Integer lookupPublicVlanId(JcloudsLocation location, String scopeUid) {
-        synchronized (SoftLayerSameVlanLocationCustomizer.class) {
-            Map<String, Integer> map = location.config().get(PUBLIC_VLAN_ID_MAP);
-            if (map == null) {
-                map = MutableMap.of();
-                location.config().set(PUBLIC_VLAN_ID_MAP, map);
+        synchronized (lock) {
+            Map<String, Integer> map = MutableMap.copyOf(location.config().get(PUBLIC_VLAN_ID_MAP));
+
+            if (map.isEmpty()) {
+                location.config().set(PUBLIC_VLAN_ID_MAP, ImmutableMap.copyOf(map));
+                location.getManagementContext().getRebindManager().forcePersistNow(false, null);
             }
+
             return map.get(scopeUid);
         }
     }
@@ -365,22 +370,25 @@ public class SoftLayerSameVlanLocationCustomizer extends BasicJcloudsLocationCus
     /** Save the public VLAN number for a scope. */
     protected void savePublicVlanId(JcloudsLocation location, String scopeUid, Integer publicVlanId) {
         synchronized (lock) {
-            Map<String, Integer> map = location.config().get(PUBLIC_VLAN_ID_MAP);
-            if (map == null) { map = MutableMap.of(); }
+            Map<String, Integer> map = MutableMap.copyOf(location.config().get(PUBLIC_VLAN_ID_MAP));
 
             map.put(scopeUid, publicVlanId);
-            location.config().set(PUBLIC_VLAN_ID_MAP, map);
+
+            location.config().set(PUBLIC_VLAN_ID_MAP, ImmutableMap.copyOf(map));
+            location.getManagementContext().getRebindManager().forcePersistNow(false, null);
         }
     }
 
     /** Return the private VLAN number for a scope. */
     protected Integer lookupPrivateVlanId(JcloudsLocation location, String scopeUid) {
         synchronized (lock) {
-            Map<String, Integer> map = location.config().get(PRIVATE_VLAN_ID_MAP);
-            if (map == null) {
-                map = MutableMap.of();
-                location.config().set(PRIVATE_VLAN_ID_MAP, map);
+            Map<String, Integer> map = MutableMap.copyOf(location.config().get(PRIVATE_VLAN_ID_MAP));
+
+            if (map.isEmpty()) {
+                location.config().set(PRIVATE_VLAN_ID_MAP, ImmutableMap.copyOf(map));
+                location.getManagementContext().getRebindManager().forcePersistNow(false, null);
             }
+
             return map.get(scopeUid);
         }
     }
@@ -388,11 +396,12 @@ public class SoftLayerSameVlanLocationCustomizer extends BasicJcloudsLocationCus
     /** Save the private VLAN number for a scope. */
     protected void savePrivateVlanId(JcloudsLocation location, String scopeUid, Integer privateVlanId) {
         synchronized (lock) {
-            Map<String, Integer> map = location.config().get(PRIVATE_VLAN_ID_MAP);
-            if (map == null) { map = MutableMap.of(); }
+            Map<String, Integer> map = MutableMap.copyOf(location.config().get(PRIVATE_VLAN_ID_MAP));
 
             map.put(scopeUid, privateVlanId);
-            location.config().set(PRIVATE_VLAN_ID_MAP, map);
+
+            location.config().set(PRIVATE_VLAN_ID_MAP, ImmutableMap.copyOf(map));
+            location.getManagementContext().getRebindManager().forcePersistNow(false, null);
         }
     }
 }
