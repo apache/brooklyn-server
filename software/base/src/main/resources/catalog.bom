@@ -19,3 +19,54 @@ brooklyn.catalog:
     version: 0.9.0
     scanJavaAnnotations: true
     items:
+    - id: org.apache.brooklyn.entity.machine.MachineEntity
+      item:
+        type: org.apache.brooklyn.entity.machine.MachineEntity
+        name: Machine Entity
+        description: Represents a machine, providing metrics about it (e.g. obtained from ssh)
+    - id: org.apache.brooklyn.entity.software.base.SameServerEntity
+      item:
+        type: org.apache.brooklyn.entity.software.base.SameServerEntity
+    - id: org.apache.brooklyn.entity.chef.ChefEntity
+      item:
+        type: org.apache.brooklyn.entity.chef.ChefEntity
+    - id: org.apache.brooklyn.entity.brooklynnode.BrooklynEntityMirror
+      item:
+        type: org.apache.brooklyn.entity.brooklynnode.BrooklynEntityMirror
+        name: Brooklyn Entity Mirror
+        description: Provides an entity which can sit in one brooklyn 
+    - id: org.apache.brooklyn.entity.software.base.EmptySoftwareProcess
+      item:
+        type: org.apache.brooklyn.entity.software.base.EmptySoftwareProcess
+    - id: org.apache.brooklyn.entity.software.base.EmptyWindowsProcess
+      item:
+        type: org.apache.brooklyn.entity.software.base.EmptyWindowsProcess
+    - id: org.apache.brooklyn.entity.software.base.VanillaWindowsProcess
+      item:
+        type: org.apache.brooklyn.entity.software.base.VanillaWindowsProcess
+        name: Vanilla Windows Process
+        description: A basic Windows entity configured with scripts, e.g. for launch, check-running and stop
+    - id: org.apache.brooklyn.entity.java.VanillaJavaApp
+      item:
+        type: org.apache.brooklyn.entity.java.VanillaJavaApp
+    - id: org.apache.brooklyn.entity.brooklynnode.BrooklynNode
+      item:
+        type: org.apache.brooklyn.entity.brooklynnode.BrooklynNode
+        name: Brooklyn Node
+        description: Deploys a Brooklyn management server
+    - id: org.apache.brooklyn.entity.brooklynnode.BrooklynCluster
+      item:
+        type: org.apache.brooklyn.entity.brooklynnode.BrooklynCluster
+    - id: org.apache.brooklyn.entity.brooklynnode.LocalBrooklynNode
+      item:
+        type: org.apache.brooklyn.entity.brooklynnode.LocalBrooklynNode
+    - id: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
+      item:
+        type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
+        name: Vanilla Software Process
+        description: A software process configured with scripts, e.g. for launch, check-running and stop
+    - id: org.apache.brooklyn.entity.machine.pool.ServerPool
+      item:
+        type: org.apache.brooklyn.entity.machine.pool.ServerPool
+        name: Server Pool
+        description: Creates a pre-allocated server pool, which other applications can deploy to

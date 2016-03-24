@@ -19,3 +19,42 @@ brooklyn.catalog:
     version: 0.9.0
     scanJavaAnnotations: true
     items:
+    - id: org.apache.brooklyn.entity.group.QuarantineGroup
+      item:
+        type: org.apache.brooklyn.entity.group.QuarantineGroup
+    - id: org.apache.brooklyn.entity.group.BasicGroup
+      item:
+        type: org.apache.brooklyn.entity.group.BasicGroup
+    - id: org.apache.brooklyn.entity.stock.BasicEntity
+      item:
+        type: org.apache.brooklyn.entity.stock.BasicEntity
+    - id: org.apache.brooklyn.entity.stock.DataEntity
+      item:
+        type: org.apache.brooklyn.entity.stock.DataEntity
+    - id: org.apache.brooklyn.entity.group.DynamicGroup
+      item:
+        type: org.apache.brooklyn.entity.group.DynamicGroup
+    - id: org.apache.brooklyn.entity.stock.DelegateEntity
+      item:
+        type: org.apache.brooklyn.entity.stock.DelegateEntity
+    - id: org.apache.brooklyn.entity.group.DynamicRegionsFabric
+      item:
+        type: org.apache.brooklyn.entity.group.DynamicRegionsFabric
+    - id: org.apache.brooklyn.core.server.entity.BrooklynMetrics
+      item:
+        type: org.apache.brooklyn.core.server.entity.BrooklynMetrics
+    - id: org.apache.brooklyn.entity.stock.BasicApplication
+      item:
+        type: org.apache.brooklyn.entity.stock.BasicApplication
+    - id: org.apache.brooklyn.entity.stock.BasicStartable
+      item:
+        type: org.apache.brooklyn.entity.stock.BasicStartable
+    - id: org.apache.brooklyn.entity.group.DynamicCluster
+      item:
+        type: org.apache.brooklyn.entity.group.DynamicCluster
+    - id: org.apache.brooklyn.entity.group.DynamicMultiGroup
+      item:
+        type: org.apache.brooklyn.entity.group.DynamicMultiGroup
+    - id: org.apache.brooklyn.entity.group.DynamicFabric
+      item:
+        type: org.apache.brooklyn.entity.group.DynamicFabric

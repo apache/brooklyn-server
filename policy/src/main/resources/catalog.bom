@@ -19,3 +19,37 @@ brooklyn.catalog:
     version: 0.9.0
     scanJavaAnnotations: true
     items:
+    - id: org.apache.brooklyn.policy.ha.ConnectionFailureDetector
+      item:
+        type: org.apache.brooklyn.policy.ha.ConnectionFailureDetector
+        name: Connection Failure Detector
+        description: HA policy for monitoring a host:port, 
+    - id: org.apache.brooklyn.policy.ha.ServiceRestarter
+      item:
+        type: org.apache.brooklyn.policy.ha.ServiceRestarter
+        name: Service Restarter
+        description: HA policy for restarting a service automatically, 
+    - id: org.apache.brooklyn.policy.ha.SshMachineFailureDetector
+      item:
+        type: org.apache.brooklyn.policy.ha.SshMachineFailureDetector
+        name: Ssh Connectivity Failure Detector
+        description: HA policy for monitoring an SshMachine, 
+    - id: org.apache.brooklyn.policy.followthesun.FollowTheSunPool
+      item:
+        type: org.apache.brooklyn.policy.followthesun.FollowTheSunPool
+    - id: org.apache.brooklyn.policy.loadbalancing.BalanceableWorkerPool
+      item:
+        type: org.apache.brooklyn.policy.loadbalancing.BalanceableWorkerPool
+    - id: org.apache.brooklyn.policy.ha.ServiceReplacer
+      item:
+        type: org.apache.brooklyn.policy.ha.ServiceReplacer
+        name: Service Replacer
+        description: HA policy for replacing a failed member of a group
+    - id: org.apache.brooklyn.policy.loadbalancing.ItemsInContainersGroup
+      item:
+        type: org.apache.brooklyn.policy.loadbalancing.ItemsInContainersGroup
+    - id: org.apache.brooklyn.policy.autoscaling.AutoScalerPolicy
+      item:
+        type: org.apache.brooklyn.policy.autoscaling.AutoScalerPolicy
+        name: Auto-scaler
+        description: Policy that is attached to a Resizable entity and dynamically 

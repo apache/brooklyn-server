@@ -19,3 +19,6 @@ brooklyn.catalog:
     version: 0.9.0
     scanJavaAnnotations: true
     items:
+    - id: org.apache.brooklyn.test.osgi.entities.more.MoreEntity
+      item:
+        type: org.apache.brooklyn.test.osgi.entities.more.MoreEntity

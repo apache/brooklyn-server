@@ -19,3 +19,30 @@ brooklyn.catalog:
     version: 0.9.0
     scanJavaAnnotations: true
     items:
+    - id: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+      item:
+        type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+    - id: org.apache.brooklyn.test.framework.ParallelTestCase
+      item:
+        type: org.apache.brooklyn.test.framework.ParallelTestCase
+    - id: org.apache.brooklyn.test.framework.TestCase
+      item:
+        type: org.apache.brooklyn.test.framework.TestCase
+    - id: org.apache.brooklyn.test.framework.InfrastructureDeploymentTestCase
+      item:
+        type: org.apache.brooklyn.test.framework.InfrastructureDeploymentTestCase
+    - id: org.apache.brooklyn.test.framework.TestSensor
+      item:
+        type: org.apache.brooklyn.test.framework.TestSensor
+    - id: org.apache.brooklyn.test.framework.TestEffector
+      item:
+        type: org.apache.brooklyn.test.framework.TestEffector
+    - id: org.apache.brooklyn.test.framework.TestHttpCall
+      item:
+        type: org.apache.brooklyn.test.framework.TestHttpCall
+    - id: org.apache.brooklyn.test.framework.LoopOverGroupMembersTestCase
+      item:
+        type: org.apache.brooklyn.test.framework.LoopOverGroupMembersTestCase
+    - id: org.apache.brooklyn.test.framework.TargetableTestComponent
+      item:
+        type: org.apache.brooklyn.test.framework.TargetableTestComponent
