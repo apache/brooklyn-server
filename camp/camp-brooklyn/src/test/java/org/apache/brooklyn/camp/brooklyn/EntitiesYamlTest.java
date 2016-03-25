@@ -68,7 +68,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
-import org.testng.collections.Lists;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Suppliers;
@@ -76,6 +75,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 
 @Test
 public class EntitiesYamlTest extends AbstractYamlTest {
