@@ -34,41 +34,17 @@ import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
-import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.entity.group.BasicGroup;
-import org.apache.brooklyn.entity.group.DynamicMultiGroup;
 import org.apache.brooklyn.test.Asserts;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-public class DynamicMultiGroupTest {
+public class DynamicMultiGroupTest extends BrooklynAppUnitTestSupport {
 
     private static final AttributeSensor<String> SENSOR = Sensors.newSensor(String.class, "multigroup.test");
-
-    private TestApplication app;
-
-
-    @BeforeMethod(alwaysRun = true)
-    public void setUp() {
-        app = ApplicationBuilder.newManagedApp(TestApplication.class, new LocalManagementContextForTests());
-        app.start(ImmutableList.of(new SimulatedLocation()));
-    }
-
-    @AfterMethod(alwaysRun = true)
-    public void tearDown(){
-        if (app != null)
-            Entities.destroyAll(app.getManagementContext());
-    }
 
     @Test
     public void testBucketDistributionFromSubscription() {
