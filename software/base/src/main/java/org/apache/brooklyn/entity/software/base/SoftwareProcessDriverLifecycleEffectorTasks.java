@@ -82,9 +82,12 @@ public class SoftwareProcessDriverLifecycleEffectorTasks extends MachineLifecycl
     private class PostRestartTask implements Runnable {
         @Override
         public void run() {
-            postStartCustom();
-            postRestartCustom();
-            ServiceStateLogic.setExpectedState(entity(), Lifecycle.RUNNING);
+            try {
+                postStartCustom();
+                postRestartCustom();
+            } finally {
+                ServiceStateLogic.setExpectedState(entity(), Lifecycle.RUNNING);
+            }
         }
     }
     
