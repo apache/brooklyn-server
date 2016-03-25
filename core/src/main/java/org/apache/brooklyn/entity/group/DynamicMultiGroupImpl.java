@@ -28,11 +28,15 @@ import javax.annotation.Nullable;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.Group;
+import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.feed.function.FunctionFeed;
 import org.apache.brooklyn.feed.function.FunctionPollConfig;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.time.Time;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -45,6 +49,8 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 
 public class DynamicMultiGroupImpl extends DynamicGroupImpl implements DynamicMultiGroup {
+
+    private static final Logger LOG = LoggerFactory.getLogger(DynamicMultiGroupImpl.class);
 
     /**
      * {@link Function} for deriving bucket names from a sensor value.
@@ -119,7 +125,36 @@ public class DynamicMultiGroupImpl extends DynamicGroupImpl implements DynamicMu
         super.rebind();
 
         if (rescan == null) {
-            connectScanner();
+            // The rescan can (in a different thread) cause us to remove the empty groups - i.e. remove 
+            // it as a child, and unmanage it. That is dangerous during rebind, because the rebind-thread 
+            // may concurrently (or subsequently) be initialising that child entity. It has caused 
+            // rebind errors where the child's entity-rebind complains in setParent() that it was
+            // "previouslyOwned". Therefore we defer registering/executing our scanner until rebind is
+            // complete, so all entities are reconstituted.
+            // We don't worry about other managementNodeStates, such as standby: if we were told to
+            // rebind then we are free to fully initialise ourselves. But we do double-check that we
+            // are still managed before trying to execute.
+            
+            getExecutionContext().execute(new Runnable() {
+                @Override public void run() {
+                    LOG.debug("Deferring scanner for {} until management context initialisation complete", DynamicMultiGroupImpl.this);
+                    while (!isRebindComplete()) {
+                        Time.sleep(100); // avoid thrashing
+                    }
+                    LOG.debug("Connecting scanner for {}", DynamicMultiGroupImpl.this);
+                    connectScanner();
+                }
+                private boolean isRebindComplete() {
+                    // TODO Want to determine if finished rebinding (either success or fail is fine).
+                    // But not a clean way to do this that works for both unit tests and live server?!
+                    //  * In RebindTestFixtureWithApp tests, mgmt.getHighAvailabilityManager().getNodeState()
+                    //    always returns INITIALIZING.
+                    //  * The rebind metrics is a hack, and feels very risky for HOT_STANDBY nodes that 
+                    //    may have executed the rebind code multiple times.
+                    Map<String, Object> metrics = getManagementContext().getRebindManager().getMetrics();
+                    Object count = (metrics.get("rebind") instanceof Map) ? ((Map<?,?>)metrics.get("rebind")).get("count") : null;
+                    return (count instanceof Number) && ((Number)count).intValue() > 0;
+                }});
         }
     }
 
@@ -190,6 +225,7 @@ public class DynamicMultiGroupImpl extends DynamicGroupImpl implements DynamicMu
             Set<String> empty = ImmutableSet.copyOf(Sets.difference(buckets.keySet(), entityMapping.keySet()));
             for (String name : empty) {
                 Group removed = buckets.remove(name);
+                LOG.debug(this+" removing empty child-bucket "+name+" -> "+removed);
                 removeChild(removed);
                 Entities.unmanage(removed);
             }
