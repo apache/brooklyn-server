@@ -218,7 +218,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     // FIXME we do not currently support changing parents, but to implement a cluster that can shrink we need to support at least
     // orphaning (i.e. removing ownership). This flag notes if the entity has previously had a parent, and if an attempt is made to
     // set a new parent an exception will be thrown.
-    boolean previouslyOwned = false;
+    private boolean previouslyOwned = false;
 
     /**
      * Whether we are still being constructed, in which case never warn in "assertNotYetOwned"
@@ -609,7 +609,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         }
         // If we have previously had a parent and are trying to change to another one...
         if (previouslyOwned && entity != null)
-            throw new UnsupportedOperationException("Cannot set a parent of "+this+" because it has previously had a parent");
+            throw new UnsupportedOperationException("Cannot set a parent of "+this+" as "+entity+" because it has previously had a parent");
         // We don't have a parent, never have and are changing to having a parent...
 
         //make sure there is no loop
