@@ -22,8 +22,6 @@ import java.io.File;
 import java.util.Collection;
 import java.util.List;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
@@ -41,12 +39,15 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.text.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 
 @Beta
 public class CatalogInitialization implements ManagementContextInjectable {
@@ -75,7 +76,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
     
     private String initialUri;
     private boolean reset;
-    private String additionsUri;
+    private List<String> additionsUris;
     private boolean force;
 
     private boolean disallowLocal = false;
@@ -96,17 +97,17 @@ public class CatalogInitialization implements ManagementContextInjectable {
     
     private Object populatingCatalogMutex = new Object();
     
-    public CatalogInitialization(String initialUri, boolean reset, String additionUri, boolean force) {
+    public CatalogInitialization() {
+        this(null, false, ImmutableList.<String>of(), false);
+    }
+
+    public CatalogInitialization(String initialUri, boolean reset, Iterable<String> additionUris, boolean force) {
         this.initialUri = initialUri;
         this.reset = reset;
-        this.additionsUri = additionUri;
+        this.additionsUris = (additionUris != null) ? ImmutableList.copyOf(additionUris) : ImmutableList.<String>of();
         this.force = force;
     }
     
-    public CatalogInitialization() {
-        this(null, false, null, false);
-    }
-
     @Override
     public void setManagementContext(ManagementContext managementContext) {
         Preconditions.checkNotNull(managementContext, "management context");
@@ -350,7 +351,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
 
     boolean hasRunAdditions = false;
     protected void populateAdditions(BasicBrooklynCatalog catalog) {
-        if (Strings.isNonBlank(additionsUri)) {
+        if (!additionsUris.isEmpty()) {
             if (disallowLocal) {
                 if (!hasRunAdditions) {
                     log.warn("CLI additions supplied but not supported when catalog load mode disallows local loads; ignoring.");
@@ -358,11 +359,15 @@ public class CatalogInitialization implements ManagementContextInjectable {
                 return;
             }   
             if (!hasRunAdditions) {
-                log.debug("Adding to catalog from CLI: "+additionsUri+" (force: "+force+")");
+                log.debug("Adding to catalog from CLI: "+additionsUris+" (force: "+force+")");
             }
-            Iterable<? extends CatalogItem<?, ?>> items = catalog.addItems(
-                new ResourceUtils(this).getResourceAsString(additionsUri), force);
             
+            List<CatalogItem<?,?>> items = Lists.newArrayList();
+            for (String additionsUri : additionsUris) {
+                List<? extends CatalogItem<?, ?>> addedItems = catalog.addItems(
+                    new ResourceUtils(this).getResourceAsString(additionsUri), force);
+                items.addAll(addedItems);
+            }            
             if (!hasRunAdditions)
                 log.debug("Added to catalog from CLI: "+items);
             else

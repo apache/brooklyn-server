@@ -19,12 +19,6 @@
 package org.apache.brooklyn.cli;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import groovy.lang.GroovyClassLoader;
-import groovy.lang.GroovyShell;
-import io.airlift.command.Cli;
-import io.airlift.command.Cli.CliBuilder;
-import io.airlift.command.Command;
-import io.airlift.command.Option;
 
 import java.io.Console;
 import java.io.IOException;
@@ -33,6 +27,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -97,6 +92,13 @@ import com.google.common.base.Objects.ToStringHelper;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+
+import groovy.lang.GroovyClassLoader;
+import groovy.lang.GroovyShell;
+import io.airlift.command.Cli;
+import io.airlift.command.Cli.CliBuilder;
+import io.airlift.command.Command;
+import io.airlift.command.Option;
 
 /**
  * This class is the primary CLI for brooklyn.
@@ -230,8 +232,9 @@ public class Main extends AbstractMain {
             description = "Specifies that any catalog items which have been persisted should be cleared")
         public boolean catalogReset;
 
-        @Option(name = { "--catalogAdd" }, title = "catalog bom URI to add",
-            description = "Specifies a catalog.bom to be added to the catalog")
+        // Unfortunately does not support arity of 1 or more; only exactly n
+        @Option(name = { "--catalogAdd" }, title = "catalog bom URIs to add",
+            description = "Specifies one or more catalog.bom URIs (or files) to be added to the catalog, as a comma-separated list")
         public String catalogAdd;
 
         @Option(name = { "--catalogForce" }, 
@@ -415,7 +418,8 @@ public class Main extends AbstractMain {
     
                 launcher = createLauncher();
 
-                CatalogInitialization catInit = new CatalogInitialization(catalogInitial, catalogReset, catalogAdd, catalogForce);
+                List<String> catalogsAdd = Strings.isBlank(catalogAdd) ? ImmutableList.<String>of() : JavaStringEscapes.unwrapJsonishListIfPossible(catalogAdd);
+                CatalogInitialization catInit = new CatalogInitialization(catalogInitial, catalogReset, catalogsAdd, catalogForce);
                 catInit.addPopulationCallback(new Function<CatalogInitialization,Void>() {
                     @Override
                     public Void apply(CatalogInitialization catInit) {
