@@ -78,6 +78,7 @@ public class WinRmMachineLocation extends AbstractLocation implements MachineLoc
 
     public static final ConfigKey<Integer> WINRM_CONFIG_PORT = newConfigKeyWithPrefix(BrooklynConfigKeys.BROOKLYN_WINRM_CONFIG_KEY_PREFIX, WinRmTool.PROP_PORT);
     public static final ConfigKey<String> OPERATION_TIMEOUT = newConfigKeyWithPrefix(BrooklynConfigKeys.BROOKLYN_WINRM_CONFIG_KEY_PREFIX, WinRmTool.OPERATION_TIMEOUT);
+    public static final ConfigKey<Integer> RETRIES_OF_NETWORK_FAILURES = newConfigKeyWithPrefix(BrooklynConfigKeys.BROOKLYN_WINRM_CONFIG_KEY_PREFIX, WinRmTool.RETRIES_OF_NETWORK_FAILURES);
     public static final ConfigKey<Boolean> USE_HTTPS_WINRM = WinRmTool.USE_HTTPS_WINRM;
 
 
