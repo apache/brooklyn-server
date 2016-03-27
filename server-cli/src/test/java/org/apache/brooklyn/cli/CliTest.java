@@ -20,12 +20,9 @@ package org.apache.brooklyn.cli;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
-import groovy.lang.GroovyClassLoader;
-import io.airlift.command.Cli;
-import io.airlift.command.Command;
-import io.airlift.command.ParseException;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -34,6 +31,7 @@ import java.io.InputStream;
 import java.io.PrintStream;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -42,9 +40,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
+import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.cli.AbstractMain.BrooklynCommand;
 import org.apache.brooklyn.cli.AbstractMain.BrooklynCommandCollectingArgs;
 import org.apache.brooklyn.cli.AbstractMain.DefaultInfoCommand;
@@ -52,6 +52,7 @@ import org.apache.brooklyn.cli.AbstractMain.HelpCommand;
 import org.apache.brooklyn.cli.Main.AppShutdownHandler;
 import org.apache.brooklyn.cli.Main.GeneratePasswordCommand;
 import org.apache.brooklyn.cli.Main.LaunchCommand;
+import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.AbstractApplication;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Entities;
@@ -59,6 +60,8 @@ import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.location.SimulatedLocation;
+import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
+import org.apache.brooklyn.core.mgmt.internal.LocalManagementContextRegistry;
 import org.apache.brooklyn.core.objs.proxy.EntityProxy;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.test.Asserts;
@@ -67,6 +70,8 @@ import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.FatalConfigurationRuntimeException;
 import org.apache.brooklyn.util.exceptions.UserFacingException;
+import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,10 +80,18 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.common.io.Files;
+
+import groovy.lang.GroovyClassLoader;
+import io.airlift.command.Cli;
+import io.airlift.command.Command;
+import io.airlift.command.ParseException;
 
 public class CliTest {
 
@@ -89,6 +102,8 @@ public class CliTest {
 
     private ExecutorService executor;
     private StartableApplication app;
+    private List<File> filesToDelete;
+    
     private static volatile ExampleEntity exampleEntity;
 
     // static so that they can be set from the static classes ExampleApp and ExampleEntity
@@ -98,6 +113,7 @@ public class CliTest {
 
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
+        filesToDelete = Lists.newArrayList();
         executor = Executors.newCachedThreadPool();
         exampleAppConstructed = false;
         exampleAppRunning = false;
@@ -109,6 +125,11 @@ public class CliTest {
         if (executor != null) executor.shutdownNow();
         if (app != null) Entities.destroyAll(app.getManagementContext());
         if (exampleEntity != null && exampleEntity.getApplication() != null) Entities.destroyAll(exampleEntity.getApplication().getManagementContext());
+        if (filesToDelete != null) {
+            for (File file : filesToDelete) {
+                file.delete();
+            }
+        }
     }
     
     @Test
@@ -395,6 +416,63 @@ public class CliTest {
             });
     }
 
+    @Test
+    public void testAddBomToCatalog() throws Exception {
+        runAddBomToCatalog(1);
+    }
+
+    @Test
+    public void testAddMultipleBomsToCatalog() throws Exception {
+        runAddBomToCatalog(3);
+    }
+
+    protected void runAddBomToCatalog(int numBoms) throws Exception {
+        final List<String> bomFiles = Lists.newArrayList();
+        final List<String> itemSymbolicNames = Lists.newArrayList();
+        for (int i = 0; i < numBoms; i++) {
+            String itemName = "testAddToCatalog."+i+"."+Identifiers.makeRandomId(8);
+            String itemVersion = "1.2."+i;
+            File bomFile = generateSimpleBomFile(itemName, itemVersion);
+            bomFiles.add(bomFile.getAbsolutePath());
+            itemSymbolicNames.add(itemName+":"+itemVersion);
+        }
+
+        final Set<LocalManagementContext> origMgmts = LocalManagementContextRegistry.getInstances();
+        
+        Cli<BrooklynCommand> cli = buildCli();
+        BrooklynCommand command = cli.parse("launch", "--noConsole", "--catalogAdd", Joiner.on(",").join(bomFiles));
+        submitCommandAndAssertRunnableSucceeds(command, new Runnable() {
+                public void run() {
+                    ManagementContext mgmt = assertMgmtStartedEventually();
+                    for (String itemName : itemSymbolicNames) {
+                        CatalogItem<?, ?> item = mgmt.getCatalog().getCatalogItem(CatalogUtils.getSymbolicNameFromVersionedId(itemName), CatalogUtils.getVersionFromVersionedId(itemName));
+                        assertNotNull(item);
+                    }
+                }
+                private ManagementContext assertMgmtStartedEventually() {
+                    return Asserts.succeedsEventually(new Callable<ManagementContext>() {
+                        public ManagementContext call() {
+                            ManagementContext mgmt = Iterables.getOnlyElement(Sets.difference(LocalManagementContextRegistry.getInstances(), origMgmts));
+                            assertTrue(mgmt.isStartupComplete());
+                            return mgmt;
+                        }});
+                }
+            });
+    }
+    
+    private File generateSimpleBomFile(String itemName, String itemVersion) {
+        String catalogContents = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  id: "+itemName,
+                "  version: "+itemVersion,
+                "  item:",
+                "    services:",
+                "    - type: org.apache.brooklyn.entity.stock.BasicApplication");
+        File bomFile = Os.writeToTempFile(new ByteArrayInputStream(catalogContents.getBytes()), "testAddToCatalog", ".bom");
+        filesToDelete.add(bomFile);
+        return bomFile;
+    }
+    
     @Test
     public void testGeneratePasswordCommandParsed() throws Exception {
         Cli<BrooklynCommand> cli = buildCli();
