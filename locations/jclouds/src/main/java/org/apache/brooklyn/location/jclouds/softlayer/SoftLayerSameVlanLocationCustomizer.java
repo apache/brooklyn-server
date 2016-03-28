@@ -163,7 +163,7 @@ public class SoftLayerSameVlanLocationCustomizer extends BasicJcloudsLocationCus
         LOG.debug("Looking up saved VLAN details {}", scopeUid);
         publicVlanId = lookupPublicVlanId(location, scopeUid);
         privateVlanId = lookupPrivateVlanId(location, scopeUid);
-        if (publicVlanId==null && privateVlanId!=null) {
+        if (publicVlanId != null && privateVlanId != null) {
             saveVlanTemplateOptions(scopeUid, softLayerOptions, publicVlanId, privateVlanId);
             return;
         }
