@@ -88,7 +88,7 @@ limitations under the License.
 
         <jaxrs:providers>
             <bean class="org.apache.brooklyn.rest.util.DefaultExceptionMapper"/>
-            <bean class="com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider"/>
+            <bean class="org.apache.brooklyn.rest.util.json.BrooklynJacksonJsonProvider"/>
             <bean class="org.apache.brooklyn.rest.util.FormMapProvider"/>
             <bean class="org.apache.cxf.jaxrs.security.JAASAuthenticationFilter">
                 <property name="contextName" value="webconsole"/>
