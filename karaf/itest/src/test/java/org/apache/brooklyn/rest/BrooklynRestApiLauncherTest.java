@@ -18,11 +18,14 @@
  */
 package org.apache.brooklyn.rest;
 
-import java.io.File;
-import java.util.concurrent.Callable;
-import org.apache.brooklyn.AssemblyTest;
-import org.apache.brooklyn.entity.brooklynnode.BrooklynNode;
+import static org.apache.brooklyn.KarafTestUtils.defaultOptionsWith;
+import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.editConfigurationFilePut;
+import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.features;
 
+import java.util.concurrent.Callable;
+
+import org.apache.brooklyn.KarafTestUtils;
+import org.apache.brooklyn.entity.brooklynnode.BrooklynNode;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.http.HttpAsserts;
 import org.apache.brooklyn.util.http.HttpTool;
@@ -31,15 +34,8 @@ import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.ops4j.pax.exam.Configuration;
-import static org.ops4j.pax.exam.CoreOptions.junitBundles;
 import org.ops4j.pax.exam.Option;
 import org.ops4j.pax.exam.junit.PaxExam;
-import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.configureConsole;
-import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.editConfigurationFilePut;
-import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.features;
-import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.karafDistributionConfiguration;
-import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.logLevel;
-import org.ops4j.pax.exam.karaf.options.LogLevelOption;
 import org.ops4j.pax.exam.spi.reactors.ExamReactorStrategy;
 import org.ops4j.pax.exam.spi.reactors.PerClass;
 
@@ -53,22 +49,12 @@ public class BrooklynRestApiLauncherTest {
 
     @Configuration
     public static Option[] configuration() throws Exception {
-        return new Option[]{
-            karafDistributionConfiguration()
-            .frameworkUrl(AssemblyTest.brooklynKarafDist())
-            .unpackDirectory(new File("target/paxexam/unpack/"))
-            .useDeployFolder(false),
+        return defaultOptionsWith(
             editConfigurationFilePut("etc/org.ops4j.pax.web.cfg", "org.osgi.service.http.port", HTTP_PORT),
-            configureConsole().ignoreLocalConsole(),
-            logLevel(LogLevelOption.LogLevel.INFO),
-//            features(AssemblyTest.karafStandardFeaturesRepository(), "eventadmin"),
-            features(AssemblyTest.brooklynFeaturesRepository(), "brooklyn-software-base"),
-            junitBundles()
-
-            // for debugging
-//            , keepRuntimeFolder()
-//            , debugConfiguration()
-        };
+            features(KarafTestUtils.brooklynFeaturesRepository(), "brooklyn-software-base")
+            // Uncomment this for remote debugging the tests on port 5005
+            // ,KarafDistributionOption.debugConfiguration()
+        );
     }
 
     @Test
