@@ -85,7 +85,7 @@ Custom-Enable-CredSSP box1,box2
             Enable-WSManCredSSP -DelegateComputer $ComputersToAdd -Role Client -Force -ErrorAction Stop | Out-Null
         }
         catch {
-            Write-BoxstarterMessage "Enable-WSManCredSSP failed with: $_" -Verbose
+            Write-Error "Enable-WSManCredSSP failed with: $_" -Verbose
             return $result
         }
     }
