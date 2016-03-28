@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.TreeMap;
 
+import org.apache.brooklyn.api.framework.FrameworkLookup;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -51,7 +52,7 @@ public class TypePlanTransformers {
     private static final Logger log = LoggerFactory.getLogger(TypePlanTransformers.class);
 
     private static Collection<BrooklynTypePlanTransformer> getAll() {
-        return ImmutableList.copyOf(ServiceLoader.load(BrooklynTypePlanTransformer.class));
+        return ImmutableList.copyOf(FrameworkLookup.lookupAll(BrooklynTypePlanTransformer.class));
     }
 
     private static Collection<Class<? extends BrooklynTypePlanTransformer>> OVERRIDE;

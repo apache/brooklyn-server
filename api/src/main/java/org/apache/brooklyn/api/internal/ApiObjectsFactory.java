@@ -18,11 +18,12 @@
  */
 package org.apache.brooklyn.api.internal;
 
-import java.util.ServiceLoader;
-
+import org.apache.brooklyn.api.framework.FrameworkLookup;
 import org.apache.brooklyn.util.guava.Maybe;
 
 import com.google.common.annotations.Beta;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** 
  * This class grants access to implementations in core for operations needed in API classes.
@@ -34,6 +35,8 @@ import com.google.common.annotations.Beta;
  */
 @Beta
 public class ApiObjectsFactory {
+
+    private static final Logger LOG = LoggerFactory.getLogger(ApiObjectsFactory.class);
     
     private static Maybe<ApiObjectsFactoryInterface> INSTANCE;
 
@@ -41,14 +44,14 @@ public class ApiObjectsFactory {
         // defer initialization to allow any other static initialization to complete,
         // and use maybe so we (1) don't check multiple times, but (2) do throw error in the caller's stack
         if (INSTANCE!=null) return INSTANCE.get();
-        
-        ServiceLoader<ApiObjectsFactoryInterface> LOADER = ServiceLoader.load(ApiObjectsFactoryInterface.class);
-        for (ApiObjectsFactoryInterface item : LOADER) {
-            INSTANCE = Maybe.of(item);
-            return INSTANCE.get();
+
+        INSTANCE = Maybe.absent("Implementation of " + ApiObjectsFactoryInterface.class + " not found.");
+
+        final Maybe<ApiObjectsFactoryInterface> factory = FrameworkLookup.lookup(ApiObjectsFactoryInterface.class);
+        if (factory.isPresent()) {
+            INSTANCE = factory;
         }
-        INSTANCE = Maybe.absent("Implementation of " + ApiObjectsFactoryInterface.class + " not found on classpath; "
-            + "can be caused by IDE not copying resources, or by something else clobbering non-class resources needed for service loading");
+
         return INSTANCE.get();
     }
 

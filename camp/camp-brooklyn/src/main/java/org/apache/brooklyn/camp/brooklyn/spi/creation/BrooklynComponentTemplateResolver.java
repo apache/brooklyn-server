@@ -32,6 +32,7 @@ import javax.annotation.Nullable;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.api.framework.FrameworkLookup;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -180,7 +181,7 @@ public class BrooklynComponentTemplateResolver {
 
     private List<EntitySpecResolver> getServiceTypeResolverOverrides() {
         List<EntitySpecResolver> overrides = new ArrayList<>();
-        ServiceLoader<ServiceTypeResolver> loader = ServiceLoader.load(ServiceTypeResolver.class, mgmt.getCatalogClassLoader());
+        Iterable<ServiceTypeResolver> loader = FrameworkLookup.lookupAll(ServiceTypeResolver.class, mgmt.getCatalogClassLoader());
         for (ServiceTypeResolver resolver : loader) {
            overrides.add(new ServiceTypeResolverAdaptor(this, resolver));
         }

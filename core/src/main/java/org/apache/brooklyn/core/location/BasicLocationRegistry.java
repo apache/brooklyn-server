@@ -27,11 +27,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.ServiceLoader;
 import java.util.Set;
 
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
+import org.apache.brooklyn.api.framework.FrameworkLookup;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationDefinition;
 import org.apache.brooklyn.api.location.LocationRegistry;
@@ -166,7 +166,7 @@ public class BasicLocationRegistry implements LocationRegistry {
     }
 
     protected void findServices() {
-        ServiceLoader<LocationResolver> loader = ServiceLoader.load(LocationResolver.class, mgmt.getCatalogClassLoader());
+        Iterable<LocationResolver> loader = FrameworkLookup.lookupAll(LocationResolver.class, mgmt.getCatalogClassLoader());
         MutableList<LocationResolver> loadedResolvers;
         try {
             loadedResolvers = MutableList.copyOf(loader);
