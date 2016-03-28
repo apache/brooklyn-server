@@ -89,13 +89,14 @@
         <includedTestGroups />
         <excludedTestGroups>Integration,Acceptance,Live,WIP,Broken</excludedTestGroups>
         <surefire.failIfNoSpecifiedTests>false</surefire.failIfNoSpecifiedTests>
-        <coverage.target>${working.dir}</coverage.target>
 
         <!-- Dependency Versions -->
         <jclouds.version>1.9.2</jclouds.version> <!-- JCLOUDS_VERSION -->
         <logback.version>1.0.7</logback.version>
         <slf4j.version>1.6.6</slf4j.version>  <!-- used for java.util.logging jul-to-slf4j interception -->
-        <guava.version>17.0</guava.version>
+        <!-- Must match jclouds' version. From jclouds 1.9.3+ can be any version in the range [16-20) -->
+        <guava.version>16.0.1</guava.version>
+        <!-- This can be different, OSGi will pick it up -->
         <guava-swagger.version>18.0</guava-swagger.version>
         <xstream.version>1.4.7</xstream.version>
         <!-- double-check downstream projects before changing jackson and resteasy versions -->
