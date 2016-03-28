@@ -16,6 +16,8 @@
 package org.apache.brooklyn.rest.apidoc;
 
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -40,12 +42,19 @@ public class RestApiResourceScanner extends AbstractScanner implements JaxrsScan
 
     private Set<Class<?>> apiClasses = null;
 
-    private void addAnnotatedClasses(Set<Class<?>> output, Class<?>[] classes) {
+    public RestApiResourceScanner() {}
+
+    public RestApiResourceScanner(Collection<Class<?>> resourceClasses) {
+        this.apiClasses = new HashSet<>();
+        addAnnotatedClasses(apiClasses, resourceClasses);
+    }
+
+    private void addAnnotatedClasses(Set<Class<?>> output, Collection<Class<?>> classes) {
         for (Class<?> clz : classes) {
             if (clz.getAnnotation(Api.class) != null) {
                 output.add(clz);
             }
-            addAnnotatedClasses(output, clz.getInterfaces());
+            addAnnotatedClasses(output, Arrays.asList(clz.getInterfaces()));
         }
     }
 
@@ -55,14 +64,12 @@ public class RestApiResourceScanner extends AbstractScanner implements JaxrsScan
             if (app != null) {
                 Set<Class<?>> classes = app.getClasses();
                 if (classes != null) {
-                    final Class<?>[] template = {};
-                    addAnnotatedClasses(apiClasses, classes.toArray(template));
+                    addAnnotatedClasses(apiClasses, classes);
                 }
                 Set<Object> singletons = app.getSingletons();
                 if (singletons != null) {
                     for (Object o : singletons) {
-                        Class<?>[] types = {o.getClass()};
-                        addAnnotatedClasses(apiClasses, types);
+                        addAnnotatedClasses(apiClasses, Arrays.<Class<?>>asList(o.getClass()));
                     }
                 }
             }

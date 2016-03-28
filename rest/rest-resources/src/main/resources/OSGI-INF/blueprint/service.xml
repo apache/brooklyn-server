@@ -49,7 +49,7 @@ limitations under the License.
 
     <bean id="accessResourceBean" class="org.apache.brooklyn.rest.resources.AccessResource" />
     <bean id="activityResourceBean" class="org.apache.brooklyn.rest.resources.ActivityResource" />
-    <!--<bean id="apidocResourceBean" class="org.apache.brooklyn.rest.resources.ApidocResource" />-->
+    <bean id="apidocResourceBean" class="org.apache.brooklyn.rest.resources.ApidocResource" />
     <bean id="applicationResourceBean" class="org.apache.brooklyn.rest.resources.ApplicationResource" />
     <bean id="catalogResourceBean" class="org.apache.brooklyn.rest.resources.CatalogResource" />
     <bean id="effectorResourceBean" class="org.apache.brooklyn.rest.resources.EffectorResource" />
@@ -69,7 +69,7 @@ limitations under the License.
         <jaxrs:serviceBeans>
             <ref component-id="accessResourceBean" />
             <ref component-id="activityResourceBean" />
-            <!--<ref component-id="apidocResourceBean" />-->
+            <ref component-id="apidocResourceBean" />
             <ref component-id="applicationResourceBean" />
             <ref component-id="catalogResourceBean" />
             <ref component-id="effectorResourceBean" />
@@ -104,7 +104,12 @@ limitations under the License.
             <bean class="org.apache.brooklyn.rest.filter.NoCacheFilter" />
             <bean class="org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter" />
             <bean class="org.apache.brooklyn.rest.filter.EntitlementContextFilter" />
+            <bean class="io.swagger.jaxrs.listing.SwaggerSerializers" />
         </jaxrs:providers>
 
     </jaxrs:server>
+
+    <bean class="org.apache.brooklyn.rest.util.ScannerInjectHelper">
+      <property name="server" ref="brooklynRestApiV1" />
+    </bean>
 </blueprint>

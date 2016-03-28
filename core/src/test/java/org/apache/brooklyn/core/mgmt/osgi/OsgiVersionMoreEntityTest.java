@@ -282,7 +282,7 @@ public class OsgiVersionMoreEntityTest {
             Entity me = addItemFromCatalog(c2);
             Assert.fail("Should have failed, with unresolved dependency; instead got "+me);
         } catch (Exception e) {
-            Assert.assertTrue(e.toString().toLowerCase().contains("unresolved constraint"), "Missing expected text in error: "+e);
+            Assert.assertTrue(e.toString().toLowerCase().contains("unresolved requirements"), "Missing expected text in error: "+e);
             Assert.assertTrue(e.toString().toLowerCase().contains("wiring.package"), "Missing expected text in error: "+e);
             Assert.assertTrue(e.toString().toLowerCase().contains("org.apache.brooklyn.test.osgi.entities"), "Missing expected text in error: "+e);
         }
