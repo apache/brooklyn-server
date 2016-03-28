@@ -1536,10 +1536,45 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
         TemplateOptions options = template.getOptions();
 
+        // For windows, we need a startup-script to be executed that will enable winrm access.
+        // If there is already conflicting userMetadata, then don't replace it (and just warn).
+        // TODO this injection is hacky and (currently) cloud specific.
         boolean windows = isWindows(template, config);
         if (windows) {
-            if (!(config.containsKey(JcloudsLocationConfig.USER_METADATA_STRING) || config.containsKey(JcloudsLocationConfig.USER_METADATA_MAP))) {
-                config.put(JcloudsLocationConfig.USER_METADATA_STRING, WinRmMachineLocation.getDefaultUserMetadataString(config()));
+            String initScript = WinRmMachineLocation.getDefaultUserMetadataString(config());
+            String provider = getProvider();
+            if ("google-compute-engine".equals(provider)) {
+                // see https://cloud.google.com/compute/docs/startupscript:
+                // Set "sysprep-specialize-script-cmd" in metadata.
+                String startupScriptKey = "sysprep-specialize-script-cmd";
+                Object metadataMapRaw = config.get(USER_METADATA_MAP);
+                if (metadataMapRaw instanceof Map) {
+                    Map<?,?> metadataMap = (Map<?, ?>) metadataMapRaw;
+                    if (metadataMap.containsKey(startupScriptKey)) {
+                        LOG.warn("Not adding startup-script for Windows VM on "+provider+", because already has key "+startupScriptKey+" in config "+USER_METADATA_MAP.getName());
+                    } else {
+                        Map<Object, Object> metadataMapReplacement = MutableMap.copyOf(metadataMap);
+                        metadataMapReplacement.put(startupScriptKey, initScript);
+                        config.put(USER_METADATA_MAP, metadataMapReplacement);
+                        LOG.debug("Adding startup-script to enable WinRM for Windows VM on "+provider);
+                    }
+                } else if (metadataMapRaw == null) {
+                    Map<String, String> metadataMapReplacement = MutableMap.of(startupScriptKey, initScript);
+                    config.put(USER_METADATA_MAP, metadataMapReplacement);
+                    LOG.debug("Adding startup-script to enable WinRM for Windows VM on "+provider);
+                }
+            } else {
+                // For AWS and vCloudDirector, we just set user_metadata_string.
+                // For Azure-classic, there is no capability to execute a startup script.
+                boolean userMetadataString = config.containsKey(JcloudsLocationConfig.USER_METADATA_STRING);
+                boolean userMetadataMap = config.containsKey(JcloudsLocationConfig.USER_METADATA_MAP);
+                if (!(userMetadataString || userMetadataMap)) {
+                    config.put(JcloudsLocationConfig.USER_METADATA_STRING, WinRmMachineLocation.getDefaultUserMetadataString(config()));
+                    LOG.debug("Adding startup-script to enable WinRM for Windows VM on "+provider);
+                } else {
+                    LOG.warn("Not adding startup-script for Windows VM on "+provider+", because already has config "
+                            +(userMetadataString ? USER_METADATA_STRING.getName() : USER_METADATA_MAP.getName()));
+                }
             }
         }
                
