@@ -241,14 +241,7 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
                         getBrooklynProperties())
                 .createPropertiesBuilder());
 
-        boolean isManagementContextSet = getManagementContext() != null;
-
         super.initManagementContext();
-
-        if (!isManagementContextSet) {
-            // We created the management context, so we are responsible for terminating it
-            BrooklynShutdownHooks.invokeTerminateOnShutdown(getManagementContext());
-        }
 
         if (customizeManagement!=null) {
             customizeManagement.apply(getManagementContext());

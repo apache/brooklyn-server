@@ -38,6 +38,9 @@ limitations under the License.
     <reference id="localManagementContextInternal"
                interface="org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal" />
 
+    <reference id="shutdownHandler"
+               interface="org.apache.brooklyn.core.mgmt.ShutdownHandler" />
+
     <bean id="accessResourceBean" class="org.apache.brooklyn.rest.resources.AccessResource">
         <property name="managementContext" ref="localManagementContext" />
         <property name="managementContextInternal" ref="localManagementContextInternal" />
@@ -124,6 +127,9 @@ limitations under the License.
             <bean class="org.apache.brooklyn.rest.util.DefaultExceptionMapper"/>
             <bean class="com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider"/>
             <bean class="org.apache.brooklyn.rest.util.FormMapProvider"/>
+            <bean class="org.apache.brooklyn.rest.util.ShutdownHandlerProvider">
+                <argument ref="shutdownHandler" />
+            </bean>
         </jaxrs:providers>
     </jaxrs:server>
 </blueprint>

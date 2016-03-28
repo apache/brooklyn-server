@@ -23,9 +23,12 @@ limitations under the License.
              http://aries.apache.org/schemas/blueprint-cm/blueprint-cm-1.1.0.xsd
              ">
 
-    <!-- Make sure core bundle is already started -->
+    <!-- Makes sure core bundle is already started -->
     <reference id="brooklynVersion"
                interface="org.apache.brooklyn.core.BrooklynVersionService" />
+
+    <reference id="systemService"
+               interface="org.apache.karaf.system.SystemService" />
 
     <cm:property-placeholder persistent-id="org.apache.brooklyn.osgilauncher" update-strategy="reload">
         <cm:default-properties>
@@ -54,7 +57,8 @@ limitations under the License.
 
     <bean id="launcher"
           class="org.apache.brooklyn.launcher.osgi.OsgiLauncher"
-          init-method="init">
+          init-method="init"
+          destroy-method="destroy">
 
         <property name="brooklynVersion" ref="brooklynVersion" />
         <property name="brooklynPropertiesBuilder" ref="propertiesBuilder" />
@@ -78,7 +82,9 @@ limitations under the License.
           factory-ref="launcher"
           factory-method="getCampPlatform" />
 
-    <!-- TODO shutdown -->
+    <service interface="org.apache.brooklyn.core.mgmt.ShutdownHandler">
+        <bean class="org.apache.brooklyn.launcher.osgi.OsgiShutdownHandler" />
+    </service>
 
     <service ref="localManagementContextService">
         <interfaces>

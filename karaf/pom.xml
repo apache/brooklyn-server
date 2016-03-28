@@ -33,7 +33,6 @@
   </parent>
   
   <properties>
-    <karaf.version>4.0.3</karaf.version>
 
     <org.osgi.compendium.version>5.0.0</org.osgi.compendium.version>
     
