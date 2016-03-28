@@ -73,6 +73,11 @@ public class HaHotCheckResourceFilter implements ResourceFilterFactory {
         this.mgmt = mgmt;
     }
 
+    // mgmt doesn't get injected for some reason, instead of looking for the cause just pass it at init time
+    public void setManagementContext(ContextResolver<ManagementContext> mgmt) {
+        this.mgmt = mgmt;
+    }
+
     private ManagementContext mgmt() {
         return mgmt.getContext(ManagementContext.class);
     }

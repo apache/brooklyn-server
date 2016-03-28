@@ -49,7 +49,6 @@ import org.apache.brooklyn.launcher.config.CustomResourceLocator;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.rest.RestApiSetup;
-import org.apache.brooklyn.rest.filter.BrooklynPropertiesSecurityFilter;
 import org.apache.brooklyn.rest.filter.EntitlementContextFilter;
 import org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter;
 import org.apache.brooklyn.rest.filter.LoggingFilter;
@@ -203,7 +202,7 @@ public class BrooklynWebServer {
      * {@link BrooklynLoginModule} used by default.
      */
     @Deprecated
-    private Class<BrooklynPropertiesSecurityFilter> securityFilterClazz;
+    private Class<org.apache.brooklyn.rest.filter.BrooklynPropertiesSecurityFilter> securityFilterClazz;
     
     @SetFromFlag
     private boolean skipSecurity = false;
@@ -240,7 +239,7 @@ public class BrooklynWebServer {
 
     /** @deprecated since 0.9.0, use {@link #skipSecurity} or {@link BrooklynLoginModule} */
     @Deprecated
-    public void setSecurityFilter(Class<BrooklynPropertiesSecurityFilter> filterClazz) {
+    public void setSecurityFilter(Class<org.apache.brooklyn.rest.filter.BrooklynPropertiesSecurityFilter> filterClazz) {
         this.securityFilterClazz = filterClazz;
     }
 

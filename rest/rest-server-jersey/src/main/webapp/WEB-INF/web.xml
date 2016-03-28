@@ -92,6 +92,11 @@
                 io.swagger.jaxrs.listing.SwaggerSerializers;
                 org.apache.brooklyn.rest.util.FormMapProvider;
                 com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider;
+                org.apache.brooklyn.rest.filter.RequestTaggingRsFilter;
+                org.apache.brooklyn.rest.filter.NoCacheFilter;
+                org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter;
+                org.apache.brooklyn.rest.filter.EntitlementContextFilter;
+                org.apache.brooklyn.rest.util.ManagementContextProvider;
                 org.apache.brooklyn.rest.resources.AccessResource;
                 org.apache.brooklyn.rest.resources.ActivityResource;
                 org.apache.brooklyn.rest.resources.ApidocResource;
