@@ -16,23 +16,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.rest.util;
+package org.apache.brooklyn.launcher;
 
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.core.MediaType;
+import org.eclipse.jetty.security.ConstraintMapping;
+import org.eclipse.jetty.security.ConstraintSecurityHandler;
 
-import org.apache.brooklyn.rest.filter.HaHotStateRequired;
+/**
+ * Ignores <security-constraint> elements from web.xml, so
+ * we can skip configuration even if requested by web app.
+ */
+public class NopSecurityHandler extends ConstraintSecurityHandler {
 
-@Path("/ha/class")
-@Produces(MediaType.APPLICATION_JSON)
-@HaHotStateRequired
-public class HaHotStateCheckClassResource {
-
-    @GET
-    @Path("fail")
-    public String fail() {
-        return "FAIL";
+    @Override
+    public void addConstraintMapping(ConstraintMapping mapping) {
     }
+
 }

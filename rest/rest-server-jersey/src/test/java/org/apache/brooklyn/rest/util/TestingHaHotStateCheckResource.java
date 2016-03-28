@@ -27,7 +27,7 @@ import org.apache.brooklyn.rest.filter.HaHotStateRequired;
 
 @Path("/ha/method")
 @Produces(MediaType.APPLICATION_JSON)
-public class HaHotStateCheckResource {
+public class TestingHaHotStateCheckResource {
 
     @GET
     @Path("ok")

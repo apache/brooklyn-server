@@ -110,6 +110,9 @@ limitations under the License.
         <property name="managementContext" ref="localManagementContext" />
         <property name="managementContextInternal" ref="localManagementContextInternal" />
     </bean>
+    <bean id="logoutResourceBean" class="org.apache.brooklyn.rest.resources.LogoutResource">
+        <property name="managementContext" ref="localManagementContext" />
+    </bean>
 
     <jaxrs:server id="brooklynRestApiV1" address="/">
         <jaxrs:serviceBeans>
@@ -129,6 +132,7 @@ limitations under the License.
             <ref component-id="serverResourceBean" />
             <ref component-id="usageResourceBean" />
             <ref component-id="versionResourceBean" />
+            <ref component-id="logoutResourceBean" />
         </jaxrs:serviceBeans>
 
         <jaxrs:providers>
@@ -138,6 +142,17 @@ limitations under the License.
             <bean class="org.apache.cxf.jaxrs.security.JAASAuthenticationFilter">
                 <property name="contextName" value="webconsole"/>
             </bean>
+            <bean class="org.apache.brooklyn.rest.util.ManagementContextProvider">
+                <argument ref="localManagementContextInternal" />
+            </bean>
+            <!--
+                TODO ShutdownHandlerProvider, sync with init work.
+                Needs to be custom OSGi implementation?
+            -->
+            <bean class="org.apache.brooklyn.rest.filter.RequestTaggingRsFilter" />
+            <bean class="org.apache.brooklyn.rest.filter.NoCacheFilter" />
+            <bean class="org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter" />
+            <bean class="org.apache.brooklyn.rest.filter.EntitlementContextFilter" />
         </jaxrs:providers>
 
     </jaxrs:server>

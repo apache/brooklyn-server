@@ -27,16 +27,17 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.ext.ContextResolver;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.rest.domain.ApiError;
 import org.apache.brooklyn.util.text.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.sun.jersey.api.model.AbstractMethod;
+import com.sun.jersey.core.util.Priority;
 import com.sun.jersey.spi.container.ContainerRequest;
 import com.sun.jersey.spi.container.ContainerRequestFilter;
 import com.sun.jersey.spi.container.ContainerResponseFilter;
@@ -52,7 +53,9 @@ import com.sun.jersey.spi.container.ResourceFilterFactory;
  * This follows a different pattern to {@link HaMasterCheckFilter} 
  * as this needs to know the method being invoked. 
  */
+@Priority(300)
 public class HaHotCheckResourceFilter implements ResourceFilterFactory {
+    private static final Set<String> SAFE_STANDBY_METHODS = ImmutableSet.of("GET", "HEAD");
     public static final String SKIP_CHECK_HEADER = "Brooklyn-Allow-Non-Master-Access";
     
     private static final Logger log = LoggerFactory.getLogger(HaHotCheckResourceFilter.class);
@@ -98,6 +101,10 @@ public class HaHotCheckResourceFilter implements ResourceFilterFactory {
             if (isSkipCheckHeaderSet(request)) 
                 return null;
             
+            if (isMasterRequiredForRequest(request) && !isMaster()) {
+                return "server not in required HA master state";
+            }
+            
             if (!isHaHotStateRequired(request))
                 return null;
             
@@ -117,7 +124,7 @@ public class HaHotCheckResourceFilter implements ResourceFilterFactory {
         public ContainerRequest filter(ContainerRequest request) {
             String problem = lookForProblem(request);
             if (Strings.isNonBlank(problem)) {
-                log.warn("Disallowing web request as "+problem+": "+request+"/"+am+" (caller should set '"+SKIP_CHECK_HEADER+"' to force)");
+                log.warn("Disallowing web request as "+problem+": "+request.getRequestUri()+"/"+am+" (caller should set '"+SKIP_CHECK_HEADER+"' to force)");
                 throw new WebApplicationException(ApiError.builder()
                     .message("This request is only permitted against an active hot Brooklyn server")
                     .errorCode(Response.Status.FORBIDDEN).build().asJsonResponse());
@@ -130,6 +137,27 @@ public class HaHotCheckResourceFilter implements ResourceFilterFactory {
         // isRebinding check, but introducing RebindManager#isAwaitingInitialRebind() seems cleaner.)
         private boolean isStateNotYetValid() {
             return mgmt.getRebindManager().isAwaitingInitialRebind();
+        }
+
+        private boolean isMaster() {
+            return ManagementNodeState.MASTER.equals(
+                    mgmt.getHighAvailabilityManager()
+                        .getNodeState());
+        }
+
+        private boolean isMasterRequiredForRequest(ContainerRequest requestContext) {
+            // gets usually okay
+            if (SAFE_STANDBY_METHODS.contains(requestContext.getMethod())) return false;
+            
+            String uri = requestContext.getRequestUri().toString();
+            // explicitly allow calls to shutdown
+            // (if stopAllApps is specified, the method itself will fail; but we do not want to consume parameters here, that breaks things!)
+            // TODO use an annotation HaAnyStateAllowed or HaHotCheckRequired(false) or similar
+            if ("server/shutdown".equals(uri) ||
+                    // Jersey compat
+                    "/v1/server/shutdown".equals(uri)) return false;
+            
+            return true;
         }
 
         private boolean isHaHotStateRequired(ContainerRequest request) {

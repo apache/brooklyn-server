@@ -36,10 +36,13 @@ import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServiceAttributes;
-import org.apache.brooklyn.rest.filter.BrooklynPropertiesSecurityFilter;
-import org.apache.brooklyn.rest.filter.HaMasterCheckFilter;
+import org.apache.brooklyn.rest.filter.EntitlementContextFilter;
+import org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter;
 import org.apache.brooklyn.rest.filter.LoggingFilter;
+import org.apache.brooklyn.rest.filter.NoCacheFilter;
 import org.apache.brooklyn.rest.filter.RequestTaggingFilter;
+import org.apache.brooklyn.rest.filter.RequestTaggingRsFilter;
+import org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule.RolePrincipal;
 import org.apache.brooklyn.rest.security.provider.AnyoneSecurityProvider;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider;
 import org.apache.brooklyn.rest.util.ManagementContextProvider;
@@ -51,6 +54,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.text.WildcardGlobs;
+import org.eclipse.jetty.jaas.JAASLoginService;
 import org.eclipse.jetty.server.NetworkConnector;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.ContextHandler;
@@ -89,11 +93,9 @@ public class BrooklynRestApiLauncher {
         SERVLET, /** web-xml is not fully supported */ @Beta WEB_XML
     }
 
-    public static final List<Class<? extends Filter>> DEFAULT_FILTERS = ImmutableList.of(
+    public static final List<Class<? extends Filter>> DEFAULT_FILTERS = ImmutableList.<Class<? extends Filter>>of(
             RequestTaggingFilter.class,
-            BrooklynPropertiesSecurityFilter.class,
-            LoggingFilter.class,
-            HaMasterCheckFilter.class);
+            LoggingFilter.class);
 
     private boolean forceUseOfDefaultCatalogWithJavaClassPath = false;
     private Class<? extends SecurityProvider> securityProvider;
@@ -217,8 +219,12 @@ public class BrooklynRestApiLauncher {
 
         installWar(context);
         RestApiSetup.installRest(context,
-                new ManagementContextProvider(managementContext),
-                new ShutdownHandlerProvider(shutdownListener));
+                new ManagementContextProvider(),
+                new ShutdownHandlerProvider(shutdownListener),
+                new RequestTaggingRsFilter(),
+                new NoCacheFilter(),
+                new HaHotCheckResourceFilter(),
+                new EntitlementContextFilter());
         RestApiSetup.installServletFilters(context, this.filters);
 
         context.setContextPath("/");
@@ -245,7 +251,6 @@ public class BrooklynRestApiLauncher {
     /** NB: not fully supported; use one of the other {@link StartMode}s */
     private ContextHandler webXmlContextHandler(ManagementContext mgmt) {
         RestApiSetup.initSwagger();
-        // TODO add security to web.xml
         WebAppContext context;
         if (findMatchingFile("src/main/webapp")!=null) {
             // running in source mode; need to use special classpath
@@ -290,7 +295,9 @@ public class BrooklynRestApiLauncher {
     @Deprecated
     public static Server startServer(ContextHandler context, String summary, InetSocketAddress bindLocation) {
         Server server = new Server(bindLocation);
-        
+
+        initJaas(server);
+
         server.setHandler(context);
         try {
             server.start();
@@ -301,6 +308,15 @@ public class BrooklynRestApiLauncher {
         log.info("  http://localhost:"+((NetworkConnector)server.getConnectors()[0]).getLocalPort()+"/");
 
         return server;
+    }
+
+    // TODO Why parallel code for server init here and in BrooklynWebServer?
+    private static void initJaas(Server server) {
+        JAASLoginService loginService = new JAASLoginService();
+        loginService.setName("webconsole");
+        loginService.setLoginModuleName("webconsole");
+        loginService.setRoleClassNames(new String[] {RolePrincipal.class.getName()});
+        server.addBean(loginService);
     }
 
     public static BrooklynRestApiLauncher launcher() {

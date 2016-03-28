@@ -33,7 +33,7 @@ import org.apache.brooklyn.util.text.Identifiers;
  * Tags each request with a probabilistically unique id. Should be included before other
  * filters to make sense.
  */
-//TODO Re-implement as JAX-RS filter
+// TODO Deprecate after porting LoggingFilter
 public class RequestTaggingFilter implements Filter {
 
     private static ThreadLocal<String> tag = new ThreadLocal<String>();
@@ -45,6 +45,7 @@ public class RequestTaggingFilter implements Filter {
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
         String requestId = Identifiers.makeRandomId(6);
+        request.setAttribute(RequestTaggingRsFilter.ATT_REQUEST_ID, requestId);
         tag.set(requestId);
         try {
             chain.doFilter(request, response);

@@ -88,6 +88,7 @@ public class BrooklynWebServerTest {
     @Test
     public void verifyHttp() throws Exception {
         webServer = new BrooklynWebServer(newManagementContext(brooklynProperties));
+        webServer.skipSecurity();
         try {
             webServer.start();
 
@@ -114,7 +115,7 @@ public class BrooklynWebServerTest {
                 .put("keystorePassword", "password")
                 .build();
         webServer = new BrooklynWebServer(flags, newManagementContext(brooklynProperties));
-        webServer.start();
+        webServer.skipSecurity().start();
         
         try {
             KeyStore keyStore = load("client.ks", "password");
@@ -172,6 +173,7 @@ public class BrooklynWebServerTest {
 
     private void verifyHttpsFromConfig(BrooklynProperties brooklynProperties) throws Exception {
         webServer = new BrooklynWebServer(MutableMap.of(), newManagementContext(brooklynProperties));
+        webServer.skipSecurity();
         webServer.start();
         
         try {

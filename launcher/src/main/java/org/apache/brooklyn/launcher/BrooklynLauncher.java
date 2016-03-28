@@ -45,7 +45,7 @@ import org.apache.brooklyn.launcher.common.BasicLauncher;
 import org.apache.brooklyn.launcher.common.BrooklynPropertiesFactoryHelper;
 import org.apache.brooklyn.launcher.config.StopWhichAppsOnShutdown;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
-import org.apache.brooklyn.rest.filter.BrooklynPropertiesSecurityFilter;
+import org.apache.brooklyn.rest.security.provider.AnyoneSecurityProvider;
 import org.apache.brooklyn.rest.security.provider.BrooklynUserWithRandomPasswordSecurityProvider;
 import org.apache.brooklyn.rest.util.ShutdownHandler;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -274,7 +274,16 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
         BrooklynProperties brooklynProperties = (BrooklynProperties) managementContext.getConfig();
 
         // No security options in properties and no command line options overriding.
-        if (Boolean.TRUE.equals(skipSecurityFilter) && bindAddress==null) {
+        Boolean skipSecurity = skipSecurityFilter;
+        if (skipSecurity == null) {
+            String securityProvider = managementContext.getConfig().getConfig(BrooklynWebConfig.SECURITY_PROVIDER_CLASSNAME);
+            // The security provider will let anyone in, but still require a password to be entered.
+            // Skip password request dialog if we know the provider will let users through.
+            if (AnyoneSecurityProvider.class.getName().equals(securityProvider)) {
+                skipSecurity = true;
+            }
+        }
+        if (Boolean.TRUE.equals(skipSecurity) && bindAddress==null) {
             LOG.info("Starting Brooklyn web-console on loopback because security is explicitly disabled and no bind address specified");
             bindAddress = Networking.LOOPBACK;
         } else if (BrooklynWebConfig.hasNoSecurityOptions(managementContext.getConfig())) {
@@ -308,9 +317,7 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
             if (useHttps!=null) webServer.setHttpsEnabled(useHttps);
             webServer.setShutdownHandler(shutdownHandler);
             webServer.putAttributes(brooklynProperties);
-            if (skipSecurityFilter != Boolean.TRUE) {
-                webServer.setSecurityFilter(BrooklynPropertiesSecurityFilter.class);
-            }
+            webServer.skipSecurity(Boolean.TRUE.equals(skipSecurity));
             for (WebAppContextProvider webapp : webApps) {
                 webServer.addWar(webapp);
             }

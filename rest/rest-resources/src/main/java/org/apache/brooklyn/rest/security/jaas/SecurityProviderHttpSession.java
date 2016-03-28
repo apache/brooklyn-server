@@ -18,13 +18,20 @@
  */
 package org.apache.brooklyn.rest.security.jaas;
 
+import java.util.Collections;
 import java.util.Enumeration;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpSession;
 import javax.servlet.http.HttpSessionContext;
 
+import org.apache.brooklyn.util.text.Identifiers;
+
 public class SecurityProviderHttpSession implements HttpSession {
+    String id = Identifiers.makeRandomId(5);
+    Map<String, Object> attributes = new ConcurrentHashMap<>();
 
     @Override
     public long getCreationTime() {
@@ -33,7 +40,7 @@ public class SecurityProviderHttpSession implements HttpSession {
 
     @Override
     public String getId() {
-        return null;
+        return id;
     }
 
     @Override
@@ -62,7 +69,7 @@ public class SecurityProviderHttpSession implements HttpSession {
 
     @Override
     public Object getAttribute(String name) {
-        return null;
+        return attributes.get(name);
     }
 
     @Override
@@ -72,7 +79,7 @@ public class SecurityProviderHttpSession implements HttpSession {
 
     @Override
     public Enumeration<String> getAttributeNames() {
-        return null;
+        return Collections.enumeration(attributes.keySet());
     }
 
     @Override
@@ -82,6 +89,7 @@ public class SecurityProviderHttpSession implements HttpSession {
 
     @Override
     public void setAttribute(String name, Object value) {
+        attributes.put(name, value);
     }
 
     @Override
@@ -90,6 +98,7 @@ public class SecurityProviderHttpSession implements HttpSession {
 
     @Override
     public void removeAttribute(String name) {
+        attributes.remove(name);
     }
 
     @Override
@@ -98,6 +107,8 @@ public class SecurityProviderHttpSession implements HttpSession {
 
     @Override
     public void invalidate() {
+        id = Identifiers.makeRandomId(5);
+        attributes.clear();
     }
 
     @Override

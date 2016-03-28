@@ -34,6 +34,7 @@ limitations under the License.
                      flags="required">
             brooklyn.webconsole.security.provider.symbolicName=org.apache.brooklyn.test.security
             brooklyn.webconsole.security.provider.version=1.0.0
+            brooklyn.webconsole.security.provider.role=users
         </jaas:module>
     </jaas:config>
 </blueprint>

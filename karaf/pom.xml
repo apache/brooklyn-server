@@ -55,6 +55,7 @@
 
   <modules>
     <module>init</module>
+    <module>jetty-config</module>
     <module>features</module>
     <module>apache-brooklyn</module>
     <module>commands</module>

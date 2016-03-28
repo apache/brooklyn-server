@@ -47,7 +47,6 @@ import org.apache.brooklyn.rest.filter.SwaggerFilter;
 import org.apache.brooklyn.rest.security.provider.AnyoneSecurityProvider;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider;
 import org.apache.brooklyn.rest.util.ManagementContextProvider;
-import org.apache.brooklyn.rest.util.NullServletConfigProvider;
 import org.apache.brooklyn.rest.util.ServerStoppingShutdownHandler;
 import org.apache.brooklyn.rest.util.ShutdownHandlerProvider;
 import org.apache.brooklyn.util.core.osgi.Compat;
@@ -251,7 +250,7 @@ public class BrooklynRestApiLauncher {
         ResourceConfig config = new DefaultResourceConfig();
         for (Object r: BrooklynRestApi.getAllResources())
             config.getSingletons().add(r);
-        config.getSingletons().add(new ManagementContextProvider(mgmt));
+        config.getSingletons().add(new ManagementContextProvider());
         addShutdownListener(config, mgmt);
 
 
@@ -382,7 +381,7 @@ public class BrooklynRestApiLauncher {
         context.addFilter(filterHolder, "/v1/*", EnumSet.allOf(DispatcherType.class));
 
         ManagementContext mgmt = getManagementContext(context);
-        config.getSingletons().add(new ManagementContextProvider(mgmt));
+        config.getSingletons().add(new ManagementContextProvider());
         addShutdownListener(config, mgmt);
     }
 

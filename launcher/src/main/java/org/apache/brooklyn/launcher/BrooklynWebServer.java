@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 
 import javax.annotation.Nullable;
+import javax.security.auth.spi.LoginModule;
 
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -49,11 +50,15 @@ import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocati
 import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.rest.RestApiSetup;
 import org.apache.brooklyn.rest.filter.BrooklynPropertiesSecurityFilter;
+import org.apache.brooklyn.rest.filter.EntitlementContextFilter;
 import org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter;
-import org.apache.brooklyn.rest.filter.HaMasterCheckFilter;
 import org.apache.brooklyn.rest.filter.LoggingFilter;
 import org.apache.brooklyn.rest.filter.NoCacheFilter;
 import org.apache.brooklyn.rest.filter.RequestTaggingFilter;
+import org.apache.brooklyn.rest.filter.RequestTaggingRsFilter;
+import org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule;
+import org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule.RolePrincipal;
+import org.apache.brooklyn.rest.security.jaas.JaasUtils;
 import org.apache.brooklyn.rest.util.ManagementContextProvider;
 import org.apache.brooklyn.rest.util.ShutdownHandler;
 import org.apache.brooklyn.rest.util.ShutdownHandlerProvider;
@@ -75,6 +80,7 @@ import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.web.ContextHandlerCollectionHotSwappable;
 import org.eclipse.jetty.http.HttpVersion;
+import org.eclipse.jetty.jaas.JAASLoginService;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.HttpConfiguration;
 import org.eclipse.jetty.server.HttpConnectionFactory;
@@ -191,7 +197,16 @@ public class BrooklynWebServer {
 
     private File webappTempDir;
     
+    /**
+     * @deprecated since 0.9.0, use {@link #consoleSecurity} to disable security or
+     * register an alternative JAAS {@link LoginModule}.
+     * {@link BrooklynLoginModule} used by default.
+     */
+    @Deprecated
     private Class<BrooklynPropertiesSecurityFilter> securityFilterClazz;
+    
+    @SetFromFlag
+    private boolean skipSecurity = false;
 
     private ShutdownHandler shutdownHandler;
 
@@ -212,6 +227,7 @@ public class BrooklynWebServer {
             log.warn("Ignoring unknown flags " + leftovers);
         
         webappTempDir = BrooklynServerPaths.getBrooklynWebTmpDir(managementContext);
+        JaasUtils.init(managementContext);
     }
 
     public BrooklynWebServer(ManagementContext managementContext, int port) {
@@ -222,8 +238,19 @@ public class BrooklynWebServer {
         this(MutableMap.of("port", port, "war", warUrl), managementContext);
     }
 
+    /** @deprecated since 0.9.0, use {@link #skipSecurity} or {@link BrooklynLoginModule} */
+    @Deprecated
     public void setSecurityFilter(Class<BrooklynPropertiesSecurityFilter> filterClazz) {
         this.securityFilterClazz = filterClazz;
+    }
+
+    public BrooklynWebServer skipSecurity() {
+        return skipSecurity(true);
+    }
+
+    public BrooklynWebServer skipSecurity(boolean skipSecurity) {
+        this.skipSecurity = skipSecurity;
+        return this;
     }
 
     public void setShutdownHandler(@Nullable ShutdownHandler shutdownHandler) {
@@ -359,6 +386,14 @@ public class BrooklynWebServer {
         threadPool.setName("brooklyn-jetty-server-"+actualPort+"-"+threadPool.getName());
 
         server = new Server(threadPool);
+
+        // Can be moved to jetty-web.xml inside wars or a global jetty.xml.
+        JAASLoginService loginService = new JAASLoginService();
+        loginService.setName("webconsole");
+        loginService.setLoginModuleName("webconsole");
+        loginService.setRoleClassNames(new String[] {RolePrincipal.class.getName()});
+        server.addBean(loginService);
+
         final ServerConnector connector;
 
         if (getHttpsEnabled()) {
@@ -420,14 +455,15 @@ public class BrooklynWebServer {
 
     private WebAppContext deployRestApi(WebAppContext context) {
         RestApiSetup.installRest(context,
-                new ManagementContextProvider(managementContext),
+                new ManagementContextProvider(),
                 new ShutdownHandlerProvider(shutdownHandler),
+                new RequestTaggingRsFilter(),
                 new NoCacheFilter(),
-                new HaHotCheckResourceFilter());
+                new HaHotCheckResourceFilter(),
+                new EntitlementContextFilter());
         RestApiSetup.installServletFilters(context,
                 RequestTaggingFilter.class,
-                LoggingFilter.class,
-                HaMasterCheckFilter.class);
+                LoggingFilter.class);
         if (securityFilterClazz != null) {
             RestApiSetup.installServletFilters(context, securityFilterClazz);
         }
@@ -600,8 +636,25 @@ public class BrooklynWebServer {
      */
     public WebAppContext deploy(WebAppContextProvider contextProvider) {
         WebAppContext context = contextProvider.get(managementContext, attributes, ignoreWebappDeploymentFailures);
+        initSecurity(context);
         deploy(context);
         return context;
+    }
+
+    private void initSecurity(WebAppContext context) {
+        if (skipSecurity) {
+            // Could add <security-constraint> in an override web.xml here
+            // instead of relying on the war having it (useful for downstream).
+            // context.addOverrideDescriptor("override-web.xml");
+            // But then should do the same in OSGi. For now require the web.xml
+            // to have security pre-configured and ignore it if noConsoleSecurity used.
+            //
+            // Ignore security config in web.xml.
+            context.setDefaultSecurityHandlerClass(NopSecurityHandler.class);
+        } else {
+            // Cover for downstream projects which don't have the changes.
+            context.addOverrideDescriptor(getClass().getResource("/web-security.xml").toExternalForm());
+        }
     }
 
     public void deploy(WebAppContext context) {

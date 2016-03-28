@@ -31,6 +31,7 @@ import org.apache.brooklyn.rest.resources.EffectorResource;
 import org.apache.brooklyn.rest.resources.EntityConfigResource;
 import org.apache.brooklyn.rest.resources.EntityResource;
 import org.apache.brooklyn.rest.resources.LocationResource;
+import org.apache.brooklyn.rest.resources.LogoutResource;
 import org.apache.brooklyn.rest.resources.PolicyConfigResource;
 import org.apache.brooklyn.rest.resources.PolicyResource;
 import org.apache.brooklyn.rest.resources.ScriptResource;
@@ -67,6 +68,7 @@ public class BrooklynRestApi {
         resources.add(new ServerResource());
         resources.add(new UsageResource());
         resources.add(new VersionResource());
+        resources.add(new LogoutResource());
         return resources;
     }
 
