@@ -126,7 +126,102 @@ public class SoftLayerSameVlanLocationCustomizer extends BasicJcloudsLocationCus
     }
 
     /**
-     * Used to obtain the VLANs being used by the first created {@link JcloudsMachineLocation}.
+     * Update the {@link org.jclouds.compute.options.TemplateOptions} that will
+     * be used by {@link JcloudsLocation} to obtain machines. Uses the VLAN
+     * numbers configured on an existing machine, as saved in the configuration
+     * maps for {@link #PUBLIC_VLAN_ID_MAP public} and {@link #PRIVATE_VLAN_ID_MAP private}
+     * VLAN numbers.
+     * <p>
+     * If no such numbers, this either returns (if no one else is creating) or blocks (waiting on someone else who is creating).
+     *
+     * @see {@link JcloudsLocationCustomizer#customize(JcloudsLocation, ComputeService, TemplateOptions)}
+     */
+    @Override
+    public void customize(JcloudsLocation location, ComputeService computeService, TemplateOptions templateOptions) {
+        // Check we are customising a SoftLayer location
+        String provider = location.getProvider();
+        if (!(provider.equals(SoftLayerConstants.SOFTLAYER_PROVIDER_NAME) &&
+                templateOptions instanceof SoftLayerTemplateOptions)) {
+            String message = String.format("Invalid location provider or template options: %s/%s",
+                    provider, templateOptions.getClass().getSimpleName());
+            LOG.warn(message);
+            throw new IllegalArgumentException(message);
+        }
+
+        // Check template options for VLAN configuration and return if already set
+        String scopeUid = getScopeUid(location);
+        SoftLayerTemplateOptions softLayerOptions = (SoftLayerTemplateOptions) templateOptions;
+        Integer publicVlanId = softLayerOptions.getPrimaryNetworkComponentNetworkVlanId();
+        Integer privateVlanId = softLayerOptions.getPrimaryBackendNetworkComponentNetworkVlanId();
+        if (publicVlanId != null && privateVlanId != null) {
+            LOG.debug("SoftLayer VLANs private {} and public {} already configured in template options for scope: {}",
+                    new Object[] { privateVlanId, publicVlanId, scopeUid });
+            return;
+        }
+
+        // if vlan details already available then don't even bother looking at the latch
+        LOG.debug("Looking up saved VLAN details {}", scopeUid);
+        publicVlanId = lookupPublicVlanId(location, scopeUid);
+        privateVlanId = lookupPrivateVlanId(location, scopeUid);
+        if (publicVlanId==null && privateVlanId!=null) {
+            saveVlanTemplateOptions(scopeUid, softLayerOptions, publicVlanId, privateVlanId);
+            return;
+        }
+
+        // vlan details need to be created; should we do it?
+        CountDownLatch latch = null;
+        synchronized (lock) {
+            latch = lookupCountDownLatch(location, scopeUid);
+            if (latch == null) {
+                // we are the first -- create a latch to block others
+                LOG.debug("Creating new latch for scope: {}", scopeUid);
+                latch = createCountDownLatch(location, scopeUid);
+                return;
+            }
+        }
+
+        // someone else is/has created. block on the latch.
+        Duration timeout = getTimeout(location);
+        Tasks.setBlockingDetails("Waiting for VLAN details");
+        try {
+            LOG.debug("Waiting for VLAN details for scope: {}", scopeUid);
+            if (!Uninterruptibles.awaitUninterruptibly(latch, timeout.toMilliseconds(), TimeUnit.MILLISECONDS)) {
+                // timeout -- release the latch to trigger others to unblock;
+                // remove the recorded latch so the next fresh attempt will try to create again;
+                // and throw because this location is not able to be provisioned with right vlan info 
+                latch.countDown();
+                removeCountDownLatch(location, scopeUid);
+                throw new IllegalStateException("Timeout waiting on VLAN info in " + location + " for scope: " + scopeUid);
+            }
+        } finally {
+            Tasks.resetBlockingDetails();
+        }
+
+        // Looking up saved VLAN details
+        LOG.debug("Looking up saved VLAN details {}", scopeUid);
+        publicVlanId = lookupPublicVlanId(location, scopeUid);
+        privateVlanId = lookupPrivateVlanId(location, scopeUid);
+        if (privateVlanId == null && publicVlanId == null) {
+            // Saved VLAN IDs not found; something went wrong!
+            // throw because this location is not able to be provisioned with right vlan info
+            // NB: if either public or private is set, we will live with that (not sure if that happens and if so what it would mean...)
+            String message = String.format("Saved VLAN configuration not available for location %s scope %s", location, scopeUid);
+            LOG.warn(message);
+            throw new IllegalArgumentException(message);
+        }
+
+        saveVlanTemplateOptions(scopeUid, softLayerOptions, publicVlanId, privateVlanId);
+    }
+
+    private void saveVlanTemplateOptions(String scopeUid, SoftLayerTemplateOptions softLayerOptions, Integer publicVlanId, Integer privateVlanId) {
+        LOG.debug("Setting VLAN template options private {} and public {} for scope: {}",
+            new Object[] { privateVlanId, publicVlanId, scopeUid });
+        softLayerOptions.primaryNetworkComponentNetworkVlanId(publicVlanId);
+        softLayerOptions.primaryBackendNetworkComponentNetworkVlanId(privateVlanId);
+    }
+
+    /**
+     * After provisioning, if it's the first created {@link JcloudsMachineLocation} then get and cache the VLAN info 
      *
      * @see {@link JcloudsLocationCustomizer#customize(JcloudsLocation, ComputeService, JcloudsMachineLocation)}
      */
@@ -205,98 +300,6 @@ public class SoftLayerSameVlanLocationCustomizer extends BasicJcloudsLocationCus
         entity.tags().addTag("softlayer-vlan-scopeUid-" + scopeUid);
     }
 
-    /**
-     * Update the {@link org.jclouds.compute.options.TemplateOptions} that will
-     * be used by {@link JcloudsLocation} to obtain machines. Uses the VLAN
-     * numbers configured on an existing machine, as saved in the configuration
-     * maps for {@link #PUBLIC_VLAN_ID_MAP public} and {@link #PRIVATE_VLAN_ID_MAP private}
-     * VLAN numbers.
-     *
-     * @see {@link JcloudsLocationCustomizer#customize(JcloudsLocation, ComputeService, TemplateOptions)}
-     */
-    @Override
-    public void customize(JcloudsLocation location, ComputeService computeService, TemplateOptions templateOptions) {
-        // Check we are customising a SoftLayer location
-        String provider = location.getProvider();
-        if (!(provider.equals(SoftLayerConstants.SOFTLAYER_PROVIDER_NAME) &&
-                templateOptions instanceof SoftLayerTemplateOptions)) {
-            String message = String.format("Invalid location provider or template options: %s/%s",
-                    provider, templateOptions.getClass().getSimpleName());
-            LOG.warn(message);
-            throw new IllegalArgumentException(message);
-        }
-
-        // Check template options for VLAN configuration and return if already set
-        String scopeUid = getScopeUid(location);
-        SoftLayerTemplateOptions softLayerOptions = (SoftLayerTemplateOptions) templateOptions;
-        Integer publicVlanId = softLayerOptions.getPrimaryNetworkComponentNetworkVlanId();
-        Integer privateVlanId = softLayerOptions.getPrimaryBackendNetworkComponentNetworkVlanId();
-        if (publicVlanId != null && privateVlanId != null) {
-            LOG.debug("SoftLayer VLANs private {} and public {} already configured in template options for scope: {}",
-                    new Object[] { privateVlanId, publicVlanId, scopeUid });
-            return;
-        }
-
-        // if vlan details already available then don't even bother looking at the latch
-        LOG.debug("Looking up saved VLAN details {}", scopeUid);
-        publicVlanId = lookupPublicVlanId(location, scopeUid);
-        privateVlanId = lookupPrivateVlanId(location, scopeUid);
-        if (publicVlanId==null && privateVlanId!=null) {
-            saveVlanOptions(scopeUid, softLayerOptions, publicVlanId, privateVlanId);
-            return;
-        }
-
-        // vlan details need to be created; should we do it?
-        CountDownLatch latch = null;
-        synchronized (lock) {
-            latch = lookupCountDownLatch(location, scopeUid);
-            if (latch == null) {
-                // we are the first -- create a latch to block others
-                LOG.debug("Creating new latch for scope: {}", scopeUid);
-                latch = createCountDownLatch(location, scopeUid);
-                return;
-            }
-        }
-
-        // someone else is/has created. block on the latch.
-        Duration timeout = getTimeout(location);
-        Tasks.setBlockingDetails("Waiting for VLAN details");
-        try {
-            LOG.debug("Waiting for VLAN details for scope: {}", scopeUid);
-            if (!Uninterruptibles.awaitUninterruptibly(latch, timeout.toMilliseconds(), TimeUnit.MILLISECONDS)) {
-                // timeout -- release the latch to trigger others to unblock;
-                // remove the recorded latch so the next fresh attempt will try to create again;
-                // and throw because this location is not able to be provisioned with right vlan info 
-                latch.countDown();
-                removeCountDownLatch(location, scopeUid);
-                throw new IllegalStateException("Timeout waiting on VLAN info in " + location + " for scope: " + scopeUid);
-            }
-        } finally {
-            Tasks.resetBlockingDetails();
-        }
-
-        // Looking up saved VLAN details
-        LOG.debug("Looking up saved VLAN details {}", scopeUid);
-        publicVlanId = lookupPublicVlanId(location, scopeUid);
-        privateVlanId = lookupPrivateVlanId(location, scopeUid);
-        if (privateVlanId == null && publicVlanId == null) {
-            // Saved VLAN IDs not found; something went wrong!
-            // throw because this location is not able to be provisioned with right vlan info
-            // NB: if either public or private is set, we will live with that (not sure if that happens and if so what it would mean...)
-            String message = String.format("Saved VLAN configuration not available for location %s scope %s", location, scopeUid);
-            LOG.warn(message);
-            throw new IllegalArgumentException(message);
-        }
-
-        saveVlanOptions(scopeUid, softLayerOptions, publicVlanId, privateVlanId);
-    }
-
-    private void saveVlanOptions(String scopeUid, SoftLayerTemplateOptions softLayerOptions, Integer publicVlanId, Integer privateVlanId) {
-        LOG.debug("Setting VLAN template options private {} and public {} for scope: {}",
-                new Object[] { privateVlanId, publicVlanId, scopeUid });
-        softLayerOptions.primaryNetworkComponentNetworkVlanId(publicVlanId);
-        softLayerOptions.primaryBackendNetworkComponentNetworkVlanId(privateVlanId);
-    }
 
     /**
      * Get the {@link #SCOPE_TIMEOUT timeout} {@link Duration duration} from the
@@ -345,16 +348,11 @@ public class SoftLayerSameVlanLocationCustomizer extends BasicJcloudsLocationCus
     protected CountDownLatch createCountDownLatch(JcloudsLocation location, String scopeUid) {
         synchronized (lock) {
             Map<String, CountDownLatch> map = MutableMap.copyOf(location.config().get(COUNTDOWN_LATCH_MAP));
-
             if (!map.containsKey(scopeUid)) {
                 map.put(scopeUid, new CountDownLatch(1));
+                saveAndPersist(location, COUNTDOWN_LATCH_MAP, map);
             }
-            CountDownLatch latch = map.get(scopeUid);
-
-            location.config().set(COUNTDOWN_LATCH_MAP, ImmutableMap.copyOf(map));
-            location.getManagementContext().getRebindManager().forcePersistNow(false, null);
-
-            return latch;
+            return map.get(scopeUid);
         }
     }
 
@@ -367,21 +365,23 @@ public class SoftLayerSameVlanLocationCustomizer extends BasicJcloudsLocationCus
 
             map.remove(scopeUid);
 
-            location.config().set(COUNTDOWN_LATCH_MAP, ImmutableMap.copyOf(map));
-            location.getManagementContext().getRebindManager().forcePersistNow(false, null);
+            saveAndPersist(location, COUNTDOWN_LATCH_MAP, map);
         }
+    }
+
+    private <T> void saveAndPersist(JcloudsLocation location, ConfigKey<Map<String, T>> key, Map<String, T> map) {
+        location.config().set(key, ImmutableMap.copyOf(map));
+        location.getManagementContext().getRebindManager().forcePersistNow(false, null);
     }
 
     /** Return the public VLAN number for a scope. */
     protected Integer lookupPublicVlanId(JcloudsLocation location, String scopeUid) {
         synchronized (lock) {
-            Map<String, Integer> map = MutableMap.copyOf(location.config().get(PUBLIC_VLAN_ID_MAP));
-
-            if (map.isEmpty()) {
-                location.config().set(PUBLIC_VLAN_ID_MAP, ImmutableMap.copyOf(map));
-                location.getManagementContext().getRebindManager().forcePersistNow(false, null);
+            Map<String, Integer> map = location.config().get(PUBLIC_VLAN_ID_MAP);
+            if (map == null) {
+                map = MutableMap.copyOf(map);
+                saveAndPersist(location, PUBLIC_VLAN_ID_MAP, map);
             }
-
             return map.get(scopeUid);
         }
     }
@@ -390,24 +390,21 @@ public class SoftLayerSameVlanLocationCustomizer extends BasicJcloudsLocationCus
     protected void savePublicVlanId(JcloudsLocation location, String scopeUid, Integer publicVlanId) {
         synchronized (lock) {
             Map<String, Integer> map = MutableMap.copyOf(location.config().get(PUBLIC_VLAN_ID_MAP));
-
+            
             map.put(scopeUid, publicVlanId);
-
-            location.config().set(PUBLIC_VLAN_ID_MAP, ImmutableMap.copyOf(map));
-            location.getManagementContext().getRebindManager().forcePersistNow(false, null);
+            
+            saveAndPersist(location, PUBLIC_VLAN_ID_MAP, map);
         }
     }
 
     /** Return the private VLAN number for a scope. */
     protected Integer lookupPrivateVlanId(JcloudsLocation location, String scopeUid) {
         synchronized (lock) {
-            Map<String, Integer> map = MutableMap.copyOf(location.config().get(PRIVATE_VLAN_ID_MAP));
-
-            if (map.isEmpty()) {
-                location.config().set(PRIVATE_VLAN_ID_MAP, ImmutableMap.copyOf(map));
-                location.getManagementContext().getRebindManager().forcePersistNow(false, null);
+            Map<String, Integer> map = location.config().get(PRIVATE_VLAN_ID_MAP);
+            if (map == null) {
+                map = MutableMap.copyOf(map);
+                saveAndPersist(location, PRIVATE_VLAN_ID_MAP, map);
             }
-
             return map.get(scopeUid);
         }
     }
@@ -419,8 +416,7 @@ public class SoftLayerSameVlanLocationCustomizer extends BasicJcloudsLocationCus
 
             map.put(scopeUid, privateVlanId);
 
-            location.config().set(PRIVATE_VLAN_ID_MAP, ImmutableMap.copyOf(map));
-            location.getManagementContext().getRebindManager().forcePersistNow(false, null);
+            saveAndPersist(location, PRIVATE_VLAN_ID_MAP, map);
         }
     }
 }
