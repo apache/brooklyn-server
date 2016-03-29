@@ -25,6 +25,7 @@ import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.launcher.common.BasicLauncher;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.rest.security.provider.BrooklynUserWithRandomPasswordSecurityProvider;
+import org.apache.brooklyn.util.javalang.Threads;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +36,7 @@ import org.slf4j.LoggerFactory;
  * Temporarily here; should be totally contained in blueprint beans' init-methods.
  */
 public class OsgiLauncher extends BasicLauncher<OsgiLauncher> {
+
     private static final Logger LOG = LoggerFactory.getLogger(OsgiLauncher.class);
 
     private BrooklynVersionService brooklynVersion;
@@ -47,9 +49,16 @@ public class OsgiLauncher extends BasicLauncher<OsgiLauncher> {
         return super.start();
     }
 
+    // Called by blueprint container
     // init-method can't find the start method for some reason, provide an alternative
     public void init() {
         start();
+    }
+
+    // Called by blueprint container
+    public void destroy() {
+        LOG.debug("Notified of system shutdown, calling shutdown hooks");
+        Threads.runShutdownHooks();
     }
 
     public void setBrooklynVersion(BrooklynVersionService brooklynVersion) {

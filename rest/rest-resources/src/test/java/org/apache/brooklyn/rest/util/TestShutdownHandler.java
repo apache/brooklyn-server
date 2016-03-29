@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.rest.util;
 
+import org.apache.brooklyn.core.mgmt.ShutdownHandler;
+
 public class TestShutdownHandler implements ShutdownHandler {
     private volatile boolean isRequested;
 

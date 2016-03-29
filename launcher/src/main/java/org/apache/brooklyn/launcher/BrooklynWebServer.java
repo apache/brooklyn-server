@@ -59,7 +59,7 @@ import org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule;
 import org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule.RolePrincipal;
 import org.apache.brooklyn.rest.security.jaas.JaasUtils;
 import org.apache.brooklyn.rest.util.ManagementContextProvider;
-import org.apache.brooklyn.rest.util.ShutdownHandler;
+import org.apache.brooklyn.core.mgmt.ShutdownHandler;
 import org.apache.brooklyn.rest.util.ShutdownHandlerProvider;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.BrooklynNetworkUtils;

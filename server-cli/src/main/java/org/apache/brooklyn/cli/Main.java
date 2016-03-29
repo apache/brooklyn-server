@@ -69,7 +69,7 @@ import org.apache.brooklyn.launcher.BrooklynLauncher;
 import org.apache.brooklyn.launcher.BrooklynServerDetails;
 import org.apache.brooklyn.launcher.config.StopWhichAppsOnShutdown;
 import org.apache.brooklyn.rest.security.PasswordHasher;
-import org.apache.brooklyn.rest.util.ShutdownHandler;
+import org.apache.brooklyn.core.mgmt.ShutdownHandler;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.FatalConfigurationRuntimeException;

@@ -16,30 +16,31 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.rest.util;
-
-import javax.annotation.Nullable;
-import javax.ws.rs.ext.ContextResolver;
-import javax.ws.rs.ext.Provider;
+package org.apache.brooklyn.launcher.osgi;
 
 import org.apache.brooklyn.core.mgmt.ShutdownHandler;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.osgi.framework.Bundle;
+import org.osgi.framework.FrameworkUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-
-@Provider
-public class ShutdownHandlerProvider implements ContextResolver<ShutdownHandler> {
-    private ShutdownHandler shutdownHandler;
-
-    public ShutdownHandlerProvider(@Nullable ShutdownHandler instance) {
-        this.shutdownHandler = instance;
-    }
+public class OsgiShutdownHandler implements ShutdownHandler {
+    private static final Logger log = LoggerFactory.getLogger(OsgiShutdownHandler.class);
 
     @Override
-    public ShutdownHandler getContext(Class<?> type) {
-        if (type == ShutdownHandler.class) {
-            return shutdownHandler;
-        } else {
-            return null;
+    public void onShutdownRequest() {
+        try {
+            log.debug("OSGi Shutdown Handler invoked, stopping container framework.");
+            getFramework().stop();
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
         }
+    }
+
+    private Bundle getFramework() {
+        final Bundle bundle = FrameworkUtil.getBundle(OsgiShutdownHandler.class);
+        return bundle.getBundleContext().getBundle(0);
     }
 
 }

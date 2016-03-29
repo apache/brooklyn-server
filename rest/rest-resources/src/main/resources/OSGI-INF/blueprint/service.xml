@@ -39,9 +39,10 @@ limitations under the License.
                interface="org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal" />
 
     <jaas:config name="webconsole">
-        <jaas:module className="org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule"
-                     flags="required" />
+        <jaas:module className="org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule" flags="required" />
     </jaas:config>
+
+    <reference id="shutdownHandler" interface="org.apache.brooklyn.core.mgmt.ShutdownHandler" />
 
     <bean class="org.apache.brooklyn.rest.security.jaas.ManagementContextHolder">
         <property name="managementContext" ref="localManagementContext" />
@@ -105,6 +106,9 @@ limitations under the License.
             <bean class="org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter" />
             <bean class="org.apache.brooklyn.rest.filter.EntitlementContextFilter" />
             <bean class="io.swagger.jaxrs.listing.SwaggerSerializers" />
+            <bean class="org.apache.brooklyn.rest.util.ShutdownHandlerProvider">
+                <argument ref="shutdownHandler" />
+            </bean>
         </jaxrs:providers>
 
     </jaxrs:server>

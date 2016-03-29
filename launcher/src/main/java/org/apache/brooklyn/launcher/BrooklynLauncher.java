@@ -47,7 +47,7 @@ import org.apache.brooklyn.launcher.config.StopWhichAppsOnShutdown;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.rest.security.provider.AnyoneSecurityProvider;
 import org.apache.brooklyn.rest.security.provider.BrooklynUserWithRandomPasswordSecurityProvider;
-import org.apache.brooklyn.rest.util.ShutdownHandler;
+import org.apache.brooklyn.core.mgmt.ShutdownHandler;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.FatalRuntimeException;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
@@ -241,14 +241,7 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
                         getBrooklynProperties())
                 .createPropertiesBuilder());
 
-        boolean isManagementContextSet = getManagementContext() != null;
-
         super.initManagementContext();
-
-        if (!isManagementContextSet) {
-            // We created the management context, so we are responsible for terminating it
-            BrooklynShutdownHooks.invokeTerminateOnShutdown(getManagementContext());
-        }
 
         if (customizeManagement!=null) {
             customizeManagement.apply(getManagementContext());
