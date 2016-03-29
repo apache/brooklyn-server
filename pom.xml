@@ -165,6 +165,9 @@
         <minidev.asm.version>1.0.2</minidev.asm.version>
         <commons-beanutils.version>1.9.1</commons-beanutils.version>
         <commons-collections.version>3.2.1</commons-collections.version>
+        <okhttp.version>2.2.0</okhttp.version>
+        <okio.version>1.2.0</okio.version>
+        <mimepull.version>1.9.3</mimepull.version>
 
         <!-- Testing Dependency Versions -->
         <testng.version>6.8.8</testng.version>
