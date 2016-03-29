@@ -109,8 +109,4 @@ limitations under the License.
     <service id="multiLocationResolverService" ref="multiLocationResolver"
              interface="org.apache.brooklyn.api.location.LocationResolver"/>
 
-    <bean id="containerFramework"
-          class="org.apache.brooklyn.util.core.osgi.ContainerFramework" />
-    <service ref="containerFramework"
-          interface="org.apache.brooklyn.util.osgi.SystemFramework" />
 </blueprint>
