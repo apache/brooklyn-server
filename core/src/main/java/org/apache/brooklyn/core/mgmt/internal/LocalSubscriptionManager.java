@@ -143,6 +143,9 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
                         if (s.eventFilter!=null && !s.eventFilter.apply(event))
                             return;
                         try {
+                            int count = s.eventCount.incrementAndGet();
+                            if (count > 0 && count % 1000 == 0) LOG.debug("{} events for subscriber {}", count, s);
+                            
                             s.listener.onEvent(event);
                         } catch (Throwable t) {
                             if (event!=null && event.getSource()!=null && Entities.isNoLongerManaged(event.getSource())) {
@@ -235,6 +238,9 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
                     }
                     public void run() {
                         try {
+                            int count = sAtClosureCreation.eventCount.incrementAndGet();
+                            if (count > 0 && count % 1000 == 0) LOG.debug("{} events for subscriber {}", count, sAtClosureCreation);
+                            
                             sAtClosureCreation.listener.onEvent(event);
                         } catch (Throwable t) {
                             if (event!=null && event.getSource()!=null && Entities.isNoLongerManaged(event.getSource())) {

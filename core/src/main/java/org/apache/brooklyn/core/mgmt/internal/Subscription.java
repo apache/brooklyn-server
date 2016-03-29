@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.mgmt.internal;
 
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.SubscriptionHandle;
@@ -39,6 +40,7 @@ class Subscription<T> implements SubscriptionHandle {
     public final Entity producer;
     public final Sensor<T> sensor;
     public final SensorEventListener<? super T> listener;
+    public final AtomicInteger eventCount = new AtomicInteger();
     public Map<String,Object> flags;
     public Predicate<SensorEvent<T>> eventFilter;
 
