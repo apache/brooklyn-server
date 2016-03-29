@@ -581,6 +581,10 @@ public class ServiceStateLogic {
             entity.enrichers().add(this);
         }
 
+        public ComputeServiceIndicatorsFromChildrenAndMembersSpec suppressDuplicates(boolean val) {
+            configure(ComputeServiceIndicatorsFromChildrenAndMembers.SUPPRESS_DUPLICATES, val);
+            return self();
+        }
         public ComputeServiceIndicatorsFromChildrenAndMembersSpec checkChildrenAndMembers() {
             configure(ComputeServiceIndicatorsFromChildrenAndMembers.FROM_MEMBERS, true);
             configure(ComputeServiceIndicatorsFromChildrenAndMembers.FROM_CHILDREN, true);

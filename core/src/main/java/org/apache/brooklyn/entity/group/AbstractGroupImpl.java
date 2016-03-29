@@ -103,9 +103,15 @@ public abstract class AbstractGroupImpl extends AbstractEntity implements Abstra
         
         // check states and upness separately so they can be individually replaced if desired
         // problem if any children or members are on fire
-        ServiceStateLogic.newEnricherFromChildrenState().checkChildrenAndMembers().requireRunningChildren(getConfig(RUNNING_QUORUM_CHECK)).addTo(this);
+        enrichers().add(ServiceStateLogic.newEnricherFromChildrenState()
+                .checkChildrenAndMembers()
+                .requireRunningChildren(getConfig(RUNNING_QUORUM_CHECK))
+                .suppressDuplicates(true));
         // defaults to requiring at least one member or child who is up
-        ServiceStateLogic.newEnricherFromChildrenUp().checkChildrenAndMembers().requireUpChildren(getConfig(UP_QUORUM_CHECK)).addTo(this);
+        enrichers().add(ServiceStateLogic.newEnricherFromChildrenUp()
+                .checkChildrenAndMembers()
+                .requireUpChildren(getConfig(UP_QUORUM_CHECK))
+                .suppressDuplicates(true));
     }
 
     /**
