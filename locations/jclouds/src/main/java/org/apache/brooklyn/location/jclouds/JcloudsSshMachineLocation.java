@@ -162,8 +162,15 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
     @Override
     public void rebind() {
         super.rebind();
-        ComputeServiceContext context = jcloudsParent.getComputeService().getContext();
-        runScriptFactory = context.utils().injector().getInstance(RunScriptOnNode.Factory.class);
+        
+        if (jcloudsParent != null) {
+            // can be null on rebind, if location has been "orphaned" somehow
+            ComputeServiceContext context = jcloudsParent.getComputeService().getContext();
+            runScriptFactory = context.utils().injector().getInstance(RunScriptOnNode.Factory.class);
+        } else {
+            LOG.warn("Location {} does not have parent; cannot retrieve jclouds compute-service or "
+                    + "run-script factory; later operations may fail (continuing)", this);
+        }
         
         if (node != null) {
             setNode(node);
