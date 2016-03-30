@@ -263,7 +263,7 @@ public class LocationsYamlTest extends AbstractYamlTest {
         Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
         Entity child = Iterables.getOnlyElement(app.getChildren());
         MultiLocation<?> loc = (MultiLocation<?>) Iterables.getOnlyElement(Entities.getAllInheritedLocations(child));
-        Assert.assertEquals(loc.getSubLocationsAsLocations().size(), 2);
+        Assert.assertEquals(loc.getSubLocations().size(), 2);
         
         assertUserAddress((SshMachineLocation)loc.obtain(), "root", "127.0.0.1");
         assertUserAddress((SshMachineLocation)loc.obtain(), "root", "127.0.0.2");

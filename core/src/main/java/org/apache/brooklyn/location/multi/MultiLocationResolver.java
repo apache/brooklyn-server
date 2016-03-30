@@ -122,7 +122,7 @@ public class MultiLocationResolver implements LocationResolver {
         }
         LocationSpec<?> result = LocationSpec.create(MultiLocation.class)
             .configure(flags)
-            .configure(MultiLocation.SUB_LOCATIONS.getName(), targets)
+            .configure(MultiLocation.SUB_LOCATION_SPECS.getName(), targets)
             .configure(LocationConfigUtils.finalAndOriginalSpecs(spec, locationFlags, globalProperties, namedLocation));
 
         return result;
