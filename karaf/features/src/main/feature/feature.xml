@@ -89,7 +89,7 @@
         <bundle>mvn:org.apache.brooklyn/brooklyn-rest-api/${project.version}</bundle>
 
         <bundle dependency="true">mvn:com.sun.jersey.contribs/jersey-multipart/${jersey.version}</bundle>
-        <bundle dependency="true">mvn:org.jvnet.mimepull/mimepull/1.9.3</bundle>
+        <bundle dependency="true">mvn:org.jvnet.mimepull/mimepull/${mimepull.version}</bundle>
         <bundle dependency="true">mvn:commons-lang/commons-lang/${commons-lang.version}</bundle>
 
         <!-- TODO: version 1.1.0.Final has OSGi manifest; check if upgrade doesn't get rid of wrap -->
@@ -236,8 +236,8 @@
             https://github.com/square/okhttp/issues/2243
             https://github.com/square/okhttp/pull/2246
         -->
-        <bundle dependency="true">wrap:mvn:com.squareup.okhttp/okhttp/2.2.0</bundle>
-        <bundle dependency="true">wrap:mvn:com.squareup.okio/okio/1.2.0</bundle>
+        <bundle dependency="true">wrap:mvn:com.squareup.okhttp/okhttp/${okhttp.version}</bundle>
+        <bundle dependency="true">wrap:mvn:com.squareup.okio/okio/${okio.version}</bundle>
         <bundle dependency="true">mvn:org.apache.jclouds.driver/jclouds-okhttp/${jclouds.version}</bundle>
 
         <bundle dependency="true">mvn:org.apache.jclouds.driver/jclouds-sshj/${jclouds.version}</bundle>
