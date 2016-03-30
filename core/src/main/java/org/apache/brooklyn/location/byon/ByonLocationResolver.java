@@ -126,7 +126,7 @@ public class ByonLocationResolver extends AbstractLocationResolver {
             throw new IllegalArgumentException("Invalid location '"+spec+"'; at least one host must be defined");
         }
         
-        List<MachineLocation> machines = Lists.newArrayList();
+        List<LocationSpec<? extends MachineLocation>> machineSpecs = Lists.newArrayList();
         for (Object host : hostAddresses) {
             LocationSpec<? extends MachineLocation> machineSpec;
             if (host instanceof String) {
@@ -137,11 +137,10 @@ public class ByonLocationResolver extends AbstractLocationResolver {
                 throw new IllegalArgumentException("Expected machine to be String or Map, but was "+host.getClass().getName()+" ("+host+")");
             }
             machineSpec.configureIfNotNull(LocalLocationManager.CREATE_UNMANAGED, config.get(LocalLocationManager.CREATE_UNMANAGED));
-            MachineLocation machine = managementContext.getLocationManager().createLocation(machineSpec);
-            machines.add(machine);
+            machineSpecs.add(machineSpec);
         }
         
-        config.putStringKey("machines", machines);
+        config.put(FixedListMachineProvisioningLocation.MACHINE_SPECS, machineSpecs);
 
         return config;
     }

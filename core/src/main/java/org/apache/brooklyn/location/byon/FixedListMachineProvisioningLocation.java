@@ -39,19 +39,6 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Function;
-import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
-import com.google.common.reflect.TypeToken;
-
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -61,6 +48,19 @@ import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.WildcardGlobs;
 import org.apache.brooklyn.util.text.WildcardGlobs.PhraseTreatment;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.annotations.Beta;
+import com.google.common.base.Function;
+import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
+import com.google.common.reflect.TypeToken;
 
 /**
  * A provisioner of {@link MachineLocation}s which takes a list of machines it can connect to.
@@ -88,7 +88,26 @@ implements MachineProvisioningLocation<T>, Closeable {
                     CollectionFunctionals.<MachineLocation>firstElement());
 
     public static final ConfigKey<Collection<MachineLocationCustomizer>> MACHINE_LOCATION_CUSTOMIZERS = CloudLocationConfig.MACHINE_LOCATION_CUSTOMIZERS;
-    
+
+    /**
+     * The machineSpecs allows {@link ByonLocationResolver} to work with just LocationSpecs, rather than 
+     * having to instantiate the machines immediately (which would be bad, because the caller
+     * might not use the spec and thus might not unmanage the machine instances).
+     * 
+     * We clear the machineSpecs in init, so they will never be persisted. This will help with
+     * backwards compatibility if we change how this is done.
+     * 
+     * By the end of init(), the {@link #machines} will contain the full list of locations; 
+     * it will never contain a {@link LocationSpec}.
+     */
+    @Beta
+    @SuppressWarnings("serial")
+    public static final ConfigKey<List<LocationSpec<? extends MachineLocation>>> MACHINE_SPECS = ConfigKeys.newConfigKey(
+                    new TypeToken<List<LocationSpec<? extends MachineLocation>>>() {}, 
+                    "byon.machineSpecs",
+                    "Specs of machines that should be immediatly instantiated on init",
+                    ImmutableList.<LocationSpec<? extends MachineLocation>>of());
+
     private final Object lock = new Object();
     
     @SetFromFlag
@@ -117,6 +136,16 @@ implements MachineProvisioningLocation<T>, Closeable {
     @Override
     public void init() {
         super.init();
+        
+        List<LocationSpec<? extends MachineLocation>> machineSpecs = getConfig(MACHINE_SPECS);
+        if (machineSpecs != null) {
+            for (LocationSpec<? extends MachineLocation> spec : machineSpecs) {
+                @SuppressWarnings("unchecked")
+                T machine = (T) getManagementContext().getLocationManager().createLocation(spec);
+                machines.add(machine);
+            }
+        }
+        config().set(MACHINE_SPECS, (List<LocationSpec<? extends MachineLocation>>) null);
         
         Set<T> machinesCopy = MutableSet.of();
         for (T location: machines) {

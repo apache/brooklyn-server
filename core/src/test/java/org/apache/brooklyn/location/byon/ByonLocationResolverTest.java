@@ -23,6 +23,7 @@ import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 import java.net.InetAddress;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -66,6 +67,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 
 public class ByonLocationResolverTest {
 
@@ -351,6 +353,24 @@ public class ByonLocationResolverTest {
         assertEquals(machine.getConfig(ConfigKeys.newConfigKey(String.class, "mykey")), "myval");
     }
 
+    @Test
+    public void testLocationSpecDoesNotCreateMachines() throws Exception {
+        Collection<Location> before = managementContext.getLocationManager().getLocations();
+        
+        String spec = "byon(hosts=\"1.1.1.1\")";
+        LocationSpec<FixedListMachineProvisioningLocation<MachineLocation>> locationSpec = getLocationSpec(spec);
+        
+        Collection<Location> after = managementContext.getLocationManager().getLocations();
+        assertEquals(after, before, "after="+after+"; before="+before);
+    }
+
+    @Test
+    public void testMachineSpecsTemporaryConfigWillNotBePersisted() throws Exception {
+        String spec = "byon(hosts=\"1.1.1.1\")";
+        MachineProvisioningLocation<MachineLocation> provisioner = resolve(spec);
+        assertEquals(provisioner.config().get(FixedListMachineProvisioningLocation.MACHINE_SPECS), null);
+    }
+
     private void assertByonClusterEquals(FixedListMachineProvisioningLocation<? extends MachineLocation> cluster, Set<String> expectedHosts) {
         assertByonClusterEquals(cluster, expectedHosts, defaultNamePredicate);
     }
@@ -399,7 +419,12 @@ public class ByonLocationResolverTest {
             // success
         }
     }
-    
+
+    @SuppressWarnings("unchecked")
+    private LocationSpec<FixedListMachineProvisioningLocation<MachineLocation>> getLocationSpec(String val) {
+        return (LocationSpec<FixedListMachineProvisioningLocation<MachineLocation>>) managementContext.getLocationRegistry().getLocationSpec(val).get();
+    }
+
     @SuppressWarnings("unchecked")
     private FixedListMachineProvisioningLocation<MachineLocation> resolve(String val) {
         return (FixedListMachineProvisioningLocation<MachineLocation>) managementContext.getLocationRegistry().getLocationManaged(val);
