@@ -52,6 +52,7 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
 import org.apache.brooklyn.core.mgmt.persist.FileBasedObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
@@ -61,7 +62,7 @@ import org.apache.brooklyn.rest.domain.HighAvailabilitySummary;
 import org.apache.brooklyn.rest.domain.VersionSummary;
 import org.apache.brooklyn.rest.transform.BrooklynFeatureTransformer;
 import org.apache.brooklyn.rest.transform.HighAvailabilityTransformer;
-import org.apache.brooklyn.rest.util.ShutdownHandler;
+import org.apache.brooklyn.core.mgmt.ShutdownHandler;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
@@ -132,13 +133,13 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         final AtomicBoolean completed = new AtomicBoolean();
         final AtomicBoolean hasAppErrorsOrTimeout = new AtomicBoolean();
 
-        //shutdownHandler is thread local
+        //shutdownHandler & mgmt is thread local
         final ShutdownHandler handler = shutdownHandler.getContext(ShutdownHandler.class);
+        final ManagementContext mgmt = mgmt();
         new Thread("shutdown") {
             @Override
             public void run() {
                 boolean terminateTried = false;
-                ManagementContext mgmt = mgmt();
                 try {
                     if (stopAppsFirst) {
                         CountdownTimer shutdownTimeoutTimer = null;
@@ -189,7 +190,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
                     }
 
                     terminateTried = true;
-                    mgmtInternal().terminate(); 
+                    ((ManagementContextInternal)mgmt).terminate(); 
 
                 } catch (Throwable e) {
                     Throwable interesting = Exceptions.getFirstInteresting(e);
@@ -318,7 +319,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         // * "build-metadata.properties" is probably the wrong name
         // * we should include brooklyn.version and a build timestamp in this file
         // * the authority for brooklyn should probably be core rather than brooklyn-rest-server
-        InputStream input = ResourceUtils.create().getResourceFromUrl("classpath://build-metadata.properties");
+        InputStream input = ResourceUtils.create(this).getResourceFromUrl("classpath://build-metadata.properties");
         Properties properties = new Properties();
         String gitSha1 = null, gitBranch = null;
         try {

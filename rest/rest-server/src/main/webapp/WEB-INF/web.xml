@@ -30,29 +30,11 @@
     </filter-mapping>
 
     <filter>
-        <filter-name>Brooklyn Properties Authentication Filter</filter-name>
-        <filter-class>org.apache.brooklyn.rest.filter.BrooklynPropertiesSecurityFilter</filter-class>
-    </filter>
-    <filter-mapping>
-        <filter-name>Brooklyn Properties Authentication Filter</filter-name>
-        <url-pattern>/*</url-pattern>
-    </filter-mapping>
-
-    <filter>
         <filter-name>Brooklyn Logging Filter</filter-name>
         <filter-class>org.apache.brooklyn.rest.filter.LoggingFilter</filter-class>
     </filter>
     <filter-mapping>
         <filter-name>Brooklyn Logging Filter</filter-name>
-        <url-pattern>/*</url-pattern>
-    </filter-mapping>
-
-    <filter>
-        <filter-name>Brooklyn HA Master Filter</filter-name>
-        <filter-class>org.apache.brooklyn.rest.filter.HaMasterCheckFilter</filter-class>
-    </filter>
-    <filter-mapping>
-        <filter-name>Brooklyn HA Master Filter</filter-name>
         <url-pattern>/*</url-pattern>
     </filter-mapping>
 
@@ -95,7 +77,13 @@
             <param-value>
                 io.swagger.jaxrs.listing.SwaggerSerializers,
                 org.apache.brooklyn.rest.util.FormMapProvider,
-                com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider
+                com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider,
+                org.apache.brooklyn.rest.filter.RequestTaggingRsFilter,
+                org.apache.brooklyn.rest.filter.NoCacheFilter,
+                org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter,
+                org.apache.brooklyn.rest.filter.EntitlementContextFilter,
+                org.apache.brooklyn.rest.util.ManagementContextProvider
+                <!-- org.apache.brooklyn.rest.util.ShutdownHandlerProvider -->
             </param-value>
         </init-param>
 

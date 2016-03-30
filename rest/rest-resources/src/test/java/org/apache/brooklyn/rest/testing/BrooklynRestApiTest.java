@@ -160,7 +160,7 @@ public abstract class BrooklynRestApiTest {
     }
 
     protected ObjectMapper mapper() {
-        return BrooklynJacksonJsonProvider.findSharedObjectMapper(null, getManagementContext());
+        return BrooklynJacksonJsonProvider.findSharedObjectMapper(getManagementContext());
     }
 
     public LocationRegistry getLocationRegistry() {

@@ -47,12 +47,10 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
-            <version>${fasterxml.jackson.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>${fasterxml.jackson.version}</version>
         </dependency>
         <dependency>
             <groupId>javax.validation</groupId>
@@ -162,6 +160,10 @@
         </dependency>
         <dependency>
             <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-jaas</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
             <artifactId>jetty-server</artifactId>
         </dependency>
         <dependency>
@@ -255,6 +257,10 @@
                                 <exclude>**/HaHotCheckResourceFilter.java</exclude>
                                 <exclude>**/FormMapProvider.java</exclude>
                                 <exclude>**/ApidocResource.java</exclude>
+                                <exclude>**/RequestTaggingFilter.java</exclude>
+                                <exclude>**/EntitlementContextFilter.java</exclude>
+                                <exclude>**/RequestTaggingRsFilter.java</exclude>
+                                <exclude>**/ScannerInjectHelper.java</exclude>
                               </excludes>
                             </resource>
                             <resource>
@@ -262,6 +268,22 @@
                               <excludes>
                                 <exclude>**/RestApiSetup.java</exclude>
                               </excludes>
+                            </resource>
+                          </resources>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>copy-rest-resources</id>
+                        <phase>generate-resources</phase>
+                        <goals><goal>copy-resources</goal></goals>
+                        <configuration>
+                          <outputDirectory>target/generated-resources/rest-deps</outputDirectory>
+                          <resources>
+                            <resource>
+                              <directory>../rest-resources/src/main/resources</directory>
+                              <includes>
+                                <include>**/jaas.conf</include>
+                              </includes>
                             </resource>
                           </resources>
                         </configuration>
@@ -300,6 +322,18 @@
                     </execution>
                     <execution>
                         <id>rest-resources</id>
+                        <phase>generate-resources</phase>
+                        <goals><goal>add-resource</goal></goals>
+                        <configuration>
+                          <resources>
+                            <resource>
+                                <directory>target/generated-resources/rest-deps</directory>
+                            </resource>
+                          </resources>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>rest-test-resources</id>
                         <phase>generate-test-resources</phase>
                         <goals><goal>add-test-resource</goal></goals>
                         <configuration>

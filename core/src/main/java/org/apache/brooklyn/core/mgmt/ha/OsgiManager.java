@@ -36,15 +36,16 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServerPaths;
-import org.apache.brooklyn.rt.felix.EmbeddedFelixFramework;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.core.osgi.Osgis.BundleFinder;
+import org.apache.brooklyn.util.core.osgi.SystemFrameworkLoader;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.os.Os.DeletionResult;
+import org.apache.brooklyn.util.osgi.SystemFramework;
 import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
@@ -192,15 +193,7 @@ public class OsgiManager {
                     Class<T> clazz;
                     //Extension bundles don't support loadClass.
                     //Instead load from the app classpath.
-                    if (EmbeddedFelixFramework.isExtensionBundle(b)) {
-                        @SuppressWarnings("unchecked")
-                        Class<T> c = (Class<T>)Class.forName(type);
-                        clazz = c;
-                    } else {
-                        @SuppressWarnings("unchecked")
-                        Class<T> c = (Class<T>)b.loadClass(type);
-                        clazz = c;
-                    }
+                    clazz = SystemFrameworkLoader.get().loadClassFromBundle(type, b);
                     return Maybe.of(clazz);
                 } else {
                     bundleProblems.put(osgiBundle, ((Maybe.Absent<?>)bundle).getException());

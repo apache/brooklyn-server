@@ -20,65 +20,71 @@ limitations under the License.
            xmlns:cm="http://aries.apache.org/blueprint/xmlns/blueprint-cm/v1.2.0"
            xsi:schemaLocation="
              http://www.osgi.org/xmlns/blueprint/v1.0.0 http://www.osgi.org/xmlns/blueprint/v1.0.0/blueprint.xsd
-             http://aries.apache.org/schemas/blueprint-cm/blueprint-cm-1.1.0.xsd
+             http://aries.apache.org/blueprint/xmlns/blueprint-cm/v1.2.0 http://aries.apache.org/schemas/blueprint-cm/blueprint-cm-1.2.0.xsd
              ">
 
-    <!-- Make sure core bundle is already started -->
+    <!-- Makes sure core bundle is already started -->
     <reference id="brooklynVersion"
-               interface="org.apache.brooklyn.core.BrooklynVersionService" />
+               interface="org.apache.brooklyn.core.BrooklynVersionService"/>
+
+    <reference id="systemService"
+               interface="org.apache.karaf.system.SystemService" />
 
     <cm:property-placeholder persistent-id="org.apache.brooklyn.osgilauncher" update-strategy="reload">
         <cm:default-properties>
-            <cm:property name="ignoreCatalogErrors" value="true" />
-            <cm:property name="ignorePersistenceErrors" value="true" />
-            <cm:property name="highAvailabilityMode" value="DISABLED" />
-            <cm:property name="persistMode" value="DISABLED" />
-            <cm:property name="persistenceDir" value="" />
-            <cm:property name="persistenceLocation" value="" />
-            <cm:property name="persistPeriod" value="1s" />
-            <cm:property name="globalBrooklynPropertiesFile" value="~/.brooklyn/brooklyn.properties" />
-            <cm:property name="localBrooklynPropertiesFile" value="" /> <!-- used to be settable through cli params -->
+            <cm:property name="ignoreCatalogErrors" value="true"/>
+            <cm:property name="ignorePersistenceErrors" value="true"/>
+            <cm:property name="highAvailabilityMode" value="DISABLED"/>
+            <cm:property name="persistMode" value="DISABLED"/>
+            <cm:property name="persistenceDir" value=""/>
+            <cm:property name="persistenceLocation" value=""/>
+            <cm:property name="persistPeriod" value="1s"/>
+            <cm:property name="globalBrooklynPropertiesFile" value="~/.brooklyn/brooklyn.properties"/>
+            <cm:property name="localBrooklynPropertiesFile" value=""/> <!-- used to be settable through cli params -->
         </cm:default-properties>
     </cm:property-placeholder>
 
     <bean id="propertiesBuilderFactory"
           class="org.apache.brooklyn.launcher.common.BrooklynPropertiesFactoryHelper">
-        <argument value="${globalBrooklynPropertiesFile}" />
-        <argument value="${localBrooklynPropertiesFile}" />
+        <argument value="${globalBrooklynPropertiesFile}"/>
+        <argument value="${localBrooklynPropertiesFile}"/>
     </bean>
 
     <bean id="propertiesBuilder"
           class="org.apache.brooklyn.core.internal.BrooklynProperties.Factory.Builder"
           factory-ref="propertiesBuilderFactory"
-          factory-method="createPropertiesBuilder" />
+          factory-method="createPropertiesBuilder"/>
 
     <bean id="launcher"
           class="org.apache.brooklyn.launcher.osgi.OsgiLauncher"
-          init-method="init">
+          init-method="init"
+          destroy-method="destroy">
 
-        <property name="brooklynVersion" ref="brooklynVersion" />
-        <property name="brooklynPropertiesBuilder" ref="propertiesBuilder" />
+        <property name="brooklynVersion" ref="brooklynVersion"/>
+        <property name="brooklynPropertiesBuilder" ref="propertiesBuilder"/>
 
-        <property name="ignoreCatalogErrors" value="${ignoreCatalogErrors}" />
-        <property name="ignorePersistenceErrors" value="${ignorePersistenceErrors}" />
-        <property name="highAvailabilityMode" value="${highAvailabilityMode}" />
-        <property name="persistMode" value="${persistMode}" />
-        <property name="persistenceDir" value="${persistenceDir}" />
-        <property name="persistenceLocation" value="${persistenceLocation}" />
-        <property name="persistPeriod" value="${persistPeriod}" />
+        <property name="ignoreCatalogErrors" value="${ignoreCatalogErrors}"/>
+        <property name="ignorePersistenceErrors" value="${ignorePersistenceErrors}"/>
+        <property name="highAvailabilityMode" value="${highAvailabilityMode}"/>
+        <property name="persistMode" value="${persistMode}"/>
+        <property name="persistenceDir" value="${persistenceDir}"/>
+        <property name="persistenceLocation" value="${persistenceLocation}"/>
+        <property name="persistPeriod" value="${persistPeriod}"/>
     </bean>
 
     <bean id="localManagementContextService"
           class="org.apache.brooklyn.core.mgmt.internal.LocalManagementContext"
           factory-ref="launcher"
-          factory-method="getManagementContext" />
-          
+          factory-method="getManagementContext"/>
+
     <bean id="campPlatform"
           class="org.apache.brooklyn.camp.CampPlatform"
           factory-ref="launcher"
-          factory-method="getCampPlatform" />
+          factory-method="getCampPlatform"/>
 
-    <!-- TODO shutdown -->
+    <service interface="org.apache.brooklyn.core.mgmt.ShutdownHandler">
+        <bean class="org.apache.brooklyn.launcher.osgi.OsgiShutdownHandler" />
+    </service>
 
     <service ref="localManagementContextService">
         <interfaces>
@@ -86,5 +92,14 @@ limitations under the License.
             <value>org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal</value>
         </interfaces>
     </service>
+
+    <reference-list id="managementContextReferences"
+                    interface="org.apache.brooklyn.api.mgmt.ManagementContext"
+                    availability="optional">
+
+        <reference-listener bind-method="bind" unbind-method="unbind">
+            <bean class="org.apache.brooklyn.core.catalog.internal.CatalogBomScanner"/>
+        </reference-listener>
+    </reference-list>
 
 </blueprint>

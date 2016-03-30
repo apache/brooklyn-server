@@ -18,44 +18,92 @@
  */
 package org.apache.brooklyn.util.javalang;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
+import org.osgi.framework.FrameworkUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.ImmutableList;
 
 public class Threads {
 
     private static final Logger log = LoggerFactory.getLogger(Threads.class);
-    
+    private static final Collection<Thread> hooks = new ArrayList<>();
+    private static final AtomicBoolean shutdownHookRegistered = new AtomicBoolean();
+
     public static Thread addShutdownHook(final Runnable task) {
         Thread t = new Thread("shutdownHookThread") {
+            @Override
             public void run() {
                 try {
                     task.run();
                 } catch (Exception e) {
-                    log.error("Failed to execute shutdownhook", e);
+                    log.error("Failed to execute shutdown hook", e);
                 }
             }
         };
-        Runtime.getRuntime().addShutdownHook(t);
+        synchronized (hooks) {
+            hooks.add(t);
+        }
+
+        registerShutdownHookOnceInClassicMode();
         return t;
     }
-    
-    public static boolean removeShutdownHook(Thread hook) {
-        try {
-            return Runtime.getRuntime().removeShutdownHook(hook);
-        } catch (IllegalStateException e) {
-            // probably shutdown in progress
-            String text = Exceptions.collapseText(e);
-            if (text.contains("Shutdown in progress")) {
-                if (log.isTraceEnabled()) {
-                    log.trace("Could not remove shutdown hook "+hook+": "+text);
+
+    private static void registerShutdownHookOnceInClassicMode() {
+        if (!isRunningInOsgi() && shutdownHookRegistered.compareAndSet(false, true)) {
+            Runtime.getRuntime().addShutdownHook(new Thread() {
+                @Override
+                public void run() {
+                    runShutdownHooks();
                 }
-            } else {
-                log.warn("Could not remove shutdown hook "+hook+": "+text);
-                log.debug("Shutdown hook removal details: "+e, e);
-            }
-            return false;
+            });
         }
     }
 
+    private static boolean isRunningInOsgi() {
+        return FrameworkUtil.getBundle(Threads.class) != null;
+    }
+
+    public static boolean removeShutdownHook(Thread hook) {
+        synchronized (hooks) {
+            return hooks.remove(hook);
+        }
+    }
+
+    public static void runShutdownHooks() {
+        while(hasMoreTasks()) {
+            Collection<Thread> localHooks;
+            synchronized (Threads.hooks) {
+                localHooks = ImmutableList.copyOf(hooks);
+                hooks.clear();
+            }
+            for (Thread t : localHooks) {
+                try {
+                    t.start();
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    log.error("Failed to execute shutdown hook for thread " + t, e);
+                }
+            }
+            for (Thread t : localHooks) {
+                try {
+                    t.join();
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                }
+            }
+        }
+    }
+
+    private static boolean hasMoreTasks() {
+        synchronized (hooks) {
+            return !hooks.isEmpty();
+        }
+    }
 }

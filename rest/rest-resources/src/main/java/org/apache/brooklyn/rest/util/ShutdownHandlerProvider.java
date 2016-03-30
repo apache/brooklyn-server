@@ -22,10 +22,11 @@ import javax.annotation.Nullable;
 import javax.ws.rs.ext.ContextResolver;
 import javax.ws.rs.ext.Provider;
 
+import org.apache.brooklyn.core.mgmt.ShutdownHandler;
+
 
 @Provider
 public class ShutdownHandlerProvider implements ContextResolver<ShutdownHandler> {
-
     private ShutdownHandler shutdownHandler;
 
     public ShutdownHandlerProvider(@Nullable ShutdownHandler instance) {
@@ -42,4 +43,3 @@ public class ShutdownHandlerProvider implements ContextResolver<ShutdownHandler>
     }
 
 }
-

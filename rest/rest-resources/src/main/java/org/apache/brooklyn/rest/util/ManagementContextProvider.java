@@ -18,17 +18,28 @@
  */
 package org.apache.brooklyn.rest.util;
 
+import javax.servlet.ServletContext;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.ext.ContextResolver;
 import javax.ws.rs.ext.Provider;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.core.server.BrooklynServiceAttributes;
+
+import com.google.common.annotations.VisibleForTesting;
 
 @Provider
 // Needed by tests in rest-resources module and by main code in rest-server
 public class ManagementContextProvider implements ContextResolver<ManagementContext> {
+    @Context
+    private ServletContext context;
 
     private ManagementContext mgmt;
 
+    public ManagementContextProvider() {
+    }
+
+    @VisibleForTesting
     public ManagementContextProvider(ManagementContext mgmt) {
         this.mgmt = mgmt;
     }
@@ -36,7 +47,11 @@ public class ManagementContextProvider implements ContextResolver<ManagementCont
     @Override
     public ManagementContext getContext(Class<?> type) {
         if (type == ManagementContext.class) {
-            return mgmt;
+            if (mgmt != null) {
+                return mgmt;
+            } else {
+                return (ManagementContext) context.getAttribute(BrooklynServiceAttributes.BROOKLYN_MANAGEMENT_CONTEXT);
+            }
         } else {
             return null;
         }

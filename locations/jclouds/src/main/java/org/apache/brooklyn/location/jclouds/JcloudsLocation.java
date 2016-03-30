@@ -147,7 +147,6 @@ import org.jclouds.domain.Credentials;
 import org.jclouds.domain.LocationScope;
 import org.jclouds.domain.LoginCredentials;
 import org.jclouds.ec2.compute.options.EC2TemplateOptions;
-import org.jclouds.googlecomputeengine.compute.options.GoogleComputeEngineTemplateOptions;
 import org.jclouds.openstack.nova.v2_0.compute.options.NovaTemplateOptions;
 import org.jclouds.rest.AuthorizationException;
 import org.jclouds.scriptbuilder.domain.LiteralStatement;
@@ -1197,9 +1196,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                         } else if (t instanceof SoftLayerTemplateOptions) {
                             String[] securityGroups = toStringArray(v);
                             ((SoftLayerTemplateOptions)t).securityGroups(securityGroups);
-                        } else if (t instanceof GoogleComputeEngineTemplateOptions) {
+                        } else if (isGoogleComputeTemplateOptions(t)) {
                             String[] securityGroups = toStringArray(v);
-                            ((GoogleComputeEngineTemplateOptions)t).securityGroups(securityGroups);
+                            t.securityGroups(securityGroups);
                         } else {
                             LOG.info("ignoring securityGroups({}) in VM creation because not supported for cloud/type ({})", v, t.getClass());
                         }
@@ -1279,7 +1278,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     }})
             .put(EXTRA_PUBLIC_KEY_DATA_TO_AUTH, new CustomizeTemplateOptions() {
                     public void apply(TemplateOptions t, ConfigBag props, Object v) {
-                        if (t instanceof GoogleComputeEngineTemplateOptions) {
+                        if (isGoogleComputeTemplateOptions(t)) {
                             // see email to jclouds list, 29 Aug 2015; 
                             // GCE takes this to be the only login public key, 
                             // and setting this only works if you also overrideLoginPrivateKey
@@ -1371,7 +1370,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                             ((AWSEC2TemplateOptions)t).subnetId((String)v);
                             
                         } else {
-                            if (t instanceof GoogleComputeEngineTemplateOptions) {
+                            if (isGoogleComputeTemplateOptions(t)) {
                                 // no warning needed
                                 // we think this is the only jclouds endpoint which supports this option
                                 
@@ -1412,6 +1411,14 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     }
                 }})
             .build();
+
+    /**
+     * Avoid having a dependency on googlecompute because it doesn't have an OSGi bundle yet.
+     * Fixed in jclouds 2.0.0-SNAPSHOT
+     */
+    private static boolean isGoogleComputeTemplateOptions(TemplateOptions t) {
+        return t.getClass().getName().equals("org.jclouds.googlecomputeengine.compute.options.GoogleComputeEngineTemplateOptions");
+    }
 
     /** hook whereby template customizations can be made for various clouds */
     protected void customizeTemplate(ConfigBag setup, ComputeService computeService, Template template) {

@@ -16,23 +16,21 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.rest.util;
+package org.apache.brooklyn.rest.security.jaas;
 
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.core.MediaType;
+import static com.google.common.base.Preconditions.checkNotNull;
 
-import org.apache.brooklyn.rest.filter.HaHotStateRequired;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 
-@Path("/ha/class")
-@Produces(MediaType.APPLICATION_JSON)
-@HaHotStateRequired
-public class HaHotStateCheckClassResource {
-
-    @GET
-    @Path("fail")
-    public String fail() {
-        return "FAIL";
+public class ManagementContextHolder {
+    private static ManagementContext mgmt;
+    public static ManagementContext getManagementContext() {
+        return checkNotNull(mgmt, "Management context not set yet");
+    }
+    public void setManagementContext(ManagementContext mgmt) {
+        setManagementContextStatic(mgmt);
+    }
+    public static void setManagementContextStatic(ManagementContext mgmt) {
+        ManagementContextHolder.mgmt = checkNotNull(mgmt, "mgmt");
     }
 }

@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.rest.util;
 
-public interface ShutdownHandler {
+/** @deprecated since 0.9.0, use {@link org.apache.brooklyn.core.mgmt.ShutdownHandler} instead. */
+@Deprecated
+public interface ShutdownHandler extends org.apache.brooklyn.core.mgmt.ShutdownHandler {
+    @Override
     void onShutdownRequest();
 }

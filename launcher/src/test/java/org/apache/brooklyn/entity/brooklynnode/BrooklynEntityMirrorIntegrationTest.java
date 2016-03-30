@@ -83,13 +83,13 @@ public class BrooklynEntityMirrorIntegrationTest {
     protected void setUpServer() {
         setUpServer(new LocalManagementContextForTests(), false);
     }
-    protected void setUpServer(ManagementContext mgmt, boolean useSecurityFilter) {
+    protected void setUpServer(ManagementContext mgmt, boolean skipSecurity) {
         try {
             if (serverMgmt!=null) throw new IllegalStateException("server already set up");
             
             serverMgmt = mgmt;
             server = new BrooklynWebServer(mgmt);
-            if (useSecurityFilter) server.setSecurityFilter(BrooklynPropertiesSecurityFilter.class);
+            server.skipSecurity(skipSecurity);
             server.start();
             
             serverMgmt.getHighAvailabilityManager().disabled();

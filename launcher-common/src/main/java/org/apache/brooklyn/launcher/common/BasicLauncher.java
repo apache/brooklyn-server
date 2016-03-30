@@ -531,7 +531,9 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
                     brooklynAdditionalProperties);
 
             brooklynProperties = ((ManagementContextInternal)managementContext).getBrooklynProperties();
-            
+
+            // We created the management context, so we are responsible for terminating it
+            BrooklynShutdownHooks.invokeTerminateOnShutdown(getManagementContext());
         } else if (brooklynProperties == null) {
             brooklynProperties = ((ManagementContextInternal)managementContext).getBrooklynProperties();
             brooklynProperties.addFromMap(brooklynAdditionalProperties);

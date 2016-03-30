@@ -21,7 +21,9 @@ package org.apache.brooklyn.rest.filter;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
+import java.util.Set;
 
+import javax.annotation.Priority;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.container.ContainerRequestFilter;
 import javax.ws.rs.container.ResourceInfo;
@@ -30,11 +32,13 @@ import javax.ws.rs.ext.ContextResolver;
 import javax.ws.rs.ext.Provider;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.rest.util.BrooklynRestResourceUtils;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSet;
 
 /** 
  * Checks that if the method or resource class corresponding to a request
@@ -46,7 +50,9 @@ import com.google.common.annotations.VisibleForTesting;
  * as this needs to know the method being invoked. 
  */
 @Provider
+@Priority(300)
 public class HaHotCheckResourceFilter implements ContainerRequestFilter {
+    private static final Set<String> SAFE_STANDBY_METHODS = ImmutableSet.of("GET", "HEAD");
     public static final String SKIP_CHECK_HEADER = HaHotCheckHelperAbstract.SKIP_CHECK_HEADER;
     
     // Not quite standards compliant. Should instead be:
@@ -78,13 +84,17 @@ public class HaHotCheckResourceFilter implements ContainerRequestFilter {
     public void filter(ContainerRequestContext requestContext) throws IOException {
         String problem = lookForProblem(requestContext);
         if (Strings.isNonBlank(problem)) {
-            requestContext.abortWith(helper.disallowResponse(problem, requestContext.getUriInfo()+"/"+resourceInfo.getResourceMethod()));
+            requestContext.abortWith(helper.disallowResponse(problem, requestContext.getUriInfo().getAbsolutePath()+"/"+resourceInfo.getResourceMethod()));
         }
     }
 
     private String lookForProblem(ContainerRequestContext requestContext) {
         if (helper.isSkipCheckHeaderSet(requestContext.getHeaderString(SKIP_CHECK_HEADER))) 
             return null;
+        
+        if (isMasterRequiredForRequest(requestContext) && !isMaster()) {
+            return "server not in required HA master state";
+        }
         
         if (!isHaHotStateRequired())
             return null;
@@ -106,6 +116,26 @@ public class HaHotCheckResourceFilter implements ContainerRequestFilter {
         return HaHotCheckHelperAbstract.getProblemMessageIfServerNotRunning(mgmt).orNull();
     }
     
+    private boolean isMaster() {
+        return ManagementNodeState.MASTER.equals(
+                mgmt.getContext(ManagementContext.class)
+                    .getHighAvailabilityManager()
+                    .getNodeState());
+    }
+
+    private boolean isMasterRequiredForRequest(ContainerRequestContext requestContext) {
+        // gets usually okay
+        if (SAFE_STANDBY_METHODS.contains(requestContext.getMethod())) return false;
+        
+        String uri = requestContext.getUriInfo().getPath();
+        // explicitly allow calls to shutdown
+        // (if stopAllApps is specified, the method itself will fail; but we do not want to consume parameters here, that breaks things!)
+        // TODO use an annotation HaAnyStateAllowed or HaHotCheckRequired(false) or similar
+        if ("server/shutdown".equals(uri)) return false;
+        
+        return true;
+    }
+
     protected boolean isHaHotStateRequired() {
         // TODO support super annotations
         Method m = resourceInfo.getResourceMethod();

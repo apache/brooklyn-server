@@ -16,15 +16,17 @@ limitations under the License.
 -->
 <blueprint xmlns="http://www.osgi.org/xmlns/blueprint/v1.0.0"
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-           xmlns:cm="http://aries.apache.org/blueprint/xmlns/blueprint-cm/v1.0.0"
+           xmlns:cm="http://aries.apache.org/blueprint/xmlns/blueprint-cm/v1.2.0"
            xmlns:jaxws="http://cxf.apache.org/blueprint/jaxws"
            xmlns:jaxrs="http://cxf.apache.org/blueprint/jaxrs"
            xmlns:cxf="http://cxf.apache.org/blueprint/core"
+           xmlns:jaas="http://karaf.apache.org/xmlns/jaas/v1.0.0"
            xsi:schemaLocation="
              http://www.osgi.org/xmlns/blueprint/v1.0.0 http://www.osgi.org/xmlns/blueprint/v1.0.0/blueprint.xsd
              http://cxf.apache.org/blueprint/jaxws http://cxf.apache.org/schemas/blueprint/jaxws.xsd
              http://cxf.apache.org/blueprint/jaxrs http://cxf.apache.org/schemas/blueprint/jaxrs.xsd
              http://cxf.apache.org/blueprint/core http://cxf.apache.org/schemas/blueprint/core.xsd
+             http://karaf.apache.org/xmlns/jaas/v1.0.0 http://karaf.apache.org/xmlns/jaas/v1.0.0
              ">
 
     <cxf:bus>
@@ -34,77 +36,41 @@ limitations under the License.
     </cxf:bus>
 
     <reference id="localManagementContext"
-               interface="org.apache.brooklyn.api.mgmt.ManagementContext" />
-    <reference id="localManagementContextInternal"
                interface="org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal" />
 
-    <bean id="accessResourceBean" class="org.apache.brooklyn.rest.resources.AccessResource">
+    <jaas:config name="webconsole">
+        <jaas:module className="org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule" flags="required" />
+    </jaas:config>
+
+    <reference id="shutdownHandler" interface="org.apache.brooklyn.core.mgmt.ShutdownHandler" />
+
+    <bean class="org.apache.brooklyn.rest.security.jaas.ManagementContextHolder">
         <property name="managementContext" ref="localManagementContext" />
-        <property name="managementContextInternal" ref="localManagementContextInternal" />
     </bean>
-    <bean id="activityResourceBean" class="org.apache.brooklyn.rest.resources.ActivityResource">
-        <property name="managementContext" ref="localManagementContext" />
-        <property name="managementContextInternal" ref="localManagementContextInternal" />
-    </bean>
-    <!--<bean id="apidocResourceBean" class="org.apache.brooklyn.rest.resources.ApidocResource" />-->
-    <bean id="applicationResourceBean" class="org.apache.brooklyn.rest.resources.ApplicationResource">
-        <property name="managementContext" ref="localManagementContext" />
-        <property name="managementContextInternal" ref="localManagementContextInternal" />
-    </bean>
-    <bean id="catalogResourceBean" class="org.apache.brooklyn.rest.resources.CatalogResource">
-        <property name="managementContext" ref="localManagementContext" />
-        <property name="managementContextInternal" ref="localManagementContextInternal" />
-    </bean>
-    <bean id="effectorResourceBean" class="org.apache.brooklyn.rest.resources.EffectorResource">
-        <property name="managementContext" ref="localManagementContext" />
-        <property name="managementContextInternal" ref="localManagementContextInternal" />
-    </bean>
-    <bean id="entityConfigResourceBean" class="org.apache.brooklyn.rest.resources.EntityConfigResource">
-        <property name="managementContext" ref="localManagementContext" />
-        <property name="managementContextInternal" ref="localManagementContextInternal" />
-    </bean>
-    <bean id="entityResourceBean" class="org.apache.brooklyn.rest.resources.EntityResource">
-        <property name="managementContext" ref="localManagementContext" />
-        <property name="managementContextInternal" ref="localManagementContextInternal" />
-    </bean>
-    <bean id="locationResourceBean" class="org.apache.brooklyn.rest.resources.LocationResource">
-        <property name="managementContext" ref="localManagementContext" />
-        <property name="managementContextInternal" ref="localManagementContextInternal" />
-    </bean>
-    <bean id="policyConfigResourceBean" class="org.apache.brooklyn.rest.resources.PolicyConfigResource">
-        <property name="managementContext" ref="localManagementContext" />
-        <property name="managementContextInternal" ref="localManagementContextInternal" />
-    </bean>
-    <bean id="policyResourceBean" class="org.apache.brooklyn.rest.resources.PolicyResource">
-        <property name="managementContext" ref="localManagementContext" />
-        <property name="managementContextInternal" ref="localManagementContextInternal" />
-    </bean>
-    <bean id="scriptResourceBean" class="org.apache.brooklyn.rest.resources.ScriptResource">
-        <property name="managementContext" ref="localManagementContext" />
-        <property name="managementContextInternal" ref="localManagementContextInternal" />
-    </bean>
-    <bean id="sensorResourceBean" class="org.apache.brooklyn.rest.resources.SensorResource">
-        <property name="managementContext" ref="localManagementContext" />
-        <property name="managementContextInternal" ref="localManagementContextInternal" />
-    </bean>
-    <bean id="serverResourceBean" class="org.apache.brooklyn.rest.resources.ServerResource">
-        <property name="managementContext" ref="localManagementContext" />
-        <property name="managementContextInternal" ref="localManagementContextInternal" />
-    </bean>
-    <bean id="usageResourceBean" class="org.apache.brooklyn.rest.resources.UsageResource">
-        <property name="managementContext" ref="localManagementContext" />
-        <property name="managementContextInternal" ref="localManagementContextInternal" />
-    </bean>
-    <bean id="versionResourceBean" class="org.apache.brooklyn.rest.resources.VersionResource">
-        <property name="managementContext" ref="localManagementContext" />
-        <property name="managementContextInternal" ref="localManagementContextInternal" />
-    </bean>
+
+    <bean id="accessResourceBean" class="org.apache.brooklyn.rest.resources.AccessResource" />
+    <bean id="activityResourceBean" class="org.apache.brooklyn.rest.resources.ActivityResource" />
+    <bean id="apidocResourceBean" class="org.apache.brooklyn.rest.resources.ApidocResource" />
+    <bean id="applicationResourceBean" class="org.apache.brooklyn.rest.resources.ApplicationResource" />
+    <bean id="catalogResourceBean" class="org.apache.brooklyn.rest.resources.CatalogResource" />
+    <bean id="effectorResourceBean" class="org.apache.brooklyn.rest.resources.EffectorResource" />
+    <bean id="entityConfigResourceBean" class="org.apache.brooklyn.rest.resources.EntityConfigResource" />
+    <bean id="entityResourceBean" class="org.apache.brooklyn.rest.resources.EntityResource" />
+    <bean id="locationResourceBean" class="org.apache.brooklyn.rest.resources.LocationResource" />
+    <bean id="policyConfigResourceBean" class="org.apache.brooklyn.rest.resources.PolicyConfigResource" />
+    <bean id="policyResourceBean" class="org.apache.brooklyn.rest.resources.PolicyResource" />
+    <bean id="scriptResourceBean" class="org.apache.brooklyn.rest.resources.ScriptResource" />
+    <bean id="sensorResourceBean" class="org.apache.brooklyn.rest.resources.SensorResource" />
+    <bean id="serverResourceBean" class="org.apache.brooklyn.rest.resources.ServerResource" />
+    <bean id="usageResourceBean" class="org.apache.brooklyn.rest.resources.UsageResource" />
+    <bean id="versionResourceBean" class="org.apache.brooklyn.rest.resources.VersionResource" />
+    <bean id="logoutResourceBean" class="org.apache.brooklyn.rest.resources.LogoutResource" />
 
     <jaxrs:server id="brooklynRestApiV1" address="/">
         <jaxrs:serviceBeans>
             <ref component-id="accessResourceBean" />
             <ref component-id="activityResourceBean" />
-            <!--<ref component-id="apidocResourceBean" />-->
+            <ref component-id="apidocResourceBean" />
             <ref component-id="applicationResourceBean" />
             <ref component-id="catalogResourceBean" />
             <ref component-id="effectorResourceBean" />
@@ -118,12 +84,36 @@ limitations under the License.
             <ref component-id="serverResourceBean" />
             <ref component-id="usageResourceBean" />
             <ref component-id="versionResourceBean" />
+            <ref component-id="logoutResourceBean" />
         </jaxrs:serviceBeans>
 
         <jaxrs:providers>
             <bean class="org.apache.brooklyn.rest.util.DefaultExceptionMapper"/>
-            <bean class="com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider"/>
+            <bean class="org.apache.brooklyn.rest.util.json.BrooklynJacksonJsonProvider"/>
             <bean class="org.apache.brooklyn.rest.util.FormMapProvider"/>
+            <bean class="org.apache.cxf.jaxrs.security.JAASAuthenticationFilter">
+                <property name="contextName" value="webconsole"/>
+            </bean>
+            <bean class="org.apache.brooklyn.rest.util.ManagementContextProvider">
+                <argument ref="localManagementContext" />
+            </bean>
+            <!--
+                TODO ShutdownHandlerProvider, sync with init work.
+                Needs to be custom OSGi implementation?
+            -->
+            <bean class="org.apache.brooklyn.rest.filter.RequestTaggingRsFilter" />
+            <bean class="org.apache.brooklyn.rest.filter.NoCacheFilter" />
+            <bean class="org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter" />
+            <bean class="org.apache.brooklyn.rest.filter.EntitlementContextFilter" />
+            <bean class="io.swagger.jaxrs.listing.SwaggerSerializers" />
+            <bean class="org.apache.brooklyn.rest.util.ShutdownHandlerProvider">
+                <argument ref="shutdownHandler" />
+            </bean>
         </jaxrs:providers>
+
     </jaxrs:server>
+
+    <bean class="org.apache.brooklyn.rest.util.ScannerInjectHelper">
+      <property name="server" ref="brooklynRestApiV1" />
+    </bean>
 </blueprint>

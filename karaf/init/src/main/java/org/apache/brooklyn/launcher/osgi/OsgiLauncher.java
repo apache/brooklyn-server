@@ -17,12 +17,18 @@ package org.apache.brooklyn.launcher.osgi;
 
 import javax.annotation.Nullable;
 
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.core.BrooklynVersionService;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.launcher.common.BasicLauncher;
+import org.apache.brooklyn.rest.BrooklynWebConfig;
+import org.apache.brooklyn.rest.security.provider.BrooklynUserWithRandomPasswordSecurityProvider;
+import org.apache.brooklyn.util.javalang.Threads;
 import org.apache.brooklyn.util.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Initializer for brooklyn-core when running in an OSGi environment.
@@ -30,6 +36,8 @@ import org.apache.brooklyn.util.time.Duration;
  * Temporarily here; should be totally contained in blueprint beans' init-methods.
  */
 public class OsgiLauncher extends BasicLauncher<OsgiLauncher> {
+
+    private static final Logger LOG = LoggerFactory.getLogger(OsgiLauncher.class);
 
     private BrooklynVersionService brooklynVersion;
 
@@ -41,9 +49,16 @@ public class OsgiLauncher extends BasicLauncher<OsgiLauncher> {
         return super.start();
     }
 
+    // Called by blueprint container
     // init-method can't find the start method for some reason, provide an alternative
     public void init() {
         start();
+    }
+
+    // Called by blueprint container
+    public void destroy() {
+        LOG.debug("Notified of system shutdown, calling shutdown hooks");
+        Threads.runShutdownHooks();
     }
 
     public void setBrooklynVersion(BrooklynVersionService brooklynVersion) {
@@ -101,6 +116,19 @@ public class OsgiLauncher extends BasicLauncher<OsgiLauncher> {
 
     public void setCopyPersistedState(String destinationDir) {
         copyPersistedState(destinationDir);
+    }
+
+    @Override
+    protected void startingUp() {
+        super.startingUp();
+        ManagementContext managementContext = getManagementContext();
+        BrooklynProperties brooklynProperties = (BrooklynProperties) managementContext.getConfig();
+        if (BrooklynWebConfig.hasNoSecurityOptions(brooklynProperties)) {
+            LOG.info("No security provider options specified. Define a security provider or users to prevent a random password being created and logged.");
+            brooklynProperties.put(
+                    BrooklynWebConfig.SECURITY_PROVIDER_INSTANCE,
+                    new BrooklynUserWithRandomPasswordSecurityProvider(managementContext));
+        }
     }
 
 }

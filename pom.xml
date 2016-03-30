@@ -87,15 +87,17 @@
 
         <!-- Testing Configuration -->
         <includedTestGroups />
-        <excludedTestGroups>Integration,Acceptance,Live,WIP,Broken</excludedTestGroups>
+        <excludedTestGroups>Integration,Acceptance,Live,Live-sanity,WIP,Broken</excludedTestGroups>
         <surefire.failIfNoSpecifiedTests>false</surefire.failIfNoSpecifiedTests>
-        <coverage.target>${working.dir}</coverage.target>
 
         <!-- Dependency Versions -->
         <jclouds.version>1.9.2</jclouds.version> <!-- JCLOUDS_VERSION -->
         <logback.version>1.0.7</logback.version>
         <slf4j.version>1.6.6</slf4j.version>  <!-- used for java.util.logging jul-to-slf4j interception -->
-        <guava.version>17.0</guava.version>
+        <!-- Must match jclouds' version. From jclouds 1.9.3+ can be any version in the range [16-20) -->
+        <guava.version>16.0.1</guava.version>
+        <!-- This can be different, OSGi will pick it up -->
+        <guava-swagger.version>18.0</guava-swagger.version>
         <xstream.version>1.4.7</xstream.version>
         <!-- double-check downstream projects before changing jackson and resteasy versions -->
         <fasterxml.jackson.version>2.4.5</fasterxml.jackson.version>
@@ -107,14 +109,15 @@
         <groovy.version>2.3.7</groovy.version> <!-- Version supported by https://github.com/groovy/groovy-eclipse/wiki/Groovy-Eclipse-2.9.1-Release-Notes -->
         <jsr305.version>2.0.1</jsr305.version>
         <snakeyaml.version>1.11</snakeyaml.version>
-        <swagger.version>1.5.3</swagger.version>
+        <!-- Next version of swagger requires changes to how path mapping and scanner injection are done. -->
+        <swagger.version>1.5.6</swagger.version>
         <jansi.version>1.2.1</jansi.version>
         <gson.version>2.3</gson.version>
         <ivy.version>2.2.0</ivy.version>
         <mx4j.version>3.0.1</mx4j.version>
         <bouncycastle.version>1.49</bouncycastle.version>
         <sshj.version>0.8.1</sshj.version>
-        <felix.framework.version>4.4.0</felix.framework.version>
+        <felix.framework.version>5.4.0</felix.framework.version>
         <reflections.version>0.9.9-RC1</reflections.version>
         <jetty.version>9.2.13.v20150730</jetty.version>
         <jetty-schemas.version>3.1.M0</jetty-schemas.version>
@@ -150,8 +153,10 @@
         <jsr311-api.version>1.1.1</jsr311-api.version>
         <jax-rs-api.version>2.0.1</jax-rs-api.version>
         <maxmind.version>0.8.1</maxmind.version>
+        <maxmind-db.version>0.3.4</maxmind-db.version>
         <jna.version>4.0.0</jna.version>
         <winrm4j.version>0.3.5</winrm4j.version>
+        <karaf.version>4.0.4</karaf.version>
         <!-- Transitive dependencies, declared explicitly to avoid version mismatch -->
         <clojure.version>1.4.0</clojure.version>
         <zookeeper.version>3.3.4</zookeeper.version>

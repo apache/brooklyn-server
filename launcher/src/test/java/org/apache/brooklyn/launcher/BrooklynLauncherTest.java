@@ -32,7 +32,6 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
@@ -43,7 +42,7 @@ import org.apache.brooklyn.core.test.entity.TestApplicationImpl;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.launcher.common.BrooklynPropertiesFactoryHelperTest;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
-import org.apache.brooklyn.test.HttpTestUtils;
+import org.apache.brooklyn.util.http.HttpAsserts;
 import org.apache.brooklyn.util.io.FileUtil;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.os.Os;
@@ -75,6 +74,7 @@ public class BrooklynLauncherTest {
     public void testStartsWebServerOnExpectectedPort() throws Exception {
         launcher = newLauncherForTests(true)
                 .webconsolePort("10000+")
+                .installSecurityFilter(false)
                 .start();
         
         String webServerUrlStr = launcher.getServerDetails().getWebServerUrl();
@@ -82,7 +82,7 @@ public class BrooklynLauncherTest {
         
         assertEquals(launcher.getApplications(), ImmutableList.of());
         assertTrue(webServerUri.getPort() >= 10000 && webServerUri.getPort() < 10100, "port="+webServerUri.getPort()+"; uri="+webServerUri);
-        HttpTestUtils.assertUrlReachable(webServerUrlStr);
+        HttpAsserts.assertUrlReachable(webServerUrlStr);
     }
     
     // Integration because takes a few seconds to start web-console
@@ -117,7 +117,7 @@ public class BrooklynLauncherTest {
     public void testStartsAppInstance() throws Exception {
         launcher = newLauncherForTests(true)
                 .webconsole(false)
-                .application(new TestApplicationImpl())
+                .application(EntitySpec.create(TestApplicationImpl.class))
                 .start();
         
         assertOnlyApp(launcher, TestApplication.class);
@@ -134,10 +134,11 @@ public class BrooklynLauncherTest {
     }
     
     @Test
+    @SuppressWarnings("deprecation")
     public void testStartsAppFromBuilder() throws Exception {
         launcher = newLauncherForTests(true)
                 .webconsole(false)
-                .application(new ApplicationBuilder(EntitySpec.create(TestApplication.class)) {
+                .application(new org.apache.brooklyn.core.entity.factory.ApplicationBuilder(EntitySpec.create(TestApplication.class)) {
                         @Override protected void doBuild() {
                         }})
                 .start();
@@ -167,9 +168,7 @@ public class BrooklynLauncherTest {
         launcher = newLauncherForTests(true)
                 .webconsole(false)
                 .location("localhost")
-                .application(new ApplicationBuilder(EntitySpec.create(TestApplication.class)) {
-                        @Override protected void doBuild() {
-                        }})
+                .application(EntitySpec.create(TestApplication.class))
                 .start();
         
         Application app = Iterables.find(launcher.getApplications(), Predicates.instanceOf(TestApplication.class));
@@ -254,15 +253,16 @@ public class BrooklynLauncherTest {
                         throw new RuntimeException("deliberate-exception-for-testing");
                     }
                 }))
+                .installSecurityFilter(false)
                 .start();
         // such an error should be thrown, then caught in this calling thread
         ManagementContext mgmt = launcher.getServerDetails().getManagementContext();
         Assert.assertFalse( ((ManagementContextInternal)mgmt).errors().isEmpty() );
         Assert.assertTrue( ((ManagementContextInternal)mgmt).errors().get(0).toString().contains("deliberate"), ""+((ManagementContextInternal)mgmt).errors() );
-        HttpTestUtils.assertContentMatches(
+        HttpAsserts.assertContentMatches(
             Urls.mergePaths(launcher.getServerDetails().getWebServerUrl(), "v1/server/up"), 
             "true");
-        HttpTestUtils.assertContentMatches(
+        HttpAsserts.assertContentMatches(
             Urls.mergePaths(launcher.getServerDetails().getWebServerUrl(), "v1/server/healthy"), 
             "false");
         // TODO test errors api?

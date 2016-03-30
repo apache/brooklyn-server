@@ -21,7 +21,10 @@ package org.apache.brooklyn.test.osgi.entities;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.ImplementedBy;
+import org.apache.brooklyn.api.catalog.Catalog;
 
+
+@Catalog(name="A Simple Entity", description="Simple entity for test purposes")
 @ImplementedBy(SimpleEntityImpl.class)
 public interface SimpleEntity extends Entity {
 

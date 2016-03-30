@@ -33,16 +33,16 @@
   </parent>
   
   <properties>
-    <karaf.version>4.0.3</karaf.version>
 
     <org.osgi.compendium.version>5.0.0</org.osgi.compendium.version>
     
     <lifecycle-mapping-plugin.version>1.0.0</lifecycle-mapping-plugin.version>
 
     <!-- pax-exam -->
-    <pax.exam.version>4.6.0</pax.exam.version>
+    <pax.exam.version>4.7.0</pax.exam.version>
     <pax.url.version>2.4.3</pax.url.version>
     <ops4j.base.version>1.5.0</ops4j.base.version>
+    <tinybundles.version>1.0.0</tinybundles.version>
 
     <!-- feature repositories -->
     <servicemix.version>6.0.0</servicemix.version>
@@ -54,6 +54,7 @@
 
   <modules>
     <module>init</module>
+    <module>jetty-config</module>
     <module>features</module>
     <module>apache-brooklyn</module>
     <module>commands</module>
@@ -142,6 +143,22 @@
               </pluginExecutions>
             </lifecycleMappingMetadata>
           </configuration>
+        </plugin>
+        <plugin>
+            <groupId>org.apache.rat</groupId>
+            <artifactId>apache-rat-plugin</artifactId>
+            <configuration>
+                <excludes combine.children="append">
+                    <!-- Exclude sandbox because not part of distribution: not in tgz, and not uploaded to maven-central -->
+                    <exclude>sandbox/**</exclude>
+                    <!-- Exclude release because not part of distribution: not in tgz, and not uploaded to maven-central -->
+                    <exclude>release/**</exclude>
+                    <exclude>README.md</exclude>
+                    <!-- Exclude netbeans config files (not part of the project, but often on users' drives -->
+                    <exclude>**/nbactions.xml</exclude>
+                    <exclude>**/nb-configuration.xml</exclude>
+                </excludes>
+            </configuration>
         </plugin>
       </plugins>
     </pluginManagement>

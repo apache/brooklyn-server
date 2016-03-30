@@ -18,20 +18,16 @@
  */
 package org.apache.brooklyn.launcher;
 
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.internal.BrooklynProperties;
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
-import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
-import org.apache.brooklyn.launcher.BrooklynWebServer;
-import org.apache.brooklyn.launcher.BrooklynLauncher;
-import org.apache.brooklyn.launcher.BrooklynServerDetails;
-
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.fail;
 
 import java.util.List;
 import java.util.Map;
 
+import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.internal.BrooklynProperties;
+import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.test.HttpTestUtils;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -75,9 +71,9 @@ public class WebAppRunnerTest {
 
         BrooklynProperties brooklynProperties = BrooklynProperties.Factory.newEmpty();
         brooklynProperties.putAll(bigProps);
-        brooklynProperties.put("brooklyn.webconsole.security.provider","org.apache.brooklyn.rest.security.provider.AnyoneSecurityProvider");
         brooklynProperties.put("brooklyn.webconsole.security.https.required","false");
-        return new BrooklynWebServer(bigProps, newManagementContext(brooklynProperties));
+        return new BrooklynWebServer(bigProps, newManagementContext(brooklynProperties))
+                .skipSecurity();
     }
     
     @Test

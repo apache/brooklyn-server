@@ -16,23 +16,27 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 -->
-<features xmlns="http://karaf.apache.org/xmlns/features/v1.2.0" name="org.apache.brooklyn-${project.version}">
+<features xmlns="http://karaf.apache.org/xmlns/features/v1.2.0"
+          name="org.apache.brooklyn-${project.version}"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="http://karaf.apache.org/xmlns/features/v1.2.0">
 
     <repository>mvn:org.apache.karaf.features/standard/${karaf.version}/xml/features</repository>
     <repository>mvn:org.apache.karaf.features/enterprise/${karaf.version}/xml/features</repository>
     <repository>mvn:org.apache.karaf.features/spring/${karaf.version}/xml/features</repository>
 
+    <!-- TODO how to add central.maven.org repo? -->
+    <repository>http://central.maven.org/maven2/org/apache/jclouds/karaf/jclouds-karaf/1.9.2/jclouds-karaf-1.9.2-features.xml</repository>
     <repository>mvn:org.apache.cxf.karaf/apache-cxf/${cxf.version}/xml/features</repository>
 
-    <!-- temporary feature until we migrate to swagger-1.5.4, which is properly bundled -->
-    <feature name="swagger-crippled" version="${swagger.version}" description="Swagger Annotations+Core+JAXRS+Models">
+    <feature name="swagger" version="${swagger.version}" description="Swagger Annotations+Core+JAXRS+Models">
+        <bundle dependency='true'>mvn:com.google.guava/guava/${guava-swagger.version}</bundle>
+
         <bundle>mvn:io.swagger/swagger-annotations/${swagger.version}</bundle>
-<!--        <bundle>wrap:mvn:io.swagger/swagger-core/${swagger.version}</bundle>
-        <bundle>wrap:mvn:io.swagger/swagger-jaxrs/${swagger.version}</bundle>-->
+        <bundle>wrap:mvn:io.swagger/swagger-core/${swagger.version}</bundle>
+        <bundle>wrap:mvn:io.swagger/swagger-jaxrs/${swagger.version}</bundle>
         <bundle>mvn:io.swagger/swagger-models/${swagger.version}</bundle>
 
-        <!--<bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.javassist/${javassist.bundle.version}</bundle>-->
-        <!--<bundle dependency='true'>mvn:com.google.guava/guava/${guava.version}</bundle>-->
         <bundle dependency='true'>mvn:com.fasterxml.jackson.core/jackson-annotations/${fasterxml.jackson.version}</bundle>
         <bundle dependency='true'>mvn:com.fasterxml.jackson.core/jackson-core/${fasterxml.jackson.version}</bundle>
         <bundle dependency='true'>mvn:com.fasterxml.jackson.core/jackson-databind/${fasterxml.jackson.version}</bundle>
@@ -65,15 +69,9 @@
 
     <feature name="brooklyn-utils-rest-swagger" version="${project.version}" description="Brooklyn REST Swagger Apidoc Utilities">
         <feature>brooklyn-utils-common</feature>
-        <feature version="${swagger.version}">swagger-crippled</feature>
+        <feature version="${swagger.version}">swagger</feature>
 
         <bundle>mvn:org.apache.brooklyn/brooklyn-utils-rest-swagger/${project.version}</bundle>
-
-        <!--<feature>jersey</feature>-->
-        <bundle dependency="true">mvn:com.sun.jersey/jersey-server/${jersey.version}</bundle>
-        <bundle dependency="true">mvn:com.sun.jersey/jersey-core/${jersey.version}</bundle>
-        <bundle dependency="true">mvn:com.sun.jersey/jersey-servlet/${jersey.version}</bundle>
-        <bundle dependency="true">mvn:org.apache.commons/commons-lang3/${commons-lang3.version}</bundle>
 
         <bundle dependency="true">mvn:javax.servlet/javax.servlet-api/${javax-servlet.version}</bundle>
         <bundle dependency="true">mvn:javax.ws.rs/javax.ws.rs-api/${jax-rs-api.version}</bundle>
@@ -136,6 +134,7 @@
         <!-- TODO: don't use wrap -->
         <bundle dependency="true">wrap:mvn:com.google.http-client/google-http-client/1.18.0-rc</bundle> <!-- from geoip -->
         <bundle dependency="true">wrap:mvn:com.maxmind.geoip2/geoip2/${maxmind.version}</bundle> <!-- from geoip2 -->
+        <bundle dependency="true">wrap:mvn:com.maxmind.db/maxmind-db/${maxmind-db.version}</bundle>
         <bundle dependency="true">wrap:mvn:xpp3/xpp3_min/1.1.4c</bundle> <!-- from com.thoughtworks.xstream/xstream -->
 
         <bundle dependency="true">mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.reflections/${reflections.bundle.version}</bundle>
@@ -164,7 +163,7 @@
 
         <feature>brooklyn-camp-base</feature>
         <feature>brooklyn-utils-rest-swagger</feature>
-        <feature>jetty</feature> <!-- TODO: pax-jetty??? -->
+        <feature>pax-jetty</feature>
     </feature>
 
     <feature name="brooklyn-rest-resources" version="${project.version}" description="Brooklyn REST Resources">
@@ -188,6 +187,8 @@
     </feature>
 
     <feature name="brooklyn-jsgui" version="${project.version}" description="Brooklyn REST JavaScript Web GUI">
+        <feature>pax-jetty</feature> <!-- jaas bundle -->
+        <bundle>mvn:org.apache.brooklyn/brooklyn-karaf-jetty-config/${project.version}</bundle>
         <bundle>mvn:org.apache.brooklyn/brooklyn-jsgui/${project.version}/war</bundle>
         <feature>war</feature>
     </feature>
@@ -228,14 +229,57 @@
         <bundle>mvn:org.apache.brooklyn/brooklyn-jmxrmi-agent/${project.version}</bundle>
     </feature>
 
-    <!-- WARNING: feature brooklyn-locations-jclouds cannot really be installed, due to guava 17 issues -->
     <feature name="brooklyn-locations-jclouds" version="${project.version}" description="Brooklyn Jclouds Location Targets">
-        <bundle>mvn:org.apache.brooklyn/brooklyn-locations-jclouds/${project.version}</bundle>
+        <!--
+            OkHttp had OSGi support shortly in 3.0.0, but was immediately reverted in 3.0.1
+            https://github.com/square/okhttp/pull/2192
+            https://github.com/square/okhttp/issues/2243
+            https://github.com/square/okhttp/pull/2246
+        -->
+        <bundle dependency="true">wrap:mvn:com.squareup.okhttp/okhttp/2.2.0</bundle>
+        <bundle dependency="true">wrap:mvn:com.squareup.okio/okio/1.2.0</bundle>
+        <bundle dependency="true">mvn:org.apache.jclouds.driver/jclouds-okhttp/${jclouds.version}</bundle>
+
+        <bundle dependency="true">mvn:org.apache.jclouds.driver/jclouds-sshj/${jclouds.version}</bundle>
+        <bundle dependency="true">mvn:org.apache.jclouds.labs/abiquo/${jclouds.version}</bundle>
+        <bundle dependency="true">mvn:org.apache.jclouds.labs/docker/${jclouds.version}</bundle>
+
+        <!-- Not bundle-ized, fixed in 2.0.0-SNAPSHOT -->
+        <!-- bundle dependency="true">mvn:org.apache.jclouds.labs/google-compute-engine/${jclouds.version}</bundle -->
+
+        <feature>jclouds-services</feature>
+
+        <!-- Same as allcompute -->
+        <feature>jclouds-aws-ec2</feature>
+        <feature>jclouds-api-openstack-nova</feature>
+        <feature>jclouds-api-byon</feature>
+        <feature>jclouds-api-ec2</feature>
+        <feature>jclouds-gogrid</feature>
+        <feature>jclouds-elastichosts-lon-b</feature>
+        <feature>jclouds-elastichosts-lon-p</feature>
+        <feature>jclouds-elastichosts-sat-p</feature>
+        <feature>jclouds-openhosting-east1</feature>
+        <feature>jclouds-serverlove-z1-man</feature>
+        <feature>jclouds-skalicloud-sdg-my</feature>
+        <feature>jclouds-go2cloud-jhb1</feature>
+        <feature>jclouds-softlayer</feature>
+        <feature>jclouds-api-cloudstack</feature>
+        <!-- feature>hpcloud</feature-->
+        <feature>jclouds-rackspace-cloudservers-us</feature>
+        <feature>jclouds-rackspace-cloudservers-uk</feature>
+
+        <!-- Same as allblobstore -->
+        <feature>jclouds-aws-s3</feature>
+        <feature>jclouds-azureblob</feature>
+        <feature>jclouds-api-atmos</feature>
+        <feature>jclouds-api-openstack-swift</feature>
+        <feature>jclouds-rackspace-cloudfiles-uk</feature>
+        <feature>jclouds-rackspace-cloudfiles-us</feature>
+        <!-- feature>hpcloud</feature -->
+        <feature>jclouds-api-filesystem</feature>
+
+        <bundle start-level="85">mvn:org.apache.brooklyn/brooklyn-locations-jclouds/${project.version}</bundle>
         <feature>brooklyn-software-winrm</feature>
-        <bundle dependency="true">mvn:com.google.inject/guice/${guice.version}</bundle>
-        <bundle dependency="true">mvn:${jclouds.groupId}.driver/jclouds-bouncycastle/${jclouds.version}</bundle>
-        <bundle dependency="true">mvn:${jclouds.groupId}/jclouds-core/${jclouds.version}</bundle>
-        <bundle dependency="true">mvn:com.google.guava/guava/${guava.version}</bundle>
     </feature>
 
     <feature name="brooklyn-software-network" version="${project.version}" description="Brooklyn Network Software Entities">
@@ -289,8 +333,9 @@
     <feature name="brooklyn-osgi-launcher" version="${project.version}" description="Brooklyn init">
         <feature>brooklyn-core</feature>
         <feature>brooklyn-software-base</feature>
+        <feature>brooklyn-locations-jclouds</feature>
         <bundle>mvn:org.apache.brooklyn/brooklyn-launcher-common/${project.version}</bundle>
-        <bundle>mvn:org.apache.brooklyn/brooklyn-karaf-init/${project.version}</bundle>
+        <bundle start-level="90">mvn:org.apache.brooklyn/brooklyn-karaf-init/${project.version}</bundle>
     </feature>
 
 </features>

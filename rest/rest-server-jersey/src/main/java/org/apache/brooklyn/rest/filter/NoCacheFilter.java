@@ -21,10 +21,12 @@ package org.apache.brooklyn.rest.filter;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MultivaluedMap;
 
+import com.sun.jersey.core.util.Priority;
 import com.sun.jersey.spi.container.ContainerRequest;
 import com.sun.jersey.spi.container.ContainerResponse;
 import com.sun.jersey.spi.container.ContainerResponseFilter;
 
+@Priority(200)
 public class NoCacheFilter implements ContainerResponseFilter {
 
     @Override

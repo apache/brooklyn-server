@@ -27,6 +27,7 @@ import java.util.Set;
 import javax.annotation.Nonnull;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.framework.FrameworkLookup;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
@@ -52,7 +53,7 @@ public class DelegatingEntitySpecResolver extends AbstractEntitySpecResolver {
     }
 
     protected static ImmutableList<EntitySpecResolver> getRegisteredResolvers() {
-        return ImmutableList.copyOf(ServiceLoader.load(EntitySpecResolver.class));
+        return ImmutableList.copyOf(FrameworkLookup.lookupAll(EntitySpecResolver.class));
     }
 
     @Override

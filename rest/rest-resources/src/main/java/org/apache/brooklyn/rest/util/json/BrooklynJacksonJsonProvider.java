@@ -26,12 +26,14 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.ext.ContextResolver;
 import javax.ws.rs.ext.MessageBodyReader;
 import javax.ws.rs.ext.MessageBodyWriter;
+import javax.ws.rs.ext.Provider;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.server.BrooklynServiceAttributes;
+import org.apache.brooklyn.rest.util.OsgiCompat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,6 +42,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider;
 
+@Provider
 public class BrooklynJacksonJsonProvider extends JacksonJsonProvider implements
         //CXF only looks at the interfaces of this class to determine if the Provider is a MessageBodyWriter/Reader
         MessageBodyWriter<Object>, MessageBodyReader<Object> {
@@ -47,9 +50,6 @@ public class BrooklynJacksonJsonProvider extends JacksonJsonProvider implements
     private static final Logger log = LoggerFactory.getLogger(BrooklynJacksonJsonProvider.class);
 
     public static final String BROOKLYN_REST_OBJECT_MAPPER = BrooklynServiceAttributes.BROOKLYN_REST_OBJECT_MAPPER;
-
-    @Context
-    private ServletContext servletContext;
 
     protected ObjectMapper ourMapper;
     protected boolean notFound = false;
@@ -79,7 +79,7 @@ public class BrooklynJacksonJsonProvider extends JacksonJsonProvider implements
         if (ourMapper != null || notFound)
             return ourMapper;
 
-        ourMapper = findSharedObjectMapper(servletContext, mgmt());
+        ourMapper = findSharedObjectMapper(mgmt());
         if (ourMapper == null) return null;
 
         if (notFound) {
@@ -94,31 +94,27 @@ public class BrooklynJacksonJsonProvider extends JacksonJsonProvider implements
         return mgmt.getContext(ManagementContext.class);
     }
 
+    /** @deprecated since 0.9.0, use {@link #findSharedObjectMapper(ManagementContext)} */
+    @Deprecated
+    public static ObjectMapper findSharedObjectMapper(ServletContext servletContext, ManagementContext mgmt) {
+        return findSharedObjectMapper(getManagementContext(servletContext, mgmt));
+    }
+
+    @Deprecated
+    private static ManagementContext getManagementContext(ServletContext servletContext, ManagementContext mgmt) {
+        if (mgmt != null) {
+            return mgmt;
+        } else {
+            return OsgiCompat.getManagementContext(servletContext);
+        }
+    }
+
     /**
      * Finds a shared {@link ObjectMapper} or makes a new one, stored against the servlet context;
      * returns null if a shared instance cannot be created.
      */
-    public static ObjectMapper findSharedObjectMapper(ServletContext servletContext, ManagementContext mgmt) {
+    public static ObjectMapper findSharedObjectMapper(ManagementContext mgmt) {
         checkNotNull(mgmt, "mgmt");
-        if (servletContext != null) {
-            synchronized (servletContext) {
-                boolean isServletContextNull = false;
-                try {
-                    ObjectMapper mapper = (ObjectMapper) servletContext.getAttribute(BROOKLYN_REST_OBJECT_MAPPER);
-                    if (mapper != null) return mapper;
-                } catch (NullPointerException e) {
-                    // CXF always injects a ThreadLocalServletContext that may return null later on.
-                    // Ignore this case so this provider can be used outside the REST server, such as the CXF client during tests.
-                    isServletContextNull = true;
-                }
-
-                if (!isServletContextNull) {
-                    ObjectMapper mapper = newPrivateObjectMapper(mgmt);
-                    servletContext.setAttribute(BROOKLYN_REST_OBJECT_MAPPER, mapper);
-                    return mapper;
-                }
-            }
-        }
         synchronized (mgmt) {
             ConfigKey<ObjectMapper> key = ConfigKeys.newConfigKey(ObjectMapper.class, BROOKLYN_REST_OBJECT_MAPPER);
             ObjectMapper mapper = mgmt.getConfig().getConfig(key);
@@ -131,12 +127,18 @@ public class BrooklynJacksonJsonProvider extends JacksonJsonProvider implements
         }
     }
 
+    /** @deprecated since 0.9.0, use {@link #findAnyObjectMapper(ManagementContext) */
+    @Deprecated
+    public static ObjectMapper findAnyObjectMapper(ServletContext servletContext, ManagementContext mgmt) {
+        return findAnyObjectMapper(getManagementContext(servletContext, mgmt));
+    }
+
     /**
      * Like {@link #findSharedObjectMapper(ServletContext, ManagementContext)} but will create a private
      * ObjectMapper if it can, from the servlet context and/or the management context, or else fail
      */
-    public static ObjectMapper findAnyObjectMapper(ServletContext servletContext, ManagementContext mgmt) {
-        ObjectMapper mapper = findSharedObjectMapper(servletContext, mgmt);
+    public static ObjectMapper findAnyObjectMapper(ManagementContext mgmt) {
+        ObjectMapper mapper = findSharedObjectMapper(mgmt);
         if (mapper != null) return mapper;
 
         return newPrivateObjectMapper(mgmt);
@@ -144,7 +146,7 @@ public class BrooklynJacksonJsonProvider extends JacksonJsonProvider implements
 
     /**
      * @return A new Brooklyn-specific ObjectMapper.
-     *   Normally {@link #findSharedObjectMapper(ServletContext, ManagementContext)} is preferred
+     *   Normally {@link #findSharedObjectMapper(ManagementContext)} is preferred
      */
     public static ObjectMapper newPrivateObjectMapper(ManagementContext mgmt) {
         if (mgmt == null) {
