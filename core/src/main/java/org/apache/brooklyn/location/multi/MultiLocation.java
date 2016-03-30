@@ -39,7 +39,6 @@ import org.apache.brooklyn.core.location.cloud.AbstractAvailabilityZoneExtension
 import org.apache.brooklyn.core.location.cloud.AvailabilityZoneExtension;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
@@ -56,18 +55,52 @@ import com.google.common.reflect.TypeToken;
  * is used, it may stripe across each of the locations.  See notes at {@link AvailabilityZoneExtension}. */
 public class MultiLocation<T extends MachineLocation> extends AbstractLocation implements MachineProvisioningLocation<T> {
 
+    /**
+     * The subLocationSpecs allows {@link MultiLocationResolver} to work with just LocationSpecs, rather than 
+     * having to instantiate the sub-locations immediately (which would be bad, because the caller
+     * might not use the spec and thus might not unmanage the sub-location instances).
+     *
+     * We clear the subLocationSpecs in init, so they will never be persisted. This will help with
+     * backwards compatibility if we change how this is done.
+     *
+     * By the end of init(), the {@link #SUB_LOCATIONS} will contain the full list of locations; it 
+     * will never contain a {@link LocationSpec}.
+     */
+    @Beta
     @SuppressWarnings("serial")
-    @SetFromFlag("subLocations")
-    public static final ConfigKey<List<?>> SUB_LOCATIONS = ConfigKeys.newConfigKey(
-            new TypeToken<List<?>>() {},
-            "subLocations", 
-            "The sub-machines Location instances or LocationSpecs that this location can delegate to");
+    public static final ConfigKey<List<LocationSpec<?>>> SUB_LOCATION_SPECS = ConfigKeys.newConfigKey(
+            new TypeToken<List<LocationSpec<?>>>() {},
+            "subLocationSpecs", 
+            "Specs of sub-locations that should be immediatly instantiated on init");
     
+    @SuppressWarnings("serial")
+    public static final ConfigKey<List<MachineProvisioningLocation<?>>> SUB_LOCATIONS = ConfigKeys.newConfigKey(
+            new TypeToken<List<MachineProvisioningLocation<?>>>() {},
+            "subLocations", 
+            "The sub-locations that this location can delegate to");
+
     @Override
     public void init() {
         super.init();
-        List<MachineProvisioningLocation<?>> subLocations = getSubLocationsAsLocations();
-        AvailabilityZoneExtension azExtension = new AvailabilityZoneExtensionImpl(getManagementContext(), subLocations);
+        
+        List<MachineProvisioningLocation<?>> subLocs = MutableList.copyOf(getConfig(SUB_LOCATIONS));
+        
+        List<LocationSpec<?>> subLocSpecs = getConfig(SUB_LOCATION_SPECS);
+        if (subLocSpecs != null) {
+            for (LocationSpec<?> spec : subLocSpecs) {
+                if (spec.getParent() == null) {
+                    // use a copy with us set as parent
+                    spec = LocationSpec.create(spec).parent(this);
+                }
+                MachineProvisioningLocation<?> subLoc = (MachineProvisioningLocation<?>) getManagementContext().getLocationManager().createLocation(spec);
+                subLocs.add(subLoc);
+            }
+        }
+        checkState(subLocs.size() >= 1, "sub-locations must not be empty");
+        config().set(SUB_LOCATIONS, subLocs);
+        config().set(SUB_LOCATION_SPECS, (List<LocationSpec<?>>) null);
+
+        AvailabilityZoneExtension azExtension = new AvailabilityZoneExtensionImpl(getManagementContext(), subLocs);
         addExtension(AvailabilityZoneExtension.class, azExtension);
     }
 
@@ -81,7 +114,7 @@ public class MultiLocation<T extends MachineLocation> extends AbstractLocation i
     @SuppressWarnings("unchecked")
     @Override
     public T obtain(Map<?, ?> flags) throws NoMachinesAvailableException {
-        List<MachineProvisioningLocation<?>> sublocsList = getSubLocationsAsLocations();
+        List<MachineProvisioningLocation<?>> sublocsList = getSubLocations();
         Iterator<MachineProvisioningLocation<?>> sublocs = sublocsList.iterator();
         List<NoMachinesAvailableException> errors = MutableList.of();
         while (sublocs.hasNext()) {
@@ -109,32 +142,8 @@ public class MultiLocation<T extends MachineLocation> extends AbstractLocation i
             " configured here: "+msg, wrapped);
     }
 
-    @Beta
-    public List<?> getSubLocationsAsSpecsOrInstances() {
+    public List<MachineProvisioningLocation<?>> getSubLocations() {
         return getRequiredConfig(SUB_LOCATIONS);
-    }
-    @Beta
-    public List<MachineProvisioningLocation<?>> getSubLocationsAsLocations() {
-        List<?> subLocsOrSpecs = getSubLocationsAsSpecsOrInstances();
-        checkState(subLocsOrSpecs.size() >= 1, "sub-locations must not be empty");
-        // TODO there is a possible leak case in the unmanagement of these locations if something fails
-        List<MachineProvisioningLocation<?>> subLocations = MutableList.of();
-        for (Object l: subLocsOrSpecs) {
-            if (l instanceof LocationSpec) {
-                if (((LocationSpec<?>)l).getParent()==null) {
-                    // use a copy with us set as parent
-                    l = LocationSpec.create((LocationSpec<?>)l).parent(this);
-                }
-                l = getManagementContext().getLocationManager().createLocation((LocationSpec<?>)l);
-            }
-            if (l instanceof MachineProvisioningLocation) {
-                subLocations.add((MachineProvisioningLocation<?>)l);
-            } else {
-                throw new IllegalArgumentException("Invalid sublocation "+l+" for "+this+"; expecting "+MachineProvisioningLocation.class);
-            }
-        }
-        config().set(SUB_LOCATIONS, subLocations);
-        return subLocations;
     }
 
     @SuppressWarnings("unchecked")
@@ -160,7 +169,7 @@ public class MultiLocation<T extends MachineLocation> extends AbstractLocation i
 
     @SuppressWarnings("unchecked")
     protected MachineProvisioningLocation<T> firstSubLoc() {
-        return (MachineProvisioningLocation<T>) Iterables.get(getSubLocationsAsLocations(), 0);
+        return (MachineProvisioningLocation<T>) Iterables.get(getSubLocations(), 0);
     }
 
     protected <K> K getRequiredConfig(ConfigKey<K> key) {
