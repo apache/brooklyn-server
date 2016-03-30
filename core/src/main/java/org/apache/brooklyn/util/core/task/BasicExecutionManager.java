@@ -70,6 +70,7 @@ import com.google.common.base.CaseFormat;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ExecutionList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -118,7 +119,7 @@ public class BasicExecutionManager implements ExecutionManager {
     private final AtomicLong totalTaskCount = new AtomicLong();
     
     /** tasks submitted but not yet done (or in cases of interruption/cancelled not yet GC'd) */
-    private Map<String,String> incompleteTaskIds = new ConcurrentHashMap<String,String>();
+    private Set<String> incompleteTaskIds = Sets.newConcurrentHashSet();
     
     /** tasks started but not yet finished */
     private final AtomicInteger activeTaskCount = new AtomicInteger();
@@ -717,7 +718,7 @@ public class BasicExecutionManager implements ExecutionManager {
     }
     /** invoked when a task is submitted */
     protected void internalBeforeSubmit(Map<?,?> flags, Task<?> task) {
-        incompleteTaskIds.put(task.getId(), task.getId());
+        incompleteTaskIds.add(task.getId());
         
         Task<?> currentTask = Tasks.current();
         if (currentTask!=null) ((TaskInternal<?>)task).setSubmittedByTask(currentTask);
