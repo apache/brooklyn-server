@@ -822,6 +822,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
     }
     
     private void addCatalogOSGiEntity(String symbolicName, String serviceType, boolean extraLib) {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
         addCatalogItems(
             "brooklyn.catalog:",
             "  id: " + symbolicName,
@@ -837,6 +838,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
     }
 
     private void addCatalogOSGiEntities(String ...namesAndTypes) {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
         List<String> lines = MutableList.of(
             "brooklyn.catalog:",
             "  name: My Catalog App",
@@ -857,6 +859,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         addCatalogItems(lines);
     }
     private void addCatalogChildOSGiEntityWithServicesBlock(String symbolicName, String serviceType) {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
         addCatalogItems(
             "brooklyn.catalog:",
             "  id: " + symbolicName,
@@ -873,6 +876,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
             "      - type: " + serviceType);
     }
     private void addCatalogChildOSGiEntity(String symbolicName, String serviceType) {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
         addCatalogItems(
             "brooklyn.catalog:",
             "  id: " + symbolicName,
