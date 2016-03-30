@@ -87,7 +87,7 @@
 
         <!-- Testing Configuration -->
         <includedTestGroups />
-        <excludedTestGroups>Integration,Acceptance,Live,WIP,Broken</excludedTestGroups>
+        <excludedTestGroups>Integration,Acceptance,Live,Live-sanity,WIP,Broken</excludedTestGroups>
         <surefire.failIfNoSpecifiedTests>false</surefire.failIfNoSpecifiedTests>
 
         <!-- Dependency Versions -->
