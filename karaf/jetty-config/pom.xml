@@ -20,7 +20,7 @@
   <parent>
     <groupId>org.apache.brooklyn</groupId>
     <artifactId>brooklyn-karaf</artifactId>
-    <version>0.9.0-SNAPSHOT</version>  <!-- BROOKLYN_VERSION -->
+    <version>0.10.0-SNAPSHOT</version>  <!-- BROOKLYN_VERSION -->
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -29,7 +29,7 @@
 
   <name>Jetty config fragment</name>
   <description>
-    An OSGi fragment to extend the jetty classpath (Import-Packaaes) so it is
+    An OSGi fragment to extend the jetty classpath (Import-Packages) so it is
     able to load all classes in the included jetty.xml.
   </description>
 
