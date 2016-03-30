@@ -43,6 +43,7 @@ import org.apache.brooklyn.rest.filter.NoCacheFilter;
 import org.apache.brooklyn.rest.filter.RequestTaggingFilter;
 import org.apache.brooklyn.rest.filter.RequestTaggingRsFilter;
 import org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule.RolePrincipal;
+import org.apache.brooklyn.rest.security.jaas.JaasUtils;
 import org.apache.brooklyn.rest.security.provider.AnyoneSecurityProvider;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider;
 import org.apache.brooklyn.rest.util.ManagementContextProvider;
@@ -288,15 +289,13 @@ public class BrooklynRestApiLauncher {
         InetSocketAddress bindLocation = new InetSocketAddress(
                 secure ? Networking.ANY_NIC : Networking.LOOPBACK,
                         Networking.nextAvailablePort(FAVOURITE_PORT));
-        return startServer(context, summary, bindLocation);
+        return startServer(mgmt, context, summary, bindLocation);
     }
 
-    /** @deprecated since 0.9.0 becoming private */
-    @Deprecated
-    public static Server startServer(ContextHandler context, String summary, InetSocketAddress bindLocation) {
+    private static Server startServer(ManagementContext mgmt, ContextHandler context, String summary, InetSocketAddress bindLocation) {
         Server server = new Server(bindLocation);
 
-        initJaas(server);
+        initJaas(mgmt, server);
 
         server.setHandler(context);
         try {
@@ -311,7 +310,8 @@ public class BrooklynRestApiLauncher {
     }
 
     // TODO Why parallel code for server init here and in BrooklynWebServer?
-    private static void initJaas(Server server) {
+    private static void initJaas(ManagementContext mgmt, Server server) {
+        JaasUtils.init(mgmt);
         JAASLoginService loginService = new JAASLoginService();
         loginService.setName("webconsole");
         loginService.setLoginModuleName("webconsole");
@@ -338,16 +338,6 @@ public class BrooklynRestApiLauncher {
         return new BrooklynRestApiLauncher()
                 .mode(StartMode.WEB_XML)
                 .start();
-    }
-
-    /**
-     * Starts the server on all nics (even if security not enabled).
-     * @deprecated since 0.6.0; use {@link #launcher()} and set a custom context
-     */
-    @Deprecated
-    public static Server startServer(ContextHandler context, String summary) {
-        return BrooklynRestApiLauncher.startServer(context, summary,
-                new InetSocketAddress(Networking.ANY_NIC, Networking.nextAvailablePort(FAVOURITE_PORT)));
     }
 
     /** look for the JS GUI webapp in common source places, returning path to it if found, or null.
