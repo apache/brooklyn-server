@@ -27,6 +27,12 @@
 
     <!-- TODO how to add central.maven.org repo? -->
     <repository>http://central.maven.org/maven2/org/apache/jclouds/karaf/jclouds-karaf/1.9.2/jclouds-karaf-1.9.2-features.xml</repository>
+<!--
+TODO the above link works for loading it, at compile time, as in the file below is then installed into target/assembly/system/
+BUT the assembly's variant of *this* feature file keeps the link above which FAILS if the server is not online.
+it should contain the entry below *instead of* the entry above:
+    <repository>mvn:org.apache.jclouds.karaf/jclouds-karaf/1.9.2/xml/features</repository>
+-->
     <repository>mvn:org.apache.cxf.karaf/apache-cxf/${cxf.version}/xml/features</repository>
 
     <feature name="swagger" version="${swagger.version}" description="Swagger Annotations+Core+JAXRS+Models">
