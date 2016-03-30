@@ -24,6 +24,7 @@ import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 import java.net.InetAddress;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -32,6 +33,7 @@ import java.util.NoSuchElementException;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
@@ -145,7 +147,7 @@ public class MultiLocationResolverTest {
         Location l = managementContext.getLocationRegistry().getLocationManaged("multi", MutableMap.of("targets", 
             MutableList.of("localhost", MutableMap.of("byon", MutableMap.of("hosts", "127.0.0.127")))));
         MultiLocation<?> ml = (MultiLocation<?>)l;
-        Iterator<MachineProvisioningLocation<?>> ci = ml.getSubLocationsAsLocations().iterator();
+        Iterator<MachineProvisioningLocation<?>> ci = ml.getSubLocations().iterator();
         
         l = ci.next();
         Assert.assertTrue(l instanceof LocalhostMachineProvisioningLocation, "Expected localhost, got "+l);
@@ -158,6 +160,14 @@ public class MultiLocationResolverTest {
         Assert.assertFalse(ci.hasNext());
     }
 
+    @Test
+    public void testLocationSpecDoesNotCreateMachines() throws Exception {
+        Collection<Location> before = managementContext.getLocationManager().getLocations();
+        getLocationSpec("multi:(name=myname,targets=localhost)");
+        
+        Collection<Location> after = managementContext.getLocationManager().getLocations();
+        assertEquals(after, before, "after="+after+"; before="+before);
+    }
 
     private void assertThrowsNoSuchElement(String val) {
         try {
@@ -181,7 +191,12 @@ public class MultiLocationResolverTest {
     private MultiLocation<SshMachineLocation> resolve(String val) {
         return (MultiLocation<SshMachineLocation>) managementContext.getLocationRegistry().getLocationManaged(val);
     }
-    
+
+    @SuppressWarnings("unchecked")
+    private LocationSpec<MultiLocation<SshMachineLocation>> getLocationSpec(String val) {
+        return (LocationSpec<MultiLocation<SshMachineLocation>>) managementContext.getLocationRegistry().getLocationSpec(val).get();
+    }
+
     @SuppressWarnings({ "rawtypes", "unchecked" })
     private void assertMultiLocation(MultiLocation<?> multiLoc, int expectedSize, List<? extends Predicate> expectedSubLocationPredicates) {
         AvailabilityZoneExtension zones = multiLoc.getExtension(AvailabilityZoneExtension.class);
