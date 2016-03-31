@@ -1484,9 +1484,11 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         }
         
         protected SubscriptionContext getSubscriptionContext() {
-            synchronized (AbstractEntity.this) {
-                return getManagementSupport().getSubscriptionContext();
-            }
+            // Rely on synchronization in EntityManagementSupport; synchronizing on AbstractEntity.this
+            // is dangerous because user's entity code might synchronize on that and call getAttribute.
+            // Given that getSubscriptionContext is called by AttributeMap.update (via emitInternal),
+            // that risks deadlock!
+            return getManagementSupport().getSubscriptionContext();
         }
 
         protected SubscriptionTracker getSubscriptionTracker() {
@@ -1548,7 +1550,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
      * @deprecated since 0.9.0; for internal use only
      */
     @Deprecated
-    protected synchronized SubscriptionTracker getSubscriptionTracker() {
+    protected SubscriptionTracker getSubscriptionTracker() {
         return subscriptions().getSubscriptionTracker();
     }
     
