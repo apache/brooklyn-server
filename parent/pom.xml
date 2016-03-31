@@ -52,10 +52,6 @@
       http://stackoverflow.com/questions/5309379/how-to-keep-maven-profiles-which-are-activebydefault-active-even-if-another-prof )
     -->
 
-    <properties>
-        <rest-server-classifier />
-    </properties>
-
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -469,12 +465,6 @@
             </dependency>
 
             <!-- JAX-RS dependencies-->
-            <!--  JAX-RS 1.1 API -->
-            <dependency>
-                <groupId>javax.ws.rs</groupId>
-                <artifactId>jsr311-api</artifactId>
-                <version>${jsr311-api.version}</version>
-            </dependency>
             <!--  JAX-RS 2.0 API -->
             <dependency>
                 <groupId>javax.ws.rs</groupId>
@@ -501,42 +491,6 @@
                 <groupId>org.apache.cxf</groupId>
                 <artifactId>cxf-rt-rs-client</artifactId>
                 <version>${cxf.version}</version>
-            </dependency>
-            <!--  JAX-RS 1.1 Jersey Implementation -->
-            <dependency>
-                <groupId>com.sun.jersey</groupId>
-                <artifactId>jersey-core</artifactId>
-                <version>${jersey.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.sun.jersey</groupId>
-                <artifactId>jersey-client</artifactId>
-                <version>${jersey.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.sun.jersey</groupId>
-                <artifactId>jersey-server</artifactId>
-                <version>${jersey.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.sun.jersey</groupId>
-                <artifactId>jersey-servlet</artifactId>
-                <version>${jersey.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.sun.jersey</groupId>
-                <artifactId>jersey-json</artifactId>
-                <version>${jersey.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.sun.jersey.jersey-test-framework</groupId>
-                <artifactId>jersey-test-framework-inmemory</artifactId>
-                <version>${jersey.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.sun.jersey.jersey-test-framework</groupId>
-                <artifactId>jersey-test-framework-grizzly2</artifactId>
-                <version>${jersey.version}</version>
             </dependency>
             <!--  JAX-RS 2.0 RESTEasy Implementation -->
             <dependency>
@@ -1786,19 +1740,6 @@
                   </plugins>
               </pluginManagement>
             </build>
-        </profile>
-
-        <profile>
-            <id>jersey-deps</id>
-            <activation>
-              <property>
-                  <name>jax-rs</name>
-                  <value>jersey</value>
-              </property>
-            </activation>
-            <properties>
-              <rest-server-classifier>-jersey</rest-server-classifier>
-            </properties>
         </profile>
     </profiles>
 </project>

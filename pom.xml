@@ -102,7 +102,6 @@
         <!-- double-check downstream projects before changing jackson and resteasy versions -->
         <fasterxml.jackson.version>2.4.5</fasterxml.jackson.version>
         <resteasy.version>3.0.8.Final</resteasy.version>
-        <jersey.version>1.19</jersey.version>
         <cxf.version>3.1.4</cxf.version>
         <httpclient.version>4.4.1</httpclient.version>
         <commons-lang3.version>3.3.2</commons-lang3.version>
@@ -150,7 +149,6 @@
         <commons-configuration.version>1.7</commons-configuration.version>
         <commons-lang.version>2.4</commons-lang.version>
         <hamcrest.version>1.1</hamcrest.version>
-        <jsr311-api.version>1.1.1</jsr311-api.version>
         <jax-rs-api.version>2.0.1</jax-rs-api.version>
         <maxmind.version>0.8.1</maxmind.version>
         <maxmind-db.version>0.3.4</maxmind-db.version>
@@ -216,7 +214,6 @@
         <module>rest/rest-client</module>
         <module>rest/rest-resources</module>
         <module>rest/rest-server</module>
-        <module>rest/rest-server-jersey</module>
         <module>test-framework</module>
         <module>test-support</module>
 
