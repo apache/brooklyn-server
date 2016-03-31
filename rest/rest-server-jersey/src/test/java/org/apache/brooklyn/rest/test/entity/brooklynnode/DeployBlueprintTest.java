@@ -55,7 +55,7 @@ public class DeployBlueprintTest extends BrooklynRestApiLauncherTestFixture {
         useServerForTest(server);
     }
 
-    @Test
+    @Test(enabled = false) // to be deleted
     public void testStartsAppViaEffector() throws Exception {
         URI webConsoleUri = URI.create(getBaseUri());
 

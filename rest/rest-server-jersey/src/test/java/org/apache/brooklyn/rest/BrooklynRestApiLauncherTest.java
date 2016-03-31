@@ -36,17 +36,17 @@ import org.testng.annotations.Test;
 
 public class BrooklynRestApiLauncherTest extends BrooklynRestApiLauncherTestFixture {
 
-    @Test
+    @Test(enabled = false) // to be deleted
     public void testFilterStart() throws Exception {
         checkRestCatalogEntities(useServerForTest(baseLauncher().mode(FILTER).start()));
     }
 
-    @Test
+    @Test(enabled = false) // to be deleted
     public void testServletStart() throws Exception {
         checkRestCatalogEntities(useServerForTest(baseLauncher().mode(SERVLET).start()));
     }
 
-    @Test
+    @Test(enabled = false) // to be deleted
     public void testWebAppStart() throws Exception {
         checkRestCatalogEntities(useServerForTest(baseLauncher().mode(WEB_XML).start()));
     }

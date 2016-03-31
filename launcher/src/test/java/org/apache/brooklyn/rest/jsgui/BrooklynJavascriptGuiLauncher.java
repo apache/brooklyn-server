@@ -20,6 +20,7 @@ package org.apache.brooklyn.rest.jsgui;
 
 import java.net.InetSocketAddress;
 
+import org.apache.brooklyn.rest.NopSecurityHandler;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.webapp.WebAppContext;
 import org.slf4j.Logger;
@@ -82,7 +83,10 @@ public class BrooklynJavascriptGuiLauncher {
             : throwingReturning("could not find jsgui war or source", "missing-brooklyn.war"),
 			"/");
 
+        context.setSecurityHandler(new NopSecurityHandler());
+
         Server server = new Server(new InetSocketAddress(Networking.LOOPBACK, Networking.nextAvailablePort(FAVOURITE_PORT)));
+        BrooklynRestApiLauncher.initJaasLoginService(server);
         server.setHandler(context);
         server.start();
         log.info("JS GUI server started (no REST) at  http://localhost:"+((NetworkConnector)server.getConnectors()[0]).getLocalPort()+"/");

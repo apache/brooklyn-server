@@ -79,7 +79,7 @@ import com.google.common.io.Files;
  * <li> take the WAR from the brooklyn-jsgui project (brooklyn-ui repo) _and_ this WAR and combine them
  *      (this one should run as a filter on the others, _not_ as a ResourceCollection where they fight over who's got root)
  * <li> programmatically install things, following the examples herein; 
- *      in particular {@link #installAsServletFilter(ServletContextHandler)} is quite handy! 
+ *      in particular {@link RestApiSetup} is quite handy!
  * <p>
  * You can also just run this class. In most installs it just works, assuming your IDE or maven-fu gives you the classpath.
  * Add more apps and entities on the classpath and they'll show up in the catalog.
@@ -191,9 +191,11 @@ public class BrooklynRestApiLauncher {
                     : "from custom context";
         }
 
-        if (securityProvider != null) {
+        if (securityProvider != null && securityProvider != AnyoneSecurityProvider.class) {
             ((BrooklynProperties) mgmt.getConfig()).put(
                     BrooklynWebConfig.SECURITY_PROVIDER_CLASSNAME, securityProvider.getName());
+        } else if (context instanceof WebAppContext) {
+            ((WebAppContext)context).setSecurityHandler(new NopSecurityHandler());
         }
 
         if (forceUseOfDefaultCatalogWithJavaClassPath) {
@@ -213,7 +215,7 @@ public class BrooklynRestApiLauncher {
         return server;
     }
 
-    private ContextHandler servletContextHandler(ManagementContext managementContext) {
+    private WebAppContext servletContextHandler(ManagementContext managementContext) {
         WebAppContext context = new WebAppContext();
 
         context.setAttribute(BrooklynServiceAttributes.BROOKLYN_MANAGEMENT_CONTEXT, managementContext);
@@ -250,7 +252,7 @@ public class BrooklynRestApiLauncher {
     }
 
     /** NB: not fully supported; use one of the other {@link StartMode}s */
-    private ContextHandler webXmlContextHandler(ManagementContext mgmt) {
+    private WebAppContext webXmlContextHandler(ManagementContext mgmt) {
         RestApiSetup.initSwagger();
         WebAppContext context;
         if (findMatchingFile("src/main/webapp")!=null) {
@@ -268,11 +270,7 @@ public class BrooklynRestApiLauncher {
         return context;
     }
 
-    /** starts a server, on all NICs if security is configured,
-     * otherwise (no security) only on loopback interface 
-     * @deprecated since 0.9.0 becoming private */
-    @Deprecated
-    public static Server startServer(ManagementContext mgmt, ContextHandler context, String summary, boolean disableHighAvailability) {
+    private static Server startServer(ManagementContext mgmt, ContextHandler context, String summary, boolean disableHighAvailability) {
         // TODO this repeats code in BrooklynLauncher / WebServer. should merge the two paths.
         boolean secure = mgmt != null && !BrooklynWebConfig.hasNoSecurityOptions(mgmt.getConfig());
         if (secure) {
@@ -312,6 +310,10 @@ public class BrooklynRestApiLauncher {
     // TODO Why parallel code for server init here and in BrooklynWebServer?
     private static void initJaas(ManagementContext mgmt, Server server) {
         JaasUtils.init(mgmt);
+        initJaasLoginService(server);
+    }
+
+    public static void initJaasLoginService(Server server) {
         JAASLoginService loginService = new JAASLoginService();
         loginService.setName("webconsole");
         loginService.setLoginModuleName("webconsole");

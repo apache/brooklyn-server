@@ -36,6 +36,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 import javax.security.auth.spi.LoginModule;
 
+import org.apache.brooklyn.rest.NopSecurityHandler;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
@@ -649,7 +650,7 @@ public class BrooklynWebServer {
             // to have security pre-configured and ignore it if noConsoleSecurity used.
             //
             // Ignore security config in web.xml.
-            context.setDefaultSecurityHandlerClass(NopSecurityHandler.class);
+            context.setSecurityHandler(new NopSecurityHandler());
         } else {
             // Cover for downstream projects which don't have the changes.
             context.addOverrideDescriptor(getClass().getResource("/web-security.xml").toExternalForm());
