@@ -1484,15 +1484,21 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         }
         
         protected SubscriptionContext getSubscriptionContext() {
-            synchronized (AbstractEntity.this) {
-                return getManagementSupport().getSubscriptionContext();
-            }
+            // Rely on synchronization in EntityManagementSupport; synchronizing on AbstractEntity.this
+            // is dangerous because user's entity code might synchronize on that and call getAttribute.
+            // Given that getSubscriptionContext is called by AttributeMap.update (via emitInternal),
+            // that risks deadlock!
+            return getManagementSupport().getSubscriptionContext();
         }
 
         protected SubscriptionTracker getSubscriptionTracker() {
+            // TODO Would be nice to simplify concurrent model, and not synchronize on
+            // AbstractEntity.this; perhaps could get rid of lazy-initialisation, but then
+            // would need to first ensure `managementSupport` is definitely initialised.
+            SubscriptionContext subscriptionContext = getSubscriptionContext();
             synchronized (AbstractEntity.this) {
                 if (_subscriptionTracker == null) {
-                    _subscriptionTracker = new SubscriptionTracker(getSubscriptionContext());
+                    _subscriptionTracker = new SubscriptionTracker(subscriptionContext);
                 }
                 return _subscriptionTracker;
             }
@@ -1548,7 +1554,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
      * @deprecated since 0.9.0; for internal use only
      */
     @Deprecated
-    protected synchronized SubscriptionTracker getSubscriptionTracker() {
+    protected SubscriptionTracker getSubscriptionTracker() {
         return subscriptions().getSubscriptionTracker();
     }
     
