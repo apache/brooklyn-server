@@ -1492,9 +1492,13 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         }
 
         protected SubscriptionTracker getSubscriptionTracker() {
+            // TODO Would be nice to simplify concurrent model, and not synchronize on
+            // AbstractEntity.this; perhaps could get rid of lazy-initialisation, but then
+            // would need to first ensure `managementSupport` is definitely initialised.
+            SubscriptionContext subscriptionContext = getSubscriptionContext();
             synchronized (AbstractEntity.this) {
                 if (_subscriptionTracker == null) {
-                    _subscriptionTracker = new SubscriptionTracker(getSubscriptionContext());
+                    _subscriptionTracker = new SubscriptionTracker(subscriptionContext);
                 }
                 return _subscriptionTracker;
             }
