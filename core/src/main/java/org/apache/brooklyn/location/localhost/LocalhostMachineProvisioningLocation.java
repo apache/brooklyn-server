@@ -176,7 +176,6 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
             Map<Object,Object> flags2 = MutableMap.<Object,Object>builder()
                     .putAll(flags)
                     .put("address", elvis(address, Networking.getLocalHost()))
-                    .put("mutexSupport", LocalhostMachine.mutexSupport)
                     .build();
             
             // copy inherited keys for ssh; 

@@ -315,7 +315,10 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
             if (source == null) return;
             if (((Task<?>)source).isDone() && !((Task<?>)source).isError()) {
                 try {
-                    context.convertAnother(((Task<?>)source).get());
+                    Object nextItem = ((Task<?>)source).get();
+                    if (nextItem != null) {
+                        context.convertAnother(nextItem);
+                    }
                 } catch (InterruptedException e) {
                     throw Exceptions.propagate(e);
                 } catch (ExecutionException e) {
