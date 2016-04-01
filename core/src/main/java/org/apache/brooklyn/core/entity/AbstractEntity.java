@@ -264,7 +264,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     @Deprecated
     protected final Map<String,Object> tempWorkings = Maps.newLinkedHashMap();
 
-    protected transient SubscriptionTracker _subscriptionTracker;
+    protected transient volatile SubscriptionTracker _subscriptionTracker;
     
     public AbstractEntity() {
         this(Maps.newLinkedHashMap(), null);
@@ -1492,6 +1492,9 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         }
 
         protected SubscriptionTracker getSubscriptionTracker() {
+            if (_subscriptionTracker != null) {
+                return _subscriptionTracker;
+            }
             // TODO Would be nice to simplify concurrent model, and not synchronize on
             // AbstractEntity.this; perhaps could get rid of lazy-initialisation, but then
             // would need to first ensure `managementSupport` is definitely initialised.
