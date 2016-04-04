@@ -25,8 +25,7 @@
     <repository>mvn:org.apache.karaf.features/enterprise/${karaf.version}/xml/features</repository>
     <repository>mvn:org.apache.karaf.features/spring/${karaf.version}/xml/features</repository>
 
-    <!-- TODO how to add central.maven.org repo? -->
-    <repository>http://central.maven.org/maven2/org/apache/jclouds/karaf/jclouds-karaf/1.9.2/jclouds-karaf-1.9.2-features.xml</repository>
+    <repository>mvn:org.apache.jclouds.karaf/jclouds-karaf/${jclouds.version}/xml/features</repository>
     <repository>mvn:org.apache.cxf.karaf/apache-cxf/${cxf.version}/xml/features</repository>
 
     <feature name="swagger" version="${swagger.version}" description="Swagger Annotations+Core+JAXRS+Models">
