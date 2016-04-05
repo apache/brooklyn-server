@@ -29,11 +29,11 @@ import org.apache.brooklyn.api.mgmt.rebind.mementos.LocationMemento;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.mgmt.rebind.dto.MementosGenerators;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Sets;
 
@@ -64,6 +64,7 @@ public class BasicLocationRebindSupport extends AbstractBrooklynObjectRebindSupp
         return memento;
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     protected void addConfig(RebindContext rebindContext, LocationMemento memento) {
         // FIXME Treat config like we do for entities; this code will disappear when locations become entities.
@@ -89,14 +90,15 @@ public class BasicLocationRebindSupport extends AbstractBrooklynObjectRebindSupp
                 // And use magic of setFieldFromFlag's magic to either set config or field as appropriate.
                 if (ConfigKey.class.isAssignableFrom(fieldType)) {
                     ConfigKey<?> configKey = (ConfigKey<?>) FlagUtils.getField(location, field);
-                    value = TypeCoercions.coerce(entry.getValue(), configKey.getTypeToken());
+                    location.config().set((ConfigKey<Object>)configKey, entry.getValue());
                 } else {
                     value = TypeCoercions.coerce(entry.getValue(), fieldType);
+                    if (value != null) {
+                        location.config().addToLocalBag(MutableMap.of(flagName, value));
+                        FlagUtils.setFieldFromFlag(location, flagName, value);
+                    }
                 }
-                if (value != null) {
-                    location.config().addToLocalBag(MutableMap.of(flagName, value));
-                    FlagUtils.setFieldFromFlag(location, flagName, value);
-                }
+                
             } catch (NoSuchElementException e) {
                 // FIXME How to do findFieldForFlag without throwing exception if it's not there?
             }
