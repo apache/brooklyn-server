@@ -314,4 +314,50 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
         assertLocationManagerInstancesCount(0);
     }
 
+    @Test
+    public void testByonLocationHostsInConfig() {
+        String symbolicName = "my.catalog.app.id.byon.config";
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  version: " + TEST_VERSION,
+                "  items:",
+                "  - id: " + symbolicName,
+                "    itemType: location",
+                "    item:",
+                "      type: byon",
+                "      brooklyn.config:",
+                "        displayName: testingdisplayName",
+                "        user: testinguser",
+                "        password: testingpassword",
+                "        hosts:",
+                "        - 10.10.10.102"
+        );
+
+        assertLocationRegistryCount(1);
+        assertCatalogCount(1);
+        assertLocationManagerInstancesCount(0);
+    }
+
+    @Test
+    public void testByonLocationHostsInType() {
+        String symbolicName = "my.catalog.app.id.byon.config.inline";
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  version: " + TEST_VERSION,
+                "  items:",
+                "  - id: " + symbolicName,
+                "    itemType: location",
+                "    item:",
+                "      type: byon:(hosts=\"10.10.10.102\")",
+                "      brooklyn.config:",
+                "        displayName: testingdisplayName",
+                "        user: testinguser",
+                "        password: testingpassword"
+        );
+
+        assertLocationRegistryCount(1);
+        assertCatalogCount(1);
+        assertLocationManagerInstancesCount(0);
+    }
+
 }
