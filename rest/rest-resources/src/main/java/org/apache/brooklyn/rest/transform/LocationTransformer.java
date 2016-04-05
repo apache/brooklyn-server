@@ -121,7 +121,7 @@ public class LocationTransformer {
     }
 
     private static Map<String, ?> copyConfig(Map<String,?> entries, LocationDetailLevel level) {
-        ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
+        MutableMap.Builder<String, Object> builder = MutableMap.builder();
         if (level!=LocationDetailLevel.NONE) {
             for (Map.Entry<String,?> entry : entries.entrySet()) {
                 if (level==LocationDetailLevel.FULL_INCLUDING_SECRET || !Sanitizer.IS_SECRET_PREDICATE.apply(entry.getKey())) {
