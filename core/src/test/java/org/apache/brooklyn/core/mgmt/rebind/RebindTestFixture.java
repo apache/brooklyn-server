@@ -39,6 +39,7 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityFunctions;
 import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.trait.Startable;
+import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
@@ -86,12 +87,21 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
         LOG.info("Test "+getClass()+" persisting to "+mementoDir);
     }
 
+    protected BrooklynProperties createBrooklynProperties() {
+        if (useLiveManagementContext()) {
+            return BrooklynProperties.Factory.newDefault();
+        } else {
+            return BrooklynProperties.Factory.newEmpty();
+        }
+    }
+
     /** @return A started management context */
     protected LocalManagementContext createOrigManagementContext() {
         return RebindTestUtils.managementContextBuilder(mementoDir, classLoader)
                 .persistPeriodMillis(getPersistPeriodMillis())
                 .forLive(useLiveManagementContext())
                 .emptyCatalog(useEmptyCatalog())
+                .properties(createBrooklynProperties())
                 .buildStarted();
     }
 
@@ -106,6 +116,7 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
         return RebindTestUtils.managementContextBuilder(mementoDir, classLoader)
                 .forLive(useLiveManagementContext())
                 .emptyCatalog(useEmptyCatalog())
+                .properties(createBrooklynProperties())
                 .buildUnstarted();
     }
 

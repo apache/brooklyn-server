@@ -112,7 +112,7 @@ public class AbstractJcloudsLiveTest {
         return LocalManagementContextForTests.builder(true).useDefaultProperties().build();
     }
     
-    protected static void stripBrooklynProperties(BrooklynProperties props) {
+    public static void stripBrooklynProperties(BrooklynProperties props) {
         // remove all location properties except for identity and credential
         // (so key, scripts, etc settings don't interfere with tests) 
         for (String key : ImmutableSet.copyOf(props.asMapWithStringKeys().keySet())) {

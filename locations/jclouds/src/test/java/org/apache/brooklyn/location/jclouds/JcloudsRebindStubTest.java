@@ -74,10 +74,15 @@ import com.google.common.collect.Multimaps;
 public class JcloudsRebindStubTest extends RebindTestFixtureWithApp {
 
     // TODO Duplication of AbstractJcloudsLiveTest, because we're subclassing RebindTestFixture instead.
+    
+    // TODO The ByonComputeServiceRegistry extends ComputeServiceRegistryImpl, which means when it  
+    // is serialized it will try to serialize the cachedComputeServices. That will try to serialize 
+    // threads and all sorts!
 
     private static final Logger LOG = LoggerFactory.getLogger(JcloudsRebindStubTest.class);
 
-    public static final String SOFTLAYER_LOCATION_SPEC = "jclouds:" + AbstractJcloudsLiveTest.SOFTLAYER_PROVIDER;
+    public static final String PROVIDER = AbstractJcloudsLiveTest.SOFTLAYER_PROVIDER;
+    public static final String SOFTLAYER_LOCATION_SPEC = "jclouds:" + PROVIDER;
     public static final String SOFTLAYER_IMAGE_ID = "UBUNTU_14_64";
     
     protected List<ManagementContext> mgmts;
@@ -89,10 +94,6 @@ public class JcloudsRebindStubTest extends RebindTestFixtureWithApp {
         super.setUp();
         mgmts = Lists.newCopyOnWriteArrayList(ImmutableList.<ManagementContext>of(origManagementContext));
         machines = Multimaps.synchronizedMultimap(ArrayListMultimap.<ManagementContext, JcloudsSshMachineLocation>create());
-        
-        // Don't let any defaults from brooklyn.properties (except credentials) interfere with test
-        brooklynProperties = origManagementContext.getBrooklynProperties();
-        AbstractJcloudsLiveTest.stripBrooklynProperties(brooklynProperties);
     }
 
     @AfterMethod(alwaysRun=true)
@@ -120,6 +121,14 @@ public class JcloudsRebindStubTest extends RebindTestFixtureWithApp {
     }
 
     @Override
+    protected BrooklynProperties createBrooklynProperties() {
+        // Don't let any defaults from brooklyn.properties (except credentials) interfere with test
+        BrooklynProperties result = super.createBrooklynProperties();
+        AbstractJcloudsLiveTest.stripBrooklynProperties(result);
+        return result;
+    }
+    
+    @Override
     protected boolean useLiveManagementContext() {
         return true;
     }
@@ -130,7 +139,7 @@ public class JcloudsRebindStubTest extends RebindTestFixtureWithApp {
         mgmts.add(newManagementContext);
         return result;
     }
-    
+
     @Test(groups={"Live", "Live-sanity"})
     public void testRebind() throws Exception {
         LocationImpl locImpl = new LocationImpl(
@@ -181,10 +190,8 @@ public class JcloudsRebindStubTest extends RebindTestFixtureWithApp {
                 "myHostname");
         
         ByonComputeServiceRegistry computeServiceRegistry = new ByonComputeServiceRegistry(node);
-        JcloudsLocation origJcloudsLoc = (JcloudsLocation) mgmt().getLocationRegistry().getLocationManaged("jclouds:softlayer", ImmutableMap.of(
-                JcloudsLocation.COMPUTE_SERVICE_REGISTRY, computeServiceRegistry,
-                JcloudsLocation.WAIT_FOR_SSHABLE, false,
-                JcloudsLocation.USE_JCLOUDS_SSH_INIT, false));
+
+        JcloudsLocation origJcloudsLoc = newJcloudsLocation(computeServiceRegistry);
     
         JcloudsSshMachineLocation origMachine = (JcloudsSshMachineLocation) origJcloudsLoc.obtain(ImmutableMap.of("imageId", SOFTLAYER_IMAGE_ID));
         
@@ -209,6 +216,13 @@ public class JcloudsRebindStubTest extends RebindTestFixtureWithApp {
         assertFalse(newTemplate.isPresent(), "newTemplate="+newTemplate);
         
         assertEquals(newJcloudsLoc.getProvider(), origJcloudsLoc.getProvider());
+    }
+    
+    protected JcloudsLocation newJcloudsLocation(ComputeServiceRegistry computeServiceRegistry) throws Exception {
+        return (JcloudsLocation) mgmt().getLocationRegistry().getLocationManaged("jclouds:softlayer", ImmutableMap.of(
+                JcloudsLocation.COMPUTE_SERVICE_REGISTRY, computeServiceRegistry, 
+                JcloudsLocation.WAIT_FOR_SSHABLE, false,
+                JcloudsLocation.USE_JCLOUDS_SSH_INIT, false));
     }
     
     protected static class ByonComputeServiceRegistry extends ComputeServiceRegistryImpl implements ComputeServiceRegistry {
