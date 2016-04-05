@@ -228,7 +228,7 @@ class CampInternalUtils {
             }
             return spec;
         } else {
-            Maybe<LocationSpec<? extends Location>> loc = loader.getManagementContext().getLocationRegistry().getLocationSpec(type);
+            Maybe<LocationSpec<? extends Location>> loc = loader.getManagementContext().getLocationRegistry().getLocationSpec(type, brooklynConfig);
             if (loc.isPresent()) {
                 return loc.get().configure(brooklynConfig);
             } else {
