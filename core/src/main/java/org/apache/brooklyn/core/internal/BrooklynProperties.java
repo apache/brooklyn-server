@@ -79,12 +79,7 @@ public interface BrooklynProperties extends Map, StringConfigMap {
             private String globalPropertiesFile = null;
             private String localPropertiesFile = null;
             private BrooklynProperties originalProperties = null;
-            
-            /** @deprecated since 0.7.0 use static methods in {@link Factory} to create */
-            public Builder() {
-                this(true);
-            }
-            
+
             private Builder(boolean setGlobalFileDefaults) {
                 resetDefaultLocationMetadataUrl();
                 if (setGlobalFileDefaults) {

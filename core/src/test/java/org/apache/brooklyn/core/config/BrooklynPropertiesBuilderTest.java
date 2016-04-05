@@ -54,7 +54,7 @@ public class BrooklynPropertiesBuilderTest {
         String globalPropertiesContents = "brooklyn.mykey=myval";
         Files.write(globalPropertiesContents, globalPropertiesFile, Charsets.UTF_8);
         
-        BrooklynProperties props = new BrooklynProperties.Factory.Builder()
+        BrooklynProperties props = BrooklynProperties.Factory.builderDefault()
                 .globalPropertiesFile(globalPropertiesFile.getAbsolutePath())
                 .build();
         
@@ -71,7 +71,7 @@ public class BrooklynPropertiesBuilderTest {
                 "brooklyn.mykeyLocal=myvallocal2"+"\n";
         Files.write(localPropertiesContents, localPropertiesFile, Charsets.UTF_8);
         
-        BrooklynProperties props = new BrooklynProperties.Factory.Builder()
+        BrooklynProperties props = BrooklynProperties.Factory.builderDefault()
                 .globalPropertiesFile(globalPropertiesFile.getAbsolutePath())
                 .localPropertiesFile(localPropertiesFile.getAbsolutePath())
                 .build();
