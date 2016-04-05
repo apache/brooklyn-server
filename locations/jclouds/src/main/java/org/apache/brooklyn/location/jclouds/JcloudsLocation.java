@@ -603,7 +603,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
      * (for initial login, and a user potentially to create for subsequent ie normal access) */
     @Override
     public MachineLocation obtain(Map<?,?> flags) throws NoMachinesAvailableException {
-        ConfigBag setup = ConfigBag.newInstanceExtending(config().getBag(), flags);
+        ConfigBag setupRaw = ConfigBag.newInstanceExtending(config().getBag(), flags);
+        ConfigBag setup = ResolvingConfigBag.newInstanceExtending(getManagementContext(), setupRaw);
+
         Integer attempts = setup.get(MACHINE_CREATE_ATTEMPTS);
         List<Exception> exceptions = Lists.newArrayList();
         if (attempts == null || attempts < 1) attempts = 1;
