@@ -18,12 +18,14 @@
  */
 package org.apache.brooklyn.core.catalog.internal;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.yaml.Yamls;
@@ -67,12 +69,12 @@ public class CatalogBomScanner {
 
     private String[] bundleIds(Bundle bundle) {
         return new String[] {
-            String.valueOf(bundle.getBundleId()), String.valueOf(bundle.getState()), bundle.getSymbolicName()
+            String.valueOf(bundle.getBundleId()), bundle.getSymbolicName(), bundle.getVersion().toString()
         };
     }
 
 
-    public class CatalogPopulator extends BundleTracker<Long> {
+    public class CatalogPopulator extends BundleTracker<Iterable<? extends CatalogItem<?, ?>>> {
 
         private ServiceReference<ManagementContext> mgmtContextReference;
         private ManagementContext managementContext;
@@ -100,44 +102,63 @@ public class CatalogBomScanner {
             return managementContext;
         }
 
+        /**
+         * Scans the bundle being added for a catalog.bom file and adds any entries in it to the catalog.
+         *
+         * @param bundle The bundle being added to the bundle context.
+         * @param bundleEvent The event of the addition.
+         *
+         * @return The items added to the catalog; these will be tracked by the {@link BundleTracker} mechanism
+         *         and supplied to the {@link #removedBundle(Bundle, BundleEvent, Iterable)} method.
+         */
         @Override
-        public Long addingBundle(Bundle bundle, BundleEvent bundleEvent) {
+        public Iterable<? extends CatalogItem<?, ?>> addingBundle(Bundle bundle, BundleEvent bundleEvent) {
+            return scanForCatalog(bundle);
+        }
 
-            final BundleContext bundleContext = FrameworkUtil.getBundle(CatalogBomScanner.class).getBundleContext();
-            if (bundleContext == null) {
-                LOG.info("Bundle context not yet established for bundle {} {} {}", bundleIds(bundle));
-                return null;
+
+        @Override
+        public void removedBundle(Bundle bundle, BundleEvent bundleEvent, Iterable<? extends CatalogItem<?, ?>> items) {
+            LOG.debug("Unloading catalog BOM entries from {} {} {}", bundleIds(bundle));
+            List<Exception> exceptions = MutableList.of();
+            final BrooklynCatalog catalog = getManagementContext().getCatalog();
+            for (CatalogItem<?, ?> item : items) {
+                LOG.debug("Unloading {} {} from catalog", item.getSymbolicName(), item.getVersion());
+
+                try {
+                    catalog.deleteCatalogItem(item.getSymbolicName(), item.getVersion());
+                } catch (Exception e) {
+                    LOG.warn("Caught {} unloading {} {} from catalog", new String [] {
+                        e.getMessage(), item.getSymbolicName(), item.getVersion()
+                    });
+                    exceptions.add(e);
+                }
             }
 
-            scanForCatalog(bundle);
-
-            return bundle.getBundleId();
+            if (0 < exceptions.size()) {
+                throw new CompoundRuntimeException(
+                    "Caught exceptions unloading catalog from bundle " + bundle.getBundleId(),
+                    exceptions);
+            }
         }
 
-        @Override
-        public void modifiedBundle(Bundle bundle, BundleEvent event, Long bundleId) {
-            sanityCheck(bundle, bundleId);
-            LOG.info("Modified bundle {} {} {}", bundleIds(bundle));
-        }
-
-        @Override
-        public void removedBundle(Bundle bundle, BundleEvent bundleEvent, Long bundleId) {
-            sanityCheck(bundle, bundleId);
-            LOG.info("Unloading catalog BOM from {} {} {}", bundleIds(bundle));
-        }
-
-        private void scanForCatalog(Bundle bundle) {
-            LOG.info("Scanning for catalog items in bundle {} {} {}", bundleIds(bundle));
+        private Iterable<? extends CatalogItem<?, ?>> scanForCatalog(Bundle bundle) {
+            LOG.debug("Scanning for catalog items in bundle {} {} {}", bundleIds(bundle));
             final URL bom = bundle.getResource(CATALOG_BOM_URL);
 
             if (null != bom) {
-                LOG.info("Found catalog BOM in {} {} {}", bundleIds(bundle));
+                LOG.debug("Found catalog BOM in {} {} {}", bundleIds(bundle));
                 String bomText = readBom(bom);
                 String bomWithLibraryPath = addLibraryDetails(bundle, bomText);
-                for (CatalogItem<?, ?> item : getManagementContext().getCatalog().addItems(bomWithLibraryPath)) {
-                    LOG.debug("Added to catalog: {}", item.getSymbolicName());
+                final Iterable<? extends CatalogItem<?, ?>> catalogItems =
+                    getManagementContext().getCatalog().addItems(bomWithLibraryPath);
+                for (CatalogItem<?, ?> item : catalogItems) {
+                    LOG.debug("Added to catalog: {}, {}", item.getSymbolicName(), item.getVersion());
                 }
+
+                return catalogItems;
             }
+            return ImmutableList.of();
         }
 
         private String addLibraryDetails(Bundle bundle, String bomText) {
@@ -171,12 +192,6 @@ public class CatalogBomScanner {
                 return Streams.readFullyString(bom.openStream());
             } catch (IOException e) {
                 throw Exceptions.propagate("Error loading Catalog BOM from " + bom, e);
-            }
-        }
-
-        private void sanityCheck(Bundle bundle, Long bundleId) {
-            if (bundleId != bundle.getBundleId()) {
-                throw new RuntimeException("Unexpected ID supplied for bundle " + bundle + " (" + bundleId + ")");
             }
         }
 
