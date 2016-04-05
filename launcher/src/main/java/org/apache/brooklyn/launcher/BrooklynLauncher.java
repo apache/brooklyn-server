@@ -266,17 +266,13 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
         ManagementContext managementContext = getManagementContext();
         BrooklynProperties brooklynProperties = (BrooklynProperties) managementContext.getConfig();
 
+        String securityProvider = managementContext.getConfig().getConfig(BrooklynWebConfig.SECURITY_PROVIDER_CLASSNAME);
+        // The security provider will let anyone in, but still require a password to be entered.
+        // Skip password request dialog if we know the provider will let users through.
+        boolean anyoneSecurityProvider = AnyoneSecurityProvider.class.getName().equals(securityProvider);
+
         // No security options in properties and no command line options overriding.
-        Boolean skipSecurity = skipSecurityFilter;
-        if (skipSecurity == null) {
-            String securityProvider = managementContext.getConfig().getConfig(BrooklynWebConfig.SECURITY_PROVIDER_CLASSNAME);
-            // The security provider will let anyone in, but still require a password to be entered.
-            // Skip password request dialog if we know the provider will let users through.
-            if (AnyoneSecurityProvider.class.getName().equals(securityProvider)) {
-                skipSecurity = true;
-            }
-        }
-        if (Boolean.TRUE.equals(skipSecurity) && bindAddress==null) {
+        if (Boolean.TRUE.equals(skipSecurityFilter) && bindAddress==null) {
             LOG.info("Starting Brooklyn web-console on loopback because security is explicitly disabled and no bind address specified");
             bindAddress = Networking.LOOPBACK;
         } else if (BrooklynWebConfig.hasNoSecurityOptions(managementContext.getConfig())) {
@@ -310,7 +306,7 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
             if (useHttps!=null) webServer.setHttpsEnabled(useHttps);
             webServer.setShutdownHandler(shutdownHandler);
             webServer.putAttributes(brooklynProperties);
-            webServer.skipSecurity(Boolean.TRUE.equals(skipSecurity));
+            webServer.skipSecurity(Boolean.TRUE.equals(skipSecurityFilter) || anyoneSecurityProvider);
             for (WebAppContextProvider webapp : webApps) {
                 webServer.addWar(webapp);
             }
