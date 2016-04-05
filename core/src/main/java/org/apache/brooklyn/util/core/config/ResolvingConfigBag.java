@@ -75,6 +75,7 @@ public class ResolvingConfigBag extends ConfigBag {
         }
         return transformer;
     }
+    
     @Override
     public void markUsed(String key) {
         super.markUsed(key);
@@ -82,6 +83,11 @@ public class ResolvingConfigBag extends ConfigBag {
             parentBag.markUsed(key);
     }
     
+    @SuppressWarnings("unchecked")
+    protected <T> T get(ConfigKey<T> key, boolean markUsed) {
+        return (T) getTransformer().apply(super.get(key, markUsed));
+    }
+
     @Override
     public Map<String,Object> getAllConfig() {
         // Lazily transform copy of map
