@@ -405,8 +405,8 @@ public class LocationConfigUtils {
     private static String getKeyDataFromDataKeyOrFileKey(ConfigBag config, ConfigKey<String> dataKey, ConfigKey<String> fileKey) {
         boolean unused = config.isUnused(dataKey);
         String data = config.get(dataKey);
-        if (groovyTruth(data) && !unused) {
-            return data;
+        if (Strings.isNonBlank(data) && !unused) {
+            return data.trim();
         }
         
         String file = config.get(fileKey);
