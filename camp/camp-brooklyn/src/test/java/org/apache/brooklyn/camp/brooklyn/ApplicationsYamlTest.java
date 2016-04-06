@@ -25,6 +25,8 @@ import static org.testng.Assert.assertTrue;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.camp.brooklyn.TestSensorAndEffectorInitializer.TestConfigurableInitializer;
+import org.apache.brooklyn.camp.brooklyn.catalog.CatalogYamlLocationTest;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
@@ -36,6 +38,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
 @Test
@@ -228,6 +232,144 @@ public class ApplicationsYamlTest extends AbstractYamlTest {
         assertDoesNotWrap(app, BasicApplication.class, "catalogServiceLevel");
     }
 
+    // FIXME Fails with name "My App 1" rather than the overridden value. 
+    // See discussion in https://issues.apache.org/jira/browse/BROOKLYN-248
+    @Test(groups="WIP")
+    public void testTypeInheritance() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  version: 0.1.2",
+                "  items:",
+                "  - id: app1",
+                "    name: My App 1",
+                "    item:",
+                "      type: " + BasicApplication.class.getName(),
+                "      brooklyn.config:",
+                "        mykey1: myval1",
+                "        mykey1b: myval1b",
+                "  - id: app2",
+                "    name: My App 2",
+                "    item:",
+                "      type: app1",
+                "      brooklyn.config:",
+                "        mykey1: myvalOverridden",
+                "        mykey2: myval2");
+        
+        addCatalogItems(yaml);
+        Entity app1 = createAndStartApplication("services: [ {type: app1} ]");
+        assertDoesNotWrap(app1, BasicApplication.class, "My App 1");
+        CatalogYamlLocationTest.assertContainsAll(((EntityInternal)app1).config().getBag().getAllConfig(), ImmutableMap.of("mykey1", "myval1", "mykey1b", "myval1b"));
+
+        Entity app2 = createAndStartApplication("services: [ {type: app2} ]");
+        assertDoesNotWrap(app2, BasicApplication.class, "My App 2");
+        CatalogYamlLocationTest.assertContainsAll(((EntityInternal)app2).config().getBag().getAllConfig(), ImmutableMap.of("mykey1", "myvalOverridden", "mykey1b", "myval1b", "mykey2", "myval2"));
+    }
+    
+    // FIXME Fails for app3b, which gets the name "My name within item 3a" rather than the 
+    // overridden value. See discussion in https://issues.apache.org/jira/browse/BROOKLYN-248
+    @Test(groups="WIP")
+    public void testNamePrecedence() throws Exception {
+        String yaml1 = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  version: 0.1.2",
+                "  name: My name in top-level metadata",
+                "  items:",
+                "  - id: app1",
+                "    name: My name in item metadata",
+                "    item:",
+                "      type: " + BasicApplication.class.getName(),
+                "      name: My name within item");
+
+        String yaml2 = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  version: 0.1.2",
+                "  name: My name in top-level metadata",
+                "  items:",
+                "  - id: app2",
+                "    item:",
+                "      type: " + BasicApplication.class.getName(),
+                "      name: My name within item");
+
+        String yaml3 = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  version: 0.1.2",
+                "  items:",
+                "  - id: app3a",
+                "    name: My name in item 3a metadata",
+                "    item:",
+                "      type: " + BasicApplication.class.getName(),
+                "      name: My name within item 3a",
+                "  items:",
+                "  - id: app3b",
+                "    item:",
+                "      type: app3a",
+                "      name: My name within item 3b");
+        
+        addCatalogItems(yaml1);
+        addCatalogItems(yaml2);
+        addCatalogItems(yaml3);
+
+        Entity app1 = createAndStartApplication("services: [ {type: app1} ]");
+        assertDoesNotWrap(app1, BasicApplication.class, "My name within item");
+
+        Entity app2 = createAndStartApplication("services: [ {type: app2} ]");
+        assertDoesNotWrap(app2, BasicApplication.class, "My name within item");
+
+        Entity app3b = createAndStartApplication("services: [ {type: app3b} ]");
+        assertDoesNotWrap(app3b, BasicApplication.class, "My name within item 3b");
+    }
+    
+    @Test
+    public void testNameInCatalogMetadata() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  version: 0.1.2",
+                "  name: My name in top-level",
+                "  items:",
+                "  - id: app1",
+                "    item:",
+                "      type: " + BasicApplication.class.getName());
+        
+        addCatalogItems(yaml);
+
+        Entity app1 = createAndStartApplication("services: [ {type: app1} ]");
+        assertDoesNotWrap(app1, BasicApplication.class, "My name in top-level");
+    }
+    
+    @Test
+    public void testNameInItemMetadata() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  version: 0.1.2",
+                "  items:",
+                "  - id: app1",
+                "    name: My name in item metadata",
+                "    item:",
+                "      type: " + BasicApplication.class.getName());
+        
+        addCatalogItems(yaml);
+
+        Entity app1 = createAndStartApplication("services: [ {type: app1} ]");
+        assertDoesNotWrap(app1, BasicApplication.class, "My name in item metadata");
+    }
+    
+    @Test
+    public void testNameWithinItem() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  version: 0.1.2",
+                "  items:",
+                "  - id: app1",
+                "    item:",
+                "      type: " + BasicApplication.class.getName(),
+                "      name: My name within item");
+        
+        addCatalogItems(yaml);
+
+        Entity app1 = createAndStartApplication("services: [ {type: app1} ]");
+        assertDoesNotWrap(app1, BasicApplication.class, "My name within item");
+    }
+    
     @Override
     protected Logger getLogger() {
         return log;

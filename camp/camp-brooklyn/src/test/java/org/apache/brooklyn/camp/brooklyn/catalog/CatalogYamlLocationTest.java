@@ -18,11 +18,14 @@
  */
 package org.apache.brooklyn.camp.brooklyn.catalog;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
@@ -46,7 +49,9 @@ import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
@@ -178,6 +183,173 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
         runLaunchApplicationReferencingLocation(symbolicName, SIMPLE_LOCATION_TYPE);
         
         deleteCatalogEntity(symbolicName);
+    }
+    
+    // See https://issues.apache.org/jira/browse/BROOKLYN-248
+    @Test
+    public void testTypeInheritance() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  version: 0.1.2",
+                "  itemType: location",
+                "  items:",
+                "  - id: loc1",
+                "    name: My Loc 1",
+                "    item:",
+                "      type: localhost",
+                "      brooklyn.config:",
+                "        mykey1: myval1",
+                "        mykey1b: myval1b",
+                "  - id: loc2",
+                "    name: My Loc 2",
+                "    item:",
+                "      type: loc1",
+                "      brooklyn.config:",
+                "        mykey1: myvalOverridden",
+                "        mykey2: myval2");
+        
+        addCatalogItems(yaml);
+
+        Map<String, LocationDefinition> defs = mgmt().getLocationRegistry().getDefinedLocations();
+        LocationDefinition def1 = checkNotNull(defs.get("loc1"), "loc1 missing; has %s", defs.keySet());
+        LocationDefinition def2 = checkNotNull(defs.get("loc2"), "loc2 missing; has %s", defs.keySet());
+        LocationSpec<? extends Location> spec1 = mgmt().getLocationRegistry().getLocationSpec(def1).get();
+        LocationSpec<? extends Location> spec2 = mgmt().getLocationRegistry().getLocationSpec(def2).get();
+        
+        assertEquals(spec1.getCatalogItemId(), "loc1:0.1.2");
+        assertEquals(spec1.getDisplayName(), "My Loc 1");
+        assertContainsAll(spec1.getFlags(), ImmutableMap.of("mykey1", "myval1", "mykey1b", "myval1b"));
+        assertEquals(spec2.getCatalogItemId(), "loc2:0.1.2");
+        assertEquals(spec2.getDisplayName(), "My Loc 2");
+        assertContainsAll(spec2.getFlags(), ImmutableMap.of("mykey1", "myvalOverridden", "mykey1b", "myval1b", "mykey2", "myval2"));
+    }
+    
+    // TODO Debatable whether loc1/loc2 should use "My name within item" instead (which was Aled's 
+    // initial expectation). That would be more consistent with the way entities behave - see
+    // {@link ApplicationYamlTest#testNamePrecedence()}.
+    // See discussion in https://issues.apache.org/jira/browse/BROOKLYN-248.
+    @Test
+    public void testNamePrecedence() throws Exception {
+        String yaml1 = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  version: 0.1.2",
+                "  itemType: location",
+                "  name: My name in top-level metadata",
+                "  items:",
+                "  - id: loc1",
+                "    name: My name in item metadata",
+                "    item:",
+                "      type: localhost",
+                "      name: My name within item");
+
+        String yaml2 = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  version: 0.1.2",
+                "  itemType: location",
+                "  name: My name in top-level metadata",
+                "  items:",
+                "  - id: loc2",
+                "    item:",
+                "      type: localhost",
+                "      name: My name within item");
+
+        String yaml3 = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  version: 0.1.2",
+                "  itemType: location",
+                "  items:",
+                "  - id: loc3a",
+                "    name: My name in item 3a metadata",
+                "    item:",
+                "      type: localhost",
+                "      name: My name within item 3a",
+                "  items:",
+                "  - id: loc3b",
+                "    item:",
+                "      type: loc3a",
+                "      name: My name within item 3b");
+        
+        addCatalogItems(yaml1);
+        addCatalogItems(yaml2);
+        addCatalogItems(yaml3);
+
+        LocationDefinition def1 = mgmt().getLocationRegistry().getDefinedLocations().get("loc1");
+        LocationSpec<? extends Location> spec1 = mgmt().getLocationRegistry().getLocationSpec(def1).get();
+        assertEquals(spec1.getDisplayName(), "My name in item metadata");
+        
+        LocationDefinition def2 = mgmt().getLocationRegistry().getDefinedLocations().get("loc2");
+        LocationSpec<? extends Location> spec2 = mgmt().getLocationRegistry().getLocationSpec(def2).get();
+        assertEquals(spec2.getDisplayName(), "My name in top-level metadata");
+        
+        LocationDefinition def3b = mgmt().getLocationRegistry().getDefinedLocations().get("loc3b");
+        LocationSpec<? extends Location> spec3b = mgmt().getLocationRegistry().getLocationSpec(def3b).get();
+        assertEquals(spec3b.getDisplayName(), "My name within item 3b");
+    }
+    
+    @Test
+    public void testNameInCatalogMetadata() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  version: 0.1.2",
+                "  itemType: location",
+                "  name: My name in top-level",
+                "  items:",
+                "  - id: loc1",
+                "    item:",
+                "      type: localhost");
+        
+        addCatalogItems(yaml);
+
+        LocationDefinition def = mgmt().getLocationRegistry().getDefinedLocations().get("loc1");
+        LocationSpec<? extends Location> spec = mgmt().getLocationRegistry().getLocationSpec(def).get();
+        assertEquals(spec.getDisplayName(), "My name in top-level");
+    }
+    
+    @Test
+    public void testNameInItemMetadata() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  version: 0.1.2",
+                "  itemType: location",
+                "  items:",
+                "  - id: loc1",
+                "    name: My name in item metadata",
+                "    item:",
+                "      type: localhost");
+        
+        addCatalogItems(yaml);
+
+        LocationDefinition def = mgmt().getLocationRegistry().getDefinedLocations().get("loc1");
+        LocationSpec<? extends Location> spec = mgmt().getLocationRegistry().getLocationSpec(def).get();
+        assertEquals(spec.getDisplayName(), "My name in item metadata");
+    }
+    
+    @Test
+    public void testNameWithinItem() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  version: 0.1.2",
+                "  itemType: location",
+                "  items:",
+                "  - id: loc1",
+                "    item:",
+                "      type: localhost",
+                "      name: My name within item");
+        
+        addCatalogItems(yaml);
+
+        LocationDefinition def = mgmt().getLocationRegistry().getDefinedLocations().get("loc1");
+        LocationSpec<? extends Location> spec = mgmt().getLocationRegistry().getLocationSpec(def).get();
+        assertEquals(spec.getDisplayName(), "My name within item");
+    }
+    
+    // TODO Can move to common test utility, if proves more generally useful
+    public static void assertContainsAll(Map<?,?> actual, Map<?,?> expectedSubset) {
+        String errMsg = "actual="+actual+"; expetedSubset="+expectedSubset;
+        for (Map.Entry<?, ?> entry : expectedSubset.entrySet()) {
+            assertTrue(actual.containsKey(entry.getKey()), errMsg);
+            assertEquals(actual.get(entry.getKey()), entry.getValue(), errMsg);
+        }
     }
     
     protected void runLaunchApplicationReferencingLocation(String locTypeInYaml, String locType) throws Exception {

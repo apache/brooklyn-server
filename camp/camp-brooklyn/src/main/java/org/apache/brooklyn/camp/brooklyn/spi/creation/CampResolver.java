@@ -25,6 +25,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.policy.Policy;
@@ -116,9 +117,18 @@ class CampResolver {
 
         ((AbstractBrooklynObjectSpec<?, ?>)spec).catalogItemIdIfNotNull(item.getId());
 
-        if (Strings.isBlank( ((AbstractBrooklynObjectSpec<?, ?>)spec).getDisplayName() ))
-            ((AbstractBrooklynObjectSpec<?, ?>)spec).displayName(item.getDisplayName());
-
+        if (spec instanceof EntitySpec) {
+            if (Strings.isBlank( ((AbstractBrooklynObjectSpec<?, ?>)spec).getDisplayName() )) {
+                ((AbstractBrooklynObjectSpec<?, ?>)spec).displayName(item.getDisplayName());
+            }
+        } else {
+            // See https://issues.apache.org/jira/browse/BROOKLYN-248, and the tests in 
+            // ApplicationYamlTest and CatalogYamlLocationTest.
+            if (Strings.isNonBlank(item.getDisplayName())) {
+                ((AbstractBrooklynObjectSpec<?, ?>)spec).displayName(item.getDisplayName());
+            }
+        }
+        
         return spec;
     }
  
