@@ -21,10 +21,14 @@ package org.apache.brooklyn.camp.brooklyn.catalog;
 import org.testng.annotations.Test;
 
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
+import org.apache.brooklyn.camp.brooklyn.ApplicationsYamlTest;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 
-
+/**
+ * Also see related tests in {@link ApplicationsYamlTest}.
+ * TODO Not clear what the difference is between these two test classes!
+ */
 public class CatalogYamlAppTest extends AbstractYamlTest {
 
     @Override
