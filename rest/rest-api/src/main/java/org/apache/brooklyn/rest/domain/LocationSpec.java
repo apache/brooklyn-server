@@ -25,9 +25,10 @@ import java.util.Objects;
 
 import javax.annotation.Nullable;
 
+import org.apache.brooklyn.util.collections.MutableMap;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.google.common.collect.ImmutableMap;
 
 // FIXME change name, due to confusion with LocationSpec <- no need, as we can kill the class instead soon!
 /** @deprecated since 0.7.0 location spec objects will not be used from the client, instead pass yaml location spec strings */
@@ -53,7 +54,7 @@ public class LocationSpec implements HasName, HasConfig, Serializable {
             @JsonProperty("config") @Nullable Map<String, ?> config) {
         this.name = name;
         this.spec = spec;
-        this.config = (config == null) ? Collections.<String, String> emptyMap() : ImmutableMap.copyOf(config);
+        this.config = (config == null) ? Collections.<String, String> emptyMap() : MutableMap.copyOf(config);
     }
 
     @Override
