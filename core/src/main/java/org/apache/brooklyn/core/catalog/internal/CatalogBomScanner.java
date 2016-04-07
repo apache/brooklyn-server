@@ -25,14 +25,11 @@ import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.yaml.Yamls;
 import org.osgi.framework.Bundle;
-import org.osgi.framework.BundleContext;
 import org.osgi.framework.BundleEvent;
-import org.osgi.framework.FrameworkUtil;
 import org.osgi.framework.ServiceReference;
 import org.osgi.util.tracker.BundleTracker;
 import org.slf4j.Logger;
@@ -124,7 +121,6 @@ public class CatalogBomScanner {
                 return;
             }
             LOG.debug("Unloading catalog BOM entries from {} {} {}", bundleIds(bundle));
-            List<Exception> exceptions = MutableList.of();
             final BrooklynCatalog catalog = getManagementContext().getCatalog();
             for (CatalogItem<?, ?> item : items) {
                 LOG.debug("Unloading {} {} from catalog", item.getSymbolicName(), item.getVersion());
@@ -132,17 +128,12 @@ public class CatalogBomScanner {
                 try {
                     catalog.deleteCatalogItem(item.getSymbolicName(), item.getVersion());
                 } catch (Exception e) {
-                    LOG.warn("Caught {} unloading {} {} from catalog", new String [] {
+                    // Gobble exception to avoid possibility of causing problems stopping bundle.
+                    LOG.warn("Caught {} unloading {} {} from catalog, ignoring", new String [] {
                         e.getMessage(), item.getSymbolicName(), item.getVersion()
                     });
-                    exceptions.add(e);
+                    Exceptions.propagateIfFatal(e);
                 }
-            }
-
-            if (0 < exceptions.size()) {
-                throw new CompoundRuntimeException(
-                    "Caught exceptions unloading catalog from bundle " + bundle.getBundleId(),
-                    exceptions);
             }
         }
 
