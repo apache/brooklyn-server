@@ -93,13 +93,15 @@ limitations under the License.
         </interfaces>
     </service>
 
+    <bean id="bomScanner" class="org.apache.brooklyn.core.catalog.internal.CatalogBomScanner" >
+        <cm:managed-properties persistent-id="org.apache.brooklyn.core.catalog.bomscanner" update-strategy="container-managed"/>
+    </bean>
+
     <reference-list id="managementContextReferences"
                     interface="org.apache.brooklyn.api.mgmt.ManagementContext"
                     availability="optional">
 
-        <reference-listener bind-method="bind" unbind-method="unbind">
-            <bean class="org.apache.brooklyn.core.catalog.internal.CatalogBomScanner" />
-        </reference-listener>
+        <reference-listener bind-method="bind" unbind-method="unbind" ref="bomScanner"/>
     </reference-list>
 
 </blueprint>

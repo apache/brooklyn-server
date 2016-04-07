@@ -21,12 +21,12 @@ package org.apache.brooklyn.core.catalog.internal;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.stream.Streams;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yaml.Yamls;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleEvent;
@@ -34,6 +34,7 @@ import org.osgi.framework.ServiceReference;
 import org.osgi.util.tracker.BundleTracker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.IOException;
@@ -42,17 +43,26 @@ import java.net.URL;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType.TEMPLATE;
+
 public class CatalogBomScanner {
+
+    private final String ACCEPT_ALL_BY_DEFAULT = ".*";
 
     private static final Logger LOG = LoggerFactory.getLogger(CatalogBomScanner.class);
     private static final String CATALOG_BOM_URL = "catalog.bom";
     private static final String BROOKLYN_CATALOG = "brooklyn.catalog";
     private static final String BROOKLYN_LIBRARIES = "brooklyn.libraries";
 
+    private List<String> whiteList = ImmutableList.of(ACCEPT_ALL_BY_DEFAULT);
+    private List<String> blackList = ImmutableList.of();
+
     private CatalogPopulator catalogTracker;
 
     public void bind(ServiceReference<ManagementContext> managementContext) throws Exception {
-        LOG.debug("Binding management context");
+        LOG.debug("Binding management context with whiteList [{}] and blacklist [{}]",
+            Strings.join(getWhiteList(), "; "),
+            Strings.join(getBlackList(), "; "));
         catalogTracker = new CatalogPopulator(managementContext);
     }
 
@@ -71,8 +81,34 @@ public class CatalogBomScanner {
         };
     }
 
+    public List<String> getWhiteList() {
+        return whiteList;
+    }
+
+    public void setWhiteList(List<String> whiteList) {
+        this.whiteList = whiteList;
+    }
+
+    public void setWhiteList(String whiteListText) {
+        LOG.debug("Setting whiteList to ", whiteListText);
+        this.whiteList = Strings.parseCsv(whiteListText, ",");
+    }
+
+    public List<String> getBlackList() {
+        return blackList;
+    }
+
+    public void setBlackList(List<String> blackList) {
+        this.blackList = blackList;
+    }
+
+    public void setBlackList(String blackListText) {
+        LOG.debug("Setting blackList to ", blackListText);
+        this.blackList = Strings.parseCsv(blackListText, ",");
+    }
 
     public class CatalogPopulator extends BundleTracker<Iterable<? extends CatalogItem<?, ?>>> {
+
 
         private ServiceReference<ManagementContext> mgmtContextReference;
         private ManagementContext managementContext;
@@ -121,25 +157,27 @@ public class CatalogBomScanner {
                 return;
             }
             LOG.debug("Unloading catalog BOM entries from {} {} {}", bundleIds(bundle));
-            final BrooklynCatalog catalog = getManagementContext().getCatalog();
             for (CatalogItem<?, ?> item : items) {
                 LOG.debug("Unloading {} {} from catalog", item.getSymbolicName(), item.getVersion());
 
-                try {
-                    catalog.deleteCatalogItem(item.getSymbolicName(), item.getVersion());
-                } catch (Exception e) {
-                    // Gobble exception to avoid possibility of causing problems stopping bundle.
-                    LOG.warn("Caught {} unloading {} {} from catalog, ignoring", new String [] {
-                        e.getMessage(), item.getSymbolicName(), item.getVersion()
-                    });
-                    Exceptions.propagateIfFatal(e);
-                }
+                removeFromCatalog(item);
+            }
+        }
+
+        private void removeFromCatalog(CatalogItem<?, ?> item) {
+            try {
+                getManagementContext().getCatalog().deleteCatalogItem(item.getSymbolicName(), item.getVersion());
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                LOG.warn(Strings.join(new String[] {
+                    "Failed to remove", item.getSymbolicName(), item.getVersion(), "{} {} from catalog"
+                }, " "), e);
             }
         }
 
         private Iterable<? extends CatalogItem<?, ?>> scanForCatalog(Bundle bundle) {
 
-            Iterable<? extends CatalogItem<?, ?>> catalogItems = ImmutableList.of();
+            Iterable<? extends CatalogItem<?, ?>> catalogItems = MutableList.of();
 
             final URL bom = bundle.getResource(CATALOG_BOM_URL);
             if (null != bom) {
@@ -155,7 +193,38 @@ public class CatalogBomScanner {
                 LOG.debug("No BOM found in {} {} {}", bundleIds(bundle));
             }
 
+            if (!passesWhiteAndBlacklists(bundle)) {
+                catalogItems = removeAnyApplications(catalogItems);
+            }
+
             return catalogItems;
+        }
+
+        private Iterable<? extends CatalogItem<?, ?>> removeAnyApplications(Iterable<? extends CatalogItem<?, ?>> catalogItems) {
+            List<CatalogItem<?, ?>> result = MutableList.of();
+
+            for (CatalogItem<?, ?> item: catalogItems) {
+                if (TEMPLATE.equals(item.getCatalogItemType())) {
+                    removeFromCatalog(item);
+                } else {
+                    result.add(item);
+                }
+            }
+            return result;
+        }
+
+        private boolean passesWhiteAndBlacklists(Bundle bundle) {
+            return on(bundle, getWhiteList()) && !on(bundle, getBlackList());
+        }
+
+        private boolean on(Bundle bundle, List<String> list) {
+            for (String candidate : list) {
+                final String symbolicName = bundle.getSymbolicName();
+                if (symbolicName.matches(candidate.trim())) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private String addLibraryDetails(Bundle bundle, String bomText) {
@@ -168,9 +237,16 @@ public class CatalogBomScanner {
                     LOG.warn("Unexpected syntax for {} (expected Map), ignoring", BROOKLYN_CATALOG);
                 }
             }
-            final String updatedBom = new Yaml().dump(bom);
+            final String updatedBom = backToYaml(bom);
             LOG.trace("Updated catalog bom:\n{}", updatedBom);
             return updatedBom;
+        }
+
+        private String backToYaml(Map<String, Object> bom) {
+            final DumperOptions options = new DumperOptions();
+            options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
+            options.setPrettyFlow(true);
+            return new Yaml(options).dump(bom);
         }
 
         private void addLibraryDetails(Bundle bundle, Map<String, Object> catalog) {
@@ -197,5 +273,6 @@ public class CatalogBomScanner {
         }
 
     }
+
 
 }

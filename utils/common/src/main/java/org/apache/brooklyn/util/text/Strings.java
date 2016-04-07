@@ -916,4 +916,17 @@ public class Strings {
         return maxlenWithEllipsis(xs, optionalMax-8)+"/"+Integer.toHexString(xs.hashCode());
     }
 
+
+    /**
+     * Parses a string as comma separated values and returns a list of the entries with whitespace removed.
+     * @param csv
+     * @param separators
+     */
+    public static List<String> parseCsv(String csv, String separators) {
+        List<String> result = MutableList.of();
+        for (String value: csv.split(separators)) {
+            result.add(value.trim());
+        }
+        return result;
+    }
 }

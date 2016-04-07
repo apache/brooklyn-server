@@ -16,8 +16,7 @@
 # under the License.
 
 brooklyn.catalog:
-    version: 0.9.0
-    scanJavaAnnotations: true
+    version: 0.10.0-SNAPSHOT # BROOKLYN_VERSION
     items:
     - id: org.apache.brooklyn.test.osgi.entities.more.MoreEntity
       item:
