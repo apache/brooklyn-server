@@ -329,6 +329,7 @@ public class Entitlements {
         return FineGrainedEntitlements.anyOf(
             FineGrainedEntitlements.allowing(SEE_ENTITY),
             FineGrainedEntitlements.allowing(SEE_ACTIVITY_STREAMS),
+            FineGrainedEntitlements.allowing(SEE_CATALOG_ITEM),
             FineGrainedEntitlements.seeNonSecretSensors(),
             FineGrainedEntitlements.seeNonSecretConfig()
         );
