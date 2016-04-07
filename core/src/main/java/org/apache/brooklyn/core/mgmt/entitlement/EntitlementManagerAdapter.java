@@ -53,10 +53,12 @@ public abstract class EntitlementManagerAdapter implements EntitlementManager {
         public Boolean handleSeeCatalogItem(String catalogItemId) {
             return isEntitledToSeeCatalogItem(context, catalogItemId);
         }
+
         @Override
         public Boolean handleAddCatalogItem(Object catalogItemBeingAdded) {
             return isEntitledToAddCatalogItem(context, catalogItemBeingAdded);
         }
+
         @Override
         public Boolean handleModifyCatalogItem(StringAndArgument catalogItemIdAndModification) {
             return isEntitledToModifyCatalogItem(context, catalogItemIdAndModification==null ? null : catalogItemIdAndModification.getString(),
@@ -67,6 +69,7 @@ public abstract class EntitlementManagerAdapter implements EntitlementManager {
         public Boolean handleSeeEntity(Entity entity) {
             return isEntitledToSeeEntity(context, entity);
         }
+
         @Override
         public Boolean handleSeeSensor(EntityAndItem<String> sensorInfo) {
             return isEntitledToSeeSensor(context, sensorInfo.getEntity(), sensorInfo.getItem());
@@ -76,6 +79,7 @@ public abstract class EntitlementManagerAdapter implements EntitlementManager {
             StringAndArgument item = effectorInfo.getItem();
             return isEntitledToInvokeEffector(context, effectorInfo.getEntity(), item==null ? null : item.getString(), item==null ? null : item.getArgument());
         }
+
         @Override
         public Boolean handleModifyEntity(Entity entity) {
             return isEntitledToModifyEntity(context, entity);

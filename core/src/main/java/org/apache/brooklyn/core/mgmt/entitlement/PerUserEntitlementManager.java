@@ -64,7 +64,7 @@ public class PerUserEntitlementManager implements EntitlementManager {
     public PerUserEntitlementManager(BrooklynProperties properties) {
         this(load(properties, properties.getConfig(DEFAULT_MANAGER)));
         
-        BrooklynProperties users = properties.submap(ConfigPredicates.startingWith(PER_USER_ENTITLEMENTS_CONFIG_PREFIX+"."));
+        BrooklynProperties users = properties.submap(ConfigPredicates.nameStartsWith(PER_USER_ENTITLEMENTS_CONFIG_PREFIX+"."));
         for (Map.Entry<ConfigKey<?>,?> key: users.getAllConfig().entrySet()) {
             if (key.getKey().getName().equals(DEFAULT_MANAGER.getName())) continue;
             String user = Strings.removeFromStart(key.getKey().getName(), PER_USER_ENTITLEMENTS_CONFIG_PREFIX+".");
@@ -85,12 +85,12 @@ public class PerUserEntitlementManager implements EntitlementManager {
 
     @Override
     public <T> boolean isEntitled(EntitlementContext context, EntitlementClass<T> entitlementClass, T entitlementClassArgument) {
-        EntitlementManager entitlementInEffect = null;
+        EntitlementManager entitlementInEffect;
         if (context==null || context.user()==null) {
             // no user means it is running as an internal process, always has root
             entitlementInEffect = Entitlements.root(); 
         } else {
-            if (context!=null) entitlementInEffect = perUserManagers.get(context.user());
+            entitlementInEffect = perUserManagers.get(context.user());
             if (entitlementInEffect==null) entitlementInEffect = defaultManager;
         }
         return entitlementInEffect.isEntitled(context, entitlementClass, entitlementClassArgument);

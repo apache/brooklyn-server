@@ -36,10 +36,14 @@ import javax.ws.rs.core.MediaType;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public interface ScriptApi {
-    
+
+    /** @deprecated since 0.10.0. Use constant in ScriptResource instead. */
+    @Deprecated
     public static final String USER_DATA_MAP_SESSION_ATTRIBUTE = "brooklyn.script.groovy.user.data";
+    /** @deprecated since 0.10.0. Use constant in ScriptResource instead. */
+    @Deprecated
     public static final String USER_LAST_VALUE_SESSION_ATTRIBUTE = "brooklyn.script.groovy.user.last";
-    
+
     @POST
     @Path("/groovy")
     @Consumes("application/text")

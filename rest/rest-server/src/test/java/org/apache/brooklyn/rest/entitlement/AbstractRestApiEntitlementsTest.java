@@ -62,6 +62,7 @@ public abstract class AbstractRestApiEntitlementsTest extends BrooklynRestApiLau
         props.put(PerUserEntitlementManager.PER_USER_ENTITLEMENTS_CONFIG_PREFIX+".myRoot", "root");
         props.put(PerUserEntitlementManager.PER_USER_ENTITLEMENTS_CONFIG_PREFIX+".myReadonly", "readonly");
         props.put(PerUserEntitlementManager.PER_USER_ENTITLEMENTS_CONFIG_PREFIX+".myMinimal", "minimal");
+        props.put(PerUserEntitlementManager.PER_USER_ENTITLEMENTS_CONFIG_PREFIX+".myUser", "user");
         props.put(PerUserEntitlementManager.PER_USER_ENTITLEMENTS_CONFIG_PREFIX+".myCustom", StaticDelegatingEntitlementManager.class.getName());
         
         mgmt = LocalManagementContextForTests.builder(true).useProperties(props).build();
@@ -91,21 +92,47 @@ public abstract class AbstractRestApiEntitlementsTest extends BrooklynRestApiLau
 
     protected String httpGet(String user, String path) throws Exception {
         HttpToolResponse response = HttpTool.httpGet(newClient(user), URI.create(getBaseUriRest()).resolve(path), ImmutableMap.<String, String>of());
-        assertTrue(HttpAsserts.isHealthyStatusCode(response.getResponseCode()), "code="+response.getResponseCode()+"; reason="+response.getReasonPhrase());
+        assertHealthyStatusCode(response);
         return response.getContentAsString();
     }
-    
+
+    protected HttpToolResponse httpPost(String user, String path, byte[] body) throws Exception {
+        final ImmutableMap<String, String> headers = ImmutableMap.of();
+        final URI uri = URI.create(getBaseUriRest()).resolve(path);
+        return HttpTool.httpPost(newClient(user), uri, headers, body);
+    }
+
     protected String assertPermitted(String user, String path) throws Exception {
         return httpGet(user, path);
     }
 
+    public void assertPermittedPost(String user, String path, byte[] body) throws Exception {
+        HttpToolResponse response = httpPost(user, path, body);
+        assertHealthyStatusCode(response);
+    }
+
+    protected void assertHealthyStatusCode(HttpToolResponse response) {
+        assertTrue(HttpAsserts.isHealthyStatusCode(response.getResponseCode()), "code="+response.getResponseCode()+"; reason="+response.getReasonPhrase());
+    }
+
     protected void assertForbidden(String user, String path) throws Exception {
         HttpToolResponse response = HttpTool.httpGet(newClient(user), URI.create(getBaseUriRest()).resolve(path), ImmutableMap.<String, String>of());
-        assertEquals(response.getResponseCode(), 403, "code="+response.getResponseCode()+"; reason="+response.getReasonPhrase()+"; content="+response.getContentAsString());
+        assertStatusCodeEquals(response, 403);
+    }
+
+    public void assertForbiddenPost(String user, String path, byte[] body) throws Exception {
+        HttpToolResponse response = httpPost(user, path, body);
+        assertEquals(response.getResponseCode(), 403, "code=" + response.getResponseCode() + "; reason=" + response.getReasonPhrase());
     }
 
     protected void assert404(String user, String path) throws Exception {
         HttpToolResponse response = HttpTool.httpGet(newClient(user), URI.create(getBaseUriRest()).resolve(path), ImmutableMap.<String, String>of());
-        assertEquals(response.getResponseCode(), 404, "code="+response.getResponseCode()+"; reason="+response.getReasonPhrase()+"; content="+response.getContentAsString());
+        assertStatusCodeEquals(response, 404);
     }
+
+    protected void assertStatusCodeEquals(HttpToolResponse response, int expected) {
+        assertEquals(response.getResponseCode(), expected,
+                "code="+response.getResponseCode()+"; reason="+response.getReasonPhrase()+"; content="+response.getContentAsString());
+    }
+
 }
