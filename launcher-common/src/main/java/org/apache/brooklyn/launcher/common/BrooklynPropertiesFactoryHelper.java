@@ -21,6 +21,7 @@ package org.apache.brooklyn.launcher.common;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.Map;
 
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.internal.BrooklynProperties.Factory.Builder;
@@ -32,27 +33,45 @@ import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Supplier;
+
 public class BrooklynPropertiesFactoryHelper {
     private static final Logger LOG = LoggerFactory.getLogger(BrooklynPropertiesFactoryHelper.class);
 
     private final String globalBrooklynPropertiesFile;
     private final String localBrooklynPropertiesFile;
+    private final Supplier<Map<?, ?>> propertiesSupplier;
     private final BrooklynProperties brooklynProperties;
 
     public BrooklynPropertiesFactoryHelper(String globalBrooklynPropertiesFile, String localBrooklynPropertiesFile) {
-        this(globalBrooklynPropertiesFile, localBrooklynPropertiesFile, null);
+        this(globalBrooklynPropertiesFile, localBrooklynPropertiesFile, null, null);
     }
 
     public BrooklynPropertiesFactoryHelper(BrooklynProperties brooklynProperties) {
-        this(null, null, brooklynProperties);
+        this(null, null, brooklynProperties, null);
     }
 
     public BrooklynPropertiesFactoryHelper(String globalBrooklynPropertiesFile,
             String localBrooklynPropertiesFile,
             BrooklynProperties brooklynProperties) {
+        this(globalBrooklynPropertiesFile, localBrooklynPropertiesFile, brooklynProperties, null);
+    }
+
+    public BrooklynPropertiesFactoryHelper(
+            String globalBrooklynPropertiesFile,
+            String localBrooklynPropertiesFile,
+            Supplier<Map<?, ?>> propertiesSupplier) {
+        this(globalBrooklynPropertiesFile, localBrooklynPropertiesFile, null, propertiesSupplier);
+    }
+
+    public BrooklynPropertiesFactoryHelper(String globalBrooklynPropertiesFile,
+            String localBrooklynPropertiesFile,
+            BrooklynProperties brooklynProperties,
+            Supplier<Map<?, ?>> propertiesSupplier) {
         this.globalBrooklynPropertiesFile = globalBrooklynPropertiesFile;
         this.localBrooklynPropertiesFile = localBrooklynPropertiesFile;
         this.brooklynProperties = brooklynProperties;
+        this.propertiesSupplier = propertiesSupplier;
     }
 
     public BrooklynProperties.Factory.Builder createPropertiesBuilder() {
@@ -83,6 +102,10 @@ public class BrooklynPropertiesFactoryHelper {
                 checkFileReadable(localProperties);
                 checkFilePermissionsX00(localProperties);
                 builder.localPropertiesFile(localProperties.getAbsolutePath());
+            }
+
+            if (propertiesSupplier != null) {
+                builder.propertiesSupplier(propertiesSupplier);
             }
             return builder;
         } else {

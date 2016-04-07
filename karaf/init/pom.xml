@@ -54,6 +54,11 @@
             <artifactId>org.apache.karaf.system.core</artifactId>
             <version>${karaf.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.felix</groupId>
+            <artifactId>org.osgi.compendium</artifactId>
+            <version>${felix-osgi-compendium.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>org.testng</groupId>

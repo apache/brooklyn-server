@@ -15,6 +15,9 @@
  */
 package org.apache.brooklyn.launcher.osgi;
 
+import java.io.IOException;
+import java.util.Map;
+
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -23,42 +26,105 @@ import org.apache.brooklyn.core.BrooklynVersionService;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.launcher.common.BasicLauncher;
+import org.apache.brooklyn.launcher.common.BrooklynPropertiesFactoryHelper;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.rest.security.provider.BrooklynUserWithRandomPasswordSecurityProvider;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.Threads;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
+import org.osgi.framework.Constants;
+import org.osgi.framework.InvalidSyntaxException;
+import org.osgi.service.cm.Configuration;
+import org.osgi.service.cm.ConfigurationAdmin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Initializer for brooklyn-core when running in an OSGi environment.
- *
- * Temporarily here; should be totally contained in blueprint beans' init-methods.
  */
 public class OsgiLauncher extends BasicLauncher<OsgiLauncher> {
 
     private static final Logger LOG = LoggerFactory.getLogger(OsgiLauncher.class);
+    public static final String BROOKLYN_CONFIG_PID = "brooklyn";
+    
+    private Object reloadLock = new Object();
 
     private BrooklynVersionService brooklynVersion;
+
+    private String globalBrooklynProperties;
+    private String localBrooklynProperties;
+
+    private ConfigurationAdmin configAdmin;
+    private ConfigSupplier configSupplier;
+
 
     @Override
     public OsgiLauncher start() {
         // make sure brooklyn-core bundle is started
         brooklynVersion.getVersion();
 
+        Configuration brooklynConfig = getConfiguration(configAdmin, BROOKLYN_CONFIG_PID);
+        // Note that this doesn't check whether the files exist, just that there are potential alternative sources for configuration.
+        if (brooklynConfig == null && Strings.isEmpty(globalBrooklynProperties) && Strings.isEmpty(localBrooklynProperties)) {
+            LOG.warn("Config Admin PID '" + BROOKLYN_CONFIG_PID + "' not found, not using external configuration. Create a brooklyn.cfg file in etc folder.");
+        }
+        configSupplier = new ConfigSupplier(brooklynConfig);
+        BrooklynPropertiesFactoryHelper helper = new BrooklynPropertiesFactoryHelper(
+                globalBrooklynProperties, localBrooklynProperties, configSupplier);
+        setBrooklynPropertiesBuilder(helper.createPropertiesBuilder());
         return super.start();
+    }
+
+    private Configuration getConfiguration(ConfigurationAdmin configAdmin, String brooklynConfigPid) {
+        String filter = '(' + Constants.SERVICE_PID + '=' + brooklynConfigPid + ')';
+        Configuration[] configs;
+        try {
+            configs = configAdmin.listConfigurations(filter);
+        } catch (InvalidSyntaxException | IOException e) {
+            throw Exceptions.propagate(e);
+        }
+        if (configs != null && configs.length > 0) {
+            return configs[0];
+        } else {
+            return null;
+        }
     }
 
     // Called by blueprint container
     // init-method can't find the start method for some reason, provide an alternative
     public void init() {
-        start();
+        synchronized (reloadLock) {
+            LOG.debug("OsgiLauncher init");
+            start();
+        }
     }
 
     // Called by blueprint container
     public void destroy() {
         LOG.debug("Notified of system shutdown, calling shutdown hooks");
         Threads.runShutdownHooks();
+    }
+
+    @Override
+    protected void startingUp() {
+        super.startingUp();
+        ManagementContext managementContext = getManagementContext();
+        BrooklynProperties brooklynProperties = (BrooklynProperties) managementContext.getConfig();
+        if (BrooklynWebConfig.hasNoSecurityOptions(brooklynProperties)) {
+            LOG.info("No security provider options specified. Define a security provider or users to prevent a random password being created and logged.");
+            brooklynProperties.put(
+                    BrooklynWebConfig.SECURITY_PROVIDER_INSTANCE,
+                    new BrooklynUserWithRandomPasswordSecurityProvider(managementContext));
+        }
+    }
+
+    public void updateProperties(Map<?, ?> props) {
+        synchronized (reloadLock) {
+            LOG.info("Updating brooklyn config because of config admin changes.");
+            configSupplier.update(props);
+            getManagementContext().reloadBrooklynProperties();
+        }
     }
 
     public void setBrooklynVersion(BrooklynVersionService brooklynVersion) {
@@ -118,17 +184,16 @@ public class OsgiLauncher extends BasicLauncher<OsgiLauncher> {
         copyPersistedState(destinationDir);
     }
 
-    @Override
-    protected void startingUp() {
-        super.startingUp();
-        ManagementContext managementContext = getManagementContext();
-        BrooklynProperties brooklynProperties = (BrooklynProperties) managementContext.getConfig();
-        if (BrooklynWebConfig.hasNoSecurityOptions(brooklynProperties)) {
-            LOG.info("No security provider options specified. Define a security provider or users to prevent a random password being created and logged.");
-            brooklynProperties.put(
-                    BrooklynWebConfig.SECURITY_PROVIDER_INSTANCE,
-                    new BrooklynUserWithRandomPasswordSecurityProvider(managementContext));
-        }
+    public void setConfigAdmin(ConfigurationAdmin configAdmin) {
+        this.configAdmin = configAdmin;
+    }
+
+    public void setGlobalBrooklynProperties(String globalBrooklynProperties) {
+        this.globalBrooklynProperties = globalBrooklynProperties;
+    }
+
+    public void setLocalBrooklynProperties(String localBrooklynProperties) {
+        this.localBrooklynProperties = localBrooklynProperties;
     }
 
 }

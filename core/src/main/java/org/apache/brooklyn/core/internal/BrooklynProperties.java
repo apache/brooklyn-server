@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
+import com.google.common.base.Supplier;
 
 /** 
  * Utils for accessing command-line and system-env properties;
@@ -78,6 +79,7 @@ public interface BrooklynProperties extends Map, StringConfigMap {
             private String globalLocationMetadataFile = null;
             private String globalPropertiesFile = null;
             private String localPropertiesFile = null;
+            private Supplier<Map<?, ?>> propertiesSupplier;
             private BrooklynProperties originalProperties = null;
 
             private Builder(boolean setGlobalFileDefaults) {
@@ -131,10 +133,18 @@ public interface BrooklynProperties extends Map, StringConfigMap {
                 globalPropertiesFile = val;
                 return this;
             }
+
+            /**
+             * A {@link Supplier} which returns a fresh view of the current properties
+             */
+            public Builder propertiesSupplier(Supplier<Map<?, ?>> propertiesSupplier) {
+                this.propertiesSupplier = propertiesSupplier;
+                return this;
+            }
             
             @Beta
             public boolean hasDelegateOriginalProperties() {
-                return this.originalProperties==null;
+                return this.originalProperties!=null;
             }
             
             /**
@@ -155,6 +165,7 @@ public interface BrooklynProperties extends Map, StringConfigMap {
                 // But might that make unit tests run very badly when developer is offline?
                 addPropertiesFromUrl(properties, defaultLocationMetadataUrl, false);
                 
+                addPropertiesFromMapSupplier(properties, propertiesSupplier);
                 addPropertiesFromFile(properties, globalLocationMetadataFile);
                 addPropertiesFromFile(properties, globalPropertiesFile);
                 addPropertiesFromFile(properties, localPropertiesFile);
@@ -178,6 +189,7 @@ public interface BrooklynProperties extends Map, StringConfigMap {
                         .add("globalLocationMetadataUrl", globalLocationMetadataFile)
                         .add("globalPropertiesFile", globalPropertiesFile)
                         .add("localPropertiesFile", localPropertiesFile)
+                        .add("propertiesSupplier", propertiesSupplier)
                         .toString();
             }
         }
@@ -202,6 +214,15 @@ public interface BrooklynProperties extends Map, StringConfigMap {
 
             if (f.exists()) {
                 p.addFrom(f);
+            }
+        }
+
+        private static void addPropertiesFromMapSupplier(BrooklynProperties p, Supplier<Map<?, ?>> propertiesSupplier) {
+            if (propertiesSupplier != null) {
+                Map<?, ?> newProps = propertiesSupplier.get();
+                if (newProps != null) {
+                    p.addFrom(newProps);
+                }
             }
         }
     }

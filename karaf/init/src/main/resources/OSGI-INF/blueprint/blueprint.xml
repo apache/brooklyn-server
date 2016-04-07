@@ -30,6 +30,9 @@ limitations under the License.
     <reference id="systemService"
                interface="org.apache.karaf.system.SystemService" />
 
+    <reference id="configAdmin"
+               interface="org.osgi.service.cm.ConfigurationAdmin" />
+
     <cm:property-placeholder persistent-id="org.apache.brooklyn.osgilauncher" update-strategy="reload">
         <cm:default-properties>
             <cm:property name="ignoreCatalogErrors" value="true"/>
@@ -44,24 +47,12 @@ limitations under the License.
         </cm:default-properties>
     </cm:property-placeholder>
 
-    <bean id="propertiesBuilderFactory"
-          class="org.apache.brooklyn.launcher.common.BrooklynPropertiesFactoryHelper">
-        <argument value="${globalBrooklynPropertiesFile}"/>
-        <argument value="${localBrooklynPropertiesFile}"/>
-    </bean>
-
-    <bean id="propertiesBuilder"
-          class="org.apache.brooklyn.core.internal.BrooklynProperties.Factory.Builder"
-          factory-ref="propertiesBuilderFactory"
-          factory-method="createPropertiesBuilder"/>
-
     <bean id="launcher"
           class="org.apache.brooklyn.launcher.osgi.OsgiLauncher"
           init-method="init"
           destroy-method="destroy">
 
         <property name="brooklynVersion" ref="brooklynVersion"/>
-        <property name="brooklynPropertiesBuilder" ref="propertiesBuilder"/>
 
         <property name="ignoreCatalogErrors" value="${ignoreCatalogErrors}"/>
         <property name="ignorePersistenceErrors" value="${ignorePersistenceErrors}"/>
@@ -70,6 +61,13 @@ limitations under the License.
         <property name="persistenceDir" value="${persistenceDir}"/>
         <property name="persistenceLocation" value="${persistenceLocation}"/>
         <property name="persistPeriod" value="${persistPeriod}"/>
+        <property name="globalBrooklynProperties" value="${globalBrooklynPropertiesFile}"/>
+        <property name="localBrooklynProperties" value="${localBrooklynPropertiesFile}"/>
+        <property name="configAdmin" ref="configAdmin"/>
+
+        <cm:managed-properties persistent-id="brooklyn"
+                               update-method="updateProperties"
+                               update-strategy="component-managed" />
     </bean>
 
     <bean id="localManagementContextService"

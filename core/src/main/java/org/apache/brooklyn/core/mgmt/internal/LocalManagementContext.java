@@ -394,7 +394,7 @@ public class LocalManagementContext extends AbstractManagementContext {
         
         BrooklynProperties properties = builder.build();
         configMap = new DeferredBrooklynProperties(properties, this);
-        if (brooklynAdditionalProperties != null) {
+        if (brooklynAdditionalProperties != null && !brooklynAdditionalProperties.isEmpty()) {
             log.info("Reloading additional brooklyn properties from " + brooklynAdditionalProperties);
             configMap.addFromMap(brooklynAdditionalProperties);
         }
