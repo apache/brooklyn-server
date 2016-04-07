@@ -87,15 +87,12 @@
 
         <bundle>mvn:org.apache.brooklyn/brooklyn-rest-api/${project.version}</bundle>
 
-        <bundle dependency="true">mvn:com.sun.jersey.contribs/jersey-multipart/${jersey.version}</bundle>
         <bundle dependency="true">mvn:org.jvnet.mimepull/mimepull/1.9.3</bundle>
         <bundle dependency="true">mvn:commons-lang/commons-lang/${commons-lang.version}</bundle>
 
         <!-- TODO: version 1.1.0.Final has OSGi manifest; check if upgrade doesn't get rid of wrap -->
         <bundle dependency="true">wrap:mvn:javax.validation/validation-api/${validation-api.version}</bundle>
 
-        <!--<feature>jersey</feature>-->
-        <bundle dependency="true">mvn:com.sun.jersey/jersey-servlet/${jersey.version}</bundle>
         <bundle dependency="true">mvn:org.apache.commons/commons-lang3/${commons-lang3.version}</bundle>
         <bundle dependency="true">mvn:com.fasterxml.jackson.core/jackson-annotations/${fasterxml.jackson.version}</bundle>
         <bundle dependency="true">mvn:com.fasterxml.jackson.core/jackson-databind/${fasterxml.jackson.version}</bundle>

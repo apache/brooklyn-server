@@ -89,19 +89,6 @@
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
         </dependency>
-        <!--
-        mvn dependency:analyze complains that these dependencies are unused when present but
-        used and undeclared when removed!
-        -->
-        <!--dependency>
-            <groupId>com.sun.jersey</groupId>
-            <artifactId>jersey-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.jboss.resteasy</groupId>
-            <artifactId>jaxrs-api</artifactId>
-        </dependency-->
-        
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>

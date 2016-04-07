@@ -244,10 +244,7 @@
                         <supportedProjectType>jar</supportedProjectType>
                     </supportedProjectTypes>
                     <instructions>
-                        <Import-Package>
-                            com.sun.jersey.spi.container.servlet;version="[1.18.1,2.0)",
-                            *
-                        </Import-Package>
+                        <Import-Package>*</Import-Package>
                         <Export-Package>org.apache.brooklyn.*</Export-Package>
                         <Web-ContextPath>/</Web-ContextPath>
                         <_wab>src/main/webapp</_wab>

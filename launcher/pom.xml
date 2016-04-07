@@ -53,7 +53,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.brooklyn</groupId>
-            <artifactId>brooklyn-rest-server${rest-server-classifier}</artifactId>
+            <artifactId>brooklyn-rest-server</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -68,7 +68,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.brooklyn.camp</groupId>
-            <artifactId>camp-server${rest-server-classifier}</artifactId>
+            <artifactId>camp-server</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -187,7 +187,14 @@
         </dependency>
         <dependency>
             <groupId>org.apache.brooklyn</groupId>
-            <artifactId>brooklyn-rest-server${rest-server-classifier}</artifactId>
+            <artifactId>brooklyn-rest-resources</artifactId>
+            <version>${project.version}</version>
+            <classifier>tests</classifier>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.brooklyn</groupId>
+            <artifactId>brooklyn-rest-server</artifactId>
             <version>${project.version}</version>
             <classifier>tests</classifier>
             <scope>test</scope>
@@ -267,23 +274,4 @@
             </plugin>
         </plugins>
     </build>
-    <profiles>
-        <profile>
-            <id>jax-rs-jersey</id>
-            <activation>
-                <property>
-                    <name>!jar-rs</name>
-                </property>
-            </activation>
-            <dependencies>
-                <dependency>
-                    <groupId>org.apache.brooklyn</groupId>
-                    <artifactId>brooklyn-rest-resources</artifactId>
-                    <version>${project.version}</version>
-                    <classifier>tests</classifier>
-                    <scope>test</scope>
-                </dependency>
-            </dependencies>
-        </profile>
-    </profiles>
 </project>
