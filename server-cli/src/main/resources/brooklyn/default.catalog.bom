@@ -97,8 +97,8 @@ brooklyn.catalog:
           install.command: |
             # install python if not present
             which python || \
-              { apt-get update && apt-get install python ; } || \
-              { yum update && yum install python ; } || \
+              { sudo apt-get update && sudo apt-get install python ; } || \
+              { sudo yum update && sudo yum install python ; } || \
               { echo WARNING: cannot install python && exit 1 ; }
 
           customize.command: |
