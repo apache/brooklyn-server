@@ -176,6 +176,7 @@
                             -->
                             <exclude>**/src/main/resources/brooklyn/item-lister/statics/style/js/**</exclude>
                             <exclude>**/*.bom</exclude>
+                            <exclude>**/.externalToolBuilders/*</exclude>
                         </excludes>
                     </configuration>
                 </plugin>

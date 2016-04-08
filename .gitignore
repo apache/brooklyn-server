@@ -15,6 +15,7 @@ test-output/
 .classpath
 .settings/
 .metadata/
+.externalToolBuilders/
 
 .idea/
 *.iml
