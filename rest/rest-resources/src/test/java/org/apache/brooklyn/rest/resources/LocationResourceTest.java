@@ -29,6 +29,8 @@ import javax.annotation.Nullable;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import org.apache.brooklyn.core.location.LocationConfigKeys;
+import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -61,6 +63,10 @@ public class LocationResourceTest extends BrooklynRestResourceTest {
     
     private String locationName = "my-jungle";
     private String locationVersion = "0.1.2";
+
+    private String configDisplayName = "config_displayName";
+    private String testsDisplayName = "tests_displayName";
+    private String byonHostname = "10.10.10.102";
 
     @Test
     @Deprecated
@@ -186,5 +192,113 @@ public class LocationResourceTest extends BrooklynRestResourceTest {
                 assertEquals(getLocationRegistry().getDefinedLocations().size(), size - 1);
             }
         });
+    }
+
+
+    @SuppressWarnings("deprecation")
+    @Test
+    public void testDisplayNameInConfig() {
+        String symbolicName = "test_config_displayName_id";
+        String yaml = Joiner.on("\n").join(ImmutableList.of(
+                "brooklyn.catalog:",
+                "  version: " + locationVersion,
+                "  items:",
+                "  - id: " + symbolicName,
+                "    itemType: location",
+                "    item:",
+                "      type: byon:(hosts=\"" + byonHostname + "\")",
+                "      brooklyn.config:",
+                "        displayName: " + configDisplayName));
+
+        Response response = client().path("/catalog")
+                .post(yaml);
+
+        assertEquals(response.getStatus(), Response.Status.CREATED.getStatusCode());
+
+        URI addedCatalogItemUri = response.getLocation();
+        log.info("added, at: " + addedCatalogItemUri);
+
+        // Ensure location definition exists
+        CatalogLocationSummary locationItem = client().path("/catalog/locations/"+symbolicName + "/" + locationVersion)
+                .get(CatalogLocationSummary.class);
+        log.info(" item: " + locationItem);
+        LocationSummary locationSummary = client().path(URI.create("/locations/"+symbolicName+"/")).get(LocationSummary.class);
+        log.info(" summary: " + locationSummary);
+        Assert.assertEquals(locationSummary.getConfig().get(LocationConfigKeys.DISPLAY_NAME.getName()), configDisplayName);
+
+        FixedListMachineProvisioningLocation l = (FixedListMachineProvisioningLocation) getManagementContext().getLocationRegistry().getLocationManaged(symbolicName);
+        Assert.assertEquals(l.getDisplayName(), configDisplayName);
+    }
+
+
+    @SuppressWarnings("deprecation")
+    @Test
+    public void testDisplayNameInItems() {
+        String symbolicName = "test_items_displayName_id";
+        String yaml = Joiner.on("\n").join(ImmutableList.of(
+                "brooklyn.catalog:",
+                "  version: " + locationVersion,
+                "  items:",
+                "  - id: " + symbolicName,
+                "    itemType: location",
+                "    displayName: " + testsDisplayName,
+                "    item:",
+                "      type: byon:(hosts=\"" + byonHostname + "\")"));
+
+        Response response = client().path("/catalog")
+                .post(yaml);
+
+        assertEquals(response.getStatus(), Response.Status.CREATED.getStatusCode());
+
+        URI addedCatalogItemUri = response.getLocation();
+        log.info("added, at: " + addedCatalogItemUri);
+
+        // Ensure location definition exists
+        CatalogLocationSummary locationItem = client().path("/catalog/locations/"+symbolicName + "/" + locationVersion)
+                .get(CatalogLocationSummary.class);
+        log.info(" item: " + locationItem);
+        LocationSummary locationSummary = client().path(URI.create("/locations/"+symbolicName+"/")).get(LocationSummary.class);
+        log.info(" summary: " + locationSummary);
+        Assert.assertEquals(locationSummary.getConfig().get(LocationConfigKeys.DISPLAY_NAME.getName()), testsDisplayName);
+
+        FixedListMachineProvisioningLocation l = (FixedListMachineProvisioningLocation) getManagementContext().getLocationRegistry().getLocationManaged(symbolicName);
+        Assert.assertEquals(l.getDisplayName(), testsDisplayName);
+    }
+
+
+    @SuppressWarnings("deprecation")
+    @Test
+    public void testDisplayNameInConfigOverridesItems() {
+        String symbolicName = "test_config_overrides_items_displayName_id";
+        String yaml = Joiner.on("\n").join(ImmutableList.of(
+                "brooklyn.catalog:",
+                "  version: " + locationVersion,
+                "  items:",
+                "  - id: " + symbolicName,
+                "    itemType: location",
+                "    displayName: " + testsDisplayName,
+                "    item:",
+                "      type: byon:(hosts=\"" + byonHostname + "\")",
+                "      brooklyn.config:",
+                "        displayName: " + configDisplayName));
+
+        Response response = client().path("/catalog")
+                .post(yaml);
+
+        assertEquals(response.getStatus(), Response.Status.CREATED.getStatusCode());
+
+        URI addedCatalogItemUri = response.getLocation();
+        log.info("added, at: " + addedCatalogItemUri);
+
+        // Ensure location definition exists
+        CatalogLocationSummary locationItem = client().path("/catalog/locations/"+symbolicName + "/" + locationVersion)
+                .get(CatalogLocationSummary.class);
+        log.info(" item: " + locationItem);
+        LocationSummary locationSummary = client().path(URI.create("/locations/"+symbolicName+"/")).get(LocationSummary.class);
+        log.info(" summary: " + locationSummary);
+        Assert.assertEquals(locationSummary.getConfig().get(LocationConfigKeys.DISPLAY_NAME.getName()), configDisplayName);
+
+        FixedListMachineProvisioningLocation l = (FixedListMachineProvisioningLocation) getManagementContext().getLocationRegistry().getLocationManaged(symbolicName);
+        Assert.assertEquals(l.getDisplayName(), configDisplayName);
     }
 }
