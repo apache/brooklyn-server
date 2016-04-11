@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.rest.entitlement;
 
+import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.testng.annotations.Test;
 
 @Test(singleThreaded = true)
@@ -27,8 +28,31 @@ public class ServerApiEntitlementsTest extends AbstractRestApiEntitlementsTest {
     public void testGetHealthy() throws Exception {
         String path = "/v1/server/up";
         assertPermitted("myRoot", path);
+        assertPermitted("myUser", path);
         assertForbidden("myReadonly", path);
         assertForbidden("myMinimal", path);
         assertForbidden("unrecognisedUser", path);
     }
+
+    @Test(groups = "Integration")
+    public void testReloadProperties() throws Exception {
+        String resource = "/v1/server/properties/reload";
+        assertPermittedPost("myRoot", resource, null);
+        assertForbiddenPost("myUser", resource, null);
+        assertForbiddenPost("myReadonly", resource, null);
+        assertForbiddenPost("myMinimal", resource, null);
+        assertForbiddenPost("unrecognisedUser", resource, null);
+    }
+
+    @Test(groups = "Integration")
+    public void testGetConfig() throws Exception {
+        // Property set in test setup.
+        String path = "/v1/server/config/" + Entitlements.GLOBAL_ENTITLEMENT_MANAGER.getName();
+        assertPermitted("myRoot", path);
+        assertForbidden("myUser", path);
+        assertForbidden("myReadonly", path);
+        assertForbidden("myMinimal", path);
+        assertForbidden("unrecognisedUser", path);
+    }
+
 }

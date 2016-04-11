@@ -18,8 +18,10 @@
  */
 package org.apache.brooklyn.rest.resources;
 
+import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.rest.api.ScriptApi;
 import org.apache.brooklyn.rest.domain.ScriptExecutionSummary;
+import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.stream.ThreadLocalPrintStream;
 import org.apache.brooklyn.util.stream.ThreadLocalPrintStream.OutputCapturingContext;
 
@@ -45,6 +47,10 @@ public class ScriptResource extends AbstractBrooklynRestResource implements Scri
     @SuppressWarnings("rawtypes")
     @Override
     public ScriptExecutionSummary groovy(HttpServletRequest request, String script) {
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ALL_SERVER_INFO, null)) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized for this operation", Entitlements.getEntitlementContext().user());
+        }
+
         log.info("Web REST executing user-supplied script");
         if (log.isDebugEnabled()) {
             log.debug("Web REST user-supplied script contents:\n"+script);

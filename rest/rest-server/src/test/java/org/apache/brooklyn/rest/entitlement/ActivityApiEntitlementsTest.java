@@ -76,6 +76,7 @@ public class ActivityApiEntitlementsTest extends AbstractRestApiEntitlementsTest
     public void testGetTask() throws Exception {
         String path = "/v1/activities/"+subTask.getId();
         assertPermitted("myRoot", path);
+        assertPermitted("myUser", path);
         assertPermitted("myReadonly", path);
         assertForbidden("myMinimal", path);
         assertForbidden("unrecognisedUser", path);
@@ -89,6 +90,7 @@ public class ActivityApiEntitlementsTest extends AbstractRestApiEntitlementsTest
             String expectedStream = entry.getValue();
 
             assertEquals(httpGet("myRoot", pathPrefix+streamId), expectedStream);
+            assertEquals(httpGet("myUser", pathPrefix+streamId), expectedStream);
             assertEquals(httpGet("myReadonly", pathPrefix+streamId), expectedStream);
             assertForbidden("myMinimal", pathPrefix+streamId);
             assertForbidden("unrecognisedUser", pathPrefix+streamId);

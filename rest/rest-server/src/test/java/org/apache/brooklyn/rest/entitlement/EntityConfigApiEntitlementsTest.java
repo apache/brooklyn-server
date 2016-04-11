@@ -50,6 +50,7 @@ public class EntityConfigApiEntitlementsTest extends AbstractRestApiEntitlements
         String val = "\"myname\"";
         
         assertEquals(httpGet("myRoot", path), val);
+        assertEquals(httpGet("myUser", path), val);
         assertEquals(httpGet("myReadonly", path), val);
         assert404("myMinimal", path); // can't see app, to retrieve entity
         assert404("unrecognisedUser", path);
@@ -68,6 +69,7 @@ public class EntityConfigApiEntitlementsTest extends AbstractRestApiEntitlements
         String regex = ".*"+confName+".*myname.*";
         
         Asserts.assertStringMatchesRegex(httpGet("myRoot", path), regex);
+        Asserts.assertStringMatchesRegex(httpGet("myUser", path), regex);
         Asserts.assertStringMatchesRegex(httpGet("myReadonly", path), regex);
         assert404("myMinimal", path); // can't see app, to retrieve entity
         assert404("unrecognisedUser", path);

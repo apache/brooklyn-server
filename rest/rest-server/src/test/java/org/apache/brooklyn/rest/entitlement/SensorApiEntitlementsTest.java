@@ -53,6 +53,7 @@ public class SensorApiEntitlementsTest extends AbstractRestApiEntitlementsTest {
         String val = "\"myval\"";
         
         assertEquals(httpGet("myRoot", path), val);
+        assertEquals(httpGet("myUser", path), val);
         assertEquals(httpGet("myReadonly", path), val);
         assert404("myMinimal", path); // can't see app, to retrieve entity
         assert404("unrecognisedUser", path);
@@ -73,6 +74,7 @@ public class SensorApiEntitlementsTest extends AbstractRestApiEntitlementsTest {
         String regex = ".*"+sensorName+".*myval.*";
         
         Asserts.assertStringMatchesRegex(httpGet("myRoot", path), regex);
+        Asserts.assertStringMatchesRegex(httpGet("myUser", path), regex);
         Asserts.assertStringMatchesRegex(httpGet("myReadonly", path), regex);
         assert404("myMinimal", path); // can't see app, to retrieve entity
         assert404("unrecognisedUser", path);

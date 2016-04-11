@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.mgmt.entitlement;
 import java.util.Arrays;
 import java.util.List;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Entity;
@@ -72,23 +73,32 @@ public class Entitlements {
     public static EntitlementClass<EntityAndItem<StringAndArgument>> INVOKE_EFFECTOR = new BasicEntitlementClassDefinition<EntityAndItem<StringAndArgument>>("effector.invoke", EntityAndItem.typeToken(StringAndArgument.class));
     public static EntitlementClass<Entity> MODIFY_ENTITY = new BasicEntitlementClassDefinition<Entity>("entity.modify", Entity.class);
     
-    /** the permission to deploy an application, where parameter is some representation of the app to be deployed (spec instance or yaml plan) */
+    /**
+     * Permission to deploy an application, where parameter is some representation
+     * of the app to be deployed (spec instance or yaml plan)
+     */
     public static EntitlementClass<Object> DEPLOY_APPLICATION = new BasicEntitlementClassDefinition<Object>("app.deploy", Object.class);
 
-    /** catch-all for catalog, locations, scripting, usage, etc - exporting persistence, shutting down, etc;
+    /**
+     * Catch-all for catalog, locations, scripting, usage, etc - exporting persistence, shutting down, etc;
      * this is significantly more powerful than {@link #SERVER_STATUS}.
-     * NB: this may be refactored and deprecated in future */
+     * NB: this may be refactored and deprecated in future
+     */
     public static EntitlementClass<Void> SEE_ALL_SERVER_INFO = new BasicEntitlementClassDefinition<Void>("server.info.all.see", Void.class);
 
-    /** permission to see general server status info: basically HA status; not nearly as much as {@link #SEE_ALL_SERVER_INFO} */
+    /**
+     * Permission to see general server status info: basically HA status; not nearly as much as {@link #SEE_ALL_SERVER_INFO}
+     */
     public static EntitlementClass<Void> SERVER_STATUS = new BasicEntitlementClassDefinition<Void>("server.status", Void.class);
     
-    /** permission to run untrusted code or embedded scripts at the server; 
-     * secondary check required for any operation which could potentially grant root-level access */ 
+    /**
+     * Permission to run untrusted code or embedded scripts at the server.
+     * A secondary check is required for any operation which could potentially grant root-level access.
+     */
     public static EntitlementClass<Void> ROOT = new BasicEntitlementClassDefinition<Void>("root", Void.class);
 
     @SuppressWarnings("unchecked")
-    public static enum EntitlementClassesEnum {
+    public enum EntitlementClassesEnum {
         ENTITLEMENT_SEE_CATALOG_ITEM(SEE_CATALOG_ITEM) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleSeeCatalogItem((String)argument); } },
         ENTITLEMENT_ADD_CATALOG_ITEM(ADD_CATALOG_ITEM) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleAddCatalogItem(argument); } },
         ENTITLEMENT_MODIFY_CATALOG_ITEM(MODIFY_CATALOG_ITEM) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleModifyCatalogItem((StringAndArgument)argument); } },
@@ -107,7 +117,7 @@ public class Entitlements {
         
         private EntitlementClass<?> entitlementClass;
 
-        private EntitlementClassesEnum(EntitlementClass<?> specificClass) {
+        EntitlementClassesEnum(EntitlementClass<?> specificClass) {
             this.entitlementClass = specificClass;
         }
         public EntitlementClass<?> getEntitlementClass() {
@@ -194,7 +204,9 @@ public class Entitlements {
     
     // ------------- permission sets -------------
     
-    /** always ALLOW access to everything */
+    /**
+     * @return An entitlement manager allowing access to everything.
+     */
     public static EntitlementManager root() {
         return new EntitlementManager() {
             @Override
@@ -208,7 +220,25 @@ public class Entitlements {
         };
     }
 
-    /** always DENY access to anything which requires entitlements */
+    /**
+     * @return An entitlement manager allowing everything but {@link #ROOT} and {@link #SEE_ALL_SERVER_INFO}.
+     */
+    public static EntitlementManager user() {
+        return new EntitlementManager() {
+            @Override
+            public <T> boolean isEntitled(EntitlementContext context, EntitlementClass<T> permission, T entitlementClassArgument) {
+                return !SEE_ALL_SERVER_INFO.equals(permission) && !ROOT.equals(permission);
+            }
+            @Override
+            public String toString() {
+                return "Entitlements.user";
+            }
+        };
+    }
+
+    /**
+     * @return An entitlement manager denying access to anything that requires entitlements.
+     */
     public static EntitlementManager minimal() {
         return new EntitlementManager() {
             @Override
@@ -286,41 +316,32 @@ public class Entitlements {
             @SuppressWarnings("unchecked")
             @Override
             public <T> boolean isEntitled(EntitlementContext context, EntitlementClass<T> permission, T typeArgument) {
-                if (!Objects.equal(this.permission, permission)) return false;
-                return test.apply((U)typeArgument);
+                return Objects.equal(this.permission, permission) && test.apply((U) typeArgument);
             }
             @Override
             public String toString() {
                 return "Entitlements.allowing(" + permission + " -> " + test + ")";
             }
         }
-        
+
+        private static class NonSecretPredicate implements Predicate<EntityAndItem<String>> {
+            @Override
+            public boolean apply(EntityAndItem<String> input) {
+                return input != null && !Sanitizer.IS_SECRET_PREDICATE.apply(input.getItem());
+            }
+
+            @Override
+            public String toString() {
+                return "Predicates.nonSecret";
+            }
+        }
+
         public static EntitlementManager seeNonSecretSensors() {
-            return allowing(SEE_SENSOR, new Predicate<EntityAndItem<String>>() {
-                @Override
-                public boolean apply(EntityAndItem<String> input) {
-                    if (input == null) return false;
-                    return !Sanitizer.IS_SECRET_PREDICATE.apply(input.getItem());
-                }
-                @Override
-                public String toString() {
-                    return "Predicates.nonSecret";
-                }
-            });
+            return allowing(SEE_SENSOR, new NonSecretPredicate());
         }
         
         public static EntitlementManager seeNonSecretConfig() {
-            return allowing(SEE_CONFIG, new Predicate<EntityAndItem<String>>() {
-                @Override
-                public boolean apply(EntityAndItem<String> input) {
-                    if (input == null) return false;
-                    return !Sanitizer.IS_SECRET_PREDICATE.apply(input.getItem());
-                }
-                @Override
-                public String toString() {
-                    return "Predicates.nonSecret";
-                }
-            });
+            return allowing(SEE_CONFIG, new NonSecretPredicate());
         }
     }
     
@@ -329,6 +350,7 @@ public class Entitlements {
         return FineGrainedEntitlements.anyOf(
             FineGrainedEntitlements.allowing(SEE_ENTITY),
             FineGrainedEntitlements.allowing(SEE_ACTIVITY_STREAMS),
+            FineGrainedEntitlements.allowing(SEE_CATALOG_ITEM),
             FineGrainedEntitlements.seeNonSecretSensors(),
             FineGrainedEntitlements.seeNonSecretConfig()
         );
@@ -398,6 +420,8 @@ public class Entitlements {
      * @since 0.7.0
      * @deprecated since 0.7.0, use {@link #checkEntitled(EntitlementManager, EntitlementClass, Object)};
      * kept briefly because there is some downstream usage*/
+    // Note: @Deprecated annotation only added from v0.10.0.
+    @Deprecated
     public static <T> void requireEntitled(EntitlementManager checker, EntitlementClass<T> permission, T typeArgument) {
         checkEntitled(checker, permission, typeArgument);
     }
@@ -405,10 +429,10 @@ public class Entitlements {
     // ----------------- initialization ----------------
 
     public final static String ENTITLEMENTS_CONFIG_PREFIX = "brooklyn.entitlements";
-    
-    public static ConfigKey<String> GLOBAL_ENTITLEMENT_MANAGER = ConfigKeys.newStringConfigKey(ENTITLEMENTS_CONFIG_PREFIX+".global", 
+
+    public static final ConfigKey<String> GLOBAL_ENTITLEMENT_MANAGER = ConfigKeys.newStringConfigKey(ENTITLEMENTS_CONFIG_PREFIX + ".global",
         "Class for entitlements in effect globally; "
-        + "short names 'minimal', 'readonly', or 'root' are permitted here, with the default 'root' giving full access to all declared users; "
+        + "short names 'minimal', 'readonly', 'user' or 'root' are permitted here, with the default 'root' giving full access to all declared users; "
         + "or supply the name of an "+EntitlementManager.class+" class to instantiate, taking a 1-arg BrooklynProperties constructor or a 0-arg constructor",
         "root");
     
@@ -420,13 +444,20 @@ public class Entitlements {
     }
     
     public static EntitlementManager load(@Nullable ManagementContext mgmt, BrooklynProperties brooklynProperties, String type) {
-        if ("root".equalsIgnoreCase(type)) return root();
-        if ("readonly".equalsIgnoreCase(type) || "read_only".equalsIgnoreCase(type)) return readOnly();
-        if ("minimal".equalsIgnoreCase(type)) return minimal();
+        if ("root".equalsIgnoreCase(type)) {
+            return root();
+        } else if ("readonly".equalsIgnoreCase(type) || "read_only".equalsIgnoreCase(type)) {
+            return readOnly();
+        } else if ("minimal".equalsIgnoreCase(type)) {
+            return minimal();
+        } else if ("user".equalsIgnoreCase(type)) {
+            return user();
+        }
         if (Strings.isNonBlank(type)) {
             try {
-                ClassLoader cl = mgmt==null ? null : ((ManagementContextInternal)mgmt).getCatalogClassLoader();
-                if (cl==null) cl = Entitlements.class.getClassLoader();
+                ClassLoader cl = mgmt != null
+                        ? mgmt.getCatalogClassLoader()
+                        : Entitlements.class.getClassLoader();
                 Class<?> clazz = cl.loadClass(DeserializingClassRenamesProvider.findMappedName(type));
                 return (EntitlementManager) instantiate(clazz, ImmutableList.of(
                         new Object[] {mgmt, brooklynProperties},

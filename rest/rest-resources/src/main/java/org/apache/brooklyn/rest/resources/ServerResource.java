@@ -96,7 +96,11 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
 
     @Override
     public void reloadBrooklynProperties() {
-        brooklyn().reloadBrooklynProperties();
+        if (Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ALL_SERVER_INFO, null)) {
+            brooklyn().reloadBrooklynProperties();
+        } else {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized for this operation", Entitlements.getEntitlementContext().user());
+        }
     }
 
     private boolean isMaster() {
