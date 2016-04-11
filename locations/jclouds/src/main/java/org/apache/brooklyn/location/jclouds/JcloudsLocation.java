@@ -23,6 +23,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvis;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 import static org.apache.brooklyn.util.ssh.BashCommands.sbinPath;
+import static org.jclouds.util.Throwables2.getFirstThrowableOfType;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -46,6 +47,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import javax.annotation.Nullable;
+import javax.xml.ws.WebServiceException;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.LocationSpec;
@@ -61,7 +63,6 @@ import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.config.Sanitizer;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.BasicMachineMetadata;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
@@ -158,6 +159,7 @@ import org.jclouds.scriptbuilder.statements.login.AdminAccess;
 import org.jclouds.scriptbuilder.statements.login.ReplaceShadowPasswordEntry;
 import org.jclouds.scriptbuilder.statements.ssh.AuthorizeRSAPublicKeys;
 import org.jclouds.softlayer.compute.options.SoftLayerTemplateOptions;
+import org.jclouds.util.Predicates2;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -2739,14 +2741,52 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             Callable<Boolean> checker = new Callable<Boolean>() {
                 public Boolean call() {
                     for (Map.Entry<WinRmMachineLocation, LoginCredentials> entry : machinesToTry.entrySet()) {
-                        WinRmMachineLocation machine = entry.getKey();
+                        final WinRmMachineLocation machine = entry.getKey();
                         WinRmToolResponse response = machine.executeCommand(
                                 ImmutableMap.of(WinRmTool.PROP_EXEC_TRIES.getName(), 1),
                                 ImmutableList.of("echo testing"));
                         boolean success = (response.getStatusCode() == 0);
                         if (success) {
                             credsSuccessful.set(entry.getValue());
-                            return true;
+
+                            String verifyWindowsUp = getConfig(WinRmMachineLocation.WAIT_WINDOWS_TO_START);
+                            if (Strings.isBlank(verifyWindowsUp) || verifyWindowsUp.equals("false")) {
+                                return true;
+                            }
+
+                            Predicate<WinRmMachineLocation> machineReachable = new Predicate<WinRmMachineLocation>() {
+                                @Override
+                                public boolean apply(@Nullable WinRmMachineLocation machine) {
+                                    try {
+                                        WinRmToolResponse response = machine.executeCommand("echo testing");
+                                        int statusCode = response.getStatusCode();
+                                        return statusCode == 0;
+                                    } catch (RuntimeException e) {
+                                        if (getFirstThrowableOfType(e, IOException.class) != null || getFirstThrowableOfType(e, WebServiceException.class) != null) {
+                                            LOG.debug("WinRM Connectivity lost", e);
+                                            return false;
+                                        } else {
+                                            throw e;
+                                        }
+                                    }
+                                }
+                            };
+                            Duration verifyWindowsUpTime = Duration.of(verifyWindowsUp);
+                            boolean restartHappened = Predicates2.retry(Predicates.not(machineReachable),
+                                    verifyWindowsUpTime.toMilliseconds(),
+                                    Duration.FIVE_SECONDS.toMilliseconds(),
+                                    Duration.THIRTY_SECONDS.toMilliseconds(),
+                                    TimeUnit.MILLISECONDS).apply(machine);
+                            if (restartHappened) {
+                                LOG.info("Connectivity to the machine was lost. Probably Windows have restarted {} as part of the provisioning process.\nRetrying to connect...", machine);
+                                return Predicates2.retry(machineReachable,
+                                        verifyWindowsUpTime.toMilliseconds(),
+                                        Duration.of(5, TimeUnit.SECONDS).toMilliseconds(),
+                                        Duration.of(30, TimeUnit.SECONDS).toMilliseconds(),
+                                        TimeUnit.MILLISECONDS).apply(machine);
+                            } else {
+                                return true;
+                            }
                         }
                     }
                     return false;
@@ -2898,7 +2938,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
         Stopwatch stopwatch = Stopwatch.createStarted();
 
-        ReferenceWithError<Boolean> reachable = new Repeater()
+        ReferenceWithError<Boolean> reachable = new Repeater("reachable repeater ")
                 .backoff(Duration.ONE_SECOND, 2, Duration.TEN_SECONDS) // exponential backoff, to 10 seconds
                 .until(checker)
                 .limitTimeTo(timeout)
