@@ -66,6 +66,7 @@ import com.google.common.net.HostAndPort;
 import com.google.common.reflect.TypeToken;
 
 import static org.apache.brooklyn.core.config.ConfigKeys.newConfigKeyWithPrefix;
+import static org.apache.brooklyn.core.config.ConfigKeys.newStringConfigKey;
 
 public class WinRmMachineLocation extends AbstractLocation implements MachineLocation {
 
@@ -80,6 +81,9 @@ public class WinRmMachineLocation extends AbstractLocation implements MachineLoc
     public static final ConfigKey<String> OPERATION_TIMEOUT = newConfigKeyWithPrefix(BrooklynConfigKeys.BROOKLYN_WINRM_CONFIG_KEY_PREFIX, WinRmTool.OPERATION_TIMEOUT);
     public static final ConfigKey<Integer> RETRIES_OF_NETWORK_FAILURES = newConfigKeyWithPrefix(BrooklynConfigKeys.BROOKLYN_WINRM_CONFIG_KEY_PREFIX, WinRmTool.RETRIES_OF_NETWORK_FAILURES);
     public static final ConfigKey<Boolean> USE_HTTPS_WINRM = WinRmTool.USE_HTTPS_WINRM;
+    public static final ConfigKey<String> WAIT_WINDOWS_TO_START = newStringConfigKey("waitWindowsToStart",
+            "By default Brooklyn will return the machine immediately after Brooklyn is able to WinRM. Sometimes restart could happen after a Windows VM is provisioned. This could be because of System Upgrade or other." +
+            " By setting this config key to 60s, 5m or other X Duration of time Brooklyn will wait X amount of time for disconnect to occur. If connection failure occurs it will wait X amount of time for the machine to come up.", null);
 
 
     /**
