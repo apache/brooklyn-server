@@ -497,11 +497,11 @@ public class Os {
      * @return whether the path is absolute under the above constraints.
      */
     public static boolean isAbsolutish(String path) {
-        return
-            path.codePointAt(0) == SEPARATOR_UNIX ||
-            path.equals("~") || path.startsWith("~" + SEPARATOR_UNIX) ||
-            path.length()>=3 && path.codePointAt(1) == ':' &&
-                                isSeparator(path.codePointAt(2));
+        return Strings.isNonBlank(path) &&
+                (path.codePointAt(0) == SEPARATOR_UNIX ||
+                        path.equals("~") ||
+                        path.startsWith("~" + SEPARATOR_UNIX) ||
+                        (path.length() >= 3 && path.codePointAt(1) == ':' && isSeparator(path.codePointAt(2))));
     }
 
     /** @deprecated since 0.7.0, use {@link #isAbsolutish(String)} */
