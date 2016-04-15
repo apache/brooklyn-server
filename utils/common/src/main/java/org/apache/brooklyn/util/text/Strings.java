@@ -919,14 +919,22 @@ public class Strings {
 
     /**
      * Parses a string as comma separated values and returns a list of the entries with whitespace removed.
-     * @param csv
-     * @param separators
+     * @param csv The "comma" separated values.
+     * @param separatorRegex Regex of separatorRegex.
      */
-    public static List<String> parseCsv(String csv, String separators) {
+    public static List<String> parseCsv(String csv, String separatorRegex) {
         List<String> result = MutableList.of();
-        for (String value: csv.split(separators)) {
+        final String input = csv.trim();
+        if ("".equals(input)) {
+            return result;
+        }
+        for (String value: input.split(separatorRegex)) {
             result.add(value.trim());
         }
         return result;
+    }
+
+    public static List<String> parseCsv(String csv) {
+        return parseCsv(csv, ",");
     }
 }

@@ -91,7 +91,7 @@ public class CatalogBomScanner {
 
     public void setWhiteList(String whiteListText) {
         LOG.debug("Setting whiteList to ", whiteListText);
-        this.whiteList = Strings.parseCsv(whiteListText, ",");
+        this.whiteList = Strings.parseCsv(whiteListText);
     }
 
     public List<String> getBlackList() {
@@ -104,7 +104,7 @@ public class CatalogBomScanner {
 
     public void setBlackList(String blackListText) {
         LOG.debug("Setting blackList to ", blackListText);
-        this.blackList = Strings.parseCsv(blackListText, ",");
+        this.blackList = Strings.parseCsv(blackListText);
     }
 
     public class CatalogPopulator extends BundleTracker<Iterable<? extends CatalogItem<?, ?>>> {
@@ -170,7 +170,7 @@ public class CatalogBomScanner {
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
                 LOG.warn(Strings.join(new String[] {
-                    "Failed to remove", item.getSymbolicName(), item.getVersion(), "{} {} from catalog"
+                    "Failed to remove", item.getSymbolicName(), item.getVersion(), "from catalog"
                 }, " "), e);
             }
         }
@@ -200,7 +200,9 @@ public class CatalogBomScanner {
             return catalogItems;
         }
 
-        private Iterable<? extends CatalogItem<?, ?>> removeAnyApplications(Iterable<? extends CatalogItem<?, ?>> catalogItems) {
+        private Iterable<? extends CatalogItem<?, ?>> removeAnyApplications(
+            Iterable<? extends CatalogItem<?, ?>> catalogItems) {
+
             List<CatalogItem<?, ?>> result = MutableList.of();
 
             for (CatalogItem<?, ?> item: catalogItems) {
