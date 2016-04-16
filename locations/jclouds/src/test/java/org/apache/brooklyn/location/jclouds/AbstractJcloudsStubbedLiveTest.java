@@ -19,6 +19,7 @@
 package org.apache.brooklyn.location.jclouds;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -115,9 +116,16 @@ public abstract class AbstractJcloudsStubbedLiveTest extends AbstractJcloudsLive
         };
         jcloudsLocation = (JcloudsLocation) managementContext.getLocationRegistry().getLocationManaged(
                 LOCATION_SPEC, 
-                ImmutableMap.of(
+                jcloudsLocationConfig(ImmutableMap.<Object, Object>of(
                         JcloudsLocationConfig.COMPUTE_SERVICE_REGISTRY, computeServiceRegistry,
-                        JcloudsLocationConfig.WAIT_FOR_SSHABLE, "false"));
+                        JcloudsLocationConfig.WAIT_FOR_SSHABLE, "false")));
+    }
+    
+    /**
+     * For overriding.
+     */
+    protected Map<Object, Object> jcloudsLocationConfig(Map<Object, Object> defaults) {
+        return defaults;
     }
     
     protected abstract NodeCreator newNodeCreator();
