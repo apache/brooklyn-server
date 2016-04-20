@@ -1146,11 +1146,15 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     }})
             .put(HARDWARE_ID, new CustomizeTemplateBuilder() {
                     public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
-                        tb.hardwareId(((CharSequence)v).toString());
+                        if (v != null) {
+                            tb.hardwareId(((CharSequence)v).toString());
+                        }
                     }})
             .put(IMAGE_ID, new CustomizeTemplateBuilder() {
                     public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
-                        tb.imageId(((CharSequence)v).toString());
+                        if (v != null) {
+                            tb.imageId(((CharSequence)v).toString());
+                        }
                     }})
             .put(IMAGE_DESCRIPTION_REGEX, new CustomizeTemplateBuilder() {
                     public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
