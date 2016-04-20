@@ -235,17 +235,33 @@ public class BashCommands {
         return alternativesGroup(format("which %s", executable), command);
     }
 
-    public static String ifExecutableElse(String command, String ifTrue, String otherwise) {
-        return com.google.common.base.Joiner.on('\n').join(
-                ifExecutableElse(command, ImmutableList.<String>of(ifTrue), ImmutableList.<String>of(otherwise)));
+    /**
+     * @deprecated As of release 0.10.0, replaced by {@link #ifExecutableDoesNotExistElse(String, String, String)}
+     */
+    @Deprecated
+    public static String ifExecutableElse(String command, String ifNotExist, String ifExist) {
+        return ifExecutableDoesNotExistElse(command, ifNotExist, ifExist);
     }
 
-    public static ImmutableList<String> ifExecutableElse(String command, List<String> ifTrue, List<String> otherwise) {
+    public static String ifExecutableDoesNotExistElse(String command, String ifNotExist, String ifExist) {
+        return com.google.common.base.Joiner.on('\n').join(
+                ifExecutableDoesNotExistElse(command, ImmutableList.<String>of(ifNotExist), ImmutableList.<String>of(ifExist)));
+    }
+
+    /**
+     * @deprecated  As of release 0.10.0, replaced by {@link #ifExecutableDoesNotExistElse(String, List, List)}
+     */
+    @Deprecated
+    public static ImmutableList<String> ifExecutableElse(String command, List<String> ifNotExist, List<String> ifExist) {
+        return ifExecutableDoesNotExistElse(command, ifNotExist, ifExist);
+    }
+
+    public static ImmutableList<String> ifExecutableDoesNotExistElse(String command, List<String> ifNotExist, List<String> ifExist) {
         return ImmutableList.<String>builder()
                 .add(String.format("if test -z `which %s`; then", command))
-                .addAll(ifTrue)
+                .addAll(ifNotExist)
                 .add("else")
-                .addAll(otherwise)
+                .addAll(ifExist)
                 .add("fi")
                 .build();
     }
