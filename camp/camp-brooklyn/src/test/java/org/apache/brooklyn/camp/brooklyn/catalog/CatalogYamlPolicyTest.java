@@ -36,6 +36,11 @@ public class CatalogYamlPolicyTest extends AbstractYamlTest {
     private static final String SIMPLE_POLICY_TYPE = "org.apache.brooklyn.test.osgi.entities.SimplePolicy";
     private static final String SIMPLE_ENTITY_TYPE = "org.apache.brooklyn.test.osgi.entities.SimpleEntity";
 
+    @Override
+    protected boolean disableOsgi() {
+        return false;
+    }
+
     @Test
     public void testAddCatalogItem() throws Exception {
         assertEquals(countCatalogPolicies(), 0);

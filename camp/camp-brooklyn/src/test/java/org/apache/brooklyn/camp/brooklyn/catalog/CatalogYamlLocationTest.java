@@ -60,6 +60,11 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
     private static final String LOCALHOST_LOCATION_TYPE = LocalhostMachineProvisioningLocation.class.getName();
     private static final String SIMPLE_LOCATION_TYPE = "org.apache.brooklyn.test.osgi.entities.SimpleLocation";
 
+    @Override
+    protected boolean disableOsgi() {
+        return false;
+    }
+
     @AfterMethod
     public void tearDown() {
         for (RegisteredType ci : mgmt().getTypeRegistry().getMatching(RegisteredTypePredicates.IS_LOCATION)) {

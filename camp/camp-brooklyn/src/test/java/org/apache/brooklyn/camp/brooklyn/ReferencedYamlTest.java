@@ -31,7 +31,12 @@ import org.testng.annotations.Test;
 import com.google.common.collect.Iterables;
 
 public class ReferencedYamlTest extends AbstractYamlTest {
-    
+
+    @Override
+    protected boolean disableOsgi() {
+        return false;
+    }
+
     @Test
     public void testReferenceEntityYamlAsPlatformComponent() throws Exception {
         String entityName = "Reference child name";

@@ -54,6 +54,11 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
     
     private static final String SIMPLE_ENTITY_TYPE = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY;
 
+    @Override
+    protected boolean disableOsgi() {
+        return false;
+    }
+
     @Test
     public void testAddCatalogItemVerySimple() throws Exception {
         String symbolicName = "my.catalog.app.id.load";
