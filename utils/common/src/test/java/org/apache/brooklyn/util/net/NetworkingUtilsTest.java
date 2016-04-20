@@ -61,28 +61,32 @@ public class NetworkingUtilsTest {
         assertFalse(Networking.isValidIp4("127.0.0."));
         assertFalse(Networking.isValidIp4("127.0.0.9f"));
         assertFalse(Networking.isValidIp4("127.0.0.1."));
+        assertFalse(Networking.isValidIp4("255.255.255.255."));
     }
-        
+
     @Test
     public void testGetInetAddressWithFixedNameByIpBytes() throws Exception {
-        InetAddress addr = Networking.getInetAddressWithFixedName(new byte[] {1,2,3,4});
-        assertEquals(addr.getAddress(), new byte[] {1,2,3,4});
+        InetAddress addr = Networking.getInetAddressWithFixedName(new byte[] { 1, 2, 3, 4 });
+        assertEquals(addr.getAddress(), new byte[] { 1, 2, 3, 4 });
         assertEquals(addr.getHostName(), "1.2.3.4");
+
+        InetAddress addr2 = Networking.getInetAddressWithFixedName(new byte[] { (byte) 255, (byte) 255, (byte) 255, (byte) 255 });
+        assertEquals(addr2.getAddress(), new byte[] { (byte) 255, (byte) 255, (byte) 255, (byte) 255 });
+        assertEquals(addr2.getHostName(), "255.255.255.255");
     }
     
     @Test
     public void testGetInetAddressWithFixedNameByIp() throws Exception {
         InetAddress addr = Networking.getInetAddressWithFixedName("1.2.3.4");
-        assertEquals(addr.getAddress(), new byte[] {1,2,3,4});
+        assertEquals(addr.getAddress(), new byte[] { 1, 2, 3, 4 });
         assertEquals(addr.getHostName(), "1.2.3.4");
-        
+
         InetAddress addr2 = Networking.getInetAddressWithFixedName("255.255.255.255");
-        assertEquals(addr2.getAddress(), new byte[] {(byte)(int)255,(byte)(int)255,(byte)(int)255,(byte)(int)255});
+        assertEquals(addr2.getAddress(), new byte[] { (byte) 255, (byte) 255, (byte) 255, (byte) 255 });
         assertEquals(addr2.getHostName(), "255.255.255.255");
-        
+
         InetAddress addr3 = Networking.getInetAddressWithFixedName("localhost");
         assertEquals(addr3.getHostName(), "localhost");
-        
     }
     
     @Test(groups="Integration")
