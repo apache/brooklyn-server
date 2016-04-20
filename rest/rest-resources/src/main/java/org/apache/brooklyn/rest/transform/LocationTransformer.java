@@ -74,8 +74,12 @@ public class LocationTransformer {
             config = ConfigBag.newInstance(spec.getConfig()).putAll(config).getAllConfig();
         } else if (level==LocationDetailLevel.LOCAL_EXCLUDING_SECRET) {
             // in local mode, just make sure display name is set
-            if (spec!=null && !explicitConfig.containsKey(LocationConfigKeys.DISPLAY_NAME) && Strings.isNonBlank(spec.getDisplayName())) {
-                config.put(LocationConfigKeys.DISPLAY_NAME.getName(), spec.getDisplayName());
+            if (spec!=null && !explicitConfig.containsKey(LocationConfigKeys.DISPLAY_NAME) ) {
+                if (Strings.isNonBlank((String) spec.getFlags().get(LocationConfigKeys.DISPLAY_NAME.getName()))){
+                    config.put(LocationConfigKeys.DISPLAY_NAME.getName(), spec.getFlags().get(LocationConfigKeys.DISPLAY_NAME.getName()));
+                } else if ( Strings.isNonBlank(spec.getDisplayName()) ) {
+                    config.put(LocationConfigKeys.DISPLAY_NAME.getName(), spec.getDisplayName());
+                }
             }
         }
 
