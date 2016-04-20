@@ -2133,9 +2133,15 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
         NodeMetadata node = Iterables.getOnlyElement(candidateNodes);
 
-        String pkd = LocationConfigUtils.getOsCredential(config).checkNoErrors().logAnyWarnings().getPrivateKeyData();
+        OsCredential osCredentials = LocationConfigUtils.getOsCredential(config).checkNoErrors().logAnyWarnings();
+        String pkd = osCredentials.getPrivateKeyData();
+        String password = osCredentials.getPassword();
         if (Strings.isNonBlank(pkd)) {
             LoginCredentials expectedCredentials = LoginCredentials.fromCredentials(new Credentials(user, pkd));
+            //override credentials
+            node = NodeMetadataBuilder.fromNodeMetadata(node).credentials(expectedCredentials).build();
+        } else if (Strings.isNonBlank(password)) {
+            LoginCredentials expectedCredentials = LoginCredentials.fromCredentials(new Credentials(user, password));
             //override credentials
             node = NodeMetadataBuilder.fromNodeMetadata(node).credentials(expectedCredentials).build();
         }
