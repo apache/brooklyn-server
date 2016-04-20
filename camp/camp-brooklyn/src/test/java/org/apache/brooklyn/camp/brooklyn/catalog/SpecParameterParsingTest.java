@@ -42,7 +42,12 @@ import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 
 public class SpecParameterParsingTest  extends AbstractYamlTest {
-    
+
+    @Override
+    protected boolean disableOsgi() {
+        return false;
+    }
+
     @Test
     public void testYamlInputsParsed() {
         String itemId = add(

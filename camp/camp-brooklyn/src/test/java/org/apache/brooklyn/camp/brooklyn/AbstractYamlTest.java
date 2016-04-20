@@ -81,8 +81,12 @@ public abstract class AbstractYamlTest {
     }
 
     protected LocalManagementContext newTestManagementContext() {
-        // TODO they don't all need osgi, just a few do, so could speed it up by specifying when they do
-        return LocalManagementContextForTests.newInstanceWithOsgi();
+        return LocalManagementContextForTests.builder(true).disableOsgi(disableOsgi()).build();
+    }
+
+    /** Override to enable OSGi in the management context for all tests in the class. */
+    protected boolean disableOsgi() {
+        return true;
     }
     
     @AfterMethod(alwaysRun = true)

@@ -48,7 +48,12 @@ import com.google.common.collect.Iterables;
 public class CatalogOsgiVersionMoreEntityTest extends AbstractYamlTest {
     
     private static final Logger log = LoggerFactory.getLogger(CatalogOsgiVersionMoreEntityTest.class);
-    
+
+    @Override
+    protected boolean disableOsgi() {
+        return false;
+    }
+
     private static String getLocalResource(String filename) {
         return ResourceUtils.create(CatalogOsgiVersionMoreEntityTest.class).getResourceAsString(
             "classpath:/"+CatalogOsgiVersionMoreEntityTest.class.getPackage().getName().replace('.', '/')+"/"+filename);

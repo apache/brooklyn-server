@@ -46,7 +46,7 @@ public abstract class BrooklynCampPlatformLauncherAbstract {
 
         if (getBrooklynMgmt()==null)
             useManagementContext(newMgmtContext());
-        
+
         platform = new BrooklynCampPlatform(
                 PlatformRootSummary.builder().name("Brooklyn CAMP Platform").build(),
                 getBrooklynMgmt())
