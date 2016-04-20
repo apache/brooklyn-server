@@ -435,17 +435,23 @@ public class RebindManagerImpl implements RebindManager {
         persistenceRealChangeListener.waitForPendingComplete(timeout, canTrigger);
         persistenceStoreAccess.waitForWritesCompleted(timeout);
     }
+
     @Override
     @VisibleForTesting
     public void forcePersistNow() {
         forcePersistNow(false, null);
     }
+
     @Override
     @VisibleForTesting
     public void forcePersistNow(boolean full, PersistenceExceptionHandler exceptionHandler) {
+        if (persistenceStoreAccess == null || persistenceRealChangeListener == null) {
+            LOG.info("Skipping forced persist; no persistence mechanism available");
+            return;
+        }
         if (full) {
             BrooklynMementoRawData memento = BrooklynPersistenceUtils.newStateMemento(managementContext, MementoCopyMode.LOCAL);
-            if (exceptionHandler==null) {
+            if (exceptionHandler == null) {
                 exceptionHandler = persistenceRealChangeListener.getExceptionHandler();
             }
             persistenceStoreAccess.checkpoint(memento, exceptionHandler);
@@ -455,7 +461,7 @@ public class RebindManagerImpl implements RebindManager {
             }
         }
     }
-    
+
     @Override
     public ChangeListener getChangeListener() {
         return persistencePublicChangeListener;
