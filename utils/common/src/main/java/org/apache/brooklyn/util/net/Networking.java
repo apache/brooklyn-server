@@ -332,7 +332,7 @@ public class Networking {
             StringBuilder name = new StringBuilder();
             for (byte part : ip) {
                 if (name.length() > 0) name.append(".");
-                name.append(part);
+                name.append(UnsignedBytes.toString(part));
             }
             return InetAddress.getByAddress(name.toString(), ip);
         } catch (UnknownHostException e) {
@@ -375,7 +375,7 @@ public class Networking {
                 String[] parts = hostnameOrIp.split("\\.");
                 assert parts.length == 4 : "val="+hostnameOrIp+"; split="+Arrays.toString(parts)+"; length="+parts.length;
                 for (int i = 0; i < parts.length; i++) {
-                    ip[i] = (byte)Integer.parseInt(parts[i]);
+                    ip[i] = UnsignedBytes.parseUnsignedByte(parts[i]);
                 }
                 return InetAddress.getByAddress(hostnameOrIp, ip);
             } else {
