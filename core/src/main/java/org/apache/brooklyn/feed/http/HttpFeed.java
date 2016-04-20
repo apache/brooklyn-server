@@ -197,6 +197,10 @@ public class HttpFeed extends AbstractFeed {
             this.credentials = new UsernamePasswordCredentials(username, password);
             return this;
         }
+        public Builder credentials(Credentials credentials) {
+            this.credentials = credentials;
+            return this;
+        }
         public Builder credentialsIfNotNull(String username, String password) {
             if (username != null && password != null) {
                 this.credentials = new UsernamePasswordCredentials(username, password);
