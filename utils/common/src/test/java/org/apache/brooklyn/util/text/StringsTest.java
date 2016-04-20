@@ -23,6 +23,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import java.util.Arrays;
+import java.util.List;
 
 import org.apache.brooklyn.test.FixedLocaleTest;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -358,5 +359,30 @@ public class StringsTest extends FixedLocaleTest {
         Assert.assertEquals(Strings.getRemainderOfLineAfter(null, "is"), null);
         Assert.assertEquals(Strings.getRemainderOfLineAfter("the message is hello", null), null);
         Assert.assertEquals(Strings.getRemainderOfLineAfter("the message is hello", "foo"), null);
+    }
+
+    @Test
+    public void shouldParseCsv() {
+
+        final String commaSeparated = "liberty, equality, fraternity";
+        final List<String> ideals = Strings.parseCsv(commaSeparated);
+        Assert.assertTrue(ideals.contains("liberty"));
+        Assert.assertTrue(ideals.contains("equality"));
+        Assert.assertTrue(ideals.contains("fraternity"));
+
+        final String assortedWords = "this, that; the, other";
+        final List<String> thisAndThat = Strings.parseCsv(assortedWords, "[,;]");
+        Assert.assertEquals(4, thisAndThat.size());
+        Assert.assertTrue(thisAndThat.contains("this"));
+        Assert.assertTrue(thisAndThat.contains("that"));
+        Assert.assertTrue(thisAndThat.contains("the"));
+        Assert.assertTrue(thisAndThat.contains("other"));
+
+        final List<String> differentSep = Strings.parseCsv(assortedWords, "@");
+        Assert.assertEquals(1, differentSep.size());
+        Assert.assertTrue(differentSep.contains(assortedWords));
+
+        Assert.assertEquals(0, Strings.parseCsv("", ",").size());
+        Assert.assertEquals(0, Strings.parseCsv("        ", ",").size());
     }
 }
