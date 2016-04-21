@@ -31,6 +31,7 @@ import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.net.Urls;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,8 +56,9 @@ public class UrlServiceSpecResolver implements EntitySpecResolver {
     public EntitySpec<?> resolve(String type, BrooklynClassLoadingContext loader, Set<String> encounteredTypes) {
         String yaml;
         try {
-            yaml = ResourceUtils.create(this).getResourceAsString(type);
+            yaml = ResourceUtils.create(loader).getResourceAsString(type);
         } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
             log.warn("AssemblyTemplate type " + type + " looks like a URL that can't be fetched.", e);
             return null;
         }
