@@ -266,7 +266,7 @@ public class BrooklynServerPaths {
     public static File getOsgiCacheDirCleanedIfNeeded(ManagementContext mgmt) {
         File cacheDirF = getOsgiCacheDir(mgmt);
         boolean clean = isOsgiCacheForCleaning(mgmt, cacheDirF);
-        log.debug("OSGi cache dir computed as "+cacheDirF.getName()+" ("+
+        log.debug("OSGi cache dir computed as "+cacheDirF.getAbsolutePath()+" ("+
             (cacheDirF.exists() ? "already exists" : "does not exist")+", "+
             (clean ? "cleaning now (and on exit)" : "cleaning not requested"));
 

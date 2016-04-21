@@ -19,16 +19,29 @@
 package org.apache.brooklyn.entity.software.base;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvis;
+import static java.nio.file.FileVisitOption.FOLLOW_LINKS;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.io.StringReader;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
@@ -41,11 +54,11 @@ import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.stream.ReaderInputStream;
-import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 
@@ -85,7 +98,7 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
      * process may not be completely initialised at this stage, so care is
      * required when implementing these stages.
      * <p>
-     * The {@link BrooklynConfigKeys#ENTITY_STARTED} key can be set on the location
+     * The {@link BrooklynConfigKeys#SKIP_ENTITY_START_IF_RUNNING} key can be set on the location
      * or the entity to skip the startup process if the entity is already running,
      * according to the {@link #isRunning()} method. To force the startup to be
      * skipped, {@link BrooklynConfigKeys#SKIP_ENTITY_START} can be set on the entity.
@@ -298,7 +311,7 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
      * @see #copyRuntimeResources()
      */
     public void copyPreInstallResources() {
-        copyResources(entity.getConfig(SoftwareProcess.PRE_INSTALL_FILES), entity.getConfig(SoftwareProcess.PRE_INSTALL_TEMPLATES));
+        copyResources(getInstallDir(), entity.getConfig(SoftwareProcess.PRE_INSTALL_FILES), entity.getConfig(SoftwareProcess.PRE_INSTALL_TEMPLATES));
     }
 
     /**
@@ -312,37 +325,107 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
      * @see #copyRuntimeResources()
      */
     public void copyInstallResources() {
-        copyResources(entity.getConfig(SoftwareProcess.INSTALL_FILES), entity.getConfig(SoftwareProcess.INSTALL_TEMPLATES));
-    }
-
-    private void copyResources(Map<String, String> files, Map<String, String> templates) {
         // Ensure environment variables are not looked up here, otherwise sub-classes might
         // lookup port numbers and fail with ugly error if port is not set; better to wait
         // until in Entity's code (e.g. customize) where such checks are done explicitly.
+        copyResources(getInstallDir(), entity.getConfig(SoftwareProcess.INSTALL_FILES), entity.getConfig(SoftwareProcess.INSTALL_TEMPLATES));
+    }
 
-        boolean hasAnythingToCopy = ((files != null && files.size() > 0) || (templates != null && templates.size() > 0));
-        if (hasAnythingToCopy) {
-            createDirectory(getInstallDir(), "create install directory");
+    private void copyResources(String destinationParentDir, Map<String, String> files, Map<String, String> templates) {
+        if (files == null) files = Collections.emptyMap();
+        if (templates == null) templates = Collections.emptyMap();
 
-            // TODO see comment in copyResource, that should be queued as a task like the above
-            // (better reporting in activities console)
+        final List<TaskAdaptable<?>> tasks = new ArrayList<>(files.size() + templates.size());
+        applyFnToResourcesAppendToList(files, newCopyResourceFunction(), destinationParentDir, tasks);
+        applyFnToResourcesAppendToList(templates, newCopyTemplateFunction(), destinationParentDir, tasks);
 
-            if (files != null && files.size() > 0) {
-                for (String source : files.keySet()) {
-                    String target = files.get(source);
-                    String destination = Os.isAbsolutish(target) ? target : Os.mergePathsUnix(getInstallDir(), target);
-                    copyResource(source, destination, true);
-                }
-            }
-
-            if (templates != null && templates.size() > 0) {
-                for (String source : templates.keySet()) {
-                    String target = templates.get(source);
-                    String destination = Os.isAbsolutish(target) ? target : Os.mergePathsUnix(getInstallDir(), target);
-                    copyTemplate(source, destination, true, MutableMap.<String, Object>of());
-                }
+        if (!tasks.isEmpty()) {
+            String oldBlockingDetails = Tasks.setBlockingDetails("Copying resources");
+            try {
+                DynamicTasks.queue(Tasks.sequential(tasks)).getUnchecked();
+            } finally {
+                Tasks.setBlockingDetails(oldBlockingDetails);
             }
         }
+    }
+
+    private void applyFnToResourcesAppendToList(
+            Map<String, String> resources, final Function<SourceAndDestination, Task<?>> function,
+            String destinationParentDir, final List<TaskAdaptable<?>> tasks) {
+
+        for (Map.Entry<String, String> entry : resources.entrySet()) {
+            final String source = checkNotNull(entry.getKey(), "Missing source for resource");
+            String target = checkNotNull(entry.getValue(), "Missing destination for resource");
+            final String destination = Os.isAbsolutish(target) ? target : Os.mergePathsUnix(destinationParentDir, target);
+
+            // if source is a directory then copy all files underneath.
+            // e.g. /tmp/a/{b,c/d}, source = /tmp/a, destination = dir/a/b and dir/a/c/d.
+            final File srcFile = new File(source);
+            if (srcFile.isDirectory() && srcFile.exists()) {
+                try {
+                    final Path start = srcFile.toPath();
+                    final int startElements = start.getNameCount();
+                    // Actually walking to a depth of Integer.MAX_VALUE would be interesting.
+                    Files.walkFileTree(start, EnumSet.of(FOLLOW_LINKS), Integer.MAX_VALUE, new SimpleFileVisitor<Path>() {
+                        @Override
+                        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                            if (attrs.isRegularFile()) {
+                                Path relativePath = file.subpath(startElements, file.getNameCount());
+                                tasks.add(function.apply(new SourceAndDestination(file.toString(), Os.mergePathsUnix(destination, relativePath.toString()))));
+                            }
+                            return FileVisitResult.CONTINUE;
+                        }
+                    });
+                } catch (IOException e) {
+                    throw Exceptions.propagate(e);
+                }
+            } else {
+                tasks.add(function.apply(new SourceAndDestination(source, destination)));
+            }
+        }
+    }
+
+    private static class SourceAndDestination {
+        final String source;
+        final String destination;
+        private SourceAndDestination(String source, String destination) {
+            this.source = source;
+            this.destination = destination;
+        }
+    }
+
+    private Function<SourceAndDestination, Task<?>> newCopyResourceFunction() {
+        return new Function<SourceAndDestination, Task<?>>() {
+            @Override
+            public Task<?> apply(final SourceAndDestination input) {
+                return Tasks.builder()
+                        .displayName("Copying file: source=" + input.source + ", destination=" + input.destination)
+                        .body(new Callable<Object>() {
+                            @Override
+                            public Integer call() {
+                                return copyResource(input.source, input.destination, true);
+                            }
+                        })
+                        .build();
+            }
+        };
+    }
+
+    private Function<SourceAndDestination, Task<?>> newCopyTemplateFunction() {
+        return new Function<SourceAndDestination, Task<?>>() {
+            @Override
+            public Task<?> apply(final SourceAndDestination input) {
+                return Tasks.builder()
+                        .displayName("Copying template: source=" + input.source + ", destination=" + input.destination)
+                        .body(new Callable<Object>() {
+                            @Override
+                            public Integer call() {
+                                return copyTemplate(input.source, input.destination, true, Collections.<String, Object>emptyMap());
+                            }
+                        })
+                        .build();
+            }
+        };
     }
 
     protected abstract void createDirectory(String directoryName, String summaryForLogging);
@@ -360,25 +443,7 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
      */
     public void copyRuntimeResources() {
         try {
-            createDirectory(getRunDir(), "create run directory");
-
-            Map<String, String> runtimeFiles = entity.getConfig(SoftwareProcess.RUNTIME_FILES);
-            if (runtimeFiles != null && runtimeFiles.size() > 0) {
-                for (String source : runtimeFiles.keySet()) {
-                    String target = runtimeFiles.get(source);
-                    String destination = Os.isAbsolutish(target) ? target : Os.mergePathsUnix(getRunDir(), target);
-                    copyResource(source, destination, true);
-                }
-            }
-
-            Map<String, String> runtimeTemplates = entity.getConfig(SoftwareProcess.RUNTIME_TEMPLATES);
-            if (runtimeTemplates != null && runtimeTemplates.size() > 0) {
-                for (String source : runtimeTemplates.keySet()) {
-                    String target = runtimeTemplates.get(source);
-                    String destination = Os.isAbsolutish(target) ? target : Os.mergePathsUnix(getRunDir(), target);
-                    copyTemplate(source, destination, true, MutableMap.<String, Object>of());
-                }
-            }
+            copyResources(getRunDir(), entity.getConfig(SoftwareProcess.RUNTIME_FILES), entity.getConfig(SoftwareProcess.RUNTIME_TEMPLATES));
         } catch (Exception e) {
             log.warn("Error copying runtime resources", e);
             throw Exceptions.propagate(e);

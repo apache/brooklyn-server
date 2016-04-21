@@ -384,7 +384,7 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
         if (getPersistMode() != PersistMode.DISABLED) {
             try {
                 Stopwatch stopwatch = Stopwatch.createStarted();
-                if (managementContext.getHighAvailabilityManager().getPersister() != null) {
+                if (managementContext.getHighAvailabilityManager() != null && managementContext.getHighAvailabilityManager().getPersister() != null) {
                     managementContext.getHighAvailabilityManager().getPersister().waitForWritesCompleted(Duration.TEN_SECONDS);
                 }
                 managementContext.getRebindManager().waitForPendingComplete(Duration.TEN_SECONDS, true);

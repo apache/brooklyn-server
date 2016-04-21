@@ -21,10 +21,13 @@ package org.apache.brooklyn.entity.software.base;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -39,12 +42,11 @@ import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.test.entity.TestApplication;
-import org.apache.brooklyn.entity.software.base.AbstractSoftwareProcessSshDriver;
-import org.apache.brooklyn.entity.software.base.SoftwareProcess;
-import org.apache.brooklyn.entity.software.base.SoftwareProcessImpl;
-import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
+import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.BrooklynNetworkUtils;
+import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.stream.KnownSizeInputStream;
 import org.apache.brooklyn.util.stream.Streams;
@@ -53,8 +55,6 @@ import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
 
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
@@ -275,7 +275,7 @@ public class SoftwareProcessSshDriverIntegrationTest {
     @Test(groups="Integration")
     public void testInstallResourcesCopy() throws IOException {
         localhost.config().set(BrooklynConfigKeys.ONBOX_BASE_DIR, tempDataDir.getAbsolutePath());
-        File template = new File(Os.tmp(), "template.yaml");
+        File template = new File(tempDataDir, "template.yaml");
         VanillaSoftwareProcess entity = app.createAndManageChild(EntitySpec.create(VanillaSoftwareProcess.class)
                 .configure(VanillaSoftwareProcess.CHECK_RUNNING_COMMAND, "")
                 .configure(SoftwareProcess.INSTALL_FILES, MutableMap.of("classpath://org/apache/brooklyn/entity/software/base/frogs.txt", "frogs.txt"))
@@ -284,32 +284,14 @@ public class SoftwareProcessSshDriverIntegrationTest {
         app.start(ImmutableList.of(localhost));
 
         File frogs = new File(entity.getAttribute(SoftwareProcess.INSTALL_DIR), "frogs.txt");
-        try {
-            Assert.assertTrue(frogs.canRead(), "File not readable: " + frogs);
-            String output = Files.toString(frogs, Charsets.UTF_8);
-            Assert.assertTrue(output.contains("Brekekekex"), "File content not found: " + output);
-        } finally {
-            frogs.delete();
-        }
-
-        try {
-            String expectedHostname = BrooklynNetworkUtils.getLocalhostInetAddress().getHostName();
-            String expectedIp = BrooklynNetworkUtils.getLocalhostInetAddress().getHostAddress();
-            
-            Map<?,?> data = (Map) Iterables.getOnlyElement(Yamls.parseAll(Files.toString(template, Charsets.UTF_8)));
-            Assert.assertEquals(data.size(), 3);
-            Assert.assertEquals(data.get("entity.hostname"), expectedHostname);
-            Assert.assertEquals(data.get("entity.address"), expectedIp);
-            Assert.assertEquals(data.get("frogs"), Integer.valueOf(12));
-        } finally {
-            template.delete();
-        }
+        assertExcerptFromTheFrogs(frogs);
+        assertTemplateValues(template);
     }
 
     @Test(groups="Integration")
     public void testRuntimeResourcesCopy() throws IOException {
         localhost.config().set(BrooklynConfigKeys.ONBOX_BASE_DIR, tempDataDir.getAbsolutePath());
-        File template = new File(Os.tmp(), "template.yaml");
+        File template = new File(tempDataDir, "template.yaml");
         VanillaSoftwareProcess entity = app.createAndManageChild(EntitySpec.create(VanillaSoftwareProcess.class)
                 .configure(VanillaSoftwareProcess.CHECK_RUNNING_COMMAND, "")
                 .configure(SoftwareProcess.RUNTIME_FILES, MutableMap.of("classpath://org/apache/brooklyn/entity/software/base/frogs.txt", "frogs.txt"))
@@ -318,26 +300,59 @@ public class SoftwareProcessSshDriverIntegrationTest {
         app.start(ImmutableList.of(localhost));
 
         File frogs = new File(entity.getAttribute(SoftwareProcess.RUN_DIR), "frogs.txt");
-        try {
-            Assert.assertTrue(frogs.canRead(), "File not readable: " + frogs);
-            String output = Files.toString(frogs, Charsets.UTF_8);
-            Assert.assertTrue(output.contains("Brekekekex"), "File content not found: " + output);
-        } finally {
-            frogs.delete();
-        }
+        assertExcerptFromTheFrogs(frogs);
+        assertTemplateValues(template);
+    }
 
-        try {
-            String expectedHostname = BrooklynNetworkUtils.getLocalhostInetAddress().getHostName();
-            String expectedIp = BrooklynNetworkUtils.getLocalhostInetAddress().getHostAddress();
-            
-            Map<?,?> data = (Map) Iterables.getOnlyElement(Yamls.parseAll(Files.toString(template, Charsets.UTF_8)));
-            Assert.assertEquals(data.size(), 3);
-            Assert.assertEquals(data.get("entity.hostname"), expectedHostname);
-            Assert.assertEquals(data.get("entity.address"), expectedIp);
-            Assert.assertEquals(data.get("frogs"), Integer.valueOf(12));
-        } finally {
-            template.delete();
-        }
+    @Test(groups = "Integration")
+    public void testCopiesAllFilesInDirectory() throws IOException {
+        localhost.config().set(BrooklynConfigKeys.ONBOX_BASE_DIR, tempDataDir.getAbsolutePath());
+
+        Path frogsPath = Paths.get(tempDataDir.getAbsolutePath(), "runtime-files", "frogs.txt");
+        Files.createParentDirs(frogsPath.toFile());
+        String frogsContent = new ResourceUtils(null).getResourceAsString("classpath://org/apache/brooklyn/entity/software/base/frogs.txt");
+        Files.write(frogsContent.getBytes(), frogsPath.toFile());
+
+        EmptySoftwareProcess entity = app.createAndManageChild(EntitySpec.create(EmptySoftwareProcess.class)
+                .configure(SoftwareProcess.RUNTIME_FILES, MutableMap.of(frogsPath.getParent().toString(), "custom-runtime-files")));
+        app.start(ImmutableList.of(localhost));
+
+        File frogs = new File(entity.getAttribute(SoftwareProcess.RUN_DIR), "custom-runtime-files/frogs.txt");
+        assertExcerptFromTheFrogs(frogs);
+    }
+
+    @Test(groups = "Integration")
+    public void testTemplatesAndCopiesAllFilesInDirectory() throws IOException {
+        localhost.config().set(BrooklynConfigKeys.ONBOX_BASE_DIR, tempDataDir.getAbsolutePath());
+
+        Path templatePath = Paths.get(tempDataDir.getAbsolutePath(), "runtime-templates", "template.yaml");
+        Files.createParentDirs(templatePath.toFile());
+        String templateContent = new ResourceUtils(null).getResourceAsString("classpath://org/apache/brooklyn/entity/software/base/template.yaml");
+        Files.write(templateContent.getBytes(), templatePath.toFile());
+
+        EmptySoftwareProcess entity = app.createAndManageChild(EntitySpec.create(EmptySoftwareProcess.class)
+                .configure(SoftwareProcess.RUNTIME_TEMPLATES, MutableMap.of(templatePath.getParent().toString(), "custom-runtime-templates")));
+        app.start(ImmutableList.of(localhost));
+
+        File runtimeTemplate = new File(entity.getAttribute(SoftwareProcess.RUN_DIR), "custom-runtime-templates/template.yaml");
+        assertTemplateValues(runtimeTemplate);
+    }
+
+    private void assertExcerptFromTheFrogs(File frogs) throws IOException {
+        assertTrue(frogs.canRead(), "File not readable: " + frogs);
+        String output = Files.toString(frogs, Charsets.UTF_8);
+        assertTrue(output.contains("Brekekekex"), "Expected excerpt from Aristophanes' The Frogs. Found: " + output);
+    }
+
+    private void assertTemplateValues(File template) throws IOException {
+        String expectedHostname = BrooklynNetworkUtils.getLocalhostInetAddress().getHostName();
+        String expectedIp = BrooklynNetworkUtils.getLocalhostInetAddress().getHostAddress();
+
+        Map<?,?> data = (Map) Iterables.getOnlyElement(Yamls.parseAll(Files.toString(template, Charsets.UTF_8)));
+        Assert.assertEquals(data.size(), 3);
+        Assert.assertEquals(data.get("entity.hostname"), expectedHostname);
+        Assert.assertEquals(data.get("entity.address"), expectedIp);
+        Assert.assertEquals(data.get("frogs"), 12);
     }
 
     @ImplementedBy(MyServiceImpl.class)

@@ -43,7 +43,16 @@ import com.google.common.io.Files;
 public class OsTest {
 
     private static final Logger log = LoggerFactory.getLogger(OsTest.class);
-    
+
+    public void testIsAbsolutish() {
+        assertFalse(Os.isAbsolutish(""));
+        assertFalse(Os.isAbsolutish("foo/bar"));
+        assertTrue(Os.isAbsolutish("/"));
+        assertTrue(Os.isAbsolutish("~/"));
+        assertTrue(Os.isAbsolutish("~"));
+        assertTrue(Os.isAbsolutish("/foo/bar"));
+    }
+
     public void testTmp() {
         log.info("tmp dir is: "+Os.tmp());
         Assert.assertNotNull(Os.tmp());
