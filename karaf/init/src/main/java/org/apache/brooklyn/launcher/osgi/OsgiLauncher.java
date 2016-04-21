@@ -20,6 +20,7 @@ import javax.annotation.Nullable;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.core.BrooklynVersionService;
+import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.launcher.common.BasicLauncher;
@@ -38,6 +39,7 @@ import org.slf4j.LoggerFactory;
 public class OsgiLauncher extends BasicLauncher<OsgiLauncher> {
 
     private static final Logger LOG = LoggerFactory.getLogger(OsgiLauncher.class);
+    private static final String DEFAULT_CATALOG_BOM = "file:etc/default.catalog.bom";
 
     private BrooklynVersionService brooklynVersion;
 
@@ -52,6 +54,7 @@ public class OsgiLauncher extends BasicLauncher<OsgiLauncher> {
     // Called by blueprint container
     // init-method can't find the start method for some reason, provide an alternative
     public void init() {
+        catalogInitialization(new CatalogInitialization(DEFAULT_CATALOG_BOM, false, null, false));
         start();
     }
 

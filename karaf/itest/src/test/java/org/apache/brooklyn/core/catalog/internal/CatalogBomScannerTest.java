@@ -33,10 +33,7 @@ import org.junit.runner.RunWith;
 import org.ops4j.pax.exam.Configuration;
 import org.ops4j.pax.exam.Option;
 import org.ops4j.pax.exam.junit.PaxExam;
-import org.ops4j.pax.exam.karaf.options.KarafDistributionOption;
-import org.ops4j.pax.exam.karaf.options.LogLevelOption;
 import org.ops4j.pax.exam.spi.reactors.ExamReactorStrategy;
-import org.ops4j.pax.exam.spi.reactors.PerClass;
 import org.ops4j.pax.exam.spi.reactors.PerMethod;
 import org.ops4j.pax.exam.util.Filter;
 import org.osgi.service.cm.ConfigurationAdmin;
@@ -83,25 +80,10 @@ public class CatalogBomScannerTest {
     @Configuration
     public static Option[] configuration() throws Exception {
         return defaultOptionsWith(
-            logLevel(LogLevelOption.LogLevel.DEBUG),
-            editConfigurationFilePut("etc/org.ops4j.pax.logging.cfg", "log4j.logger.org.apache.brooklyn", "DEBUG"),
-            keepRuntimeFolder()
             // Uncomment this for remote debugging the tests on port 5005
 //             , KarafDistributionOption.debugConfiguration()
         );
     }
-
-
-    @Test
-    @Category(IntegrationTest.class)
-    public void shouldFindBrooklynSoftwareBaseCatalogExampleServer() throws Exception {
-        final CatalogItem<?, ?> catalogItem = managementContext.getCatalog()
-            .getCatalogItem("server-template", BrooklynVersion.get());  // from brooklyn-software-base catalog.bom
-        assertNotNull(catalogItem);
-        assertEquals("Template: Server", catalogItem.getDisplayName());
-    }
-
-
 
     @Test
     @Category(IntegrationTest.class)
@@ -122,8 +104,6 @@ public class CatalogBomScannerTest {
             }
         });
     }
-
-
 
     @Test
     @Category(IntegrationTest.class)
@@ -152,18 +132,38 @@ public class CatalogBomScannerTest {
         featuresService.installFeature("brooklyn-software-nosql", BrooklynVersion.get());
 
         // verify that the non-template entity org.apache.brooklyn.entity.nosql.redis.RedisStore gets added to catalog
-        Asserts.succeedsEventually(MutableMap.of("timeout", Duration.TEN_SECONDS), new Runnable() {
-            @Override
-            public void run() {
-                final CatalogItem<?, ?> redis = managementContext.getCatalog()
-                    .getCatalogItem(redisStore, BrooklynVersion.get());
-                assertNotNull(redis);
-            }
-        });
+        verifyCatalogItemEventually(redisStore, true);
 
         // verify that the template application hasn't made it into the catalog (because it's blacklisted)
         catalogItem = getCatalogItem(riakTemplate);
         assertNull(catalogItem);
+
+        // For completeness let's uninstall the bundle, un-blacklist nosql, and install again
+        featuresService.uninstallFeature("brooklyn-software-nosql", BrooklynVersion.get());
+
+        // verify it's gone away
+        verifyCatalogItemEventually(redisStore, false);
+
+        // un-blacklist nosql
+        bomProps.put("blackList", "");
+        bomScannerConfig.update(bomProps);
+
+        // install it again
+        featuresService.installFeature("brooklyn-software-nosql", BrooklynVersion.get());
+
+        // now the application should make it into the catalog
+        verifyCatalogItemEventually(redisStore, true);
+
+    }
+
+    private void verifyCatalogItemEventually(final String redisStore, final boolean isItThere) {
+        Asserts.succeedsEventually(MutableMap.of("timeout", Duration.TEN_SECONDS), new Runnable() {
+            @Override
+            public void run() {
+                final CatalogItem<?, ?> redis = getCatalogItem(redisStore);
+                assertEquals(null != redis, isItThere);
+            }
+        });
     }
 
     private CatalogItem<?, ?> getCatalogItem(String itemName) {
