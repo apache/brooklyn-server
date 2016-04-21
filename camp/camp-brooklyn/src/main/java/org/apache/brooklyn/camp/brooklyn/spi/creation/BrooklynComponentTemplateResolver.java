@@ -162,9 +162,15 @@ public class BrooklynComponentTemplateResolver {
                         ". Other catalog items being resolved up the stack are " + encounteredRegisteredTypeSymbolicNames +
                         ". Tried loading it as a Java class instead but failed.";
             } else if (proto != null) {
-                msgDetails = "The reference " + type + " looks like a URL (running the CAMP Brooklyn assembly-template instantiator) but the protocol " +
-                        proto + " isn't white listed (" + BrooklynCampConstants.YAML_URL_PROTOCOL_WHITELIST + "). " +
-                        "It's also neither a catalog item nor a java type.";
+                if (BrooklynCampConstants.YAML_URL_PROTOCOL_WHITELIST.contains(proto)) {
+                    // TODO propagate exception so we can provide better error messages
+                    msgDetails = "The reference " + type + " looks like a URL (running the CAMP Brooklyn assembly-template instantiator) but couldn't load it (missing or invalid syntax?). " +
+                            "It's also neither a catalog item nor a java type.";
+                } else {
+                    msgDetails = "The reference " + type + " looks like a URL (running the CAMP Brooklyn assembly-template instantiator) but the protocol " +
+                            proto + " isn't white listed (" + BrooklynCampConstants.YAML_URL_PROTOCOL_WHITELIST + "). " +
+                            "It's also neither a catalog item nor a java type.";
+                }
             } else {
                 msgDetails = "No resolver knew how to handle it. Using resolvers: " + serviceSpecResolver;
             }

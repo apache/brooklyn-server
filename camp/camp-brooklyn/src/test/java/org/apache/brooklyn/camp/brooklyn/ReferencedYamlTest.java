@@ -115,6 +115,28 @@ public class ReferencedYamlTest extends AbstractYamlTest {
     }
 
     @Test
+    public void testCatalogReferencingYamlUrlFromOsgiBundle() throws Exception {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
+
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  id: yaml.reference",
+            "  version: " + TEST_VERSION,
+            "  libraries:",
+            "  - url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
+            "services:",
+            "- type: classpath://yaml-ref-osgi-entity.yaml");
+        
+        String entityName = "YAML -> catalog item -> yaml url (osgi)";
+        Entity app = createAndStartApplication(
+            "services:",
+            "- name: " + entityName,
+            "  type: " + ver("yaml.reference"));
+        
+        checkChildEntitySpec(app, entityName);
+    }
+
+    @Test
     public void testYamlUrlReferencingCatalog() throws Exception {
         addCatalogItems(
             "brooklyn.catalog:",

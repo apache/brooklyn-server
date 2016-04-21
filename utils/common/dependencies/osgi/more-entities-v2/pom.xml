@@ -68,7 +68,7 @@
                 <artifactId>maven-jar-plugin</artifactId>
                 <version>2.3.2</version>
                 <configuration>
-                    <outputDirectory>../../../resources/brooklyn/osgi</outputDirectory>
+                    <outputDirectory>../../../src/test/resources/brooklyn/osgi</outputDirectory>
                     <finalName>brooklyn-test-osgi-more-entities_${project.version}</finalName>
                 </configuration>
             </plugin>
