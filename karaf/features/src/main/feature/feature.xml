@@ -283,6 +283,11 @@
         <feature>brooklyn-software-base</feature>
     </feature>
 
+    <feature name="brooklyn-software-cm" version="${project.version}" description="Configuration Management modules">
+        <bundle>mvn:org.apache.brooklyn/brooklyn-software-cm-salt/${project.version}</bundle>
+        <bundle>mvn:org.apache.brooklyn/brooklyn-software-cm-ansible/${project.version}</bundle>
+    </feature>
+
     <feature name="brooklyn-software-osgi" version="${project.version}" description="Brooklyn OSGi Software Entities">
         <bundle>mvn:org.apache.brooklyn/brooklyn-software-osgi/${project.version}</bundle>
         <feature>brooklyn-core</feature>
@@ -329,6 +334,7 @@
     <feature name="brooklyn-osgi-launcher" version="${project.version}" description="Brooklyn init">
         <feature>brooklyn-core</feature>
         <feature>brooklyn-software-base</feature>
+        <feature>brooklyn-software-cm</feature>
         <feature>brooklyn-locations-jclouds</feature>
         <bundle>mvn:org.apache.brooklyn/brooklyn-launcher-common/${project.version}</bundle>
         <bundle start-level="90">mvn:org.apache.brooklyn/brooklyn-karaf-init/${project.version}</bundle>
