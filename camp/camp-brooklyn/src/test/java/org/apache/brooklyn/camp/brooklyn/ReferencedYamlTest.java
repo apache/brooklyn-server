@@ -20,11 +20,14 @@ package org.apache.brooklyn.camp.brooklyn;
 
 import java.util.Collection;
 
+import org.apache.brooklyn.api.catalog.BrooklynCatalog;
+import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
+import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -154,6 +157,31 @@ public class ReferencedYamlTest extends AbstractYamlTest {
         checkChildEntitySpec(app, entityName);
     }
 
+    @Test(groups="WIP") //Not able to use caller provided catalog items when referencing entity specs (as opposed to catalog meta)
+    public void testYamlUrlReferencingCallerCatalogItem() throws Exception {
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  items:",
+            "  - id: yaml.standalone",
+            "    version: " + TEST_VERSION,
+            "    item:",
+            "      services:",
+            "      - type: org.apache.brooklyn.entity.stock.BasicApplication",
+            "  - id: yaml.reference",
+            "    version: " + TEST_VERSION,
+            "    item:",
+            "      services:",
+            "      - type: classpath://yaml-ref-parent-catalog.yaml");
+
+        String entityName = "YAML -> catalog item -> yaml url";
+        Entity app = createAndStartApplication(
+            "services:",
+            "- name: " + entityName,
+            "  type: " + ver("yaml.reference"));
+        
+        checkChildEntitySpec(app, entityName);
+    }
+
     /**
      * Tests that a YAML referenced by URL from a catalog item
      * will have access to the catalog item's bundles.
@@ -183,6 +211,95 @@ public class ReferencedYamlTest extends AbstractYamlTest {
         Assert.assertEquals(child.getEntityType().getName(), "org.apache.brooklyn.test.osgi.entities.SimpleEntity");
 
         deleteCatalogEntity(parentCatalogId);
+    }
+
+    @Test
+    public void testCatalogReference() throws Exception {
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  brooklyn.libraries:",
+            "  - " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
+            "  items:",
+            "  - classpath://yaml-ref-parent-catalog.bom");
+
+        assertCatalogReference();
+    }
+
+    @Test
+    public void testCatalogReferenceByExplicitUrl() throws Exception {
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  brooklyn.libraries:",
+            "  - " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
+            "  items:",
+            "  - include: classpath://yaml-ref-parent-catalog.bom");
+
+        assertCatalogReference();
+    }
+
+    @Test
+    public void testCatalogReferenceSeesPreviousItems() throws Exception {
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  brooklyn.libraries:",
+            "  - " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
+            "  items:",
+            "  - id: yaml.nested.catalog.simple",
+            "    item:",
+            "      type: " + OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY,
+            "  - include: classpath://yaml-ref-back-catalog.bom");
+
+        String entityNameSimple = "YAML -> catalog -> catalog (osgi)";
+        Entity app = createAndStartApplication(
+            "services:",
+            "- name: " + entityNameSimple,
+            "  type: back-reference");
+        
+        Collection<Entity> children = app.getChildren();
+        Assert.assertEquals(children.size(), 1);
+        Entity childSimple = Iterables.getOnlyElement(children);
+        Assert.assertEquals(childSimple.getDisplayName(), entityNameSimple);
+        Assert.assertEquals(childSimple.getEntityType().getName(), OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY);
+    }
+
+    @Test
+    public void testCatalogReferenceMixesMetaAndUrl() throws Exception {
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  brooklyn.libraries:",
+            "  - " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
+            "  items:",
+            "  - include: classpath://yaml-ref-parent-catalog.bom",
+            "    items:",
+            "    - id: yaml.nested.catalog.nested",
+            "      item:",
+            "        type: " + OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY);
+
+        BrooklynCatalog catalog = mgmt().getCatalog();
+        Assert.assertNotNull(catalog.getCatalogItem("yaml.nested.catalog.nested", BrooklynCatalog.DEFAULT_VERSION));
+        Assert.assertNotNull(catalog.getCatalogItem("yaml.nested.catalog.simple", BrooklynCatalog.DEFAULT_VERSION));
+        Assert.assertNotNull(catalog.getCatalogItem("yaml.nested.catalog.more", BrooklynCatalog.DEFAULT_VERSION));
+    }
+
+    protected void assertCatalogReference() throws Exception {
+        String entityNameSimple = "YAML -> catalog -> catalog simple (osgi)";
+        String entityNameMore = "YAML -> catalog -> catalog more (osgi)";
+        Entity app = createAndStartApplication(
+            "services:",
+            "- name: " + entityNameSimple,
+            "  type: yaml.nested.catalog.simple",
+            "- name: " + entityNameMore,
+            "  type: yaml.nested.catalog.more");
+        
+        Collection<Entity> children = app.getChildren();
+        Assert.assertEquals(children.size(), 2);
+        Entity childSimple = Iterables.get(children, 0);
+        Assert.assertEquals(childSimple.getDisplayName(), entityNameSimple);
+        Assert.assertEquals(childSimple.getEntityType().getName(), OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY);
+
+        Entity childMore = Iterables.get(children, 1);
+        Assert.assertEquals(childMore.getDisplayName(), entityNameMore);
+        Assert.assertEquals(childMore.getEntityType().getName(), OsgiTestResources.BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY);
     }
 
     private void checkChildEntitySpec(Entity app, String entityName) {

@@ -47,6 +47,7 @@ import org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -69,6 +70,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 
@@ -364,16 +366,20 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
 
     private List<CatalogItemDtoAbstract<?,?>> collectCatalogItems(String yaml) {
+        List<CatalogItemDtoAbstract<?, ?>> result = MutableList.of();
+        collectCatalogItems(yaml, result, ImmutableMap.of());
+        return result;
+    }
+
+    private void collectCatalogItems(String yaml, List<CatalogItemDtoAbstract<?, ?>> result, Map<?, ?> parentMeta) {
         Map<?,?> itemDef = Yamls.getAs(Yamls.parseAll(yaml), Map.class);
         Map<?,?> catalogMetadata = getFirstAsMap(itemDef, "brooklyn.catalog").orNull();
         if (catalogMetadata==null)
             log.warn("No `brooklyn.catalog` supplied in catalog request; using legacy mode for "+itemDef);
         catalogMetadata = MutableMap.copyOf(catalogMetadata);
 
-        List<CatalogItemDtoAbstract<?, ?>> result = MutableList.of();
-        
         collectCatalogItems(Yamls.getTextOfYamlAtPath(yaml, "brooklyn.catalog").getMatchedYamlTextOrWarn(), 
-            catalogMetadata, result, null);
+            catalogMetadata, result, parentMeta);
         
         itemDef.remove("brooklyn.catalog");
         catalogMetadata.remove("item");
@@ -390,8 +396,6 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             }
             collectCatalogItems("item:\n"+makeAsIndentedObject(rootItemYaml), rootItem, result, catalogMetadata);
         }
-        
-        return result;
     }
 
     @SuppressWarnings("unchecked")
@@ -458,17 +462,26 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         
         Object items = catalogMetadata.remove("items");
         Object item = catalogMetadata.remove("item");
+        Object url = catalogMetadata.remove("include");
 
         if (items!=null) {
             int count = 0;
             for (Object ii: checkType(items, "items", List.class)) {
-                Map<?,?> i = checkType(ii, "entry in items list", Map.class);
-                collectCatalogItems(Yamls.getTextOfYamlAtPath(sourceYaml, "items", count).getMatchedYamlTextOrWarn(),
-                        i, result, catalogMetadata);
+                if (ii instanceof String) {
+                    collectUrlReferencedCatalogItems((String) ii, result, catalogMetadata);
+                } else {
+                    Map<?,?> i = checkType(ii, "entry in items list", Map.class);
+                    collectCatalogItems(Yamls.getTextOfYamlAtPath(sourceYaml, "items", count).getMatchedYamlTextOrWarn(),
+                            i, result, catalogMetadata);
+                }
                 count++;
             }
         }
-        
+
+        if (url != null) {
+            collectUrlReferencedCatalogItems(checkType(url, "include in catalog meta", String.class), result, catalogMetadata);
+        }
+
         if (item==null) return;
 
         // now look at the actual item, first correcting the sourceYaml and interpreting the catalog metadata
@@ -602,6 +615,21 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
         dto.setManagementContext((ManagementContextInternal) mgmt);
         result.add(dto);
+    }
+
+    private void collectUrlReferencedCatalogItems(String url, List<CatalogItemDtoAbstract<?, ?>> result, Map<Object, Object> parentMeta) {
+        @SuppressWarnings("unchecked")
+        List<?> parentLibrariesRaw = MutableList.copyOf(getFirstAs(parentMeta, List.class, "brooklyn.libraries", "libraries").orNull());
+        Collection<CatalogBundle> parentLibraries = CatalogItemDtoAbstract.parseLibraries(parentLibrariesRaw);
+        BrooklynClassLoadingContext loader = CatalogUtils.newClassLoadingContext(mgmt, "<catalog url reference loader>:0.0.0", parentLibraries);
+        String yaml;
+        try {
+            yaml = ResourceUtils.create(loader).getResourceAsString(url);
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            throw new IllegalStateException("Remote catalog url " + url + " can't be fetched.", e);
+        }
+        collectCatalogItems(yaml, result, parentMeta);
     }
 
     @SuppressWarnings("unchecked")
