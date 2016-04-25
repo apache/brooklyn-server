@@ -70,40 +70,6 @@ brooklyn.catalog:
         name: Server Pool
         description: Creates a pre-allocated server pool, which other applications can deploy to
 
-    - id: server-template
-      itemType: template
-      name: "Template: Server"
-      description: |
-        Sample YAML to provision a server in a cloud with illustrative VM properties
-      item:
-        name: Server (Brooklyn Example)
-
-        # this basic example shows how Brooklyn can provision a single raw VM
-        # in the cloud or location of your choice
-
-        services:
-        - type:           org.apache.brooklyn.entity.software.base.EmptySoftwareProcess
-          name:           My VM
-
-        # location can be e.g. `softlayer` or `jclouds:openstack-nova:https://9.9.9.9:9999/v2.0/`,
-        # or `localhost` or `byon:(hosts="10.9.1.1,10.9.1.2,produser2@10.9.2.{10,11,20-29}")`
-        location:
-          jclouds:aws-ec2:
-            # edit these to use your credential (or delete if credentials specified in brooklyn.properties)
-            identity:     <REPLACE>
-            credential:   <REPLACE>
-
-            region:       eu-central-1
-
-            # we want Ubuntu, with a lot of RAM
-            osFamily:     ubuntu
-            minRam:       8gb
-
-            # set up this user and password (default is to authorize a public key)
-            user:         sample
-            password:     s4mpl3
-
-
     - id: bash-web-server-template
       itemType: template
       name: "Template: Bash Web Server"
