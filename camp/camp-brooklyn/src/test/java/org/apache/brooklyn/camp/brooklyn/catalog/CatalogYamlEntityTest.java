@@ -38,6 +38,7 @@ import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -802,6 +803,28 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
                 "services:",
                 "- type: cluster",
                 "- type: vanilla");
+    }
+    
+    @Test(groups = "Broken")
+    public void testSameCatalogReferences() {
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  items:",
+            "  - id: referenced-entity",
+            "    item:",
+            "      services:",
+            "      - type: " + BasicEntity.class.getName(),
+            "  - id: referrer-entity",
+            "    item:",
+            "      services:",
+            "      - type: " + BasicApplication.class.getName(),
+            "        brooklyn.children:",
+            "        - type: referenced-entity",
+            "        brooklyn.config:",
+            "          spec: ",
+            "            $brooklyn:entitySpec:",
+            "              type: referenced-entity");
+
     }
 
     private void registerAndLaunchAndAssertSimpleEntity(String symbolicName, String serviceType) throws Exception {
