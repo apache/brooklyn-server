@@ -43,8 +43,10 @@ import javax.management.openmbean.TabularType;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
+import org.apache.brooklyn.core.effector.AddSensor;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
@@ -58,6 +60,7 @@ import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestApplicationImpl;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl;
+import org.apache.brooklyn.entity.java.JmxAttributeSensor;
 import org.apache.brooklyn.entity.java.JmxSupport;
 import org.apache.brooklyn.entity.java.UsesJmx;
 import org.apache.brooklyn.entity.java.UsesJmx.JmxAgentModes;
@@ -66,6 +69,8 @@ import org.apache.brooklyn.entity.software.base.test.jmx.JmxService;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.NetworkingTestUtils;
+import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
@@ -111,7 +116,7 @@ public class JmxFeedTest {
     private String attributeName = "myattrib";
     private String opName = "myop";
     
-    public static class TestEntityWithJmx extends TestEntityImpl {
+    public static class TestEntityWithJmx extends TestEntityImpl implements UsesJmx {
         @Override public void init() {
             sensors().set(Attributes.HOSTNAME, JmxHelperTest.LOCALHOST_NAME);
             sensors().set(UsesJmx.JMX_PORT, 
@@ -135,7 +140,7 @@ public class JmxFeedTest {
         
         // Create an entity and configure it with the above JMX service
         app = TestApplication.Factory.newManagedInstanceForTests();
-        entity = app.createAndManageChild(EntitySpec.create(TestEntity.class).impl(TestEntityWithJmx.class));
+        entity = app.createAndManageChild(EntitySpec.create(TestEntity.class).impl(TestEntityWithJmx.class).additionalInterfaces(UsesJmx.class));
         app.start(ImmutableList.of(new SimulatedLocation()));
 
         jmxHelper = new JmxHelper(entity);
@@ -170,6 +175,32 @@ public class JmxFeedTest {
         // Change the value and check it updates
         mbean.updateAttributeValue(attributeName, 64);
         assertSensorEventually(intAttribute, 64, TIMEOUT_MS);
+    }
+
+    @Test
+    public void testJmxAttributeSensor() throws Exception {
+        GeneralisedDynamicMBean mbean = jmxService.registerMBean(ImmutableMap.of(attributeName, 42), objectName);
+
+        String sensorName = "testJmxAttributeSensorName";
+
+        ConfigBag params = new ConfigBag();
+        params.put(AddSensor.SENSOR_NAME, sensorName);
+        params.put(AddSensor.SENSOR_TYPE, "java.lang.Integer");
+        params.put(AddSensor.SENSOR_PERIOD, Duration.millis(SHORT_WAIT_MS));
+        params.put(JmxAttributeSensor.ATTRIBUTE, attributeName);
+        params.put(JmxAttributeSensor.OBJECT_NAME, objectName);
+        JmxAttributeSensor<Integer> mySensor = new JmxAttributeSensor<>(params);
+
+        mySensor.apply(entity);
+
+        final AttributeSensor<Integer> sensor = (AttributeSensor<Integer>) entity.getEntityType().getSensor(sensorName);
+
+        // Starts with value defined when registering...
+        assertSensorEventually(sensor, 42, TIMEOUT_MS);
+
+        // Change the value and check it updates
+        mbean.updateAttributeValue(attributeName, 64);
+        assertSensorEventually(sensor, 64, TIMEOUT_MS);
     }
 
     @Test
