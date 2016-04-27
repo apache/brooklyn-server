@@ -115,7 +115,7 @@ public abstract class AbstractJcloudsStubbedLiveTest extends AbstractJcloudsLive
             }
         };
         jcloudsLocation = (JcloudsLocation) managementContext.getLocationRegistry().getLocationManaged(
-                LOCATION_SPEC, 
+                getLocationSpec(), 
                 jcloudsLocationConfig(ImmutableMap.<Object, Object>of(
                         JcloudsLocationConfig.COMPUTE_SERVICE_REGISTRY, computeServiceRegistry,
                         JcloudsLocationConfig.WAIT_FOR_SSHABLE, "false")));
@@ -126,6 +126,11 @@ public abstract class AbstractJcloudsStubbedLiveTest extends AbstractJcloudsLive
      */
     protected Map<Object, Object> jcloudsLocationConfig(Map<Object, Object> defaults) {
         return defaults;
+    }
+
+    // For overriding
+    protected String getLocationSpec() {
+        return LOCATION_SPEC;
     }
     
     protected abstract NodeCreator newNodeCreator();
