@@ -1476,7 +1476,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         if (templateBuilder instanceof PortableTemplateBuilder<?>) {
             if (((PortableTemplateBuilder<?>)templateBuilder).imageChooser()==null) {
                 Function<Iterable<? extends Image>, Image> chooser = config.get(JcloudsLocationConfig.IMAGE_CHOOSER);
-                chooser = BrooklynImageChooser.cloneFor(chooser, computeService);
+                chooser = BrooklynImageChooser.cloneFor(chooser, computeService, config);
                 templateBuilder.imageChooser(chooser);
             } else {
                 // an image chooser is already set, so do nothing
