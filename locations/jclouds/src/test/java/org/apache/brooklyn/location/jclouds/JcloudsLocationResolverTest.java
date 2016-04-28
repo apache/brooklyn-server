@@ -19,9 +19,9 @@
 package org.apache.brooklyn.location.jclouds;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
-import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -36,12 +36,17 @@ import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.jclouds.compute.ComputeService;
+import org.jclouds.compute.domain.Image;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+
+import com.google.common.base.Function;
+import com.google.common.collect.Iterables;
 
 public class JcloudsLocationResolverTest {
 
@@ -236,6 +241,24 @@ public class JcloudsLocationResolverTest {
         Assert.assertEquals(loc.config().getLocalBag().getStringKey("foo"), "bar");
     }
 
+    @Test
+    public void testJcloudsImageChooserConfiguredFromBrooklynProperties() {
+        brooklynProperties.put("brooklyn.location.named.myloc", "jclouds:aws-ec2");
+        brooklynProperties.put("brooklyn.location.named.myloc.imageChooser", JcloudsLocationResolverTest.class.getName()+"$"+MyFunction.class.getSimpleName());
+        brooklynProperties.put("brooklyn.location.jclouds.openstack-nova.foo", "bar");
+        JcloudsLocation loc = resolve("myloc");
+        
+        // Test relies on the computeService not being used! Not great, but good enough.
+        Function<Iterable<? extends Image>, Image> chooser = loc.getImageChooser((ComputeService)null, loc.getLocalConfigBag());
+        assertTrue(chooser instanceof MyFunction, "chooser="+chooser);
+    }
+    public static class MyFunction implements Function<Iterable<? extends Image>, Image> {
+        @Override
+        public Image apply(Iterable<? extends Image> input) {
+            return Iterables.getFirst(input, null);
+        }
+    }
+    
     @Test
     public void testThrowsOnInvalid() throws Exception {
         // Tries to treat "wrongprefix" as a cloud provider

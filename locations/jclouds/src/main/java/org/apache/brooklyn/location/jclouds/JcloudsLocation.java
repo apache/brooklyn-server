@@ -1457,6 +1457,31 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
     }
 
+    /**
+     * If the ImageChooser is a string, then try instantiating a class with that name (in the same 
+     * way as we do for {@link #getCloudMachineNamer(ConfigBag)}, for example). Otherwise, assume
+     * that convention TypeCoercions will work.
+     */
+    @SuppressWarnings("unchecked")
+    protected Function<Iterable<? extends Image>, Image> getImageChooser(ComputeService computeService, ConfigBag config) {
+        Function<Iterable<? extends Image>, Image> chooser;
+        Object rawVal = config.getStringKey(JcloudsLocationConfig.IMAGE_CHOOSER.getName());
+        if (rawVal instanceof String && Strings.isNonBlank((String)rawVal)) {
+            // Configured with a string: it could be a class that we need to instantiate
+            Optional<?> instance = Reflections.invokeConstructorWithArgs(getManagementContext().getCatalogClassLoader(), (String)rawVal);
+            if (!instance.isPresent()) {
+                throw new IllegalStateException("Failed to create ImageChooser "+rawVal+" for location "+this);
+            } else if (!(instance.get() instanceof Function)) {
+                throw new IllegalStateException("Failed to create ImageChooser "+rawVal+" for location "+this+"; expected type Function but got "+instance.get().getClass());
+            } else {
+                chooser = (Function<Iterable<? extends Image>, Image>) instance.get();
+            }
+        } else {
+            chooser = config.get(JcloudsLocationConfig.IMAGE_CHOOSER);
+        }
+        return BrooklynImageChooser.cloneFor(chooser, computeService, config);
+    }
+    
     /** returns the jclouds Template which describes the image to be built, for the given config and compute service */
     public Template buildTemplate(ComputeService computeService, ConfigBag config) {
         TemplateBuilder templateBuilder = (TemplateBuilder) config.get(TEMPLATE_BUILDER);
@@ -1468,8 +1493,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
         if (templateBuilder instanceof PortableTemplateBuilder<?>) {
             if (((PortableTemplateBuilder<?>)templateBuilder).imageChooser()==null) {
-                Function<Iterable<? extends Image>, Image> chooser = config.get(JcloudsLocationConfig.IMAGE_CHOOSER);
-                chooser = BrooklynImageChooser.cloneFor(chooser, computeService, config);
+                Function<Iterable<? extends Image>, Image> chooser = getImageChooser(computeService, config);
                 templateBuilder.imageChooser(chooser);
             } else {
                 // an image chooser is already set, so do nothing
