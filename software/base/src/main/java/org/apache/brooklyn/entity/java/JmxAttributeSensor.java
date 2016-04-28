@@ -67,7 +67,7 @@ public final class JmxAttributeSensor<T> extends AddSensor<T> {
 
     public JmxAttributeSensor(final ConfigBag params) {
         super(params);
- 
+
         objectName = Preconditions.checkNotNull(params.get(OBJECT_NAME), "objectName");
         attribute = Preconditions.checkNotNull(params.get(ATTRIBUTE), "attribute");
         defaultValue = params.get(DEFAULT_VALUE);
@@ -95,7 +95,6 @@ public final class JmxAttributeSensor<T> extends AddSensor<T> {
                         @Override
                         public JmxFeed call() throws Exception {
                             JmxHelper helper = new JmxHelper(entity);
-                            Duration period = entity.getConfig(SENSOR_PERIOD);
 
                             JmxFeed feed = JmxFeed.builder()
                                     .entity(entity)
@@ -106,7 +105,8 @@ public final class JmxAttributeSensor<T> extends AddSensor<T> {
                                             .attributeName(attribute)
                                             .onFailureOrException(Functions.<T>constant((T) defaultValue)))
                                     .build();
-                           return feed;
+                            entity.addFeed(feed);
+                            return feed;
                         }
                     })
                     .build();
