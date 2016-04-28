@@ -18,12 +18,15 @@
  */
 package org.apache.brooklyn.location.jclouds;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.domain.Image;
 import org.jclouds.compute.domain.OperatingSystem;
@@ -33,7 +36,11 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ComparisonChain;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.common.math.DoubleMath;
 
@@ -44,6 +51,7 @@ public class BrooklynImageChooser implements Cloneable {
     private static final Logger log = LoggerFactory.getLogger(BrooklynImageChooser.class);
     
     protected ComputeService computeService;
+    protected ConfigBag config;
     protected String cloudProviderName;
     
     protected static int compare(double left, double right) {
@@ -204,13 +212,26 @@ public class BrooklynImageChooser implements Cloneable {
         }
     }
     
+    protected void use(ConfigBag config) {
+        if (this.config !=null && !this.config.equals(config))
+            throw new IllegalStateException("ImageChooser must be cloned to set config");
+        this.config = config;
+    }
+    
     public BrooklynImageChooser cloneFor(ComputeService service) {
         BrooklynImageChooser result = clone();
         result.use(service);
         return result;
     }
     
-    public static class OrderingScoredWithoutDefaults extends Ordering<Image> implements ComputeServiceAwareChooser<OrderingScoredWithoutDefaults> {
+    public BrooklynImageChooser cloneFor(ConfigBag config) {
+        BrooklynImageChooser result = clone();
+        result.use(config);
+        return result;
+    }
+    
+    public static class OrderingScoredWithoutDefaults extends Ordering<Image> implements ComputeServiceAwareChooser<OrderingScoredWithoutDefaults>,
+            ConfigAwareChooser<OrderingScoredWithoutDefaults>{
         private BrooklynImageChooser chooser;
         public OrderingScoredWithoutDefaults(BrooklynImageChooser chooser) {
             this.chooser = chooser;
@@ -221,6 +242,10 @@ public class BrooklynImageChooser implements Cloneable {
         @Override
         public OrderingScoredWithoutDefaults cloneFor(ComputeService service) {
             return new OrderingScoredWithoutDefaults(chooser.cloneFor(service));
+        }        
+        @Override
+        public OrderingScoredWithoutDefaults cloneFor(ConfigBag config) {
+            return new OrderingScoredWithoutDefaults(chooser.cloneFor(config));
         }        
     }
     
@@ -239,7 +264,8 @@ public class BrooklynImageChooser implements Cloneable {
         };
     }
     
-    public static class OrderingWithDefaults extends Ordering<Image> implements ComputeServiceAwareChooser<OrderingWithDefaults> {
+    public static class OrderingWithDefaults extends Ordering<Image> implements ComputeServiceAwareChooser<OrderingWithDefaults>,
+            ConfigAwareChooser<OrderingWithDefaults> {
         Ordering<Image> primaryOrdering;
         public OrderingWithDefaults(final Ordering<Image> primaryOrdering) {
             this.primaryOrdering = primaryOrdering;
@@ -262,6 +288,13 @@ public class BrooklynImageChooser implements Cloneable {
         public OrderingWithDefaults cloneFor(ComputeService service) {
             if (primaryOrdering instanceof ComputeServiceAwareChooser) {
                 return new OrderingWithDefaults( BrooklynImageChooser.cloneFor(primaryOrdering, service) );
+            }
+            return this;
+        }        
+        @Override
+        public OrderingWithDefaults cloneFor(ConfigBag config) {
+            if (primaryOrdering instanceof ConfigAwareChooser) {
+                return new OrderingWithDefaults( BrooklynImageChooser.cloneFor(primaryOrdering, config) );
             }
             return this;
         }        
@@ -292,20 +325,52 @@ public class BrooklynImageChooser implements Cloneable {
         };
     }
     
-    public static class ImageChooserFromOrdering implements Function<Iterable<? extends Image>, Image>, ComputeServiceAwareChooser<ImageChooserFromOrdering> {
-        final Ordering<Image> ordering;
-        public ImageChooserFromOrdering(final Ordering<Image> ordering) { this.ordering = ordering; }
+    public static class ImageChooserFromOrdering implements Function<Iterable<? extends Image>, Image>, 
+            ComputeServiceAwareChooser<ImageChooserFromOrdering>, ConfigAwareChooser<ImageChooserFromOrdering> {
+        final List<Ordering<? super Image>> orderings;
+        
+        public ImageChooserFromOrdering(final Ordering<Image> ordering) {
+            this(ImmutableList.of(ordering));
+        }
+        public ImageChooserFromOrdering(Iterable<? extends Ordering<? super Image>> orderings) {
+            this.orderings = ImmutableList.copyOf(checkNotNull(orderings, "orderings"));
+        }
         @Override
         public Image apply(Iterable<? extends Image> input) {
-            List<? extends Image> maxImages = multiMax(ordering, input);
+            List<? extends Image> maxImages = multiMax(Ordering.compound(orderings), input);
             return maxImages.get(maxImages.size() - 1);
         }
         @Override
         public ImageChooserFromOrdering cloneFor(ComputeService service) {
-            if (ordering instanceof ComputeServiceAwareChooser) {
-                return new ImageChooserFromOrdering( BrooklynImageChooser.cloneFor(ordering, service) );
+            if (Iterables.tryFind(orderings, Predicates.instanceOf(ComputeServiceAwareChooser.class)).isPresent()) {
+                List<Ordering<? super Image>> clonedOrderings = Lists.newArrayList();
+                for (Ordering<? super Image> ordering : orderings) {
+                    if (ordering instanceof ComputeServiceAwareChooser) {
+                        clonedOrderings.add(BrooklynImageChooser.cloneFor(ordering, service));
+                    } else {
+                        clonedOrderings.add(ordering);
+                    }
+                }
+                return new ImageChooserFromOrdering(clonedOrderings);
+            } else {
+                return this;
             }
-            return this;
+        }        
+        @Override
+        public ImageChooserFromOrdering cloneFor(ConfigBag config) {
+            if (Iterables.tryFind(orderings, Predicates.instanceOf(ConfigAwareChooser.class)).isPresent()) {
+                List<Ordering<? super Image>> clonedOrderings = Lists.newArrayList();
+                for (Ordering<? super Image> ordering : orderings) {
+                    if (ordering instanceof ConfigAwareChooser) {
+                        clonedOrderings.add(BrooklynImageChooser.cloneFor(ordering, config));
+                    } else {
+                        clonedOrderings.add(ordering);
+                    }
+                }
+                return new ImageChooserFromOrdering(clonedOrderings);
+            } else {
+                return this;
+            }
         }        
     }
 
@@ -313,6 +378,10 @@ public class BrooklynImageChooser implements Cloneable {
         return new ImageChooserFromOrdering(ordering);
     }
     
+    public static Function<Iterable<? extends Image>, Image> imageChooserFromOrderings(Iterable<? extends Ordering<? super Image>> orderings) {
+        return new ImageChooserFromOrdering(orderings);
+    }
+
     /** @deprecated since 0.7.0 kept in case persisted */
     @Deprecated
     public static Function<Iterable<? extends Image>, Image> imageChooserFromOrderingDeprecated(final Ordering<Image> ordering) {
@@ -329,8 +398,24 @@ public class BrooklynImageChooser implements Cloneable {
         public T cloneFor(ComputeService service);
     }
 
-    /** Attempts to clone the given item for use with the given {@link ComputeService}, if
-     * the item is {@link ComputeServiceAwareChooser}; otherwise it returns the item unchanged */
+    protected interface ConfigAwareChooser<T> {
+        public T cloneFor(ConfigBag config);
+    }
+
+    /**
+     * Attempts to clone the given item for use with the given {@link ComputeService} and/or the
+     * given config, if the item is {@link ComputeServiceAwareChooser} or {@link ConfigAwareChooser}; 
+     * otherwise it returns the item unchanged.
+     */
+    public static <T> T cloneFor(T item, ComputeService service, ConfigBag config) {
+        T result = cloneFor(item, service);
+        return cloneFor(result, config);
+    }
+
+    /**
+     * Attempts to clone the given item for use with the given {@link ComputeService}, if
+     * the item is {@link ComputeServiceAwareChooser}; otherwise it returns the item unchanged.
+     */
     @SuppressWarnings("unchecked")
     public static <T> T cloneFor(T item, ComputeService service) {
         if (item instanceof ComputeServiceAwareChooser) {
@@ -338,7 +423,19 @@ public class BrooklynImageChooser implements Cloneable {
         }
         return item;
     }
-    
+
+    /**
+     * Attempts to clone the given item for use with the given {@link ConfigBag}, if
+     * the item is {@link ConfigAwareChooser}; otherwise it returns the item unchanged.
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> T cloneFor(T item, ConfigBag service) {
+        if (item instanceof ConfigAwareChooser) {
+            return ((ConfigAwareChooser<T>)item).cloneFor(service);
+        }
+        return item;
+    }
+
     // from jclouds
     static <T, E extends T> List<E> multiMax(Comparator<T> ordering, Iterable<E> iterable) {
         Iterator<E> iterator = iterable.iterator();

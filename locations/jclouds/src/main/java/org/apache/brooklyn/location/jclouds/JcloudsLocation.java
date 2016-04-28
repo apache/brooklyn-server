@@ -61,7 +61,6 @@ import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.config.Sanitizer;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.BasicMachineMetadata;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
@@ -1467,7 +1466,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         if (templateBuilder instanceof PortableTemplateBuilder<?>) {
             if (((PortableTemplateBuilder<?>)templateBuilder).imageChooser()==null) {
                 Function<Iterable<? extends Image>, Image> chooser = config.get(JcloudsLocationConfig.IMAGE_CHOOSER);
-                chooser = BrooklynImageChooser.cloneFor(chooser, computeService);
+                chooser = BrooklynImageChooser.cloneFor(chooser, computeService, config);
                 templateBuilder.imageChooser(chooser);
             } else {
                 // an image chooser is already set, so do nothing
