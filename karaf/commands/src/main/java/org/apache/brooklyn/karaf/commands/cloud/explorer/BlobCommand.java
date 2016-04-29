@@ -16,29 +16,30 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.karaf.commands;
+package org.apache.brooklyn.karaf.commands.cloud.explorer;
 
-import org.apache.karaf.shell.api.action.Action;
-import org.apache.karaf.shell.api.action.Argument;
+import org.apache.brooklyn.launcher.command.support.CloudExplorerSupport.GetBlob;
 import org.apache.karaf.shell.api.action.Command;
 import org.apache.karaf.shell.api.action.Option;
 import org.apache.karaf.shell.api.action.lifecycle.Service;
 
-@Command(scope = "brooklyn", name = "catalog", description = "Manage the local brooklyn catalog")
+import static org.apache.brooklyn.karaf.commands.cloud.explorer.AbstractCloudExplorerCommand.CLOUD_EXPLORER_SCOPE;
+
+@Command(scope = CLOUD_EXPLORER_SCOPE, name = GetBlob.NAME, description = GetBlob.DESCRIPTION)
 @Service
-public class Catalog implements Action {
+public class BlobCommand extends AbstractCloudExplorerCommand {
 
-    @Option(name = "-o", aliases = { "--option" }, description = "An option to the command", required = false, multiValued = false)
-    private String option;
+    @Option(name = GetBlob.CONTAINER_ARGUMENT_NAME, description = GetBlob.CONTAINER_ARGUMENT_DESC, required = true)
+    private String container;
 
-    @Argument(name = "argument", description = "Argument to the command", required = false, multiValued = false)
-    private String argument;
+    @Option(name = GetBlob.BLOB_ARGUMENT_NAME, description = GetBlob.BLOB_ARGUMENT_DESC, required = true)
+    private String blob;
 
     @Override
     public Object execute() throws Exception {
-         System.out.println("Executing command catalog");
-         System.out.println("Option: " + option);
-         System.out.println("Argument: " + argument);
-         return null;
+
+        final GetBlob GetBlob =
+            new GetBlob(getManagementContext(), allLocations, location, autoConfirm, container, blob);
+        return GetBlob.call();
     }
 }

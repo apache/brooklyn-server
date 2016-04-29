@@ -18,358 +18,191 @@
  */
 package org.apache.brooklyn.cli;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import org.apache.brooklyn.launcher.command.support.CloudExplorerSupport;
+import org.apache.brooklyn.launcher.command.support.CloudExplorerSupport.BlobstoreListContainer;
+import org.apache.brooklyn.launcher.command.support.CloudExplorerSupport.BlobstoreListContainers;
+import org.apache.brooklyn.launcher.command.support.CloudExplorerSupport.GetBlob;
+import org.apache.brooklyn.launcher.command.support.CloudExplorerSupport.GetImage;
+import org.apache.brooklyn.launcher.command.support.CloudExplorerSupport.ComputeDefaultTemplate;
+import org.apache.brooklyn.launcher.command.support.CloudExplorerSupport.ListImages;
+import org.apache.brooklyn.launcher.command.support.CloudExplorerSupport.ListInstances;
+import org.apache.brooklyn.launcher.command.support.CloudExplorerSupport.ListHardwareProfiles;
+import org.apache.brooklyn.launcher.command.support.CloudExplorerSupport.TerminateInstances;
 import io.airlift.command.Command;
 import io.airlift.command.Option;
 import io.airlift.command.ParseException;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import org.jclouds.blobstore.BlobStore;
-import org.jclouds.blobstore.BlobStoreContext;
-import org.jclouds.blobstore.domain.Blob;
-import org.jclouds.blobstore.domain.StorageMetadata;
-import org.jclouds.compute.ComputeService;
-import org.jclouds.compute.domain.ComputeMetadata;
-import org.jclouds.compute.domain.Hardware;
-import org.jclouds.compute.domain.Image;
-import org.jclouds.compute.domain.NodeMetadata;
-import org.jclouds.compute.domain.Template;
-import org.jclouds.compute.options.TemplateOptions;
-import org.apache.brooklyn.api.location.Location;
-import org.apache.brooklyn.api.location.LocationDefinition;
-import org.apache.brooklyn.core.location.LocationConfigKeys;
-import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
-import org.apache.brooklyn.location.jclouds.JcloudsLocation;
-import org.apache.brooklyn.location.jclouds.JcloudsUtil;
-import org.apache.brooklyn.util.exceptions.FatalConfigurationRuntimeException;
-import org.apache.brooklyn.util.stream.Streams;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Objects.ToStringHelper;
-import com.google.common.collect.Lists;
 
 /**
- * Convenience for listing Cloud Compute and BlobStore details.
- * <p>
- * For fuller functionality, consider instead the jclouds CLI or Ruby Fog CLI.
- * <p>
- * The advantage of this utility is that it piggie-backs off the {@code brooklyn.property} credentials,
- * so requires less additional credential configuration. It also gives brooklyn-specific information,
- * such as which image will be used by default in a given cloud.
+ * Makes use of {@link CloudExplorerSupport} to provide cloud explorer commands at Brooklyn server command line.
  */
 public class CloudExplorer {
 
     public static abstract class JcloudsCommand extends AbstractMain.BrooklynCommandCollectingArgs {
         @Option(name = { "--all-locations" }, title = "all locations",
-                description = "All locations (i.e. all locations in brooklyn.properties for which there are credentials)")
+                description = CloudExplorerSupport.ALL_LOCATIONS_DESC)
         public boolean allLocations;
         
         @Option(name = { "-l", "--location" }, title = "location spec",
-                description = "A location spec (e.g. referring to a named location in brooklyn.properties file)")
+                description = CloudExplorerSupport.LOCATION_DESC)
         public String location;
 
         @Option(name = { "-y", "--yes" }, title = "auto-confirm",
-                description = "Automatically answer yes to any questions")
-        public boolean autoconfirm = false;
+                description = CloudExplorerSupport.AUTOCONFIRM_DESC)
+        public boolean autoConfirm = false;
 
-        protected abstract void doCall(JcloudsLocation loc, String indent) throws Exception;
-        
+
+        protected abstract CloudExplorerSupport getExplorer(LocalManagementContext mgmt, boolean allLocations,
+                                                            String location, boolean autoconfirm);
+
         @Override
         public Void call() throws Exception {
             LocalManagementContext mgmt = new LocalManagementContext();
-            List<JcloudsLocation> locs = Lists.newArrayList();
             try {
-                if (location != null && allLocations) {
-                    throw new FatalConfigurationRuntimeException("Must not specify --location and --all-locations");
-                } else if (location != null) {
-                    JcloudsLocation loc = (JcloudsLocation) mgmt.getLocationRegistry().getLocationManaged(location);
-                    locs.add(loc);
-                } else if (allLocations) {
-                    // Find all named locations that point at different target clouds
-                    Map<String, LocationDefinition> definedLocations = mgmt.getLocationRegistry().getDefinedLocations();
-                    for (LocationDefinition locationDef : definedLocations.values()) {
-                        Location loc = mgmt.getLocationManager().createLocation( mgmt.getLocationRegistry().getLocationSpec(locationDef).get() );
-                        if (loc instanceof JcloudsLocation) {
-                            boolean found = false;
-                            for (JcloudsLocation existing : locs) {
-                                if (equalTargets(existing, (JcloudsLocation) loc)) {
-                                    found = true;
-                                    break;
-                                }
-                            }
-                            if (!found) {
-                                locs.add((JcloudsLocation) loc);
-                            }
-                        }
-                    }
-                } else {
-                    throw new FatalConfigurationRuntimeException("Must specify one of --location or --all-locations");
-                }
-                
-                for (JcloudsLocation loc : locs) {
-                    stdout.println("Location {");
-                    stdout.println("\tprovider: "+loc.getProvider());
-                    stdout.println("\tdisplayName: "+loc.getDisplayName());
-                    stdout.println("\tidentity: "+loc.getIdentity());
-                    if (loc.getEndpoint() != null) stdout.println("\tendpoint: "+loc.getEndpoint());
-                    if (loc.getRegion() != null) stdout.println("\tregion: "+loc.getRegion());
-
-                    try {
-                        doCall(loc, "\t");
-                    } finally {
-                        stdout.println("}");
-                    }
-                }
+                CloudExplorerSupport explorer = getExplorer(mgmt, allLocations, location, autoConfirm);
+                explorer.call();
             } finally {
                 mgmt.terminate();
             }
             return null;
         }
-        
+
         @Override
         public ToStringHelper string() {
             return super.string()
                     .add("location", location);
         }
-        
-        protected boolean equalTargets(JcloudsLocation loc1, JcloudsLocation loc2) {
-            return Objects.equal(loc1.getProvider(), loc2.getProvider())
-                    && Objects.equal(loc1.getIdentity(), loc2.getIdentity())
-                    && Objects.equal(loc1.getEndpoint(), loc2.getEndpoint())
-                    && Objects.equal(loc1.getRegion(), loc2.getRegion());
-        }
-        
-        
-        protected boolean confirm(String msg, String indent) throws Exception {
-            if (autoconfirm) {
-                stdout.println(indent+"Auto-confirmed: "+msg);
-                return true;
-            } else {
-                stdout.println(indent+"Enter y/n. Are you sure you want to "+msg);
-                int in = stdin.read();
-                boolean confirmed = (Character.toLowerCase(in) == 'y');
-                if (confirmed) {
-                    stdout.println(indent+"Confirmed; will "+msg);
-                } else {
-                    stdout.println(indent+"Declined; will not "+msg);
-                }
-                return confirmed;
-            }
-        }
     }
     
-    public static abstract class ComputeCommand extends JcloudsCommand {
-        protected abstract void doCall(ComputeService computeService, String indent) throws Exception;
-            
+
+    @Command(name = ListInstances.NAME, description = ListInstances.DESCRIPTION)
+    public static class ComputeListInstancesCommand extends JcloudsCommand {
         @Override
-        protected void doCall(JcloudsLocation loc, String indent) throws Exception {
-            ComputeService computeService = loc.getComputeService();
-            doCall(computeService, indent);
+        protected CloudExplorerSupport
+        getExplorer(LocalManagementContext mgmt, boolean allLocations, String location, boolean autoconfirm) {
+            failIfArguments();
+            return new ListInstances(mgmt, allLocations, location, autoconfirm);
         }
     }
 
-    @Command(name = "list-instances", description = "")
-    public static class ComputeListInstancesCommand extends ComputeCommand {
+    @Command(name = ListImages.NAME, description = ListImages.DESCRIPTION)
+    public static class ComputeListImagesCommand extends JcloudsCommand {
         @Override
-        protected void doCall(ComputeService computeService, String indent) throws Exception {
+        protected CloudExplorerSupport
+        getExplorer(LocalManagementContext mgmt, boolean allLocations, String location, boolean autoconfirm) {
             failIfArguments();
-            Set<? extends ComputeMetadata> instances = computeService.listNodes();
-            stdout.println(indent+"Instances {");
-            for (ComputeMetadata instance : instances) {
-                stdout.println(indent+"\t"+instance);
-            }
-            stdout.println(indent+"}");
+            return new ListImages(mgmt, allLocations, location, autoconfirm);
         }
     }
+    
+    @Command(name = ListHardwareProfiles.NAME, description = ListHardwareProfiles.DESCRIPTION)
+    public static class ComputeListHardwareProfilesCommand extends JcloudsCommand {
+        @Override
+        protected CloudExplorerSupport
+        getExplorer(LocalManagementContext mgmt, boolean allLocations, String location, boolean autoconfirm) {
+            failIfArguments();
+            return new CloudExplorerSupport.ListHardwareProfiles(mgmt, allLocations, location, autoconfirm);
+        }
+    }
+    
+    @Command(name = GetImage.NAME, description = GetImage.DESCRIPTION)
+    public static class ComputeGetImageCommand extends JcloudsCommand {
 
-    @Command(name = "list-images", description = "")
-    public static class ComputeListImagesCommand extends ComputeCommand {
         @Override
-        protected void doCall(ComputeService computeService, String indent) throws Exception {
-            failIfArguments();
-            Set<? extends Image> images = computeService.listImages();
-            stdout.println(indent+"Images {");
-            for (Image image : images) {
-                stdout.println(indent+"\t"+image);
-            }
-            stdout.println(indent+"}");
-        }
-    }
-    
-    @Command(name = "list-hardware-profiles", description = "")
-    public static class ComputeListHardwareProfilesCommand extends ComputeCommand {
-        @Override
-        protected void doCall(ComputeService computeService, String indent) throws Exception {
-            failIfArguments();
-            Set<? extends Hardware> hardware = computeService.listHardwareProfiles();
-            stdout.println(indent+"Hardware Profiles {");
-            for (Hardware image : hardware) {
-                stdout.println(indent+"\t"+image);
-            }
-            stdout.println(indent+"}");
-        }
-    }
-    
-    @Command(name = "get-image", description = "")
-    public static class ComputeGetImageCommand extends ComputeCommand {
-        @Override
-        protected void doCall(ComputeService computeService, String indent) throws Exception {
+        protected CloudExplorerSupport
+        getExplorer(LocalManagementContext mgmt, boolean allLocations, String location, boolean autoconfirm) {
             if (arguments.isEmpty()) {
                 throw new ParseException("Requires at least one image-id arguments");
             }
-            
-            for (String imageId : arguments) {
-                Image image = computeService.getImage(imageId);
-                stdout.println(indent+"Image "+imageId+" {");
-                stdout.println(indent+"\t"+image);
-                stdout.println(indent+"}");
-            }
+            return new GetImage(mgmt, allLocations, location, autoconfirm, arguments);
         }
-        
+
         @Override
         public ToStringHelper string() {
             return super.string()
-                    .add("imageIds", arguments);
+                    .add(GetImage.ARGUMENT_NAME, arguments);
         }
     }
 
-    @Command(name = "default-template", description = "")
+    @Command(name = ComputeDefaultTemplate.NAME, description = ComputeDefaultTemplate.DESCRIPTION)
     public static class ComputeDefaultTemplateCommand extends JcloudsCommand {
+
         @Override
-        protected void doCall(JcloudsLocation loc, String indent) throws Exception {
+        protected CloudExplorerSupport
+        getExplorer(LocalManagementContext mgmt, boolean allLocations, String location, boolean autoconfirm) {
             failIfArguments();
-            ComputeService computeService = loc.getComputeService();
-            
-            Template template = loc.buildTemplate(computeService, loc.config().getBag());
-            Image image = template.getImage();
-            Hardware hardware = template.getHardware();
-            org.jclouds.domain.Location location = template.getLocation();
-            TemplateOptions options = template.getOptions();
-            stdout.println(indent+"Default template {");
-            stdout.println(indent+"\tImage: "+image);
-            stdout.println(indent+"\tHardware: "+hardware);
-            stdout.println(indent+"\tLocation: "+location);
-            stdout.println(indent+"\tOptions: "+options);
-            stdout.println(indent+"}");
+            return new CloudExplorerSupport.ComputeDefaultTemplate(mgmt, allLocations, location, autoconfirm);
         }
     }
     
-    @Command(name = "terminate-instances", description = "")
-    public static class ComputeTerminateInstancesCommand extends ComputeCommand {
+    @Command(name = TerminateInstances.NAME, description = TerminateInstances.DESCRIPTION)
+    public static class ComputeTerminateInstancesCommand extends JcloudsCommand {
+
         @Override
-        protected void doCall(ComputeService computeService, String indent) throws Exception {
+        protected CloudExplorerSupport
+        getExplorer(LocalManagementContext mgmt, boolean allLocations, String location, boolean autoconfirm) {
             if (arguments.isEmpty()) {
                 throw new ParseException("Requires at least one instance-id arguments");
             }
-            
-            for (String instanceId : arguments) {
-                NodeMetadata instance = computeService.getNodeMetadata(instanceId);
-                if (instance == null) {
-                    stderr.println(indent+"Cannot terminate instance; could not find "+instanceId);
-                } else {
-                    boolean confirmed = confirm(indent, "terminate "+instanceId+" ("+instance+")");
-                    if (confirmed) {
-                        computeService.destroyNode(instanceId);
-                    }
-                }
-            }
+            return new CloudExplorerSupport.TerminateInstances(mgmt, allLocations, location, autoconfirm, arguments);
         }
-        
+
         @Override
         public ToStringHelper string() {
             return super.string()
-                    .add("instanceIds", arguments);
+                    .add(TerminateInstances.ARGUMENT_NAME, arguments);
         }
     }
 
-    public static abstract class BlobstoreCommand extends JcloudsCommand {
-        protected abstract void doCall(BlobStore blobstore, String indent) throws Exception;
+
+    @Command(name = BlobstoreListContainers.NAME, description = BlobstoreListContainers.DESCRIPTION)
+    public static class BlobstoreListContainersCommand extends JcloudsCommand {
 
         @Override
-        protected void doCall(JcloudsLocation loc, String indent) throws Exception {
-            String identity = checkNotNull(loc.getConfig(LocationConfigKeys.ACCESS_IDENTITY), "identity must not be null");
-            String credential = checkNotNull(loc.getConfig(LocationConfigKeys.ACCESS_CREDENTIAL), "credential must not be null");
-            String provider = checkNotNull(loc.getConfig(LocationConfigKeys.CLOUD_PROVIDER), "provider must not be null");
-            String endpoint = loc.getConfig(CloudLocationConfig.CLOUD_ENDPOINT);
-            
-            BlobStoreContext context = JcloudsUtil.newBlobstoreContext(provider, endpoint, identity, credential);
-            try {
-                BlobStore blobStore = context.getBlobStore();
-                doCall(blobStore, indent);
-            } finally {
-                context.close();
-            }
-        }
-    }
-    
-    @Command(name = "list-containers", description = "")
-    public static class BlobstoreListContainersCommand extends BlobstoreCommand {
-        @Override
-        protected void doCall(BlobStore blobstore, String indent) throws Exception {
+        protected CloudExplorerSupport
+        getExplorer(LocalManagementContext mgmt, boolean allLocations, String location, boolean autoconfirm) {
             failIfArguments();
-            Set<? extends StorageMetadata> containers = blobstore.list();
-            stdout.println(indent+"Containers {");
-            for (StorageMetadata container : containers) {
-                stdout.println(indent+"\t"+container);
-            }
-            stdout.println(indent+"}");
+            return new BlobstoreListContainers(mgmt, allLocations, location, autoconfirm);
         }
     }
 
-    @Command(name = "list-container", description = "")
-    public static class BlobstoreListContainerCommand extends BlobstoreCommand {
+    @Command(name = BlobstoreListContainer.NAME, description = BlobstoreListContainer.DESCRIPTION)
+    public static class BlobstoreListContainerCommand extends JcloudsCommand {
+
         @Override
-        protected void doCall(BlobStore blobStore, String indent) throws Exception {
+        protected CloudExplorerSupport
+        getExplorer(LocalManagementContext mgmt, boolean allLocations, String location, boolean autoconfirm) {
             if (arguments.isEmpty()) {
                 throw new ParseException("Requires at least one container-name arguments");
             }
-            
-            for (String containerName : arguments) {
-                Set<? extends StorageMetadata> contents = blobStore.list(containerName);
-                stdout.println(indent+"Container "+containerName+" {");
-                for (StorageMetadata content : contents) {
-                    stdout.println(indent+"\t"+content);
-                }
-                stdout.println(indent+"}");
-            }
+            return new BlobstoreListContainer(mgmt, allLocations, location, autoconfirm, arguments);
         }
-        
+
         @Override
         public ToStringHelper string() {
             return super.string()
-                    .add("containers", arguments);
+                    .add(BlobstoreListContainer.ARGUMENT_NAME, arguments);
         }
     }
     
-    @Command(name = "blob", description = "")
-    public static class BlobstoreGetBlobCommand extends BlobstoreCommand {
-        @Option(name = { "--container" }, title = "list contents of a given container",
-                description = "")
+    @Command(name = GetBlob.NAME, description = GetBlob.DESCRIPTION)
+    public static class BlobstoreGetBlobCommand extends JcloudsCommand {
+        @Option(name = { GetBlob.CONTAINER_ARGUMENT_NAME}, description = GetBlob.CONTAINER_ARGUMENT_DESC)
         public String container;
 
-        @Option(name = { "--blob" }, title = "retrieves the blog in the given container",
-                description = "")
+        @Option(name = { GetBlob.BLOB_ARGUMENT_NAME}, description = GetBlob.BLOB_ARGUMENT_DESC)
         public String blob;
 
         @Override
-        protected void doCall(BlobStore blobStore, String indent) throws Exception {
+        protected CloudExplorerSupport
+        getExplorer(LocalManagementContext mgmt, boolean allLocations, String location, boolean autoconfirm) {
             failIfArguments();
-            Blob content = blobStore.getBlob(container, blob);
-            stdout.println(indent+"Blob "+container+" : " +blob +" {");
-            stdout.println(indent+"\tHeaders {");
-            for (Map.Entry<String, String> entry : content.getAllHeaders().entries()) {
-                stdout.println(indent+"\t\t"+entry.getKey() + " = " + entry.getValue());
-            }
-            stdout.println(indent+"\t}");
-            stdout.println(indent+"\tmetadata : "+content.getMetadata());
-            stdout.println(indent+"\tpayload : "+Streams.readFullyString(content.getPayload().openStream()));
-            stdout.println(indent+"}");
+            return new GetBlob(mgmt, allLocations, location, autoconfirm, container, blob);
         }
-        
+
         @Override
         public ToStringHelper string() {
             return super.string()

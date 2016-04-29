@@ -16,29 +16,31 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.karaf.commands;
+package org.apache.brooklyn.karaf.commands.cloud.explorer;
 
-import org.apache.karaf.shell.api.action.Action;
+import org.apache.brooklyn.launcher.command.support.CloudExplorerSupport.BlobstoreListContainer;
 import org.apache.karaf.shell.api.action.Argument;
 import org.apache.karaf.shell.api.action.Command;
-import org.apache.karaf.shell.api.action.Option;
 import org.apache.karaf.shell.api.action.lifecycle.Service;
 
-@Command(scope = "brooklyn", name = "catalog", description = "Manage the local brooklyn catalog")
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.apache.brooklyn.karaf.commands.cloud.explorer.AbstractCloudExplorerCommand.CLOUD_EXPLORER_SCOPE;
+
+@Command(scope = CLOUD_EXPLORER_SCOPE, name = BlobstoreListContainer.NAME, description = BlobstoreListContainer.DESCRIPTION)
 @Service
-public class Catalog implements Action {
+public class ListContainerCommand extends AbstractCloudExplorerCommand {
 
-    @Option(name = "-o", aliases = { "--option" }, description = "An option to the command", required = false, multiValued = false)
-    private String option;
-
-    @Argument(name = "argument", description = "Argument to the command", required = false, multiValued = false)
-    private String argument;
+    @Argument(name = BlobstoreListContainer.ARGUMENT_NAME, description = BlobstoreListContainer.ARGUMENT_DESC,
+        required = true, multiValued = true)
+    private List<String> imageIds = new ArrayList<>();
 
     @Override
     public Object execute() throws Exception {
-         System.out.println("Executing command catalog");
-         System.out.println("Option: " + option);
-         System.out.println("Argument: " + argument);
-         return null;
+
+        final BlobstoreListContainer getImage = new BlobstoreListContainer(getManagementContext(), allLocations,
+            location, autoConfirm, imageIds);
+        return getImage.call();
     }
 }
