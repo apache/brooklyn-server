@@ -92,8 +92,8 @@ public abstract class AbstractLocationResolver implements LocationResolver {
         }
 
         return LocationSpec.create(getLocationType())
-            .configure(config.getAllConfig())
-            .configure(LocationConfigUtils.finalAndOriginalSpecs(spec, locationFlags, globalProperties, namedLocation));        
+                .configure(config.getAllConfig())
+                .configure(LocationConfigUtils.finalAndOriginalSpecs(spec, locationFlags, globalProperties, namedLocation));
     }
 
     protected ConfigBag extractConfig(Map<?,?> locationFlags, String spec, LocationRegistry registry) {

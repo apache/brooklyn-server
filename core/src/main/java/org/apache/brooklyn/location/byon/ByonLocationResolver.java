@@ -108,7 +108,7 @@ public class ByonLocationResolver extends AbstractLocationResolver {
         defaultProps.addIfNotNull("user", user);
         defaultProps.addIfNotNull("port", port);
 
-        List<String> hostAddresses;
+        List<?> hostAddresses;
         
         if (hosts instanceof String) {
             if (((String) hosts).isEmpty()) {
@@ -118,7 +118,7 @@ public class ByonLocationResolver extends AbstractLocationResolver {
                         true /* numeric */, /* no quote support though */ PhraseTreatment.NOT_A_SPECIAL_CHAR, PhraseTreatment.NOT_A_SPECIAL_CHAR);
             }
         } else if (hosts instanceof Iterable) {
-            hostAddresses = ImmutableList.copyOf((Iterable<String>)hosts);
+            hostAddresses = ImmutableList.copyOf((Iterable<?>)hosts);
         } else {
             throw new IllegalArgumentException("Invalid location '"+spec+"'; at least one host must be defined");
         }

@@ -2116,12 +2116,12 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
      *   <li>userName: the username for sshing into the machine (for use if it is not a Windows system)
      * <ul>
      */
-    public MachineLocation registerMachine(ConfigBag setup) throws NoMachinesAvailableException {
+    public JcloudsMachineLocation registerMachine(ConfigBag setup) throws NoMachinesAvailableException {
         NodeMetadata node = findNodeOrThrow(setup);
         return registerMachineLocation(setup, node);
     }
 
-    protected MachineLocation registerMachineLocation(ConfigBag setup, NodeMetadata node) {
+    protected JcloudsMachineLocation registerMachineLocation(ConfigBag setup, NodeMetadata node) {
         ComputeService computeService = getComputeService(setup);
         if (isWindows(node, setup)) {
             return registerWinRmMachineLocation(computeService, node, null, Optional.<HostAndPort>absent(), setup);

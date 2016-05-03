@@ -25,6 +25,7 @@ import java.util.Set;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.RunNodesException;
+import org.jclouds.compute.domain.ComputeMetadata;
 import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.Template;
 import org.jclouds.compute.options.TemplateOptions;
@@ -34,6 +35,7 @@ import org.testng.annotations.BeforeMethod;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
@@ -65,6 +67,9 @@ public abstract class AbstractJcloudsStubbedLiveTest extends AbstractJcloudsLive
             }
             return result;
         }
+        public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<ComputeMetadata> filter) {
+            return ImmutableSet.of();
+        }
         public void destroyNode(String id) {
             destroyed.add(id);
         }
@@ -83,6 +88,10 @@ public abstract class AbstractJcloudsStubbedLiveTest extends AbstractJcloudsLive
             return nodeCreator.createNodesInGroup(group, count, template);
         }
         @Override
+        public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<ComputeMetadata> filter) {
+            return nodeCreator.listNodesDetailsMatching(filter);
+        }
+        @Override
         public void destroyNode(String id) {
             nodeCreator.destroyNode(id);
         }
@@ -99,21 +108,30 @@ public abstract class AbstractJcloudsStubbedLiveTest extends AbstractJcloudsLive
             throw new UnsupportedOperationException();
         }
     }
-    
+
+    public static class StubbedComputeServiceRegistry implements ComputeServiceRegistry {
+        private final NodeCreator nodeCreator;
+        
+        public StubbedComputeServiceRegistry(NodeCreator nodeCreator) {
+            this.nodeCreator = nodeCreator;
+        }
+        @Override
+        public ComputeService findComputeService(ConfigBag conf, boolean allowReuse) {
+            ComputeService delegate = ComputeServiceRegistryImpl.INSTANCE.findComputeService(conf, allowReuse);
+            return new StubbedComputeService(delegate, nodeCreator);
+        }
+    }
+
     protected NodeCreator nodeCreator;
+    protected ComputeServiceRegistry computeServiceRegistry;
     
     @BeforeMethod(alwaysRun=true)
     @Override
     public void setUp() throws Exception {
         super.setUp();
         nodeCreator = newNodeCreator();
-        ComputeServiceRegistry computeServiceRegistry = new ComputeServiceRegistry() {
-            @Override
-            public ComputeService findComputeService(ConfigBag conf, boolean allowReuse) {
-                ComputeService delegate = ComputeServiceRegistryImpl.INSTANCE.findComputeService(conf, allowReuse);
-                return new StubbedComputeService(delegate, nodeCreator);
-            }
-        };
+        computeServiceRegistry = new StubbedComputeServiceRegistry(nodeCreator);
+
         jcloudsLocation = (JcloudsLocation) managementContext.getLocationRegistry().getLocationManaged(
                 getLocationSpec(), 
                 jcloudsLocationConfig(ImmutableMap.<Object, Object>of(
