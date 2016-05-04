@@ -68,9 +68,17 @@ public class StubHostLocation extends AbstractLocation implements MachineProvisi
     @Override
     public void init() {
         super.init();
-        dockerHost = (StubHost) checkNotNull(getConfig(OWNER), "owner");
-        machine = (SshMachineLocation) checkNotNull(getConfig(MACHINE), "machine");
-        addReloadListener();
+        
+        // TODO BasicLocationRebindsupport.addCustoms currently calls init() unfortunately!
+        // Don't checkNotNull in that situation - it could be this location is orphaned!
+        if (isRebinding()) {
+            dockerHost = (StubHost) config().get(OWNER);
+            machine = config().get(MACHINE);
+        } else {
+            dockerHost = (StubHost) checkNotNull(getConfig(OWNER), "owner");
+            machine = (SshMachineLocation) checkNotNull(getConfig(MACHINE), "machine");
+            addReloadListener();
+        }
     }
     
     @Override

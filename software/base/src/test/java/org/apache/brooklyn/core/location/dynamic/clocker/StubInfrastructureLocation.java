@@ -63,8 +63,15 @@ public class StubInfrastructureLocation extends AbstractLocation implements Mach
     @Override
     public void init() {
         super.init();
-        infrastructure = (StubInfrastructure) checkNotNull(getConfig(OWNER), "owner");
-        addReloadListener();
+        
+        // TODO BasicLocationRebindsupport.addCustoms currently calls init() unfortunately!
+        // Don't checkNotNull in that situation - it could be this location is orphaned!
+        if (isRebinding()) {
+            infrastructure = (StubInfrastructure) getConfig(OWNER);
+        } else {
+            infrastructure = (StubInfrastructure) checkNotNull(getConfig(OWNER), "owner");
+            addReloadListener();
+        }
     }
     
     @Override
