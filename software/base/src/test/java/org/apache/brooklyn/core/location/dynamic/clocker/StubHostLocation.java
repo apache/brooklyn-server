@@ -28,6 +28,7 @@ import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.location.LocationDefinition;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
+import org.apache.brooklyn.api.mgmt.ManagementContext.PropertiesReloadListener;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
@@ -69,6 +70,7 @@ public class StubHostLocation extends AbstractLocation implements MachineProvisi
         super.init();
         dockerHost = (StubHost) checkNotNull(getConfig(OWNER), "owner");
         machine = (SshMachineLocation) checkNotNull(getConfig(MACHINE), "machine");
+        addReloadListener();
     }
     
     @Override
@@ -81,6 +83,15 @@ public class StubHostLocation extends AbstractLocation implements MachineProvisi
         if (getConfig(LOCATION_NAME) != null) {
             register();
         }
+        addReloadListener();
+    }
+
+    @SuppressWarnings("serial")
+    private void addReloadListener() {
+        getManagementContext().addPropertiesReloadListener(new PropertiesReloadListener() {
+            @Override public void reloaded() {
+                register();
+            }});
     }
 
     @Override
