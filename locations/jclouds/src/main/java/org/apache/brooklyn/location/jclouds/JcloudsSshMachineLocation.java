@@ -223,7 +223,11 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
 
     protected Optional<Image> getOptionalImage() {
       if (_image == null) {
-          _image = Optional.fromNullable(getParent().getComputeService().getImage(imageId));
+          if (imageId == null) {
+              _image = Optional.absent(); // can happen with JcloudsLocation.resumeMachine() usage
+          } else {
+              _image = Optional.fromNullable(getParent().getComputeService().getImage(imageId));
+          }
       }
       return _image;
     }
