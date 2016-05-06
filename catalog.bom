@@ -1,0 +1,50 @@
+brooklyn.catalog:
+  version: 0.0.1
+  iconUrl:      https://raw.githubusercontent.com/docker-library/docs/c350af05d3fac7b5c3f6327ac82fe4d990d8729c/docker/logo.png
+
+  publish:
+    description: Resources for working with Docker containers from Apache Brooklyn
+    license_code: Apache-2.0
+    overview: README.md
+
+  items:
+  - id:           docker-engine
+    description:  The engine for running Docker containers
+    itemType:     entity
+    item:
+
+      name: Docker Engine (host)
+      type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
+
+      install.command: |
+        sudo yum -y update
+        sudo tee /etc/yum.repos.d/docker.repo <<-'EOF'
+        [dockerrepo]
+        name=Docker Repository
+        baseurl=https://yum.dockerproject.org/repo/main/centos/$releasever/
+        enabled=1
+        gpgcheck=1
+        gpgkey=https://yum.dockerproject.org/gpg
+        EOF
+        sudo yum -y install docker-engine
+
+      launch.command:       sudo service docker start
+      stop.command:         sudo service docker stop
+      checkRunning.command: sudo service docker status
+
+      provisioning.properties:
+        osFamily: centos
+        loginUser: centos
+
+  - id: docker-container
+    description: An easy way to launch a Docker container
+    itemType: entity
+    item:
+      type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
+      # TODO support DSL in name: $brooklyn:formatString("Container (%s)", $brooklyn:config("container"))
+      name: Container
+      launch.command:  $brooklyn:formatString("sudo docker run %s", $brooklyn:config("container"))
+      brooklyn.parameters:
+      - name: container
+        type: string
+
