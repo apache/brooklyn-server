@@ -22,6 +22,14 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
+
 import org.apache.brooklyn.api.internal.ApiObjectsFactory;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.entity.AbstractEntity;
@@ -32,13 +40,6 @@ import org.apache.brooklyn.core.relations.ByObjectBasicRelationSupport;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.text.Identifiers;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 
 public abstract class AbstractBrooklynObject implements BrooklynObjectInternal {
 
@@ -47,13 +48,13 @@ public abstract class AbstractBrooklynObject implements BrooklynObjectInternal {
     private boolean _legacyConstruction;
     private boolean hasWarnedOfNoManagementContextWhenPersistRequested;
 
-    @SetFromFlag(value = "id")
-    private String id = Identifiers.makeRandomId(8);
+    @SetFromFlag("id")
+    private String id = Identifiers.makeRandomId(10, Identifiers.LOWER_CASE_ALPHA, Identifiers.LOWER_CASE_ALPHA + Identifiers.NUMERIC);
 
     private String catalogItemId;
 
     /** callers (only in TagSupport) should synchronize on this for all access */
-    @SetFromFlag(value = "tags")
+    @SetFromFlag("tags")
     private final Set<Object> tags = Sets.newLinkedHashSet();
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
