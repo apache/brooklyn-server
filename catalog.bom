@@ -35,6 +35,8 @@ brooklyn.catalog:
       provisioning.properties:
         osFamily: centos
         loginUser: centos
+      # ensure docker running before starting children
+      childStartMode: foreground_late
 
   - id: docker-container
     description: An easy way to launch a Docker container

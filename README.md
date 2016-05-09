@@ -21,7 +21,3 @@ services:
 ```
 
 The implementation is as simple as possible, as you can see in the `catalog.bom` definition.
-
-TODO:
-* configure `docker-engine` to automatically start its children
-
