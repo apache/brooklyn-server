@@ -1,5 +1,5 @@
 brooklyn.catalog:
-  version: 0.0.3
+  version: 0.1.0_SNAPSHOT
   iconUrl: https://raw.githubusercontent.com/docker-library/docs/c350af05d3fac7b5c3f6327ac82fe4d990d8729c/docker/logo.png
 
   publish:
@@ -38,8 +38,8 @@ brooklyn.catalog:
       # ensure docker running before starting children
       childStartMode: foreground_late
 
-  - id: docker-container
-    description: An easy way to launch a Docker container
+  - id: docker-engine-container
+    description: An easy way to launch a Docker container, as a child of a docker-engine entity
     itemType: entity
     item:
       type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
