@@ -334,7 +334,6 @@
     <feature name="brooklyn-osgi-launcher" version="${project.version}" description="Brooklyn init">
         <feature>brooklyn-core</feature>
         <feature>brooklyn-software-base</feature>
-        <feature>brooklyn-software-cm</feature>
         <feature>brooklyn-locations-jclouds</feature>
         <bundle>mvn:org.apache.brooklyn/brooklyn-launcher-common/${project.version}</bundle>
         <bundle start-level="90">mvn:org.apache.brooklyn/brooklyn-karaf-init/${project.version}</bundle>
