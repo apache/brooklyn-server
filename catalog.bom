@@ -34,7 +34,6 @@ brooklyn.catalog:
 
       provisioning.properties:
         osFamily: centos
-        loginUser: centos
       # ensure docker running before starting children
       childStartMode: foreground_late
 
