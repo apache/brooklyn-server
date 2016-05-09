@@ -151,6 +151,12 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
      */
     protected final Object mutex = new Object[0];
 
+    /** @deprecated since 0.10.0 uses DefaultRemovalStrategy instead. Maintained for rebinding */
+    @Deprecated
+    private static final Function<Collection<Entity>, Entity> defaultRemovalStrategy = new Function<Collection<Entity>, Entity>() {
+        @Override public Entity apply(Collection<Entity> contenders) { return null; }
+    };
+
     public static class DefaultRemovalStrategy extends RemovalStrategy {
         @Nullable
         @Override

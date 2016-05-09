@@ -28,12 +28,10 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 
-import com.google.common.reflect.TypeToken;
-
 public class SensorMatchingRemovalStrategy<T> extends RemovalStrategy {
-    public static final ConfigKey<AttributeSensor> SENSOR = ConfigKeys.newConfigKey(new TypeToken<AttributeSensor>() {}, "sensor.matching.sensor");
+    public static final ConfigKey<AttributeSensor> SENSOR = ConfigKeys.newConfigKey(AttributeSensor.class, "sensor.matching.sensor");
     // Would be nice to use ConfigKey<T>, but TypeToken<T> cannot be instantiated at runtime
-    public static final ConfigKey<Object> DESIRED_VALUE = ConfigKeys.newConfigKey(new TypeToken<Object>() {}, "sensor.matching.value");
+    public static final ConfigKey<Object> DESIRED_VALUE = ConfigKeys.newConfigKey(Object.class, "sensor.matching.value");
 
     @Nullable
     @Override
