@@ -209,7 +209,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     public static final String ROOT_USERNAME = "root";
     /** these userNames are known to be the preferred/required logins in some common/default images
      *  where root@ is not allowed to log in */
-    public static final List<String> ROOT_ALIASES = ImmutableList.of("ubuntu", "ec2-user");
+    public static final List<String> ROOT_ALIASES = ImmutableList.of("ubuntu", "centos", "ec2-user");
     public static final List<String> COMMON_USER_NAMES_TO_TRY = ImmutableList.<String>builder().add(ROOT_USERNAME).addAll(ROOT_ALIASES).add("admin").build();
 
     private static final int NOTES_MAX_LENGTH = 1000;
