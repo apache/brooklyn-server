@@ -1,0 +1,268 @@
+brooklyn.catalog:
+  version: "2.0.0-SNAPSHOT"
+  iconUrl: https://raw.githubusercontent.com/docker-library/docs/c350af05d3fac7b5c3f6327ac82fe4d990d8729c/docker/logo.png
+
+  publish:
+    description: Resources for working with Docker containers from Apache Brooklyn
+    license_code: Apache-2.0
+    overview: README.md
+
+  items:
+
+  - id:  docker-swarm
+    name: "A Docker Swarm with Etcd Discovery and built-in CA server"
+    description: |
+      Creates a Swarm of Docker engines, of configurable initial size, using an etcd cluster for discovery.
+    itemType: template
+    item:
+      services:
+      - type: org.apache.brooklyn.entity.stock.BasicApplication
+        brooklyn.parameters:
+        - name: swarm.initial.size
+          label: Initial Swarm Size
+          description: Size of the swarm when created initially
+          type: java.lang.Integer
+          default: 1
+        - name: etcd.initial.size
+          label: Initial Etcd Size
+          description: Size of the etcd when created initially
+          type: java.lang.Integer
+          default: 1
+        brooklyn.enrichers:
+        - type: org.apache.brooklyn.enricher.stock.Propagator
+          brooklyn.config:
+            uniqueTag: swarm-url-propagator
+            producer: $brooklyn:child("swarm-cluster")
+            propagating:
+            - $brooklyn:sensor("swarm.url")
+        brooklyn.children:
+        - type: ca-server
+          id: ca-server
+          name: "ca-server"
+        - type: etcd-cluster
+          id: etcd-cluster
+          name: "etcd-cluster"
+          initialSize: $brooklyn:config("etcd.initial.size")
+        - type: docker-swarm-cluster
+          id: swarm-cluster
+          name: "swarm-cluster"
+          brooklyn.config:
+            discovery.url:   $brooklyn:component("etcd-cluster").attributeWhenReady("etcd.authority")
+            ca.request.root: $brooklyn:component("ca-server").attributeWhenReady("main.uri")
+            resources.preInstall.latch: $brooklyn:component("ca-server").attributeWhenReady("service.isUp")
+            launch.latch:    $brooklyn:component("etcd-cluster").attributeWhenReady("service.isUp")
+
+
+  - id:  docker-swarm-cluster
+    name: "Docker Swarm Cluster"
+    description: |
+      Creates a Swarm of Docker engines, of configurable initial size,
+      and using a pre-existing discovery mechanism.
+    itemType: entity
+    item:
+      type: org.apache.brooklyn.entity.stock.BasicStartable
+      brooklyn.parameters:
+      - name: swarm.initial.size
+        label: Initial Swarm Size
+        description: Size of the swarm when created initially
+        type: java.lang.Integer
+        default: 1
+      - name: discovery.url
+        label: Discovery URL
+        description: URL of a provided discovery mechanism for the swarm
+        type: java.lang.String
+      - name: ca.cert.url
+        label: CA Certificate URL
+        description: Location of the CA certificate to install for authentication of this engine
+      - name: node.cert.url
+        label: Certificate URL
+        description: Location of the public key certificate to install for this engine
+      - name: private.key.url
+        label: Private Key URL
+        description: Location of the private key to install for authentication of this engine
+
+      brooklyn.config:
+        manager.port: 3376
+
+      brooklyn.enrichers:
+      - type: org.apache.brooklyn.enricher.stock.Transformer
+        brooklyn.config:
+          uniqueTag: swarm-url-publisher
+          enricher.producer: $brooklyn:component("swarm-manager")
+          enricher.sourceSensor: $brooklyn:sensor("host.address")
+          enricher.targetSensor: $brooklyn:sensor("swarm.url")
+          enricher.targetValue:
+            $brooklyn:formatString:
+            - "tcp://%s:%d"
+            - $brooklyn:component("swarm-manager").attributeWhenReady("host.address")
+            - $brooklyn:config("manager.port")
+
+      brooklyn.children:
+      - type: docker-swarm-manager
+        id: swarm-manager
+        name: "swarm-manager"
+      - type: cluster
+        id: docker-cluster
+        name: "docker-swarm-nodes"
+        initialSize: $brooklyn:config("swarm.initial.size")
+        memberSpec:
+          $brooklyn:entitySpec:
+            type: docker-swarm-node
+            id: swarm-node
+            name: "swarm-node"
+
+
+  - id: docker-swarm-engine
+    name: "Docker Swarm Engine"
+    description: |
+      A docker-engine customised for Swarm
+    itemType: entity
+    item:
+      type: docker-engine
+
+      brooklyn.parameters:
+      - name: tls.port
+        description: The docker TLS port to listen on.
+        type: port
+        default: 2376
+
+      brooklyn.config:
+        tls.port: 2376
+        provisioning.properties:
+          osFamily: centos
+
+      env:
+        CA_CERT_ROOT: $brooklyn:config("ca.request.root")
+        CA_CERT_URL: $brooklyn:config("ca.cert.url")
+        NODE_CERT_URL: $brooklyn:config("node.cert.url")
+        PRIV_KEY_URL: $brooklyn:config("private.key.url")
+        HOST_ADDRESS: $brooklyn:attributeWhenReady("host.address")
+        TLS_PORT: $brooklyn:config("tls.port")
+
+      pre.install.command: |
+        mkdir -p ~/.certs
+        sudo yum install -y curl
+        function failwith() {
+          local err=$?
+          1>&2 echo $1
+          exit $err
+        }
+        function getcert() {
+          local url=$1
+          local file=$2
+          curl -L ${url} --output ${file} --write-out "%{http_code}"  | grep 200 || failwith "${name} not received from CA"
+        }
+        if [ "${CA_CERT_ROOT}" ] ; then
+            echo "Requesting creation of certificates from CA"
+            curl -X POST ${CA_CERT_ROOT}/generate/${HOST_ADDRESS}
+            echo "Requesting generated certificates from CA"
+            getcert ${CA_CERT_ROOT}/cert/${HOST_ADDRESS}/ca.pem    ~/.certs/ca.pem
+            getcert ${CA_CERT_ROOT}/cert/${HOST_ADDRESS}/cert.pem  ~/.certs/cert.pem
+            getcert ${CA_CERT_ROOT}/cert/${HOST_ADDRESS}/key.pem   ~/.certs/key.pem
+            echo "Certifcates for ${HOST_ADDRESS} received"
+        else
+            echo "Downloading certificates from configuration settings"
+            getcert ${CA_CERT_URL}    ~/.certs/ca.pem
+            getcert ${NODE_CERT_URL}  ~/.certs/cert.pem
+            getcert ${PRIV_KEY_URL}   ~/.certs/key.pem
+        fi
+        # TODO verify certs with openssl
+        test -f .certs/ca.pem || failwith "Failed to download ca.pem"
+        test -f .certs/cert.pem || failwith "Failed to download cert.pem"
+        test -f .certs/key.pem || failwith "Failed to download key.pem"
+
+      customize.command: |
+         sudo mkdir -p /etc/systemd/system/docker.service.d
+         sudo tee /etc/systemd/system/docker.service.d/docker.conf <<-EOF
+         [Service]
+         ExecStart=
+         ExecStart=/usr/bin/docker daemon -D --tlsverify --tlscacert=${HOME}/.certs/ca.pem \
+           --tlscert=${HOME}/.certs/cert.pem --tlskey=${HOME}/.certs/key.pem -H tcp://${HOST_ADDRESS}:${TLS_PORT}
+         EOF
+         sudo systemctl daemon-reload
+
+      checkRunning.command: |
+         sudo service docker status | fgrep '(running)'
+
+
+  - id: docker-swarm-node
+    name: "Docker Swarm Node"
+    description:  |
+      A Docker Swarm member node
+    itemType: entity
+    item:
+      type: docker-swarm-engine
+
+      brooklyn.parameters:
+      - name: tls.port
+        description: The docker TLS port to listen on.
+        type: port
+        default: 2376
+
+      brooklyn.config:
+        tls.port: 2376
+
+      env:
+        DISCOVERY_URL: $brooklyn:config("discovery.url")
+        HOST_ADDRESS: $brooklyn:attributeWhenReady("host.address")
+        HOST_NAME: $brooklyn:attributeWhenReady("host.name")
+        CA_CERT_ROOT: $brooklyn:config("ca.request.root")
+        CA_CERT_URL: $brooklyn:config("ca.cert.url")
+        NODE_CERT_URL: $brooklyn:config("node.cert.url")
+        PRIV_KEY_URL: $brooklyn:config("private.key.url")
+        TLS_PORT: $brooklyn:config("tls.port")
+
+      # TODO - decide if it's ok to publicise the HOST_NAME below and in the manager, from a security point of view.
+      post.launch.command: |
+         TLS_OPTIONS="--tlsverify --tlscacert=${HOME}/.certs/ca.pem --tlscert=${HOME}/.certs/cert.pem --tlskey=${HOME}/.certs/key.pem"
+         sudo docker -H tcp://${HOST_ADDRESS}:${TLS_PORT} ${TLS_OPTIONS} run -d --name swarm-${HOST_NAME} \
+           swarm join --addr=${HOST_ADDRESS}:${TLS_PORT} ${DISCOVERY_URL}
+
+      stop.command: |
+         sudo docker stop swarm-${HOST_NAME}
+         sudo service docker stop
+
+
+  - id: docker-swarm-manager
+    name: "Docker Swarm Manager"
+    description:  The Swarm manager engine for running Docker containers
+    itemType: entity
+    item:
+      type: docker-swarm-engine
+
+      brooklyn.parameters:
+      - name: tls.port
+        description: The docker TLS port to listen on.
+        type: port
+        default: 2376
+      - name: manager.port
+        label: Manager Port
+        description: External port of the swarm manager
+        type: java.lang.Integer
+        default: 3376
+
+      brooklyn.config:
+        tls.port: 2376
+        manager.port: 3376
+
+      env:
+        DISCOVERY_URL: $brooklyn:config("discovery.url")
+        HOST_ADDRESS: $brooklyn:attributeWhenReady("host.address")
+        HOST_NAME: $brooklyn:attributeWhenReady("host.name")
+        CA_CERT_ROOT:  $brooklyn:config("ca.request.root")
+        CA_CERT_URL: $brooklyn:config("ca.cert.url")
+        NODE_CERT_URL: $brooklyn:config("node.cert.url")
+        PRIV_KEY_URL: $brooklyn:config("private.key.url")
+        TLS_PORT: $brooklyn:config("tls.port")
+        MAN_PORT: $brooklyn:config("manager.port")
+
+      post.launch.command: |
+        TLS_OPTIONS="--tlsverify --tlscacert=${HOME}/.certs/ca.pem --tlscert=${HOME}/.certs/cert.pem --tlskey=${HOME}/.certs/key.pem"
+        sudo docker -H tcp://${HOST_ADDRESS}:${TLS_PORT} ${TLS_OPTIONS} \
+          run -d -p ${MAN_PORT}:${MAN_PORT} -v ${HOME}/.certs:/certs:ro --name manager-${HOST_NAME} \
+          swarm manage --tlsverify --tlscacert=/certs/ca.pem --tlscert=/certs/cert.pem --tlskey=/certs/key.pem --host=0.0.0.0:${MAN_PORT} ${DISCOVERY_URL}
+
+      stop.command: |
+         sudo docker stop manager-${HOST_NAME}
+         sudo service docker stop
+

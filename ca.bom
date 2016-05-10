@@ -1,0 +1,142 @@
+brooklyn.catalog:
+  version: "2.0.0-SNAPSHOT"
+  iconUrl: https://raw.githubusercontent.com/docker-library/docs/c350af05d3fac7b5c3f6327ac82fe4d990d8729c/docker/logo.png
+
+
+  items:
+  - id:           ca-server
+    name:         "Certificate Authority Server"
+    description:  An X.509 Certificate Authority tool
+    itemType:     template
+
+    item:
+      name: authority
+      services:
+      - type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
+
+        brooklyn.config:
+          dontRequireTtyForSudo: true
+
+        provisioning.properties:
+          osFamily: centos
+
+        install.command: |
+          sudo yum update -y
+          sudo yum install -y openssl
+          curl --silent --location https://rpm.nodesource.com/setup | sudo bash -
+          sudo yum install -y install nodejs
+
+        env:
+          COUNTRY: $brooklyn:config("country")
+          STATE: $brooklyn:config("state")
+          LOCALITY: $brooklyn:config("locality")
+          ORGANIZATION_NAME: $brooklyn:config("organization.name")
+          ORGANIZATION_UNIT: $brooklyn:config("organization.unit")
+          COMMON_NAME: $brooklyn:config("common.name")
+          EMAIL_ADDRESS: $brooklyn:config("email.address")
+          DOMAIN: $brooklyn.config("domain")
+
+        customize.command: |
+          sudo npm install nodejs
+          sudo npm install express
+
+          cat > bash.functions <<'EO1'
+          function generate() {
+            local ca_dir=$1
+            local node_ip=$2
+
+            local node_dir=nodes/${node_ip}
+            mkdir -p ${node_dir}
+            cp ${ca_dir}/ca.pem ${node_dir}
+            cd ${node_dir}
+            echo "subjectAltName = IP:${node_ip}" > cert.cnf
+            openssl genrsa -out key.pem 2048
+            openssl req -subj "/CN=*" -new -key key.pem -out cert-req.csr
+            openssl x509 -req -days 1825 -in cert-req.csr -CA ${ca_dir}/ca.pem -CAkey ${ca_dir}/ca-priv-key.pem \
+                -CAcreateserial -out cert.pem  -extfile cert.cnf
+            # Is the line below actually doing anything?
+            openssl rsa -in key.pem -out key.pem
+          }
+          EO1
+
+          cat > generate.sh <<-'EO2'
+          #!/usr/bin/env bash
+          source bash.functions
+          generate $(pwd) $1
+          EO2
+          chmod +x generate.sh
+
+          cat > webserver.js <<'EO3'
+          var http = require('http');
+          var fs = require('fs');
+          var express = require('express');
+          const execFile = require('child_process').execFile;
+
+          const PORT=8080;
+
+          var server = express();
+          server.use('/cert', express.static('nodes'));
+
+          server.post("/generate/:nodeName", function(req, res) {
+              console.log("POST received on " + req.url);
+              console.log("Node name is " + req.params.nodeName);
+              execFile('./generate.sh', [req.params.nodeName], [], function(error, stdout, stderr) {
+                  if (error) {
+                      console.log(error);
+                      throw error;
+                  }
+                  res.writeHead(201, {'Content-Type': 'text/plain'});
+                  res.end('Created')
+              });
+          });
+
+          server.listen(PORT, function(req, res){
+              console.log("Server listening on: http://localhost:%s", PORT);
+          });
+          EO3
+
+          mkdir nodes
+
+          # Generate the CA root certificate
+          openssl genrsa -out ca-priv-key.pem 2048
+          openssl req -config /etc/pki/tls/openssl.cnf -new -key ca-priv-key.pem -x509 -days 1825 -out ca.pem <<-EOK
+          ${COUNTRY}
+          ${STATE}
+          ${LOCALITY}
+          ${ORGANIZATION_NAME}
+          ${ORGANIZATION_UNIT}
+          ${COMMON_NAME}
+          ${EMAIL_ADDRESS}
+          EOK
+
+        launch.command: |
+          nohup node webserver.js  >webserver.out 2>webserver.err & echo $! > ${PID_FILE}
+
+        checkRunning.command: |
+          ps $(cat ${PID_FILE})
+
+        stop.command:
+          kill $(cat ${PID_FILE})
+
+        brooklyn.initializers:
+        - type: org.apache.brooklyn.core.effector.ssh.SshCommandEffector
+          brooklyn.config:
+            name: generate
+            description: Generate public certificate and private key for a node
+            parameters:
+              node_IP:
+                description: IP address for the node
+            command: |
+              source bash.functions
+              generate $(pwd) ${node_IP}
+
+        brooklyn.enrichers:
+        - type: org.apache.brooklyn.enricher.stock.Transformer
+          brooklyn.config:
+            enricher.sourceSensor: $brooklyn:sensor("host.address")
+            enricher.targetSensor: $brooklyn:sensor("main.uri")
+            enricher.targetValue:
+              $brooklyn:formatString:
+              - "http://%s:%d"
+              - $brooklyn:attributeWhenReady("host.address")
+              - 8080

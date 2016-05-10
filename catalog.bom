@@ -1,5 +1,5 @@
 brooklyn.catalog:
-  version: 2.0.0_SNAPSHOT
+  version: "2.0.0-SNAPSHOT"
   iconUrl: https://raw.githubusercontent.com/docker-library/docs/c350af05d3fac7b5c3f6327ac82fe4d990d8729c/docker/logo.png
 
   publish:
@@ -16,6 +16,9 @@ brooklyn.catalog:
 
       name: Docker Engine (host)
       type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
+
+      brooklyn.config:
+        dontRequireTtyForSudo: true
 
       brooklyn.parameters:
       - name: docker.port
@@ -34,10 +37,11 @@ brooklyn.catalog:
           enricher.triggerSensors:
           - host.name
           - docker.port
+          enricher.sourceSensor: $brooklyn:sensor("docker.port")
           enricher.targetSensor: $brooklyn:sensor("docker.endpoint")
           enricher.targetValue:
             $brooklyn:formatString:
-            - "tcp://%s:%s/" 
+            - "tcp://%s:%s/"
             - $brooklyn:attributeWhenReady("host.name")
             - $brooklyn:attributeWhenReady("docker.port")
 
@@ -58,8 +62,12 @@ brooklyn.catalog:
         sudo yum -y install docker-engine
 
         echo "Enabling TCP-access to docker engine on tcp://${DOCKER_BINDADDRESS}:${DOCKER_PORT}"
-        sudo sed -i "/ExecStart/c ExecStart=/usr/bin/docker daemon -H tcp://${DOCKER_BINDADDRESS}:${DOCKER_PORT}" \
-          /usr/lib/systemd/system/docker.service
+        sudo mkdir -p /etc/systemd/system/docker.service.d
+        sudo tee /etc/systemd/system/docker.service.d/docker.conf <<-EOF
+        [Service]
+        ExecStart=
+        ExecStart=ExecStart=/usr/bin/docker daemon -H tcp://${DOCKER_BINDADDRESS}:${DOCKER_PORT}
+        EOF
         sudo systemctl daemon-reload
 
       launch.command:       sudo service docker start
@@ -68,6 +76,7 @@ brooklyn.catalog:
 
       provisioning.properties:
         osFamily: centos
+
       # ensure docker running before starting children
       childStartMode: foreground_late
 
@@ -76,6 +85,10 @@ brooklyn.catalog:
     itemType: entity
     item:
       type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
+
+      brooklyn.config:
+        dontRequireTtyForSudo: true
+
       # TODO support DSL in name: $brooklyn:formatString("Container (%s)", $brooklyn:config("container"))
       # TODO advertise container id as a sensor.
       # TODO assumes that parent entity will be docker-engine (so can lookup docker.port config; see BROOKLYN-267)
