@@ -21,6 +21,7 @@ package org.apache.brooklyn.entity.software.base;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.reflect.TypeToken;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.config.ConfigKey;
@@ -77,12 +78,15 @@ public class InboundPortsUtils {
             Set<ConfigKey<?>> configKeys = Sets.newHashSet(extraConfigKeys);
             configKeys.addAll(entity.getEntityType().getConfigKeys());
             // Also add dynamically added config keys
-            configKeys.addAll(((EntityInternal)entity).config().getBag().getAllConfigAsConfigKeyMap().keySet());
+            configKeys.addAll(((EntityInternal) entity).config().getBag().getAllConfigAsConfigKeyMap().keySet());
 
-            if (portRegex == null) portRegex = ".*\\.port"; // defaults to legacy regex if not specified
+            if (portRegex == null) {
+                portRegex = ".*\\.port"; // defaults to legacy regex if not specified
+            }
+
             Pattern portsPattern = Pattern.compile(portRegex);
             for (ConfigKey<?> k : configKeys) {
-                if (PortRange.class.isAssignableFrom(k.getType()) || portsPattern.matcher(k.getName()).matches()) {
+                if (isAssignableFromPortConfigKey(entity, k, portsPattern)) {
                     Object value = entity.config().get(k);
                     Maybe<PortRange> maybePortRange = TypeCoercions.tryCoerce(value, new TypeToken<PortRange>() {
                     });
@@ -98,4 +102,22 @@ public class InboundPortsUtils {
         log.debug("getRequiredOpenPorts detected default {} for {}", ports, entity);
         return ports;
     }
+
+    /**
+     * Checks if a configkey can be managed as a config key {@link PortRange}. The method checks if
+     * the config type or the entity config key value are assignable from the {@link PortRange}.
+     * Moreover the method retrieves true if the config key name matches with pattern.
+     *
+     * @param entity    the entity
+     * @param configKey the configkey that could be assigned as a {@link PortRange}
+     * @param portsPattern   pattern to recognized Config key {@link PortRange} of the name
+     * @return if the config key is recognized as a config key {@link PortRange}
+     */
+    private static boolean isAssignableFromPortConfigKey(Entity entity, ConfigKey<?> configKey, Pattern portsPattern) {
+        log.info(configKey.getName());
+        return PortRange.class.isAssignableFrom(configKey.getType())
+                || (entity.config().get(configKey) instanceof PortRange)
+                || (portsPattern.matcher(configKey.getName()).matches());
+    }
+
 }
