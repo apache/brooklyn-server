@@ -127,6 +127,8 @@ public abstract class CloudExplorerSupport implements Callable<Void> {
             throw new FatalConfigurationRuntimeException("Must specify one of --location or --all-locations");
         }
 
+        // TODO consider using org.apache.karaf.shell.support.table.ShellTable to replace/supplement this formatting,
+        // here and elsewhere in this class
         for (JcloudsLocation loc : locs) {
             stdout.println("Location {");
             stdout.println("\tprovider: "+loc.getProvider());
