@@ -31,8 +31,8 @@ public class DefaultTemplateCommand extends AbstractCloudExplorerCommand {
     @Override
     public Object execute() throws Exception {
 
-        final ComputeDefaultTemplate ComputeDefaultTemplate =
+        final ComputeDefaultTemplate computeDefaultTemplate =
             new ComputeDefaultTemplate(getManagementContext(), allLocations, location, autoConfirm);
-        return ComputeDefaultTemplate.call();
+        return computeDefaultTemplate.call();
     }
 }

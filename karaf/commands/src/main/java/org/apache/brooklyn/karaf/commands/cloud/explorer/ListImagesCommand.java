@@ -31,7 +31,7 @@ public class ListImagesCommand extends AbstractCloudExplorerCommand {
     @Override
     public Object execute() throws Exception {
 
-        final ListImages ListImages = new ListImages(getManagementContext(), allLocations, location, autoConfirm);
-        return ListImages.call();
+        final ListImages listImages = new ListImages(getManagementContext(), allLocations, location, autoConfirm);
+        return listImages.call();
     }
 }

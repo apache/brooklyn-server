@@ -31,8 +31,8 @@ public class ListContainersCommand extends AbstractCloudExplorerCommand {
     @Override
     public Object execute() throws Exception {
 
-        final BlobstoreListContainers BlobstoreListContainers =
+        final BlobstoreListContainers blobstoreListContainers =
             new BlobstoreListContainers(getManagementContext(), allLocations, location, autoConfirm);
-        return BlobstoreListContainers.call();
+        return blobstoreListContainers.call();
     }
 }

@@ -38,8 +38,8 @@ public class BlobCommand extends AbstractCloudExplorerCommand {
     @Override
     public Object execute() throws Exception {
 
-        final GetBlob GetBlob =
+        final GetBlob getBlob =
             new GetBlob(getManagementContext(), allLocations, location, autoConfirm, container, blob);
-        return GetBlob.call();
+        return getBlob.call();
     }
 }

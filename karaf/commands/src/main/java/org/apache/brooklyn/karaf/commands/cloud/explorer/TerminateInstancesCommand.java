@@ -40,8 +40,8 @@ public class TerminateInstancesCommand extends AbstractCloudExplorerCommand {
     @Override
     public Object execute() throws Exception {
 
-        final TerminateInstances TerminateInstances = new TerminateInstances(getManagementContext(), allLocations,
+        final TerminateInstances terminateInstances = new TerminateInstances(getManagementContext(), allLocations,
             location, autoConfirm, instanceIds);
-        return TerminateInstances.call();
+        return terminateInstances.call();
     }
 }
