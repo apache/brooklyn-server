@@ -36,6 +36,7 @@ import org.apache.brooklyn.api.location.NoMachinesAvailableException;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceProblemsLogic;
@@ -44,7 +45,6 @@ import org.apache.brooklyn.core.mgmt.rebind.RebindTestUtils;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.entity.software.base.SoftwareProcessEntityTest.MyService;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -107,10 +107,10 @@ public class SoftwareProcessEntityRebindTest extends BrooklynAppUnitTestSupport 
                 .displayName("mylocname"));
         app.start(ImmutableList.of(origLoc));
         assertEquals(origE.getAttribute(Attributes.SERVICE_STATE_EXPECTED).getState(), Lifecycle.RUNNING);
-        EntityTestUtils.assertAttributeEqualsEventually(origE, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        EntityAsserts.assertAttributeEqualsEventually(origE, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
 
         ServiceProblemsLogic.updateProblemsIndicator((EntityLocal)origE, "test", "fire");
-        EntityTestUtils.assertAttributeEqualsEventually(origE, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertAttributeEqualsEventually(origE, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
 
         newApp = (TestApplication) rebind();
         MyService newE = (MyService) Iterables.getOnlyElement(newApp.getChildren());
@@ -127,10 +127,10 @@ public class SoftwareProcessEntityRebindTest extends BrooklynAppUnitTestSupport 
                 .displayName("mylocname"));
         app.start(ImmutableList.of(origLoc));
         assertEquals(origE.getAttribute(Attributes.SERVICE_STATE_EXPECTED).getState(), Lifecycle.RUNNING);
-        EntityTestUtils.assertAttributeEqualsEventually(origE, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        EntityAsserts.assertAttributeEqualsEventually(origE, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
 
         ServiceStateLogic.setExpectedState(origE, Lifecycle.ON_FIRE);
-        EntityTestUtils.assertAttributeEqualsEventually(origE, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertAttributeEqualsEventually(origE, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
 
         newApp = (TestApplication) rebind();
         MyService newE = (MyService) Iterables.getOnlyElement(newApp.getChildren());

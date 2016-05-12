@@ -21,10 +21,10 @@ package org.apache.brooklyn.entity.machine;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixtureWithApp;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
@@ -35,10 +35,10 @@ public class MachineEntityRebindTest extends RebindTestFixtureWithApp {
     public void testRebindToMachineEntity() throws Exception {
         EmptySoftwareProcess machine = origApp.createAndManageChild(EntitySpec.create(EmptySoftwareProcess.class));
         origApp.start(ImmutableList.of(origManagementContext.getLocationRegistry().getLocationManaged("localhost")));
-        EntityTestUtils.assertAttributeEqualsEventually(machine, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        EntityAsserts.assertAttributeEqualsEventually(machine, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
         rebind(false);
         Entity machine2 = newManagementContext.getEntityManager().getEntity(machine.getId());
-        EntityTestUtils.assertAttributeEqualsEventually(machine2, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        EntityAsserts.assertAttributeEqualsEventually(machine2, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
     }
 
 }

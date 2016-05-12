@@ -28,14 +28,13 @@ import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAdjuncts;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.RecordingSensorEventListener;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.enricher.stock.Enrichers;
 import org.apache.brooklyn.entity.group.BasicGroup;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -94,7 +93,7 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
         
         entity.sensors().set(NUM1, 2);
         entity.sensors().set(NUM2, 3);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, NUM3, 5);
+        EntityAsserts.assertAttributeEqualsEventually(entity, NUM3, 5);
     }
     
     @Test
@@ -107,7 +106,7 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
         
         entity.sensors().set(NUM1, 2);
         entity.sensors().set(NUM2, 3);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, NUM3, 1);
+        EntityAsserts.assertAttributeEqualsEventually(entity, NUM3, 1);
     }
     
     @Test(groups="Integration") // because takes a second
@@ -127,10 +126,10 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
         
         entity.sensors().set(NUM1, 123);
         entity.sensors().set(NUM2, 3);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, NUM3, 126);
+        EntityAsserts.assertAttributeEqualsEventually(entity, NUM3, 126);
         
         entity.sensors().set(NUM1, 2);
-        EntityTestUtils.assertAttributeEqualsContinually(entity, NUM3, 126);
+        EntityAsserts.assertAttributeEqualsContinually(entity, NUM3, 126);
     }
     
     @Test
@@ -143,7 +142,7 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
                 .build());
         
         entity2.sensors().set(NUM1, 2);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, NUM1, 2);
+        EntityAsserts.assertAttributeEqualsEventually(entity, NUM1, 2);
     }
     
     @Test
@@ -155,7 +154,7 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
                 .build());
         
         entity.sensors().set(STR1, "myval");
-        EntityTestUtils.assertAttributeEqualsEventually(entity, STR2, "myvalmysuffix");
+        EntityAsserts.assertAttributeEqualsEventually(entity, STR2, "myvalmysuffix");
     }
 
     @Test
@@ -167,7 +166,7 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
                 .build());
         
         entity.sensors().set(NUM1, 123);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, LONG1, Long.valueOf(1));
+        EntityAsserts.assertAttributeEqualsEventually(entity, LONG1, Long.valueOf(1));
     }
 
     @Test
@@ -182,7 +181,7 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
                 .build());
         
         entity.sensors().set(STR1, "myval");
-        EntityTestUtils.assertAttributeEqualsEventually(entity, STR2, "myvalmysuffix");
+        EntityAsserts.assertAttributeEqualsEventually(entity, STR2, "myvalmysuffix");
     }
 
     @Test(groups="Integration") // because takes a second
@@ -202,14 +201,14 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
 
         entity.sensors().set(STR1, "myval");
         Asserts.eventually(Suppliers.ofInstance(record), CollectionFunctionals.sizeEquals(1));
-        EntityTestUtils.assertAttributeEquals(entity, STR2, "myval");
+        EntityAsserts.assertAttributeEquals(entity, STR2, "myval");
 
         entity.sensors().set(STR1, "ignoredval");
-        EntityTestUtils.assertAttributeEqualsContinually(entity, STR2, "myval");
+        EntityAsserts.assertAttributeEqualsContinually(entity, STR2, "myval");
 
         entity.sensors().set(STR1, "myval2");
         Asserts.eventually(Suppliers.ofInstance(record), CollectionFunctionals.sizeEquals(2));
-        EntityTestUtils.assertAttributeEquals(entity, STR2, "myval2");
+        EntityAsserts.assertAttributeEquals(entity, STR2, "myval2");
 
         entity.sensors().set(STR1, "myval2");
         entity.sensors().set(STR1, "myval2");
@@ -230,12 +229,12 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
 
         entity.sensors().set(STR1, "myval");
         Asserts.eventually(Suppliers.ofInstance(record), CollectionFunctionals.sizeEquals(1));
-        EntityTestUtils.assertAttributeEquals(entity, STR2, "myval");
+        EntityAsserts.assertAttributeEquals(entity, STR2, "myval");
 
         entity.sensors().set(STR1, "myval2");
         entity.sensors().set(STR1, "myval2");
         entity.sensors().set(STR1, "myval3");
-        EntityTestUtils.assertAttributeEqualsContinually(entity, STR2, "myval3");
+        EntityAsserts.assertAttributeEqualsContinually(entity, STR2, "myval3");
         Asserts.assertThat(record.getEvents(), CollectionFunctionals.sizeEquals(3));
     }
 
@@ -247,10 +246,10 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
                 .build());
         
         entity2.sensors().set(STR1, "myval");
-        EntityTestUtils.assertAttributeEqualsEventually(entity, STR1, "myval");
+        EntityAsserts.assertAttributeEqualsEventually(entity, STR1, "myval");
         
         entity2.sensors().set(STR1, null);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, STR1, null);
+        EntityAsserts.assertAttributeEqualsEventually(entity, STR1, null);
     }
     
     @Test
@@ -261,7 +260,7 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
                 .build());
         
         entity2.sensors().set(STR1, "myval");
-        EntityTestUtils.assertAttributeEqualsEventually(entity, STR2, "myval");
+        EntityAsserts.assertAttributeEqualsEventually(entity, STR2, "myval");
     }
     
     // FIXME What is default? members? children? fail?
@@ -280,7 +279,7 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
         child1.sensors().set(NUM1, 1);
         entity.sensors().set(NUM1, 2);
         entity2.sensors().set(NUM1, 3);
-        EntityTestUtils.assertAttributeEqualsEventually(group, NUM2, 5);
+        EntityAsserts.assertAttributeEqualsEventually(group, NUM2, 5);
     }
     
     @Test
@@ -298,7 +297,7 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
         entity.sensors().set(NUM1, 1);
         child1.sensors().set(NUM1, 2);
         child2.sensors().set(NUM1, 3);
-        EntityTestUtils.assertAttributeEqualsEventually(group, NUM2, 5);
+        EntityAsserts.assertAttributeEqualsEventually(group, NUM2, 5);
     }
 
     @Test
@@ -319,15 +318,15 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
         
         entity.sensors().set(STR1, "1");
         entity2.sensors().set(STR1, "2");
-        EntityTestUtils.assertAttributeEqualsEventually(group, SET1, ImmutableSet.<Object>of("1", "2"));
+        EntityAsserts.assertAttributeEqualsEventually(group, SET1, ImmutableSet.<Object>of("1", "2"));
         
         entity.sensors().set(STR1, "3");
         entity2.sensors().set(STR1, null);
-        EntityTestUtils.assertAttributeEqualsEventually(group, SET1, ImmutableSet.<Object>of("3"));
+        EntityAsserts.assertAttributeEqualsEventually(group, SET1, ImmutableSet.<Object>of("3"));
         
         entity.sensors().set(STR1, "");
         entity2.sensors().set(STR1, "4");
-        EntityTestUtils.assertAttributeEqualsEventually(group, SET1, ImmutableSet.<Object>of("4"));
+        EntityAsserts.assertAttributeEqualsEventually(group, SET1, ImmutableSet.<Object>of("4"));
     }
 
     @Test
@@ -345,16 +344,16 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
                     }})
                 .build());
 
-        EntityTestUtils.assertAttributeEqualsEventually(group, SET1, ImmutableSet.<Object>of());
+        EntityAsserts.assertAttributeEqualsEventually(group, SET1, ImmutableSet.<Object>of());
 
         entity.sensors().set(NUM1, 1);
-        EntityTestUtils.assertAttributeEqualsEventually(group, SET1, ImmutableSet.<Object>of(1));
+        EntityAsserts.assertAttributeEqualsEventually(group, SET1, ImmutableSet.<Object>of(1));
         
         entity.sensors().set(NUM1, null);
-        EntityTestUtils.assertAttributeEqualsEventually(group, SET1, ImmutableSet.<Object>of());
+        EntityAsserts.assertAttributeEqualsEventually(group, SET1, ImmutableSet.<Object>of());
         
         entity.sensors().set(NUM1, 2);
-        EntityTestUtils.assertAttributeEqualsEventually(group, SET1, ImmutableSet.<Object>of(2));
+        EntityAsserts.assertAttributeEqualsEventually(group, SET1, ImmutableSet.<Object>of(2));
     }
 
     @Test
@@ -368,7 +367,7 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
                 .build());
         
         entity.sensors().set(NUM1, 123);
-        EntityTestUtils.assertAttributeEqualsEventually(group, LONG1, Long.valueOf(1));
+        EntityAsserts.assertAttributeEqualsEventually(group, LONG1, Long.valueOf(1));
     }
     
     @Test(groups="Integration") // because takes a second
@@ -389,10 +388,10 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
                 .build());
         
         entity.sensors().set(NUM1, 123);
-        EntityTestUtils.assertAttributeEqualsEventually(group, LONG1, Long.valueOf(123));
+        EntityAsserts.assertAttributeEqualsEventually(group, LONG1, Long.valueOf(123));
         
         entity.sensors().set(NUM1, 987654);
-        EntityTestUtils.assertAttributeEqualsContinually(group, LONG1, Long.valueOf(123));
+        EntityAsserts.assertAttributeEqualsContinually(group, LONG1, Long.valueOf(123));
     }
     @Test
     public void testUpdatingMap1() {
@@ -419,14 +418,14 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
     
     @SuppressWarnings({ "rawtypes", "unchecked" })
     protected void doUpdatingMapChecks(AttributeSensor mapSensor) {
-        EntityTestUtils.assertAttributeEqualsEventually(entity, mapSensor, MutableMap.<String,String>of());
+        EntityAsserts.assertAttributeEqualsEventually(entity, mapSensor, MutableMap.<String,String>of());
         
         entity.sensors().set(LONG1, -1L);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, mapSensor, MutableMap.<String,String>of(
+        EntityAsserts.assertAttributeEqualsEventually(entity, mapSensor, MutableMap.<String,String>of(
             LONG1.getName(), "-1 is not allowed"));
         
         entity.sensors().set(LONG1, 1L);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, mapSensor, MutableMap.<String,String>of());
+        EntityAsserts.assertAttributeEqualsEventually(entity, mapSensor, MutableMap.<String,String>of());
     }
 
     private static AttributeSensor<Object> LIST_SENSOR = Sensors.newSensor(Object.class, "sensor.list");
@@ -439,15 +438,15 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
                 .build());
         // null values ignored, and it quotes
         entity.sensors().set(LIST_SENSOR, MutableList.<String>of("a", "\"b").append(null));
-        EntityTestUtils.assertAttributeEqualsEventually(entity, TestEntity.NAME, "\"a\",\"\\\"b\"");
+        EntityAsserts.assertAttributeEqualsEventually(entity, TestEntity.NAME, "\"a\",\"\\\"b\"");
         
         // empty list causes ""
         entity.sensors().set(LIST_SENSOR, MutableList.<String>of().append(null));
-        EntityTestUtils.assertAttributeEqualsEventually(entity, TestEntity.NAME, "");
+        EntityAsserts.assertAttributeEqualsEventually(entity, TestEntity.NAME, "");
         
         // null causes null
         entity.sensors().set(LIST_SENSOR, null);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, TestEntity.NAME, null);
+        EntityAsserts.assertAttributeEqualsEventually(entity, TestEntity.NAME, null);
     }
 
     @Test
@@ -462,11 +461,11 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
             .quote(false)
             .build());
         // in this case, it should be immediately available upon adding the enricher
-        EntityTestUtils.assertAttributeEquals(entity, TestEntity.NAME, "a:\"b");
+        EntityAsserts.assertAttributeEquals(entity, TestEntity.NAME, "a:\"b");
         
         // empty list causes null here, because below the minimum
         entity.sensors().set(LIST_SENSOR, MutableList.<String>of().append(null));
-        EntityTestUtils.assertAttributeEqualsEventually(entity, TestEntity.NAME, null);
+        EntityAsserts.assertAttributeEqualsEventually(entity, TestEntity.NAME, null);
     }
 
     @Test
@@ -480,15 +479,15 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
                 .build());
         // null values ignored, and it quotes
         entity.sensors().set(LIST_SENSOR, MutableList.<String>of("a", "b"));
-        EntityTestUtils.assertAttributeEqualsEventually(entity, TestEntity.NAME, "a,b");
+        EntityAsserts.assertAttributeEqualsEventually(entity, TestEntity.NAME, "a,b");
         
         // empty list causes ""
         entity.sensors().set(LIST_SENSOR, MutableList.<String>of("x"));
-        EntityTestUtils.assertAttributeEqualsEventually(entity, TestEntity.NAME, null);
+        EntityAsserts.assertAttributeEqualsEventually(entity, TestEntity.NAME, null);
         
         // null causes null
         entity.sensors().set(LIST_SENSOR, MutableList.<String>of("a", "b", "c", "d", "e"));
-        EntityTestUtils.assertAttributeEqualsEventually(entity, TestEntity.NAME, "a,b,c,d");
+        EntityAsserts.assertAttributeEqualsEventually(entity, TestEntity.NAME, "a,b,c,d");
     }
 
 

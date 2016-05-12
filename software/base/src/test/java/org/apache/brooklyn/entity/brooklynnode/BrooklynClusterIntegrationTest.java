@@ -23,11 +23,9 @@ import java.util.List;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
-import org.apache.brooklyn.entity.brooklynnode.BrooklynCluster;
-import org.apache.brooklyn.entity.brooklynnode.BrooklynNode;
 import org.apache.brooklyn.entity.brooklynnode.BrooklynNode.ExistingFileBehaviour;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.os.Os;
@@ -88,10 +86,10 @@ public class BrooklynClusterIntegrationTest extends BrooklynAppUnitTestSupport {
         Entity brooklynNode = Iterables.find(cluster.getMembers(), Predicates.instanceOf(BrooklynNode.class));
         LOG.info("started "+app+" containing "+cluster+" for "+JavaClassNames.niceClassAndMethod());
 
-        EntityTestUtils.assertAttributeEqualsEventually(cluster, BrooklynNode.SERVICE_UP, true);
-        EntityTestUtils.assertAttributeEqualsEventually(brooklynNode, BrooklynNode.SERVICE_UP, true);
+        EntityAsserts.assertAttributeEqualsEventually(cluster, BrooklynNode.SERVICE_UP, true);
+        EntityAsserts.assertAttributeEqualsEventually(brooklynNode, BrooklynNode.SERVICE_UP, true);
 
         cluster.stop();
-        EntityTestUtils.assertAttributeEquals(cluster, BrooklynNode.SERVICE_UP, false);
+        EntityAsserts.assertAttributeEquals(cluster, BrooklynNode.SERVICE_UP, false);
     }    
 }

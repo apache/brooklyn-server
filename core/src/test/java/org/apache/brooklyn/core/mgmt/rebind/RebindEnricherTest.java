@@ -36,6 +36,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.location.SimulatedLocation;
@@ -46,7 +47,6 @@ import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.enricher.stock.Enrichers;
 import org.apache.brooklyn.entity.group.DynamicCluster;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.text.Identifiers;
@@ -93,7 +93,7 @@ public class RebindEnricherTest extends RebindTestFixtureWithApp {
         TestEntity newEntity = (TestEntity) Iterables.find(newApp.getChildren(), Predicates.instanceOf(TestEntity.class));
 
         newEntity.sensors().set(METRIC1, "myval");
-        EntityTestUtils.assertAttributeEqualsEventually(newApp, METRIC1, "myval");
+        EntityAsserts.assertAttributeEqualsEventually(newApp, METRIC1, "myval");
     }
 
     @Test
@@ -107,7 +107,7 @@ public class RebindEnricherTest extends RebindTestFixtureWithApp {
         TestEntity newEntity = (TestEntity) Iterables.find(newApp.getChildren(), Predicates.instanceOf(TestEntity.class));
 
         newEntity.sensors().set(METRIC1, "myval");
-        EntityTestUtils.assertAttributeEqualsEventually(newApp, METRIC1, "myval");
+        EntityAsserts.assertAttributeEqualsEventually(newApp, METRIC1, "myval");
     }
 
     @Test
@@ -121,7 +121,7 @@ public class RebindEnricherTest extends RebindTestFixtureWithApp {
         TestEntity newEntity = (TestEntity) Iterables.find(newApp.getChildren(), Predicates.instanceOf(TestEntity.class));
 
         newEntity.sensors().set(METRIC1, "myval");
-        EntityTestUtils.assertAttributeEqualsEventually(newApp, METRIC2, "myval");
+        EntityAsserts.assertAttributeEqualsEventually(newApp, METRIC2, "myval");
     }
 
     @SuppressWarnings("unchecked")
@@ -139,7 +139,7 @@ public class RebindEnricherTest extends RebindTestFixtureWithApp {
 
         newEntity.sensors().set(METRIC1, "myval");
         newEntity.sensors().set(METRIC2, "myval2");
-        EntityTestUtils.assertAttributeEventually(newApp, METRIC2, Predicates.or(Predicates.equalTo("myval,myval2"), Predicates.equalTo("myval2,myval")));
+        EntityAsserts.assertAttributeEventually(newApp, METRIC2, Predicates.or(Predicates.equalTo("myval,myval2"), Predicates.equalTo("myval2,myval")));
     }
 
     @Test
@@ -162,7 +162,7 @@ public class RebindEnricherTest extends RebindTestFixtureWithApp {
         for (Entity member : newCluster.getMembers()) {
             ((EntityInternal)member).sensors().set(METRIC1, "myval"+(i++));
         }
-        EntityTestUtils.assertAttributeEventually(newApp, METRIC2, Predicates.or(Predicates.equalTo("myval1,myval2"), Predicates.equalTo("myval2,myval1")));
+        EntityAsserts.assertAttributeEventually(newApp, METRIC2, Predicates.or(Predicates.equalTo("myval1,myval2"), Predicates.equalTo("myval2,myval1")));
     }
     
     @Test

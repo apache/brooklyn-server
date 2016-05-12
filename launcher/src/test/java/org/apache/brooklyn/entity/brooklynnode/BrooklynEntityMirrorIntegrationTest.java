@@ -21,8 +21,8 @@ package org.apache.brooklyn.entity.brooklynnode;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.test.HttpTestUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
@@ -35,15 +35,12 @@ import org.testng.annotations.Test;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestApplication;
-import org.apache.brooklyn.entity.brooklynnode.BrooklynEntityMirror;
 import org.apache.brooklyn.launcher.BrooklynWebServer;
-import org.apache.brooklyn.rest.filter.BrooklynPropertiesSecurityFilter;
 
 /**
  * Test for EntityMirror, launching an in-memory server and ensuring we can mirror.
@@ -122,15 +119,15 @@ public class BrooklynEntityMirrorIntegrationTest {
                 getBaseUri()+"/v1/applications/"+serviceId+"/entities/"+serviceId)
         );
 
-        EntityTestUtils.assertAttributeEqualsEventually(mirror, TestApplication.MY_ATTRIBUTE, "austria");
-        EntityTestUtils.assertAttributeEqualsEventually(mirror, BrooklynEntityMirror.MIRROR_CATALOG_ITEM_ID, catalogItemId);
+        EntityAsserts.assertAttributeEqualsEventually(mirror, TestApplication.MY_ATTRIBUTE, "austria");
+        EntityAsserts.assertAttributeEqualsEventually(mirror, BrooklynEntityMirror.MIRROR_CATALOG_ITEM_ID, catalogItemId);
         assertTrue(mirror.getAttribute(BrooklynEntityMirror.MIRROR_SUMMARY) != null, "entity summary is null");
         log.info("Sensors mirrored are: "+((EntityInternal)mirror).getAllAttributes());
         
         serverApp.sensors().set(TestApplication.MY_ATTRIBUTE, "bermuda");
         serverApp.setCatalogItemId(catalogItemIdGA);
-        EntityTestUtils.assertAttributeEqualsEventually(mirror, TestApplication.MY_ATTRIBUTE, "bermuda");
-        EntityTestUtils.assertAttributeEqualsEventually(mirror, BrooklynEntityMirror.MIRROR_CATALOG_ITEM_ID, catalogItemIdGA);
+        EntityAsserts.assertAttributeEqualsEventually(mirror, TestApplication.MY_ATTRIBUTE, "bermuda");
+        EntityAsserts.assertAttributeEqualsEventually(mirror, BrooklynEntityMirror.MIRROR_CATALOG_ITEM_ID, catalogItemIdGA);
 
         serverApp.stop();
         assertUnmanagedEventually(mirror);
@@ -160,11 +157,11 @@ public class BrooklynEntityMirrorIntegrationTest {
                 getBaseUri()+"/v1/applications/"+serviceId+"/entities/"+serviceId)
         );
 
-        EntityTestUtils.assertAttributeEqualsEventually(mirror, TestApplication.MY_ATTRIBUTE, "austria");
+        EntityAsserts.assertAttributeEqualsEventually(mirror, TestApplication.MY_ATTRIBUTE, "austria");
         log.info("Sensors mirrored are: "+((EntityInternal)mirror).getAllAttributes());
         
         serverApp.sensors().set(TestApplication.MY_ATTRIBUTE, "bermuda");
-        EntityTestUtils.assertAttributeEqualsEventually(mirror, TestApplication.MY_ATTRIBUTE, "bermuda");
+        EntityAsserts.assertAttributeEqualsEventually(mirror, TestApplication.MY_ATTRIBUTE, "bermuda");
 
         serverApp.stop();
         assertUnmanagedEventually(mirror);

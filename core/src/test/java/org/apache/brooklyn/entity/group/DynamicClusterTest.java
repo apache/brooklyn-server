@@ -49,6 +49,7 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.RecordingSensorEventListener;
 import org.apache.brooklyn.core.entity.factory.EntityFactory;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
@@ -63,7 +64,6 @@ import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.collections.QuorumCheck.QuorumChecks;
@@ -169,7 +169,7 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
                 .configure(DynamicCluster.INITIAL_SIZE, 0));
         cluster.start(ImmutableList.of(loc));
         
-        EntityTestUtils.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        EntityAsserts.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
         assertTrue(cluster.getAttribute(Attributes.SERVICE_UP));
     }
 
@@ -279,7 +279,7 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
         app.subscriptions().subscribe(cluster, Attributes.SERVICE_STATE_ACTUAL, r);
 
         cluster.start(ImmutableList.of(loc));
-        EntityTestUtils.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        EntityAsserts.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
         for (SensorEvent<Lifecycle> evt: r.getEvents()) {
             if (evt.getValue()==Lifecycle.ON_FIRE)
                 Assert.fail("Should not have published " + Lifecycle.ON_FIRE + " during normal start up: " + r.getEvents());
@@ -1020,7 +1020,7 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
                 .configure(DynamicCluster.INITIAL_SIZE, 2));
         cluster.start(ImmutableList.of(loc));
         
-        EntityTestUtils.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        EntityAsserts.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
         assertTrue(cluster.getAttribute(Attributes.SERVICE_UP));
     }
 
@@ -1045,7 +1045,7 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
             .configure(DynamicCluster.INITIAL_SIZE, 3));
         cluster.start(ImmutableList.of(loc));
         
-        EntityTestUtils.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        EntityAsserts.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
         assertTrue(cluster.getAttribute(Attributes.SERVICE_UP));
         
         assertEquals(cluster.getMembers().size(), 3);

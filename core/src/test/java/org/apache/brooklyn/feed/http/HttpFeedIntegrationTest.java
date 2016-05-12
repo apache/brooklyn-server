@@ -27,16 +27,13 @@ import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.HttpService;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.feed.http.HttpFeed;
-import org.apache.brooklyn.feed.http.HttpPollConfig;
-import org.apache.brooklyn.feed.http.HttpValueFunctions;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -91,7 +88,7 @@ public class HttpFeedIntegrationTest extends BrooklynAppUnitTestSupport {
                         .onSuccess(HttpValueFunctions.stringContentsFunction()))
                 .build();
         
-        EntityTestUtils.assertAttributeEqualsEventually(entity, SENSOR_INT, 200);
+        EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_INT, 200);
         Asserts.succeedsEventually(new Runnable() {
             public void run() {
                 String val = entity.getAttribute(SENSOR_STRING);
@@ -121,7 +118,7 @@ public class HttpFeedIntegrationTest extends BrooklynAppUnitTestSupport {
                         .onSuccess(HttpValueFunctions.stringContentsFunction()))
                 .build();
 
-        EntityTestUtils.assertAttributeEqualsEventually(entity, SENSOR_INT, 200);
+        EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_INT, 200);
         Asserts.succeedsEventually(new Runnable() {
             public void run() {
                 String val = entity.getAttribute(SENSOR_STRING);
@@ -149,7 +146,7 @@ public class HttpFeedIntegrationTest extends BrooklynAppUnitTestSupport {
                         .onException(Functions.constant("Failed!")))
                 .build();
 
-        EntityTestUtils.assertAttributeEqualsEventually(entity, SENSOR_INT, 401);
+        EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_INT, 401);
         Asserts.succeedsEventually(new Runnable() {
             public void run() {
                 String val = entity.getAttribute(SENSOR_STRING);

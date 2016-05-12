@@ -26,14 +26,13 @@ import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.entity.group.BasicGroup;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
@@ -61,31 +60,31 @@ public class GroupPickUpEntitiesTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testGroupFindsElement() {
         Assert.assertEquals(group.getMembers().size(), 0);
-        EntityTestUtils.assertAttributeEquals(group, BasicGroup.GROUP_SIZE, 0);
+        EntityAsserts.assertAttributeEquals(group, BasicGroup.GROUP_SIZE, 0);
         
         final TestEntity e1 = app.createAndManageChild(EntitySpec.create(TestEntity.class));
 
-        EntityTestUtils.assertAttributeEquals(group, BasicGroup.GROUP_SIZE, 0);
+        EntityAsserts.assertAttributeEquals(group, BasicGroup.GROUP_SIZE, 0);
 
         e1.sensors().set(Startable.SERVICE_UP, true);
         e1.sensors().set(TestEntity.NAME, "bob");
 
-        EntityTestUtils.assertAttributeEqualsEventually(group, BasicGroup.GROUP_SIZE, 1);
+        EntityAsserts.assertAttributeEqualsEventually(group, BasicGroup.GROUP_SIZE, 1);
         Asserts.assertEqualsIgnoringOrder(group.getAttribute(BasicGroup.GROUP_MEMBERS), ImmutableList.of(e1));
         
         final TestEntity e2 = app.createAndManageChild(EntitySpec.create(TestEntity.class));
 
-        EntityTestUtils.assertAttributeEquals(group, BasicGroup.GROUP_SIZE, 1);
+        EntityAsserts.assertAttributeEquals(group, BasicGroup.GROUP_SIZE, 1);
         Assert.assertEquals(group.getMembers().size(), 1);
         Assert.assertTrue(group.getMembers().contains(e1));
 
         e2.sensors().set(Startable.SERVICE_UP, true);
         e2.sensors().set(TestEntity.NAME, "fred");
 
-        EntityTestUtils.assertAttributeEquals(group, BasicGroup.GROUP_SIZE, 1);
+        EntityAsserts.assertAttributeEquals(group, BasicGroup.GROUP_SIZE, 1);
 
         e2.sensors().set(TestEntity.NAME, "BOB");
-        EntityTestUtils.assertAttributeEqualsEventually(group, BasicGroup.GROUP_SIZE, 2);
+        EntityAsserts.assertAttributeEqualsEventually(group, BasicGroup.GROUP_SIZE, 2);
         Asserts.succeedsEventually(new Runnable() {
             public void run() {
                 // must use "succeedsEventually" because size + members attributes are set sequentially in another thread; 

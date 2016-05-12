@@ -39,7 +39,6 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.BasicTask;
@@ -325,7 +324,7 @@ public class DependentConfigurationTest extends BrooklynAppUnitTestSupport {
                 .build());
 
         ServiceStateLogic.setExpectedState(entity, Lifecycle.ON_FIRE);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
         
         try {
             assertDoneEventually(t);
@@ -349,7 +348,7 @@ public class DependentConfigurationTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testAttributeWhenReadyAbortsWhenAlreadyOnFireByDefault() throws Exception {
         ServiceStateLogic.setExpectedState(entity, Lifecycle.ON_FIRE);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
         
         final Task<String> t = submit(DependentConfiguration.builder()
                 .attributeWhenReady(entity, TestEntity.NAME)

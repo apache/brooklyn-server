@@ -29,10 +29,9 @@ import java.util.regex.Pattern;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.policy.PolicySpec;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.policy.jclouds.os.CreateUserPolicy;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -110,7 +109,7 @@ public class CreateUserPolicyTest extends BrooklynAppUnitTestSupport {
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         app.start(ImmutableList.of(machine));
         
-        String creds = EntityTestUtils.assertAttributeEventuallyNonNull(entity, CreateUserPolicy.VM_USER_CREDENTIALS);
+        String creds = EntityAsserts.assertAttributeEventuallyNonNull(entity, CreateUserPolicy.VM_USER_CREDENTIALS);
         Pattern pattern = Pattern.compile("(.*) : (.*) @ (.*):(.*)");
         Matcher matcher = pattern.matcher(creds);
         assertTrue(matcher.matches());

@@ -46,6 +46,7 @@ import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.drivers.BasicEntityDriverManager;
 import org.apache.brooklyn.core.entity.drivers.ReflectiveEntityDriverFactory;
@@ -53,25 +54,16 @@ import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.location.Locations;
-import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.sensor.PortAttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
-import org.apache.brooklyn.entity.software.base.AbstractSoftwareProcessSshDriver;
-import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
-import org.apache.brooklyn.entity.software.base.EmptySoftwareProcessDriver;
-import org.apache.brooklyn.entity.software.base.EmptySoftwareProcessImpl;
-import org.apache.brooklyn.entity.software.base.SoftwareProcess;
-import org.apache.brooklyn.entity.software.base.SoftwareProcessDriver;
-import org.apache.brooklyn.entity.software.base.SoftwareProcessImpl;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.RestartSoftwareParameters;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.StopSoftwareParameters;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.RestartSoftwareParameters.RestartMachineMode;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.StopSoftwareParameters.StopMode;
 import org.apache.brooklyn.entity.software.base.lifecycle.MachineLifecycleEffectorTasksTest;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
@@ -474,7 +466,7 @@ public class SoftwareProcessEntityTest extends BrooklynAppUnitTestSupport {
         final ReleaseLatchLocation loc = mgmt.getLocationManager().createLocation(LocationSpec.create(ReleaseLatchLocation.class));
         try {
             app.start(ImmutableSet.of(loc));
-            EntityTestUtils.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+            EntityAsserts.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
     
             final Task<Void> firstStop = entity.invoke(Startable.STOP, ImmutableMap.<String, Object>of());
             // Wait until first task tries to release the location, at this point the entity's reference 
@@ -497,7 +489,7 @@ public class SoftwareProcessEntityTest extends BrooklynAppUnitTestSupport {
             });
     
             // Entity state is STOPPED even though first location is still releasing
-            EntityTestUtils.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPED);
+            EntityAsserts.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPED);
             Asserts.succeedsContinually(new Runnable() {
                 @Override
                 public void run() {
@@ -508,7 +500,7 @@ public class SoftwareProcessEntityTest extends BrooklynAppUnitTestSupport {
             loc.unblock();
 
             // After the location is released, first task ends as well.
-            EntityTestUtils.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPED);
+            EntityAsserts.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPED);
             Asserts.succeedsEventually(new Runnable() {
                 @Override
                 public void run() {
@@ -539,7 +531,7 @@ public class SoftwareProcessEntityTest extends BrooklynAppUnitTestSupport {
         final ReleaseLatchLocation loc = mgmt.getLocationManager().createLocation(LocationSpec.create(ReleaseLatchLocation.class));
         try {
             app.start(ImmutableSet.of(loc));
-            EntityTestUtils.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+            EntityAsserts.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
     
             final Task<Void> firstStop = app.invoke(Startable.STOP, ImmutableMap.<String, Object>of());
             // Wait until first task tries to release the location, at this point the entity's reference 

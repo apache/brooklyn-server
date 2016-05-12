@@ -25,15 +25,13 @@ import java.io.File;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestUtils;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestApplication;
-import org.apache.brooklyn.entity.java.VanillaJavaApp;
-import org.apache.brooklyn.entity.java.VanillaJavaAppImpl;
 import org.apache.brooklyn.entity.java.JavaOptsTest.TestingJavaOptsVanillaJavaAppImpl;
 import org.apache.brooklyn.policy.enricher.RollingTimeWindowMeanEnricher;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.time.Duration;
@@ -100,7 +98,7 @@ public class VanillaJavaAppRebindTest {
         rebind();
         VanillaJavaApp javaProcess2 = (VanillaJavaApp) Iterables.find(app.getChildren(), Predicates.instanceOf(VanillaJavaApp.class));
         
-        EntityTestUtils.assertAttributeEqualsEventually(javaProcess2, VanillaJavaApp.SERVICE_UP, true);
+        EntityAsserts.assertAttributeEqualsEventually(javaProcess2, VanillaJavaApp.SERVICE_UP, true);
     }
 
     @Test(groups="Integration")
@@ -116,7 +114,7 @@ public class VanillaJavaAppRebindTest {
         long rebindTime = System.currentTimeMillis() - starttime;
         
         VanillaJavaApp javaProcess2 = (VanillaJavaApp) Iterables.find(app.getChildren(), Predicates.instanceOf(VanillaJavaApp.class));
-        EntityTestUtils.assertAttributeEqualsEventually(javaProcess2, VanillaJavaApp.SERVICE_UP, false);
+        EntityAsserts.assertAttributeEqualsEventually(javaProcess2, VanillaJavaApp.SERVICE_UP, false);
         
         // check that it was quick (previously it hung)
         assertTrue(rebindTime < 30*1000, "rebindTime="+rebindTime);
@@ -130,20 +128,20 @@ public class VanillaJavaAppRebindTest {
 
         app.start(ImmutableList.of(loc));
 
-        EntityTestUtils.assertAttributeEventuallyNonNull(javaProcess, EnrichedVanillaJavaAppImpl.AVG1);
-        EntityTestUtils.assertAttributeEventuallyNonNull(javaProcess, EnrichedVanillaJavaAppImpl.AVG2);
+        EntityAsserts.assertAttributeEventuallyNonNull(javaProcess, EnrichedVanillaJavaAppImpl.AVG1);
+        EntityAsserts.assertAttributeEventuallyNonNull(javaProcess, EnrichedVanillaJavaAppImpl.AVG2);
         LOG.info("Got avg "+javaProcess.getAttribute(EnrichedVanillaJavaAppImpl.AVG1));
 
         rebind();
         VanillaJavaApp javaProcess2 = (VanillaJavaApp) Iterables.find(app.getChildren(), Predicates.instanceOf(VanillaJavaApp.class));
 
         // check sensors working
-        EntityTestUtils.assertAttributeChangesEventually(javaProcess2, EnrichedVanillaJavaAppImpl.PROCESS_CPU_TIME); 
+        EntityAsserts.assertAttributeChangesEventually(javaProcess2, EnrichedVanillaJavaAppImpl.PROCESS_CPU_TIME); 
         LOG.info("Avg now "+javaProcess2.getAttribute(EnrichedVanillaJavaAppImpl.AVG1));
         
         // check enrichers are functioning
-        EntityTestUtils.assertAttributeChangesEventually(javaProcess2, EnrichedVanillaJavaAppImpl.AVG1); 
-        EntityTestUtils.assertAttributeChangesEventually(javaProcess2, EnrichedVanillaJavaAppImpl.AVG2);
+        EntityAsserts.assertAttributeChangesEventually(javaProcess2, EnrichedVanillaJavaAppImpl.AVG1);
+        EntityAsserts.assertAttributeChangesEventually(javaProcess2, EnrichedVanillaJavaAppImpl.AVG2);
         LOG.info("Avg now "+javaProcess2.getAttribute(EnrichedVanillaJavaAppImpl.AVG1));
         
         // and check we don't have too many

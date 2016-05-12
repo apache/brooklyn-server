@@ -25,12 +25,12 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.sensor.BasicNotificationSensor;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.AtomicReferences;
@@ -61,11 +61,11 @@ public class SensorPropagatingEnricherTest extends BrooklynAppUnitTestSupport {
 
         // name propagated
         entity.sensors().set(TestEntity.NAME, "foo");
-        EntityTestUtils.assertAttributeEqualsEventually(app, TestEntity.NAME, "foo");
+        EntityAsserts.assertAttributeEqualsEventually(app, TestEntity.NAME, "foo");
         
         // sequence not propagated
         entity.sensors().set(TestEntity.SEQUENCE, 2);
-        EntityTestUtils.assertAttributeEqualsContinually(MutableMap.of("timeout", 100), app, TestEntity.SEQUENCE, null);
+        EntityAsserts.assertAttributeEqualsContinually(MutableMap.of("timeout", 100), app, TestEntity.SEQUENCE, null);
     }
     
     @Test
@@ -78,7 +78,7 @@ public class SensorPropagatingEnricherTest extends BrooklynAppUnitTestSupport {
                 .build());
 
         // name propagated
-        EntityTestUtils.assertAttributeEqualsEventually(app, TestEntity.NAME, "foo");
+        EntityAsserts.assertAttributeEqualsEventually(app, TestEntity.NAME, "foo");
     }
     
     @Test
@@ -92,8 +92,8 @@ public class SensorPropagatingEnricherTest extends BrooklynAppUnitTestSupport {
         entity.sensors().set(TestEntity.NAME, "foo");
         entity.sensors().set(TestEntity.SEQUENCE, 2);
         
-        EntityTestUtils.assertAttributeEqualsEventually(app, TestEntity.NAME, "foo");
-        EntityTestUtils.assertAttributeEqualsEventually(app, TestEntity.SEQUENCE, 2);
+        EntityAsserts.assertAttributeEqualsEventually(app, TestEntity.NAME, "foo");
+        EntityAsserts.assertAttributeEqualsEventually(app, TestEntity.SEQUENCE, 2);
         
         // notification-sensor propagated
         final AtomicReference<Integer> notif = new AtomicReference<Integer>();
@@ -117,7 +117,7 @@ public class SensorPropagatingEnricherTest extends BrooklynAppUnitTestSupport {
 
         entity.sensors().set(dynamicAttribute, "foo");
         
-        EntityTestUtils.assertAttributeEqualsEventually(app, dynamicAttribute, "foo");
+        EntityAsserts.assertAttributeEqualsEventually(app, dynamicAttribute, "foo");
         
         // notification-sensor propagated
         final AtomicReference<String> notif = new AtomicReference<String>();
@@ -138,11 +138,11 @@ public class SensorPropagatingEnricherTest extends BrooklynAppUnitTestSupport {
 
         // name propagated
         entity.sensors().set(TestEntity.NAME, "foo");
-        EntityTestUtils.assertAttributeEqualsEventually(app, TestEntity.NAME, "foo");
+        EntityAsserts.assertAttributeEqualsEventually(app, TestEntity.NAME, "foo");
         
         // sequence not propagated
         entity.sensors().set(TestEntity.SEQUENCE, 2);
-        EntityTestUtils.assertAttributeEqualsContinually(MutableMap.of("timeout", 100), app, TestEntity.SEQUENCE, null);
+        EntityAsserts.assertAttributeEqualsContinually(MutableMap.of("timeout", 100), app, TestEntity.SEQUENCE, null);
     }
     
     @Test
@@ -156,7 +156,7 @@ public class SensorPropagatingEnricherTest extends BrooklynAppUnitTestSupport {
 
         // name propagated as different attribute
         entity.sensors().set(TestEntity.NAME, "foo");
-        EntityTestUtils.assertAttributeEqualsEventually(app, ANOTHER_ATTRIBUTE, "foo");
+        EntityAsserts.assertAttributeEqualsEventually(app, ANOTHER_ATTRIBUTE, "foo");
     }
     
     @Test
@@ -169,11 +169,11 @@ public class SensorPropagatingEnricherTest extends BrooklynAppUnitTestSupport {
 
         // name propagated
         entity.sensors().set(TestEntity.NAME, "foo");
-        EntityTestUtils.assertAttributeEqualsEventually(app, TestEntity.NAME, "foo");
+        EntityAsserts.assertAttributeEqualsEventually(app, TestEntity.NAME, "foo");
         
         // sequence not propagated
         entity.sensors().set(TestEntity.SEQUENCE, 2);
-        EntityTestUtils.assertAttributeEqualsContinually(MutableMap.of("timeout", 100), app, TestEntity.SEQUENCE, null);
+        EntityAsserts.assertAttributeEqualsContinually(MutableMap.of("timeout", 100), app, TestEntity.SEQUENCE, null);
     }
     
     @Test
@@ -189,14 +189,14 @@ public class SensorPropagatingEnricherTest extends BrooklynAppUnitTestSupport {
 
         // name propagated as alternative sensor
         entity.sensors().set(TestEntity.NAME, "foo");
-        EntityTestUtils.assertAttributeEqualsEventually(app, ANOTHER_ATTRIBUTE, "foo");
+        EntityAsserts.assertAttributeEqualsEventually(app, ANOTHER_ATTRIBUTE, "foo");
         
         // sequence also propagated
         entity.sensors().set(TestEntity.SEQUENCE, 2);
-        EntityTestUtils.assertAttributeEqualsEventually(app, TestEntity.SEQUENCE, 2);
+        EntityAsserts.assertAttributeEqualsEventually(app, TestEntity.SEQUENCE, 2);
 
         // name not propagated as original sensor
-        EntityTestUtils.assertAttributeEqualsContinually(MutableMap.of("timeout", 100), app, TestEntity.NAME, null);
+        EntityAsserts.assertAttributeEqualsContinually(MutableMap.of("timeout", 100), app, TestEntity.NAME, null);
     }
     
     @Test
@@ -224,7 +224,7 @@ public class SensorPropagatingEnricherTest extends BrooklynAppUnitTestSupport {
                 .from(entity)
                 .build());
         entity.sensors().set(origSensor, "myval");
-        EntityTestUtils.assertAttributeEqualsEventually(app, targetSensor, "myval");
+        EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, "myval");
     }
     
     @Test
@@ -261,8 +261,8 @@ public class SensorPropagatingEnricherTest extends BrooklynAppUnitTestSupport {
                 .propagating(ImmutableMap.of(sourceSensorFromYaml, targetSensor))
                 .from(app)
                 .build());
-        EntityTestUtils.assertAttributeEqualsEventually(app, targetSensor, entity.sensors().get(TestEntity.NAME));
+        EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, entity.sensors().get(TestEntity.NAME));
         entity.sensors().set(TestEntity.NAME, "newName");
-        EntityTestUtils.assertAttributeEqualsEventually(app, targetSensor, "newName");
+        EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, "newName");
     }
 }

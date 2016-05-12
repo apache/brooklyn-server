@@ -31,6 +31,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.EffectorTasks;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.location.SimulatedLocation;
@@ -38,7 +39,6 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -76,7 +76,7 @@ public class EnricherWithDeferredSupplierTest extends BrooklynAppUnitTestSupport
                 .from(new EntityDeferredSupplier("myproducer").newTask())
                 .build());
 
-        EntityTestUtils.assertAttributeEqualsEventually(target, sensor, 3);
+        EntityAsserts.assertAttributeEqualsEventually(target, sensor, 3);
     }
     
     // TODO This is a cut-down version of DslComponent, from the camp project

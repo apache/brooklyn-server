@@ -25,6 +25,7 @@ import java.util.concurrent.Callable;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
@@ -33,7 +34,6 @@ import org.apache.brooklyn.entity.software.base.SoftwareProcessEntityTest.MyServ
 import org.apache.brooklyn.entity.software.base.SoftwareProcessEntityTest.MyServiceImpl;
 import org.apache.brooklyn.feed.function.FunctionFeed;
 import org.apache.brooklyn.feed.function.FunctionPollConfig;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,17 +75,17 @@ public class ScriptHelperTest extends BrooklynAppUnitTestSupport {
         SimulatedInessentialIsRunningDriver driver = (SimulatedInessentialIsRunningDriver) entity.getDriver();
         Assert.assertTrue(driver.isRunning());
         
-        EntityTestUtils.assertAttributeEqualsEventually(entity, SoftwareProcess.SERVICE_PROCESS_IS_RUNNING, true);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, Startable.SERVICE_UP, true);
+        EntityAsserts.assertAttributeEqualsEventually(entity, SoftwareProcess.SERVICE_PROCESS_IS_RUNNING, true);
+        EntityAsserts.assertAttributeEqualsEventually(entity, Startable.SERVICE_UP, true);
         
         log.debug("up, now cause failure");
         
         driver.setFailExecution(true);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, SoftwareProcess.SERVICE_PROCESS_IS_RUNNING, false);
+        EntityAsserts.assertAttributeEqualsEventually(entity, SoftwareProcess.SERVICE_PROCESS_IS_RUNNING, false);
         
         log.debug("caught failure, now clear");
         driver.setFailExecution(false);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, SoftwareProcess.SERVICE_PROCESS_IS_RUNNING, true);
+        EntityAsserts.assertAttributeEqualsEventually(entity, SoftwareProcess.SERVICE_PROCESS_IS_RUNNING, true);
     }
     
     public static class MyServiceInessentialDriverImpl extends MyServiceImpl {

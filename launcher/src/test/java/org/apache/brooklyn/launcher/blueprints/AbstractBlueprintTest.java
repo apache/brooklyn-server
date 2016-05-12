@@ -33,6 +33,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampPlatformLauncherAbstract;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.persist.FileBasedObjectStore;
@@ -43,7 +44,6 @@ import org.apache.brooklyn.launcher.BrooklynLauncher;
 import org.apache.brooklyn.launcher.SimpleYamlLauncherForTests;
 import org.apache.brooklyn.launcher.camp.BrooklynCampPlatformLauncher;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.stream.Streams;
@@ -158,8 +158,8 @@ public abstract class AbstractBlueprintTest {
     }
     
     protected void assertNoFires(final Entity app) {
-        EntityTestUtils.assertAttributeEqualsEventually(app, Attributes.SERVICE_UP, true);
-        EntityTestUtils.assertAttributeEqualsEventually(app, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        EntityAsserts.assertAttributeEqualsEventually(app, Attributes.SERVICE_UP, true);
+        EntityAsserts.assertAttributeEqualsEventually(app, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
         
         Asserts.succeedsEventually(new Runnable() {
             public void run() {
@@ -168,8 +168,8 @@ public abstract class AbstractBlueprintTest {
                     assertNotEquals(entity.getAttribute(Attributes.SERVICE_UP), false);
                     
                     if (entity instanceof SoftwareProcess) {
-                        EntityTestUtils.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
-                        EntityTestUtils.assertAttributeEquals(entity, Attributes.SERVICE_UP, Boolean.TRUE);
+                        EntityAsserts.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+                        EntityAsserts.assertAttributeEquals(entity, Attributes.SERVICE_UP, Boolean.TRUE);
                     }
                 }
             }});

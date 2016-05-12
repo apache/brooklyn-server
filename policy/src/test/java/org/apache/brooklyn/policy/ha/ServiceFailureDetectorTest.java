@@ -33,6 +33,7 @@ import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
@@ -41,7 +42,6 @@ import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -116,7 +116,7 @@ public class ServiceFailureDetectorTest {
 
         assertHasEventEventually(HASensors.ENTITY_FAILED, Predicates.<Object>equalTo(e1), null);
         assertEquals(events.size(), 1, "events="+events);
-        EntityTestUtils.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
     }
     
     @Test
@@ -132,7 +132,7 @@ public class ServiceFailureDetectorTest {
 
         assertHasEventEventually(HASensors.ENTITY_FAILED, Predicates.<Object>equalTo(e1), null);
         assertEquals(events.size(), 1, "events="+events);
-        EntityTestUtils.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
     }
     
     @Test
@@ -143,7 +143,7 @@ public class ServiceFailureDetectorTest {
 
         assertHasEventEventually(HASensors.ENTITY_FAILED, Predicates.<Object>equalTo(e1), null);
         assertEquals(events.size(), 1, "events="+events);
-        EntityTestUtils.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
     }
     
     @Test
@@ -156,13 +156,13 @@ public class ServiceFailureDetectorTest {
         e1.sensors().set(TestEntity.SERVICE_UP, false);
 
         assertHasEventEventually(HASensors.ENTITY_FAILED, Predicates.<Object>equalTo(e1), null);
-        EntityTestUtils.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
 
         // And make the entity recover
         e1.sensors().set(TestEntity.SERVICE_UP, true);
         assertHasEventEventually(HASensors.ENTITY_RECOVERED, Predicates.<Object>equalTo(e1), null);
         assertEquals(events.size(), 2, "events="+events);
-        EntityTestUtils.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        EntityAsserts.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
     }
     
     @Test
@@ -175,13 +175,13 @@ public class ServiceFailureDetectorTest {
         ServiceProblemsLogic.updateProblemsIndicator(e1, "test", "foo");
 
         assertHasEventEventually(HASensors.ENTITY_FAILED, Predicates.<Object>equalTo(e1), null);
-        EntityTestUtils.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
 
         // And make the entity recover
         ServiceProblemsLogic.clearProblemsIndicator(e1, "test");
         assertHasEventEventually(HASensors.ENTITY_RECOVERED, Predicates.<Object>equalTo(e1), null);
         assertEquals(events.size(), 2, "events="+events);
-        EntityTestUtils.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        EntityAsserts.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
     }
     
     
@@ -193,7 +193,7 @@ public class ServiceFailureDetectorTest {
         e1.sensors().set(TestEntity.SERVICE_UP, false);
         ServiceStateLogic.setExpectedState(e1, Lifecycle.RUNNING);
 
-        EntityTestUtils.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
         assertNoEventsContinually();
     }
     
@@ -205,7 +205,7 @@ public class ServiceFailureDetectorTest {
         e1.sensors().set(TestEntity.SERVICE_UP, false);
         ServiceStateLogic.setExpectedState(e1, Lifecycle.RUNNING);
 
-        EntityTestUtils.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
         assertHasEventEventually(HASensors.ENTITY_FAILED, Predicates.<Object>equalTo(e1), null);
     }
     
@@ -217,7 +217,7 @@ public class ServiceFailureDetectorTest {
         // Make the entity fail
         e1.sensors().set(TestEntity.SERVICE_UP, true);
         ServiceStateLogic.setExpectedState(e1, Lifecycle.RUNNING);
-        EntityTestUtils.assertAttributeEqualsEventually(e1, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        EntityAsserts.assertAttributeEqualsEventually(e1, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
         e1.sensors().set(TestEntity.SERVICE_UP, false);
 
         assertEquals(e1.getAttribute(TestEntity.SERVICE_STATE_ACTUAL), Lifecycle.RUNNING);
@@ -231,14 +231,14 @@ public class ServiceFailureDetectorTest {
         // Make the entity fail
         e1.sensors().set(TestEntity.SERVICE_UP, true);
         ServiceStateLogic.setExpectedState(e1, Lifecycle.RUNNING);
-        EntityTestUtils.assertAttributeEqualsEventually(e1, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        EntityAsserts.assertAttributeEqualsEventually(e1, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
         
         e1.sensors().set(TestEntity.SERVICE_UP, false);
 
         assertEquals(e1.getAttribute(TestEntity.SERVICE_STATE_ACTUAL), Lifecycle.RUNNING);
         Time.sleep(Duration.millis(100));
         assertEquals(e1.getAttribute(TestEntity.SERVICE_STATE_ACTUAL), Lifecycle.RUNNING);
-        EntityTestUtils.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
     }
     
     @Test(groups="Integration") // Has a 1 second wait
@@ -250,19 +250,19 @@ public class ServiceFailureDetectorTest {
         // Set the entity to healthy
         e1.sensors().set(TestEntity.SERVICE_UP, true);
         ServiceStateLogic.setExpectedState(e1, Lifecycle.RUNNING);
-        EntityTestUtils.assertAttributeEqualsEventually(e1, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        EntityAsserts.assertAttributeEqualsEventually(e1, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
         
         // Make the entity fail; won't set on-fire for 1s but will publish FAILED immediately.
         ServiceStateLogic.ServiceProblemsLogic.updateProblemsIndicator(e1, "test", "foo");
-        EntityTestUtils.assertAttributeEqualsContinually(ImmutableMap.of("timeout", 100), e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", 100), e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
         assertHasEventEventually(HASensors.ENTITY_FAILED, Predicates.<Object>equalTo(e1), null);
         assertEquals(e1.getAttribute(TestEntity.SERVICE_STATE_ACTUAL), Lifecycle.RUNNING);
         
-        EntityTestUtils.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
         
         // Now recover: will publish RUNNING immediately, but has 1s stabilisation for RECOVERED
         ServiceStateLogic.ServiceProblemsLogic.clearProblemsIndicator(e1, "test");
-        EntityTestUtils.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        EntityAsserts.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
         
         assertEquals(events.size(), 1, "events="+events);
         
@@ -324,11 +324,11 @@ public class ServiceFailureDetectorTest {
         // Set the entity to healthy
         e1.sensors().set(TestEntity.SERVICE_UP, true);
         ServiceStateLogic.setExpectedState(e1, Lifecycle.RUNNING);
-        EntityTestUtils.assertAttributeEqualsEventually(e1, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        EntityAsserts.assertAttributeEqualsEventually(e1, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
         
         // Make the entity fail;
         ServiceStateLogic.ServiceProblemsLogic.updateProblemsIndicator(e1, "test", "foo");
-        EntityTestUtils.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
         assertHasEventEventually(HASensors.ENTITY_FAILED, Predicates.<Object>equalTo(e1), null);
 
         //wait for at least 10 republish events (~1 sec)
@@ -336,7 +336,7 @@ public class ServiceFailureDetectorTest {
 
         // Now recover
         ServiceStateLogic.ServiceProblemsLogic.clearProblemsIndicator(e1, "test");
-        EntityTestUtils.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        EntityAsserts.assertAttributeEqualsEventually(e1, TestEntity.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
         assertHasEventEventually(HASensors.ENTITY_RECOVERED, Predicates.<Object>equalTo(e1), null);
 
         //once recovered check no more failed events emitted periodically

@@ -26,13 +26,13 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.MachineDetails;
 import org.apache.brooklyn.api.location.OsDetails;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.location.BasicMachineDetails;
 import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.entity.AbstractGoogleComputeLiveTest;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,7 +47,7 @@ public class MachineDetailsGoogleComputeLiveTest extends AbstractGoogleComputeLi
     protected void doTest(Location loc) throws Exception {
         Entity testEntity = app.createAndManageChild(EntitySpec.create(EmptySoftwareProcess.class));
         app.start(ImmutableList.of(loc));
-        EntityTestUtils.assertAttributeEqualsEventually(testEntity, Startable.SERVICE_UP, true);
+        EntityAsserts.assertAttributeEqualsEventually(testEntity, Startable.SERVICE_UP, true);
 
         SshMachineLocation sshLoc = Locations.findUniqueSshMachineLocation(testEntity.getLocations()).get();
         MachineDetails machine = app.getExecutionContext()

@@ -24,17 +24,14 @@ import javax.management.ObjectName;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
 import org.apache.brooklyn.core.test.entity.TestApplication;
-import org.apache.brooklyn.entity.java.UsesJmx;
-import org.apache.brooklyn.entity.java.VanillaJavaAppImpl;
-import org.apache.brooklyn.entity.java.VanillaJavaAppSshDriver;
 import org.apache.brooklyn.entity.java.UsesJmx.JmxAgentModes;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.entity.software.base.test.jmx.JmxService;
 import org.apache.brooklyn.feed.jmx.JmxAttributePollConfig;
 import org.apache.brooklyn.feed.jmx.JmxFeed;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
@@ -151,7 +148,7 @@ public class EntityPollingTest {
         app.start(ImmutableList.of(new SshMachineLocation(MutableMap.of("address", "localhost"))));
         
         // Starts with value defined when registering...
-        EntityTestUtils.assertAttributeEqualsEventually(entity, stringAttribute, "myval");
+        EntityAsserts.assertAttributeEqualsEventually(entity, stringAttribute, "myval");
     }
 
     // Test that connect will keep retrying (e.g. start script returns before the JMX server is up)
@@ -174,7 +171,7 @@ public class EntityPollingTest {
             t.start();
             app.start(ImmutableList.of(new SshMachineLocation(MutableMap.of("address", "localhost"))));
 
-            EntityTestUtils.assertAttributeEqualsEventually(entity, stringAttribute, "myval");
+            EntityAsserts.assertAttributeEqualsEventually(entity, stringAttribute, "myval");
             
         } finally {
             t.interrupt();
@@ -188,7 +185,7 @@ public class EntityPollingTest {
 
         app.start(ImmutableList.of(new SshMachineLocation(MutableMap.of("address", "localhost"))));
         
-        EntityTestUtils.assertAttributeEqualsEventually(entity, stringAttribute, "myval");
+        EntityAsserts.assertAttributeEqualsEventually(entity, stringAttribute, "myval");
         
         // Shutdown the MBeanServer - simulates network failure so can't connect
         jmxService.shutdown();
@@ -201,6 +198,6 @@ public class EntityPollingTest {
         jmxService = new JmxService("localhost", 40123);
         jmxService.registerMBean(ImmutableMap.of(attributeName, "myval2"), objectName);
         
-        EntityTestUtils.assertAttributeEqualsEventually(entity, stringAttribute, "myval2");
+        EntityAsserts.assertAttributeEqualsEventually(entity, stringAttribute, "myval2");
     }
 }

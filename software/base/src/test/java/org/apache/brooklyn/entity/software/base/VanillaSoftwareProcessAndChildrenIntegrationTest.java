@@ -25,9 +25,9 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.ChildStartableMode;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.os.Os;
@@ -156,7 +156,7 @@ public class VanillaSoftwareProcessAndChildrenIntegrationTest {
 
     private void checkChildComesUpSoon() {
         Stopwatch stopwatch = Stopwatch.createStarted();
-        EntityTestUtils.assertAttributeEqualsEventually(p2, Attributes.SERVICE_UP, true);
+        EntityAsserts.assertAttributeEqualsEventually(p2, Attributes.SERVICE_UP, true);
         log.info("Took "+Time.makeTimeStringRounded(stopwatch)+" for child-process to be service-up");
     }
 
