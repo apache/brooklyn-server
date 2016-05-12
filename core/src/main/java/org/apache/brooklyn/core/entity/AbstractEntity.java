@@ -112,6 +112,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.common.reflect.TypeToken;
 
 /**
  * Default {@link Entity} implementation, which should be extended whenever implementing an entity.
@@ -1174,6 +1175,14 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     @Beta
     // TODO revert to private when config() is reverted to return ConfigurationSupportInternal
     public class BasicConfigurationSupport extends AbstractConfigurationSupportInternal {
+
+        public <T> T get(String key, Class<T> targetType) {
+            return getBag().get(key, targetType);
+        }
+
+        public <T> T get(String key, TypeToken<T> targetType) {
+            return getBag().get(key, targetType);
+        }
 
         @Override
         public <T> T get(ConfigKey<T> key) {

@@ -40,6 +40,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Objects;
 import com.google.common.collect.Sets;
+import com.google.common.reflect.TypeToken;
 
 /**
  * Stores config in such a way that usage can be tracked.
@@ -336,6 +337,16 @@ public class ConfigBag {
 
     public synchronized boolean containsKey(String key) {
         return config.containsKey(key);
+    }
+
+    public <T> T get(String key, Class<T> targetType) {
+        return get(key, TypeToken.of(targetType));
+    }
+
+    public <T> T get(String key, TypeToken<T> targetType) {
+        markUsed(key);
+        Object rawValue = config.get(key);
+        return TypeCoercions.coerce(rawValue, targetType);
     }
 
     /** returns the value of this config key, falling back to its default (use containsKey to see whether it was contained);
