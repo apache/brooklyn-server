@@ -91,7 +91,8 @@ public class InboundPortsUtils {
 
             Pattern portsPattern = Pattern.compile(portRegex);
             for (ConfigKey<?> k : configKeys) {
-                if (isAssignableFromPortConfigKey(configuredConfigKeys, k, portsPattern)) {
+                if (isAssignableFromPortConfigKey(configuredConfigKeys, k)
+                        || (portsPattern.matcher(k.getName()).matches())) {
                     Object value = entity.config().get(k);
                     Maybe<PortRange> maybePortRange = TypeCoercions.tryCoerce(value, new TypeToken<PortRange>() {
                     });
@@ -111,17 +112,13 @@ public class InboundPortsUtils {
     /**
      * Checks if a configkey can be managed as a config key {@link PortRange}. The method checks if
      * the config type or the entity config key value are assignable from the {@link PortRange}.
-     * Moreover the method retrieves true if the config key name matches with pattern.
      *
      * @param configuredConfigKeys the configured entity config keys
      * @param configKey            the configkey that could be assigned as a {@link org.apache.brooklyn.api.location.PortRange}
-     * @param portsPattern         pattern to recognized Config key {@link org.apache.brooklyn.api.location.PortRange} of the name   @return if the config key is recognized as a config key {@link PortRange}
      */
-    private static boolean isAssignableFromPortConfigKey(Map<ConfigKey<?>, ?> configuredConfigKeys, ConfigKey<?> configKey, Pattern portsPattern) {
-        Object a = configuredConfigKeys.get(configKey);
+    private static boolean isAssignableFromPortConfigKey(Map<ConfigKey<?>, ?> configuredConfigKeys, ConfigKey<?> configKey) {
         return PortRange.class.isAssignableFrom(configKey.getType())
-                || (portsPattern.matcher(configKey.getName()).matches())
-                || (a != null) && (a instanceof PortRange);
+                || configuredConfigKeys.get(configKey) instanceof PortRange;
     }
 
 }
