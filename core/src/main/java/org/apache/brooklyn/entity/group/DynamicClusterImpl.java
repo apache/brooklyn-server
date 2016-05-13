@@ -151,12 +151,20 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
      */
     protected final Object mutex = new Object[0];
 
+    /** @deprecated since 0.10.0 uses DefaultRemovalStrategy instead. Maintained for rebinding */
+    @Deprecated
     private static final Function<Collection<Entity>, Entity> defaultRemovalStrategy = new Function<Collection<Entity>, Entity>() {
-        @Override public Entity apply(Collection<Entity> contenders) {
+        @Override public Entity apply(Collection<Entity> contenders) { return null; }
+    };
+
+    public static class DefaultRemovalStrategy extends RemovalStrategy {
+        @Nullable
+        @Override
+        public Entity apply(@Nullable Collection<Entity> contenders) {
             /*
              * Choose the newest entity (largest cluster member ID or latest timestamp) that is stoppable.
              * If none are stoppable, take the newest non-stoppable.
-             * 
+             *
              * Both cluster member ID and timestamp must be taken into consideration to account for legacy
              * clusters that were created before the addition of the cluster member ID config value.
              */
@@ -171,8 +179,8 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
                 boolean newer = (contenderClusterMemberId != null && contenderClusterMemberId > largestClusterMemberId) ||
                         contenderCreationTime > newestTime;
 
-                if ((contender instanceof Startable && newer) || 
-                    (!(newest instanceof Startable) && ((contender instanceof Startable) || newer))) {
+                if ((contender instanceof Startable && newer) ||
+                        (!(newest instanceof Startable) && ((contender instanceof Startable) || newer))) {
                     newest = contender;
 
                     if (contenderClusterMemberId != null) largestClusterMemberId = contenderClusterMemberId;
@@ -182,7 +190,7 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
 
             return newest;
         }
-    };
+    }
 
     private static class NextClusterMemberIdSupplier implements Supplier<Integer> {
         private AtomicInteger nextId = new AtomicInteger(0);
@@ -259,7 +267,7 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
         // override previous enricher so that only members are checked
         ServiceStateLogic.newEnricherFromChildrenUp().checkMembersOnly().requireUpChildren(getConfig(UP_QUORUM_CHECK)).addTo(this);
     }
-    
+
     @Override
     public void setRemovalStrategy(Function<Collection<Entity>, Entity> val) {
         config().set(REMOVAL_STRATEGY, checkNotNull(val, "removalStrategy"));
@@ -267,7 +275,7 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
 
     protected Function<Collection<Entity>, Entity> getRemovalStrategy() {
         Function<Collection<Entity>, Entity> result = getConfig(REMOVAL_STRATEGY);
-        return (result != null) ? result : defaultRemovalStrategy;
+        return (result != null) ? result : new DefaultRemovalStrategy();
     }
 
     @Override

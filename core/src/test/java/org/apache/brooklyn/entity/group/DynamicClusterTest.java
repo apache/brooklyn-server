@@ -49,6 +49,7 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.RecordingSensorEventListener;
 import org.apache.brooklyn.core.entity.factory.EntityFactory;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
@@ -1158,6 +1159,56 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
         for (Integer expectedClusterMemberId : expectedClusterMemberIds) {
             Entity clusterMember = clusterMembersIterator.next();
             assertEquals(clusterMember.config().get(CLUSTER_MEMBER_ID), expectedClusterMemberId);
+        }
+    }
+
+    @Test
+    public void testResizeStrategies() throws Exception {
+        int clusterSize = 5;
+
+        ImmutableList.Builder<RemovalStrategy> sensorMatchingStrategiesBuilder = ImmutableList.builder();
+        for (int i = 0; i < clusterSize; i++){
+            SensorMatchingRemovalStrategy sensorMatchingRemovalStrategy = new SensorMatchingRemovalStrategy();
+            sensorMatchingRemovalStrategy.config().set(SensorMatchingRemovalStrategy.SENSOR, TestEntity.SEQUENCE);
+            sensorMatchingRemovalStrategy.config().set(SensorMatchingRemovalStrategy.DESIRED_VALUE, i);
+            sensorMatchingStrategiesBuilder.add(sensorMatchingRemovalStrategy);
+        }
+
+        RemovalStrategy firstFrom = new FirstFromRemovalStrategy();
+        firstFrom.config().set(FirstFromRemovalStrategy.STRATEGIES, sensorMatchingStrategiesBuilder.build());
+
+        DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
+                .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(TestEntity.class))
+                .configure(DynamicCluster.INITIAL_SIZE, clusterSize)
+                .configure(DynamicCluster.REMOVAL_STRATEGY, firstFrom));
+
+        cluster.start(ImmutableList.of(loc));
+
+        assertEquals(cluster.getMembers().size(), clusterSize);
+        EntityAsserts.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_UP, true);
+
+        // Set the sensor values of the entities in a non-linear pattern (4, 0, 3, 1, 2), then resize the cluster
+        // down by 1 and see if the correct entity has been removed, then resize down by 3
+        Iterator<Entity> childIterator = cluster.getMembers().iterator();
+        for (int i : new int[] {4, 0, 3, 1, 2}) {
+            childIterator.next().sensors().set(TestEntity.SEQUENCE, i);
+        }
+
+        assertEntityCollectionContainsSequence(cluster.getMembers(), ImmutableSet.of(0, 1, 2, 3, 4));
+
+        cluster.resizeByDelta(-1);
+        EntityAsserts.assertAttributeEqualsEventually(cluster, DynamicCluster.GROUP_SIZE, 4);
+        assertEntityCollectionContainsSequence(cluster.getMembers(), ImmutableSet.of(1, 2, 3, 4));
+
+        cluster.resizeByDelta(-3);
+        EntityAsserts.assertAttributeEqualsEventually(cluster, DynamicCluster.GROUP_SIZE, 1);
+        assertEntityCollectionContainsSequence(cluster.getMembers(), ImmutableSet.of(4));
+    }
+
+    private void assertEntityCollectionContainsSequence(Collection<Entity> entities, Set<Integer> expected) {
+        assertEquals(entities.size(), expected.size());
+        for (Entity entity : entities) {
+            assertTrue(expected.contains(entity.sensors().get(TestEntity.SEQUENCE)));
         }
     }
 
