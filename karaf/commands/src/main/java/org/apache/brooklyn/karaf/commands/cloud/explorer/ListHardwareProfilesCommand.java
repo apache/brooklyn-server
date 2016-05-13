@@ -16,29 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.karaf.commands;
+package org.apache.brooklyn.karaf.commands.cloud.explorer;
 
-import org.apache.karaf.shell.api.action.Action;
-import org.apache.karaf.shell.api.action.Argument;
+import org.apache.brooklyn.launcher.command.support.CloudExplorerSupport.ListHardwareProfiles;
 import org.apache.karaf.shell.api.action.Command;
-import org.apache.karaf.shell.api.action.Option;
 import org.apache.karaf.shell.api.action.lifecycle.Service;
 
-@Command(scope = "brooklyn", name = "catalog", description = "Manage the local brooklyn catalog")
+import static org.apache.brooklyn.karaf.commands.cloud.explorer.AbstractCloudExplorerCommand.CLOUD_EXPLORER_SCOPE;
+
+@Command(scope = CLOUD_EXPLORER_SCOPE, name = ListHardwareProfiles.NAME, description = ListHardwareProfiles.DESCRIPTION)
 @Service
-public class Catalog implements Action {
-
-    @Option(name = "-o", aliases = { "--option" }, description = "An option to the command", required = false, multiValued = false)
-    private String option;
-
-    @Argument(name = "argument", description = "Argument to the command", required = false, multiValued = false)
-    private String argument;
+public class ListHardwareProfilesCommand extends AbstractCloudExplorerCommand {
 
     @Override
     public Object execute() throws Exception {
-         System.out.println("Executing command catalog");
-         System.out.println("Option: " + option);
-         System.out.println("Argument: " + argument);
-         return null;
+
+        final ListHardwareProfiles profiles =
+            new ListHardwareProfiles(getManagementContext(), allLocations, location, autoConfirm);
+        return profiles.call();
     }
 }
