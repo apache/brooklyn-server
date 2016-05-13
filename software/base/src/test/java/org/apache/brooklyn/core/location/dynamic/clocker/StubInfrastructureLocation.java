@@ -28,6 +28,7 @@ import org.apache.brooklyn.api.location.LocationDefinition;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
+import org.apache.brooklyn.api.mgmt.ManagementContext.PropertiesReloadListener;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.location.AbstractLocation;
@@ -62,7 +63,15 @@ public class StubInfrastructureLocation extends AbstractLocation implements Mach
     @Override
     public void init() {
         super.init();
-        infrastructure = (StubInfrastructure) checkNotNull(getConfig(OWNER), "owner");
+        
+        // TODO BasicLocationRebindsupport.addCustoms currently calls init() unfortunately!
+        // Don't checkNotNull in that situation - it could be this location is orphaned!
+        if (isRebinding()) {
+            infrastructure = (StubInfrastructure) getConfig(OWNER);
+        } else {
+            infrastructure = (StubInfrastructure) checkNotNull(getConfig(OWNER), "owner");
+            addReloadListener();
+        }
     }
     
     @Override
@@ -74,6 +83,15 @@ public class StubInfrastructureLocation extends AbstractLocation implements Mach
         if (getConfig(LOCATION_NAME) != null) {
             register();
         }
+        addReloadListener();
+    }
+
+    @SuppressWarnings("serial")
+    private void addReloadListener() {
+        getManagementContext().addPropertiesReloadListener(new PropertiesReloadListener() {
+            @Override public void reloaded() {
+                register();
+            }});
     }
 
     @Override
