@@ -25,11 +25,10 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.policy.enricher.HttpLatencyDetector;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.http.BetterMockWebServer;
 import org.slf4j.Logger;
@@ -97,7 +96,7 @@ public class HttpLatencyDetectorTest {
                 .build());
         
         // nothing until url is set
-        EntityTestUtils.assertAttributeEqualsContinually(
+        EntityAsserts.assertAttributeEqualsContinually(
                 MutableMap.of("timeout", 200), 
                 entity, HttpLatencyDetector.REQUEST_LATENCY_IN_SECONDS_MOST_RECENT, null);
         
@@ -130,7 +129,7 @@ public class HttpLatencyDetectorTest {
                 .build());
         
         // nothing until url is set
-        EntityTestUtils.assertAttributeEqualsContinually(
+        EntityAsserts.assertAttributeEqualsContinually(
                 MutableMap.of("timeout", 200), 
                 entity, HttpLatencyDetector.REQUEST_LATENCY_IN_SECONDS_MOST_RECENT, null);
         
@@ -140,8 +139,8 @@ public class HttpLatencyDetectorTest {
     }
     
     protected void assertLatencyAttributesNonNull(Entity entity) {
-        EntityTestUtils.assertAttributeEventuallyNonNull(entity, HttpLatencyDetector.REQUEST_LATENCY_IN_SECONDS_MOST_RECENT); 
-        EntityTestUtils.assertAttributeEventuallyNonNull(entity, HttpLatencyDetector.REQUEST_LATENCY_IN_SECONDS_IN_WINDOW); 
+        EntityAsserts.assertAttributeEventuallyNonNull(entity, HttpLatencyDetector.REQUEST_LATENCY_IN_SECONDS_MOST_RECENT); 
+        EntityAsserts.assertAttributeEventuallyNonNull(entity, HttpLatencyDetector.REQUEST_LATENCY_IN_SECONDS_IN_WINDOW);
 
         log.info("Latency to "+entity.getAttribute(TEST_URL)+" is "+entity.getAttribute(HttpLatencyDetector.REQUEST_LATENCY_IN_SECONDS_MOST_RECENT));
         log.info("Mean latency to "+entity.getAttribute(TEST_URL)+" is "+entity.getAttribute(HttpLatencyDetector.REQUEST_LATENCY_IN_SECONDS_IN_WINDOW));

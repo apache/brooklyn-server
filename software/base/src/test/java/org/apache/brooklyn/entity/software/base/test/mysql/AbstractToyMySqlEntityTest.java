@@ -24,9 +24,9 @@ import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
@@ -78,12 +78,12 @@ public abstract class AbstractToyMySqlEntityTest extends BrooklynAppLiveTestSupp
 
     protected void checkStartsRunning(Entity mysql) {
         // should be starting within a few seconds (and almost certainly won't complete in that time)
-        EntityTestUtils.assertAttributeEventually(
-                mysql, 
+        EntityAsserts.assertAttributeEventually(
+                mysql,
                 Attributes.SERVICE_STATE_ACTUAL,
                 Predicates.or(Predicates.equalTo(Lifecycle.STARTING), Predicates.equalTo(Lifecycle.RUNNING)));
         // should be up and running within 5m 
-        EntityTestUtils.assertAttributeEqualsEventually(MutableMap.of("timeout", Duration.FIVE_MINUTES),
+        EntityAsserts.assertAttributeEqualsEventually(MutableMap.of("timeout", Duration.FIVE_MINUTES),
                 mysql, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
     }
 

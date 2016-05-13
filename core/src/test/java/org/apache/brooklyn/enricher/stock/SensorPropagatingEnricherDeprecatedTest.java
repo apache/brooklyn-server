@@ -24,12 +24,11 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.enricher.stock.SensorPropagatingEnricher;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.javalang.AtomicReferences;
 import org.testng.annotations.BeforeMethod;
@@ -55,11 +54,11 @@ public class SensorPropagatingEnricherDeprecatedTest extends BrooklynAppUnitTest
 
         // name propagated
         entity.sensors().set(TestEntity.NAME, "foo");
-        EntityTestUtils.assertAttributeEqualsEventually(app, TestEntity.NAME, "foo");
+        EntityAsserts.assertAttributeEqualsEventually(app, TestEntity.NAME, "foo");
         
         // sequence not propagated
         entity.sensors().set(TestEntity.SEQUENCE, 2);
-        EntityTestUtils.assertAttributeEqualsContinually(MutableMap.of("timeout", 100), app, TestEntity.SEQUENCE, null);
+        EntityAsserts.assertAttributeEqualsContinually(MutableMap.of("timeout", 100), app, TestEntity.SEQUENCE, null);
     }
     
     @Test
@@ -70,8 +69,8 @@ public class SensorPropagatingEnricherDeprecatedTest extends BrooklynAppUnitTest
         entity.sensors().set(TestEntity.NAME, "foo");
         entity.sensors().set(TestEntity.SEQUENCE, 2);
         
-        EntityTestUtils.assertAttributeEqualsEventually(app, TestEntity.NAME, "foo");
-        EntityTestUtils.assertAttributeEqualsEventually(app, TestEntity.SEQUENCE, 2);
+        EntityAsserts.assertAttributeEqualsEventually(app, TestEntity.NAME, "foo");
+        EntityAsserts.assertAttributeEqualsEventually(app, TestEntity.SEQUENCE, 2);
         
         // notification-sensor propagated
         final AtomicReference<Integer> notif = new AtomicReference<Integer>();
@@ -89,11 +88,11 @@ public class SensorPropagatingEnricherDeprecatedTest extends BrooklynAppUnitTest
 
         // name propagated
         entity.sensors().set(TestEntity.NAME, "foo");
-        EntityTestUtils.assertAttributeEqualsEventually(app, TestEntity.NAME, "foo");
+        EntityAsserts.assertAttributeEqualsEventually(app, TestEntity.NAME, "foo");
         
         // sequence not propagated
         entity.sensors().set(TestEntity.SEQUENCE, 2);
-        EntityTestUtils.assertAttributeEqualsContinually(MutableMap.of("timeout", 100), app, TestEntity.SEQUENCE, null);
+        EntityAsserts.assertAttributeEqualsContinually(MutableMap.of("timeout", 100), app, TestEntity.SEQUENCE, null);
     }
     
     @Test
@@ -103,6 +102,6 @@ public class SensorPropagatingEnricherDeprecatedTest extends BrooklynAppUnitTest
 
         // name propagated as different attribute
         entity.sensors().set(TestEntity.NAME, "foo");
-        EntityTestUtils.assertAttributeEqualsEventually(app, ANOTHER_ATTRIBUTE, "foo");
+        EntityAsserts.assertAttributeEqualsEventually(app, ANOTHER_ATTRIBUTE, "foo");
     }
 }

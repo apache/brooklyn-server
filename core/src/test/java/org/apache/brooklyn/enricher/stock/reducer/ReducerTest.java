@@ -25,16 +25,14 @@ import javax.annotation.Nullable;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.enricher.stock.Enrichers;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.text.StringFunctions;
-import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -69,13 +67,13 @@ public class ReducerTest extends BrooklynAppUnitTestSupport {
             )
         );
 
-        EntityTestUtils.assertAttributeEquals(entity, STR3, null);
+        EntityAsserts.assertAttributeEquals(entity, STR3, null);
         
         entity.sensors().set(STR1, "foo");
-        EntityTestUtils.assertAttributeEqualsContinually(entity, STR3, null);
+        EntityAsserts.assertAttributeEqualsContinually(entity, STR3, null);
 
         entity.sensors().set(STR2, "bar");
-        EntityTestUtils.assertAttributeEqualsEventually(entity, STR3, "foobar");
+        EntityAsserts.assertAttributeEqualsEventually(entity, STR3, "foobar");
     }
 
     @Test
@@ -88,13 +86,13 @@ public class ReducerTest extends BrooklynAppUnitTestSupport {
                 .build()
         );
 
-        EntityTestUtils.assertAttributeEquals(entity, STR3, null);
+        EntityAsserts.assertAttributeEquals(entity, STR3, null);
         
         entity.sensors().set(STR1, "foo");
-        EntityTestUtils.assertAttributeEqualsContinually(entity, STR3, null);
+        EntityAsserts.assertAttributeEqualsContinually(entity, STR3, null);
 
         entity.sensors().set(STR2, "bar");
-        EntityTestUtils.assertAttributeEqualsEventually(entity, STR3, "foobar");
+        EntityAsserts.assertAttributeEqualsEventually(entity, STR3, "foobar");
     }
     
     @Test
@@ -107,13 +105,13 @@ public class ReducerTest extends BrooklynAppUnitTestSupport {
                 .build()
         );
 
-        EntityTestUtils.assertAttributeEquals(entity, INT1, null);
+        EntityAsserts.assertAttributeEquals(entity, INT1, null);
         
         entity.sensors().set(STR1, "foo");
-        EntityTestUtils.assertAttributeEqualsEventually(entity, INT1, 3);
+        EntityAsserts.assertAttributeEqualsEventually(entity, INT1, 3);
 
         entity.sensors().set(STR2, "bar");
-        EntityTestUtils.assertAttributeEqualsEventually(entity, INT1, 6);
+        EntityAsserts.assertAttributeEqualsEventually(entity, INT1, 6);
     }
     
     @Test
@@ -126,13 +124,13 @@ public class ReducerTest extends BrooklynAppUnitTestSupport {
                 .build()
         );
 
-        EntityTestUtils.assertAttributeEquals(entity, STR3, null);
+        EntityAsserts.assertAttributeEquals(entity, STR3, null);
         
         entity.sensors().set(STR1, "foo");
-        EntityTestUtils.assertAttributeEqualsEventually(entity, STR3, "foo-null");
+        EntityAsserts.assertAttributeEqualsEventually(entity, STR3, "foo-null");
 
         entity.sensors().set(STR2, "bar");
-        EntityTestUtils.assertAttributeEqualsEventually(entity, STR3, "foo-bar");
+        EntityAsserts.assertAttributeEqualsEventually(entity, STR3, "foo-bar");
     }
     
     @Test
@@ -144,13 +142,13 @@ public class ReducerTest extends BrooklynAppUnitTestSupport {
             .publishing(STR3)
             .build()
         );
-        EntityTestUtils.assertAttributeEquals(entity, STR3, null);
+        EntityAsserts.assertAttributeEquals(entity, STR3, null);
         
         entity.sensors().set(STR1, "foo");
-        EntityTestUtils.assertAttributeEqualsEventually(entity, STR3, "foo, null");
+        EntityAsserts.assertAttributeEqualsEventually(entity, STR3, "foo, null");
 
         entity.sensors().set(STR2, "bar");
-        EntityTestUtils.assertAttributeEqualsEventually(entity, STR3, "foo, bar");
+        EntityAsserts.assertAttributeEqualsEventually(entity, STR3, "foo, bar");
     }
     
     @Test
@@ -163,13 +161,13 @@ public class ReducerTest extends BrooklynAppUnitTestSupport {
             .publishing(STR3)
             .build()
         );
-        EntityTestUtils.assertAttributeEquals(entity, STR3, null);
+        EntityAsserts.assertAttributeEquals(entity, STR3, null);
         
         entity.sensors().set(STR1, "foo");
-        EntityTestUtils.assertAttributeEqualsEventually(entity, STR3, "foo, null");
+        EntityAsserts.assertAttributeEqualsEventually(entity, STR3, "foo, null");
 
         entity.sensors().set(STR2, "bar");
-        EntityTestUtils.assertAttributeEqualsEventually(entity, STR3, "foo, bar");
+        EntityAsserts.assertAttributeEqualsEventually(entity, STR3, "foo, bar");
     }
     
     @Test
@@ -182,13 +180,13 @@ public class ReducerTest extends BrooklynAppUnitTestSupport {
             .build()
         );
         
-        EntityTestUtils.assertAttributeEquals(entity, STR3, null);
+        EntityAsserts.assertAttributeEquals(entity, STR3, null);
         
         entity.sensors().set(STR1, "foo");
-        EntityTestUtils.assertAttributeEqualsEventually(entity, STR3, "hello, foo and null");
+        EntityAsserts.assertAttributeEqualsEventually(entity, STR3, "hello, foo and null");
 
         entity.sensors().set(STR2, "bar");
-        EntityTestUtils.assertAttributeEqualsEventually(entity, STR3, "hello, foo and bar");
+        EntityAsserts.assertAttributeEqualsEventually(entity, STR3, "hello, foo and bar");
     }
     
     @Test

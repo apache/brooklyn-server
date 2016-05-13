@@ -23,13 +23,12 @@ import java.util.Map;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
-import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.RestartSoftwareParameters;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.StopSoftwareParameters;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,26 +70,26 @@ public abstract class AbstractSoftwareProcessRestartIntegrationTest extends Broo
         
         // Start the app
         app.start(ImmutableList.of(loc));
-        EntityTestUtils.assertAttributeEqualsEventually(entity, SoftwareProcess.SERVICE_UP, true);
-        EntityTestUtils.assertAttributeEqualsEventually(app, SoftwareProcess.SERVICE_UP, true);
+        EntityAsserts.assertAttributeEqualsEventually(entity, SoftwareProcess.SERVICE_UP, true);
+        EntityAsserts.assertAttributeEqualsEventually(app, SoftwareProcess.SERVICE_UP, true);
 
         // Stop the process
         Entities.invokeEffector(app, entity, SoftwareProcess.STOP, ImmutableMap.of(
                 StopSoftwareParameters.STOP_MACHINE_MODE.getName(), StopSoftwareParameters.StopMode.NEVER))
                 .get();
-        EntityTestUtils.assertAttributeEqualsEventually(entity, SoftwareProcess.SERVICE_UP, false);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, SoftwareProcess.SERVICE_STATE_ACTUAL, Lifecycle.STOPPED);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, SoftwareProcess.SERVICE_PROCESS_IS_RUNNING, false);
-        EntityTestUtils.assertAttributeEventually(entity, ServiceStateLogic.SERVICE_NOT_UP_INDICATORS, CollectionFunctionals.<String>mapSizeEquals(1));
+        EntityAsserts.assertAttributeEqualsEventually(entity, SoftwareProcess.SERVICE_UP, false);
+        EntityAsserts.assertAttributeEqualsEventually(entity, SoftwareProcess.SERVICE_STATE_ACTUAL, Lifecycle.STOPPED);
+        EntityAsserts.assertAttributeEqualsEventually(entity, SoftwareProcess.SERVICE_PROCESS_IS_RUNNING, false);
+        EntityAsserts.assertAttributeEventually(entity, ServiceStateLogic.SERVICE_NOT_UP_INDICATORS, CollectionFunctionals.<String>mapSizeEquals(1));
         
         // Restart the process
         Entities.invokeEffector(app, entity, restartEffector, args).get();
-        EntityTestUtils.assertAttributeEqualsEventually(entity, SoftwareProcess.SERVICE_UP, true);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, SoftwareProcess.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, SoftwareProcess.SERVICE_PROCESS_IS_RUNNING, true);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, ServiceStateLogic.SERVICE_NOT_UP_INDICATORS, ImmutableMap.<String, Object>of());
+        EntityAsserts.assertAttributeEqualsEventually(entity, SoftwareProcess.SERVICE_UP, true);
+        EntityAsserts.assertAttributeEqualsEventually(entity, SoftwareProcess.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        EntityAsserts.assertAttributeEqualsEventually(entity, SoftwareProcess.SERVICE_PROCESS_IS_RUNNING, true);
+        EntityAsserts.assertAttributeEqualsEventually(entity, ServiceStateLogic.SERVICE_NOT_UP_INDICATORS, ImmutableMap.<String, Object>of());
 
-        EntityTestUtils.assertAttributeEqualsEventually(app, SoftwareProcess.SERVICE_UP, true);
-        EntityTestUtils.assertAttributeEqualsEventually(app, SoftwareProcess.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        EntityAsserts.assertAttributeEqualsEventually(app, SoftwareProcess.SERVICE_UP, true);
+        EntityAsserts.assertAttributeEqualsEventually(app, SoftwareProcess.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
     }
 }

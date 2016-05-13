@@ -21,7 +21,7 @@ package org.apache.brooklyn.entity.brooklynnode;
 import java.net.URI;
 import java.util.concurrent.Callable;
 
-import org.apache.brooklyn.test.EntityTestUtils;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.test.HttpTestUtils;
 import org.apache.brooklyn.util.collections.Jsonya;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -74,7 +74,7 @@ public class BrooklynNodeRestTest {
             
             URI uri = bn.getAttribute(BrooklynNode.WEB_CONSOLE_URI);
             Assert.assertNotNull(uri);
-            EntityTestUtils.assertAttributeEqualsEventually(bn, Attributes.SERVICE_UP, true);
+            EntityAsserts.assertAttributeEqualsEventually(bn, Attributes.SERVICE_UP, true);
             log.info("Created BrooklynNode: "+bn);
 
             // deploy
@@ -103,10 +103,10 @@ public class BrooklynNodeRestTest {
             
             Entities.dumpInfo(mirror);
             
-            EntityTestUtils.assertAttributeEqualsEventually(mirror, Attributes.SERVICE_UP, true);
+            EntityAsserts.assertAttributeEqualsEventually(mirror, Attributes.SERVICE_UP, true);
             
             ((EntityInternal)newApp).sensors().set(TestEntity.NAME, "foo");
-            EntityTestUtils.assertAttributeEqualsEventually(mirror, TestEntity.NAME, "foo");
+            EntityAsserts.assertAttributeEqualsEventually(mirror, TestEntity.NAME, "foo");
             log.info("Mirror successfully validated");
             
             // also try deploying by invoking deploy through json
@@ -134,7 +134,7 @@ public class BrooklynNodeRestTest {
             Application newApp2 = Iterables.getOnlyElement(apps);
             Entities.dumpInfo(newApp2);
             
-            EntityTestUtils.assertAttributeEqualsEventually(newApp2, Attributes.SERVICE_UP, true);
+            EntityAsserts.assertAttributeEqualsEventually(newApp2, Attributes.SERVICE_UP, true);
             Assert.assertEquals(newApp2.getConfig(TestEntity.CONF_NAME), "foo");
             
         } finally {

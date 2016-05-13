@@ -30,10 +30,10 @@ import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmToolResponse;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
@@ -114,9 +114,9 @@ public class WindowsPerformanceCounterFeedTest extends BrooklynAppUnitTestSuppor
 
         sendPerfCountersToSensors.onSuccess(new WinRmToolResponse(responseBuilder.toString(), "", 0));
 
-        EntityTestUtils.assertAttributeEquals(entity, stringSensor, "99.9");
-        EntityTestUtils.assertAttributeEquals(entity, integerSensor, 15);
-        EntityTestUtils.assertAttributeEquals(entity, doubleSensor, 3.1415926);
+        EntityAsserts.assertAttributeEquals(entity, stringSensor, "99.9");
+        EntityAsserts.assertAttributeEquals(entity, integerSensor, 15);
+        EntityAsserts.assertAttributeEquals(entity, doubleSensor, 3.1415926);
     }
 
     private void addMockResponse(StringBuilder responseBuilder, String path, String value) {

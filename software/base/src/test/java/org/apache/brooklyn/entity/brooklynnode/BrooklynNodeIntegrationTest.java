@@ -37,6 +37,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.location.Locations;
@@ -53,7 +54,6 @@ import org.apache.brooklyn.feed.http.JsonFunctions;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.test.HttpTestUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
@@ -178,10 +178,10 @@ services:
         app.start(locs);
         log.info("started "+app+" containing "+brooklynNode+" for "+JavaClassNames.niceClassAndMethod());
 
-        EntityTestUtils.assertAttributeEqualsEventually(brooklynNode, BrooklynNode.SERVICE_UP, true);
+        EntityAsserts.assertAttributeEqualsEventually(brooklynNode, BrooklynNode.SERVICE_UP, true);
 
         brooklynNode.stop();
-        EntityTestUtils.assertAttributeEquals(brooklynNode, BrooklynNode.SERVICE_UP, false);
+        EntityAsserts.assertAttributeEquals(brooklynNode, BrooklynNode.SERVICE_UP, false);
     }
 
     @Test(groups="Integration")
@@ -691,7 +691,7 @@ services:
         brooklynNode.invoke(eff, Collections.<String, Object>emptyMap()).getUnchecked();
 
         // Note can't use driver.isRunning to check shutdown; can't invoke scripts on an unmanaged entity
-        EntityTestUtils.assertAttributeEquals(brooklynNode, BrooklynNode.SERVICE_UP, false);
+        EntityAsserts.assertAttributeEquals(brooklynNode, BrooklynNode.SERVICE_UP, false);
         
         // unmanaged if the machine is destroyed - ie false on localhost (this test by default), but true in the cloud 
 //        assertFalse(Entities.isManaged(brooklynNode));
@@ -729,7 +729,7 @@ services:
         app.start(locs);
         log.info("started "+app+" containing "+brooklynNode+" for "+JavaClassNames.niceClassAndMethod());
 
-        EntityTestUtils.assertAttributeEqualsEventually(brooklynNode, BrooklynNode.SERVICE_UP, true);
+        EntityAsserts.assertAttributeEqualsEventually(brooklynNode, BrooklynNode.SERVICE_UP, true);
 
         String baseUrl = brooklynNode.getAttribute(BrooklynNode.WEB_CONSOLE_URI).toString();
         waitForApps(baseUrl);

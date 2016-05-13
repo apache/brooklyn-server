@@ -36,16 +36,13 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityInternal.FeedSupport;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.feed.function.FunctionFeed;
-import org.apache.brooklyn.feed.function.FunctionFeedTest;
-import org.apache.brooklyn.feed.function.FunctionPollConfig;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -150,7 +147,7 @@ public class FunctionFeedTest extends BrooklynAppUnitTestSupport {
                         .onSuccess(new AddOneFunction()))
                 .build();
 
-        EntityTestUtils.assertAttributeEqualsEventually(entity, SENSOR_INT, 124);
+        EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_INT, 124);
     }
     
     @Test
@@ -186,7 +183,7 @@ public class FunctionFeedTest extends BrooklynAppUnitTestSupport {
                         .onFailure(Functions.constant(-1)))
                 .build();
 
-        EntityTestUtils.assertAttributeEqualsEventually(entity, SENSOR_INT, -1);
+        EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_INT, -1);
     }
 
     @Test
@@ -201,7 +198,7 @@ public class FunctionFeedTest extends BrooklynAppUnitTestSupport {
                         .onException(Functions.constant(-1)))
                 .build();
 
-        EntityTestUtils.assertAttributeEqualsEventually(entity, SENSOR_INT, -1);
+        EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_INT, -1);
     }
     
     @Test

@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixtureWithApp;
@@ -34,7 +35,6 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.group.DynamicCluster;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -126,9 +126,9 @@ public class AutoScalerPolicyRebindTest extends RebindTestFixtureWithApp {
         assertEquals(newCluster.getCurrentSize(), (Integer)1);
         
         ((EntityInternal)newCluster).sensors().set(METRIC_SENSOR, 1000);
-        EntityTestUtils.assertGroupSizeEqualsEventually(newCluster, 3);
+        EntityAsserts.assertGroupSizeEqualsEventually(newCluster, 3);
         
         ((EntityInternal)newCluster).sensors().set(METRIC_SENSOR, 1);
-        EntityTestUtils.assertGroupSizeEqualsEventually(newCluster, 1);
+        EntityAsserts.assertGroupSizeEqualsEventually(newCluster, 1);
     }
 }

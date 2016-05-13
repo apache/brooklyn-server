@@ -30,10 +30,10 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Feed;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.core.http.BetterMockWebServer;
 import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.apache.brooklyn.util.repeat.Repeater;
@@ -87,8 +87,8 @@ public class RebindFeedWithHaTest extends RebindTestFixtureWithApp {
     public void testHttpFeedCleansUpAfterHaDisabledAndRunsAtFailover() throws Exception {
         TestEntity origEntity = origApp.createAndManageChild(EntitySpec.create(TestEntity.class).impl(RebindFeedTest.MyEntityWithHttpFeedImpl.class)
                 .configure(RebindFeedTest.MyEntityWithHttpFeedImpl.BASE_URL, baseUrl));
-        EntityTestUtils.assertAttributeEqualsEventually(origEntity, SENSOR_INT, (Integer)200);
-        EntityTestUtils.assertAttributeEqualsEventually(origEntity, SENSOR_STRING, "{\"foo\":\"myfoo\"}");
+        EntityAsserts.assertAttributeEqualsEventually(origEntity, SENSOR_INT, (Integer) 200);
+        EntityAsserts.assertAttributeEqualsEventually(origEntity, SENSOR_STRING, "{\"foo\":\"myfoo\"}");
         assertEquals(origEntity.feeds().getFeeds().size(), 1);
         origManagementContext.getRebindManager().forcePersistNow();
 
@@ -119,8 +119,8 @@ public class RebindFeedWithHaTest extends RebindTestFixtureWithApp {
         // Expect the feed to still be polling
         newEntity.sensors().set(SENSOR_INT, null);
         newEntity.sensors().set(SENSOR_STRING, null);
-        EntityTestUtils.assertAttributeEqualsEventually(newEntity, SENSOR_INT, (Integer)200);
-        EntityTestUtils.assertAttributeEqualsEventually(newEntity, SENSOR_STRING, "{\"foo\":\"myfoo\"}");
+        EntityAsserts.assertAttributeEqualsEventually(newEntity, SENSOR_INT, (Integer)200);
+        EntityAsserts.assertAttributeEqualsEventually(newEntity, SENSOR_STRING, "{\"foo\":\"myfoo\"}");
     }
 
     @Test(groups="Integration", invocationCount=50)

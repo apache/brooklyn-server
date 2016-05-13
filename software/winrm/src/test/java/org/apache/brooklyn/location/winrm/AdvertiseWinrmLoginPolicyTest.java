@@ -21,9 +21,9 @@ package org.apache.brooklyn.location.winrm;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.policy.PolicySpec;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
@@ -44,6 +44,6 @@ public class AdvertiseWinrmLoginPolicyTest extends BrooklynAppUnitTestSupport {
         
         String expected = "myuser : mypassword @ 1.2.3.4:5678";
 
-        EntityTestUtils.assertAttributeEqualsEventually(entity, AdvertiseWinrmLoginPolicy.VM_USER_CREDENTIALS, expected);
+        EntityAsserts.assertAttributeEqualsEventually(entity, AdvertiseWinrmLoginPolicy.VM_USER_CREDENTIALS, expected);
     }
 }

@@ -29,6 +29,7 @@ import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.feed.ConfigToAttributes;
 import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixtureWithApp;
@@ -39,10 +40,6 @@ import org.apache.brooklyn.entity.java.UsesJmx;
 import org.apache.brooklyn.entity.java.UsesJmx.JmxAgentModes;
 import org.apache.brooklyn.entity.software.base.test.jmx.GeneralisedDynamicMBean;
 import org.apache.brooklyn.entity.software.base.test.jmx.JmxService;
-import org.apache.brooklyn.feed.jmx.JmxAttributePollConfig;
-import org.apache.brooklyn.feed.jmx.JmxFeed;
-import org.apache.brooklyn.feed.jmx.JmxHelper;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -102,7 +99,7 @@ public class RebindJmxFeedTest extends RebindTestFixtureWithApp {
         jmxService = new JmxService(origEntity);
         GeneralisedDynamicMBean mbean = jmxService.registerMBean(MutableMap.of(JMX_ATTRIBUTE_NAME, "myval"), OBJECT_NAME);
         
-        EntityTestUtils.assertAttributeEqualsEventually(origEntity, SENSOR_STRING, "myval");
+        EntityAsserts.assertAttributeEqualsEventually(origEntity, SENSOR_STRING, "myval");
         assertEquals(origEntity.feeds().getFeeds().size(), 1);
 
         newApp = rebind();
@@ -113,7 +110,7 @@ public class RebindJmxFeedTest extends RebindTestFixtureWithApp {
         
         // Expect the feed to still be polling
         newEntity.sensors().set(SENSOR_STRING, null);
-        EntityTestUtils.assertAttributeEqualsEventually(newEntity, SENSOR_STRING, "myval");
+        EntityAsserts.assertAttributeEqualsEventually(newEntity, SENSOR_STRING, "myval");
     }
 
     public static class MyEntityWithJmxFeedImpl extends TestEntityImpl {

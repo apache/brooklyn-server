@@ -25,13 +25,12 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.enricher.stock.Enrichers;
 import org.apache.brooklyn.entity.group.BasicGroup;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,7 +75,7 @@ public class CustomAggregatingEnricherTest extends BrooklynAppUnitTestSupport {
                 .computingSum()
                 .fromChildren()
                 .build());
-        EntityTestUtils.assertAttributeEqualsContinually(MutableMap.of("timeout", 50), entity, target, null);
+        EntityAsserts.assertAttributeEqualsContinually(MutableMap.of("timeout", 50), entity, target, null);
     }
 
     @Test
@@ -89,7 +88,7 @@ public class CustomAggregatingEnricherTest extends BrooklynAppUnitTestSupport {
                 .defaultValueForUnreportedSensors(11)
                 .valueToReportIfNoSensors(40)
                 .build());
-        EntityTestUtils.assertAttributeEqualsEventually(entity, target, 40);
+        EntityAsserts.assertAttributeEqualsEventually(entity, target, 40);
     }
 
     @Test
@@ -102,7 +101,7 @@ public class CustomAggregatingEnricherTest extends BrooklynAppUnitTestSupport {
                 .defaultValueForUnreportedSensors(11)
                 .valueToReportIfNoSensors(40)
                 .build());
-        EntityTestUtils.assertAttributeEqualsEventually(entity, target, 11);
+        EntityAsserts.assertAttributeEqualsEventually(entity, target, 11);
     }
 
     @Test
@@ -113,7 +112,7 @@ public class CustomAggregatingEnricherTest extends BrooklynAppUnitTestSupport {
                 .computingSum()
                 .fromHardcodedProducers(ImmutableList.of(entity))
                 .build());
-        EntityTestUtils.assertAttributeEqualsContinually(MutableMap.of("timeout", 50), entity, target, null);
+        EntityAsserts.assertAttributeEqualsContinually(MutableMap.of("timeout", 50), entity, target, null);
     }
 
     @Test
@@ -124,7 +123,7 @@ public class CustomAggregatingEnricherTest extends BrooklynAppUnitTestSupport {
                 .computingSum()
                 .fromHardcodedProducers(ImmutableList.of(entity))
                 .build());
-        EntityTestUtils.assertAttributeEqualsContinually(MutableMap.of("timeout", 50), entity, target, null);
+        EntityAsserts.assertAttributeEqualsContinually(MutableMap.of("timeout", 50), entity, target, null);
     }
     
     @Test
@@ -137,7 +136,7 @@ public class CustomAggregatingEnricherTest extends BrooklynAppUnitTestSupport {
                 .build());
 
         entity.sensors().set(intSensor, 1);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, target, 1);
+        EntityAsserts.assertAttributeEqualsEventually(entity, target, 1);
     }
     
     @Test
@@ -150,7 +149,7 @@ public class CustomAggregatingEnricherTest extends BrooklynAppUnitTestSupport {
                 .build());
 
         entity.sensors().set(intSensor, null);
-        EntityTestUtils.assertAttributeEqualsContinually(MutableMap.of("timeout", 50), entity, target, null);
+        EntityAsserts.assertAttributeEqualsContinually(MutableMap.of("timeout", 50), entity, target, null);
     }
     
     @Test
@@ -164,16 +163,16 @@ public class CustomAggregatingEnricherTest extends BrooklynAppUnitTestSupport {
                 .valueToReportIfNoSensors(5)
                 .build());
 
-        EntityTestUtils.assertAttributeEqualsEventually(entity, target, 3);
+        EntityAsserts.assertAttributeEqualsEventually(entity, target, 3);
         
         entity.sensors().set(intSensor, null);
-        EntityTestUtils.assertAttributeEqualsContinually(MutableMap.of("timeout", 50), entity, target, 3);
+        EntityAsserts.assertAttributeEqualsContinually(MutableMap.of("timeout", 50), entity, target, 3);
         
         entity.sensors().set(intSensor, 1);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, target, 1);
+        EntityAsserts.assertAttributeEqualsEventually(entity, target, 1);
         
         entity.sensors().set(intSensor, 7);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, target, 7);
+        EntityAsserts.assertAttributeEqualsEventually(entity, target, 7);
     }
     
     @Test
@@ -190,13 +189,13 @@ public class CustomAggregatingEnricherTest extends BrooklynAppUnitTestSupport {
                 .build());
 
         producer3.sensors().set(intSensor, 1);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, target, 1);
+        EntityAsserts.assertAttributeEqualsEventually(entity, target, 1);
 
         producer1.sensors().set(intSensor, 2);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, target, 3);
+        EntityAsserts.assertAttributeEqualsEventually(entity, target, 3);
 
         producer2.sensors().set(intSensor, 4);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, target, 7);
+        EntityAsserts.assertAttributeEqualsEventually(entity, target, 7);
     }
     
     @Test
@@ -210,10 +209,10 @@ public class CustomAggregatingEnricherTest extends BrooklynAppUnitTestSupport {
                 .fromHardcodedProducers(ImmutableList.of(producer1))
                 .build());
 
-        EntityTestUtils.assertAttributeEqualsContinually(MutableMap.of("timeout", 50), entity, doubleSensor, null);
+        EntityAsserts.assertAttributeEqualsContinually(MutableMap.of("timeout", 50), entity, doubleSensor, null);
         
         producer1.sensors().set(intSensor, null);
-        EntityTestUtils.assertAttributeEqualsContinually(MutableMap.of("timeout", 50), entity, doubleSensor, null);
+        EntityAsserts.assertAttributeEqualsContinually(MutableMap.of("timeout", 50), entity, doubleSensor, null);
     }
 
     @Test
@@ -229,13 +228,13 @@ public class CustomAggregatingEnricherTest extends BrooklynAppUnitTestSupport {
                 .valueToReportIfNoSensors(5)
                 .build());
 
-        EntityTestUtils.assertAttributeEqualsEventually(entity, doubleSensor, 3d);
+        EntityAsserts.assertAttributeEqualsEventually(entity, doubleSensor, 3d);
         
         producer1.sensors().set(intSensor, null);
-        EntityTestUtils.assertAttributeEqualsContinually(MutableMap.of("timeout", 50), entity, doubleSensor, 3d);
+        EntityAsserts.assertAttributeEqualsContinually(MutableMap.of("timeout", 50), entity, doubleSensor, 3d);
         
         producer1.sensors().set(intSensor, 4);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, doubleSensor, 4d);
+        EntityAsserts.assertAttributeEqualsEventually(entity, doubleSensor, 4d);
     }
 
     @Test
@@ -249,7 +248,7 @@ public class CustomAggregatingEnricherTest extends BrooklynAppUnitTestSupport {
                 .valueToReportIfNoSensors(5)
                 .build());
 
-        EntityTestUtils.assertAttributeEqualsEventually(entity, doubleSensor, 5d);
+        EntityAsserts.assertAttributeEqualsEventually(entity, doubleSensor, 5d);
     }
 
     @Test
@@ -261,7 +260,7 @@ public class CustomAggregatingEnricherTest extends BrooklynAppUnitTestSupport {
                 .fromChildren()
                 .build());
 
-        EntityTestUtils.assertAttributeEqualsContinually(MutableMap.of("timeout", 50), entity, doubleSensor, null);
+        EntityAsserts.assertAttributeEqualsContinually(MutableMap.of("timeout", 50), entity, doubleSensor, null);
     }
 
     @Test
@@ -277,19 +276,19 @@ public class CustomAggregatingEnricherTest extends BrooklynAppUnitTestSupport {
                 .fromHardcodedProducers(ImmutableList.of(producer1, producer2, producer3))
                 .build());
 
-        EntityTestUtils.assertAttributeEqualsContinually(MutableMap.of("timeout", 50), entity, doubleSensor, null);
+        EntityAsserts.assertAttributeEqualsContinually(MutableMap.of("timeout", 50), entity, doubleSensor, null);
 
         producer1.sensors().set(intSensor, 3);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, doubleSensor, 3d);
+        EntityAsserts.assertAttributeEqualsEventually(entity, doubleSensor, 3d);
         
         producer2.sensors().set(intSensor, 1);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, doubleSensor, 2d);
+        EntityAsserts.assertAttributeEqualsEventually(entity, doubleSensor, 2d);
 
         producer3.sensors().set(intSensor, 5);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, doubleSensor, 3d);
+        EntityAsserts.assertAttributeEqualsEventually(entity, doubleSensor, 3d);
 
         producer2.sensors().set(intSensor, 4);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, doubleSensor, 4d);
+        EntityAsserts.assertAttributeEqualsEventually(entity, doubleSensor, 4d);
     }
     
     @Test
@@ -307,16 +306,16 @@ public class CustomAggregatingEnricherTest extends BrooklynAppUnitTestSupport {
                 .valueToReportIfNoSensors(0)
                 .build());
 
-        EntityTestUtils.assertAttributeEqualsEventually(entity, doubleSensor, 0d);
+        EntityAsserts.assertAttributeEqualsEventually(entity, doubleSensor, 0d);
 
         producer1.sensors().set(intSensor, 3);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, doubleSensor, 1d);
+        EntityAsserts.assertAttributeEqualsEventually(entity, doubleSensor, 1d);
 
         producer2.sensors().set(intSensor, 3);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, doubleSensor, 2d);
+        EntityAsserts.assertAttributeEqualsEventually(entity, doubleSensor, 2d);
 
         producer3.sensors().set(intSensor, 3);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, doubleSensor, 3d);
+        EntityAsserts.assertAttributeEqualsEventually(entity, doubleSensor, 3d);
     }
     
     @Test
@@ -335,18 +334,18 @@ public class CustomAggregatingEnricherTest extends BrooklynAppUnitTestSupport {
                 .valueToReportIfNoSensors(0)
                 .build());
 
-        EntityTestUtils.assertAttributeEqualsEventually(group, target, 0);
+        EntityAsserts.assertAttributeEqualsEventually(group, target, 0);
 
         group.addMember(p1);
         p1.sensors().set(intSensor, 1);
-        EntityTestUtils.assertAttributeEqualsEventually(group, target, 1);
+        EntityAsserts.assertAttributeEqualsEventually(group, target, 1);
 
         group.addMember(p2);
         p2.sensors().set(intSensor, 2);
-        EntityTestUtils.assertAttributeEqualsEventually(group, target, 3);
+        EntityAsserts.assertAttributeEqualsEventually(group, target, 3);
 
         group.removeMember(p2);
-        EntityTestUtils.assertAttributeEqualsEventually(group, target, 1);
+        EntityAsserts.assertAttributeEqualsEventually(group, target, 1);
     }
     
     @Test(groups = "Integration", invocationCount=50)
@@ -371,13 +370,13 @@ public class CustomAggregatingEnricherTest extends BrooklynAppUnitTestSupport {
                 .build());
 
 
-        EntityTestUtils.assertAttributeEqualsEventually(group, target, 1);
+        EntityAsserts.assertAttributeEqualsEventually(group, target, 1);
 
         p2.sensors().set(intSensor, 2);
-        EntityTestUtils.assertAttributeEqualsEventually(group, target, 3);
+        EntityAsserts.assertAttributeEqualsEventually(group, target, 3);
         
         group.removeMember(p2);
-        EntityTestUtils.assertAttributeEqualsEventually(group, target, 1);
+        EntityAsserts.assertAttributeEqualsEventually(group, target, 1);
     }
     
     @Test
@@ -398,13 +397,13 @@ public class CustomAggregatingEnricherTest extends BrooklynAppUnitTestSupport {
                 .build());
 
 
-        EntityTestUtils.assertAttributeEqualsEventually(app, target, 1);
+        EntityAsserts.assertAttributeEqualsEventually(app, target, 1);
 
         p2.sensors().set(intSensor, 2);
-        EntityTestUtils.assertAttributeEqualsEventually(app, target, 3);
+        EntityAsserts.assertAttributeEqualsEventually(app, target, 3);
         
         group.removeMember(p2);
-        EntityTestUtils.assertAttributeEqualsEventually(app, target, 1);
+        EntityAsserts.assertAttributeEqualsEventually(app, target, 1);
     }
     
     @Test
@@ -427,10 +426,10 @@ public class CustomAggregatingEnricherTest extends BrooklynAppUnitTestSupport {
                 .entityFilter(Predicates.equalTo((Entity)p1))
                 .build());
 
-        EntityTestUtils.assertAttributeEqualsEventually(group, target, 1);
+        EntityAsserts.assertAttributeEqualsEventually(group, target, 1);
         
         group.addMember(p3);
-        EntityTestUtils.assertAttributeEqualsContinually(ImmutableMap.of("timeout", SHORT_WAIT_MS), group, target, 1);
+        EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", SHORT_WAIT_MS), group, target, 1);
     }
     
     @Test
@@ -444,18 +443,18 @@ public class CustomAggregatingEnricherTest extends BrooklynAppUnitTestSupport {
                 .valueToReportIfNoSensors(0)
                 .build());
 
-        EntityTestUtils.assertAttributeEqualsEventually(entity, target, 0);
+        EntityAsserts.assertAttributeEqualsEventually(entity, target, 0);
 
         TestEntity p1 = entity.createAndManageChild(EntitySpec.create(TestEntity.class));
         p1.sensors().set(intSensor, 1);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, target, 1);
+        EntityAsserts.assertAttributeEqualsEventually(entity, target, 1);
 
         TestEntity p2 = entity.createAndManageChild(EntitySpec.create(TestEntity.class));
         p2.sensors().set(intSensor, 2);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, target, 3);
+        EntityAsserts.assertAttributeEqualsEventually(entity, target, 3);
 
         Entities.unmanage(p2);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, target, 1);
+        EntityAsserts.assertAttributeEqualsEventually(entity, target, 1);
     }
     
     @Test
@@ -472,13 +471,13 @@ public class CustomAggregatingEnricherTest extends BrooklynAppUnitTestSupport {
                 .build());
 
 
-        EntityTestUtils.assertAttributeEqualsEventually(entity, target, 1);
+        EntityAsserts.assertAttributeEqualsEventually(entity, target, 1);
 
         p2.sensors().set(intSensor, 2);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, target, 3);
+        EntityAsserts.assertAttributeEqualsEventually(entity, target, 3);
         
         Entities.unmanage(p2);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, target, 1);
+        EntityAsserts.assertAttributeEqualsEventually(entity, target, 1);
     }
     
     @Test
@@ -495,14 +494,13 @@ public class CustomAggregatingEnricherTest extends BrooklynAppUnitTestSupport {
                 .fromChildren()
                 .build());
 
-
-        EntityTestUtils.assertAttributeEqualsEventually(app, target, 1);
+        EntityAsserts.assertAttributeEqualsEventually(app, target, 1);
 
         p2.sensors().set(intSensor, 2);
-        EntityTestUtils.assertAttributeEqualsEventually(app, target, 3);
+        EntityAsserts.assertAttributeEqualsEventually(app, target, 3);
         
         Entities.unmanage(p2);
-        EntityTestUtils.assertAttributeEqualsEventually(app, target, 1);
+        EntityAsserts.assertAttributeEqualsEventually(app, target, 1);
     }
     
     @Test
@@ -518,11 +516,11 @@ public class CustomAggregatingEnricherTest extends BrooklynAppUnitTestSupport {
                 .entityFilter(Predicates.equalTo((Entity)p1))
                 .build());
 
-        EntityTestUtils.assertAttributeEqualsEventually(entity, target, 1);
+        EntityAsserts.assertAttributeEqualsEventually(entity, target, 1);
         
         TestEntity p2 = entity.createAndManageChild(EntitySpec.create(TestEntity.class));
         p2.sensors().set(intSensor, 2);
-        EntityTestUtils.assertAttributeEqualsContinually(ImmutableMap.of("timeout", SHORT_WAIT_MS), entity, target, 1);
+        EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", SHORT_WAIT_MS), entity, target, 1);
     }
     
     @Test
@@ -544,10 +542,10 @@ public class CustomAggregatingEnricherTest extends BrooklynAppUnitTestSupport {
                 .defaultValueForUnreportedSensors(0)
                 .build());
 
-        EntityTestUtils.assertAttributeEqualsEventually(entity, target, 1);
+        EntityAsserts.assertAttributeEqualsEventually(entity, target, 1);
         
         // Event by producer
         producer1.sensors().set(intSensor, 2);
-        EntityTestUtils.assertAttributeEqualsEventually(entity, target, 5);
+        EntityAsserts.assertAttributeEqualsEventually(entity, target, 5);
     }
 }

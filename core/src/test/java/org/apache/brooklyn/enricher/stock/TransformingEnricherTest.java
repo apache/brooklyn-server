@@ -20,12 +20,11 @@ package org.apache.brooklyn.enricher.stock;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.enricher.stock.Enrichers;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.math.MathFunctions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,6 +65,6 @@ public class TransformingEnricherTest extends BrooklynAppUnitTestSupport {
                 .computing((Function)MathFunctions.times(2)) // TODO doesn't match strongly typed int->long
                 .build());
 
-        EntityTestUtils.assertAttributeEqualsEventually(producer, target, 6L);
+        EntityAsserts.assertAttributeEqualsEventually(producer, target, 6L);
     }
 }

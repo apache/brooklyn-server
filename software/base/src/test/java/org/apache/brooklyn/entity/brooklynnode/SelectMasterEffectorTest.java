@@ -34,18 +34,15 @@ import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.feed.AttributePollHandler;
 import org.apache.brooklyn.core.feed.DelegatingPollHandler;
 import org.apache.brooklyn.core.feed.Poller;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
-import org.apache.brooklyn.entity.brooklynnode.BrooklynCluster;
-import org.apache.brooklyn.entity.brooklynnode.BrooklynClusterImpl;
-import org.apache.brooklyn.entity.brooklynnode.BrooklynNode;
 import org.apache.brooklyn.entity.brooklynnode.BrooklynCluster.SelectMasterEffector;
 import org.apache.brooklyn.entity.brooklynnode.CallbackEntityHttpClient.Request;
 import org.apache.brooklyn.entity.group.DynamicCluster;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.http.client.methods.HttpPost;
@@ -116,7 +113,7 @@ public class SelectMasterEffectorTest extends BrooklynAppUnitTestSupport {
     @Test(groups="Integration") // because slow, due to sensor feeds
     public void testSelectMasterAfterChange() {
         List<Entity> nodes = makeTwoNodes();
-        EntityTestUtils.assertAttributeEqualsEventually(cluster, BrooklynCluster.MASTER_NODE, (BrooklynNode)nodes.get(0));
+        EntityAsserts.assertAttributeEqualsEventually(cluster, BrooklynCluster.MASTER_NODE, (BrooklynNode) nodes.get(0));
 
         selectMaster(cluster, nodes.get(1).getId());
         checkMaster(cluster, nodes.get(1));
@@ -134,7 +131,7 @@ public class SelectMasterEffectorTest extends BrooklynAppUnitTestSupport {
 
         List<Entity> nodes = makeTwoNodes();
         
-        EntityTestUtils.assertAttributeEqualsEventually(cluster, BrooklynCluster.MASTER_NODE, (BrooklynNode)nodes.get(0));
+        EntityAsserts.assertAttributeEqualsEventually(cluster, BrooklynCluster.MASTER_NODE, (BrooklynNode)nodes.get(0));
 
         try {
             selectMaster(cluster, nodes.get(1).getId());
@@ -180,8 +177,8 @@ public class SelectMasterEffectorTest extends BrooklynAppUnitTestSupport {
 
                 checkRequest(input, HttpPost.METHOD_NAME, "/v1/server/ha/state", "mode", "HOT_STANDBY");
                 Entity entity = input.getEntity();
-                EntityTestUtils.assertAttributeEquals(entity, BrooklynNode.MANAGEMENT_NODE_STATE, ManagementNodeState.MASTER);
-                EntityTestUtils.assertAttributeEquals(entity, MockBrooklynNode.HA_PRIORITY, 0);
+                EntityAsserts.assertAttributeEquals(entity, BrooklynNode.MANAGEMENT_NODE_STATE, ManagementNodeState.MASTER);
+                EntityAsserts.assertAttributeEquals(entity, MockBrooklynNode.HA_PRIORITY, 0);
 
                 setManagementState(entity, ManagementNodeState.HOT_STANDBY);
 
@@ -241,7 +238,7 @@ public class SelectMasterEffectorTest extends BrooklynAppUnitTestSupport {
     private void masterFailover(Entity member) {
         LOG.debug("Master failover to " + member);
         setManagementState(member, ManagementNodeState.MASTER);
-        EntityTestUtils.assertAttributeEqualsEventually(cluster, BrooklynCluster.MASTER_NODE, (BrooklynNode)member);
+        EntityAsserts.assertAttributeEqualsEventually(cluster, BrooklynCluster.MASTER_NODE, (BrooklynNode)member);
         return;
     }
 

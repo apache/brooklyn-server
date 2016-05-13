@@ -25,17 +25,11 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixtureWithApp;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestApplication;
-import org.apache.brooklyn.policy.enricher.DeltaEnricher;
-import org.apache.brooklyn.policy.enricher.HttpLatencyDetector;
-import org.apache.brooklyn.policy.enricher.RollingMeanEnricher;
-import org.apache.brooklyn.policy.enricher.RollingTimeWindowMeanEnricher;
-import org.apache.brooklyn.policy.enricher.TimeFractionDeltaEnricher;
-import org.apache.brooklyn.policy.enricher.TimeWeightedDeltaEnricher;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.test.EntityTestUtils;
 import org.apache.brooklyn.util.core.http.BetterMockWebServer;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -69,7 +63,7 @@ public class RebindEnricherTest extends RebindTestFixtureWithApp {
 
         newApp.sensors().set(INT_METRIC, 1);
         newApp.sensors().set(INT_METRIC, 10);
-        EntityTestUtils.assertAttributeEqualsEventually(newApp, INT_METRIC2, 9);
+        EntityAsserts.assertAttributeEqualsEventually(newApp, INT_METRIC2, 9);
     }
 
     @Test
@@ -93,8 +87,8 @@ public class RebindEnricherTest extends RebindTestFixtureWithApp {
         newApp.sensors().set(HttpLatencyDetector.REQUEST_LATENCY_IN_SECONDS_MOST_RECENT, null);
         newApp.sensors().set(HttpLatencyDetector.REQUEST_LATENCY_IN_SECONDS_IN_WINDOW, null);
 
-        EntityTestUtils.assertAttributeEventuallyNonNull(newApp, HttpLatencyDetector.REQUEST_LATENCY_IN_SECONDS_MOST_RECENT);
-        EntityTestUtils.assertAttributeEventuallyNonNull(newApp, HttpLatencyDetector.REQUEST_LATENCY_IN_SECONDS_IN_WINDOW);
+        EntityAsserts.assertAttributeEventuallyNonNull(newApp, HttpLatencyDetector.REQUEST_LATENCY_IN_SECONDS_MOST_RECENT);
+        EntityAsserts.assertAttributeEventuallyNonNull(newApp, HttpLatencyDetector.REQUEST_LATENCY_IN_SECONDS_IN_WINDOW);
     }
 
     @Test
@@ -104,7 +98,7 @@ public class RebindEnricherTest extends RebindTestFixtureWithApp {
         TestApplication newApp = rebind();
 
         newApp.sensors().set(INT_METRIC, 10);
-        EntityTestUtils.assertAttributeEqualsEventually(newApp, DOUBLE_METRIC, 10d);
+        EntityAsserts.assertAttributeEqualsEventually(newApp, DOUBLE_METRIC, 10d);
     }
 
     @Test
@@ -116,7 +110,7 @@ public class RebindEnricherTest extends RebindTestFixtureWithApp {
         newApp.sensors().set(INT_METRIC, 10);
         Time.sleep(Duration.millis(10));
         newApp.sensors().set(INT_METRIC, 10);
-        EntityTestUtils.assertAttributeEqualsEventually(newApp, DOUBLE_METRIC, 10d);
+        EntityAsserts.assertAttributeEqualsEventually(newApp, DOUBLE_METRIC, 10d);
     }
     
     @Test
