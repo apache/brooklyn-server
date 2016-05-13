@@ -60,7 +60,7 @@ public class LocalManagementContextTest {
     public void testReloadPropertiesFromBuilder() throws IOException {
         String globalPropertiesContents = "brooklyn.location.localhost.displayName=myname";
         Files.write(globalPropertiesContents, globalPropertiesFile, Charsets.UTF_8);
-        Builder propsBuilder = new BrooklynProperties.Factory.Builder()
+        Builder propsBuilder = BrooklynProperties.Factory.builderDefault()
             .globalPropertiesFile(globalPropertiesFile.getAbsolutePath());
         // no builder support in LocalManagementContextForTests (we are testing that the builder's files are reloaded so we need it here)
         context = new LocalManagementContext(propsBuilder);
@@ -78,7 +78,7 @@ public class LocalManagementContextTest {
     public void testReloadPropertiesFromProperties() throws IOException {
         String globalPropertiesContents = "brooklyn.location.localhost.displayName=myname";
         Files.write(globalPropertiesContents, globalPropertiesFile, Charsets.UTF_8);
-        BrooklynProperties brooklynProperties = new BrooklynProperties.Factory.Builder()
+        BrooklynProperties brooklynProperties = BrooklynProperties.Factory.builderDefault()
             .globalPropertiesFile(globalPropertiesFile.getAbsolutePath())
             .build();
         context = LocalManagementContextForTests.builder(true).useProperties(brooklynProperties).build();
