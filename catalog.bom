@@ -3,9 +3,10 @@ brooklyn.catalog:
   iconUrl: https://raw.githubusercontent.com/docker-library/docs/c350af05d3fac7b5c3f6327ac82fe4d990d8729c/docker/logo.png
 
   publish:
-    description: Resources for working with Docker containers from Apache Brooklyn
+    description:  Resources for working with Docker containers from Apache Brooklyn
     license_code: Apache-2.0
-    overview: README.md
+    overview:     README.md
+    qa:           catalog.tests.bom
 
   items:
   - id:           docker-engine
