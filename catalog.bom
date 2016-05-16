@@ -1,5 +1,5 @@
 brooklyn.catalog:
-  version: 0.1.0_SNAPSHOT
+  version: 2.0.0_SNAPSHOT
   iconUrl: https://raw.githubusercontent.com/docker-library/docs/c350af05d3fac7b5c3f6327ac82fe4d990d8729c/docker/logo.png
 
   publish:
@@ -43,8 +43,9 @@ brooklyn.catalog:
     item:
       type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
       # TODO support DSL in name: $brooklyn:formatString("Container (%s)", $brooklyn:config("container"))
+      # TODO advertise container id as a sensor
       name: Container
-      launch.command:  $brooklyn:formatString("sudo docker run %s", $brooklyn:config("container"))
+      launch.command:  $brooklyn:formatString("sudo docker run -d %s", $brooklyn:config("container"))
       brooklyn.parameters:
       - name: container
         type: string
