@@ -5,6 +5,10 @@ brooklyn.catalog:
   license_url: TODO
   items:
 
+  ###
+   # Tests that we can deploy a Docker Engine. We assert that it reports success, is reachable
+   # and basic health checks (via Docker CLI) also report success.
+   ##
   - id: docker-engine-test
     name: Docker Engine test
     description: Test that Docker Engine is deployed correctly
@@ -44,16 +48,30 @@ brooklyn.catalog:
             sensor: service.isUp
             assert:
             - equals: true
-        - type: org.apache.brooklyn.test.framework.TestCase
-          name: "SSH commands respond"
-          brooklyn.children:
-          - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
-            name: TEST docker commands succeed
-            brooklyn.config:
-              command: sudo docker info && sudo docker ps
-              assert.status:
-                equals: 0
+        - type: org.apache.brooklyn.test.framework.TestSensor
+          name: TEST [docker.endpoint] IS [tcp.*2375.*]
+          brooklyn.config:
+            sensor: docker.endpoint
+            assert:
+            - matches: tcp.*2375.*
+        - type: org.apache.brooklyn.test.framework.TestEndpointReachable
+          name: TEST docker TCP endpoint reachable
+          brooklyn.config:
+            endpointSensor: docker.endpoint
+        - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+          name: TEST docker CLI commands succeed
+          brooklyn.config:
+            command:
+              $brooklyn:formatString:
+              - "export DOCKER_HOST=%s && docker info && docker ps"
+              - $brooklyn:component("docker-engine").attributeWhenReady("docker.endpoint")
+            assert.status:
+              equals: 0
 
+  ###
+   # Tests that we can deploy a Docker Engine along with a long-running container. 
+   # We assert that the container comes up (according to the CLI command `docker ps`).
+   ##
   - id: docker-engine-and-container-test
     name: Docker Engine and Container test
     description: Test that can run a container on the Docker Engine
@@ -92,6 +110,58 @@ brooklyn.catalog:
         - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
           name: "Container is running"
           brooklyn.config:
-            command: sudo docker ps | grep clockercentral
+            command:
+              $brooklyn:formatString:
+              - "export DOCKER_HOST=%s && docker ps | grep clockercentral" 
+              - $brooklyn:component("docker-engine").attributeWhenReady("docker.endpoint")
+            assert.status:
+              equals: 0
+
+  ###
+   # Tests that we can deploy a Docker Engine along with a long-running container,
+   # where the Docker Engine does not expose the docker TCP port (i.e. must use ssh to host).
+   ##
+  - id: docker-engine-and-container-no-network-test
+    name: Docker Engine (no network) and Container test
+    description: Test Docker Engine deploys (without exposing over TCP), and container is launched
+    item:
+
+      brooklyn.parameters:
+      - name: timeout.initialStartup
+        description: The timeout for provisioning, installing and launching the app-under-test.
+        type: org.apache.brooklyn.util.time.Duration
+        default: 20m
+      - name: timeout.runtimeAssertion
+        type: org.apache.brooklyn.util.time.Duration
+        description: The timeout for any other operation (e.g. invoking an effector or waiting for a sensor to be updated)
+        default: 5m
+
+      services:
+      - type: docker-engine
+        id: docker-engine
+        brooklyn.config:
+          docker.port.enabled: false
+        brooklyn.children:
+        - type: docker-engine-container
+          container: clockercentral/centos
+
+      # TODO also assert that TCP port is *not* reachable
+      - type: org.apache.brooklyn.test.framework.TestCase
+        name: Tests
+        brooklyn.config:
+          targetId: docker-engine
+          timeout: $brooklyn:scopeRoot().config("timeout.runtimeAssertion")
+        brooklyn.children:
+        - type: org.apache.brooklyn.test.framework.TestSensor
+          name: TEST [service.isUp] IS [true]
+          brooklyn.config:
+            sensor: service.isUp
+            timeout: $brooklyn:scopeRoot().config("timeout.initialStartup")
+            assert:
+            - equals: true
+        - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+          name: "Container is running"
+          brooklyn.config:
+            command: "sudo docker ps | grep clockercentral"
             assert.status:
               equals: 0
