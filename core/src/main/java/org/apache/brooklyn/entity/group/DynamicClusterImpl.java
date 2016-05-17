@@ -259,6 +259,7 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
                 Preconditions.checkNotNull(getConfig(INITIAL_SIZE), "Cluster initial size overridden to be null. Must be set explicitly.")==0) {
             // if initial size is 0 then override up check to allow zero if empty
             config().set(UP_QUORUM_CHECK, QuorumChecks.atLeastOneUnlessEmpty());
+            sensors().set(ServiceStateLogic.SERVICE_NOT_UP_INDICATORS, MutableMap.<String, Object>of());
             sensors().set(SERVICE_UP, true);
         } else {
             sensors().set(SERVICE_UP, false);
