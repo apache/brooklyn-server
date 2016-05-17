@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.enricher.stock;
 
+import java.util.List;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -27,12 +29,17 @@ import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.sensor.BasicSensorEvent;
+import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
+import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
 
 @SuppressWarnings("serial")
@@ -40,12 +47,18 @@ public abstract class AbstractTransformer<T,U> extends AbstractEnricher implemen
 
     private static final Logger LOG = LoggerFactory.getLogger(AbstractTransformer.class);
 
-    public static ConfigKey<Entity> PRODUCER = ConfigKeys.newConfigKey(Entity.class, "enricher.producer");
+    public static final ConfigKey<Entity> PRODUCER = ConfigKeys.newConfigKey(Entity.class, "enricher.producer");
 
-    public static ConfigKey<Sensor<?>> SOURCE_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {}, "enricher.sourceSensor");
+    public static final ConfigKey<Sensor<?>> SOURCE_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {}, "enricher.sourceSensor");
 
-    public static ConfigKey<Sensor<?>> TARGET_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {}, "enricher.targetSensor");
+    public static final ConfigKey<Sensor<?>> TARGET_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {}, "enricher.targetSensor");
     
+    public static final ConfigKey<List<? extends Sensor<?>>> TRIGGER_SENSORS = ConfigKeys.newConfigKey(
+            new TypeToken<List<? extends Sensor<?>>>() {}, 
+            "enricher.triggerSensors",
+            "Sensors that will trigger re-evaluation",
+            ImmutableList.<Sensor<?>>of());
+
     protected Entity producer;
     protected Sensor<T> sourceSensor;
     protected Sensor<U> targetSensor;
@@ -59,27 +72,55 @@ public abstract class AbstractTransformer<T,U> extends AbstractEnricher implemen
         super.setEntity(entity);
 
         this.producer = getConfig(PRODUCER) == null ? entity: getConfig(PRODUCER);
-        this.sourceSensor = (Sensor<T>) getRequiredConfig(SOURCE_SENSOR);
+        this.sourceSensor = (Sensor<T>) getConfig(SOURCE_SENSOR);
         Sensor<?> targetSensorSpecified = getConfig(TARGET_SENSOR);
+        List<? extends Sensor<?>> triggerSensorsSpecified = getConfig(TRIGGER_SENSORS);
+        List<? extends Sensor<?>> triggerSensors = triggerSensorsSpecified != null ? triggerSensorsSpecified : ImmutableList.<Sensor<?>>of();
         this.targetSensor = targetSensorSpecified!=null ? (Sensor<U>) targetSensorSpecified : (Sensor<U>) this.sourceSensor;
-        if (producer.equals(entity) && targetSensorSpecified==null) {
+        if (targetSensor == null) {
+            throw new IllegalArgumentException("Enricher "+JavaClassNames.simpleClassName(this)+" has no "+TARGET_SENSOR.getName()+", and it cannot be inferred as "+SOURCE_SENSOR.getName()+" is also not set");
+        }
+        if (sourceSensor == null && triggerSensors.isEmpty()) {
+            throw new IllegalArgumentException("Enricher "+JavaClassNames.simpleClassName(this)+" has no "+SOURCE_SENSOR.getName()+" and no "+TRIGGER_SENSORS.getName());
+        }
+        if (producer.equals(entity) && (targetSensor.equals(sourceSensor) || triggerSensors.contains(targetSensor))) {
             // We cannot call getTransformation() here to log the tranformation, as it will attempt
             // to resolve the transformation, which will cause the entity initialization thread to block
             LOG.error("Refusing to add an enricher which reads and publishes on the same sensor: "+
-                producer+"."+sourceSensor+" (computing transformation with "+JavaClassNames.simpleClassName(this)+")");
+                producer+"->"+targetSensor+" (computing transformation with "+JavaClassNames.simpleClassName(this)+")");
             // we don't throw because this error may manifest itself after a lengthy deployment, 
             // and failing it at that point simply because of an enricher is not very pleasant
             // (at least not until we have good re-run support across the board)
             return;
         }
         
-        subscriptions().subscribe(producer, sourceSensor, this);
+        if (sourceSensor != null) {
+            subscriptions().subscribe(MutableMap.of("notifyOfInitialValue", true), producer, sourceSensor, this);
+        }
         
-        if (sourceSensor instanceof AttributeSensor) {
-            Object value = producer.getAttribute((AttributeSensor<?>)sourceSensor);
-            // TODO would be useful to have a convenience to "subscribeAndThenIfItIsAlreadySetRunItOnce"
-            if (value!=null) {
-                onEvent(new BasicSensorEvent(sourceSensor, producer, value, -1));
+        if (triggerSensors.size() > 0) {
+            SensorEventListener<Object> triggerListener = new SensorEventListener<Object>() {
+                @Override public void onEvent(SensorEvent<Object> event) {
+                    if (sourceSensor != null) {
+                        // Simulate an event, as though our sourceSensor changed
+                        Object value = producer.getAttribute((AttributeSensor<?>)sourceSensor);
+                        AbstractTransformer.this.onEvent(new BasicSensorEvent(sourceSensor, producer, value, event.getTimestamp()));
+                    } else {
+                        // Assume the transform doesn't care about the value - otherwise it would 
+                        // have declared a sourceSensor!
+                        AbstractTransformer.this.onEvent(null);
+                    }
+                }
+            };
+            for (Object sensor : triggerSensors) {
+                if (sensor instanceof String) {
+                    Sensor<?> resolvedSensor = entity.getEntityType().getSensor((String)sensor);
+                    if (resolvedSensor == null) { 
+                        resolvedSensor = Sensors.newSensor(Object.class, (String)sensor);
+                    }
+                    sensor = resolvedSensor;
+                }
+                subscriptions().subscribe(MutableMap.of("notifyOfInitialValue", true), producer, (Sensor<?>)sensor, triggerListener);
             }
         }
     }

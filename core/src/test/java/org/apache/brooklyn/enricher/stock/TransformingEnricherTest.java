@@ -18,21 +18,30 @@
  */
 package org.apache.brooklyn.enricher.stock;
 
+import java.util.List;
+
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.EnricherSpec;
+import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.math.MathFunctions;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 public class TransformingEnricherTest extends BrooklynAppUnitTestSupport {
 
@@ -40,6 +49,7 @@ public class TransformingEnricherTest extends BrooklynAppUnitTestSupport {
             
     TestEntity producer;
     AttributeSensor<Integer> intSensorA;
+    AttributeSensor<Integer> intSensorB;
     AttributeSensor<Long> target;
 
     @BeforeMethod(alwaysRun=true)
@@ -48,6 +58,7 @@ public class TransformingEnricherTest extends BrooklynAppUnitTestSupport {
         super.setUp();
         producer = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         intSensorA = new BasicAttributeSensor<Integer>(Integer.class, "int.sensor.a");
+        intSensorB = new BasicAttributeSensor<Integer>(Integer.class, "int.sensor.b");
         target = new BasicAttributeSensor<Long>(Long.class, "long.sensor.target");
         
         app.start(ImmutableList.of(new SimulatedLocation()));
@@ -66,5 +77,151 @@ public class TransformingEnricherTest extends BrooklynAppUnitTestSupport {
                 .build());
 
         EntityAsserts.assertAttributeEqualsEventually(producer, target, 6L);
+    }
+    
+    @Test
+    public void testTargetValueTriggeredBySourceSensor() throws Exception {
+        //ensure previous values get picked up
+        producer.sensors().set(intSensorA, 3);
+
+        producer.enrichers().add(EnricherSpec.create(Transformer.class)
+                .configure(Transformer.TARGET_SENSOR, target)
+                .configure(Transformer.SOURCE_SENSOR, intSensorA)
+                .configure(Transformer.PRODUCER, producer)
+                .configure(Transformer.TARGET_VALUE, new DeferredSupplier<Long>() {
+                    @Override public Long get() {
+                        Integer a =  producer.sensors().get(intSensorA);
+                        return (a == null ? null : a.longValue());
+                    }}));
+
+        EntityAsserts.assertAttributeEqualsEventually(producer, target, 3L);
+        
+        producer.sensors().set(intSensorA, 4);
+        EntityAsserts.assertAttributeEqualsEventually(producer, target, 4L);
+    }
+    
+    @Test
+    public void testTargetValueTriggeredByOtherSensors() throws Exception {
+        //ensure previous values get picked up
+        producer.sensors().set(intSensorA, 3);
+
+        producer.enrichers().add(EnricherSpec.create(Transformer.class)
+                .configure(Transformer.TARGET_SENSOR, target)
+                .configure(Transformer.TRIGGER_SENSORS, ImmutableList.of(intSensorA, intSensorB))
+                .configure(Transformer.PRODUCER, producer)
+                .configure(Transformer.TARGET_VALUE, new DeferredSupplier<Long>() {
+                    @Override public Long get() {
+                        Integer a =  producer.sensors().get(intSensorA);
+                        Integer b =  producer.sensors().get(intSensorB);
+                        return (long) ((a == null ? 0 : a) + (b == null ? 0 : b));
+                    }}));
+
+        EntityAsserts.assertAttributeEqualsEventually(producer, target, 3L);
+        
+        producer.sensors().set(intSensorA, 4);
+        EntityAsserts.assertAttributeEqualsEventually(producer, target, 4L);
+        
+        producer.sensors().set(intSensorB, 1);
+        EntityAsserts.assertAttributeEqualsEventually(producer, target, 5L);
+    }
+    
+    @Test
+    public void testTransformationTriggeredByOtherSensors() throws Exception {
+        //ensure previous values get picked up
+        producer.sensors().set(intSensorA, 3);
+
+        producer.enrichers().add(EnricherSpec.create(Transformer.class)
+                .configure(Transformer.TARGET_SENSOR, target)
+                .configure(Transformer.SOURCE_SENSOR, intSensorA)
+                .configure(Transformer.TRIGGER_SENSORS, ImmutableList.of(intSensorB))
+                .configure(Transformer.PRODUCER, producer)
+                .configure(Transformer.TRANSFORMATION_FROM_VALUE, (Function)MathFunctions.times(2))); // TODO doesn't match strongly typed int->long
+
+        EntityAsserts.assertAttributeEqualsEventually(producer, target, 6L);
+        
+        producer.sensors().set(intSensorA, 4);
+        EntityAsserts.assertAttributeEqualsEventually(producer, target, 8L);
+        
+        producer.sensors().set(target, -1L);
+        producer.sensors().set(intSensorB, 1);
+        EntityAsserts.assertAttributeEqualsEventually(producer, target, 8L);
+    }
+    
+    @Test
+    public void testTriggeringSensorNamesResolvedFromStrings() throws Exception {
+        // Doing nasty casting here, but in YAML we could easily get passed this.
+        producer.enrichers().add(EnricherSpec.create(Transformer.class)
+                .configure(Transformer.TARGET_SENSOR, target)
+                .configure(Transformer.TRIGGER_SENSORS, (List<Sensor<?>>)(List)ImmutableList.of(intSensorA.getName(), intSensorB.getName()))
+                .configure(Transformer.PRODUCER, producer)
+                .configure(Transformer.TARGET_VALUE, new DeferredSupplier<Long>() {
+                    @Override public Long get() {
+                        Integer a =  producer.sensors().get(intSensorA);
+                        Integer b =  producer.sensors().get(intSensorB);
+                        return (long) ((a == null ? 0 : a) + (b == null ? 0 : b));
+                    }}));
+
+        producer.sensors().set(intSensorA, 1);
+        EntityAsserts.assertAttributeEqualsEventually(producer, target, 1L);
+    }
+    
+    @Test
+    public void testTransformerAvoidsInfiniteLoopWhereSourceAndTargetSame() throws Exception {
+        producer.enrichers().add(EnricherSpec.create(Transformer.class)
+                .configure(Transformer.SOURCE_SENSOR, intSensorA)
+                .configure(Transformer.TARGET_SENSOR, intSensorA)
+                .configure(Transformer.PRODUCER, producer)
+                .configure(Transformer.TRANSFORMATION_FROM_VALUE, (Function)MathFunctions.times(2))); // TODO doesn't match strongly typed int->long
+
+        // Short wait; expect us to never re-publish the source-sensor as that would cause infinite loop.
+        producer.sensors().set(intSensorA, 1);
+        EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", Duration.millis(250)), producer, intSensorA, 1);
+    }
+    
+    @Test
+    public void testTransformerAvoidsInfiniteLoopWhereTriggerAndTargetSame() throws Exception {
+        //ensure previous values get picked up
+        producer.sensors().set(intSensorA, 3);
+
+        producer.enrichers().add(EnricherSpec.create(Transformer.class)
+                .configure(Transformer.TRIGGER_SENSORS, ImmutableList.of(intSensorA))
+                .configure(Transformer.TARGET_SENSOR, intSensorA)
+                .configure(Transformer.PRODUCER, producer)
+                .configure(Transformer.TARGET_VALUE, new DeferredSupplier<Integer>() {
+                    @Override public Integer get() {
+                        Integer a =  producer.sensors().get(intSensorA);
+                        return (a == null ? 0 : a+1);
+                    }}));
+
+        producer.sensors().set(intSensorA, 1);
+        EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", Duration.millis(250)), producer, intSensorA, 1);
+    }
+    
+    @Test
+    public void testTransformerFailsIfMissingTriggers() throws Exception {
+        //ensure previous values get picked up
+        producer.sensors().set(intSensorA, 3);
+
+        try {
+            producer.enrichers().add(EnricherSpec.create(Transformer.class)
+                    .configure(Transformer.TARGET_SENSOR, target)
+                    .configure(Transformer.PRODUCER, producer)
+                    .configure(Transformer.TRANSFORMATION_FROM_VALUE, Functions.identity()));
+            Asserts.shouldHaveFailedPreviously();
+        } catch (IllegalArgumentException e) {
+            Asserts.expectedFailureContains(e, "has no "+Transformer.SOURCE_SENSOR.getName()+" and no "+Transformer.TRIGGER_SENSORS.getName());
+        }
+    }
+    
+    @Test
+    public void testInfersTargetSensorSameAsSource() throws Exception {
+        producer.sensors().set(intSensorA, 3);
+        
+        app.enrichers().add(EnricherSpec.create(Transformer.class)
+                .configure(Transformer.SOURCE_SENSOR, intSensorA)
+                .configure(Transformer.PRODUCER, producer)
+                .configure(Transformer.TRANSFORMATION_FROM_VALUE, Functions.identity()));
+        
+        EntityAsserts.assertAttributeEqualsEventually(app, intSensorA, 3);
     }
 }
