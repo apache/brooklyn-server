@@ -186,6 +186,10 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
         private static final String DEFAULT_TYPE = "string";
         private static final Map<String, Class<?>> BUILT_IN_TYPES = ImmutableMap.<String, Class<?>>builder()
                 .put(DEFAULT_TYPE, String.class)
+                .put("boolean", Boolean.class)
+                .put("byte", Byte.class)
+                .put("char", Character.class)
+                .put("short", Short.class)
                 .put("integer", Integer.class)
                 .put("long", Long.class)
                 .put("float", Float.class)
