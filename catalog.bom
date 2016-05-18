@@ -17,6 +17,34 @@ brooklyn.catalog:
       name: Docker Engine (host)
       type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
 
+      brooklyn.parameters:
+      - name: docker.port
+        description: The docker TCP port to listen on.
+        type: port
+        default: 2375
+      - name: docker.bindaddress
+        description: The docker network address to to listen on.
+        type: string
+        default: 0.0.0.0
+
+      brooklyn.enrichers:
+      - type: org.apache.brooklyn.enricher.stock.Transformer
+        brooklyn.config:
+          uniqueTag: docker-endpoint-generator
+          enricher.triggerSensors:
+          - host.name
+          - docker.port
+          enricher.targetSensor: $brooklyn:sensor("docker.endpoint")
+          enricher.targetValue:
+            $brooklyn:formatString:
+            - "tcp://%s:%s/" 
+            - $brooklyn:attributeWhenReady("host.name")
+            - $brooklyn:attributeWhenReady("docker.port")
+
+      shell.env:
+        DOCKER_PORT: $brooklyn:config("docker.port")
+        DOCKER_BINDADDRESS: $brooklyn:config("docker.bindaddress")
+
       install.command: |
         sudo yum -y update
         sudo tee /etc/yum.repos.d/docker.repo <<-'EOF'
@@ -28,6 +56,11 @@ brooklyn.catalog:
         gpgkey=https://yum.dockerproject.org/gpg
         EOF
         sudo yum -y install docker-engine
+
+        echo "Enabling TCP-access to docker engine on tcp://${DOCKER_BINDADDRESS}:${DOCKER_PORT}"
+        sudo sed -i "/ExecStart/c ExecStart=/usr/bin/docker daemon -H tcp://${DOCKER_BINDADDRESS}:${DOCKER_PORT}" \
+          /usr/lib/systemd/system/docker.service
+        sudo systemctl daemon-reload
 
       launch.command:       sudo service docker start
       stop.command:         sudo service docker stop
@@ -44,9 +77,18 @@ brooklyn.catalog:
     item:
       type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
       # TODO support DSL in name: $brooklyn:formatString("Container (%s)", $brooklyn:config("container"))
-      # TODO advertise container id as a sensor
+      # TODO advertise container id as a sensor.
+      # TODO assumes that parent entity will be docker-engine (so can lookup docker.port config; see BROOKLYN-267)
       name: Container
-      launch.command:  $brooklyn:formatString("sudo docker run -d %s", $brooklyn:config("container"))
+      shell.env:
+        DOCKER_IMAGE: $brooklyn:config("container")
+        DOCKER_PORT: $brooklyn:config("docker.port")
+        DOCKER_HOST:
+          $brooklyn:formatString:
+          - "tcp://127.0.0.1:%s/"
+          - $brooklyn:parent().config("docker.port")
+      launch.command: |
+        docker run -d ${DOCKER_IMAGE}
       brooklyn.parameters:
       - name: container
         type: string

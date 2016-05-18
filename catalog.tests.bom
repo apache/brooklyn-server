@@ -5,6 +5,10 @@ brooklyn.catalog:
   license_url: TODO
   items:
 
+  ###
+   # Tests that we can deploy a Docker Engine. We assert that it reports success, is reachable
+   # and basic health checks (via Docker CLI) also report success.
+   ##
   - id: docker-engine-test
     name: Docker Engine test
     description: Test that Docker Engine is deployed correctly
@@ -44,16 +48,38 @@ brooklyn.catalog:
             sensor: service.isUp
             assert:
             - equals: true
-        - type: org.apache.brooklyn.test.framework.TestCase
-          name: "SSH commands respond"
-          brooklyn.children:
-          - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
-            name: TEST docker commands succeed
-            brooklyn.config:
-              command: sudo docker info && sudo docker ps
-              assert.status:
-                equals: 0
+        - type: org.apache.brooklyn.test.framework.TestSensor
+          name: TEST [docker.endpoint] IS [tcp.*2375.*]
+          brooklyn.config:
+            sensor: docker.endpoint
+            assert:
+            - matches: tcp.*2375.*
+        - type: org.apache.brooklyn.test.framework.TestEndpointReachable
+          name: TEST docker TCP endpoint reachable
+          brooklyn.config:
+            endpointSensor: docker.endpoint
+        - type: org.apache.brooklyn.test.framework.TestHttpCall
+          name: TEST docker api HTTP call
+          brooklyn.config:
+            url:
+              $brooklyn:formatString:
+              - "http://%s:%s/info"
+              - $brooklyn:component("docker-engine").attributeWhenReady("host.name")
+              - $brooklyn:component("docker-engine").attributeWhenReady("docker.port")
+        - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+          name: TEST docker CLI commands succeed
+          brooklyn.config:
+            command:
+              $brooklyn:formatString:
+              - "export DOCKER_HOST=%s && docker info && docker ps"
+              - $brooklyn:component("docker-engine").attributeWhenReady("docker.endpoint")
+            assert.status:
+              equals: 0
 
+  ###
+   # Tests that we can deploy a Docker Engine along with a long-running container. 
+   # We assert that the container comes up (according to the CLI command `docker ps`).
+   ##
   - id: docker-engine-and-container-test
     name: Docker Engine and Container test
     description: Test that can run a container on the Docker Engine
@@ -92,6 +118,9 @@ brooklyn.catalog:
         - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
           name: "Container is running"
           brooklyn.config:
-            command: sudo docker ps | grep clockercentral
+            command:
+              $brooklyn:formatString:
+              - "export DOCKER_HOST=%s && docker ps | grep clockercentral" 
+              - $brooklyn:component("docker-engine").attributeWhenReady("docker.endpoint")
             assert.status:
               equals: 0
