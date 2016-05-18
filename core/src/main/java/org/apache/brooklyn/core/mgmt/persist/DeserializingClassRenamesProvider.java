@@ -23,21 +23,26 @@ import java.io.InputStream;
 import java.util.Enumeration;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.stream.Streams;
+import org.apache.brooklyn.util.text.StringPredicates;
+import org.reflections.scanners.ResourcesScanner;
+import org.reflections.util.ClasspathHelper;
+import org.reflections.util.ConfigurationBuilder;
+import org.reflections.util.FilterBuilder;
 
 import com.google.common.annotations.Beta;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
 @Beta
 public class DeserializingClassRenamesProvider {
 
-    public static final String DESERIALIZING_CLASS_RENAMES_PROPERTIES_PATH = "classpath://org/apache/brooklyn/core/mgmt/persist/deserializingClassRenames.properties";
-    
+    public static final String DESERIALIZING_CLASS_RENAMES_PROPERTIES_PACKAGE = "org.apache.brooklyn.core.mgmt.persist.deserializingClassRenames";
+
     private static volatile Map<String, String> cache;
     
     @Beta
@@ -50,31 +55,40 @@ public class DeserializingClassRenamesProvider {
                 }
             }
         }
+
         return cache;
     }
     
     private static Map<String, String> loadDeserializingClassRenamesCache() {
-        InputStream resource = new ResourceUtils(DeserializingClassRenamesProvider.class).getResourceFromUrl(DESERIALIZING_CLASS_RENAMES_PROPERTIES_PATH);
-        if (resource != null) {
-            try {
-                Properties props = new Properties();
-                props.load(resource);
-                
-                Map<String, String> result = Maps.newLinkedHashMap();
-                for (Enumeration<?> iter = props.propertyNames(); iter.hasMoreElements();) {
-                    String key = (String) iter.nextElement();
-                    String value = props.getProperty(key);
-                    result.put(key, value);
+        Set<String> renames = new org.reflections.Reflections(new ConfigurationBuilder()
+                .setUrls(ClasspathHelper.forPackage(DESERIALIZING_CLASS_RENAMES_PROPERTIES_PACKAGE))
+                .setScanners(new ResourcesScanner())
+                .filterInputsBy(new FilterBuilder().includePackage(DESERIALIZING_CLASS_RENAMES_PROPERTIES_PACKAGE)))
+                .getResources(StringPredicates.<String>matchesRegex(".*\\.properties$"));
+
+        Map<String, String> result = Maps.newLinkedHashMap();
+
+        for (String renameFile : renames) {
+            InputStream resource = new ResourceUtils(DeserializingClassRenamesProvider.class).getResourceFromUrl("classpath://" + renameFile);
+            if (resource != null) {
+                try {
+                    Properties props = new Properties();
+                    props.load(resource);
+
+                    for (Enumeration<?> iter = props.propertyNames(); iter.hasMoreElements(); ) {
+                        String key = (String) iter.nextElement();
+                        String value = props.getProperty(key);
+                        result.put(key, value);
+                    }
+                    return result;
+                } catch (IOException e) {
+                    throw Exceptions.propagate(e);
+                } finally {
+                    Streams.closeQuietly(resource);
                 }
-                return result;
-            } catch (IOException e) {
-                throw Exceptions.propagate(e);
-            } finally {
-                Streams.closeQuietly(resource);
             }
-        } else {
-            return ImmutableMap.<String, String>of();
         }
+        return result;
     }
 
     @Beta
