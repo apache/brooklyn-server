@@ -22,10 +22,14 @@ import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.net.UserAndHostAndPort;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.cxf.interceptor.Fault;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.xml.ws.WebServiceException;
 
 public class VanillaWindowsProcessWinRmDriver extends AbstractSoftwareProcessWinRmDriver implements VanillaWindowsProcessDriver {
     private static final Logger LOG = LoggerFactory.getLogger(VanillaWindowsProcessWinRmDriver.class);
@@ -80,9 +84,22 @@ public class VanillaWindowsProcessWinRmDriver extends AbstractSoftwareProcessWin
 
     @Override
     public boolean isRunning() {
-        int exitCode = executeCommandInTask(
-                getEntity().getConfig(VanillaWindowsProcess.CHECK_RUNNING_COMMAND),
-                getEntity().getConfig(VanillaWindowsProcess.CHECK_RUNNING_POWERSHELL_COMMAND), "is-running-command");
+        int exitCode = 1;
+        try {
+            exitCode = executeCommandInTask(
+                    getEntity().getConfig(VanillaWindowsProcess.CHECK_RUNNING_COMMAND),
+                    getEntity().getConfig(VanillaWindowsProcess.CHECK_RUNNING_POWERSHELL_COMMAND), "is-running-command");
+        } catch (Exception e) {
+            // If machine is restarting, then will get WinRM IOExceptions - don't propagate such exceptions
+            Throwable interestingCause = Exceptions.getFirstThrowableOfType(e, WebServiceException.class) != null ?
+                    Exceptions.getFirstThrowableOfType(e, WebServiceException.class/*Wraps Soap exceptions*/) : Exceptions.getFirstThrowableOfType(e, Fault.class/*Wraps IO exceptions*/);
+            if (interestingCause != null) {
+                LOG.warn(getEntity() + " isRunning check failed. Executing WinRM command failed.", e);
+                return false;
+            } else {
+                throw e;
+            }
+        }
         if(exitCode != 0) {
             LOG.info(getEntity() + " isRunning check failed: exit code "  + exitCode);
         }
