@@ -19,6 +19,7 @@
 package org.apache.brooklyn.camp.brooklyn.catalog;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -33,11 +34,14 @@ import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -802,6 +806,52 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
                 "services:",
                 "- type: cluster",
                 "- type: vanilla");
+    }
+
+    @Test
+    public void testItemWithBrooklynParameters() throws Exception {
+        String id = "inline_version.app";
+        String version = TEST_VERSION;
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  id: " + id,
+                "  version: " + TEST_VERSION,
+                "  item:",
+                "    brooklyn.parameters:",
+                "    - name: test.myconf",
+                "      type:  string",
+                "      default: myval",
+                "    services:",
+                "    - type: " + BasicApplication.class.getName(),
+                "      brooklyn.config:",
+                "        myconf2: $brooklyn:config(\"test.myconf\")",
+                "        myconf2.from.root: $brooklyn:root().config(\"test.myconf\")",
+                "      brooklyn.children:",
+                "      - type: "+BasicEntity.class.getName(),
+                "        brooklyn.config:",
+                "          myconf3: $brooklyn:config(\"test.myconf\")",
+                "          myconf3.from.root: $brooklyn:root().config(\"test.myconf\")");
+
+        RegisteredType catalogItem = mgmt().getTypeRegistry().get(id, version);
+        assertEquals(catalogItem.getVersion(), version);
+        
+        String yaml = "name: simple-app-yaml\n" +
+                "location: localhost\n" +
+                "services: \n" +
+                "  - type: "+id+":"+version;
+        Entity app = createAndStartApplication(yaml);
+        Entity child = Iterables.getOnlyElement(app.getChildren());
+        ConfigKey<?> configKey = app.getEntityType().getConfigKey("test.myconf");
+        assertNotNull(configKey);
+        assertEquals(app.config().get(configKey), "myval");
+        assertEquals(app.config().get(ConfigKeys.newStringConfigKey("myconf2.from.root")), "myval");
+        assertEquals(child.config().get(ConfigKeys.newStringConfigKey("myconf3.from.root")), "myval");
+        assertEquals(app.config().get(ConfigKeys.newStringConfigKey("myconf2")), "myval");
+        
+        // TODO Because of https://issues.apache.org/jira/browse/BROOKLYN-267, the assertion below fails: 
+        // assertEquals(child.config().get(ConfigKeys.newStringConfigKey("myconf3")), "myval");
+        
+        mgmt().getCatalog().deleteCatalogItem(id, version);
     }
 
     private void registerAndLaunchAndAssertSimpleEntity(String symbolicName, String serviceType) throws Exception {
