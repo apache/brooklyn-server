@@ -22,10 +22,10 @@ brooklyn.catalog:
         description: The docker TCP port to listen on.
         type: port
         default: 2375
-      - name: docker.port.enabled
-        description: Whether the Docker host should listen on this TCP port.
-        type: java.lang.Boolean
-        default: true
+      - name: docker.bindaddress
+        description: The docker network address to to listen on.
+        type: string
+        default: 0.0.0.0
 
       brooklyn.enrichers:
       - type: org.apache.brooklyn.enricher.stock.Transformer
@@ -35,15 +35,15 @@ brooklyn.catalog:
           - host.name
           - docker.port
           enricher.targetSensor: $brooklyn:sensor("docker.endpoint")
-          enricher.targetValue: 
+          enricher.targetValue:
             $brooklyn:formatString:
             - "tcp://%s:%s/" 
             - $brooklyn:attributeWhenReady("host.name")
             - $brooklyn:attributeWhenReady("docker.port")
 
       shell.env:
-        DOCKER_PORT_ENABLED: $brooklyn:config("docker.port.enabled")
         DOCKER_PORT: $brooklyn:config("docker.port")
+        DOCKER_BINDADDRESS: $brooklyn:config("docker.bindaddress")
 
       install.command: |
         sudo yum -y update
@@ -57,15 +57,10 @@ brooklyn.catalog:
         EOF
         sudo yum -y install docker-engine
 
-      customize.command: |
-        if [ "$DOCKER_PORT_ENABLED" == "true" ]; then
-          echo "Enabling TCP-access to docker engine on tcp://0.0.0.0:${DOCKER_PORT}"
-          sudo sed -i "/ExecStart/c ExecStart=/usr/bin/docker daemon -H tcp://0.0.0.0:${DOCKER_PORT}" \
-            /usr/lib/systemd/system/docker.service
-          sudo systemctl daemon-reload
-        else
-          echo "Not enabling TCP-access to docker engine"
-        fi
+        echo "Enabling TCP-access to docker engine on tcp://${DOCKER_BINDADDRESS}:${DOCKER_PORT}"
+        sudo sed -i "/ExecStart/c ExecStart=/usr/bin/docker daemon -H tcp://${DOCKER_BINDADDRESS}:${DOCKER_PORT}" \
+          /usr/lib/systemd/system/docker.service
+        sudo systemctl daemon-reload
 
       launch.command:       sudo service docker start
       stop.command:         sudo service docker stop
@@ -82,18 +77,18 @@ brooklyn.catalog:
     item:
       type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
       # TODO support DSL in name: $brooklyn:formatString("Container (%s)", $brooklyn:config("container"))
-      # TODO advertise container id as a sensor
+      # TODO advertise container id as a sensor.
+      # TODO assumes that parent entity will be docker-engine (so can lookup docker.port config; see BROOKLYN-267)
       name: Container
       shell.env:
         DOCKER_IMAGE: $brooklyn:config("container")
-        DOCKER_PORT_ENABLED: $brooklyn:config("docker.port.enabled")
         DOCKER_PORT: $brooklyn:config("docker.port")
+        DOCKER_HOST:
+          $brooklyn:formatString:
+          - "tcp://127.0.0.1:%s/"
+          - $brooklyn:parent().config("docker.port")
       launch.command: |
-        if [ "${DOCKER_PORT_ENABLED}" == "false" ]; then
-          sudo docker run -d ${DOCKER_IMAGE}
-        else
-          export DOCKER_HOST=tcp://127.0.0.1:${DOCKER_PORT} && docker run -d ${DOCKER_IMAGE}
-        fi
+        docker run -d ${DOCKER_IMAGE}
       brooklyn.parameters:
       - name: container
         type: string
