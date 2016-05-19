@@ -101,7 +101,7 @@ public class TestEffectorImpl extends TargetableTestComponentImpl implements Tes
      * {@inheritDoc}
      */
     public void stop() {
-        ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPING);
+        ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPED);
         sensors().set(SERVICE_UP, false);
     }
 
