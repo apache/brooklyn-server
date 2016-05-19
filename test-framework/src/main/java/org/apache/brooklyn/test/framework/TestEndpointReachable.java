@@ -51,12 +51,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
  * the target entity):
  * <pre>
  * {@code
- * services:
- * - type: MyEntityUnderTest
- *   id: entity-under-test
- * - type: org.apache.brooklyn.test.framework.TestCase
- *   name: Tests
- *   brooklyn.children:
+ *   ...
  *   - type: org.apache.brooklyn.test.framework.TestEndpointReachable
  *     name: Endpoint reachable
  *     brooklyn.config:
@@ -67,6 +62,24 @@ import org.apache.brooklyn.core.config.ConfigKeys;
  *         - %s:%s"
  *         - $brooklyn:entity("entity-under-test").attributeWhenReady("host.name")
  *         - $brooklyn:entity("entity-under-test").attributeWhenReady("https.port")
+ * }
+ * </pre>
+ * 
+ * One can also assert that the given endpoint is not reachable. Here the timeout means that at 
+ * some point within this timeout period, we expect the endpoint to become unreachable. As soon
+ * as it is unreachable, we return:
+ * 
+ * <pre>
+ * {@code
+ *   ...
+ *   - type: org.apache.brooklyn.test.framework.TestEndpointReachable
+ *     name: Endpoint reachable
+ *     brooklyn.config:
+ *       targetId: entity-under-test
+ *       timeout: 2m
+ *       endpointSensor: datastore.url
+ *       assertions:
+ *         reachable: false
  * }
  * </pre>
  */
@@ -81,4 +94,10 @@ public interface TestEndpointReachable extends BaseTest {
             Object.class,
             "endpointSensor", 
             "Sensor (or name of sensor) on target that advertises the endpoint (to test for tcp-reachability); mutually exclusive with 'endpoint'");
+    
+    /**
+     * A key within the assertions map, to say whether we should assert that the endpoint is reachable or not reachable.
+     * The value in the map should be a boolean. If absent, defaults to true.
+     */
+    public static final String REACHABLE_KEY = "reachable";
 }

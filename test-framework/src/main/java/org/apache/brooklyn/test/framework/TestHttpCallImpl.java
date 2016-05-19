@@ -107,7 +107,7 @@ public class TestHttpCallImpl extends TargetableTestComponentImpl implements Tes
      * {@inheritDoc}
      */
     public void stop() {
-        ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPING);
+        ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPED);
         sensors().set(Attributes.SERVICE_UP, false);
     }
 

@@ -25,6 +25,7 @@ import java.net.URL;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
@@ -34,19 +35,21 @@ import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.test.framework.TestFrameworkAssertions.AssertionSupport;
-import org.apache.brooklyn.test.framework.TestHttpCall.HttpAssertionTarget;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.http.HttpTool;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.common.net.HostAndPort;
 
 /**
@@ -65,6 +68,8 @@ public class TestEndpointReachableImpl extends TargetableTestComponentImpl imple
         final String endpoint = getConfig(ENDPOINT);
         final Object endpointSensor = getConfig(ENDPOINT_SENSOR);
         final Duration timeout = getConfig(TIMEOUT);
+        final List<Map<String, Object>> assertions = getAssertions(this, ASSERTIONS);
+        
         final Entity target = resolveTarget();
 
         if (endpoint == null && endpointSensor == null) {
@@ -101,7 +106,7 @@ public class TestEndpointReachableImpl extends TargetableTestComponentImpl imple
                 public void run() {
                     HostAndPort val = supplier.get();
                     Asserts.assertNotNull(val);
-                    Asserts.assertTrue(Networking.isReachable(val), val+" not reachable");
+                    assertSucceeds(assertions, val);
                 }});
             sensors().set(Attributes.SERVICE_UP, true);
             ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
@@ -114,6 +119,44 @@ public class TestEndpointReachableImpl extends TargetableTestComponentImpl imple
         }
     }
 
+    protected void assertSucceeds(List<Map<String, Object>> assertions, HostAndPort endpoint) {
+        Maybe<Object> checkReachableMaybe = getOnlyAssertionsValue(assertions, REACHABLE_KEY);
+        boolean checkReachable = checkReachableMaybe.isAbsentOrNull() || Boolean.TRUE.equals(TypeCoercions.coerce(checkReachableMaybe.get(), Boolean.class));
+        boolean reachable = Networking.isReachable(endpoint);
+        Asserts.assertEquals(reachable, checkReachable, endpoint+" "+(reachable ? "" : "not ")+"reachable");
+    }
+    
+    /**
+     * Finds the value for the given key in one of the maps (or {@link Maybe#absent()} if not found).
+     * 
+     * @throws IllegalArgumentException if multiple conflicts values for the key, or if there are other (unexpected) keys.
+     */
+    protected Maybe<Object> getOnlyAssertionsValue(List<Map<String, Object>> assertions, String key) {
+        Maybe<Object> result = Maybe.absent();
+        Set<String> keys = Sets.newLinkedHashSet();
+        boolean foundConflictingDuplicate = false;
+        if (assertions != null) {
+            for (Map<String, Object> assertionMap : assertions) {
+                if (assertionMap.containsKey(key)) {
+                    Object val = assertionMap.get(REACHABLE_KEY);
+                    if (result.isPresent() && !Objects.equal(result.get(), val)) {
+                        foundConflictingDuplicate = true;
+                    } else {
+                        result = Maybe.of(val);
+                    }
+                }
+                keys.addAll(assertionMap.keySet());
+            }
+        }
+        Set<String> unhandledKeys = Sets.difference(keys, ImmutableSet.of(key));
+        if (foundConflictingDuplicate) {
+            throw new IllegalArgumentException("Multiple conflicting values for assertion '"+key+"' in "+this);
+        } else if (unhandledKeys.size() > 0) {
+            throw new IllegalArgumentException("Unknown assertions "+unhandledKeys+" in "+this);
+        }
+        return result;
+    }
+    
     protected HostAndPort toHostAndPort(Object endpoint) {
         if (endpoint == null) {
             throw new IllegalArgumentException(String.format("The entity [%s] has no endpoint", getClass().getName()));
@@ -164,7 +207,7 @@ public class TestEndpointReachableImpl extends TargetableTestComponentImpl imple
      * {@inheritDoc}
      */
     public void stop() {
-        ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPING);
+        ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPED);
         sensors().set(Attributes.SERVICE_UP, false);
     }
 

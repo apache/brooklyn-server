@@ -34,7 +34,6 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -45,6 +44,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 
 public class TestEndpointReachableTest extends BrooklynAppUnitTestSupport {
@@ -138,6 +138,50 @@ public class TestEndpointReachableTest extends BrooklynAppUnitTestSupport {
         app.start(ImmutableList.of(loc));
     }
 
+    @Test
+    public void testHardcodedEndpointReachableWithExplicitAssertionForReachable() throws Exception {
+        app.createAndManageChild(EntitySpec.create(TestEndpointReachable.class)
+                .configure(TestEndpointReachable.TARGET_ENTITY, app)
+                .configure(TestEndpointReachable.ENDPOINT, serverSocketHostAndPort.toString())
+                .configure(TestEndpointReachable.ASSERTIONS, ImmutableMap.of(TestEndpointReachable.REACHABLE_KEY, "true")));
+
+        app.start(ImmutableList.of(loc));
+    }
+
+    @Test
+    public void testExplicitAssertionForNotReachableWhenReachable() throws Exception {
+        TestEndpointReachable test = app.createAndManageChild(EntitySpec.create(TestEndpointReachable.class)
+                .configure(TestEndpointReachable.TARGET_ENTITY, app)
+                .configure(TestEndpointReachable.ENDPOINT, serverSocketHostAndPort.toString())
+                .configure(TestEndpointReachable.TIMEOUT, Duration.millis(100))
+                .configure(TestEndpointReachable.ASSERTIONS, ImmutableMap.of(TestEndpointReachable.REACHABLE_KEY, "false")));
+
+        try {
+            app.start(ImmutableList.of(loc));
+        } catch (Exception e) {
+            // It should fail to start
+            Exceptions.propagateIfFatal(e);
+            LOG.debug("As desired, failed to start app with TestEndpointReachable: "+e.toString());
+        }
+        EntityAsserts.assertAttributeEqualsEventually(test, TestEndpointReachable.SERVICE_UP, false);
+        EntityAsserts.assertAttributeEqualsEventually(test, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+    }
+
+    // Not a normal unit-test, because other processes on shared infrastructure can grab the port between
+    // us identifying it is free and us checking the reachability.
+    @Test(groups="Integration")
+    public void testExplicitAssertionForNotReachableWhenNotReachable() throws Exception {
+        HostAndPort unusedPort = findUnusedPort();
+        TestEndpointReachable test = app.createAndManageChild(EntitySpec.create(TestEndpointReachable.class)
+                .configure(TestEndpointReachable.TARGET_ENTITY, app)
+                .configure(TestEndpointReachable.ENDPOINT, unusedPort.toString())
+                .configure(TestEndpointReachable.ASSERTIONS, ImmutableMap.of(TestEndpointReachable.REACHABLE_KEY, "false")));
+
+        app.start(ImmutableList.of(loc));
+        EntityAsserts.assertAttributeEqualsEventually(test, TestEndpointReachable.SERVICE_UP, true);
+        EntityAsserts.assertAttributeEqualsEventually(test, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+    }
+
     // Not a normal unit-test, because other processes on shared infrastructure can grab the port between
     // us identifying it is free and us checking the reachability.
     @Test(groups="Integration")
@@ -182,23 +226,9 @@ public class TestEndpointReachableTest extends BrooklynAppUnitTestSupport {
         EntityAsserts.assertAttributeEqualsEventually(test, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
     }
 
-    protected ServerSocket openServerPort() {
-        int startPort = 58767;
-        int endPort = 60000;
-        int port = startPort;
+    protected ServerSocket openServerPort() throws IOException {
         InetAddress localAddress = Networking.getLocalHost();
-        do {
-            try {
-                ServerSocket ss = new ServerSocket(port, 1024, localAddress);
-                LOG.info("acquired server-socket on port "+port+" for test "+JavaClassNames.niceClassAndMethod());
-                return ss;
-            } catch (IOException e) {
-                // try next port
-                port++;
-            }
-        } while (port <= endPort);
-        Assert.fail("Could not open any local port in range "+startPort+"-"+endPort);
-        throw new IllegalStateException("Impossible code to reach");
+        return new ServerSocket(0, 1024, localAddress);
     }
 
     protected HostAndPort findUnusedPort() {
