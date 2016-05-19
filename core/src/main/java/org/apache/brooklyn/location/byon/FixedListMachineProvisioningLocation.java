@@ -107,7 +107,7 @@ implements MachineProvisioningLocation<T>, Closeable {
     public static final ConfigKey<List<LocationSpec<? extends MachineLocation>>> MACHINE_SPECS = ConfigKeys.newConfigKey(
             new TypeToken<List<LocationSpec<? extends MachineLocation>>>() {}, 
             "byon.machineSpecs",
-            "Specs of machines that should be immediatly instantiated on init",
+            "Specs of machines that should be immediately instantiated on init",
             ImmutableList.<LocationSpec<? extends MachineLocation>>of());
 
     /**
@@ -126,7 +126,7 @@ implements MachineProvisioningLocation<T>, Closeable {
     public static final ConfigKey<Supplier<? extends List<? extends MachineLocation>>> INITIAL_MACHINES_FACTORY = ConfigKeys.newConfigKey(
             new TypeToken<Supplier<? extends List<? extends MachineLocation>>>() {}, 
             "byon.initialMachinesFactory",
-            "Factory for creating the machines that should be immediatly instantiated on init",
+            "Factory for creating the machines that should be immediately instantiated on init",
             null);
 
     private final Object lock = new Object();

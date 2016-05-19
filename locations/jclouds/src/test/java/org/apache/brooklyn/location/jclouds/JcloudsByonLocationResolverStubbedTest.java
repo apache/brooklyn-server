@@ -101,8 +101,8 @@ public class JcloudsByonLocationResolverStubbedTest extends AbstractJcloudsStubb
         assertEquals(machine.getPrivateAddresses(), ImmutableSet.of(nodePrivateAddress));
         
         // TODO what user/password should we expect? Fails below because has "dummy":
-//        assertEquals(machine.getUser(), "myuser");
-//        assertEquals(machine.config().get(JcloudsLocationConfig.PASSWORD), "mypassword");
+        assertEquals(machine.getUser(), "myuser");
+        assertEquals(machine.config().get(JcloudsLocationConfig.PASSWORD), "mypassword");
     }
 
     @Test

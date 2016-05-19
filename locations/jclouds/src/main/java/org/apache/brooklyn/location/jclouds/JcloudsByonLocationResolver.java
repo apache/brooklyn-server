@@ -55,7 +55,7 @@ import com.google.common.collect.Lists;
  * 
  * @author aled
  */
-@SuppressWarnings({"unchecked","rawtypes"})
+@SuppressWarnings({"unchecked"})
 public class JcloudsByonLocationResolver extends AbstractLocationResolver implements LocationResolver {
 
     public static final Logger log = LoggerFactory.getLogger(JcloudsByonLocationResolver.class);
@@ -81,22 +81,25 @@ public class JcloudsByonLocationResolver extends AbstractLocationResolver implem
     protected SpecParser getSpecParser() {
         return new AbstractLocationResolver.SpecParser(getPrefix()).setExampleUsage("\"jcloudsByon(provider='aws-ec2',region='us-east-1',hosts='i-12345678,i-90123456')\"");
     }
-    
+
+    @Override
+    protected Map<String, Object> getFilteredLocationProperties(String provider, String namedLocation, Map<String, ?> prioritisedProperties, Map<String, ?> globalProperties) {
+        String providerOrApi = (String) prioritisedProperties.get("provider");
+        String regionName = (String) prioritisedProperties.get("region");
+        return new JcloudsPropertiesFromBrooklynProperties().getJcloudsProperties(providerOrApi, regionName, namedLocation, globalProperties);
+    }
+
     @Override
     protected ConfigBag extractConfig(Map<?,?> locationFlags, String spec, final LocationRegistry registry) {
         ConfigBag config = super.extractConfig(locationFlags, spec, registry);
-
+        
         String providerOrApi = (String) config.getStringKey("provider");
         String regionName = (String) config.getStringKey("region");
         String endpoint = (String) config.getStringKey("endpoint");
-        String namedLocation = (String) config.get(LocationInternal.NAMED_SPEC_NAME);
         config.remove(LocationInternal.NAMED_SPEC_NAME.getName());
 
         Object hosts = config.getStringKey("hosts");
         config.remove("hosts");
-
-        Map jcloudsProperties = new JcloudsPropertiesFromBrooklynProperties().getJcloudsProperties(providerOrApi, regionName, namedLocation, config.getAllConfig());
-        config.putIfAbsent(jcloudsProperties);
 
         if (Strings.isEmpty(providerOrApi)) {
             throw new IllegalArgumentException("Invalid location '"+spec+"'; provider must be defined");
@@ -107,7 +110,7 @@ public class JcloudsByonLocationResolver extends AbstractLocationResolver implem
 
         final String jcloudsSpec = "jclouds:"+providerOrApi + (regionName != null ? ":"+regionName : "") + (endpoint != null ? ":"+endpoint : "");
         final Maybe<LocationSpec<? extends Location>> jcloudsLocationSpec = registry.getLocationSpec(jcloudsSpec, config.getAllConfig());
-        if (jcloudsLocationSpec.isAbsent()) {
+        if (jcloudsLocationSpec.isAbsentOrNull()) {
             throw new IllegalArgumentException("Invalid location '"+spec+"'; referrenced jclouds spec '"+jcloudsSpec+"' cannot be resolved");
         } else if (!JcloudsLocation.class.isAssignableFrom(jcloudsLocationSpec.get().getType())) {
             throw new IllegalArgumentException("Invalid location '"+spec+"'; referrenced spec '"+jcloudsSpec+"' of type "+jcloudsLocationSpec.get().getType()+" rather than JcloudsLocation");
@@ -147,8 +150,6 @@ public class JcloudsByonLocationResolver extends AbstractLocationResolver implem
         Supplier<List<JcloudsMachineLocation>> machinesFactory = new Supplier<List<JcloudsMachineLocation>>() {
             @Override
             public List<JcloudsMachineLocation> get() {
-                // FIXME Can't change the parent of the JcloudsMachineLocation; but the FixedListMachineLocation will expect it to be the parent?
-                // We'll get errors on rebind. Need to reproduce/investigate.
                 List<JcloudsMachineLocation> result = Lists.newArrayList();
                 JcloudsLocation jcloudsLocation = (JcloudsLocation) managementContext.getLocationManager().createLocation(jcloudsLocationSpec.get());
                 for (Map<?,?> machineFlags : machinesFlags) {
@@ -167,8 +168,6 @@ public class JcloudsByonLocationResolver extends AbstractLocationResolver implem
             }
         };
         
-        ConfigBag flags = ConfigBag.newInstance(jcloudsProperties);
-
         config.put(FixedListMachineProvisioningLocation.INITIAL_MACHINES_FACTORY, machinesFactory);
 
         return config;

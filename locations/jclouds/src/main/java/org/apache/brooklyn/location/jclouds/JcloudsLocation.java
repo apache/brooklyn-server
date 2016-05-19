@@ -1701,11 +1701,12 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         sshProps.put("port", hostAndPort.getPort());
         sshProps.put(AbstractLocation.TEMPORARY_LOCATION.getName(), true);
         sshProps.put(LocalLocationManager.CREATE_UNMANAGED.getName(), true);
+        sshProps.remove("id");
         sshProps.remove("password");
         sshProps.remove("privateKeyData");
         sshProps.remove("privateKeyFile");
         sshProps.remove("privateKeyPassphrase");
-
+        
         if (initialPassword.isPresent()) sshProps.put("password", initialPassword.get());
         if (initialPrivateKey.isPresent()) sshProps.put("privateKeyData", initialPrivateKey.get());
 
@@ -2166,15 +2167,16 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         OsCredential osCredentials = LocationConfigUtils.getOsCredential(config).checkNoErrors().logAnyWarnings();
         String pkd = osCredentials.getPrivateKeyData();
         String password = osCredentials.getPassword();
+        LoginCredentials expectedCredentials = node.getCredentials();
         if (Strings.isNonBlank(pkd)) {
-            LoginCredentials expectedCredentials = LoginCredentials.fromCredentials(new Credentials(user, pkd));
-            //override credentials
-            node = NodeMetadataBuilder.fromNodeMetadata(node).credentials(expectedCredentials).build();
+            expectedCredentials = LoginCredentials.fromCredentials(new Credentials(user, pkd));
         } else if (Strings.isNonBlank(password)) {
-            LoginCredentials expectedCredentials = LoginCredentials.fromCredentials(new Credentials(user, password));
-            //override credentials
-            node = NodeMetadataBuilder.fromNodeMetadata(node).credentials(expectedCredentials).build();
+            expectedCredentials = LoginCredentials.fromCredentials(new Credentials(user, password));
+        } else if (expectedCredentials == null) {
+            //need some kind of credential object, or will get NPE later
+            expectedCredentials = LoginCredentials.fromCredentials(new Credentials(user, null));
         }
+        node = NodeMetadataBuilder.fromNodeMetadata(node).credentials(expectedCredentials).build();
 
         return node;
     }

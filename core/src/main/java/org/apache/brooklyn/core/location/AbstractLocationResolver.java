@@ -103,12 +103,22 @@ public abstract class AbstractLocationResolver implements LocationResolver {
         String namedLocation = (String) locationFlags.get(LocationInternal.NAMED_SPEC_NAME.getName());
         
         // prefer args map over location flags
-        Map<String, Object> filteredProperties = getFilteredLocationProperties(getPrefix(), namedLocation, globalProperties);
-        ConfigBag flags = ConfigBag.newInstance(parsedSpec.argsMap).putIfAbsent(locationFlags).putIfAbsent(filteredProperties);
+        ConfigBag flags = ConfigBag.newInstance(parsedSpec.argsMap).putIfAbsent(locationFlags);
+        
+        Map<String, Object> filteredProperties = getFilteredLocationProperties(getPrefix(), namedLocation, flags.getAllConfig(), globalProperties);
+        flags.putIfAbsent(filteredProperties);
 
         return flags;
     }
-    
+
+    protected Map<String, Object> getFilteredLocationProperties(String provider, String namedLocation, Map<String, ?> prioritisedProperties, Map<String, ?> globalProperties) {
+        return getFilteredLocationProperties(provider, namedLocation, globalProperties);
+    }
+
+    /**
+     * @deprecated since 0.10.0; use {@link #getFilteredLocationProperties(String, String, Map, Map)}
+     */
+    @Deprecated
     protected Map<String, Object> getFilteredLocationProperties(String provider, String namedLocation, Map<String, ?> globalProperties) {
         return new LocationPropertiesFromBrooklynProperties().getLocationProperties(getPrefix(), namedLocation, globalProperties);
     }

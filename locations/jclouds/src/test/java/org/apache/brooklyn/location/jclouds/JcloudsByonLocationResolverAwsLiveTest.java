@@ -25,12 +25,12 @@ import java.net.InetAddress;
 import java.util.Map;
 import java.util.Set;
 
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -56,6 +56,7 @@ public class JcloudsByonLocationResolverAwsLiveTest extends AbstractJcloudsLiveT
         classEc2Vm = (JcloudsSshMachineLocation)classEc2Loc.obtain(MutableMap.<String,Object>builder()
                 .put("hardwareId", AWS_EC2_SMALL_HARDWARE_ID)
                 .put("inboundPorts", ImmutableList.of(22))
+                .put("user", "myuser")
                 .build());
         awsVmUser = classEc2Vm.getUser();
         awsVmInstanceId = classEc2Vm.getNode().getProviderId(); // id without region (e.g. "i-6ff96d2f" instead of "eu-west-1/i-6ff96d2f")
@@ -147,16 +148,19 @@ public class JcloudsByonLocationResolverAwsLiveTest extends AbstractJcloudsLiveT
         // prefer location-generic if nothing else
         brooklynProperties.put("brooklyn.location.keyPair", "keyPair-inLocationGeneric");
 
-        // prefer deprecated properties in "named" over those less specific
-        brooklynProperties.put("brooklyn.location.named.mynamed.private-key-data", "privateKeyData-inNamed");
-        brooklynProperties.put("brooklyn.jclouds.aws-ec2.privateKeyData", "privateKeyData-inProviderSpecific");
-        brooklynProperties.put("brooklyn.jclouds.privateKeyData", "privateKeyData-inJcloudsGeneric");
-
         // prefer "named" over everything else: confirm deprecated don't get transformed to overwrite it accidentally
         brooklynProperties.put("brooklyn.location.named.mynamed.privateKeyPassphrase", "privateKeyPassphrase-inNamed");
         brooklynProperties.put("brooklyn.jclouds.aws-ec2.private-key-passphrase", "privateKeyPassphrase-inProviderSpecific");
         brooklynProperties.put("brooklyn.jclouds.private-key-passphrase", "privateKeyPassphrase-inJcloudsGeneric");
 
+        // Things get strange when we mess with the private/public key config; in JcloudsLocation.findNodeOrThrow
+        // it validates the LocationConfigUtils.getOsCredential, and in createJcloudsSshMachineLocation it
+        // only includes things like privateKeyData if it was actually successfully read. If we supply values 
+        // that are invalid then we can end up with null at the end. But if we miss out the value entirely then
+        // we can can exceptions telling us it was mis-configured! It seems simplest to include this privateKeyData
+        // config here so that "it works", but to not assert that the machine ends up with such an invalid key value!
+        brooklynProperties.put("brooklyn.location.named.mynamed.privateKeyData", "privateKeyData-inNamed");
+        
         Map<String, Object> conf = resolve("named:mynamed").obtain().config().getBag().getAllConfig();
         
         assertEquals(conf.get("user"), awsVmUser);
@@ -166,7 +170,6 @@ public class JcloudsByonLocationResolverAwsLiveTest extends AbstractJcloudsLiveT
         assertEquals(conf.get("loginUser"), "loginUser-inJcloudsGeneric");
         assertEquals(conf.get("imageId"), "imageId-inJcloudsGenericDeprecated");
         assertEquals(conf.get("keyPair"), "keyPair-inLocationGeneric");
-        assertEquals(conf.get("privateKeyData"), "privateKeyData-inNamed");
         assertEquals(conf.get("privateKeyPassphrase"), "privateKeyPassphrase-inNamed");
     }
     
