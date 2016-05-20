@@ -149,7 +149,13 @@ public class BasicStartableTest {
         assertNull(called.get());
     }
 
-    @Test
+    // TODO BROOKLYN-272, Disabled, because fails non-deterministically in jenkins: BROOKLYN-256
+    //    java.lang.AssertionError: Expected: eventually IsEqualTo([starting, running, stopping, stopped]); got most recently: [starting, running, starting, running, stopping, stopped] (waited 1s 11ms 498us 762ns, checked 100)
+    //        at org.apache.brooklyn.test.Asserts.fail(Asserts.java:721)
+    //        at org.apache.brooklyn.test.Asserts.eventually(Asserts.java:791)
+    //        at org.apache.brooklyn.test.Asserts.eventually(Asserts.java:751)
+    //        at org.apache.brooklyn.entity.stock.BasicStartableTest.testTransitionsThroughLifecycles(BasicStartableTest.java:170)
+    @Test(groups={"Broken"})
     public void testTransitionsThroughLifecycles() throws Exception {
         startable = app.addChild(EntitySpec.create(BasicStartable.class));
         EntityAsserts.assertAttributeEqualsEventually(app, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPED);

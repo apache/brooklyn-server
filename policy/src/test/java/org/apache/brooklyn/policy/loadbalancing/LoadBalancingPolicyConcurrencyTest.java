@@ -79,7 +79,19 @@ public class LoadBalancingPolicyConcurrencyTest extends AbstractLoadBalancingPol
         assertWorkratesEventually(containers, items, Collections.nCopies(NUM_CONTAINERS, 20d), WORKRATE_JITTER);
     }
     
-    @Test
+    // TODO BROOKLYN-272, Disabled, because fails non-deterministically in jenkins:
+    //    org.apache.brooklyn.util.exceptions.PropagatedRuntimeException: failed succeeds-eventually, 29 attempts, 10002ms elapsed: AssertionError: actual=[18.0, 21.0, 19.0, 0.0, 20.0, 0.0, 20.0, 36.0, 19.0, 0.0, 19.0, 21.0, 21.0, 19.0, 21.0, 36.0, 21.0, 19.0, 18.0, 36.0]; expected=[20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0] expected [20.0] but found [0.0]
+    //            at org.testng.Assert.fail(Assert.java:94)
+    //            at org.testng.Assert.failNotEquals(Assert.java:494)
+    //            at org.testng.Assert.assertEquals(Assert.java:207)
+    //            at org.apache.brooklyn.policy.loadbalancing.AbstractLoadBalancingPolicyTest.assertWorkrates(AbstractLoadBalancingPolicyTest.java:122)
+    //            at org.apache.brooklyn.policy.loadbalancing.AbstractLoadBalancingPolicyTest$2.run(AbstractLoadBalancingPolicyTest.java:138)
+    //            at org.apache.brooklyn.test.Asserts$RunnableAdapter.call(Asserts.java:1277)
+    //            at org.apache.brooklyn.test.Asserts.succeedsEventually(Asserts.java:930)
+    //            at org.apache.brooklyn.test.Asserts.succeedsEventually(Asserts.java:854)
+    //            at org.apache.brooklyn.policy.loadbalancing.AbstractLoadBalancingPolicyTest.assertWorkratesEventually(AbstractLoadBalancingPolicyTest.java:136)
+    //            at org.apache.brooklyn.policy.loadbalancing.LoadBalancingPolicyConcurrencyTest.testConcurrentlyAddContainers(LoadBalancingPolicyConcurrencyTest.java:101)
+    @Test(groups={"Broken"})
     public void testConcurrentlyAddContainers() {
         final Queue<MockContainerEntity> containers = new ConcurrentLinkedQueue<MockContainerEntity>();
         final List<MockItemEntity> items = Lists.newArrayList();
