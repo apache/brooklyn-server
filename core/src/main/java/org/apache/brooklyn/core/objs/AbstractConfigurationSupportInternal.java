@@ -19,18 +19,32 @@
 
 package org.apache.brooklyn.core.objs;
 
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
+
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
+import org.apache.brooklyn.core.config.MapConfigKey;
+import org.apache.brooklyn.core.config.StructuredConfigKey;
+import org.apache.brooklyn.core.config.SubElementConfigKey;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.ValueResolver;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class AbstractConfigurationSupportInternal implements BrooklynObjectInternal.ConfigurationSupportInternal {
+
+    private static final Logger LOG = LoggerFactory.getLogger(AbstractConfigurationSupportInternal.class);
 
     @Override
     public <T> T get(HasConfigKey<T> key) {
@@ -53,7 +67,61 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
     }
 
     @Override
-    public <T> Maybe<T> getNonBlocking(ConfigKey<T> key) {
+    public <T> Maybe<T> getNonBlocking(final ConfigKey<T> key) {
+        if (key instanceof StructuredConfigKey || key instanceof SubElementConfigKey) {
+            return getNonBlockingResolvingStructuredKey(key);
+        } else {
+            return getNonBlockingResolvingSimple(key);
+        }
+    }
+
+    /**
+     * For resolving a {@link StructuredConfigKey}, such as a {@link MapConfigKey}. Here we need to 
+     * execute the custom logic, as is done by {@link #get(ConfigKey)}, but non-blocking!
+     */
+    protected <T> Maybe<T> getNonBlockingResolvingStructuredKey(final ConfigKey<T> key) {
+        // TODO This is a poor implementation. We risk timing out when it's just doing its
+        // normal work (e.g. because job's thread was starved), rather than when it's truly 
+        // blocked. Really we'd need to dig into the implementation of get(key), so that the 
+        // underlying work can be configured with a timeout, for when it finally calls 
+        // ValueResolver.
+        
+        Callable<T> job = new Callable<T>() {
+            public T call() {
+                try {
+                    return get(key);
+                } catch (RuntimeInterruptedException e) {
+                    throw Exceptions.propagate(e); // expected; return gracefully
+                }
+            }
+        };
+        
+        Task<T> t = getContext().submit(Tasks.<T>builder().body(job)
+                .displayName("Resolving dependent value")
+                .description("Resolving "+key.getName())
+                .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
+                .build());
+        try {
+            T result = t.get(ValueResolver.PRETTY_QUICK_WAIT);
+            return Maybe.of(result);
+        } catch (TimeoutException e) {
+            t.cancel(true);
+            return Maybe.<T>absent();
+        } catch (ExecutionException e) {
+            LOG.debug("Problem resolving "+key.getName()+", returning <absent>", e);
+            return Maybe.<T>absent();
+        } catch (InterruptedException e) {
+            throw Exceptions.propagate(e);
+        }
+    }
+    
+    /**
+     * For resolving a "simple" config key - i.e. where there's not custom logic inside a 
+     * {@link StructuredConfigKey} such as a {@link MapConfigKey}. For those, we'd need to do the
+     * same as is in {@link #get(ConfigKey)}, but non-blocking! 
+     * See {@link #getNonBlockingResolvingStructuredKey(ConfigKey)}.
+     */
+    protected <T> Maybe<T> getNonBlockingResolvingSimple(ConfigKey<T> key) {
         // getRaw returns Maybe(val) if the key was explicitly set (where val can be null)
         // or Absent if the config key was unset.
         Object unresolved = getRaw(key).or(key.getDefaultValue());
@@ -70,7 +138,7 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
                ? TypeCoercions.tryCoerce(resolved, key.getTypeToken())
                : Maybe.<T>absent();
     }
-
+    
     @Override
     public <T> T set(HasConfigKey<T> key, Task<T> val) {
         return set(key.getConfigKey(), val);
