@@ -46,7 +46,7 @@ public interface WinRmTool {
     ConfigKey<String> PROP_HOST = newStringConfigKey("host", "Host to connect to (required)", null);
     ConfigKey<Integer> PROP_PORT = ConfigKeys.newIntegerConfigKey("port", "WinRM port to use when connecting to the remote machine");
     ConfigKey<Boolean> USE_HTTPS_WINRM = ConfigKeys.newBooleanConfigKey("winrm.useHttps", "The parameter tells the machine sensors whether the winrm port is over https. If the parameter is true then 5986 will be used as a winrm port.", false);
-    ConfigKey<Integer> RETRIES_OF_NETWORK_FAILURES = ConfigKeys.newIntegerConfigKey("retriesOfNetworkFailures", "The parameter sets the number of retries for connection failures. If you use high value, consider taking care for the machine's network.");
+    ConfigKey<Integer> RETRIES_OF_NETWORK_FAILURES = ConfigKeys.newIntegerConfigKey("retriesOfNetworkFailures", "The parameter sets the number of retries for connection failures. If you use high value, consider taking care for the machine's network.", 4);
     /**
      * Flag which tells winrm whether to use Basic Authentication
      * or Negotiate plus NTLM.
@@ -55,6 +55,9 @@ public interface WinRmTool {
      */
     @Beta
     ConfigKey<Boolean> USE_NTLM = ConfigKeys.newBooleanConfigKey("winrm.useNtlm", "The parameter configures tells the machine sensors whether the winrm port is over https. If the parameter is true then 5986 will be used as a winrm port.", true);
+
+    @Beta
+    ConfigKey<String> COMPUTER_NAME = ConfigKeys.newStringConfigKey("winrm.computerName", "Windows Computer Name to use for authentication.");
     ConfigKey<String> PROP_USER = newStringConfigKey("user", "User to connect as", null);
     ConfigKey<String> PROP_PASSWORD = newStringConfigKey("password", "Password to use to connect", null);
     ConfigKey<String> OPERATION_TIMEOUT = newStringConfigKey("winrm.operationTimeout", "WinRM OperationTimeout. If no output is available before the wsman:OperationTimeout expires, " +

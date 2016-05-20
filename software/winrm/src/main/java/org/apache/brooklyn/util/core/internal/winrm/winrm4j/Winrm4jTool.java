@@ -32,6 +32,7 @@ import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.apache.commons.codec.binary.Base64;
@@ -63,6 +64,7 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
     private final ConfigBag bag;
     private final String host;
     private final Integer port;
+    private final String computerName;
     private final String user;
     private final String password;
     private final int execTries;
@@ -83,6 +85,7 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
         port = config.get(PROP_PORT);
         useSecureWinrm = config.get(USE_HTTPS_WINRM);
         authenticationScheme = config.get(USE_NTLM) ? AuthSchemes.NTLM : null;
+        computerName = Strings.isNonBlank(config.get(COMPUTER_NAME)) ? config.get(COMPUTER_NAME) : null;
         user = getRequiredConfig(config, PROP_USER);
         password = getRequiredConfig(config, PROP_PASSWORD);
         execTries = getRequiredConfig(config, PROP_EXEC_TRIES);
@@ -195,7 +198,7 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
     }
 
     private io.cloudsoft.winrm4j.winrm.WinRmTool connect() {
-        WinRmTool.Builder builder = WinRmTool.Builder.builder(host, user, password);
+        WinRmTool.Builder builder = WinRmTool.Builder.builder(host, computerName, user, password);
         builder.setAuthenticationScheme(authenticationScheme);
         builder.useHttps(useSecureWinrm);
         builder.port(port);
