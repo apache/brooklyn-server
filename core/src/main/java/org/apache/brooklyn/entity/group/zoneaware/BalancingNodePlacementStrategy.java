@@ -128,4 +128,10 @@ public class BalancingNodePlacementStrategy implements NodePlacementStrategy {
         });
         return stoppables.subList(0, Math.min(numToPick, stoppables.size()));
     }
+
+    @Override
+    public String toString(){
+        return getClass().getName();
+    }
+
 }

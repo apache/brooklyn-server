@@ -56,4 +56,10 @@ public class ProportionalZoneFailureDetector extends AbstractZoneFailureDetector
             return numDatapoints >= minDatapoints && proportionFailure >= maxProportionFailures;
         }
     }
+
+    @Override
+    public String toString(){
+        return getClass().getName();
+    }
+
 }

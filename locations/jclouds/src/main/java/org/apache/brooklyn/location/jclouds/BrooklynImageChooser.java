@@ -461,5 +461,10 @@ public class BrooklynImageChooser implements Cloneable {
     public Function<Iterable<? extends Image>,Image> chooser() {
         return imageChooserFromOrdering(ordering());
     }
-    
+
+    @Override
+    public String toString(){
+        return getClass().getName();
+    }
+
 }

@@ -261,5 +261,10 @@ public class SoftwareProcessDriverLifecycleEffectorTasks extends MachineLifecycl
         entity().postStop();
     }
 
+    @Override
+    public String toString(){
+        return getClass().getName();
+    }
+
 }
 
