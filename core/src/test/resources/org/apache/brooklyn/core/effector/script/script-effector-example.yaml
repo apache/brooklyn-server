@@ -1,0 +1,88 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+location:
+  localhost
+
+services:
+- type: org.apache.brooklyn.entity.stock.BasicStartable
+  brooklyn.initializers:
+
+  - type: org.apache.brooklyn.core.effector.script.ScriptEffector
+    brooklyn.config:
+      name: javascript
+      description: |
+        An effector implemented in JavaScript
+      parameters:
+        one:
+          type: java.lang.String
+          description: "A string argument"
+          defaultValue: "one"
+        two:
+          type: java.lang.Integer
+          description: "An integer argument"
+          defaultValue: 2
+      script.language: "JavaScript"
+      script.return.type: java.lang.String
+      script.content: |
+        var n = 0;
+        var out = "";
+        while (n < two) {
+          out += one;
+          n++;
+        }
+        out;
+  - type: org.apache.brooklyn.core.effector.script.ScriptEffector
+    brooklyn.config:
+      name: python
+      description: |
+        An effector implemented in Python
+      parameters:
+        n:
+          type: java.lang.Integer
+          defaultValue: 3
+      script.language: "python"
+      script.return.var: "s"
+      script.return.type: java.lang.Integer
+      script.content: |
+        class Square:
+          def square(self, x):
+            return int(x) * int(x)
+
+        s = Square().square(n)
+  - type: org.apache.brooklyn.core.effector.script.ScriptEffector
+    brooklyn.config:
+      name: renameEntity
+      description: |
+        A JavaScript effector manipulating entity data
+      parameters:
+        name:
+          type: java.lang.String
+          description: "The new entity name"
+      script.language: "JavaScript"
+      script.content: |
+        entity.setDisplayName(name);
+  - type: org.apache.brooklyn.core.effector.script.ScriptEffector
+    brooklyn.config:
+      name: getId
+      description: |
+        A Python effector returning entity data
+      script.language: "python"
+      script.return.var: "id"
+      script.return.type: java.lang.String
+      script.content: |
+        id = entity.getId()
