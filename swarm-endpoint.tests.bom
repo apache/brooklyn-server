@@ -1,0 +1,58 @@
+brooklyn.catalog:
+  version: 2.0.0_SNAPSHOT
+  iconUrl: https://raw.githubusercontent.com/docker-library/docs/c350af05d3fac7b5c3f6327ac82fe4d990d8729c/docker/logo.png
+  license_code: TODO
+  license_url: TODO
+  items:
+
+  ###
+  # Tests that we can deploy to a pre-provision docker swarm end point
+  #
+  # Needs a location of the form below
+  #
+  # location:
+  # jclouds:docker:
+  # #endpoint: http://10.102.1.248:4000
+  # endpoint: https://192.168.99.100:3376/
+  # identity: /Users/duncangrant/.docker/machine/machines/manager/server.pem
+  # credential: /Users/duncangrant/.docker/machine/machines/manager/server-key.pem
+  # imageId: sha256:90d5884b1ee07f7f791f51bab92933943c87357bcd2fa6be0e82c48411bbb653
+  # waitForSshable: false
+  # templateOptions:
+  # entrypoint: ["/bin/bash", "-c", "while true; do sleep 10; done"]
+  #
+  ##
+  - id: docker-swarm-test
+    name: Docker swarm test
+    description: Test that we can provision a container on a docker swarm endpoint
+    item:
+
+      services:
+      - type: org.apache.brooklyn.entity.software.base.EmptySoftwareProcess
+        id: empty
+        brooklyn.config:
+          onbox.base.dir.skipResolution: true
+          sshMonitoring.enabled: false
+          provisioning.properties:
+            useJcloudsSshInit: false
+            waitForSshable: false
+
+      - type: org.apache.brooklyn.test.framework.TestCase
+        brooklyn.config:
+          timeout: 15m
+          targetId: empty
+        name: Empty Container Tests
+        brooklyn.children:
+        - type: org.apache.brooklyn.test.framework.TestCase
+          name: "Sensor Tests"
+          brooklyn.children:
+          # Is up and can deploy
+          - type: org.apache.brooklyn.test.framework.TestSensor
+            name: TEST [service.state] IS [running]
+            target: $brooklyn:component("empty")
+            sensor: service.state
+            assert:
+            - matches: running
+
+
+
