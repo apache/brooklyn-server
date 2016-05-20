@@ -46,6 +46,7 @@ import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityDynamicType;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
@@ -327,8 +328,14 @@ public class InternalEntityFactory extends InternalFactory {
                 ((AbstractEntity)entity).init();
 
                 for (LocationSpec<?> locationSpec : spec.getLocationSpecs()) {
+                    // Would prefer to tag with the Proxy object (((AbstractEntity)entity).getProxy())
+                    // but it's not clear how is the tag being serialized. Better make sure that
+                    // anything in tags can be serialized and deserialized. For example catalog tags
+                    // are already accessible through the REST API.
+                    LocationSpec<?> taggedSpec = LocationSpec.create(locationSpec)
+                            .tag(BrooklynTags.newOwnerEntityTag(entity.getId()));
                     ((AbstractEntity)entity).addLocations(MutableList.of(
-                        managementContext.getLocationManager().createLocation(locationSpec)));
+                        managementContext.getLocationManager().createLocation(taggedSpec)));
                 }
                 ((AbstractEntity)entity).addLocations(spec.getLocations());
 

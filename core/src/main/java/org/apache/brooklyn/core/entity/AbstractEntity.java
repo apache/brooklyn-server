@@ -72,6 +72,8 @@ import org.apache.brooklyn.core.internal.storage.BrooklynStorage;
 import org.apache.brooklyn.core.internal.storage.Reference;
 import org.apache.brooklyn.core.internal.storage.impl.BasicReference;
 import org.apache.brooklyn.core.location.Locations;
+import org.apache.brooklyn.core.mgmt.BrooklynTags;
+import org.apache.brooklyn.core.mgmt.BrooklynTags.NamedStringTag;
 import org.apache.brooklyn.core.mgmt.internal.EffectorUtils;
 import org.apache.brooklyn.core.mgmt.internal.EntityManagementSupport;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
@@ -877,6 +879,21 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         if (newLocations==null || newLocations.isEmpty()) {
             return;
         }
+
+        for (Location loc : newLocations) {
+            NamedStringTag ownerEntityTag = BrooklynTags.findFirst(BrooklynTags.OWNER_ENTITY_ID, loc.tags().getTags());
+            if (ownerEntityTag != null) {
+                if (!getId().equals(ownerEntityTag.getContents())) {
+                    // A location is "owned" if it was created as part of the EntitySpec of an entity (by Brooklyn).
+                    // To share a location between entities create it yourself and pass it to any entities that needs it.
+                    LOG.warn("Adding location {} to entity {} which is already owner by another entity {}. " +
+                            "Locations which are owned by a specific entity should not be shared with other entities as they " +
+                            "will be unmanaged together with their owner, regardless of other references to them.",
+                            new Object[] {loc, this, ownerEntityTag.getContents()});
+                }
+            }
+        }
+
         synchronized (locations) {
             List<Location> oldLocations = locations.get();
             Set<Location> trulyNewLocations = Sets.newLinkedHashSet(newLocations);

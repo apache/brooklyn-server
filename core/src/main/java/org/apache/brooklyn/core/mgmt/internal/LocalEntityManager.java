@@ -37,6 +37,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.EntityTypeRegistry;
 import org.apache.brooklyn.api.entity.Group;
+import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.AccessController;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.policy.Policy;
@@ -50,6 +51,8 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.internal.storage.BrooklynStorage;
+import org.apache.brooklyn.core.mgmt.BrooklynTags;
+import org.apache.brooklyn.core.mgmt.BrooklynTags.NamedStringTag;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.objs.BasicEntityTypeRegistry;
 import org.apache.brooklyn.core.objs.proxy.EntityProxy;
@@ -445,7 +448,7 @@ public class LocalEntityManager implements EntityManagerInternal {
              */
             
             // Need to store all child entities as onManagementStopping removes a child from the parent entity
-            final List<EntityInternal> allEntities =  Lists.newArrayList();        
+            final List<EntityInternal> allEntities =  Lists.newArrayList();
             recursively(e, new Predicate<EntityInternal>() { public boolean apply(EntityInternal it) {
                 if (shouldSkipUnmanagement(it)) return false;
                 allEntities.add(it);
@@ -717,6 +720,8 @@ public class LocalEntityManager implements EntityManagerInternal {
             log.debug("No relations being updated on unmanage of read only {}", e);
         }
 
+        unmanageOwnedLocations(e);
+
         synchronized (this) {
             Entity proxyE = toProxyEntityIfAvailable(e);
             if (e instanceof Application) {
@@ -740,6 +745,24 @@ public class LocalEntityManager implements EntityManagerInternal {
             } else {
                 if (log.isDebugEnabled()) log.debug("{} stopped management of entity {}", this, e);
                 return true;
+            }
+        }
+    }
+
+    private void unmanageOwnedLocations(Entity e) {
+        for (Location loc : e.getLocations()) {
+            NamedStringTag ownerEntityTag = BrooklynTags.findFirst(BrooklynTags.OWNER_ENTITY_ID, loc.tags().getTags());
+            if (ownerEntityTag != null) {
+                if (e.getId().equals(ownerEntityTag.getContents())) {
+                    managementContext.getLocationManager().unmanage(loc);
+                } else {
+                    // A location is "owned" if it was created as part of the EntitySpec of an entity (by Brooklyn).
+                    // To share a location between entities create it yourself and pass it to any entities that needs it.
+                    log.warn("Unmanaging entity {} which contains a location {} owned by another entity {}. " +
+                            "Locations which are owned by a specific entity should not be shared with other entities as they " +
+                            "will be unmanaged together with their owner, regardless of other references to them.",
+                            new Object[] {e, loc, ownerEntityTag.getContents()});
+                }
             }
         }
     }

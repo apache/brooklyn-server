@@ -478,6 +478,7 @@ public class JcloudsLocationTest implements JcloudsLocationConfig {
                 .configure("nodeId", "myNodeId")
                 .configure("imageId", "myImageId")
                 .configure("privateAddresses", ImmutableSet.of("10.0.0.1"))
+                .configure("privateHostname", "10.0.0.1")
                 .configure("publicAddresses", ImmutableSet.of("56.0.0.1"))
                 );
             registerJcloudsMachineLocation("bogus", result);

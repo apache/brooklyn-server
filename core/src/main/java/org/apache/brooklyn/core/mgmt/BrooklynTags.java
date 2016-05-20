@@ -22,6 +22,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.util.collections.MutableList;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -37,6 +38,7 @@ public class BrooklynTags {
 
     public static final String YAML_SPEC_KIND = "yaml_spec";
     public static final String NOTES_KIND = "notes";
+    public static final String OWNER_ENTITY_ID = "owner_entity_id";
     
     public static class NamedStringTag implements Serializable {
         private static final long serialVersionUID = 7932098757009051348L;
@@ -113,6 +115,10 @@ public class BrooklynTags {
 
     public static NamedStringTag newNotesTag(String contents) {
         return new NamedStringTag(NOTES_KIND, contents);
+    }
+    
+    public static NamedStringTag newOwnerEntityTag(String ownerId) {
+        return new NamedStringTag(OWNER_ENTITY_ID, ownerId);
     }
 
     public static TraitsTag newTraitsTag(List<Class<?>> interfaces) {
