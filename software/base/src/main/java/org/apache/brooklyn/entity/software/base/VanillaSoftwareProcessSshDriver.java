@@ -73,8 +73,9 @@ public class VanillaSoftwareProcessSshDriver extends AbstractSoftwareProcessSshD
         int hash = 0;
         for (ConfigKey<?> k: keys) {
             Maybe<?> value = ((ConfigurationSupportInternal)getEntity().config()).getNonBlocking(k);
-            if (value.isAbsent()) return null;
-            hash = hash*31 + (value.get()==null ? 0 : value.get().hashCode());
+            if (value.isPresent()) {
+                hash = hash*31 + (value.get()==null ? 0 : value.get().hashCode());
+            }
         }
         return hash;
     }
