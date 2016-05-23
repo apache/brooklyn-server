@@ -459,7 +459,7 @@ public abstract class AbstractLocation extends AbstractBrooklynObject implements
 
         @Override
         public void addToLocalBag(Map<String, ?> vals) {
-            configBag.putAll(vals);
+            configBag = ConfigBag.newInstanceExtending(configBag, vals);
         }
 
         @Override

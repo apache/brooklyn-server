@@ -21,13 +21,17 @@ package org.apache.brooklyn.camp.brooklyn;
 import java.util.Iterator;
 import java.util.Map;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
+import org.apache.brooklyn.location.jclouds.JcloudsLocationConfig;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.Jsonya;
 import org.slf4j.Logger;
@@ -57,6 +61,36 @@ public class EmptySoftwareProcessYamlTest extends AbstractYamlTest {
         EmptySoftwareProcess entity = (EmptySoftwareProcess) app.getChildren().iterator().next();
         Map<String, Object> pp = entity.getConfig(EmptySoftwareProcess.PROVISIONING_PROPERTIES);
         Assert.assertEquals(pp.get("minRam"), 16384);
+    }
+
+    public void testProvisioningPropertiesOverrideValues() throws Exception {
+        ConfigKey<Map> testConfig = ConfigKeys.newConfigKey(Map.class, "someOtherLocationOption");
+        Entity app = createAndStartApplication(
+                "location:",
+                "  localhost:",
+                "    templateOptions:",
+                "      testKey: testValue",
+                "    someOtherLocationOption:",
+                "      testKeyX1: testValueX1",
+                "services:",
+                "- type: "+EmptySoftwareProcess.class.getName(),
+                "  provisioning.properties:",
+                "    minRam: 16384",
+                "    templateOptions:",
+                "      overrideLoginUser: testUser",
+                "    someOtherLocationOption:",
+                "      testKeyX2: testValueX2");
+        waitForApplicationTasks(app);
+
+        log.info("App started:");
+        Entities.dumpInfo(app);
+
+        EmptySoftwareProcess entity = (EmptySoftwareProcess) app.getChildren().iterator().next();
+        Map<String, Object> pp = entity.getConfig(EmptySoftwareProcess.PROVISIONING_PROPERTIES);
+        Assert.assertEquals(pp.get("minRam"), 16384);
+        Map<String, Object> templateOptions = entity.getLocations().iterator().next().getConfig(JcloudsLocationConfig.TEMPLATE_OPTIONS);
+        Assert.assertEquals(templateOptions, ImmutableMap.of("overrideLoginUser", "testUser", "testKey", "testValue"));
+        Assert.assertEquals(entity.getLocations().iterator().next().getConfig(testConfig), ImmutableMap.of("testKeyX2", "testValueX2"));
     }
 
     @Test(groups="Integration")
