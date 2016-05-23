@@ -20,10 +20,12 @@ package org.apache.brooklyn.camp.brooklyn.spi.dsl.methods;
 
 import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
 
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
+import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -61,6 +63,7 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Callables;
 
@@ -510,6 +513,54 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
     }
 
     @DslAccessible
+    public BrooklynDslDeferredSupplier<?> effector(final String effectorName) {
+        return new ExecuteEffector(this, effectorName, ImmutableMap.<String, Object>of());
+    }
+    @DslAccessible
+    public BrooklynDslDeferredSupplier<?> effector(final String effectorName, final Map<String, ?> args) {
+        return new ExecuteEffector(this, effectorName, args);
+    }
+    protected static class ExecuteEffector extends BrooklynDslDeferredSupplier<Object> {
+        private static final long serialVersionUID = 1740899524088902383L;
+        private final DslComponent component;
+        private final String effectorName;
+        private final Map<String, ?> args;
+        public ExecuteEffector(DslComponent component, String effectorName, Map<String, ?> args) {
+            this.component = Preconditions.checkNotNull(component);
+            this.effectorName = effectorName;
+            this.args = args;
+        }
+        @SuppressWarnings("unchecked")
+        @Override
+        public Task<Object> newTask() {
+            Entity targetEntity = component.get();
+            Maybe<Effector<?>> targetEffector = targetEntity.getEntityType().getEffectorByName(effectorName);
+            if (targetEffector.isAbsentOrNull()) {
+                throw new IllegalArgumentException("Effector " + effectorName + " not found on entity: " + targetEntity);
+            }
+            return (Task<Object>) Entities.invokeEffector(targetEntity, targetEntity, targetEffector.get(), args);
+        }
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(component, effectorName);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            ExecuteEffector that = ExecuteEffector.class.cast(obj);
+            return Objects.equal(this.component, that.component) &&
+                    Objects.equal(this.effectorName, that.effectorName);
+        }
+        @Override
+        public String toString() {
+            return (component.scope==Scope.THIS ? "" : component.toString()+".") +
+                "effector("+JavaStringEscapes.wrapJavaString(effectorName)+")";
+        }
+    }
+
+    @DslAccessible
     public BrooklynDslDeferredSupplier<?> config(final Object keyNameOrSupplier) {
         return new DslConfigSupplier(this, keyNameOrSupplier);
     }
@@ -763,5 +814,5 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                
         return DslToStringHelpers.component(scopeComponent, remainder);
     }
-    
+
 }

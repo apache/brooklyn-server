@@ -70,6 +70,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
@@ -231,6 +232,14 @@ public class BrooklynDslCommon {
     @DslAccessible
     public static BrooklynDslDeferredSupplier<?> entityId() {
         return new DslComponent(Scope.THIS, "").entityId();
+    }
+
+    public static BrooklynDslDeferredSupplier<?> effector(String effectorName, Map<String, ?> args) {
+        return new DslComponent(Scope.THIS, "").effector(effectorName, args);
+    }
+
+    public static BrooklynDslDeferredSupplier<?> effector(String effectorName) {
+        return new DslComponent(Scope.THIS, "").effector(effectorName, ImmutableMap.<String, Object>of());
     }
 
     /** Returns a {@link Sensor}, looking up the sensor on the context if available and using that,
