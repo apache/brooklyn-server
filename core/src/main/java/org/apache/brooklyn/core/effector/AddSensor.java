@@ -47,14 +47,23 @@ import com.google.common.base.Preconditions;
 @Beta
 public class AddSensor<T> implements EntityInitializer {
 
-    public static final ConfigKey<String> SENSOR_NAME = ConfigKeys.newStringConfigKey("name", "The name of the sensor to create");
-    public static final ConfigKey<Duration> SENSOR_PERIOD = ConfigKeys.newConfigKey(Duration.class, "period", "Period, including units e.g. 1m or 5s or 200ms; default 5 minutes", Duration.FIVE_MINUTES);
-    public static final ConfigKey<String> SENSOR_TYPE = ConfigKeys.newStringConfigKey("targetType", "Target type for the value; default String", "java.lang.String");
+    public static final ConfigKey<String> SENSOR_NAME = ConfigKeys.newStringConfigKey(
+            "name", "The name of the sensor to create");
+
+    public static final ConfigKey<Duration> SENSOR_PERIOD = ConfigKeys.newDurationConfigKey(
+            "period",
+            "Period in which the sensor should be updated, including units e.g. 1m, 5s or 200ms; default 5 minutes",
+            Duration.FIVE_MINUTES);
+
+    public static final ConfigKey<String> SENSOR_TYPE = ConfigKeys.newStringConfigKey(
+            "targetType", "Target type for the value; default String",
+            "java.lang.String");
 
     protected final String name;
     protected final Duration period;
     protected final String type;
     protected final AttributeSensor<T> sensor;
+    protected final ConfigBag params;
 
     public AddSensor(Map<String, String> params) {
         this(ConfigBag.newInstance(params));
@@ -65,6 +74,7 @@ public class AddSensor<T> implements EntityInitializer {
         this.period = params.get(SENSOR_PERIOD);
         this.type = params.get(SENSOR_TYPE);
         this.sensor = newSensor();
+        this.params = params;
     }
 
     @Override

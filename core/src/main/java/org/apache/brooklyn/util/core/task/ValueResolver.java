@@ -50,7 +50,7 @@ import com.google.common.reflect.TypeToken;
 
 /** 
  * Resolves a given object, as follows:
- * <li> If it is a {@link Tasks} or a {@link DeferredSupplier} then get its contents
+ * <li> If it is a {@link Task} or a {@link DeferredSupplier} then get its contents
  * <li> If it's a map and {@link #deep(boolean)} is requested, it applies resolution to contents
  * <li> It applies coercion
  * <p>

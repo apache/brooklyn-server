@@ -22,6 +22,11 @@ import java.util.List;
 
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.mgmt.ExecutionContext;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.internal.ConfigKeySelfExtracting;
+import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 
 import com.google.common.collect.ImmutableList;
 
@@ -45,5 +50,30 @@ public class EntityInitializers {
     public static EntityInitializer addingTags(Object... tags) {
         return new AddTags(tags);
     }
-    
+
+    /**
+     * Resolves key in the
+     * {@link BasicExecutionContext#getCurrentExecutionContext current execution context}.
+     * @see #resolve(ConfigBag, ConfigKey, ExecutionContext)
+     */
+    public static <T> T resolve(ConfigBag configBag, ConfigKey<T> key) {
+        return resolve(configBag, key, BasicExecutionContext.getCurrentExecutionContext());
+    }
+
+    /**
+     * Gets the value for key from configBag.
+     * <p>
+     * If key is an instance of {@link ConfigKeySelfExtracting} and executionContext is
+     * not null then its value will be retrieved per the key's implementation of
+     * {@link ConfigKeySelfExtracting#extractValue extractValue}. Otherwise, the value
+     * will be retrieved from configBag directly.
+     */
+    public static <T> T resolve(ConfigBag configBag, ConfigKey<T> key, ExecutionContext executionContext) {
+        if (key instanceof ConfigKeySelfExtracting && executionContext != null) {
+            ConfigKeySelfExtracting<T> ckse = ((ConfigKeySelfExtracting<T>) key);
+            return ckse.extractValue(configBag.getAllConfigAsConfigKeyMap(), executionContext);
+        }
+        return configBag.get(key);
+    }
+
 }

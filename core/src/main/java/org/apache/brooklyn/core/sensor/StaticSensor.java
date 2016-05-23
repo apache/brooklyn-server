@@ -22,7 +22,6 @@ import java.util.concurrent.Callable;
 
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.AddSensor;
@@ -30,7 +29,6 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.enricher.stock.Propagator;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.Tasks;
-import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -47,7 +45,8 @@ import com.google.common.base.Supplier;
  * This supports a {@link StaticSensor#SENSOR_PERIOD} 
  * which can be useful if the supplied value is such a function.
  * However when the source is another sensor,
- * consider using {@link Propagator} which listens for changes instead. */
+ * consider using {@link Propagator} which listens for changes instead.
+ */
 public class StaticSensor<T> extends AddSensor<T> {
 
     private static final Logger log = LoggerFactory.getLogger(StaticSensor.class);
@@ -65,18 +64,24 @@ public class StaticSensor<T> extends AddSensor<T> {
         timeout = params.get(TIMEOUT);
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public void apply(final EntityLocal entity) {
         super.apply(entity);
 
         class ResolveValue implements Callable<Maybe<T>> {
+            @SuppressWarnings("unchecked")
             @Override
             public Maybe<T> call() throws Exception {
-                return Tasks.resolving(value).as((Class<T>)sensor.getType()).timeout(timeout).getMaybe();
+                return Tasks.resolving(value)
+                        .as((Class<T>)sensor.getType())
+                        .timeout(timeout)
+                        .getMaybe();
             }
         }
-        final Task<Maybe<T>> resolveValue = Tasks.<Maybe<T>>builder().displayName("resolving " + value).body(new ResolveValue()).build();
+        final Task<Maybe<T>> resolveValue = Tasks.<Maybe<T>>builder()
+                .displayName("resolving " + value)
+                .body(new ResolveValue())
+                .build();
 
         class SetValue implements Callable<T> {
             @Override

@@ -26,6 +26,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.AddSensor;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
+import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.sensor.http.HttpRequestSensor;
 import org.apache.brooklyn.feed.ssh.SshFeed;
 import org.apache.brooklyn.feed.ssh.SshPollConfig;
@@ -33,6 +34,7 @@ import org.apache.brooklyn.feed.ssh.SshValueFunctions;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
@@ -61,16 +63,9 @@ public final class SshCommandSensor<T> extends AddSensor<T> {
         + "if not supplied, executes in the entity's run dir (or home dir if no run dir is defined); "
         + "use '~' to always execute in the home dir, or 'custom-feed/' to execute in a custom-feed dir relative to the run dir");
 
-    protected final String command;
-    protected final String executionDir;
-
     public SshCommandSensor(final ConfigBag params) {
         super(params);
-
-        // TODO create a supplier for the command string to support attribute embedding
-        command = Preconditions.checkNotNull(params.get(SENSOR_COMMAND), "command");
-        
-        executionDir = params.get(SENSOR_EXECUTION_DIR);
+        Preconditions.checkNotNull(params.getAllConfigRaw().get(SENSOR_COMMAND.getName()), "command");
     }
 
     @Override
@@ -91,6 +86,8 @@ public final class SshCommandSensor<T> extends AddSensor<T> {
         Supplier<String> commandSupplier = new Supplier<String>() {
             @Override
             public String get() {
+                String command = EntityInitializers.resolve(params, SENSOR_COMMAND);
+                String executionDir = EntityInitializers.resolve(params, SENSOR_EXECUTION_DIR);
                 return makeCommandExecutingInDirectory(command, executionDir, entity);
             }
         };
