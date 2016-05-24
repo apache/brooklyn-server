@@ -4,12 +4,12 @@
 # Deploys on Centos nodes.
 
 name: swarmtest
-location: vagrantred
+location: my-cloud
 services:
 
 - type: docker-swarm
   name: swarm
 
   brooklyn.config:
-    swarm.initial.size: 1
+    swarm.initial.size: 3
     etcd.initial.size: 1

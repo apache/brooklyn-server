@@ -150,11 +150,13 @@ brooklyn.catalog:
         function getcert() {
           local url=$1
           local file=$2
-          curl -L ${url} --output ${file} --write-out "%{http_code}"  | grep 200 || failwith "${name} not received from CA"
+          curl ${url} --output ${file} --write-out "%{http_code}"  | grep 200 ||
+            failwith "${file} not received from CA"
         }
         if [ "${CA_CERT_ROOT}" ] ; then
             echo "Requesting creation of certificates from CA"
-            curl -X POST ${CA_CERT_ROOT}/generate/${HOST_ADDRESS}
+            curl -d "" -X POST --write-out "%{http_code}" ${CA_CERT_ROOT}/generate/${HOST_ADDRESS} | grep 201 ||
+              failwith "Could not request certificate for ${HOST_ADDRESS} from ${CA_CERT_ROOT}"
             echo "Requesting generated certificates from CA"
             getcert ${CA_CERT_ROOT}/cert/${HOST_ADDRESS}/ca.pem    ~/.certs/ca.pem
             getcert ${CA_CERT_ROOT}/cert/${HOST_ADDRESS}/cert.pem  ~/.certs/cert.pem
@@ -238,7 +240,7 @@ brooklyn.catalog:
       - name: manager.port
         label: Manager Port
         description: External port of the swarm manager
-        type: java.lang.Integer
+        type: port
         default: 3376
 
       brooklyn.config:

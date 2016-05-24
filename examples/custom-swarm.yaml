@@ -21,11 +21,12 @@ services:
   - type: etcd-cluster
     id: etcd-cluster
     name: "etcd-cluster"
-    initialSize: 3
+    initialSize: 1
   - type: docker-swarm-cluster
     id: swarm-cluster
     name: "swarm-cluster"
     brooklyn.config:
+      swarm.initial.size: 3
       discovery.url: $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.authority")
       launch.latch: $brooklyn:entity("etcd-cluster").attributeWhenReady("service.isUp")
       resources.preInstall.latch: $brooklyn:component("ca-server").attributeWhenReady("service.isUp")

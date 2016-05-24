@@ -9,14 +9,14 @@
 
 
 name: external-resource-urls
-location: bluebox-sjc
+location: mycloud
 services:
 
 - type: docker-swarm-cluster
   name: swarm
 
   brooklyn.config:
-    swarm.initial.size: 1
+    swarm.initial.size: 3
     discovery.url: etcd://10.10.10.123:8080/
     ca.cert.url: http://10.10.10.101:8080/default/ca.pem
     node.cert.url: http://10.10.10.101:8080/default/cert.pem
