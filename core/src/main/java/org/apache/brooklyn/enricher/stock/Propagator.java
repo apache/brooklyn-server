@@ -19,6 +19,7 @@
 package org.apache.brooklyn.enricher.stock;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -32,6 +33,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.sensor.SensorPredicates;
@@ -40,6 +42,7 @@ import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -47,6 +50,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.reflect.TypeToken;
 
 @SuppressWarnings("serial")
@@ -63,7 +67,9 @@ public class Propagator extends AbstractEnricher implements SensorEventListener<
     public static ConfigKey<Entity> PRODUCER = ConfigKeys.newConfigKey(Entity.class, "enricher.producer");
 
     @SetFromFlag("propagatingAllBut")
-    public static ConfigKey<Collection<Sensor<?>>> PROPAGATING_ALL_BUT = ConfigKeys.newConfigKey(new TypeToken<Collection<Sensor<?>>>() {}, "enricher.propagating.propagatingAllBut");
+    public static ConfigKey<Collection<? extends Sensor<?>>> PROPAGATING_ALL_BUT = ConfigKeys.newConfigKey(
+            new TypeToken<Collection<? extends Sensor<?>>>() {}, 
+            "enricher.propagating.propagatingAllBut");
 
     @SetFromFlag("propagatingAll")
     public static ConfigKey<Boolean> PROPAGATING_ALL = ConfigKeys.newBooleanConfigKey("enricher.propagating.propagatingAll");
@@ -75,10 +81,10 @@ public class Propagator extends AbstractEnricher implements SensorEventListener<
     public static ConfigKey<Map<? extends Sensor<?>, ? extends Sensor<?>>> SENSOR_MAPPING = ConfigKeys.newConfigKey(new TypeToken<Map<? extends Sensor<?>, ? extends Sensor<?>>>() {}, "enricher.propagating.sensorMapping");
 
     protected Entity producer;
-    protected Map<? extends Sensor<?>, ? extends Sensor<?>> sensorMapping;
+    protected Map<Sensor<?>, Sensor<?>> sensorMapping;
     protected boolean propagatingAll;
     protected Collection<Sensor<?>> propagatingAllBut;
-    protected Predicate<Sensor<?>> sensorFilter;
+    protected Predicate<? super Sensor<?>> sensorFilter;
 
     public Propagator() {
     }
@@ -87,24 +93,41 @@ public class Propagator extends AbstractEnricher implements SensorEventListener<
     public void setEntity(EntityLocal entity) {
         super.setEntity(entity);
         
-        this.producer = getConfig(PRODUCER) == null ? entity : getConfig(PRODUCER);
-        boolean sensorMappingSet = getConfig(SENSOR_MAPPING)!=null;
-        MutableMap<Sensor<?>,Sensor<?>> sensorMappingTemp = MutableMap.copyOf(getConfig(SENSOR_MAPPING)); 
-        this.propagatingAll = Boolean.TRUE.equals(getConfig(PROPAGATING_ALL)) || getConfig(PROPAGATING_ALL_BUT)!=null;
+        producer = getConfig(PRODUCER);
+        sensorMapping = resolveSensorMappings(getConfig(SENSOR_MAPPING));
+        propagatingAllBut = resolveSensorCollection(getConfig(PROPAGATING_ALL_BUT));
+        propagatingAll = Boolean.TRUE.equals(getConfig(PROPAGATING_ALL)) || propagatingAllBut.size() > 0;
+        Collection<Sensor<?>> propagating = resolveSensorCollection(getConfig(PROPAGATING));
         
-        if (getConfig(PROPAGATING) != null) {
+        if (producer == null) {
+            throw new IllegalStateException("Propagator enricher "+this+" missing config '"+PRODUCER.getName());
+        }
+        if (propagating.isEmpty() && sensorMapping.isEmpty() && !propagatingAll) {
+            throw new IllegalStateException("Propagator enricher "+this+" must have 'propagating' and/or 'sensorMapping', or 'propagatingAll' or 'propagatingAllBut' set");
+        }
+        if (entity.equals(producer)) {
             if (propagatingAll) {
-                throw new IllegalStateException("Propagator enricher "+this+" must not have 'propagating' set at same time as either 'propagatingAll' or 'propagatingAllBut'");
+                throw new IllegalStateException("Propagator enricher "+this+" must not have "+PROPAGATING_ALL.getName()+" or "+PROPAGATING_ALL_BUT.getName()+", when publishing to own entity (to avoid infinite loop)");
+            } else if (propagating.size() > 0) {
+                throw new IllegalStateException("Propagator enricher "+this+" must not have "+PROPAGATING.getName()+", when publishing to own entity (to avoid infinite loop)");
+            } else if (filterForKeyEqualsValue(sensorMapping).size() > 0) {
+                Map<? extends Sensor<?>, ? extends Sensor<?>> selfPublishingSensors = filterForKeyEqualsValue(sensorMapping);
+                throw new IllegalStateException("Propagator enricher "+this+" must not publish to same sensor in config "+SENSOR_MAPPING.getName()+" ("+selfPublishingSensors.keySet()+"), when publishing to own entity (to avoid infinite loop)");
             }
-            
-            for (Object sensorO : getConfig(PROPAGATING)) {
-                Sensor<?> sensor = Tasks.resolving(sensorO).as(Sensor.class).timeout(ValueResolver.REAL_QUICK_WAIT).context(producer).get();
-                if (!sensorMappingTemp.containsKey(sensor)) {
-                    sensorMappingTemp.put(sensor, sensor);
+        }
+        if ((propagating.size() > 0 || sensorMapping.size() > 0) && propagatingAll) {
+            throw new IllegalStateException("Propagator enricher "+this+" must not have 'propagating' or 'sensorMapping' set at same time as either 'propagatingAll' or 'propagatingAllBut'");
+        }
+        
+        if (propagating.size() > 0) {
+            for (Sensor<?> sensor : propagating) {
+                if (!sensorMapping.containsKey(sensor)) {
+                    sensorMapping.put(sensor, sensor);
                 }
             }
-            this.sensorMapping = ImmutableMap.copyOf(sensorMappingTemp);
-            this.sensorFilter = new Predicate<Sensor<?>>() {
+            sensorMapping = ImmutableMap.copyOf(sensorMapping);
+            sensorFilter = Predicates.alwaysTrue();
+            new Predicate<Sensor<?>>() {
                 @Override public boolean apply(Sensor<?> input) {
                     // TODO kept for deserialization of inner classes, but shouldn't be necessary, as with other inner classes (qv);
                     // NB: previously this did this check:
@@ -113,33 +136,16 @@ public class Propagator extends AbstractEnricher implements SensorEventListener<
                     return true;
                 }
             };
-        } else if (sensorMappingSet) {
-            if (propagatingAll) {
-                throw new IllegalStateException("Propagator enricher "+this+" must not have 'sensorMapping' set at same time as either 'propagatingAll' or 'propagatingAllBut'");
-            }
-            this.sensorMapping = ImmutableMap.copyOf(sensorMappingTemp);
-            this.sensorFilter = Predicates.alwaysTrue();
+        } else if (sensorMapping.size() > 0) {
+            sensorMapping = ImmutableMap.copyOf(sensorMapping);
+            sensorFilter = Predicates.alwaysTrue();
         } else {
-            this.sensorMapping = ImmutableMap.<Sensor<?>, Sensor<?>>of();
-            if (!propagatingAll) {
-                // default if nothing specified is to do all but the ones not usually propagated
-                propagatingAll = true;
-                // user specified nothing, so *set* the all_but to the default set
-                // if desired, we could allow this to be dynamically reconfigurable, remove this field and always look up;
-                // slight performance hit (always looking up), and might need to recompute subscriptions, so not supported currently
-                // TODO this default is @Beta behaviour! -- maybe better to throw?
-                propagatingAllBut = SENSORS_NOT_USUALLY_PROPAGATED;
-            } else {
-                propagatingAllBut = getConfig(PROPAGATING_ALL_BUT);
-            }
-            this.sensorFilter = new Predicate<Sensor<?>>() {
+            Preconditions.checkState(propagatingAll, "Impossible case: propagatingAll=%s; propagating=%s; "
+                    + "sensorMapping=%s", propagatingAll, propagating, sensorMapping);
+            sensorMapping = ImmutableMap.of();
+            sensorFilter = new Predicate<Sensor<?>>() {
                 @Override public boolean apply(Sensor<?> input) {
-                    Collection<Sensor<?>> exclusions = propagatingAllBut;
-                    // TODO this anonymous inner class and getConfig check kept should be removed / confirmed for rebind compatibility.
-                    // we *should* be regenerating these fields on each rebind (calling to this method), 
-                    // so serialization of this class shouldn't be needed (and should be skipped), but that needs to be checked.
-                    if (propagatingAllBut==null) exclusions = getConfig(PROPAGATING_ALL_BUT);
-                    return input != null && (exclusions==null || !exclusions.contains(input));
+                    return input != null && !propagatingAllBut.contains(input);
                 }
             };
         }
@@ -205,4 +211,40 @@ public class Propagator extends AbstractEnricher implements SensorEventListener<
         return mappingSensor.isPresent() ? sensorMapping.get(mappingSensor.get()) : sourceSensor;
     }
 
+    private Map<Sensor<?>, Sensor<?>> resolveSensorMappings(Map<?,?> mapping) {
+        if (mapping == null) {
+            return MutableMap.of();
+        }
+        Map<Sensor<?>, Sensor<?>> result = MutableMap.of();
+        for (Map.Entry<?,?> entry : mapping.entrySet()) {
+            Object keyO = entry.getKey();
+            Object valueO = entry.getValue();
+            Sensor<?> key = Tasks.resolving(keyO).as(Sensor.class).timeout(ValueResolver.REAL_QUICK_WAIT).context(producer).get();
+            Sensor<?> value = Tasks.resolving(valueO).as(Sensor.class).timeout(ValueResolver.REAL_QUICK_WAIT).context(producer).get();
+            result.put(key, value);
+        }
+        return result;
+    }
+    
+    private List<Sensor<?>> resolveSensorCollection(Iterable<?> sensors) {
+        if (sensors == null) {
+            return MutableList.of();
+        }
+        List<Sensor<?>> result = MutableList.of();
+        for (Object sensorO : sensors) {
+            Sensor<?> sensor = Tasks.resolving(sensorO).as(Sensor.class).timeout(ValueResolver.REAL_QUICK_WAIT).context(producer).get();
+            result.add(sensor);
+        }
+        return result;
+    }
+    
+    private <K,V> Map<K,V> filterForKeyEqualsValue(Map<K,V> map) {
+        Map<K,V> result = Maps.newLinkedHashMap();
+        for (Map.Entry<K, V> entry : map.entrySet()) {
+            if (Objects.equal(entry.getKey(), entry.getValue())) {
+                result.put(entry.getKey(), entry.getValue());
+            }
+        }
+        return result;
+    }
 }

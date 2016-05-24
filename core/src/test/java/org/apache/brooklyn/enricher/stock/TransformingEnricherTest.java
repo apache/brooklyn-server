@@ -224,4 +224,19 @@ public class TransformingEnricherTest extends BrooklynAppUnitTestSupport {
         
         EntityAsserts.assertAttributeEqualsEventually(app, intSensorA, 3);
     }
+
+    public void testTransformerFailsWithEmptyConfig() throws Exception {
+        EnricherSpec<?> spec = EnricherSpec.create(Transformer.class);
+
+        assertAddEnricherThrowsNullPointerException(spec, "Value required");
+    }
+    
+    private void assertAddEnricherThrowsNullPointerException(EnricherSpec<?> spec, String expectedPhrase) {
+        try {
+            app.enrichers().add(spec);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (NullPointerException e) {
+            Asserts.expectedFailureContains(e, expectedPhrase);
+        }
+    }
 }

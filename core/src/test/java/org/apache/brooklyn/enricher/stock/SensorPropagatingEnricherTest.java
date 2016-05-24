@@ -18,8 +18,12 @@
  */
 package org.apache.brooklyn.enricher.stock;
 
+import static org.testng.Assert.assertEquals;
+
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
@@ -34,12 +38,14 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.AtomicReferences;
+import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 
 public class SensorPropagatingEnricherTest extends BrooklynAppUnitTestSupport {
 
@@ -108,7 +114,7 @@ public class SensorPropagatingEnricherTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testPropagatesAllSensorsIncludesDynamicallyAdded() {
         AttributeSensor<String> dynamicAttribute = Sensors.newStringSensor("test.dynamicsensor.strattrib");
-        BasicNotificationSensor<String> dynamicNotificationSensor = new BasicNotificationSensor(String.class, "test.dynamicsensor.strnotif");
+        BasicNotificationSensor<String> dynamicNotificationSensor = new BasicNotificationSensor<String>(String.class, "test.dynamicsensor.strnotif");
         
         app.enrichers().add(Enrichers.builder()
                 .propagatingAll()
@@ -264,5 +270,96 @@ public class SensorPropagatingEnricherTest extends BrooklynAppUnitTestSupport {
         EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, entity.sensors().get(TestEntity.NAME));
         entity.sensors().set(TestEntity.NAME, "newName");
         EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, "newName");
+    }
+    
+    @Test
+    public void testPropagatorAvoidsInfiniteLoopInPropagateAll() throws Exception {
+        AttributeSensor<String> mySensor = Sensors.newSensor(String.class, "mySensor");
+
+        EnricherSpec<?> spec = EnricherSpec.create(Propagator.class)
+                .configure(Propagator.PRODUCER, app)
+                .configure(Propagator.PROPAGATING_ALL, true);
+
+        assertAddEnricherThrowsIllegalStateException(spec, "when publishing to own entity");
+        assertAttributeNotRepublished(app, mySensor);
+    }
+    
+    @Test
+    public void testPropagatorAvoidsInfiniteLoopInPropagateAllBut() throws Exception {
+        AttributeSensor<String> mySensor = Sensors.newSensor(String.class, "mySensor");
+        AttributeSensor<String> mySensor2 = Sensors.newSensor(String.class, "mySensor2");
+
+        EnricherSpec<?> spec = EnricherSpec.create(Propagator.class)
+                .configure(Propagator.PRODUCER, app)
+                .configure(Propagator.PROPAGATING_ALL_BUT, ImmutableList.of(mySensor2));
+
+        assertAddEnricherThrowsIllegalStateException(spec, "when publishing to own entity");
+        assertAttributeNotRepublished(app, mySensor);
+    }
+    
+    @Test
+    public void testPropagatorAvoidsInfiniteLoopInPropagate() throws Exception {
+        AttributeSensor<String> mySensor = Sensors.newSensor(String.class, "mySensor");
+
+        EnricherSpec<?> spec = EnricherSpec.create(Propagator.class)
+                .configure(Propagator.PRODUCER, app)
+                .configure(Propagator.PROPAGATING, ImmutableList.of(mySensor));
+        
+        assertAddEnricherThrowsIllegalStateException(spec, "when publishing to own entity");
+        assertAttributeNotRepublished(app, mySensor);
+    }
+
+    @Test
+    public void testPropagatorAvoidsInfiniteLoopInSameSensorMapping() throws Exception {
+        AttributeSensor<String> mySensor = Sensors.newSensor(String.class, "mySensor");
+
+        EnricherSpec<?> spec = EnricherSpec.create(Propagator.class)
+                .configure(Propagator.PRODUCER, app)
+                .configure(Propagator.SENSOR_MAPPING, ImmutableMap.of(mySensor, mySensor));
+        
+        assertAddEnricherThrowsIllegalStateException(spec, "when publishing to own entity");
+        assertAttributeNotRepublished(app, mySensor);
+    }
+
+    @Test
+    public void testPropagatorFailsWithEmptyConfig() throws Exception {
+        EnricherSpec<?> spec = EnricherSpec.create(Propagator.class);
+
+        assertAddEnricherThrowsIllegalStateException(spec, "missing config");
+    }
+
+    protected void assertAttributeNotRepublished(Entity entity, AttributeSensor<String> sensor) {
+        final List<SensorEvent<String>> events = Lists.newCopyOnWriteArrayList();
+        app.subscriptions().subscribe(entity, sensor, new SensorEventListener<String>() {
+            @Override public void onEvent(SensorEvent<String> event) {
+                events.add(event);
+            }});
+
+        app.sensors().set(sensor, "myval");
+        assertSizeEventually(events, 1);
+        assertSizeContinually(events, 1, Duration.millis(100));
+    }
+    
+    protected void assertSizeEventually(final List<?> actual, final int expected) {
+        Asserts.succeedsEventually(new Runnable() {
+            @Override public void run() {
+                assertEquals(actual.size(), expected, "actual="+actual);
+            }});
+    }
+
+    protected void assertSizeContinually(final List<?> actual, final int expected, Duration duration) {
+        Asserts.succeedsContinually(ImmutableMap.of("timeout", duration), new Runnable() {
+            @Override public void run() {
+                assertEquals(actual.size(), expected, "actual="+actual);
+            }});
+    }
+    
+    private void assertAddEnricherThrowsIllegalStateException(EnricherSpec<?> spec, String expectedPhrase) {
+        try {
+            app.enrichers().add(spec);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (IllegalStateException e) {
+            Asserts.expectedFailureContains(e, expectedPhrase);
+        }
     }
 }
