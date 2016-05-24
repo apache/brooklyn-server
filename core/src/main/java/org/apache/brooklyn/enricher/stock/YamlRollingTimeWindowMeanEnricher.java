@@ -20,7 +20,9 @@ package org.apache.brooklyn.enricher.stock;
 
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
 
+import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.config.ConfigKey;
@@ -79,6 +81,14 @@ public class YamlRollingTimeWindowMeanEnricher<T extends Number> extends Abstrac
     private final LinkedList<T> values = new LinkedList<T>();
     private final LinkedList<Long> timestamps = new LinkedList<Long>();
     volatile ConfidenceQualifiedNumber lastAverage = new ConfidenceQualifiedNumber(0d,0d);
+    
+    @Override
+    public void setEntity(EntityLocal entity) {
+        super.setEntity(entity);
+        
+        // Check that sourceSensor has been set (rather than triggerSensors)
+        getRequiredConfig(SOURCE_SENSOR);
+    }
     
     @Override
     protected Function<SensorEvent<T>, Double> getTransformation() {

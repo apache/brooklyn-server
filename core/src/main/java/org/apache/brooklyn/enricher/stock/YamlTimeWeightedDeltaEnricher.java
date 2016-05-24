@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.enricher.stock;
 
+import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -44,8 +45,16 @@ public class YamlTimeWeightedDeltaEnricher<T extends Number> extends AbstractTra
     Number lastValue;
     long lastTime = -1;
     
-    public static ConfigKey<Duration> DELTA_PERIOD = ConfigKeys.newConfigKey(Duration.class, "enricher.delta.period",
+    public static final ConfigKey<Duration> DELTA_PERIOD = ConfigKeys.newConfigKey(Duration.class, "enricher.delta.period",
         "Duration that this delta should compute for, default per second", Duration.ONE_SECOND);
+    
+    @Override
+    public void setEntity(EntityLocal entity) {
+        super.setEntity(entity);
+        
+        // Check that sourceSensor has been set (rather than triggerSensors)
+        getRequiredConfig(SOURCE_SENSOR);
+    }
     
     @Override
     protected Function<SensorEvent<T>, Double> getTransformation() {
