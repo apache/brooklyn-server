@@ -271,9 +271,15 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
             ServiceStateLogic.setExpectedState(getEntity(), Lifecycle.STARTING);
             start();
         } else {
-            DynamicTasks.queue("launch", new Runnable() { public void run() {
+            DynamicTasks.queue("pre-launch-command", new Runnable() { public void run() {
                 ServiceStateLogic.setExpectedState(getEntity(), Lifecycle.STARTING);
+                runPreLaunchCommand();
+            }});
+            DynamicTasks.queue("launch (main)", new Runnable() { public void run() {
                 launch();
+            }});
+            DynamicTasks.queue("post-launch-command", new Runnable() { public void run() {
+                runPostLaunchCommand();
             }});
             DynamicTasks.queue("post-launch", new Runnable() { public void run() {
                 postLaunch();

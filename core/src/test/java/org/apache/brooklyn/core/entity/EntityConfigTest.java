@@ -19,16 +19,22 @@
 package org.apache.brooklyn.core.entity;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.mgmt.TaskAdaptable;
+import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.entity.AbstractEntity;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -151,6 +157,59 @@ public class EntityConfigTest {
         assertEquals(child.getAllConfig(), ImmutableMap.of(MyChildEntity.MY_CHILD_CONFIG_WITH_FLAGNAME, "overrideMyval"));
         assertEquals(child.getAllConfigBag().getAllConfig(), ImmutableMap.of("mychildentity.myconfigwithflagname", "overrideMyval"));
         assertEquals(child.getLocalConfigBag().getAllConfig(), ImmutableMap.of("mychildentity.myconfigwithflagname", "overrideMyval"));
+    }
+
+    @Test
+    public void testGetConfigMapWithSubKeys() throws Exception {
+        TestEntity entity = managementContext.getEntityManager().createEntity(EntitySpec.create(TestEntity.class)
+                .configure(TestEntity.CONF_MAP_THING.subKey("mysub"), "myval"));
+        
+        assertEquals(entity.config().get(TestEntity.CONF_MAP_THING), ImmutableMap.of("mysub", "myval"));
+        assertEquals(entity.config().getNonBlocking(TestEntity.CONF_MAP_THING).get(), ImmutableMap.of("mysub", "myval"));
+        
+        assertEquals(entity.config().get(TestEntity.CONF_MAP_THING.subKey("mysub")), "myval");
+        assertEquals(entity.config().getNonBlocking(TestEntity.CONF_MAP_THING.subKey("mysub")).get(), "myval");
+    }
+    
+    @Test
+    public void testGetConfigMapWithExplicitMap() throws Exception {
+        TestEntity entity = managementContext.getEntityManager().createEntity(EntitySpec.create(TestEntity.class)
+                .configure(TestEntity.CONF_MAP_THING, ImmutableMap.of("mysub", "myval")));
+        
+        assertEquals(entity.config().get(TestEntity.CONF_MAP_THING), ImmutableMap.of("mysub", "myval"));
+        assertEquals(entity.config().getNonBlocking(TestEntity.CONF_MAP_THING).get(), ImmutableMap.of("mysub", "myval"));
+        
+        assertEquals(entity.config().get(TestEntity.CONF_MAP_THING.subKey("mysub")), "myval");
+        assertEquals(entity.config().getNonBlocking(TestEntity.CONF_MAP_THING.subKey("mysub")).get(), "myval");
+    }
+    
+    @Test
+    public void testGetConfigNonBlocking() throws Exception {
+        final CountDownLatch latch = new CountDownLatch(1);
+        Task<String> task = Tasks.<String>builder().body(
+                new Callable<String>() {
+                    @Override
+                    public String call() throws Exception {
+                        latch.await();
+                        return "myval";
+                    }})
+                .build();
+        TestEntity entity = managementContext.getEntityManager().createEntity(EntitySpec.create(TestEntity.class)
+                .configure(TestEntity.CONF_MAP_THING_OBJECT, ImmutableMap.<String, Object>of("mysub", task))
+                .configure(TestEntity.CONF_NAME, task));
+        
+        // Will initially return absent, because task is not done
+        assertTrue(entity.config().getNonBlocking(TestEntity.CONF_MAP_THING_OBJECT).isAbsent());
+        assertTrue(entity.config().getNonBlocking(TestEntity.CONF_MAP_THING_OBJECT.subKey("mysub")).isAbsent());
+        
+        latch.countDown();
+        
+        // Can now finish task, so will return "myval"
+        assertEquals(entity.config().get(TestEntity.CONF_MAP_THING_OBJECT), ImmutableMap.of("mysub", "myval"));
+        assertEquals(entity.config().get(TestEntity.CONF_MAP_THING_OBJECT.subKey("mysub")), "myval");
+        
+        assertEquals(entity.config().getNonBlocking(TestEntity.CONF_MAP_THING_OBJECT).get(), ImmutableMap.of("mysub", "myval"));
+        assertEquals(entity.config().getNonBlocking(TestEntity.CONF_MAP_THING_OBJECT.subKey("mysub")).get(), "myval");
     }
     
     public static class MyEntity extends AbstractEntity {
