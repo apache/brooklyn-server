@@ -1,0 +1,7 @@
+name: swarm-test
+location: vagrantred
+services:
+- type: docker-swarm-test
+  brooklyn.config:
+    swarm.initial.size: 1
+    etcd.initial.size: 1

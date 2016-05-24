@@ -1,0 +1,35 @@
+# A blueprint deploying an application built with the Docker swarm entities from the catalog. This
+# is intended to illustrate the process of composing a blueprint to create a swarm, using pre-existing
+# entities.  For this purpose it uses entities from the catalog for each of the parts, but in
+# another scenario the CA server and discovery components might be provided by other entities
+# that the user has available.
+
+location: my-cloud
+
+services:
+- type: org.apache.brooklyn.entity.stock.BasicApplication
+  brooklyn.enrichers:
+  - type: org.apache.brooklyn.enricher.stock.Propagator
+      uniqueTag: swarm-url-propagator
+      producer: $brooklyn:child("swarm-cluster")
+      propagating:
+      - $brooklyn:sensor("swarm.url")
+  brooklyn.children:
+  - type: ca-server
+    id: ca-server
+    name: "ca-server"
+  - type: etcd-cluster
+    id: etcd-cluster
+    name: "etcd-cluster"
+    initialSize: 1
+  - type: docker-swarm-cluster
+    id: swarm-cluster
+    name: "swarm-cluster"
+    brooklyn.config:
+      swarm.initial.size: 3
+      discovery.url: $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.authority")
+      launch.latch: $brooklyn:entity("etcd-cluster").attributeWhenReady("service.isUp")
+      resources.preInstall.latch: $brooklyn:component("ca-server").attributeWhenReady("service.isUp")
+      ca.request.root: $brooklyn:entity("ca-server").attributeWhenReady("main.uri")
+
+

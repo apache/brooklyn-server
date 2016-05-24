@@ -1,0 +1,6 @@
+name: ca
+location: red7
+services:
+  - type: 'ca-server'
+    id: ca-server
+
