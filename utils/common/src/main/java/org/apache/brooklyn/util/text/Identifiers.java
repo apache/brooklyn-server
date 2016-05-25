@@ -91,21 +91,29 @@ public class Identifiers {
      * <b>NOTE</b> This version is 30-50% faster than the old double-based one,
      * which computed a random every 3 turns -- takes about 600 ns to do id
      * of len 10, compared to 10000 ns for old version [on 1.6ghz machine]
+     * <p>
+     * <b>TODO</b> The integer value passed to {@link Randonm#nextInt(int)}
+     * will overflow if the length of the character sets passed in is more
+     * than 128. It is possible to mitigate this by truncating the strings,
+     * or calculating the maximum number of characters per invocation of
+     * {@code nextInt()} by taking the logarithm of {@link Integer#MAX_INT}
+     * using the length of the character set as the base. Currently this
+     * method is private to prevent overly long arguments.
      */
-    public static String makeRandomId(int l, String validStartChars, String validNonStartChars) {
+    private static String makeRandomId(int l, String validStartChars, String validNonStartChars) {
         if (l <= 0) return "";
         char[] id = new char[l];
         int s = validStartChars.length();
         int n = validNonStartChars.length();
-        int d = random.nextInt(s * n * n * n * n);
-        int i = 0;    
+        int d = random.nextInt(s * n * n * n);
+        int i = 0;
         id[i] = validStartChars.charAt(d % s);
         d /= s;
         if (++i < l) do {
             id[i] = validNonStartChars.charAt(d % n);
             if (++i >= l) break;
-            if (i % 5 == 0) {
-                d = random.nextInt(n * n * n * n * n);
+            if (i % 4 == 0) {
+                d = random.nextInt(n * n * n *n);
             } else {
                 d /= n;
             }
@@ -114,6 +122,9 @@ public class Identifiers {
     }
     public static String makeRandomId(int l) {
         return makeRandomId(l, ID_VALID_START_CHARS, ID_VALID_NONSTART_CHARS);
+    }
+    public static String makeRandomLowercaseId(int l) {
+        return makeRandomId(l, LOWER_CASE_ALPHA, LOWER_CASE_ALPHA + NUMERIC);
     }
 
     /**

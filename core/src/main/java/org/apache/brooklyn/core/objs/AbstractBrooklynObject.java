@@ -49,7 +49,7 @@ public abstract class AbstractBrooklynObject implements BrooklynObjectInternal {
     private boolean hasWarnedOfNoManagementContextWhenPersistRequested;
 
     @SetFromFlag("id")
-    private String id = Identifiers.makeRandomId(10, Identifiers.LOWER_CASE_ALPHA, Identifiers.LOWER_CASE_ALPHA + Identifiers.NUMERIC);
+    private String id = Identifiers.makeRandomLowercaseId(10);
 
     private String catalogItemId;
 
