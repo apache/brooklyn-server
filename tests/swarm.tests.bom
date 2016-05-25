@@ -26,7 +26,7 @@ brooklyn.catalog:
   - id: test-docker-client
     item:
       type: server
-      install.command: |
+      pre.install.command: |
         # Install docker so we can use it as a client
         sudo yum -y update
         sudo tee /etc/yum.repos.d/docker.repo <<-'EOF'
@@ -56,6 +56,44 @@ brooklyn.catalog:
           equals: 1
         assertErr:
           contains: Are you trying to connect to a TLS-enabled daemon without TLS?
+
+
+  - id: test-connect-succeeds-with-tls
+    item:
+      type: org.apache.brooklyn.test.framework.TestCase
+      name: Test Connect Succeeds with TLS
+      brooklyn.parameters:
+        - name: swarm.url
+          description: URL of the swarm endpoint
+        - name: ca.url
+          description: URL of the CA server
+        - name: client.address
+          description: Public address of the test client
+      brooklyn.children:
+      - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+        command:
+          $brooklyn:formatString:
+          - |
+            echo Running in $(pwd)
+            IP=%s; # client.address
+            ca=%s; # ca.url
+            swarm_url=%s; # swarm.url
+            mkdir -p certs
+            echo Getting certificates from ${ca}
+            curl -X POST ${ca}/generate/${IP}
+            curl ${ca}/cert/${IP}/ca.pem > certs/ca.pem
+            curl ${ca}/cert/${IP}/cert.pem > certs/cert.pem
+            curl ${ca}/cert/${IP}/key.pem > certs/key.pem
+            tls_options="--tlsverify --tlscacert=certs/ca.pem --tlscert=certs/cert.pem --tlskey=certs/key.pem"
+            echo Connecting to ${swarm_url} with TLS options ${tls_options}
+            docker -H ${swarm_url} ${tls_options} ps -a
+          - $brooklyn:config("client.address")
+          - $brooklyn:config("ca.url")
+          - $brooklyn:config("swarm.url")
+        assertStatus:
+          equals: 0
+        assertOut:
+          contains: "/swarm join"
 
 
 

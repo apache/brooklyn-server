@@ -4,39 +4,40 @@ location: vagrantred
 brooklyn.config:
   swarm.initial.size: 1
   etcd.initial.size: 1
-  timeout: 5m
-
-brooklyn.parameters:
-- name: timeout.initialStartup
-  description: The timeout for provisioning, installing and launching the app-under-test.
-  type: org.apache.brooklyn.util.time.Duration
-  default: 20m
-- name: timeout.runtimeAssertion
-  type: org.apache.brooklyn.util.time.Duration
-  description: The timeout for any other operation (e.g. invoking an effector or waiting for a sensor to be updated)
-  default: 5m
+  timeout: 20m
 
 services:
 
 - type: docker-swarm
   id: swarm
 
-# TODO just install docker client
 - type: test-docker-client
   id: docker-client
+  name: Test Docker Client
 
-- type: assert-up
-  brooklyn.config:
-    targetId: swarm
+- type: org.apache.brooklyn.test.framework.TestCase
+  name: TLS-tests
+  brooklyn.children:
 
-- type: assert-running
-  brooklyn.config:
+  - type: assert-up
+    brooklyn.config:
       targetId: swarm
 
-- type: test-connect-fails-without-tls
-  brooklyn.config:
-    targetId: docker-client
-    swarm.url: $brooklyn:component("swarm").attributeWhenReady("swarm.url")
+  - type: assert-running
+    brooklyn.config:
+      targetId: swarm
+
+  - type: test-connect-fails-without-tls
+    brooklyn.config:
+      targetId: docker-client
+      swarm.url: $brooklyn:component("swarm").attributeWhenReady("swarm.url")
+
+  - type: test-connect-succeeds-with-tls
+    brooklyn.config:
+      targetId: docker-client
+      swarm.url: $brooklyn:component("swarm").attributeWhenReady("swarm.url")
+      ca.url: $brooklyn:component("ca-server").attributeWhenReady("main.uri")
+      client.address: $brooklyn:component("docker-client").attributeWhenReady("host.address")
 
 
 
