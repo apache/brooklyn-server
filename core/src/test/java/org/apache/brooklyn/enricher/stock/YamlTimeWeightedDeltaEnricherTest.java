@@ -83,7 +83,18 @@ public class YamlTimeWeightedDeltaEnricherTest {
         return new BasicSensorEvent<Integer>(intSensor, producer, value, timestamp);
     }
     
-    @Test
+    /**
+     * TODO BROOKLYN-272, Disabled, because fails non-deterministically in jenkins (brooklyn-server-master #84):
+     * 
+     * testVariableTimeWeightedDeltaEnricher(org.apache.brooklyn.enricher.stock.YamlTimeWeightedDeltaEnricherTest)  Time elapsed: 0.005 sec  <<< FAILURE!
+     * java.lang.AssertionError: expected [0.0] but found [null]
+     *     at org.testng.Assert.fail(Assert.java:94)
+     *     at org.testng.Assert.failNotEquals(Assert.java:494)
+     *     at org.testng.Assert.assertEquals(Assert.java:123)
+     *     at org.testng.Assert.assertEquals(Assert.java:165)
+     *     at org.apache.brooklyn.enricher.stock.YamlTimeWeightedDeltaEnricherTest.testVariableTimeWeightedDeltaEnricher(YamlTimeWeightedDeltaEnricherTest.java:96)
+     */
+    @Test(groups={"Broken"})
     public void testVariableTimeWeightedDeltaEnricher() {
         @SuppressWarnings("unchecked")
         YamlTimeWeightedDeltaEnricher<Integer> delta = producer.enrichers().add(EnricherSpec.create(YamlTimeWeightedDeltaEnricher.class)

@@ -348,8 +348,21 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
         }
     }
 
+    /**
+     * TODO BROOKLYN-272, Disabled, because fails non-deterministically in jenkins (windows),
+     *      as commented by Svet in https://github.com/apache/brooklyn-library/pull/39
+     * 
+     * testFetchApplicationsAndEntity(org.apache.brooklyn.rest.resources.ApplicationResourceTest)  Time elapsed: 0.073 sec  <<< FAILURE!
+     * java.lang.AssertionError: expected [4] but found [3]
+     *     at org.testng.Assert.fail(Assert.java:94)
+     *     at org.testng.Assert.failNotEquals(Assert.java:494)
+     *     at org.testng.Assert.assertEquals(Assert.java:123)
+     *     at org.testng.Assert.assertEquals(Assert.java:370)
+     *     at org.testng.Assert.assertEquals(Assert.java:380)
+     *     at org.apache.brooklyn.rest.resources.ApplicationResourceTest.testFetchApplicationsAndEntity(ApplicationResourceTest.java:387)
+     */
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    @Test(dependsOnMethods = "testDeployApplication")
+    @Test(dependsOnMethods = "testDeployApplication", groups={"Broken"})
     public void testFetchApplicationsAndEntity() {
         Collection apps = client().path("/applications/fetch").get(Collection.class);
         log.info("Applications fetched are: " + apps);
