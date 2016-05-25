@@ -18,17 +18,25 @@
  */
 package org.apache.brooklyn.core.effector.script;
 
+import java.lang.reflect.InvocationTargetException;
+import java.util.List;
 import java.util.Map;
 
 import javax.script.ScriptContext;
 import javax.script.ScriptEngine;
+import javax.script.ScriptEngineFactory;
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
 import javax.script.SimpleScriptContext;
 
-import org.python.core.Options;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.common.reflect.TypeToken;
 
 import org.apache.brooklyn.api.effector.Effector;
@@ -45,15 +53,12 @@ import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
-
-import sun.org.mozilla.javascript.internal.NativeJavaObject;
 
 public final class ScriptEffector<T> extends AddEffector {
 
-    static {
-        Options.importSite = false; // Workaround for Jython
-    }
+    private static final Logger LOG = LoggerFactory.getLogger(ScriptEffector.class);
 
     @SetFromFlag("lang")
     public static final ConfigKey<String> EFFECTOR_SCRIPT_LANGUAGE = ConfigKeys.newStringConfigKey(
@@ -96,8 +101,6 @@ public final class ScriptEffector<T> extends AddEffector {
         private final String language;
         private final String returnVar;
         private final Class<?> returnType;
-        private final ScriptEngineManager factory = new ScriptEngineManager();
-        private final ScriptEngine engine;
 
         public Body(Effector<?> eff, ConfigBag params) {
             this.effector = eff;
@@ -106,24 +109,44 @@ public final class ScriptEffector<T> extends AddEffector {
             if (Strings.isNonBlank(content)) {
                 this.script = content;
             } else {
-                this.script = ResourceUtils.create().getResourceAsString(Preconditions.checkNotNull(url, "Script URL or content must be specified"));
+                Preconditions.checkNotNull(url, "Script URL or content must be specified");
+                this.script = ResourceUtils.create().getResourceAsString(url);
             }
             this.language = params.get(EFFECTOR_SCRIPT_LANGUAGE);
             this.returnVar = params.get(EFFECTOR_SCRIPT_RETURN_VAR);
             this.returnType = params.get(EFFECTOR_SCRIPT_RETURN_TYPE);
-            this.engine = Preconditions.checkNotNull(factory.getEngineByName(language), "Engine for requested language does not exist");
+
+            // Check the language is supported by trying to create a ScriptEngine
+            ScriptEngineManager manager = new ScriptEngineManager();
+            ScriptEngine engine = manager.getEngineByName(language);
+            if (engine == null) {
+                String message = "Script language not supported: " + language;
+                LOG.warn(message);
+                if (LOG.isDebugEnabled()) {
+                    List<String> supported = getScriptLanguages(manager);
+                    LOG.debug("Supported languages for scripts: " + Joiner.on(',').join(supported));
+                }
+                throw new IllegalStateException(message);
+            }
         }
 
         @Override
         public Object call(ConfigBag params) {
+            ClassLoader parentLoader = Thread.currentThread().getContextClassLoader();
+            ClassLoader scriptLoader = new ScriptClassLoader(parentLoader, "org.apache.brooklyn.*");
+            Thread.currentThread().setContextClassLoader(scriptLoader);
+            ScriptEngineManager manager = new ScriptEngineManager(scriptLoader);
+            ScriptEngine engine = manager.getEngineByName(language);
+            ScriptContext defaultContext = engine.getContext();
             ScriptContext context = new SimpleScriptContext();
+            context.setBindings(defaultContext.getBindings(ScriptContext.ENGINE_SCOPE), ScriptContext.ENGINE_SCOPE); 
 
             // Store effector arguments as engine scope bindings
             for (ParameterType<?> param: effector.getParameters()) {
                 context.setAttribute(param.getName(), params.get(Effectors.asConfigKey(param)), ScriptContext.ENGINE_SCOPE);
             }
 
-            // Add global scope object bindings
+            // Add object bindings
             context.setAttribute("entity", entity(), ScriptContext.ENGINE_SCOPE);
             context.setAttribute("managementContext", entity().getManagementContext(), ScriptContext.ENGINE_SCOPE);
             context.setAttribute("task", Tasks.current(), ScriptContext.ENGINE_SCOPE);
@@ -135,13 +158,39 @@ public final class ScriptEffector<T> extends AddEffector {
                 if (Strings.isNonBlank(returnVar)) {
                     result = context.getAttribute(returnVar, ScriptContext.ENGINE_SCOPE);
                 }
-                if (result instanceof NativeJavaObject) { // Unwarap JavaScript return values
-                    result = ((NativeJavaObject) result).unwrap();
+                String resultClass = result.getClass().getName();
+
+                // Unwrap JavaScript return values to underlying Java object
+                if (resultClass.endsWith("ScriptObjectMirror")) {
+                    // JDK 8.0 Nashorn interpreter
+                    Class<?> scriptUtils = Class.forName("jdk.nashorn.api.scripting.ScriptUtils");
+                    Optional<Object> unwrapped = Reflections.invokeMethodWithArgs(scriptUtils, "unwrap", ImmutableList.of(result));
+                    result = unwrapped.get();
+                }
+                if (resultClass.endsWith("NativeJavaObject")) {
+                    // JDK 7.0 Rhino interpreter
+                    Optional<Object> unwrapped = Reflections.invokeMethodWithArgs(result, "unwrap", ImmutableList.of());
+                    result = unwrapped.get();
                 }
                 return TypeCoercions.coerce(result, returnType);
-            } catch (ScriptException e) {
+            } catch (ScriptException | InvocationTargetException | IllegalAccessException | ClassNotFoundException e) {
                 throw Exceptions.propagate(e);
+            } finally {
+                Thread.currentThread().setContextClassLoader(parentLoader);
             }
+        }
+
+        /** Returns a list of all JSR-223 script language names. */
+        private List<String> getScriptLanguages(ScriptEngineManager manager) {
+            List<String> languages = Lists.newArrayList();
+            List<ScriptEngineFactory> factories = manager.getEngineFactories();
+            for (ScriptEngineFactory factory : factories) {
+                List<String> engNames = factory.getNames();
+                for (String name : engNames) {
+                    languages.add(name);
+                }
+            }
+            return ImmutableList.copyOf(languages);
         }
     }
 }
