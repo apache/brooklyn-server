@@ -112,79 +112,7 @@ brooklyn.catalog:
             name: "swarm-node"
 
 
-  - id: docker-swarm-engine
-    name: "Docker Swarm Engine"
-    description: |
-      A docker-engine customised for Swarm
-    itemType: entity
-    item:
-      type: docker-engine
 
-      brooklyn.parameters:
-      - name: tls.port
-        description: The docker TLS port to listen on.
-        type: port
-        default: 2376
-
-      brooklyn.config:
-        tls.port: 2376
-        provisioning.properties:
-          osFamily: centos
-
-      env:
-        CA_CERT_ROOT: $brooklyn:config("ca.request.root")
-        CA_CERT_URL: $brooklyn:config("ca.cert.url")
-        NODE_CERT_URL: $brooklyn:config("node.cert.url")
-        PRIV_KEY_URL: $brooklyn:config("private.key.url")
-        HOST_ADDRESS: $brooklyn:attributeWhenReady("host.address")
-        TLS_PORT: $brooklyn:config("tls.port")
-
-      pre.install.command: |
-        mkdir -p ~/.certs
-        sudo yum install -y curl
-        function failwith() {
-          local err=$?
-          1>&2 echo $1
-          exit $err
-        }
-        function getcert() {
-          local url=$1
-          local file=$2
-          curl ${url} --output ${file} --write-out "%{http_code}"  | grep 200 ||
-            failwith "${file} not received from CA"
-        }
-        if [ "${CA_CERT_ROOT}" ] ; then
-            echo "Requesting creation of certificates from CA"
-            curl -d "" -X POST --write-out "%{http_code}" ${CA_CERT_ROOT}/generate/${HOST_ADDRESS} | grep 201 ||
-              failwith "Could not request certificate for ${HOST_ADDRESS} from ${CA_CERT_ROOT}"
-            echo "Requesting generated certificates from CA"
-            getcert ${CA_CERT_ROOT}/cert/${HOST_ADDRESS}/ca.pem    ~/.certs/ca.pem
-            getcert ${CA_CERT_ROOT}/cert/${HOST_ADDRESS}/cert.pem  ~/.certs/cert.pem
-            getcert ${CA_CERT_ROOT}/cert/${HOST_ADDRESS}/key.pem   ~/.certs/key.pem
-            echo "Certifcates for ${HOST_ADDRESS} received"
-        else
-            echo "Downloading certificates from configuration settings"
-            getcert ${CA_CERT_URL}    ~/.certs/ca.pem
-            getcert ${NODE_CERT_URL}  ~/.certs/cert.pem
-            getcert ${PRIV_KEY_URL}   ~/.certs/key.pem
-        fi
-        # TODO verify certs with openssl
-        test -f .certs/ca.pem || failwith "Failed to download ca.pem"
-        test -f .certs/cert.pem || failwith "Failed to download cert.pem"
-        test -f .certs/key.pem || failwith "Failed to download key.pem"
-
-      customize.command: |
-         sudo mkdir -p /etc/systemd/system/docker.service.d
-         sudo tee /etc/systemd/system/docker.service.d/docker.conf <<-EOF
-         [Service]
-         ExecStart=
-         ExecStart=/usr/bin/docker daemon -D --tlsverify --tlscacert=${HOME}/.certs/ca.pem \
-           --tlscert=${HOME}/.certs/cert.pem --tlskey=${HOME}/.certs/key.pem -H tcp://${HOST_ADDRESS}:${TLS_PORT}
-         EOF
-         sudo systemctl daemon-reload
-
-      checkRunning.command: |
-         sudo service docker status | fgrep '(running)'
 
 
   - id: docker-swarm-node
@@ -193,7 +121,7 @@ brooklyn.catalog:
       A Docker Swarm member node
     itemType: entity
     item:
-      type: docker-swarm-engine
+      type: docker-engine-tls
 
       brooklyn.parameters:
       - name: tls.port
@@ -213,6 +141,8 @@ brooklyn.catalog:
         NODE_CERT_URL: $brooklyn:config("node.cert.url")
         PRIV_KEY_URL: $brooklyn:config("private.key.url")
         TLS_PORT: $brooklyn:config("tls.port")
+        DOCKER_ADDITIONAL_OPTIONS: $brooklyn:config("docker.additionaloptions")
+        INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
 
       # TODO - decide if it's ok to publicise the HOST_NAME below and in the manager, from a security point of view.
       post.launch.command: |
@@ -230,7 +160,7 @@ brooklyn.catalog:
     description:  The Swarm manager engine for running Docker containers
     itemType: entity
     item:
-      type: docker-swarm-engine
+      type: docker-engine-tls
 
       brooklyn.parameters:
       - name: tls.port
@@ -257,6 +187,8 @@ brooklyn.catalog:
         PRIV_KEY_URL: $brooklyn:config("private.key.url")
         TLS_PORT: $brooklyn:config("tls.port")
         MAN_PORT: $brooklyn:config("manager.port")
+        DOCKER_ADDITIONAL_OPTIONS: $brooklyn:config("docker.additionaloptions")
+        INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
 
       post.launch.command: |
         TLS_OPTIONS="--tlsverify --tlscacert=${HOME}/.certs/ca.pem --tlscert=${HOME}/.certs/cert.pem --tlskey=${HOME}/.certs/key.pem"
@@ -267,4 +199,3 @@ brooklyn.catalog:
       stop.command: |
          sudo docker stop manager-${HOST_NAME}
          sudo service docker stop
-
