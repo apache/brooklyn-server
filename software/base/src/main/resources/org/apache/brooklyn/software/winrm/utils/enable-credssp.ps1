@@ -21,11 +21,8 @@
 #  https://github.com/mwrock/boxstarter/blob/master/LICENSE.txt
 #  https://github.com/mwrock/boxstarter/blob/master/Boxstarter.Chocolatey/Enable-BoxstarterCredSSP.ps1
 
-function Custom-Enable-CredSSP {
+function Enable-CredSSP {
 <#
-.DEPRECATED
-Please use classpath://org/apache/brooklyn/software/winrm/utils/enable-credssp.ps1
-
 .SYNOPSIS
 Enables and configures CredSSP Authentication to be used in PowerShell remoting sessions
 
@@ -45,7 +42,7 @@ A list of ComputerNames to add to the CredSSP Trusted hosts list.
 A list of the original trusted hosts on the local machine.
 
 .EXAMPLE
-Custom-Enable-CredSSP box1,box2
+Enable-CredSSP box1,box2
 
 
 #>
@@ -53,6 +50,7 @@ Custom-Enable-CredSSP box1,box2
     [string[]] $RemoteHostsToTrust
     )
 
+    Write-Host "Configuring CredSSP settings..."
     # Required to be running for using CredSSP
     winrm quickconfig -transport:http -quiet
 
@@ -68,7 +66,6 @@ Custom-Enable-CredSSP box1,box2
         PreviousFreshCredDelegationHostCount=0
     }
 
-    Write-Host "Configuring CredSSP settings..."
     $credssp = Get-WSManCredSSP
 
     $ComputersToAdd = @()
@@ -128,7 +125,10 @@ function Set-CredentialDelegation($key, $subKey, $allowed){
     return $currentLength
 }
 
-$result = Custom-Enable-CredSSP $env:COMPUTERNAME,localhost
+$result = Enable-CredSSP $env:COMPUTERNAME,localhost
 if (-not $result.Success) {
+  Write-Error "Enabling CredSSP didn't succeed."
   exit 1
+} else {
+  Write-Host "CredSSP enabled."
 }
