@@ -25,81 +25,125 @@ brooklyn.catalog:
         default: 5m
 
       services:
+      - type: docker-engine
+        id: docker-engine
       - type: org.apache.brooklyn.test.framework.TestCase
+        name: Tests
+        brooklyn.config:
+          targetId: docker-engine
+          timeout: $brooklyn:scopeRoot().config("timeout.runtimeAssertion")
         brooklyn.children:
-        - type: docker-engine
-          id: docker-engine
-        - type: org.apache.brooklyn.test.framework.ParallelTestCase
-          name: Tests
+        - type: org.apache.brooklyn.test.framework.TestSensor
+          name: TEST [service.state] IS [running]
           brooklyn.config:
-            targetId: docker-engine
-            timeout: $brooklyn:scopeRoot().config("timeout.runtimeAssertion")
+            sensor: service.state
+            timeout: $brooklyn:scopeRoot().config("timeout.initialStartup")
+            assert:
+            - matches: running
+        - type: org.apache.brooklyn.test.framework.TestSensor
+          name: TEST [service.isUp] IS [true]
+          brooklyn.config:
+            sensor: service.isUp
+            assert:
+            - equals: true
+        - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+          name: TEST docker CLI commands succeed
+          brooklyn.config:
+            command: sudo docker ps
+            assert.status:
+              equals: 0
+        # Test image pull and delete
+        - type: org.apache.brooklyn.test.framework.TestCase
+          name: TEST docker images
           brooklyn.children:
-          # TODO check port reachability, when we open 2375 (or 2376 when TLS is enabled)
-          - type: org.apache.brooklyn.test.framework.TestSensor
-            name: TEST [service.state] IS [running]
-            brooklyn.config:
-              sensor: service.state
-              timeout: $brooklyn:scopeRoot().config("timeout.initialStartup")
-              assert:
-              - matches: running
-          - type: org.apache.brooklyn.test.framework.TestSensor
-            name: TEST [service.isUp] IS [true]
-            brooklyn.config:
-              sensor: service.isUp
-              assert:
-              - equals: true
-          # - type: org.apache.brooklyn.test.framework.TestSensor
-          #   name: TEST [docker.endpoint] IS [tcp.*2375.*]
-          #   brooklyn.config:
-          #     sensor: docker.endpoint
-          #     assert:
-          #     - matches: tcp.*2375.*
-          # - type: org.apache.brooklyn.test.framework.TestEndpointReachable
-          #   name: TEST docker TCP endpoint reachable
-          #   brooklyn.config:
-          #     endpointSensor: docker.endpoint
-          # - type: org.apache.brooklyn.test.framework.TestHttpCall
-          #   name: TEST docker api HTTP call
-          #   brooklyn.config:
-          #     url:
-          #       $brooklyn:formatString:
-          #       - "http://%s:%s/info"
-          #       - $brooklyn:component("docker-engine").attributeWhenReady("host.name")
-          #       - $brooklyn:component("docker-engine").attributeWhenReady("docker.port")
           - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
-            name: TEST docker CLI commands succeed
+            name: TEST docker pull
             brooklyn.config:
-              command: sudo docker ps
+              command: sudo docker pull redis
               assert.status:
                 equals: 0
-          - type: org.apache.brooklyn.test.framework.TestCase
-            name: TEST docker images
-            brooklyn.children:
-            - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
-              name: TEST docker pull
-              brooklyn.config:
-                command: sudo  docker pull redis
-                assert.status:
-                  equals: 0
-            - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
-              name: TEST docker images added
-              brooklyn.config:
-                command: sudo docker images
-                assert.out:
-                  contains: redis
-            - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
-              name: TEST docker rmi
-              brooklyn.config:
-                command: sudo docker rmi redis
-                assert.status:
-                  equals: 0
-            - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
-              name: TEST docker images removed
-              brooklyn.config:
-                command: echo `sudo docker images | grep -c redis` # counter=`sudo docker images | grep -c redis`; if [ $counter -eq 0 ]; then exit 0; else exit 1; fi
-                assert.out:
-                  equals: "0"
+          - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+            name: TEST docker images added
+            brooklyn.config:
+              command: sudo docker images
+              assert.out:
+                contains: redis
+          - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+            name: TEST docker rmi
+            brooklyn.config:
+              command: sudo docker rmi redis
+              assert.status:
+                equals: 0
+          - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+            name: TEST docker images removed
+            brooklyn.config:
+              command: echo `sudo docker images | grep -c redis`
+              assert.out:
+                equals: "0"
+        # Test starting and stopping and restarting a container
+        - type: org.apache.brooklyn.test.framework.TestCase
+          name: TEST docker containers
+          brooklyn.children:
+          - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+            name: TEST docker run
+            brooklyn.config:
+              command: sudo docker run -d --name "test-MondoDB" mongo
+              assert.status:
+                equals: 0
+          - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+            name: TEST docker ps
+            brooklyn.config:
+              command: sudo docker ps
+              assert.out:
+                contains: test-MondoDB
+          - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+            name: TEST docker stop
+            brooklyn.config:
+              command: sudo docker stop test-MondoDB
+              assert.status:
+                equals: 0
+          - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+            name: TEST docker ps
+            brooklyn.config:
+              command: echo `sudo docker ps | grep -c test-MondoDB`
+              assert.out:
+                equals: "0"
+          - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+            name: TEST docker start
+            brooklyn.config:
+              command: sudo docker start test-MondoDB
+              assert.status:
+                equals: 0
+          - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+            name: TEST docker ps
+            brooklyn.config:
+              command: sudo docker ps
+              assert.out:
+                contains: test-MondoDB
+
+        # Test building form a dockerfile
+        - type: org.apache.brooklyn.test.framework.TestCase
+          name: TEST docker containers
+          brooklyn.children:
+          - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+            name: Setup Dockerfile
+            brooklyn.config:
+              command: mkdir test_dockerfile_dir;  printf "FROM ubuntu\nRUN echo hello world" > test_dockerfile_dir/Dockerfile
+              assert.status:
+                equals: 0
+          - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+            name: TEST docker build
+            brooklyn.config:
+              command: sudo docker build -t test_dockerfile:latest test_dockerfile_dir
+              assert.status:
+                equals: 0
+          - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+            name: TEST docker images built
+            brooklyn.config:
+              command: sudo docker images
+              assert.out:
+                contains: test_dockerfile
+
 
 
 
@@ -143,11 +187,8 @@ brooklyn.catalog:
             assert:
             - equals: true
         - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
-          name: "Container is running"
+          name: TEST container running
           brooklyn.config:
-            command:
-              $brooklyn:formatString:
-              - "export DOCKER_HOST=%s && docker ps | grep clockercentral"
-              - $brooklyn:component("docker-engine").attributeWhenReady("docker.endpoint")
-            assert.status:
-              equals: 0
+            command: sudo docker ps
+            assert.out:
+              contains: clockercentral
