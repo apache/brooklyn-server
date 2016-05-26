@@ -64,7 +64,7 @@ public class MapReferenceYamlTest extends AbstractYamlTest {
     public void testBrooklynConfigWithMapFunction() throws Exception {
         final Entity testEntity = setupAndCheckTestEntityInBasicYamlWith(
             "  brooklyn.config:",
-            "    test.confMapThing.obj:",
+            "    test.confMapObjThing:",
             "      frog: $brooklyn:formatString(\"%s\", \"frog\")",
             "      object:",
             "        $brooklyn:object:",
@@ -75,7 +75,7 @@ public class MapReferenceYamlTest extends AbstractYamlTest {
         Map<?,?> testMap = (Map<?,?>) Entities.submit(testEntity, Tasks.builder().body(new Callable<Object>() {
             @Override
             public Object call() throws Exception {
-                return testEntity.getConfig(TestEntity.CONF_MAP_THING_OBJECT);
+                return testEntity.getConfig(TestEntity.CONF_MAP_OBJ_THING);
             }
         }).build()).get();
         Object frog = testMap.get("frog");

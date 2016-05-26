@@ -220,21 +220,21 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
                     }})
                 .build();
         TestEntity entity = mgmt.getEntityManager().createEntity(EntitySpec.create(TestEntity.class)
-                .configure(TestEntity.CONF_MAP_THING_OBJECT, ImmutableMap.<String, Object>of("mysub", task))
+                .configure(TestEntity.CONF_MAP_OBJ_THING, ImmutableMap.<String, Object>of("mysub", task))
                 .configure(TestEntity.CONF_NAME, task));
         
         // Will initially return absent, because task is not done
-        assertTrue(entity.config().getNonBlocking(TestEntity.CONF_MAP_THING_OBJECT).isAbsent());
-        assertTrue(entity.config().getNonBlocking(TestEntity.CONF_MAP_THING_OBJECT.subKey("mysub")).isAbsent());
+        assertTrue(entity.config().getNonBlocking(TestEntity.CONF_MAP_OBJ_THING).isAbsent());
+        assertTrue(entity.config().getNonBlocking(TestEntity.CONF_MAP_OBJ_THING.subKey("mysub")).isAbsent());
         
         latch.countDown();
         
         // Can now finish task, so will return "myval"
-        assertEquals(entity.config().get(TestEntity.CONF_MAP_THING_OBJECT), ImmutableMap.of("mysub", "myval"));
-        assertEquals(entity.config().get(TestEntity.CONF_MAP_THING_OBJECT.subKey("mysub")), "myval");
+        assertEquals(entity.config().get(TestEntity.CONF_MAP_OBJ_THING), ImmutableMap.of("mysub", "myval"));
+        assertEquals(entity.config().get(TestEntity.CONF_MAP_OBJ_THING.subKey("mysub")), "myval");
         
-        assertEquals(entity.config().getNonBlocking(TestEntity.CONF_MAP_THING_OBJECT).get(), ImmutableMap.of("mysub", "myval"));
-        assertEquals(entity.config().getNonBlocking(TestEntity.CONF_MAP_THING_OBJECT.subKey("mysub")).get(), "myval");
+        assertEquals(entity.config().getNonBlocking(TestEntity.CONF_MAP_OBJ_THING).get(), ImmutableMap.of("mysub", "myval"));
+        assertEquals(entity.config().getNonBlocking(TestEntity.CONF_MAP_OBJ_THING.subKey("mysub")).get(), "myval");
     }
     
     @Test
