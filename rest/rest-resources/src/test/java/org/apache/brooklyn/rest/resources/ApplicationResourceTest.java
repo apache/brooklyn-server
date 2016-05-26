@@ -350,8 +350,7 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
 
     /**
      * TODO BROOKLYN-272, Disabled, because fails non-deterministically in jenkins (windows),
-     *      as commented by Svet in https://github.com/apache/brooklyn-library/pull/39
-     * 
+     *      as commented by Svet in https://github.com/apache/brooklyn-library/pull/39.
      * testFetchApplicationsAndEntity(org.apache.brooklyn.rest.resources.ApplicationResourceTest)  Time elapsed: 0.073 sec  <<< FAILURE!
      * java.lang.AssertionError: expected [4] but found [3]
      *     at org.testng.Assert.fail(Assert.java:94)
@@ -360,6 +359,8 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
      *     at org.testng.Assert.assertEquals(Assert.java:370)
      *     at org.testng.Assert.assertEquals(Assert.java:380)
      *     at org.apache.brooklyn.rest.resources.ApplicationResourceTest.testFetchApplicationsAndEntity(ApplicationResourceTest.java:387)
+     * 
+     * When re-enabling, be sure to add it back to dependsOnMethods in testDeleteApplication.
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     @Test(dependsOnMethods = "testDeployApplication", groups={"Broken"})
@@ -595,7 +596,9 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
         assertEquals(details.get("leafEntityCount"), 2);
     }
 
-    @Test(dependsOnMethods = {"testListEffectors", "testFetchApplicationsAndEntity", "testTriggerSampleEffector", "testListApplications","testReadEachSensor","testPolicyWhichCapitalizes","testLocatedLocation"})
+    
+    // TODO BROOKLYN-272: testFetchApplicationsAndEntity is temporarily disabled; therefore removed from dependsOnMethod list
+    @Test(dependsOnMethods = {"testListEffectors", /*"testFetchApplicationsAndEntity",*/ "testTriggerSampleEffector", "testListApplications","testReadEachSensor","testPolicyWhichCapitalizes","testLocatedLocation"})
     public void testDeleteApplication() throws TimeoutException, InterruptedException {
         waitForPageFoundResponse("/applications/simple-app", ApplicationSummary.class);
         Collection<Application> apps = getManagementContext().getApplications();
