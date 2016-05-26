@@ -109,7 +109,7 @@ public class WindowsYamlLiveTest extends AbstractYamlTest {
     }
 
     @AfterClass(alwaysRun = true)
-    public void tearDownClass() {
+    public void tearDownClass() throws Exception {
         try {
             if (location != null) location.release(machine);
         } catch (Throwable t) {

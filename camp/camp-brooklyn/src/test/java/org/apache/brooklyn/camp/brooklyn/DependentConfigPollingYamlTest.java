@@ -46,14 +46,14 @@ public class DependentConfigPollingYamlTest extends AbstractYamlTest {
 
     @BeforeMethod(alwaysRun = true)
     @Override
-    public void setUp() {
+    public void setUp() throws Exception {
         super.setUp();
         executor = Executors.newCachedThreadPool();
     }
             
     @AfterMethod(alwaysRun = true)
     @Override
-    public void tearDown() {
+    public void tearDown() throws Exception {
         if (executor != null) executor.shutdownNow();
         super.tearDown();
     }

@@ -66,7 +66,7 @@ public abstract class AbstractYamlTest {
     protected ManagementContext mgmt() { return brooklynMgmt; }
     
     @BeforeMethod(alwaysRun = true)
-    public void setUp() {
+    public void setUp() throws Exception {
         forceUpdate = false;
         launcher = new BrooklynCampPlatformLauncherNoServer() {
             @Override
@@ -90,7 +90,7 @@ public abstract class AbstractYamlTest {
     }
     
     @AfterMethod(alwaysRun = true)
-    public void tearDown() {
+    public void tearDown() throws Exception {
         if (brooklynMgmt != null) Entities.destroyAll(brooklynMgmt);
         if (launcher != null) launcher.stopServers();
     }

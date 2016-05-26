@@ -85,14 +85,14 @@ public class DslAndRebindYamlTest extends AbstractYamlTest {
 
     @BeforeMethod(alwaysRun = true)
     @Override
-    public void setUp() {
+    public void setUp() throws Exception {
     	super.setUp();
         executor = Executors.newSingleThreadExecutor();
     }
     
     @AfterMethod(alwaysRun = true)
     @Override
-    public void tearDown() {
+    public void tearDown() throws Exception {
     	if (executor != null) executor.shutdownNow();
         for (ManagementContext mgmt : mgmtContexts) Entities.destroyAll(mgmt);
         super.tearDown();

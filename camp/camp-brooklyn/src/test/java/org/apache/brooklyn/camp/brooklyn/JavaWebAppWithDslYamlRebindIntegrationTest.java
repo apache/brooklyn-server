@@ -65,7 +65,7 @@ public class JavaWebAppWithDslYamlRebindIntegrationTest extends AbstractYamlTest
     
     @AfterMethod(alwaysRun = true)
     @Override
-    public void tearDown() {
+    public void tearDown() throws Exception {
         for (ManagementContext mgmt: mgmtContexts) Entities.destroyAll(mgmt);
         super.tearDown();
         mementoDir = null;
