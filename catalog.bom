@@ -165,7 +165,6 @@ brooklyn.catalog:
 
       # TODO support DSL in name: $brooklyn:formatString("Container (%s)", $brooklyn:config("container"))
       # TODO advertise container id as a sensor.
-      # TODO assumes that parent entity will be docker-engine (so can lookup docker.port config; see BROOKLYN-267)
       name: Container
       shell.env:
         DOCKER_IMAGE: $brooklyn:config("container")
