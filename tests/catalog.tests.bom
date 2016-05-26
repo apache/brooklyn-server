@@ -168,7 +168,7 @@ brooklyn.catalog:
 
       services:
       - type: docker-engine
-        id: docker-engine
+        id: docker-engine-2
         brooklyn.children:
         - type: docker-engine-container
           container: clockercentral/centos
@@ -176,7 +176,7 @@ brooklyn.catalog:
       - type: org.apache.brooklyn.test.framework.TestCase
         name: Tests
         brooklyn.config:
-          targetId: docker-engine
+          targetId: docker-engine-2
           timeout: $brooklyn:scopeRoot().config("timeout.runtimeAssertion")
         brooklyn.children:
         - type: org.apache.brooklyn.test.framework.TestSensor
