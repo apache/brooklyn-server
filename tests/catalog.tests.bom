@@ -87,7 +87,7 @@ brooklyn.catalog:
           - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
             name: TEST docker run
             brooklyn.config:
-              command: sudo docker run -d --name "test-MondoDB" mongo
+              command: sudo docker run -d --name "test-MongoDB" mongo
               assert.status:
                 equals: 0
           - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
@@ -95,23 +95,23 @@ brooklyn.catalog:
             brooklyn.config:
               command: sudo docker ps
               assert.out:
-                contains: test-MondoDB
+                contains: test-MongoDB
           - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
             name: TEST docker stop
             brooklyn.config:
-              command: sudo docker stop test-MondoDB
+              command: sudo docker stop test-MongoDB
               assert.status:
                 equals: 0
           - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
             name: TEST docker ps
             brooklyn.config:
-              command: echo `sudo docker ps | grep -c test-MondoDB`
+              command: echo `sudo docker ps | grep -c test-MongoDB`
               assert.out:
                 equals: "0"
           - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
             name: TEST docker start
             brooklyn.config:
-              command: sudo docker start test-MondoDB
+              command: sudo docker start test-MongoDB
               assert.status:
                 equals: 0
           - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
@@ -119,7 +119,7 @@ brooklyn.catalog:
             brooklyn.config:
               command: sudo docker ps
               assert.out:
-                contains: test-MondoDB
+                contains: test-MongoDB
 
         # Test building form a dockerfile
         - type: org.apache.brooklyn.test.framework.TestCase
@@ -168,7 +168,7 @@ brooklyn.catalog:
 
       services:
       - type: docker-engine
-        id: docker-engine
+        id: docker-engine-2
         brooklyn.children:
         - type: docker-engine-container
           container: clockercentral/centos
@@ -176,7 +176,7 @@ brooklyn.catalog:
       - type: org.apache.brooklyn.test.framework.TestCase
         name: Tests
         brooklyn.config:
-          targetId: docker-engine
+          targetId: docker-engine-2
           timeout: $brooklyn:scopeRoot().config("timeout.runtimeAssertion")
         brooklyn.children:
         - type: org.apache.brooklyn.test.framework.TestSensor

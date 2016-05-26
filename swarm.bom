@@ -145,14 +145,17 @@ brooklyn.catalog:
         INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
 
       # TODO - decide if it's ok to publicise the HOST_NAME below and in the manager, from a security point of view.
+      # TODO - remove the -p 12375 mapping below when Duncan's JClouds fixes are in. See https://github.com/cloudsoft/container-service/pull/5#discussion_r64581324
       post.launch.command: |
-         TLS_OPTIONS="--tlsverify --tlscacert=${HOME}/.certs/ca.pem --tlscert=${HOME}/.certs/cert.pem --tlskey=${HOME}/.certs/key.pem"
-         sudo docker -H tcp://${HOST_ADDRESS}:${TLS_PORT} ${TLS_OPTIONS} run -d --name swarm-${HOST_NAME} \
+         TLS_OPTIONS="--tlsverify --tlscacert=${INSTALL_DIR}/.certs/ca.pem --tlscert=${INSTALL_DIR}/.certs/cert.pem --tlskey=${INSTALL_DIR}/.certs/key.pem"
+         docker -H tcp://${HOST_ADDRESS}:${TLS_PORT} ${TLS_OPTIONS} run -d -p 12375:2375 --name swarm-${HOST_NAME} \
            swarm join --addr=${HOST_ADDRESS}:${TLS_PORT} ${DISCOVERY_URL}
 
       stop.command: |
-         sudo docker stop swarm-${HOST_NAME}
-         sudo service docker stop
+        TLS_OPTIONS="--tlsverify --tlscacert=${INSTALL_DIR}/.certs/ca.pem --tlscert=${INSTALL_DIR}/.certs/cert.pem --tlskey=${INSTALL_DIR}/.certs/key.pem"
+        docker -H tcp://${HOST_ADDRESS}:${TLS_PORT} ${TLS_OPTIONS} stop swarm-${HOST_NAME}
+        docker -H tcp://${HOST_ADDRESS}:${TLS_PORT} ${TLS_OPTIONS} rm swarm-${HOST_NAME}
+        sudo service docker stop
 
 
   - id: docker-swarm-manager
@@ -190,12 +193,15 @@ brooklyn.catalog:
         DOCKER_ADDITIONAL_OPTIONS: $brooklyn:config("docker.additionaloptions")
         INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
 
+      # TODO - remove the -p 12375 mapping below when Duncan's JClouds fixes are in. See https://github.com/cloudsoft/container-service/pull/5#discussion_r64581324
       post.launch.command: |
-        TLS_OPTIONS="--tlsverify --tlscacert=${HOME}/.certs/ca.pem --tlscert=${HOME}/.certs/cert.pem --tlskey=${HOME}/.certs/key.pem"
-        sudo docker -H tcp://${HOST_ADDRESS}:${TLS_PORT} ${TLS_OPTIONS} \
-          run -d -p ${MAN_PORT}:${MAN_PORT} -v ${HOME}/.certs:/certs:ro --name manager-${HOST_NAME} \
+        TLS_OPTIONS="--tlsverify --tlscacert=${INSTALL_DIR}/.certs/ca.pem --tlscert=${INSTALL_DIR}/.certs/cert.pem --tlskey=${INSTALL_DIR}/.certs/key.pem"
+        docker -H tcp://${HOST_ADDRESS}:${TLS_PORT} ${TLS_OPTIONS} \
+          run -d -p ${MAN_PORT}:${MAN_PORT} -p 12375:2375 -v ${INSTALL_DIR}/.certs:/certs:ro --name manager-${HOST_NAME} \
           swarm manage --tlsverify --tlscacert=/certs/ca.pem --tlscert=/certs/cert.pem --tlskey=/certs/key.pem --host=0.0.0.0:${MAN_PORT} ${DISCOVERY_URL}
 
       stop.command: |
-         sudo docker stop manager-${HOST_NAME}
-         sudo service docker stop
+        TLS_OPTIONS="--tlsverify --tlscacert=${INSTALL_DIR}/.certs/ca.pem --tlscert=${INSTALL_DIR}/.certs/cert.pem --tlskey=${INSTALL_DIR}/.certs/key.pem"
+        docker -H tcp://${HOST_ADDRESS}:${TLS_PORT} ${TLS_OPTIONS} stop manager-${HOST_NAME}
+        docker -H tcp://${HOST_ADDRESS}:${TLS_PORT} ${TLS_OPTIONS} rm manager-${HOST_NAME}
+        sudo service docker stop

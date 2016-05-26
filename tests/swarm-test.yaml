@@ -1,7 +1,43 @@
 name: swarm-test
 location: vagrantred
+
+brooklyn.config:
+  swarm.initial.size: 1
+  etcd.initial.size: 1
+  timeout: 20m
+
 services:
-- type: docker-swarm-test
-  brooklyn.config:
-    swarm.initial.size: 1
-    etcd.initial.size: 1
+
+- type: docker-swarm
+  id: swarm
+
+- type: test-docker-client
+  id: docker-client
+  name: Test Docker Client
+
+- type: org.apache.brooklyn.test.framework.TestCase
+  name: TLS-tests
+  brooklyn.children:
+
+  - type: assert-up
+    brooklyn.config:
+      targetId: swarm
+
+  - type: assert-running
+    brooklyn.config:
+      targetId: swarm
+
+  - type: test-connect-fails-without-tls
+    brooklyn.config:
+      targetId: docker-client
+      swarm.url: $brooklyn:component("swarm").attributeWhenReady("swarm.url")
+
+  - type: test-connect-succeeds-with-tls
+    brooklyn.config:
+      targetId: docker-client
+      swarm.url: $brooklyn:component("swarm").attributeWhenReady("swarm.url")
+      ca.url: $brooklyn:component("ca-server").attributeWhenReady("main.uri")
+      client.address: $brooklyn:component("docker-client").attributeWhenReady("host.address")
+
+
+
