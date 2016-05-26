@@ -17,37 +17,19 @@ brooklyn.catalog:
       name: Docker Engine (host)
       type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
 
+      provisioning.properties:
+        osFamily: centos
+
       brooklyn.config:
         dontRequireTtyForSudo: true
 
       brooklyn.parameters:
-      - name: docker.port
-        description: The docker TCP port to listen on.
-        type: port
-        default: 2375
-      - name: docker.bindaddress
-        description: The docker network address to to listen on.
+      - name: docker.additionaloptions
+        description: The additional options to pass to the engine on startup
         type: string
-        default: 0.0.0.0
-
-      brooklyn.enrichers:
-      - type: org.apache.brooklyn.enricher.stock.Transformer
-        brooklyn.config:
-          uniqueTag: docker-endpoint-generator
-          enricher.triggerSensors:
-          - host.name
-          - docker.port
-          enricher.sourceSensor: $brooklyn:sensor("docker.port")
-          enricher.targetSensor: $brooklyn:sensor("docker.endpoint")
-          enricher.targetValue:
-            $brooklyn:formatString:
-            - "tcp://%s:%s/"
-            - $brooklyn:attributeWhenReady("host.name")
-            - $brooklyn:attributeWhenReady("docker.port")
 
       shell.env:
-        DOCKER_PORT: $brooklyn:config("docker.port")
-        DOCKER_BINDADDRESS: $brooklyn:config("docker.bindaddress")
+        DOCKER_ADDITIONAL_OPTIONS: $brooklyn:config("docker.additionaloptions")
 
       install.command: |
         sudo yum -y update
@@ -61,12 +43,12 @@ brooklyn.catalog:
         EOF
         sudo yum -y install docker-engine
 
-        echo "Enabling TCP-access to docker engine on tcp://${DOCKER_BINDADDRESS}:${DOCKER_PORT}"
+        echo "Setting up /etc/systemd/system/docker.service.d/docker.conf"
         sudo mkdir -p /etc/systemd/system/docker.service.d
         sudo tee /etc/systemd/system/docker.service.d/docker.conf <<-EOF
         [Service]
         ExecStart=
-        ExecStart=ExecStart=/usr/bin/docker daemon -H tcp://${DOCKER_BINDADDRESS}:${DOCKER_PORT}
+        ExecStart=/usr/bin/docker daemon ${DOCKER_ADDITIONAL_OPTIONS}
         EOF
         sudo systemctl daemon-reload
 
@@ -80,6 +62,98 @@ brooklyn.catalog:
       # ensure docker running before starting children
       childStartMode: foreground_late
 
+  - id: docker-engine-tls
+    name: "Docker Engine with TLS"
+    description: |
+      A docker-engine customised with TLS
+    itemType: entity
+    item:
+      type: docker-engine
+
+      brooklyn.parameters:
+      - name: tls.port
+        description: The docker TLS port to listen on.
+        type: port
+        default: 2376
+      - name: docker.bindaddress
+        description: The docker network address to to listen on.
+        type: string
+        default: 0.0.0.0
+
+      brooklyn.enrichers:
+      - type: org.apache.brooklyn.enricher.stock.Transformer
+        brooklyn.config:
+          uniqueTag: docker-endpoint-generator
+          enricher.triggerSensors:
+          - host.name
+          - tls.port
+          enricher.sourceSensor: $brooklyn:sensor("tls.port")
+          enricher.targetSensor: $brooklyn:sensor("docker.endpoint")
+          enricher.targetValue:
+            $brooklyn:formatString:
+            - "tcp://%s:%s/"
+            - $brooklyn:attributeWhenReady("host.name")
+            - $brooklyn:attributeWhenReady("tls.port")
+
+      brooklyn.config:
+        tls.port: 2376
+        docker.bindaddress: 0.0.0.0
+        docker.additionaloptions:
+          $brooklyn:formatString:
+          - "-H tcp://%s:%s --tlsverify --tlscacert=%s/.certs/ca.pem --tlscert=%s/.certs/cert.pem --tlskey=%s/.certs/key.pem"
+          - $brooklyn:config("docker.bindaddress")
+          - $brooklyn:config("tls.port")
+          - $brooklyn:attributeWhenReady("install.dir")
+          - $brooklyn:attributeWhenReady("install.dir")
+          - $brooklyn:attributeWhenReady("install.dir")
+
+      env:
+        CA_CERT_ROOT: $brooklyn:config("ca.request.root")
+        CA_CERT_URL: $brooklyn:config("ca.cert.url")
+        NODE_CERT_URL: $brooklyn:config("node.cert.url")
+        PRIV_KEY_URL: $brooklyn:config("private.key.url")
+        HOST_ADDRESS: $brooklyn:attributeWhenReady("host.address")
+        INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
+        DOCKER_ADDITIONAL_OPTIONS: $brooklyn:config("docker.additionaloptions")
+
+      pre.install.command: |
+        mkdir -p ${INSTALL_DIR}/.certs
+        sudo yum install -y curl
+        function failwith() {
+          local err=$?
+          1>&2 echo $1
+          exit $err
+        }
+        function getcert() {
+          local url=$1
+          local file=$2
+          curl ${url} --output ${file} --write-out "%{http_code}"  | grep 200 ||
+            failwith "${file} not received from CA"
+        }
+        if [ "${CA_CERT_ROOT}" ] ; then
+            echo "Requesting creation of certificates from CA"
+            curl -d "" -X POST --write-out "%{http_code}" ${CA_CERT_ROOT}/generate/${HOST_ADDRESS} | grep 201 ||
+              failwith "Could not request certificate for ${HOST_ADDRESS} from ${CA_CERT_ROOT}"
+            echo "Requesting generated certificates from CA"
+            getcert ${CA_CERT_ROOT}/cert/${HOST_ADDRESS}/ca.pem    ${INSTALL_DIR}/.certs/ca.pem
+            getcert ${CA_CERT_ROOT}/cert/${HOST_ADDRESS}/cert.pem  ${INSTALL_DIR}/.certs/cert.pem
+            getcert ${CA_CERT_ROOT}/cert/${HOST_ADDRESS}/key.pem   ${INSTALL_DIR}/.certs/key.pem
+            echo "Certifcates for ${HOST_ADDRESS} received"
+        else
+            echo "Downloading certificates from configuration settings"
+            getcert ${CA_CERT_URL}    ${INSTALL_DIR}/.certs/ca.pem
+            getcert ${NODE_CERT_URL}  ${INSTALL_DIR}/.certs/cert.pem
+            getcert ${PRIV_KEY_URL}   ${INSTALL_DIR}/.certs/key.pem
+        fi
+        # TODO verify certs with openssl
+        test -f ${INSTALL_DIR}/.certs/ca.pem || failwith "Failed to download ca.pem"
+        test -f ${INSTALL_DIR}/.certs/cert.pem || failwith "Failed to download cert.pem"
+        test -f ${INSTALL_DIR}/.certs/key.pem || failwith "Failed to download key.pem"
+
+
+      checkRunning.command: |
+         sudo service docker status | fgrep '(running)'
+
   - id: docker-engine-container
     description: An easy way to launch a Docker container, as a child of a docker-engine entity
     itemType: entity
@@ -91,18 +165,11 @@ brooklyn.catalog:
 
       # TODO support DSL in name: $brooklyn:formatString("Container (%s)", $brooklyn:config("container"))
       # TODO advertise container id as a sensor.
-      # TODO assumes that parent entity will be docker-engine (so can lookup docker.port config; see BROOKLYN-267)
       name: Container
       shell.env:
         DOCKER_IMAGE: $brooklyn:config("container")
-        DOCKER_PORT: $brooklyn:config("docker.port")
-        DOCKER_HOST:
-          $brooklyn:formatString:
-          - "tcp://127.0.0.1:%s/"
-          - $brooklyn:parent().config("docker.port")
       launch.command: |
-        docker run -d ${DOCKER_IMAGE}
+        sudo docker run -d ${DOCKER_IMAGE}
       brooklyn.parameters:
       - name: container
         type: string
-
