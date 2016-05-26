@@ -145,6 +145,7 @@ brooklyn.catalog:
         INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
 
       # TODO - decide if it's ok to publicise the HOST_NAME below and in the manager, from a security point of view.
+      # TODO - remove the -p 12375 mapping below when Duncan's JClouds fixes are in. See https://github.com/cloudsoft/container-service/pull/5#discussion_r64581324
       post.launch.command: |
          TLS_OPTIONS="--tlsverify --tlscacert=${INSTALL_DIR}/.certs/ca.pem --tlscert=${INSTALL_DIR}/.certs/cert.pem --tlskey=${INSTALL_DIR}/.certs/key.pem"
          docker -H tcp://${HOST_ADDRESS}:${TLS_PORT} ${TLS_OPTIONS} run -d -p 12375:2375 --name swarm-${HOST_NAME} \
@@ -192,6 +193,7 @@ brooklyn.catalog:
         DOCKER_ADDITIONAL_OPTIONS: $brooklyn:config("docker.additionaloptions")
         INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
 
+      # TODO - remove the -p 12375 mapping below when Duncan's JClouds fixes are in. See https://github.com/cloudsoft/container-service/pull/5#discussion_r64581324
       post.launch.command: |
         TLS_OPTIONS="--tlsverify --tlscacert=${INSTALL_DIR}/.certs/ca.pem --tlscert=${INSTALL_DIR}/.certs/cert.pem --tlskey=${INSTALL_DIR}/.certs/key.pem"
         docker -H tcp://${HOST_ADDRESS}:${TLS_PORT} ${TLS_OPTIONS} \
