@@ -86,14 +86,14 @@ brooklyn.catalog:
           uniqueTag: docker-endpoint-generator
           enricher.triggerSensors:
           - host.name
-          - docker.port
-          enricher.sourceSensor: $brooklyn:sensor("docker.port")
+          - tls.port
+          enricher.sourceSensor: $brooklyn:sensor("tls.port")
           enricher.targetSensor: $brooklyn:sensor("docker.endpoint")
           enricher.targetValue:
             $brooklyn:formatString:
             - "tcp://%s:%s/"
             - $brooklyn:attributeWhenReady("host.name")
-            - $brooklyn:attributeWhenReady("docker.port")
+            - $brooklyn:attributeWhenReady("tls.port")
 
       brooklyn.config:
         tls.port: 2376
@@ -141,9 +141,9 @@ brooklyn.catalog:
             echo "Certifcates for ${HOST_ADDRESS} received"
         else
             echo "Downloading certificates from configuration settings"
-            getcert ${CA_CERT_URL}    ~/.certs/ca.pem
-            getcert ${NODE_CERT_URL}  ~/.certs/cert.pem
-            getcert ${PRIV_KEY_URL}   ~/.certs/key.pem
+            getcert ${CA_CERT_URL}    ${INSTALL_DIR}/.certs/ca.pem
+            getcert ${NODE_CERT_URL}  ${INSTALL_DIR}/.certs/cert.pem
+            getcert ${PRIV_KEY_URL}   ${INSTALL_DIR}/.certs/key.pem
         fi
         # TODO verify certs with openssl
         test -f ${INSTALL_DIR}/.certs/ca.pem || failwith "Failed to download ca.pem"
