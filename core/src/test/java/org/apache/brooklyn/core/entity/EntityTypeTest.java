@@ -264,7 +264,7 @@ public class EntityTypeTest extends BrooklynAppUnitTestSupport {
     }
     
     // Previously EntityDynamicType's constructor when passed `entity` during the entity's construction (!)
-    // would pass this to EntityDynamicType.findEffectors, which would do log.warn in some cirumstances,
+    // would pass this to EntityDynamicType.findEffectors, which would do log.warn in some circumstances,
     // with entity.toString as part of the log message. But if the toString called getConfig() this would 
     // fail because we were still in the middle of constructing the entity.entityType!
     @Test
@@ -272,7 +272,21 @@ public class EntityTypeTest extends BrooklynAppUnitTestSupport {
         entity = app.createAndManageChild(EntitySpec.create(TestEntity.class).impl(EntityWithToStringAccessingConfig.class));
         entity.toString();
     }
-    
+
+    /**
+     * Previously this deadlocked when calling toString() during entity initialisation (but only if the config key
+     * had a value - this would trigger a call by EntityConfigMap.getConfig() to getExecutionContext).
+     * 
+     * See https://issues.apache.org/jira/browse/BROOKLYN-284
+     */
+    @Test
+    public void testEntityDoesNotCallToStringDuringConstruction() throws Exception {
+        entity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
+                .impl(EntityWithToStringAccessingConfig.class)
+                .configure(TestEntity.CONF_NAME, "myval"));
+        entity.toString();
+    }
+
     public static class EntityWithToStringAccessingConfig extends TestEntityImpl {
         
         // to cause warning to be logged: non-static constant
