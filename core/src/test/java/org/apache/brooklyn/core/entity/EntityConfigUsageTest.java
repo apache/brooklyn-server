@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.entity.internal;
+package org.apache.brooklyn.core.entity;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -45,7 +45,7 @@ import com.google.common.util.concurrent.Callables;
 /**
  * Test that configuration properties are usable and inherited correctly.
  */
-public class EntityConfigMapUsageTest extends BrooklynAppUnitTestSupport {
+public class EntityConfigUsageTest extends BrooklynAppUnitTestSupport {
     private static final int EARLY_RETURN_GRACE = 10;
     
     private BasicConfigKey<Integer> intKey = new BasicConfigKey<Integer>(Integer.class, "bkey", "b key");
