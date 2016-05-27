@@ -104,7 +104,7 @@ public class DynamicTasks {
         }
         /** as {@link #executionContext(ExecutionContext)} but inferring from the entity */
         public TaskQueueingResult<T> executionContext(Entity entity) {
-            this.execContext = ((EntityInternal)entity).getManagementSupport().getExecutionContext();
+            this.execContext = ((EntityInternal)entity).getExecutionContext();
             return this;
         }
         private boolean orSubmitInternal() {

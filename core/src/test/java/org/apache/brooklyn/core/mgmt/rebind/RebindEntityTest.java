@@ -896,7 +896,7 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
 
         private void onReconstruct() {
             if (getConfig(SUBSCRIBE) != null) {
-                getManagementSupport().getSubscriptionContext().subscribe(null, getConfig(SUBSCRIBE), new SensorEventListener<Object>() {
+                subscriptions().getSubscriptionContext().subscribe(null, getConfig(SUBSCRIBE), new SensorEventListener<Object>() {
                         @Override public void onEvent(SensorEvent<Object> event) {
                             events.add(event.getValue());
                         }});

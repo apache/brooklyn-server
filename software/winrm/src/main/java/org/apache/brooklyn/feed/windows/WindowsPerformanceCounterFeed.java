@@ -258,7 +258,7 @@ public class WindowsPerformanceCounterFeed extends AbstractFeed {
 
         @Override
         public T call() throws Exception {
-            ExecutionContext executionContext = ((EntityInternal) entity).getManagementSupport().getExecutionContext();
+            ExecutionContext executionContext = ((EntityInternal) entity).getExecutionContext();
             return executionContext.submit(Maps.newHashMap(), job).get();
         }
     }

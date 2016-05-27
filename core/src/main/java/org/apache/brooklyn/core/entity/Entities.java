@@ -220,7 +220,7 @@ public class Entities {
 
         // we pass to callingEntity for consistency above, but in exec-context it should be re-dispatched to targetEntity
         // reassign t as the return value may be a wrapper, if it is switching execution contexts; see submitInternal's javadoc
-        t = ((EntityInternal)callingEntity).getManagementSupport().getExecutionContext().submit(
+        t = ((EntityInternal)callingEntity).getExecutionContext().submit(
                 MutableMap.of("tag", BrooklynTaskTags.tagForCallerEntity(callingEntity)), t);
 
         if (DynamicTasks.getTaskQueuingContext()!=null) {
@@ -1103,7 +1103,7 @@ public class Entities {
         // TODO it is messy to have to do this, but not sure there is a cleaner way :(
         final Semaphore s = new Semaphore(0);
         final AtomicReference<T> result = new AtomicReference<T>();
-        final ExecutionContext executionContext = ((EntityInternal)entity).getManagementSupport().getExecutionContext();
+        final ExecutionContext executionContext = ((EntityInternal)entity).getExecutionContext();
         executionContext.execute(new Runnable() {
             // TODO could give this task a name, like "create task from factory"
             @Override
@@ -1128,7 +1128,7 @@ public class Entities {
      * @return the task passed in, for fluency
      */
     public static <T extends TaskAdaptable<?>> T submit(final Entity entity, final T task) {
-        final ExecutionContext executionContext = ((EntityInternal)entity).getManagementSupport().getExecutionContext();
+        final ExecutionContext executionContext = ((EntityInternal)entity).getExecutionContext();
         executionContext.submit(task.asTask());
         return task;
     }

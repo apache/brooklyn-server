@@ -114,11 +114,23 @@ public class EffectorBasicTest extends BrooklynAppUnitTestSupport {
         }
     }
 
-    @Test(expectedExceptions=IllegalStateException.class, expectedExceptionsMessageRegExp=".*no longer managed.*")
-    public void testInvokeEffectorListWithEmptyUsingUnmanagedContext() throws Exception{
+    @Test
+    public void testInvokeEffectorListWithEmptyUsingUnmanagedContext() throws Exception {
+        // Previously this threw the IllegalStateException directly, because DynamicTasks called
+        // ((EntityInternal)entity).getManagementSupport().getExecutionContext();
+        // (so it successfully called getManagementSupport, and then hit the exception.
+        // Now it calls ((EntityInternal)entity).getExecutionContext(), so the exception happens in
+        // the entity-proxy and is thus wrapped.
         TestEntity entity = app.addChild(EntitySpec.create(TestEntity.class));
         Entities.unmanage(entity);
-        Entities.invokeEffectorList(entity, ImmutableList.<StartableApplication>of(), Startable.STOP).get(Duration.THIRTY_SECONDS);
+        try {
+            Entities.invokeEffectorList(entity, ImmutableList.<StartableApplication>of(), Startable.STOP).get(Duration.THIRTY_SECONDS);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            IllegalStateException e2 = Exceptions.getFirstThrowableOfType(e, IllegalStateException.class);
+            if (e2 == null) throw e;
+            Asserts.expectedFailureContains(e2, "no longer managed");
+        }
     }
 
     // check various failure situations

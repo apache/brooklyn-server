@@ -1443,7 +1443,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
      */
     @Beta
     // TODO revert to private when config() is reverted to return SensorSupportInternal
-    public class BasicSubscriptionSupport implements SubscriptionSupportInternal {
+    public class BasicSubscriptionSupport implements EntitySubscriptionSupportInternal {
         
         @Override
         public <T> SubscriptionHandle subscribe(Entity producer, Sensor<T> sensor, SensorEventListener<? super T> listener) {
@@ -1501,7 +1501,8 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
             getSubscriptionTracker().unsubscribeAll();
         }
         
-        protected SubscriptionContext getSubscriptionContext() {
+        @Override
+        public SubscriptionContext getSubscriptionContext() {
             // Rely on synchronization in EntityManagementSupport; synchronizing on AbstractEntity.this
             // is dangerous because user's entity code might synchronize on that and call getAttribute.
             // Given that getSubscriptionContext is called by AttributeMap.update (via emitInternal),
