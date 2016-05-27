@@ -758,9 +758,9 @@ public class LocalEntityManager implements EntityManagerInternal {
                 } else {
                     // A location is "owned" if it was created as part of the EntitySpec of an entity (by Brooklyn).
                     // To share a location between entities create it yourself and pass it to any entities that needs it.
-                    log.warn("Unmanaging entity {} which contains a location {} owned by another entity {}. " +
-                            "Locations which are owned by a specific entity should not be shared with other entities as they " +
-                            "will be unmanaged together with their owner, regardless of other references to them.",
+                    log.debug("Unmanaging entity {}, which contains a location {} owned by another entity {}. " +
+                            "Not automatically unmanaging the location (it will be unmanaged when its owning " +
+                            "entity is unmanaged).",
                             new Object[] {e, loc, ownerEntityTag.getContents()});
                 }
             }

@@ -886,9 +886,10 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
                 if (!getId().equals(ownerEntityTag.getContents())) {
                     // A location is "owned" if it was created as part of the EntitySpec of an entity (by Brooklyn).
                     // To share a location between entities create it yourself and pass it to any entities that needs it.
-                    LOG.warn("Adding location {} to entity {} which is already owner by another entity {}. " +
-                            "Locations which are owned by a specific entity should not be shared with other entities as they " +
-                            "will be unmanaged together with their owner, regardless of other references to them.",
+                    LOG.info("Adding location {} to entity {}, which is already owned by another entity {}. " +
+                            "Locations owned by a specific entity will be unmanaged together with their owner, " +
+                            "regardless of other references to them. Therefore care should be taken if sharing " +
+                            "the location with other entities.",
                             new Object[] {loc, this, ownerEntityTag.getContents()});
                 }
             }

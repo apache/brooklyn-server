@@ -46,7 +46,13 @@ public class SoftwareProcessLocationUnmanageTest extends BrooklynAppUnitTestSupp
         testLocationUnmanagedOnStop(locationSpec);
     }
 
-    @Test(groups="Live")
+    /**
+     * This is a convenience for manually testing against a Docker endpoint (hence it being 
+     * marked "WIP", so not in any jenkins builds). Before running, manually change the endpoint,
+     * identity and credential. The Docker host (or Swarm endpoint) needs to be configured
+     * with TLS, and have "ubuntu:14:04" already pulled on the server.
+     */
+    @Test(groups={"Live", "WIP"})
     public void testDockerLocationUnmanagedOnStop() {
         LocationSpec<? extends Location> locationSpec = LocationSpec.create(JcloudsLocation.class)
                 .configure(JcloudsLocation.CLOUD_PROVIDER, "docker")

@@ -22,7 +22,6 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.util.collections.MutableList;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
