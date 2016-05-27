@@ -223,7 +223,7 @@ public class ChefAttributeFeed extends AbstractFeed {
         final Callable<SshPollValue> getAttributesFromKnife = new Callable<SshPollValue>() {
             public SshPollValue call() throws Exception {
                 ProcessTaskWrapper<String> taskWrapper = knifeTaskFactory.newTask();
-                final ExecutionContext executionContext = ((EntityInternal) entity).getManagementSupport().getExecutionContext();
+                final ExecutionContext executionContext = ((EntityInternal) entity).getExecutionContext();
                 log.debug("START: Running knife to query attributes of Chef node {}", nodeName);
                 executionContext.submit(taskWrapper);
                 taskWrapper.block();
@@ -278,7 +278,7 @@ public class ChefAttributeFeed extends AbstractFeed {
 
         @Override
         public T call() throws Exception {
-            final ExecutionContext executionContext = ((EntityInternal) entity).getManagementSupport().getExecutionContext();
+            final ExecutionContext executionContext = ((EntityInternal) entity).getExecutionContext();
             return executionContext.submit(Maps.newHashMap(), job).get();
         }
     }

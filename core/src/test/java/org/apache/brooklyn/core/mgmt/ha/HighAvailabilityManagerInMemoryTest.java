@@ -79,8 +79,8 @@ public class HighAvailabilityManagerInMemoryTest extends HighAvailabilityManager
         Collection<Location> lm = managementContext.getLocationManager().getLocations();
         log.info("Locs managed are: "+lm);
         log.info("            objs: "+identities(lm));
-        Assert.assertNotNull(entity.getManagementSupport().getManagementContext());
-        Assert.assertNotNull( ((EntityInternal)app.getChildren().iterator().next()).getManagementSupport().getManagementContext());
+        Assert.assertNotNull(entity.getManagementContext());
+        Assert.assertNotNull( ((EntityInternal)app.getChildren().iterator().next()).getManagementContext());
         Assert.assertTrue( ((EntityInternal)app.getChildren().iterator().next()).getManagementSupport().isDeployed());
         checkEntitiesHealthy(app, entity);
         
@@ -118,13 +118,13 @@ public class HighAvailabilityManagerInMemoryTest extends HighAvailabilityManager
     }
 
     private void checkEntitiesHealthy(TestApplication app, TestEntity entity) {
-        Assert.assertNotNull(app.getManagementSupport().getManagementContext());
-        Assert.assertTrue( app.getManagementSupport().getManagementContext().isRunning() );
+        Assert.assertNotNull(app.getManagementContext());
+        Assert.assertTrue( app.getManagementContext().isRunning() );
         
-        Assert.assertNotNull(entity.getManagementSupport().getManagementContext());
-        Assert.assertNotNull( ((EntityInternal)app.getChildren().iterator().next()).getManagementSupport().getManagementContext() );
+        Assert.assertNotNull(entity.getManagementContext());
+        Assert.assertNotNull( ((EntityInternal)app.getChildren().iterator().next()).getManagementContext() );
         Assert.assertTrue( ((EntityInternal)app.getChildren().iterator().next()).getManagementSupport().isDeployed());
-        Assert.assertTrue( ((EntityInternal)app.getChildren().iterator().next()).getManagementSupport().getManagementContext() instanceof LocalManagementContext );
+        Assert.assertTrue( ((EntityInternal)app.getChildren().iterator().next()).getManagementContext() instanceof LocalManagementContext );
     }
 
     @Test(groups="Integration", invocationCount=50)

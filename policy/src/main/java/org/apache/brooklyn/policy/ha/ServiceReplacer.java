@@ -160,7 +160,7 @@ public class ServiceReplacer extends AbstractPolicy {
         }
         
         LOG.warn("ServiceReplacer acting on failure detected at "+failedEntity+" ("+reason+", child of "+entity+")");
-        ((EntityInternal)entity).getManagementSupport().getExecutionContext().submit(MutableMap.of(), new Runnable() {
+        ((EntityInternal)entity).getExecutionContext().submit(MutableMap.of(), new Runnable() {
 
             @Override
             public void run() {

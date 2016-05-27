@@ -30,15 +30,18 @@ import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.SubscriptionContext;
 import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
 import org.apache.brooklyn.api.mgmt.rebind.Rebindable;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.EntityMemento;
+import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.internal.EntityConfigMap;
 import org.apache.brooklyn.core.mgmt.internal.EntityManagementSupport;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
+import org.apache.brooklyn.core.objs.BrooklynObjectInternal.SubscriptionSupportInternal;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 
 import com.google.common.annotations.Beta;
@@ -187,6 +190,9 @@ public interface EntityInternal extends BrooklynObjectInternal, EntityLocal, Reb
     void requestPersist();
     
     @Override
+    EntitySubscriptionSupportInternal subscriptions();
+
+    @Override
     SensorSupportInternal sensors();
 
     @Override
@@ -195,6 +201,11 @@ public interface EntityInternal extends BrooklynObjectInternal, EntityLocal, Reb
     @Override
     EnricherSupportInternal enrichers();
 
+    @Beta
+    public interface EntitySubscriptionSupportInternal extends BrooklynObjectInternal.SubscriptionSupportInternal {
+        public SubscriptionContext getSubscriptionContext();
+    }
+    
     @Beta
     public interface SensorSupportInternal extends Entity.SensorSupport {
         /**

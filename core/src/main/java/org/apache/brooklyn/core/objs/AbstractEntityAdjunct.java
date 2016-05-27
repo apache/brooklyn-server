@@ -253,7 +253,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
             synchronized (AbstractEntityAdjunct.this) {
                 if (_subscriptionTracker!=null) return _subscriptionTracker;
                 if (entity==null) return null;
-                _subscriptionTracker = new SubscriptionTracker(((EntityInternal)entity).getManagementSupport().getSubscriptionContext());
+                _subscriptionTracker = new SubscriptionTracker(((EntityInternal)entity).subscriptions().getSubscriptionContext());
                 return _subscriptionTracker;
             }
         }
@@ -452,7 +452,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
     protected synchronized SubscriptionTracker getSubscriptionTracker() {
         if (_subscriptionTracker!=null) return _subscriptionTracker;
         if (entity==null) return null;
-        _subscriptionTracker = new SubscriptionTracker(((EntityInternal)entity).getManagementSupport().getSubscriptionContext());
+        _subscriptionTracker = new SubscriptionTracker(((EntityInternal)entity).subscriptions().getSubscriptionContext());
         return _subscriptionTracker;
     }
     

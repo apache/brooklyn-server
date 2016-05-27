@@ -254,7 +254,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
             );
             return new BasicExecutionContext(MutableMap.of("tags", tags), getExecutionManager());
         } else {
-            return ((EntityInternal)e).getManagementSupport().getExecutionContext();
+            return ((EntityInternal)e).getExecutionContext();
         }
     }
 
