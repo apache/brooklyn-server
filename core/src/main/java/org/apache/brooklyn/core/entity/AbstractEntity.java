@@ -1580,7 +1580,10 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     }
     
     @Override
-    public synchronized ExecutionContext getExecutionContext() {
+    public ExecutionContext getExecutionContext() {
+        // NB May 2016 - removed synch keyword above due to deadlock (see https://issues.apache.org/jira/browse/BROOKLYN-284).
+        // As with getManagementContext(), it also synchs in ManagementSupport.getExecutionContext();
+        // no apparent reason why it was here also.
         return getManagementSupport().getExecutionContext();
     }
 
