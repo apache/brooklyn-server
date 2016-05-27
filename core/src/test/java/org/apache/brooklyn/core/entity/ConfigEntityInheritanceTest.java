@@ -24,14 +24,12 @@ import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.AbstractEntity;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.internal.ConfigMapTest.MyOtherEntity;
+import org.apache.brooklyn.core.entity.internal.ConfigMapTest.MyOtherEntityImpl;
 import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensorAndConfigKey.IntegerAttributeSensorAndConfigKey;
-import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.testng.Assert;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 /**
@@ -41,20 +39,7 @@ import org.testng.annotations.Test;
  *    interface X extends Y
  *    config C is declared on S and overwritten at Y
  */
-public class ConfigEntityInheritanceTest {
-
-    private TestApplication app;
-
-    @BeforeMethod(alwaysRun=true)
-    public void setUp() {
-        app = TestApplication.Factory.newManagedInstanceForTests();
-        Entities.startManagement(app);
-    }
-
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        if (app != null) Entities.destroyAll(app.getManagementContext());
-    }
+public class ConfigEntityInheritanceTest extends BrooklynAppUnitTestSupport {
 
     protected void checkKeys(Entity entity2, Integer value) {
         Assert.assertEquals(entity2.getConfig(MyOtherEntity.INT_KEY), value);
@@ -75,7 +60,7 @@ public class ConfigEntityInheritanceTest {
         checkKeys(app.addChild(EntitySpec.create(MyOtherEntityOverwritingThenInheriting.class)), 2);
     }
     
-    public static class MyOtherEntityOverwriting extends MyOtherEntity {
+    public static class MyOtherEntityOverwriting extends MyOtherEntityImpl {
         public static final ConfigKey<Integer> INT_KEY = ConfigKeys.newConfigKeyWithDefault(MyOtherEntity.INT_KEY, 2);
         public static final IntegerAttributeSensorAndConfigKey SENSOR_AND_CONFIG_KEY = 
                 new IntegerAttributeSensorAndConfigKey(MyOtherEntity.SENSOR_AND_CONFIG_KEY, 2);
