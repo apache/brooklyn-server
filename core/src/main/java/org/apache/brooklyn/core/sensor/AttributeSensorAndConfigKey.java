@@ -88,7 +88,7 @@ public abstract class AttributeSensorAndConfigKey<ConfigType,SensorType> extends
         configKey = ConfigKeys.newConfigKeyWithDefault(orig.configKey, 
                 TypeCoercions.coerce(defaultValue, orig.configKey.getTypeToken()));
     }
-    public AttributeSensorAndConfigKey(Builder<ConfigType> configKeyBuilder, TypeToken<SensorType> sensorType) {
+    public AttributeSensorAndConfigKey(Builder<ConfigType,?> configKeyBuilder, TypeToken<SensorType> sensorType) {
         super(sensorType, configKeyBuilder.getName(), configKeyBuilder.getDescription());
         configKey = new BasicConfigKey<ConfigType>(configKeyBuilder);
     }

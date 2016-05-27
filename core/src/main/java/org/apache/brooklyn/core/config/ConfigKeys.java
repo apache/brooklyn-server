@@ -126,16 +126,16 @@ public class ConfigKeys {
                 name, description, defaultValue);
     }
 
-    public static <T> BasicConfigKey.Builder<T> builder(Class<T> type) {
+    public static <T> BasicConfigKey.Builder<T,?> builder(Class<T> type) {
         return BasicConfigKey.builder(type);
     }
-    public static <T> BasicConfigKey.Builder<T> builder(TypeToken<T> type) {
+    public static <T> BasicConfigKey.Builder<T,?> builder(TypeToken<T> type) {
         return BasicConfigKey.builder(type);
     }
-    public static <T> BasicConfigKey.Builder<T> builder(Class<T> type, String name) {
+    public static <T> BasicConfigKey.Builder<T,?> builder(Class<T> type, String name) {
         return BasicConfigKey.builder(type, name);
     }
-    public static <T> BasicConfigKey.Builder<T> builder(TypeToken<T> type, String name) {
+    public static <T> BasicConfigKey.Builder<T,?> builder(TypeToken<T> type, String name) {
         return BasicConfigKey.builder(type, name);
     }
 

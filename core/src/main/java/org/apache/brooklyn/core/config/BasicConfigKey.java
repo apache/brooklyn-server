@@ -54,66 +54,105 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
     
     private static final Splitter dots = Splitter.on('.');
 
-    public static <T> Builder<T> builder(TypeToken<T> type) {
-        return new Builder<T>().type(type);
+    public static <T> Builder<T,?> builder(TypeToken<T> type) {
+        return new ConcreteBuilder<T>().type(type);
     }
 
-    public static <T> Builder<T> builder(Class<T> type) {
-        return new Builder<T>().type(type);
+    public static <T> Builder<T,?> builder(Class<T> type) {
+        return new ConcreteBuilder<T>().type(type);
     }
 
-    public static <T> Builder<T> builder(TypeToken<T> type, String name) {
-        return new Builder<T>().type(type).name(name);
+    public static <T> Builder<T,?> builder(TypeToken<T> type, String name) {
+        return new ConcreteBuilder<T>(type, name);
     }
 
-    public static <T> Builder<T> builder(Class<T> type, String name) {
-        return new Builder<T>().type(type).name(name);
+    public static <T> Builder<T,?> builder(Class<T> type, String name) {
+        return new ConcreteBuilder<T>().type(type).name(name);
     }
 
-    public static <T> Builder<T> builder(ConfigKey<T> key) {
-        return new Builder<T>()
-            .name(checkNotNull(key.getName(), "name"))
-            .type(checkNotNull(key.getTypeToken(), "type"))
-            .description(key.getDescription())
-            .defaultValue(key.getDefaultValue())
-            .reconfigurable(key.isReconfigurable())
-            .inheritance(key.getInheritance())
-            .constraint(key.getConstraint());
+    public static <T> Builder<T,?> builder(ConfigKey<T> key) {
+        return new ConcreteBuilder<T>(key);
     }
 
-    public static class Builder<T> {
-        private String name;
-        private TypeToken<T> type;
-        private String description;
-        private T defaultValue;
-        private boolean reconfigurable;
-        private Predicate<? super T> constraint = Predicates.alwaysTrue();
-        private ConfigInheritance inheritance;
+    private static class ConcreteBuilder<T> extends Builder<T, ConcreteBuilder<T>> {
+        public ConcreteBuilder() {
+        }
+        public ConcreteBuilder(TypeToken<T> type, String name) {
+            super(type, name);
+        }
+        public ConcreteBuilder(ConfigKey<T> key) {
+            super(key);
+        }
+        @Override protected ConcreteBuilder<T> self() {
+            return this;
+        }
+    }
+
+    public abstract static class Builder<T, B extends Builder<T,B>> {
+        protected String name;
+        protected TypeToken<T> type;
+        protected String description;
+        protected T defaultValue;
+        protected boolean reconfigurable;
+        protected Predicate<? super T> constraint = Predicates.alwaysTrue();
+        protected ConfigInheritance parentInheritance;
+        protected ConfigInheritance typeInheritance;
         
-        public Builder<T> name(String val) {
-            this.name = val; return this;
+        protected abstract B self();
+
+        public Builder() {
         }
-        public Builder<T> type(Class<T> val) {
-            this.type = TypeToken.of(val); return this;
+        public Builder(TypeToken<T> type, String name) {
+            this.type = type;
+            this.name = name;
         }
-        public Builder<T> type(TypeToken<T> val) {
-            this.type = val; return this;
+        public Builder(Class<T> type, String name) {
+            this(TypeToken.of(type), name);
         }
-        public Builder<T> description(String val) {
-            this.description = val; return this;
+        public Builder(ConfigKey<T> key) {
+            this.type = checkNotNull(key.getTypeToken(), "type");
+            this.name = checkNotNull(key.getName(), "name");
+            description(key.getDescription());
+            defaultValue(key.getDefaultValue());
+            reconfigurable(key.isReconfigurable());
+            parentInheritance(key.getParentInheritance());
+            typeInheritance(key.getTypeInheritance());
+            constraint(key.getConstraint());
         }
-        public Builder<T> defaultValue(T val) {
-            this.defaultValue = val; return this;
+        public B name(String val) {
+            this.name = val; return self();
         }
-        public Builder<T> reconfigurable(boolean val) {
-            this.reconfigurable = val; return this;
+        public B type(Class<T> val) {
+            this.type = TypeToken.of(val); return self();
         }
-        public Builder<T> inheritance(ConfigInheritance val) {
-            this.inheritance = val; return this;
+        public B type(TypeToken<T> val) {
+            this.type = val; return self();
+        }
+        public B description(String val) {
+            this.description = val; return self();
+        }
+        public B defaultValue(T val) {
+            this.defaultValue = val; return self();
+        }
+        public B reconfigurable(boolean val) {
+            this.reconfigurable = val; return self();
+        }
+        public B parentInheritance(ConfigInheritance val) {
+            this.parentInheritance = val; return self();
+        }
+        public B typeInheritance(ConfigInheritance val) {
+            this.typeInheritance = val; return self();
+        }
+        /**
+         * @deprecated since 0.10.0; use {@link #parentInheritance(ConfigInheritance)}
+         */
+        @Deprecated
+        public B inheritance(ConfigInheritance val) {
+            return parentInheritance(val);
         }
         @Beta
-        public Builder<T> constraint(Predicate<? super T> constraint) {
-            this.constraint = checkNotNull(constraint, "constraint"); return this;
+        public B constraint(Predicate<? super T> constraint) {
+            this.constraint = checkNotNull(constraint, "constraint"); return self();
         }
         public BasicConfigKey<T> build() {
             return new BasicConfigKey<T>(this);
@@ -127,14 +166,22 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
         }
     }
     
-    private String name;
-    private TypeToken<T> typeToken;
-    private Class<? super T> type;
-    private String description;
-    private T defaultValue;
-    private boolean reconfigurable;
+    protected String name;
+    protected TypeToken<T> typeToken;
+    protected Class<? super T> type;
+    protected String description;
+    protected T defaultValue;
+    protected boolean reconfigurable;
+    protected ConfigInheritance typeInheritance;
+    protected ConfigInheritance parentInheritance;
+    protected Predicate<? super T> constraint;
+
+    /**
+     * Kept only for backwards compatibility with serialised state; when read, it's value is used 
+     * for {@link #parentInheritance} and then set to null.
+     */
+    @Deprecated
     private ConfigInheritance inheritance;
-    private Predicate<? super T> constraint;
 
     // FIXME In groovy, fields were `public final` with a default constructor; do we need the gson?
     public BasicConfigKey() { /* for gson */ }
@@ -171,14 +218,15 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
         this.constraint = Predicates.alwaysTrue();
     }
 
-    public BasicConfigKey(Builder<T> builder) {
+    public BasicConfigKey(Builder<T,?> builder) {
         this.name = checkNotNull(builder.name, "name");
         this.type = TypeTokens.getRawTypeIfRaw(checkNotNull(builder.type, "type"));
         this.typeToken = TypeTokens.getTypeTokenIfNotRaw(builder.type);
         this.description = builder.description;
         this.defaultValue = builder.defaultValue;
         this.reconfigurable = builder.reconfigurable;
-        this.inheritance = builder.inheritance;
+        this.parentInheritance = builder.parentInheritance;
+        this.typeInheritance = builder.typeInheritance;
         // Note: it's intentionally possible to have default values that are not valid
         // per the configured constraint. If validity were checked here any class that
         // contained a weirdly-defined config key would fail to initialise.
@@ -214,10 +262,23 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
         return reconfigurable;
     }
     
-    /** @see ConfigKey#getInheritance() */
-    @Override @Nullable
+    @Deprecated @Override @Nullable
     public ConfigInheritance getInheritance() {
-        return inheritance;
+        return getParentInheritance();
+    }
+
+    @Override @Nullable
+    public ConfigInheritance getTypeInheritance() {
+        return typeInheritance;
+    }
+
+    @Override @Nullable
+    public ConfigInheritance getParentInheritance() {
+        if (parentInheritance == null && inheritance != null) {
+            parentInheritance = inheritance;
+            inheritance = null;
+        }
+        return parentInheritance;
     }
 
     /** @see ConfigKey#getConstraint() */
@@ -306,7 +367,7 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
 
         /** builder here should be based on the same key passed in as parent */
         @Beta
-        public BasicConfigKeyOverwriting(Builder<T> builder, ConfigKey<T> parent) {
+        public BasicConfigKeyOverwriting(Builder<T,?> builder, ConfigKey<T> parent) {
             super(builder);
             parentKey = parent;
             Preconditions.checkArgument(Objects.equal(builder.name, parent.getName()), "Builder must use key of the same name.");

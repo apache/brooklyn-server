@@ -21,7 +21,6 @@ package org.apache.brooklyn.core.entity.internal;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.brooklyn.util.groovy.GroovyJavaMethods.elvis;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -30,11 +29,14 @@ import java.util.Set;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigInheritance;
+import org.apache.brooklyn.config.ConfigInheritance.InheritanceMode;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.config.StructuredConfigKey;
 import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
 import org.apache.brooklyn.core.entity.AbstractEntity;
+import org.apache.brooklyn.core.location.AbstractLocation;
+import org.apache.brooklyn.util.collections.CollectionMerger;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
@@ -86,23 +88,20 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
 
     @SuppressWarnings("unchecked")
     public <T> T getConfig(ConfigKey<T> key, T defaultValue) {
-        // FIXME What about inherited task in config?!
-        //              alex says: think that should work, no?
-        // FIXME What if someone calls getConfig on a task, before setting parent app?
-        //              alex says: not supported (throw exception, or return the task)
-        
         // In case this entity class has overridden the given key (e.g. to set default), then retrieve this entity's key
         // TODO If ask for a config value that's not in our configKeys, should we really continue with rest of method and return key.getDefaultValue?
         //      e.g. SshBasedJavaAppSetup calls setAttribute(JMX_USER), which calls getConfig(JMX_USER)
         //           but that example doesn't have a default...
         ConfigKey<T> ownKey = entity!=null ? (ConfigKey<T>)elvis(entity.getEntityType().getConfigKey(key.getName()), key) : key;
         
-        ConfigInheritance inheritance = key.getInheritance();
-        if (inheritance==null) inheritance = ownKey.getInheritance(); 
+        // TODO Confirm desired behaviour: I switched this around to get ownKey.getParentInheritance first.
+        ConfigInheritance inheritance = ownKey.getParentInheritance();
+        if (inheritance==null) inheritance = key.getInheritance(); 
         if (inheritance==null) {
             // TODO we could warn by introducing a temporary "ALWAYS_BUT_WARNING" instance
-            inheritance = getDefaultInheritance(); 
+            inheritance = getDefaultParentInheritance(); 
         }
+        InheritanceMode parentInheritanceMode = inheritance.isInherited(ownKey, entity.getParent(), entity);
         
         // TODO We're notifying of config-changed because currently persistence needs to know when the
         // attributeWhenReady is complete (so it can persist the result).
@@ -111,47 +110,107 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
         // Don't use groovy truth: if the set value is e.g. 0, then would ignore set value and return default!
         if (ownKey instanceof ConfigKeySelfExtracting) {
             Object rawval = ownConfig.get(key);
-            T result = null;
-            boolean complete = false;
-            if (((ConfigKeySelfExtracting<T>)ownKey).isSet(ownConfig)) {
-                ExecutionContext exec = entity.getExecutionContext();
-                result = ((ConfigKeySelfExtracting<T>)ownKey).extractValue(ownConfig, exec);
-                complete = true;
-            } else if (isInherited(ownKey, inheritance) && 
-                    ((ConfigKeySelfExtracting<T>)ownKey).isSet(inheritedConfig)) {
-                ExecutionContext exec = entity.getExecutionContext();
-                result = ((ConfigKeySelfExtracting<T>)ownKey).extractValue(inheritedConfig, exec);
-                complete = true;
-            } else if (localConfigBag.containsKey(ownKey)) {
-                // TODO configBag.get doesn't handle tasks/attributeWhenReady - it only uses TypeCoercions
-                result = localConfigBag.get(ownKey);
-                complete = true;
-            } else if (isInherited(ownKey, inheritance) && 
-                    inheritedConfigBag.containsKey(ownKey)) {
-                result = inheritedConfigBag.get(ownKey);
-                complete = true;
-            }
+            Maybe<T> result = getConfigImpl((ConfigKeySelfExtracting<T>)ownKey, parentInheritanceMode);
 
             if (rawval instanceof Task) {
                 entity.getManagementSupport().getEntityChangeListener().onConfigChanged(key);
             }
-            if (complete) {
-                return result;
+            if (result.isPresent()) {
+                return result.get();
             }
         } else {
             LOG.warn("Config key {} of {} is not a ConfigKeySelfExtracting; cannot retrieve value; returning default", ownKey, this);
         }
         return TypeCoercions.coerce((defaultValue != null) ? defaultValue : ownKey.getDefaultValue(), key.getTypeToken());
     }
+    
+    @SuppressWarnings("unchecked")
+    private <T> Maybe<T> getConfigImpl(ConfigKeySelfExtracting<T> key, InheritanceMode parentInheritance) {
+        ExecutionContext exec = entity.getExecutionContext();
+        Maybe<T> ownValue;
+        Maybe<T> parentValue;
+
+        // Get own value
+        if (((ConfigKeySelfExtracting<T>)key).isSet(ownConfig)) {
+            ownValue = Maybe.of(((ConfigKeySelfExtracting<T>)key).extractValue(ownConfig, exec));
+        } else if (localConfigBag.containsKey(key)) {
+            // TODO configBag.get doesn't handle tasks/attributeWhenReady - it only uses TypeCoercions
+            // Precedence ordering has changed; previously we'd prefer an explicit isSet(inheritedConfig)
+            // over the localConfigBag.get(key).
+            ownValue = Maybe.of(localConfigBag.get(key));
+        } else {
+            ownValue = Maybe.<T>absent();
+        }
+        
+        // Get the parent-inheritance value (but only if we'll need it)
+        switch (parentInheritance) {
+        case IF_NO_EXPLICIT_VALUE:
+            if (ownValue.isAbsent()) {
+                if (((ConfigKeySelfExtracting<T>)key).isSet(inheritedConfig)) {
+                    parentValue = Maybe.of(((ConfigKeySelfExtracting<T>)key).extractValue(inheritedConfig, exec));
+                } else if (inheritedConfigBag.containsKey(key)) {
+                    parentValue = Maybe.of(inheritedConfigBag.get(key));
+                } else {
+                    parentValue = Maybe.absent();
+                }
+            } else {
+                parentValue = Maybe.absent();
+            }
+            break;
+        case MERGE:
+            if (((ConfigKeySelfExtracting<T>)key).isSet(inheritedConfig)) {
+                parentValue = Maybe.of(((ConfigKeySelfExtracting<T>)key).extractValue(inheritedConfig, exec));
+            } else if (inheritedConfigBag.containsKey(key)) {
+                parentValue = Maybe.of(inheritedConfigBag.get(key));
+            } else {
+                parentValue = Maybe.absent();
+            }
+            break;
+        case NONE:
+            parentValue = Maybe.absent();
+            break;
+        default:
+            throw new IllegalStateException("Unsupported parent-inheritance mode for "+key.getName()+": "+parentInheritance);
+        }
+
+        // Merge or override, as appropriate
+        switch (parentInheritance) {
+        case IF_NO_EXPLICIT_VALUE:
+            return ownValue.isPresent() ? ownValue : parentValue;
+        case MERGE:
+            return (Maybe<T>) deepMerge(ownValue, parentValue, key);
+        case NONE:
+            return ownValue;
+        default:
+            throw new IllegalStateException("Unsupported parent-inheritance mode for "+key.getName()+": "+parentInheritance);
+        }
+    }
+    
+    private <T> Maybe<?> deepMerge(Maybe<? extends T> val1, Maybe<? extends T> val2, ConfigKey<?> keyForLogging) {
+        if (val2.isAbsent() || val2.isNull()) {
+            return val1;
+        } else if (val1.isAbsent()) {
+            return val2;
+        } else if (val1.isNull()) {
+            return val1; // an explicit null means an override; don't merge
+        } else if (val1.get() instanceof Map && val2.get() instanceof Map) {
+            return Maybe.of(CollectionMerger.builder().build().merge((Map<?,?>)val1.get(), (Map<?,?>)val2.get()));
+        } else {
+            // cannot merge; just return val1
+            LOG.debug("Cannot merge values for "+keyForLogging.getName()+", because values are not maps: "+val1.get().getClass()+", and "+val2.get().getClass());
+            return val1;
+        }
+    }
 
     private <T> boolean isInherited(ConfigKey<T> key) {
-        return isInherited(key, key.getInheritance());
+        return isInherited(key, key.getParentInheritance());
     }
     private <T> boolean isInherited(ConfigKey<T> key, ConfigInheritance inheritance) {
-        if (inheritance==null) inheritance = getDefaultInheritance(); 
-        return inheritance.isInherited(key, entity.getParent(), entity);
+        if (inheritance==null) inheritance = getDefaultParentInheritance();
+        InheritanceMode mode = inheritance.isInherited(key, entity.getParent(), entity);
+        return mode != null && mode != InheritanceMode.NONE;
     }
-    private ConfigInheritance getDefaultInheritance() {
+    private ConfigInheritance getDefaultParentInheritance() {
         return ConfigInheritance.ALWAYS; 
     }
 

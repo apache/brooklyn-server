@@ -70,7 +70,7 @@ public class PortAttributeSensorAndConfigKey extends AttributeSensorAndConfigKey
     public PortAttributeSensorAndConfigKey(PortAttributeSensorAndConfigKey orig, Object defaultValue) {
         super(orig, TypeCoercions.coerce(defaultValue, PortRange.class));
     }
-    public PortAttributeSensorAndConfigKey(BasicConfigKey.Builder<PortRange> builder) {
+    public PortAttributeSensorAndConfigKey(BasicConfigKey.Builder<PortRange,?> builder) {
         super(builder, TypeToken.of(Integer.class));
     }
     

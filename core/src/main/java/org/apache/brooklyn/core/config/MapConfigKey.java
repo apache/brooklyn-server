@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.core.config;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -35,6 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Supplier;
 import com.google.common.collect.Maps;
+import com.google.common.reflect.TypeToken;
 
 /** A config key which represents a map, where contents can be accessed directly via subkeys.
  * Items added directly to the map must be of type map, and can be updated by:
@@ -49,11 +52,83 @@ import com.google.common.collect.Maps;
  * </ul>
  */
 //TODO Create interface
+//TODO The BasicConfigKey.builder(Class,name) methods mean we can't define them on this sub-type,
+//     because we want builder(Class<V>), which corresponds to BasicConfigKey<Map<String, V>.
 public class MapConfigKey<V> extends AbstractStructuredConfigKey<Map<String,V>,Map<String,Object>,V> {
     
     private static final long serialVersionUID = -6126481503795562602L;
     private static final Logger log = LoggerFactory.getLogger(MapConfigKey.class);
-    
+
+    public static <V> Builder<V> builder(MapConfigKey<V> key) {
+        return new Builder<V>(key);
+    }
+
+    public static class Builder<V> extends BasicConfigKey.Builder<Map<String, V>,Builder<V>> {
+        protected Class<V> subType;
+        
+        public Builder(TypeToken<V> subType, String name) {
+            super(new TypeToken<Map<String, V>>() {}, name);
+            this.subType = (Class<V>) subType.getRawType();
+        }
+        public Builder(Class<V> subType, String name) {
+            super(new TypeToken<Map<String, V>>() {}, name);
+            this.subType = checkNotNull(subType, "subType");
+        }
+        public Builder(MapConfigKey<V> key) {
+            super(checkNotNull(key.getTypeToken(), "type"), checkNotNull(key.getName(), "name"));
+            description(key.getDescription());
+            defaultValue(key.getDefaultValue());
+            reconfigurable(key.isReconfigurable());
+            parentInheritance(key.getParentInheritance());
+            typeInheritance(key.getTypeInheritance());
+            constraint(key.getConstraint());
+        }
+        public Builder<V> self() {
+            return this;
+        }
+        @Override
+        @Deprecated
+        public Builder<V> name(String val) {
+            throw new UnsupportedOperationException("Builder must be constructed with name");
+        }
+        @Override
+        @Deprecated
+        public Builder<V> type(Class<Map<String, V>> val) {
+            throw new UnsupportedOperationException("Builder must be constructed with type");
+        }
+        @Override
+        @Deprecated
+        public Builder<V> type(TypeToken<Map<String, V>> val) {
+            throw new UnsupportedOperationException("Builder must be constructed with type");
+        }
+        @Override
+        public MapConfigKey<V> build() {
+            return new MapConfigKey<V>(this);
+        }
+        
+        public String getName() {
+            return name;
+        }
+        public String getDescription() {
+            return description;
+        }
+    }
+
+    protected MapConfigKey(Builder<V> builder) {
+        super((Class)Map.class,
+                checkNotNull(builder.subType, "subType"),
+                checkNotNull(builder.name, "name"),
+                builder.description,
+                builder.defaultValue);
+        this.reconfigurable = builder.reconfigurable;
+        this.parentInheritance = builder.parentInheritance;
+        this.typeInheritance = builder.typeInheritance;
+        // Note: it's intentionally possible to have default values that are not valid
+        // per the configured constraint. If validity were checked here any class that
+        // contained a weirdly-defined config key would fail to initialise.
+        this.constraint = checkNotNull(builder.constraint, "constraint");
+    }
+
     public MapConfigKey(Class<V> subType, String name) {
         this(subType, name, name, null);
     }

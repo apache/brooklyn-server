@@ -84,8 +84,20 @@ public interface ConfigKey<T> {
     boolean isReconfigurable();
 
     /**
-     * @return The inheritance model, or <code>null</code> for the default in any context.
+     * @return The sub-typing inheritance model, or <code>null</code> for the default in any context.
      */
+    @Nullable ConfigInheritance getTypeInheritance();
+
+    /**
+     * @return The inheritance-from-parent-entities model, or <code>null</code> for the default in any context.
+     */
+    @Nullable ConfigInheritance getParentInheritance();
+
+    /**
+     * @return The inheritance model, or <code>null</code> for the default in any context.
+     * @deprecated since 0.10.0; use {@link #getParentInheritance()}.
+     */
+    @Deprecated
     @Nullable ConfigInheritance getInheritance();
 
     /**
