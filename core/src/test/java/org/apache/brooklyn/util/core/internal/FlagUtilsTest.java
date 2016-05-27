@@ -21,6 +21,7 @@ package org.apache.brooklyn.util.core.internal;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 import java.lang.reflect.Field;
 import java.net.InetAddress;
@@ -34,15 +35,19 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
+import org.apache.brooklyn.util.core.flags.FlagUtils.FlagConfigKeyAndValueRecord;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Function;
+import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -220,6 +225,91 @@ public class FlagUtilsTest {
         assertEquals(unused, ImmutableMap.of("ck2", "dont-set"));
     }
 
+    @Test
+    public void testFindAllConfigKeys() {
+        Map<String, ConfigKey<?>> keys = FlagUtils.findAllConfigKeys(null, ImmutableList.of(SubFooCK.class));
+        assertEquals(keys, ImmutableMap.of(
+                FooCK.CK1.getName(), FooCK.CK1, 
+                FooCK.CK2.getName(), FooCK.CK2, 
+                FooCK.CK3.getName(), FooCK.CK3,
+                SubFooCK.CK4.getName(), SubFooCK.CK4));
+    }
+
+    @Test
+    public void testFindAllFlagsAndConfigKeysWithEmptyBag() {
+        ConfigBag bag = ConfigBag.newInstance(ImmutableMap.of());
+        List<FlagConfigKeyAndValueRecord> vals = FlagUtils.<SubFooCK>findAllFlagsAndConfigKeys(null, SubFooCK.class, bag);
+        assertRecordsEqual(vals, ImmutableList.<ExpectedFlagConfigKeyAndValueRecord>of());
+    }
+
+    @Test
+    public void testFindAllFlagsAndConfigKeysWithConfigVals() {
+        ConfigBag bag = ConfigBag.newInstance(ImmutableMap.of(FooCK.CK1, "ck1.myval"));
+        List<FlagConfigKeyAndValueRecord> vals = FlagUtils.<SubFooCK>findAllFlagsAndConfigKeys(null, SubFooCK.class, bag);
+        assertRecordsEqual(vals, ImmutableList.of(new ExpectedFlagConfigKeyAndValueRecord(FooCK.CK1, "CK1", "ck1.myval")));
+    }
+
+    @Test
+    public void testFindAllFlagsAndConfigKeysWithFlagVals() {
+        ConfigBag bag = ConfigBag.newInstance(ImmutableMap.of("f1", 123));
+        List<FlagConfigKeyAndValueRecord> vals = FlagUtils.<SubFooCK>findAllFlagsAndConfigKeys(null, SubFooCK.class, bag);
+        assertRecordsEqual(vals, ImmutableList.of(new ExpectedFlagConfigKeyAndValueRecord("f1", 123)));
+    }
+
+    protected void assertRecordsEqual(List<FlagConfigKeyAndValueRecord> actual, List<ExpectedFlagConfigKeyAndValueRecord> expected) {
+        List<FlagConfigKeyAndValueRecord> actualCopy = MutableList.copyOf(actual);
+        for (ExpectedFlagConfigKeyAndValueRecord record : expected) {
+            boolean found = false;
+            for (FlagConfigKeyAndValueRecord contender : actualCopy) {
+                if (isRecordEqual(contender, record)) {
+                    actualCopy.remove(contender);
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                fail(record+" expected, but not found");
+            }
+        }
+        if (!actualCopy.isEmpty()) {
+            fail(actualCopy+" additional records found");
+        }
+    }
+
+    protected boolean isRecordEqual(FlagConfigKeyAndValueRecord val1, ExpectedFlagConfigKeyAndValueRecord val2) {
+        return Objects.equal(val1.getConfigKey(), val2.configKey)
+                && Objects.equal(val1.getFlagName(), val2.flagName)
+                && Objects.equal(val1.getConfigKeyMaybeValue(), val2.configKeyValue)
+                && Objects.equal(val1.getFlagMaybeValue(), val2.flagValue);
+    }
+
+    // The fields of FlagConfigKeyAndValueRecord are private; hence having this class to make assertions easier
+    static class ExpectedFlagConfigKeyAndValueRecord {
+        String flagName = "";
+        ConfigKey<?> configKey = null;
+        Maybe<Object> flagValue = Maybe.absent();
+        Maybe<Object> configKeyValue = Maybe.absent();
+        
+        ExpectedFlagConfigKeyAndValueRecord(String flagName, Object val) {
+            this.flagName = flagName;
+            this.flagValue = Maybe.of(val);
+        }
+        ExpectedFlagConfigKeyAndValueRecord(ConfigKey<?> key, String flagName, Object val) {
+            this.configKey = key;
+            this.flagName = flagName;
+            this.configKeyValue = Maybe.of(val);
+        }
+        @Override
+        public String toString() {
+            return Objects.toStringHelper(this).omitNullValues()
+                    .add("flag", flagName)
+                    .add("configKey", configKey)
+                    .add("flagValue", flagValue.orNull())
+                    .add("configKeyValue", configKeyValue.orNull())
+                    .toString();
+        }
+    }
+    
     public static class Foo {
         @SetFromFlag
         int w;
@@ -251,7 +341,7 @@ public class FlagUtilsTest {
         @SetFromFlag Set<?> set;
         @SetFromFlag InetAddress inet;
     }
-    
+
     public static class FooCK implements Configurable {
         @SetFromFlag
         public static ConfigKey<String> CK1 = ConfigKeys.newStringConfigKey("ck1");
@@ -314,5 +404,9 @@ public class FlagUtilsTest {
                 return set(key.getConfigKey(), val);
             }
         }
+    }
+    
+    public static class SubFooCK extends FooCK {
+        public static ConfigKey<String> CK4 = ConfigKeys.newStringConfigKey("ck4");
     }
 }

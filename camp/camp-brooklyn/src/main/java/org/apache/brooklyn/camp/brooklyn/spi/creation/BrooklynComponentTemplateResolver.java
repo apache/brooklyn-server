@@ -23,7 +23,6 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -31,10 +30,11 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.framework.FrameworkLookup;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampConstants;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampReservedKeys;
@@ -45,6 +45,8 @@ import org.apache.brooklyn.camp.spi.AbstractResource;
 import org.apache.brooklyn.camp.spi.ApplicationComponentTemplate;
 import org.apache.brooklyn.camp.spi.AssemblyTemplate;
 import org.apache.brooklyn.camp.spi.PlatformComponentTemplate;
+import org.apache.brooklyn.config.ConfigInheritance;
+import org.apache.brooklyn.config.ConfigInheritance.InheritanceMode;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -54,7 +56,9 @@ import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.resolve.entity.EntitySpecResolver;
+import org.apache.brooklyn.util.collections.CollectionMerger;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
@@ -257,14 +261,18 @@ public class BrooklynComponentTemplateResolver {
         // attrs will contain only brooklyn.xxx properties when coming from BrooklynEntityMatcher.
         // Any top-level flags will go into "brooklyn.flags". When resolving a spec from $brooklyn:entitySpec
         // top level flags remain in place. Have to support both cases.
-
+        //
+        // For config values inherited from the super-type (be that the Java type or another catalog item
+        // being extended), we lookup the config key to find out if the values should be merged, overridden or 
+        // cleared.
+        
         ConfigBag bag = ConfigBag.newInstance((Map<Object, Object>) attrs.getStringKey(BrooklynCampReservedKeys.BROOKLYN_CONFIG));
         ConfigBag bagFlags = ConfigBag.newInstanceCopying(attrs);
         if (attrs.containsKey(BrooklynCampReservedKeys.BROOKLYN_FLAGS)) {
             bagFlags.putAll((Map<String, Object>) attrs.getStringKey(BrooklynCampReservedKeys.BROOKLYN_FLAGS));
         }
 
-        Collection<FlagConfigKeyAndValueRecord> topLevelApparentConfig = findAllFlagsAndConfigKeys(spec, bagFlags);
+        Collection<FlagConfigKeyAndValueRecord> topLevelApparentConfig = findAllFlagsAndConfigKeyValues(spec, bagFlags);
         for (FlagConfigKeyAndValueRecord r: topLevelApparentConfig) {
             if (r.getConfigKeyMaybeValue().isPresent())
                 bag.putIfAbsent((ConfigKey)r.getConfigKey(), r.getConfigKeyMaybeValue().get());
@@ -272,22 +280,44 @@ public class BrooklynComponentTemplateResolver {
                 bag.putAsStringKeyIfAbsent(r.getFlagName(), r.getFlagMaybeValue().get());
         }
 
+        
         // now set configuration for all the items in the bag
-        Collection<FlagConfigKeyAndValueRecord> records = findAllFlagsAndConfigKeys(spec, bag);
+        Map<String, ConfigKey<?>> entityConfigKeys = findAllConfigKeys(spec);
+        
+        Collection<FlagConfigKeyAndValueRecord> records = findAllFlagsAndConfigKeyValues(spec, bag);
         Set<String> keyNamesUsed = new LinkedHashSet<String>();
         for (FlagConfigKeyAndValueRecord r: records) {
             if (r.getFlagMaybeValue().isPresent()) {
-                Object transformed = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getFlagMaybeValue().get());
-                spec.configure(r.getFlagName(), transformed);
-                keyNamesUsed.add(r.getFlagName());
+                String flag = r.getFlagName();
+                Object ownVal = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getFlagMaybeValue().get());
+                Maybe<?> superVal = spec.getFlags().containsKey(flag) ? Maybe.of(spec.getFlags().get(flag)) : Maybe.absent();
+                Object combinedVal = combineValues(entityConfigKeys.get(flag), spec, Maybe.of(ownVal), superVal).get();
+                spec.configure(flag, combinedVal);
+                keyNamesUsed.add(flag);
             }
             if (r.getConfigKeyMaybeValue().isPresent()) {
-                Object transformed = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getConfigKeyMaybeValue().get());
-                spec.configure((ConfigKey<Object>)r.getConfigKey(), transformed);
-                keyNamesUsed.add(r.getConfigKey().getName());
+                ConfigKey<Object> key = (ConfigKey<Object>) r.getConfigKey();
+                Object ownVal = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getConfigKeyMaybeValue().get());
+                Maybe<?> superVal = spec.getConfig().containsKey(key) ? Maybe.of(spec.getConfig().get(key)) : Maybe.absent();
+                Object combinedVal = combineValues(entityConfigKeys.get(key.getName()), spec, Maybe.of(ownVal), superVal).get();
+                spec.configure(key, combinedVal);
+                keyNamesUsed.add(key.getName());
             }
         }
 
+        // For anything that should not be inherited, clear if from the spec
+        for (Map.Entry<String, ConfigKey<?>> entry : entityConfigKeys.entrySet()) {
+            if (keyNamesUsed.contains(entry.getKey())) {
+                continue;
+            }
+            ConfigKey<?> key = entry.getValue();
+            InheritanceMode mode = getInheritanceMode(key, spec);
+            if (mode == InheritanceMode.NONE) {
+                spec.removeConfig(key);
+                spec.removeFlag(key.getName());
+            }
+        }
+        
         // set unused keys as anonymous config keys -
         // they aren't flags or known config keys, so must be passed as config keys in order for
         // EntitySpec to know what to do with them (as they are passed to the spec as flags)
@@ -301,10 +331,47 @@ public class BrooklynComponentTemplateResolver {
         }
     }
 
+    // TODO Duplicates some logic in EntityConfigMap.getConfig()
+    private Maybe<?> combineValues(ConfigKey<?> key, EntitySpec<?> spec, Maybe<?> ownVal, Maybe<?> superVal) {
+        InheritanceMode mode = getInheritanceMode(key, spec);
+        switch (mode) {
+        case IF_NO_EXPLICIT_VALUE:
+            return ownVal.isPresent() ? ownVal : superVal;
+        case MERGE:
+            return deepMerge(ownVal, superVal, key);
+        case NONE:
+            return ownVal;
+        default:
+            throw new IllegalStateException("Unsupported type-inheritance mode for "+key.getName()+": "+mode);
+        }
+    }
+
+    private InheritanceMode getInheritanceMode(ConfigKey<?> key, EntitySpec<?> spec) {
+        ConfigInheritance inheritance = (key != null && key.getTypeInheritance() != null) ? key.getTypeInheritance() : ConfigInheritance.ALWAYS;
+        return inheritance.isInherited(key, spec, attrs);
+    }
+
+    // TODO Duplicate of EntityConfigMap.deepMerge
+    private <T> Maybe<?> deepMerge(Maybe<? extends T> val1, Maybe<? extends T> val2, ConfigKey<?> keyForLogging) {
+        if (val2.isAbsent() || val2.isNull()) {
+            return val1;
+        } else if (val1.isAbsent()) {
+            return val2;
+        } else if (val1.isNull()) {
+            return val1; // an explicit null means an override; don't merge
+        } else if (val1.get() instanceof Map && val2.get() instanceof Map) {
+            return Maybe.of(CollectionMerger.builder().build().merge((Map<?,?>)val1.get(), (Map<?,?>)val2.get()));
+        } else {
+            // cannot merge; just return val1
+            log.debug("Cannot merge values for "+keyForLogging.getName()+", because values are not maps: "+val1.get().getClass()+", and "+val2.get().getClass());
+            return val1;
+        }
+    }
+
     /**
      * Searches for config keys in the type, additional interfaces and the implementation (if specified)
      */
-    private Collection<FlagConfigKeyAndValueRecord> findAllFlagsAndConfigKeys(EntitySpec<?> spec, ConfigBag bagFlags) {
+    private Collection<FlagConfigKeyAndValueRecord> findAllFlagsAndConfigKeyValues(EntitySpec<?> spec, ConfigBag bagFlags) {
         Set<FlagConfigKeyAndValueRecord> allKeys = MutableSet.of();
         allKeys.addAll(FlagUtils.findAllFlagsAndConfigKeys(null, spec.getType(), bagFlags));
         if (spec.getImplementation() != null) {
@@ -315,6 +382,20 @@ public class BrooklynComponentTemplateResolver {
         }
         allKeys.addAll(FlagUtils.findAllParameterConfigKeys(spec.getParameters(), bagFlags));
         return allKeys;
+    }
+
+    private Map<String, ConfigKey<?>> findAllConfigKeys(EntitySpec<?> spec) {
+        Set<Class<?>> types = MutableSet.<Class<?>>builder()
+                .add(spec.getType())
+                .add(spec.getImplementation())
+                .addAll(spec.getAdditionalInterfaces())
+                .remove(null)
+                .build();
+        MutableMap<String, ConfigKey<?>> result = MutableMap.copyOf(FlagUtils.findAllConfigKeys(null, types));
+        for (SpecParameter<?> param : spec.getParameters()) {
+            result.put(param.getConfigKey().getName(), param.getConfigKey());
+        }
+        return result;
     }
 
     private static class SpecialFlagsTransformer implements Function<Object, Object> {

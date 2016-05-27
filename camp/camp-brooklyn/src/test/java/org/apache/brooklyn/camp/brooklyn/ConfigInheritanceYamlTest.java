@@ -30,7 +30,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.sensor.Sensors;
@@ -97,6 +96,26 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                 "        templateOptions:",
                 "          myOptionsKey: myOptionsVal");
         
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  id: EmptySoftwareProcess-with-env",
+                "  itemType: entity",
+                "  item:",
+                "    type: org.apache.brooklyn.entity.software.base.EmptySoftwareProcess",
+                "    brooklyn.config:",
+                "      env:",
+                "        ENV1: myEnv1");
+        
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  id: EmptySoftwareProcess-with-shell.env",
+                "  itemType: entity",
+                "  item:",
+                "    type: org.apache.brooklyn.entity.software.base.EmptySoftwareProcess",
+                "    brooklyn.config:",
+                "      shell.env:",
+                "        ENV1: myEnv1");
+
         addCatalogItems(
                 "brooklyn.catalog:",
                 "  id: localhost-stub",
@@ -219,13 +238,40 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
      * attributeWhenReady apply to?
      */
     @Test(groups={"Broken", "WIP"}, enabled=false)
-    public void testInheritsParentConfigTask() throws Exception {
+    public void testInheritsParentConfigTaskWithSelfScope() throws Exception {
         String yaml = Joiner.on("\n").join(
                 "services:",
                 "- type: org.apache.brooklyn.entity.stock.BasicApplication",
                 "  brooklyn.config:",
                 "    test.confName: $brooklyn:config(\"myOtherConf\")",
                 "    test.confObject: $brooklyn:attributeWhenReady(\"myOtherSensor\")",
+                "    myOtherConf: myOther",
+                "  brooklyn.children:",
+                "  - type: org.apache.brooklyn.core.test.entity.TestEntity");
+
+        final Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+     
+        // Task that resolves quickly
+        assertEquals(entity.config().get(TestEntity.CONF_NAME), "myOther");
+        
+        // Task that resolves slowly
+        executor.submit(new Callable<Object>() {
+            public Object call() {
+                return app.sensors().set(Sensors.newStringSensor("myOtherSensor"), "myObject");
+            }});
+        assertEquals(app.config().get(TestEntity.CONF_OBJECT), "myObject");
+    }
+    
+    @Test
+    public void testInheritsParentConfigTask() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.entity.stock.BasicApplication",
+                "  id: app",
+                "  brooklyn.config:",
+                "    test.confName: $brooklyn:config(\"myOtherConf\")",
+                "    test.confObject: $brooklyn:component(\"app\").attributeWhenReady(\"myOtherSensor\")",
                 "    myOtherConf: myOther",
                 "  brooklyn.children:",
                 "  - type: org.apache.brooklyn.core.test.entity.TestEntity");
@@ -534,6 +580,80 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
             assertEquals(entity.config().get(entity.getEntityType().getConfigKey("map.type-always")), ImmutableMap.of("mykey2", "myval2"));
             assertEquals(entity.config().get(entity.getEntityType().getConfigKey("map.type-never")), ImmutableMap.of("mykey2", "myval2"));
         }
+    }
+    
+    @Test
+    public void testExtendsSuperTypeConfigSimple() throws Exception {
+        ImmutableMap<String, Object> expectedEnv = ImmutableMap.<String, Object>of("ENV1", "myEnv1", "ENV2", "myEnv2");
+
+        // super-type has shell.env; sub-type shell.env
+        String yaml = Joiner.on("\n").join(
+                "location: localhost-stub",
+                "services:",
+                "- type: EmptySoftwareProcess-with-shell.env",
+                "  brooklyn.config:",
+                "    shell.env:",
+                "      ENV2: myEnv2");
+        
+        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        EntityAsserts.assertConfigEquals(entity, EmptySoftwareProcess.SHELL_ENVIRONMENT, expectedEnv);
+    }
+
+    @Test
+    public void testExtendsSuperTypeConfigMixingLongOverridingShortNames() throws Exception {
+        ImmutableMap<String, Object> expectedEnv = ImmutableMap.<String, Object>of("ENV1", "myEnv1", "ENV2", "myEnv2");
+
+        // super-type has env; sub-type shell.env
+        String yaml = Joiner.on("\n").join(
+                "location: localhost-stub",
+                "services:",
+                "- type: EmptySoftwareProcess-with-env",
+                "  brooklyn.config:",
+                "    shell.env:",
+                "      ENV2: myEnv2");
+        
+        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        EntityAsserts.assertConfigEquals(entity, EmptySoftwareProcess.SHELL_ENVIRONMENT, expectedEnv);
+    }
+        
+    @Test
+    public void testExtendsSuperTypeConfigMixingShortOverridingLongName() throws Exception {
+        ImmutableMap<String, Object> expectedEnv = ImmutableMap.<String, Object>of("ENV1", "myEnv1", "ENV2", "myEnv2");
+
+        // super-type has shell.env; sub-type env
+        String yaml = Joiner.on("\n").join(
+                "location: localhost-stub",
+                "services:",
+                "- type: EmptySoftwareProcess-with-shell.env",
+                "  brooklyn.config:",
+                "    env:",
+                "      ENV2: myEnv2");
+        
+        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        EntityAsserts.assertConfigEquals(entity, EmptySoftwareProcess.SHELL_ENVIRONMENT, expectedEnv);
+    }
+    
+    // TODO Does not work, and probably hard to fix?! We need to figure out that "env" corresponds to the
+    // config key. Maybe FlagUtils could respect SetFromFlags when returning Map<String,ConfigKey>?
+    @Test(groups="WIP")
+    public void testExtendsSuperTypeConfigMixingShortOverridingShortName() throws Exception {
+        ImmutableMap<String, Object> expectedEnv = ImmutableMap.<String, Object>of("ENV1", "myEnv1", "ENV2", "myEnv2");
+
+        // super-type has env; sub-type env
+        String yaml = Joiner.on("\n").join(
+                "location: localhost-stub",
+                "services:",
+                "- type: EmptySoftwareProcess-with-env",
+                "  brooklyn.config:",
+                "    env:",
+                "      ENV2: myEnv2");
+
+        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        EntityAsserts.assertConfigEquals(entity, EmptySoftwareProcess.SHELL_ENVIRONMENT, expectedEnv);
     }
     
     protected void assertEmptySoftwareProcessConfig(Entity entity, Map<String, ?> expectedEnv, Map<String, String> expectedFiles, Map<String, ?> expectedProvisioningProps) {

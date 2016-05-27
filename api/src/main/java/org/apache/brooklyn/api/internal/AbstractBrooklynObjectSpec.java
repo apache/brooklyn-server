@@ -303,6 +303,11 @@ public abstract class AbstractBrooklynObjectSpec<T,SpecT extends AbstractBrookly
         return self();
     }
 
+    public <V> SpecT removeFlag(String key) {
+        flags.remove( checkNotNull(key, "key") );
+        return self();
+    }
+
     /** Clears the config map, removing any config previously set. */
     public void clearConfig() {
         config.clear();
