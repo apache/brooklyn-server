@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.entity.internal;
+package org.apache.brooklyn.core.entity;
 
 import static org.testng.Assert.assertEquals
 import static org.testng.Assert.assertFalse
@@ -26,15 +26,15 @@ import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.core.entity.Entities
-import org.apache.brooklyn.core.entity.internal.ConfigMapTest.MyOtherEntity
-import org.apache.brooklyn.core.entity.internal.ConfigMapTest.MySubEntity
+import org.apache.brooklyn.core.entity.EntityConfigTest.MyOtherEntity
+import org.apache.brooklyn.core.entity.EntityConfigTest.MySubEntity
 import org.testng.annotations.AfterMethod
 import org.testng.annotations.BeforeMethod
 import org.testng.annotations.Test
 
 import com.google.common.base.Predicate;
 
-public class ConfigMapGroovyTest extends BrooklynAppUnitTestSupport {
+public class EntityConfigGroovyTest extends BrooklynAppUnitTestSupport {
 
     private MySubEntity entity;
 
