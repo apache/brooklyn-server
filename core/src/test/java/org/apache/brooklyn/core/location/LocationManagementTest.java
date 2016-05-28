@@ -24,18 +24,28 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
+import java.util.Set;
+
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.LocationManager;
+import org.apache.brooklyn.core.mgmt.BrooklynTags;
+import org.apache.brooklyn.core.mgmt.BrooklynTags.NamedStringTag;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
+import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
+import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 public class LocationManagementTest extends BrooklynAppUnitTestSupport {
@@ -114,6 +124,30 @@ public class LocationManagementTest extends BrooklynAppUnitTestSupport {
         mgmt.getLocationManager().unmanage(loc);
         Asserts.assertThat(mgmt.getLocationRegistry().getDefinedLocations().keySet(), CollectionFunctionals.sizeEquals(1));
         Asserts.assertThat(locationManager.getLocations(), CollectionFunctionals.sizeEquals(0));
+    }
+
+    @Test
+    public void testLocalhostLocationUnmanagedOnStop() {
+        LocationSpec<? extends Location> locationSpec = LocationSpec.create(LocalhostMachineProvisioningLocation.class);
+        testLocationUnmanagedOnStop(locationSpec);
+    }
+
+    private void testLocationUnmanagedOnStop(LocationSpec<? extends Location> locationSpec) {
+        EntitySpec<BasicApplication> appSpec = EntitySpec.create(BasicApplication.class)
+            .location(locationSpec);
+
+        BasicApplication app = mgmt.getEntityManager().createEntity(appSpec);
+        app.start(ImmutableList.<Location>of());
+        Location appLocation = Iterables.getOnlyElement(app.getLocations());
+
+        NamedStringTag ownerEntityTag = BrooklynTags.findFirst(BrooklynTags.OWNER_ENTITY_ID, appLocation.tags().getTags());
+        Assert.assertNotNull(ownerEntityTag);
+        Assert.assertEquals(ownerEntityTag.getContents(), app.getId());
+
+        app.stop();
+        Assert.assertFalse(mgmt.getEntityManager().isManaged(app));
+        Set<Location> locs = ImmutableSet.copyOf(mgmt.getLocationManager().getLocations());
+        Assert.assertFalse(locs.contains(appLocation), locs + " should not contain " + appLocation);
     }
 
 }

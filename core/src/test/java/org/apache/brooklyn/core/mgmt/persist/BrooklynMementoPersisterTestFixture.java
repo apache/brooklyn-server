@@ -34,6 +34,7 @@ import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
 import org.apache.brooklyn.api.policy.Policy;
+import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
@@ -80,12 +81,13 @@ public abstract class BrooklynMementoPersisterTestFixture {
         if (objectStore==null && persister instanceof BrooklynMementoPersisterToObjectStore) {
             objectStore = ((BrooklynMementoPersisterToObjectStore)persister).getObjectStore();
         }
-        app = ApplicationBuilder.newManagedApp(EntitySpec.create(TestApplication.class), localManagementContext);
-        entity = app.createAndManageChild(EntitySpec.create(TestEntity.class).location(
-            LocationSpec.create(SshMachineLocation.class).configure("address", "localhost")));
-        location = Iterables.getOnlyElement( entity.getLocations() );
+        EntitySpec<TestApplication> appSpec = EntitySpec.create(TestApplication.class)
+                .location(LocationSpec.create(SshMachineLocation.class).configure("address", "localhost"));
+        app = ApplicationBuilder.newManagedApp(appSpec, localManagementContext);
+        location = Iterables.getOnlyElement( app.getLocations() );
+        entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         enricher = app.enrichers().add(Enrichers.builder().propagatingAll().from(entity).build());
-        app.policies().add(policy = new TestPolicy());
+        policy = app.policies().add(PolicySpec.create(TestPolicy.class));
     }
 
     protected abstract ManagementContext newPersistingManagementContext();
@@ -141,6 +143,15 @@ public abstract class BrooklynMementoPersisterTestFixture {
         assertNotNull(reloadedMemento);
         assertFalse(Iterables.contains(reloadedMemento.getEntityIds(), entity.getId()));
         assertEquals(Iterables.getOnlyElement(reloadedMemento.getLocationIds()), location.getId());
+        
+        // Destroying the app should also unmanage its owned location, and adjuncts
+        Entities.destroy(app);
+        reloadedMemento = loadMemento();
+        
+        assertFalse(Iterables.contains(reloadedMemento.getEntityIds(), entity.getId()));
+        assertFalse(Iterables.contains(reloadedMemento.getPolicyIds(), policy.getId()));
+        assertFalse(Iterables.contains(reloadedMemento.getEnricherIds(), enricher.getId()));
+        assertFalse(Iterables.contains(reloadedMemento.getLocationIds(), location.getId()));
     }
     
     @Test
