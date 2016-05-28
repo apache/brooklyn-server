@@ -58,16 +58,16 @@ public class DurationSinceSensorTest extends BrooklynAppUnitTestSupport {
                         DurationSinceSensor.EPOCH_SUPPLIER, Suppliers.ofInstance(0L),
                         DurationSinceSensor.TIME_SUPPLIER, timeSupplier)))));
 
-        final Map<?, ?> timeout = ImmutableMap.of("timeout", Duration.millis(10));
+        final Map<?, ?> continuallyTimeout = ImmutableMap.of("timeout", Duration.millis(10));
         final AttributeSensor<Duration> duration = Sensors.newSensor(Duration.class, "sensor");
         assertAttributeEqualsEventually(entity, duration, Duration.millis(0));
-        assertAttributeEqualsContinually(timeout, entity, duration, Duration.millis(0));
+        assertAttributeEqualsContinually(continuallyTimeout, entity, duration, Duration.millis(0));
         ticker.incrementAndGet();
         assertAttributeEqualsEventually(entity, duration, Duration.millis(1));
-        assertAttributeEqualsContinually(timeout, entity, duration, Duration.millis(1));
+        assertAttributeEqualsContinually(continuallyTimeout, entity, duration, Duration.millis(1));
         ticker.incrementAndGet();
         assertAttributeEqualsEventually(entity, duration, Duration.millis(2));
-        assertAttributeEqualsContinually(timeout, entity, duration, Duration.millis(2));
+        assertAttributeEqualsContinually(continuallyTimeout, entity, duration, Duration.millis(2));
     }
 
 }
