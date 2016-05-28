@@ -67,17 +67,21 @@ public class LoopOverGroupMembersTestCaseImpl extends TargetableTestComponentImp
             return;
         }
 
+        // Create the child-assertions (one per group-member)
         Group group = (Group) target;
-
-        Collection<Entity> children = group.getMembers();
+        Collection<Entity> members = group.getMembers();
         boolean allSuccesful = true;
-        for (Entity child : children) {
-            testSpec.configure(TestCase.TARGET_ENTITY, child);
+        for (Entity member : members) {
+            EntitySpec<? extends TargetableTestComponent> testSpecCopy = EntitySpec.create(testSpec)
+                    .configure(TestCase.TARGET_ENTITY, member);
 
             try {
-                TargetableTestComponent targetableTestComponent = this.addChild(testSpec);
+                TargetableTestComponent targetableTestComponent = this.addChild(testSpecCopy);
                 targetableTestComponent.start(locations);
+                logger.debug("Task of {} successfully run, targetting {}", this, member);
             } catch (Throwable t) {
+                Exceptions.propagateIfFatal(t);
+                logger.warn("Problem in child test-case of "+this+", targetting "+member, t);
                 allSuccesful = false;
             }
         }
