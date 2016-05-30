@@ -39,9 +39,9 @@ public class Identifiers {
     public static final String NON_ALPHA_NUMERIC = "!@$%^&*()-_=+[]{};:\\|/?,.<>~";
 
     /** @see #JAVA_GOOD_PACKAGE_OR_CLASS_REGEX */
-    public static final String JAVA_GOOD_START_CHARS = UPPER_CASE_ALPHA + LOWER_CASE_ALPHA +"_";
+    public static final String JAVA_GOOD_START_CHARS = UPPER_CASE_ALPHA + LOWER_CASE_ALPHA + "_";
     /** @see #JAVA_GOOD_PACKAGE_OR_CLASS_REGEX */
-    public static final String JAVA_GOOD_NONSTART_CHARS = JAVA_GOOD_START_CHARS+NUMERIC;
+    public static final String JAVA_GOOD_NONSTART_CHARS = JAVA_GOOD_START_CHARS + NUMERIC;
     /** @see #JAVA_GOOD_PACKAGE_OR_CLASS_REGEX */ 
     public static final String JAVA_GOOD_SEGMENT_REGEX = "["+JAVA_GOOD_START_CHARS+"]"+"["+JAVA_GOOD_NONSTART_CHARS+"]*";
     /** regex for a java package or class name using "good" chars, that is no accents or funny unicodes.
@@ -54,12 +54,12 @@ public class Identifiers {
 
     public static final String JAVA_GENERATED_IDENTIFIER_START_CHARS = UPPER_CASE_ALPHA + LOWER_CASE_ALPHA;
 
-    public static final String JAVA_GENERATED_IDENTIFIERNONSTART_CHARS = JAVA_GENERATED_IDENTIFIER_START_CHARS+NUMERIC;
+    public static final String JAVA_GENERATED_IDENTIFIERNONSTART_CHARS = JAVA_GENERATED_IDENTIFIER_START_CHARS + NUMERIC;
 
-    public static final String BASE64_VALID_CHARS = JAVA_GENERATED_IDENTIFIERNONSTART_CHARS+"+=";
+    public static final String BASE64_VALID_CHARS = JAVA_GENERATED_IDENTIFIERNONSTART_CHARS + "+=";
 
     public static final String ID_VALID_START_CHARS = UPPER_CASE_ALPHA + LOWER_CASE_ALPHA;
-    public static final String ID_VALID_NONSTART_CHARS = ID_VALID_START_CHARS+ NUMERIC;
+    public static final String ID_VALID_NONSTART_CHARS = ID_VALID_START_CHARS + NUMERIC;
 
     public static final String PASSWORD_VALID_CHARS = NON_ALPHA_NUMERIC + ID_VALID_NONSTART_CHARS;
 
@@ -87,28 +87,44 @@ public class Identifiers {
      * in general this is preferable to base64 as is more portable,
      * can be used throughout javascript (as ID's which don't allow +)
      * or as java identifiers (which don't allow numbers in the first char)
-     **/
-    public static String makeRandomId(int l) {
-        //this version is 30-50% faster than the old double-based one, 
-        //which computed a random every 3 turns --
-        //takes about 600 ns to do id of len 10, compared to 10000 ns for old version [on 1.6ghz machine]
-        if (l<=0) return "";
+     * <p>
+     * <b>NOTE</b> This version is 30-50% faster than the old double-based one,
+     * which computed a random every 3 turns -- takes about 600 ns to do id
+     * of len 10, compared to 10000 ns for old version [on 1.6ghz machine]
+     * <p>
+     * <b>TODO</b> The integer value passed to {@link Randonm#nextInt(int)}
+     * will overflow if the length of the character sets passed in is more
+     * than 128. It is possible to mitigate this by truncating the strings,
+     * or calculating the maximum number of characters per invocation of
+     * {@code nextInt()} by taking the logarithm of {@link Integer#MAX_INT}
+     * using the length of the character set as the base. Currently this
+     * method is private to prevent overly long arguments.
+     */
+    private static String makeRandomId(int l, String validStartChars, String validNonStartChars) {
+        if (l <= 0) return "";
         char[] id = new char[l];
-        int d = random.nextInt( (26+26) * (26+26+10) * (26+26+10) * (26+26+10) * (26+26+10));
-        int i = 0;    
-        id[i] = ID_VALID_START_CHARS.charAt(d % (26+26));
-        d /= (26+26);
-        if (++i<l) do {
-            id[i] = ID_VALID_NONSTART_CHARS.charAt(d%(26+26+10));
-            if (++i>=l) break;
-            if (i%5==0) {
-                d = random.nextInt( (26+26+10) * (26+26+10) * (26+26+10) * (26+26+10) * (26+26+10));
+        int s = validStartChars.length();
+        int n = validNonStartChars.length();
+        int d = random.nextInt(s * n * n * n);
+        int i = 0;
+        id[i] = validStartChars.charAt(d % s);
+        d /= s;
+        if (++i < l) do {
+            id[i] = validNonStartChars.charAt(d % n);
+            if (++i >= l) break;
+            if (i % 4 == 0) {
+                d = random.nextInt(n * n * n *n);
             } else {
-                d /= (26+26+10);
+                d /= n;
             }
         } while (true);
-        //Message.message("random id is " + id);
         return new String(id);
+    }
+    public static String makeRandomId(int l) {
+        return makeRandomId(l, ID_VALID_START_CHARS, ID_VALID_NONSTART_CHARS);
+    }
+    public static String makeRandomLowercaseId(int l) {
+        return makeRandomId(l, LOWER_CASE_ALPHA, LOWER_CASE_ALPHA + NUMERIC);
     }
 
     /**
@@ -179,43 +195,12 @@ public class Identifiers {
         return result.toString();
     }
 
-    /** makes a random id string (letters and numbers) of the given length;
-     * starts with letter (upper or lower) so can be used as java-id;
-     * tests ensure random distribution, so random ID of length 5
-     * is about 2^29 possibilities
-     * <p>
-     * implementation is efficient, uses char array, and
-     * makes one call to random per 5 chars; makeRandomId(5)
-     * takes about 4 times as long as a simple Math.random call,
-     * or about 50 times more than a simple x++ instruction;
-     * in other words, it's appropriate for contexts where random id's are needed,
-     * but use efficiently (ie cache it per object), and
-     * prefer to use a counter where feasible
-     **/
+    /**
+     * Makes a random id string (letters and numbers) of the given length;
+     * starts with letter (upper or lower) so can be used as Java id.
+     */
     public static String makeRandomJavaId(int l) {
-            // copied from Monterey util's com.cloudsoftcorp.util.StringUtils.
-            // TODO should share code with makeRandomId, just supplying different char sets (though the char sets in fact are the same..)
-
-            //this version is 30-50% faster than the old double-based one,
-            //which computed a random every 3 turns --
-            //takes about 600 ns to do id of len 10, compared to 10000 ns for old version [on 1.6ghz machine]
-            if (l<=0) return "";
-            char[] id = new char[l];
-            int d = random.nextInt( (26+26) * (26+26+10) * (26+26+10) * (26+26+10) * (26+26+10));
-            int i = 0;
-            id[i] = JAVA_GENERATED_IDENTIFIER_START_CHARS.charAt(d % (26+26));
-            d /= (26+26);
-            if (++i<l) do {
-                    id[i] = JAVA_GENERATED_IDENTIFIERNONSTART_CHARS.charAt(d%(26+26+10));
-                    if (++i>=l) break;
-                    if (i%5==0) {
-                            d = random.nextInt( (26+26+10) * (26+26+10) * (26+26+10) * (26+26+10) * (26+26+10));
-                    } else {
-                            d /= (26+26+10);
-                    }
-            } while (true);
-            //Message.message("random id is " + id);
-            return new String(id);
+        return makeRandomId(l, JAVA_GENERATED_IDENTIFIER_START_CHARS, JAVA_GENERATED_IDENTIFIERNONSTART_CHARS);
     }
 
     public static double randomDouble() {
@@ -294,7 +279,7 @@ public class Identifiers {
     }
 
     private static Random getSecureRandom() {
-        if(secureRandom == null) {
+        if (secureRandom == null) {
             secureRandom = new SecureRandom();
         }
         return secureRandom;
