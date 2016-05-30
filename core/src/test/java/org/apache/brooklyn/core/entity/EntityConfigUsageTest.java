@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.entity.internal;
+package org.apache.brooklyn.core.entity;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -26,11 +26,9 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
@@ -47,7 +45,7 @@ import com.google.common.util.concurrent.Callables;
 /**
  * Test that configuration properties are usable and inherited correctly.
  */
-public class EntityConfigMapUsageTest extends BrooklynAppUnitTestSupport {
+public class EntityConfigUsageTest extends BrooklynAppUnitTestSupport {
     private static final int EARLY_RETURN_GRACE = 10;
     
     private BasicConfigKey<Integer> intKey = new BasicConfigKey<Integer>(Integer.class, "bkey", "b key");
@@ -124,8 +122,8 @@ public class EntityConfigMapUsageTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testConfigCanBeSetOnEntity() throws Exception {
         TestEntity entity = app.addChild(EntitySpec.create(TestEntity.class));
-        ((EntityLocal)entity).config().set(strKey, "aval");
-        ((EntityLocal)entity).config().set(intKey, 2);
+        entity.config().set(strKey, "aval");
+        entity.config().set(intKey, 2);
         
         assertEquals(entity.getConfig(strKey), "aval");
         assertEquals(entity.getConfig(intKey), (Integer)2);
@@ -135,7 +133,7 @@ public class EntityConfigMapUsageTest extends BrooklynAppUnitTestSupport {
     public void testConfigInheritedFromParent() throws Exception {
         TestEntity parent = app.addChild(EntitySpec.create(TestEntity.class)
                 .configure(strKey, "aval"));
-        ((EntityLocal)parent).config().set(intKey, 2);
+        parent.config().set(intKey, 2);
         TestEntity entity = parent.createAndManageChild(EntitySpec.create(TestEntity.class));
         
         assertEquals(entity.getConfig(strKey), "aval");
@@ -157,7 +155,7 @@ public class EntityConfigMapUsageTest extends BrooklynAppUnitTestSupport {
         TestEntity parent = app.createAndManageChild(EntitySpec.create(TestEntity.class)
                 .configure(strKey, "aval"));
         TestEntity entity = parent.createAndManageChild(EntitySpec.create(TestEntity.class));
-        ((EntityLocal)entity).config().set(strKey, "diffval");
+        entity.config().set(strKey, "diffval");
         
         assertEquals(entity.getConfig(strKey), "diffval");
     }
@@ -166,7 +164,7 @@ public class EntityConfigMapUsageTest extends BrooklynAppUnitTestSupport {
     public void testConfigSetterOverridesConstructorValue() throws Exception {
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
                 .configure(strKey, "aval"));
-        ((EntityLocal)entity).config().set(strKey, "diffval");
+        entity.config().set(strKey, "diffval");
         
         assertEquals(entity.getConfig(strKey), "diffval");
     }
@@ -175,7 +173,7 @@ public class EntityConfigMapUsageTest extends BrooklynAppUnitTestSupport {
     public void testConfigSetOnParentInheritedByExistingChildren() throws Exception {
         TestEntity parent = app.addChild(EntitySpec.create(TestEntity.class));
         TestEntity entity = parent.createChild(EntitySpec.create(TestEntity.class));
-        ((EntityLocal)parent).config().set(strKey,"aval");
+        parent.config().set(strKey,"aval");
         
         assertEquals(entity.getConfig(strKey), "aval");
     }
@@ -199,7 +197,7 @@ public class EntityConfigMapUsageTest extends BrooklynAppUnitTestSupport {
         app.start(locs);
         
         try {
-            ((EntityLocal)app).config().set(strKey,"aval");
+            app.config().set(strKey,"aval");
             fail();
         } catch (IllegalStateException e) {
             // success
@@ -265,7 +263,7 @@ public class EntityConfigMapUsageTest extends BrooklynAppUnitTestSupport {
                 .configure(TestEntity.CONF_NAME, DependentConfiguration.attributeWhenReady(entity, TestEntity.NAME)));
         app.start(locs);
         
-        ((EntityLocal)entity).sensors().set(TestEntity.NAME, "aval");
+        entity.sensors().set(TestEntity.NAME, "aval");
         assertEquals(entity2.getConfig(TestEntity.CONF_NAME), "aval");
     }
     
@@ -279,7 +277,7 @@ public class EntityConfigMapUsageTest extends BrooklynAppUnitTestSupport {
                         }})));
         app.start(locs);
         
-        ((EntityLocal)entity).sensors().set(TestEntity.NAME, "aval");
+        entity.sensors().set(TestEntity.NAME, "aval");
         assertEquals(entity2.getConfig(TestEntity.CONF_NAME), "avalmysuffix");
     }
     
@@ -294,7 +292,7 @@ public class EntityConfigMapUsageTest extends BrooklynAppUnitTestSupport {
             public void run() {
                 try {
                     Thread.sleep(10+EARLY_RETURN_GRACE);
-                    ((EntityLocal)entity).sensors().set(TestEntity.NAME, "aval");
+                    entity.sensors().set(TestEntity.NAME, "aval");
                 } catch (InterruptedException e) {
                     throw Exceptions.propagate(e);
                 }

@@ -16,46 +16,53 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.entity.internal;
+package org.apache.brooklyn.core.entity;
 
 import static org.testng.Assert.assertEquals
+import static org.testng.Assert.assertFalse
 import static org.testng.Assert.assertTrue
 
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.core.entity.Entities
-import org.apache.brooklyn.core.entity.internal.ConfigMapTest.MyOtherEntity
-import org.apache.brooklyn.core.entity.internal.ConfigMapTest.MySubEntity
+import org.apache.brooklyn.core.entity.EntityConfigTest.MyOtherEntity
+import org.apache.brooklyn.core.entity.EntityConfigTest.MySubEntity
 import org.testng.annotations.AfterMethod
 import org.testng.annotations.BeforeMethod
 import org.testng.annotations.Test
 
-public class ConfigMapGroovyTest {
+import com.google.common.base.Predicate;
 
-    private TestApplication app;
+public class EntityConfigGroovyTest extends BrooklynAppUnitTestSupport {
+
     private MySubEntity entity;
 
     @BeforeMethod(alwaysRun=true)
+    @Override
     public void setUp() {
-        app = TestApplication.Factory.newManagedInstanceForTests();
-        entity = new MySubEntity(app);
-        Entities.manage(entity);
-    }
-
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        if (app != null) Entities.destroyAll(app.getManagementContext());
+        super.setUp();
+        entity = app.addChild(EntitySpec.create(MySubEntity.class));
     }
 
     @Test
     public void testGetConfigOfTypeClosureReturnsClosure() throws Exception {
-        MyOtherEntity entity2 = new MyOtherEntity(app);
+        MyOtherEntity entity2 = app.addChild(EntitySpec.create(MyOtherEntity.class));
         entity2.config().set(MyOtherEntity.CLOSURE_KEY, { return "abc" } );
-        Entities.manage(entity2);
         
         Closure configVal = entity2.getConfig(MyOtherEntity.CLOSURE_KEY);
         assertTrue(configVal instanceof Closure, "configVal="+configVal);
         assertEquals(configVal.call(), "abc");
     }
 
+    @Test
+    public void testGetConfigOfPredicateTaskReturnsCoercedClosure() throws Exception {
+        MyOtherEntity entity2 = app.addChild(EntitySpec.create(MyOtherEntity.class));
+        entity2.setConfig(MyOtherEntity.PREDICATE_KEY, { return it != null } );
 
+        Predicate<?> predicate = entity2.getConfig(MyOtherEntity.PREDICATE_KEY);
+        assertTrue(predicate instanceof Predicate, "predicate="+predicate);
+        assertTrue(predicate.apply(1));
+        assertFalse(predicate.apply(null));
+    }
 }
