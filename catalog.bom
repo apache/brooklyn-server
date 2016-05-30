@@ -56,9 +56,6 @@ brooklyn.catalog:
       stop.command:         sudo service docker stop
       checkRunning.command: sudo service docker status
 
-      provisioning.properties:
-        osFamily: centos
-
       # ensure docker running before starting children
       childStartMode: foreground_late
 
