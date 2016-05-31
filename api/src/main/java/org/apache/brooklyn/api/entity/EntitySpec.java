@@ -433,9 +433,4 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
         if (immutable) throw new IllegalStateException("Cannot modify immutable entity spec "+this);
     }
 
-    @Override
-    public String toString(){
-        return getClass().getName();
-    }
-
 }
