@@ -879,6 +879,22 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                         }
                     }
                 }
+                
+                Boolean dontRequireTtyForSudo = setup.get(JcloudsLocationConfig.DONT_REQUIRE_TTY_FOR_SUDO);
+                if (Boolean.TRUE.equals(dontRequireTtyForSudo) ||
+                        dontRequireTtyForSudo == null && setup.get(DONT_CREATE_USER)) {
+                    if (windows) {
+                        LOG.warn("Ignoring flag DONT_REQUIRE_TTY_FOR_SUDO on Windows location {}", machineLocation);
+                    } else {
+                        customisationForLogging.add("patch /etc/sudoers to disable requiretty");
+
+                        executeCommandThrowingOnError(
+                                ImmutableMap.<String, Object>of(SshTool.PROP_ALLOCATE_PTY.getName(), true),
+                                (SshMachineLocation)machineLocation,
+                                "patch /etc/sudoers to disable requiretty",
+                                ImmutableList.of(BashCommands.dontRequireTtyForSudo()));
+                    }
+                }
 
                 if (setup.get(JcloudsLocationConfig.MAP_DEV_RANDOM_TO_DEV_URANDOM)) {
                     if (windows) {
