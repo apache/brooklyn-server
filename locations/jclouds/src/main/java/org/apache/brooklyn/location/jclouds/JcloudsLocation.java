@@ -867,9 +867,15 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                         String scriptContent = ResourceUtils.create(this).getResourceAsString(setupScriptItem);
                         String script = TemplateProcessor.processTemplateContents(scriptContent, getManagementContext(), substitutions);
                         if (windows) {
-                            ((WinRmMachineLocation)machineLocation).executeCommand(ImmutableList.copyOf((script.replace("\r", "").split("\n"))));
+                            WinRmToolResponse resp = ((WinRmMachineLocation)machineLocation).executeCommand(ImmutableList.copyOf((script.replace("\r", "").split("\n"))));
+                            if (resp.getStatusCode() != 0) {
+                                throw new IllegalStateException("Command 'Customizing node " + this + "' failed with exit code " + resp.getStatusCode() + " for location " + machineLocation);
+                            }
                         } else {
-                            ((SshMachineLocation)machineLocation).execCommands("Customizing node " + this, ImmutableList.of(script));
+                            executeCommandThrowingOnError(
+                                    (SshMachineLocation)machineLocation,
+                                    "Customizing node " + this,
+                                    ImmutableList.of(script));
                         }
                     }
                 }
@@ -880,7 +886,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     } else {
                         customisationForLogging.add("point /dev/random to urandom");
 
-                        ((SshMachineLocation)machineLocation).execCommands("using urandom instead of random",
+                        executeCommandThrowingOnError(
+                                (SshMachineLocation)machineLocation,
+                                "using urandom instead of random",
                                 Arrays.asList("sudo mv /dev/random /dev/random-real", "sudo ln -s /dev/urandom /dev/random"));
                     }
                 }
@@ -893,7 +901,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     } else {
                         customisationForLogging.add("configure hostname");
 
-                        ((SshMachineLocation)machineLocation).execCommands("Generate hostname " + node.getName(),
+                        executeCommandThrowingOnError(
+                                (SshMachineLocation)machineLocation,
+                                "Generate hostname " + node.getName(),
                                 Arrays.asList("sudo hostname " + node.getName(),
                                         "sudo sed -i \"s/HOSTNAME=.*/HOSTNAME=" + node.getName() + "/g\" /etc/sysconfig/network",
                                         "sudo bash -c \"echo 127.0.0.1   `hostname` >> /etc/hosts\"")
@@ -931,14 +941,23 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                             for (String rule : iptablesRules) {
                                 batch.add(rule);
                                 if (batch.size() == 50) {
-                                    ((SshMachineLocation)machineLocation).execCommands("Inserting iptables rules, 50 command batch", batch);
+                                    executeCommandWarningOnError(
+                                            (SshMachineLocation)machineLocation,
+                                            "Inserting iptables rules, 50 command batch",
+                                            batch);
                                     batch.clear();
                                 }
                             }
                             if (batch.size() > 0) {
-                                ((SshMachineLocation)machineLocation).execCommands("Inserting iptables rules", batch);
+                                executeCommandWarningOnError(
+                                        (SshMachineLocation)machineLocation,
+                                        "Inserting iptables rules",
+                                        batch);
                             }
-                            ((SshMachineLocation)machineLocation).execCommands("List iptables rules", ImmutableList.of(IptablesCommands.listIptablesRule()));
+                            executeCommandWarningOnError(
+                                    (SshMachineLocation)machineLocation,
+                                    "List iptables rules",
+                                    ImmutableList.of(IptablesCommands.listIptablesRule()));
                         }
                     }
                 }
@@ -957,7 +976,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                         } else {
                             cmds = ImmutableList.of(IptablesCommands.iptablesServiceStop(), IptablesCommands.iptablesServiceStatus());
                         }
-                        ((SshMachineLocation)machineLocation).execCommands("Stopping iptables", cmds);
+                        executeCommandWarningOnError(
+                                (SshMachineLocation)machineLocation,
+                                "Stopping iptables", cmds);
                     }
                 }
 
@@ -970,7 +991,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                         for (String keyUrl : extraKeyUrlsToAuth) {
                             extraKeyDataToAuth.add(ResourceUtils.create().getResourceAsString(keyUrl));
                         }
-                        ((SshMachineLocation)machineLocation).execCommands("Authorizing ssh keys",
+                        executeCommandThrowingOnError(
+                                (SshMachineLocation)machineLocation,
+                                "Authorizing ssh keys",
                                 ImmutableList.of(new AuthorizeRSAPublicKeys(extraKeyDataToAuth).render(org.jclouds.scriptbuilder.domain.OsFamily.UNIX)));
                     }
                 }
@@ -1058,6 +1081,24 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             }
 
             throw Exceptions.propagate(e);
+        }
+    }
+    
+    private void executeCommandThrowingOnError(SshMachineLocation loc, String name, List<String> commands) {
+        executeCommandThrowingOnError(ImmutableMap.<String, Object>of(), loc, name, commands);
+    }
+
+    private void executeCommandThrowingOnError(Map<String, Object> flags, SshMachineLocation loc, String name, List<String> commands) {
+        int ret = loc.execCommands(flags, name, commands);
+        if (ret != 0) {
+            throw new IllegalStateException("Command '" + name + "' failed with exit code " + ret + " for location " + loc);
+        }
+    }
+
+    private void executeCommandWarningOnError(SshMachineLocation loc, String name, List<String> commands) {
+        int ret = loc.execCommands(name, commands);
+        if (ret != 0) {
+            LOG.warn("Command '{}' failed with exit code {} for location {}", new Object[] {name, ret, this});
         }
     }
 
