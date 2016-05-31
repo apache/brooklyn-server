@@ -58,6 +58,7 @@ import org.apache.brooklyn.api.location.NoMachinesAvailableException;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.mgmt.AccessController;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.BrooklynVersion;
@@ -99,8 +100,13 @@ import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmToolResponse;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.core.task.DynamicTasks.TaskQueueingResult;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
+import org.apache.brooklyn.util.core.task.TaskInternal;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.core.task.ssh.SshTasks;
+import org.apache.brooklyn.util.core.task.system.ProcessTaskFactory;
+import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -882,17 +888,14 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 
                 Boolean dontRequireTtyForSudo = setup.get(JcloudsLocationConfig.DONT_REQUIRE_TTY_FOR_SUDO);
                 if (Boolean.TRUE.equals(dontRequireTtyForSudo) ||
-                        dontRequireTtyForSudo == null && setup.get(DONT_CREATE_USER)) {
+                        (dontRequireTtyForSudo == null && setup.get(DONT_CREATE_USER))) {
                     if (windows) {
                         LOG.warn("Ignoring flag DONT_REQUIRE_TTY_FOR_SUDO on Windows location {}", machineLocation);
                     } else {
                         customisationForLogging.add("patch /etc/sudoers to disable requiretty");
 
-                        executeCommandThrowingOnError(
-                                ImmutableMap.<String, Object>of(SshTool.PROP_ALLOCATE_PTY.getName(), true),
-                                (SshMachineLocation)machineLocation,
-                                "patch /etc/sudoers to disable requiretty",
-                                ImmutableList.of(BashCommands.dontRequireTtyForSudo()));
+                        queueLocationTask("patch /etc/sudoers to disable requiretty",
+                                SshTasks.dontRequireTtyForSudo((SshMachineLocation)machineLocation, true).newTask().asTask());
                     }
                 }
 
@@ -1105,14 +1108,41 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     }
 
     private void executeCommandThrowingOnError(Map<String, Object> flags, SshMachineLocation loc, String name, List<String> commands) {
-        int ret = loc.execCommands(flags, name, commands);
-        if (ret != 0) {
-            throw new IllegalStateException("Command '" + name + "' failed with exit code " + ret + " for location " + loc);
+        Task<Integer> task = SshTasks.newSshExecTaskFactory(loc, commands)
+            .summary(name)
+            .requiringExitCodeZero()
+            .configure(flags)
+            .newTask()
+            .asTask();
+        queueLocationTask("waiting for '" + name + "' on machine " + loc, task);
+    }
+
+    protected <T> T queueLocationTask(String msg, Task<T> task) {
+        TaskQueueingResult<T> queueResult = DynamicTasks.queueIfPossible(task);
+        final String origDetails = Tasks.setBlockingDetails(msg);
+        try {
+            if(queueResult.isQueuedOrSubmitted()){
+                return task.getUnchecked();
+            } else {
+                // TODO Should we add an `orExecuteInSameThread()` in `TaskQueueingResult`?
+                try {
+                    return ((TaskInternal<T>)task).getJob().call();
+                } catch (Exception e) {
+                    throw Exceptions.propagate(e);
+                }
+            }
+        } finally {
+            Tasks.setBlockingDetails(origDetails);
         }
     }
 
     private void executeCommandWarningOnError(SshMachineLocation loc, String name, List<String> commands) {
-        int ret = loc.execCommands(name, commands);
+        Task<Integer> task = SshTasks.newSshExecTaskFactory(loc, commands)
+            .summary(name)
+            .allowingNonZeroExitCode()
+            .newTask()
+            .asTask();
+        int ret = queueLocationTask("waiting for '" + name + "' on machine " + loc, task);
         if (ret != 0) {
             LOG.warn("Command '{}' failed with exit code {} for location {}", new Object[] {name, ret, this});
         }

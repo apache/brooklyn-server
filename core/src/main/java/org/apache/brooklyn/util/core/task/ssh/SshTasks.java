@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.util.core.task.ssh;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 import javax.annotation.Nullable;
@@ -71,12 +73,20 @@ import com.google.common.collect.Maps;
 public class SshTasks {
 
     private static final Logger log = LoggerFactory.getLogger(SshTasks.class);
-        
+
     public static ProcessTaskFactory<Integer> newSshExecTaskFactory(SshMachineLocation machine, String ...commands) {
+        return newSshExecTaskFactory(machine,  Arrays.asList(commands));
+    }
+
+    public static ProcessTaskFactory<Integer> newSshExecTaskFactory(SshMachineLocation machine, final boolean useMachineConfig, String ...commands) {
+        return newSshExecTaskFactory(machine, useMachineConfig, Arrays.asList(commands));
+    }
+
+    public static ProcessTaskFactory<Integer> newSshExecTaskFactory(SshMachineLocation machine, List<String> commands) {
         return newSshExecTaskFactory(machine, true, commands);
     }
-    
-    public static ProcessTaskFactory<Integer> newSshExecTaskFactory(SshMachineLocation machine, final boolean useMachineConfig, String ...commands) {
+
+    public static ProcessTaskFactory<Integer> newSshExecTaskFactory(SshMachineLocation machine, final boolean useMachineConfig, List<String> commands) {
         return new PlainSshExecTaskFactory<Integer>(machine, commands) {
             {
                 if (useMachineConfig)
@@ -167,7 +177,7 @@ public class SshTasks {
                 BashCommands.dontRequireTtyForSudo(),
                 // strange quotes are to ensure we don't match against echoed stdin
                 BashCommands.sudo("echo \"sudo\"-is-working-"+id))
-            .summary("setting up sudo")
+            .summary("patch /etc/sudoers to disable requiretty")
             .configure(SshTool.PROP_ALLOCATE_PTY, true)
             .allowingNonZeroExitCode()
             .returning(new Function<ProcessTaskWrapper<?>,Boolean>() { public Boolean apply(ProcessTaskWrapper<?> task) {
