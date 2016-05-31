@@ -32,6 +32,7 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -73,7 +74,9 @@ public class EntityManagementUtils {
      * it will be unwrapped. 
      * See {@link #newWrapperApp()} and {@link #unwrapApplication(EntitySpec)}.
      */
-    public static final ConfigKey<Boolean> WRAPPER_APP_MARKER = ConfigKeys.newBooleanConfigKey("brooklyn.wrapper_app");
+    public static final ConfigKey<Boolean> WRAPPER_APP_MARKER = ConfigKeys.builder(Boolean.class, "brooklyn.wrapper_app")
+            .inheritance(ConfigInheritance.NONE)
+            .build();
 
     /** creates an application from the given app spec, managed by the given management context */
     public static <T extends Application> T createUnstarted(ManagementContext mgmt, EntitySpec<T> spec) {

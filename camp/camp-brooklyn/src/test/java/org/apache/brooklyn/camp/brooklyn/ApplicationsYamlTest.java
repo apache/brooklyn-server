@@ -232,6 +232,25 @@ public class ApplicationsYamlTest extends AbstractYamlTest {
         assertDoesNotWrap(app, BasicApplication.class, "catalogServiceLevel");
     }
 
+    @Test
+    public void testUnwrappedChildNotTagged() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  id: simple",
+                "  version: " + TEST_VERSION,
+                "  item:",
+                "    type: " + BasicEntity.class.getName());
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: simple:" + TEST_VERSION);
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        assertNull(entity.getConfig(EntityManagementUtils.WRAPPER_APP_MARKER));
+        // Note that "brooklyn.wrapper_app" will still make it into 
+        //   ((EntityInternal) entity).config().getBag().getAllConfigAsConfigKeyMap();
+        // so the UI will still show the marker as inherited by the entity.
+
+    }
+
     // FIXME Fails with name "My App 1" rather than the overridden value. 
     // See discussion in https://issues.apache.org/jira/browse/BROOKLYN-248
     @Test(groups="WIP")
