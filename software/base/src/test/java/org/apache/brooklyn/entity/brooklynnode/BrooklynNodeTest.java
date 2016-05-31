@@ -149,8 +149,8 @@ public class BrooklynNodeTest {
     @Test(groups = "Integration")
     public void testOpenHttpConsoleWebPort() throws Exception {
 
-        BrooklynNodeWitOpenedPorts brooklynNode = app.createAndManageChild(
-                EntitySpec.create(BrooklynNodeWitOpenedPorts.class)
+        BrooklynNodeWithOpenedPorts brooklynNode = app.createAndManageChild(
+                EntitySpec.create(BrooklynNodeWithOpenedPorts.class)
                         .configure(BrooklynNode.ON_EXISTING_PROPERTIES_FILE, BrooklynNode.ExistingFileBehaviour.DO_NOT_USE)
                         .configure(BrooklynNode.NO_WEB_CONSOLE_AUTHENTICATION, true)
                         .configure(BrooklynNode.HTTP_PORT, PortRanges.fromString("8082+")));
@@ -160,7 +160,6 @@ public class BrooklynNodeTest {
 
         log.info("started " + app + " containing " + brooklynNode + " for " + JavaClassNames.niceClassAndMethod());
 
-        //EntityTestUtils.assertAttributeEqualsEventually(brooklynNode, BrooklynNode.SERVICE_UP, true);
         EntityAsserts.assertAttributeEqualsEventually(brooklynNode, BrooklynNode.SERVICE_UP, true);
         assertTrue(brooklynNode.getRequiredOpenPorts().contains(8082));
 
@@ -168,16 +167,16 @@ public class BrooklynNodeTest {
         EntityAsserts.assertAttributeEquals(brooklynNode, BrooklynNode.SERVICE_UP, false);
     }
 
-    @ImplementedBy(BrooklynNodeWitOpenedPortsImpl.class)
-    public interface BrooklynNodeWitOpenedPorts extends BrooklynNode {
+    @ImplementedBy(BrooklynNodeWithOpenedPortsImpl.class)
+    public interface BrooklynNodeWithOpenedPorts extends BrooklynNode {
 
         public Collection<Integer> getRequiredOpenPorts();
     }
 
-    public static class BrooklynNodeWitOpenedPortsImpl extends BrooklynNodeImpl
-            implements BrooklynNodeWitOpenedPorts {
+    public static class BrooklynNodeWithOpenedPortsImpl extends BrooklynNodeImpl
+            implements BrooklynNodeWithOpenedPorts {
 
-        public BrooklynNodeWitOpenedPortsImpl() {
+        public BrooklynNodeWithOpenedPortsImpl() {
             super();
         }
 

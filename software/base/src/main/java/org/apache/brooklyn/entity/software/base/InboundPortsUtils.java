@@ -27,13 +27,13 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.reflect.TypeToken;
@@ -82,7 +82,7 @@ public class InboundPortsUtils {
             Set<ConfigKey<?>> configKeys = Sets.newHashSet(extraConfigKeys);
             configKeys.addAll(entity.getEntityType().getConfigKeys());
             // Also add dynamically added config keys
-            Map<ConfigKey<?>, ?> configuredConfigKeys = ImmutableMap.copyOf(((EntityInternal) entity).config().getBag().getAllConfigAsConfigKeyMap());
+            Map<ConfigKey<?>, ?> configuredConfigKeys = MutableMap.copyOf(((EntityInternal) entity).config().getBag().getAllConfigAsConfigKeyMap());
             configKeys.addAll(configuredConfigKeys.keySet());
 
             if (portRegex == null) {

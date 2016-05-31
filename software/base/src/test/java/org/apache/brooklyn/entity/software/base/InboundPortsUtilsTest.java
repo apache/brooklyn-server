@@ -54,14 +54,17 @@ public class InboundPortsUtilsTest extends BrooklynAppUnitTestSupport {
         PortAttributeSensorAndConfigKey newTestConfigKeyPort = ConfigKeys.newPortSensorAndConfigKey("new.test.config.port.string.first", "port", "7777+");
         PortAttributeSensorAndConfigKey newTestConfigKeyPort2 = ConfigKeys.newPortSensorAndConfigKey("new.test.config.port.string.second", "port");
 
+        ConfigKey<Object> newTestConfigKeyObject = ConfigKeys.newConfigKey(Object.class, "new.test.config.object");
         ConfigKey<String> newTestConfigKeyString = ConfigKeys.newStringConfigKey("new.test.config.key.string");
         entity.config().set(newTestConfigKeyPort, PortRanges.fromString("8888+"));
         entity.config().set(newTestConfigKeyPort2, PortRanges.fromInteger(9999));
+        entity.config().set(newTestConfigKeyObject, PortRanges.fromInteger(2222));
         entity.config().set(newTestConfigKeyString, "foo.bar");
 
         Collection<Integer> dynamicRequiredOpenPorts = InboundPortsUtils.getRequiredOpenPorts(entity, ImmutableSet.<ConfigKey<?>>of(), true, null);
         Assert.assertTrue(dynamicRequiredOpenPorts.contains(8888));
         Assert.assertTrue(dynamicRequiredOpenPorts.contains(9999));
+        Assert.assertTrue(dynamicRequiredOpenPorts.contains(2222));
     }
 
 
