@@ -48,7 +48,11 @@ public class Durations {
                     Thread.yield();
                     Thread.sleep(0, 1);
                 }
-                return Maybe.absent("Task "+t+" not completed when immediate completion requested");
+                if (t.isDone()) {
+                    return Maybe.of(t.get());
+                } else {
+                    return Maybe.absent("Task "+t+" not completed when immediate completion requested");
+                }
             }
             return Maybe.of(t.get(timeout.toMilliseconds(), TimeUnit.MILLISECONDS));
         } catch (TimeoutException e) {
