@@ -17,9 +17,10 @@ brooklyn.catalog:
   # identity: /Users/duncangrant/.docker/machine/machines/manager/server.pem
   # credential: /Users/duncangrant/.docker/machine/machines/manager/server-key.pem
   # imageId: sha256:90d5884b1ee07f7f791f51bab92933943c87357bcd2fa6be0e82c48411bbb653
-  # waitForSshable: false
-  # templateOptions:
-  # entrypoint: ["/bin/bash", "-c", "while true; do sleep 10; done"]
+  # loginUser: root
+  # oginUser.password: p4ssw0rd
+  # nbox.base.dir: /tmp
+
   #
   ##
   - id: docker-swarm-test
@@ -33,9 +34,6 @@ brooklyn.catalog:
         brooklyn.config:
           onbox.base.dir.skipResolution: true
           sshMonitoring.enabled: false
-          provisioning.properties:
-            useJcloudsSshInit: false
-            waitForSshable: false
 
       - type: org.apache.brooklyn.test.framework.TestCase
         brooklyn.config:
@@ -53,6 +51,15 @@ brooklyn.catalog:
             sensor: service.state
             assert:
             - matches: running
+          # Can ssh
+          - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+            command: echo hello-world
+            assertStatus:
+              equals: 0
+            assertOut:
+              contains: hello-world
+            assertErr:
+              isEmpty: true
 
 
 
