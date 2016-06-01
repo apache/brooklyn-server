@@ -64,7 +64,23 @@ public class LoadBalancingPolicyConcurrencyTest extends AbstractLoadBalancingPol
         super.after();
     }
     
-    @Test
+    /**
+     * TODO BROOKLYN-272, Disabled, because fails non-deterministically in jenkins (brooklyn-master-build #223):
+     * 
+     * testSimplePeriodicWorkrateUpdates(org.apache.brooklyn.policy.loadbalancing.LoadBalancingPolicyConcurrencyTest)  Time elapsed: 11.237 sec  <<< FAILURE!
+     * org.apache.brooklyn.util.exceptions.PropagatedRuntimeException: failed succeeds-eventually, 29 attempts, 10002ms elapsed: AssertionError: actual=[20.0, 20.0, 21.0, 20.0, 0.0, 21.0, 21.0, 20.0, 20.0, 20.0, 19.0, 19.0, 19.0, 36.0, 21.0, 21.0, 20.0, 19.0, 20.0, 21.0]; expected=[20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0] expected [20.0] but found [0.0]
+     *     at org.testng.Assert.fail(Assert.java:94)
+     *     at org.testng.Assert.failNotEquals(Assert.java:494)
+     *     at org.testng.Assert.assertEquals(Assert.java:207)
+     *     at org.apache.brooklyn.policy.loadbalancing.AbstractLoadBalancingPolicyTest.assertWorkrates(AbstractLoadBalancingPolicyTest.java:122)
+     *     at org.apache.brooklyn.policy.loadbalancing.AbstractLoadBalancingPolicyTest$2.run(AbstractLoadBalancingPolicyTest.java:138)
+     *     at org.apache.brooklyn.test.Asserts$RunnableAdapter.call(Asserts.java:1277)
+     *     at org.apache.brooklyn.test.Asserts.succeedsEventually(Asserts.java:930)
+     *     at org.apache.brooklyn.test.Asserts.succeedsEventually(Asserts.java:854)
+     *     at org.apache.brooklyn.policy.loadbalancing.AbstractLoadBalancingPolicyTest.assertWorkratesEventually(AbstractLoadBalancingPolicyTest.java:136)
+     *     at org.apache.brooklyn.policy.loadbalancing.LoadBalancingPolicyConcurrencyTest.testSimplePeriodicWorkrateUpdates(LoadBalancingPolicyConcurrencyTest.java:79)
+     */
+    @Test(groups="Broken")
     public void testSimplePeriodicWorkrateUpdates() {
         List<MockItemEntity> items = Lists.newArrayList();
         List<MockContainerEntity> containers = Lists.newArrayList();
@@ -144,8 +160,9 @@ public class LoadBalancingPolicyConcurrencyTest extends AbstractLoadBalancingPol
         assertWorkratesEventually(containers, items, Collections.nCopies(NUM_CONTAINERS, 20d), WORKRATE_JITTER);
     }
     
-    // TODO Got IndexOutOfBoundsException from containers.last()
-    @Test(groups="WIP", invocationCount=100)
+    // TODO Got IndexOutOfBoundsException from containers.last().
+    // Changed test group from "WIP" to "Broken".
+    @Test(groups="Broken")
     public void testConcurrentlyRemoveContainers() {
         List<MockItemEntity> items = Lists.newArrayList();
         final List<MockContainerEntity> containers = Lists.newArrayList();
