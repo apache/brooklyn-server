@@ -1,0 +1,373 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.brooklyn.core.location.access;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.util.Collection;
+
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.MachineLocation;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.SensorEvent;
+import org.apache.brooklyn.api.sensor.SensorEventListener;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.enricher.AbstractEnricher;
+import org.apache.brooklyn.core.entity.AbstractEntity;
+import org.apache.brooklyn.core.location.Machines;
+import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.net.Networking;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.annotations.Beta;
+import com.google.common.base.Predicates;
+import com.google.common.collect.Lists;
+import com.google.common.net.HostAndPort;
+import com.google.common.reflect.TypeToken;
+
+/**
+ * Can be added to an entity so that it advertises its mapped ports (according to the port-mappings
+ * recorded in the PortForwardManager). This can be used with sensors of type URI, HostAndPort
+ * or plain integer port values. The port-mappings is retrieved by looking up the entity's machine
+ * and the private port, in the PortForwardManager's recorded port-mappings.
+ * 
+ * For example, to configure each Tomcat node to publish its mapped uri, and to use that sensor
+ * in Nginx for the target servers:
+ * <pre>
+ * {@code
+ * services:
+ * - type: cluster
+ *   id: cluster
+ *   brooklyn.config:
+ *    memberSpec:
+ *      $brooklyn:entitySpec:
+ *        type: org.apache.brooklyn.entity.webapp.tomcat.TomcatServer
+ *        brooklyn.enrichers:
+ *        - type: org.apache.brooklyn.core.location.access.PublicNetworkFaceEnricher
+ *          brooklyn.config:
+ *            sensor: main.uri
+ * - type: org.apache.brooklyn.entity.proxy.nginx.NginxController
+ *   brooklyn.config:
+ *     member.sensor.hostandport: $brooklyn:sensor("main.uri.mapped.public")
+ *     serverPool: cluster
+ * }
+ * </pre>
+ */
+@Beta
+public class PublicNetworkFaceEnricher extends AbstractEnricher {
+
+    // TODO Is this the best package for the enricher?
+    //
+    // TODO Need more logging, particularly for when the value has *not* been transformed.
+    //
+    // TODO What if the sensor has an unrelated hostname - we will currently still transform this!
+    // That seems acceptable: if the user configures it to look at the sensor, then we can make
+    // assumptions that the sensor's value will need translated.
+    //
+    // TODO If there is no port-mapping, should we advertise the original sensor value?
+    // That would allow the enricher to be used for an entity in a private network, and for
+    // it to be a no-op in a public cloud (so the same blueprint can be used in both). 
+    // However I don't think we should publish the original value: it could be the association
+    // just hasn't been created yet. If we publish the wrong (i.e. untransformed) value, that
+    // will cause other entity's using attributeWhenReady to immediately trigger.
+
+    private static final Logger LOG = LoggerFactory.getLogger(PublicNetworkFaceEnricher.class);
+
+    @SuppressWarnings("serial")
+    public static final ConfigKey<AttributeSensor<?>> SENSOR = ConfigKeys.newConfigKey(
+            new TypeToken<AttributeSensor<?>>() {}, 
+            "sensor",
+            "The sensor whose mapped value is to be re-published (with suffix \"mapped.public\"); "
+                    + "either 'sensor' or 'sensors' should be specified");
+
+    @SuppressWarnings("serial")
+    public static ConfigKey<Collection<? extends AttributeSensor<?>>> SENSORS = ConfigKeys.newConfigKey(
+            new TypeToken<Collection<? extends AttributeSensor<?>>>() {}, 
+            "sensors",
+            "The multiple sensors whose mapped values are to be re-published (with suffix \"mapped.public\"); "
+                    + "either 'sensor' or 'sensors' should be specified");
+
+    public static final ConfigKey<PortForwardManager> PORT_FORWARD_MANAGER = ConfigKeys.newConfigKey(
+            PortForwardManager.class, 
+            "portForwardManager",
+            "The PortForwardManager storing the port-mappings; if null, the global instance will be used");
+    
+    protected Collection<AttributeSensor<?>> sensors;
+    protected PortForwardManager.AssociationListener listener;
+    
+    @Override
+    public void setEntity(final EntityLocal entity) {
+        super.setEntity(entity);
+        
+        sensors = resolveSensorsConfig();
+
+        /*
+         * To find the transformed sensor value we need several things to be set. Therefore 
+         * subscribe to all of them, and re-compute whenever any of the change. These are:
+         *  - A port-mapping to exist for the relevant machine + private port.
+         *  - The entity to have a machine location (so we can lookup the mapped port association).
+         *  - The relevant sensors to have a value, which includes the private port.
+         */
+        listener = new PortForwardManager.AssociationListener() {
+            @Override
+            public void onAssociationCreated(PortForwardManager.AssociationMetadata metadata) {
+                Maybe<MachineLocation> machine = getMachine();
+                if (!(machine.isPresent() && machine.get().equals(metadata.getLocation()))) {
+                    // not related to this entity's machine; ignoring
+                    return;
+                }
+                
+                LOG.debug("{} attempting transformations, triggered by port-association {}, with machine {} of entity {}", 
+                        new Object[] {PublicNetworkFaceEnricher.this, metadata, machine.get(), entity});
+                tryTransformAll();
+            }
+            @Override
+            public void onAssociationDeleted(PortForwardManager.AssociationMetadata metadata) {
+                // no-op
+            }
+        };
+        getPortForwardManager().addAssociationListener(listener, Predicates.alwaysTrue());
+        
+        subscriptions().subscribe(entity, AbstractEntity.LOCATION_ADDED, new SensorEventListener<Location>() {
+            @Override public void onEvent(SensorEvent<Location> event) {
+                LOG.debug("{} attempting transformations, triggered by location-added {}, to {}", new Object[] {PublicNetworkFaceEnricher.this, event.getValue(), entity});
+                tryTransformAll();
+            }});
+
+        for (AttributeSensor<?> sensor : sensors) {
+            subscriptions().subscribe(entity, sensor, new SensorEventListener<Object>() {
+                @Override public void onEvent(SensorEvent<Object> event) {
+                    LOG.debug("{} attempting transformations, triggered by sensor-event {}->{}, to {}", 
+                            new Object[] {PublicNetworkFaceEnricher.this, event.getSensor().getName(), event.getValue(), entity});
+                    tryTransform((AttributeSensor<?>)event.getSensor());
+                }});
+        }
+
+        tryTransformAll();
+    }
+
+    @Override
+    public void destroy() {
+        try {
+            if (listener != null) {
+                getPortForwardManager().removeAssociationListener(listener);
+            }
+        } finally {
+            super.destroy();
+        }
+    }
+
+    protected void tryTransformAll() {
+        Maybe<MachineLocation> machine = getMachine();
+        if (machine.isAbsent()) {
+            return;
+        }
+        for (AttributeSensor<?> sensor : sensors) {
+            try {
+                tryTransform(machine.get(), sensor);
+            } catch (Exception e) {
+                // TODO Avoid repeated logging
+                Exceptions.propagateIfFatal(e);
+                LOG.warn("Problem transforming sensor "+sensor+" of "+entity, e);
+            }
+        }
+    }
+
+    protected void tryTransform(AttributeSensor<?> sensor) {
+        Maybe<MachineLocation> machine = getMachine();
+        if (machine.isAbsent()) {
+            return;
+        }
+        tryTransform(machine.get(), sensor);
+    }
+    
+    protected void tryTransform(MachineLocation machine, AttributeSensor<?> sensor) {
+        Object sensorVal = entity.sensors().get(sensor);
+        if (sensorVal == null) {
+            return;
+        }
+        Maybe<String> newVal = transformVal(machine, sensor, sensorVal);
+        if (newVal.isAbsent()) {
+            return;
+        }
+        AttributeSensor<String> mappedSensor = Sensors.newStringSensor(sensor.getName()+".mapped.public");
+        if (newVal.get().equals(entity.sensors().get(mappedSensor))) {
+            // ignore duplicate
+            return;
+        }
+        LOG.debug("{} publishing value {} for transformed sensor {}, of entity {}", 
+                new Object[] {this, newVal.get(), sensor, entity});
+        entity.sensors().set(mappedSensor, newVal.get());
+    }
+    
+    protected Maybe<String> transformVal(MachineLocation machine, AttributeSensor<?> sensor, Object sensorVal) {
+        if (sensorVal == null) {
+            return Maybe.absent();
+        } else if (isPort(sensorVal)) {
+            int port = toInteger(sensorVal);
+            return transformPort(entity, machine, port);
+        } else if (isUri(sensorVal)) {
+            return transformUri(entity, machine, sensorVal.toString());
+        } else if (isHostAndPort(sensorVal)) {
+            return transformHostAndPort(entity, machine, sensorVal.toString());
+        } else {
+            // no-op; unrecognised type
+            return Maybe.absent();
+        }
+    }
+
+    protected boolean isUri(Object sensorVal) {
+        if (sensorVal instanceof URI || sensorVal instanceof URL) {
+            return true;
+        }
+        try {
+            new URI(sensorVal.toString());
+            return true;
+        } catch (URISyntaxException e) {
+            return false;
+        }
+    }
+
+    protected boolean isPort(Object sensorVal) {
+        return (sensorVal instanceof Integer || sensorVal instanceof Long || sensorVal instanceof Short);
+    }
+
+    protected int toInteger(Object sensorVal) {
+        if (sensorVal instanceof Number) {
+            return ((Number)sensorVal).intValue();
+        } else {
+            throw new IllegalArgumentException("Expected number but got "+sensorVal+" of type "+(sensorVal != null ? sensorVal.getClass() : null));
+        }
+    }
+
+    protected boolean isHostAndPort(Object sensorVal) {
+        if (sensorVal instanceof HostAndPort) {
+            return true;
+        } else if (sensorVal instanceof String) {
+            try {
+                HostAndPort hostAndPort = HostAndPort.fromString((String)sensorVal);
+                return hostAndPort.hasPort();
+            } catch (IllegalArgumentException e) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    protected Maybe<String> transformUri(Entity source, MachineLocation machine, String sensorVal) {
+        URI uri = URI.create(sensorVal);
+        int port = uri.getPort();
+        if (port == -1 && "http".equalsIgnoreCase(uri.getScheme())) port = 80;
+        if (port == -1 && "https".equalsIgnoreCase(uri.getScheme())) port = 443;
+
+        if (port != -1) {
+            HostAndPort publicTarget = getPortForwardManager().lookup(machine, port);
+            if (publicTarget == null) {
+                // TODO What if publicTarget is still null, but will be set soon? We're not subscribed to changes in the PortForwardManager!
+                // TODO Should we return null or sensorVal? In this method we always return sensorVal;
+                //      but in HostAndPortTransformingEnricher we always return null!
+                LOG.trace("network-facing enricher not transforming {} URI {}, because no port-mapping for {}", new Object[] {source, sensorVal, machine});
+                return Maybe.absent();
+            }
+            URI result;
+            try {
+                result = new URI(uri.getScheme(), uri.getUserInfo(), publicTarget.getHostText(), publicTarget.getPort(), uri.getPath(), uri.getQuery(), uri.getFragment());
+            } catch (URISyntaxException e) {
+                LOG.debug("Error transforming URI "+uri+", using target "+publicTarget+"; rethrowing");
+                throw Exceptions.propagateAnnotated("Error transforming URI "+uri+", using target "+publicTarget, e);
+            }
+            return Maybe.of(result.toString());
+        } else {
+            LOG.debug("sensor mapper not transforming URI "+uri+" because no port defined");
+            return Maybe.absent();
+        }
+    }
+
+    protected Maybe<String> transformHostAndPort(Entity source, MachineLocation machine, String sensorVal) {
+        HostAndPort hostAndPort = HostAndPort.fromString(sensorVal);
+        if (hostAndPort.hasPort()) {
+            int port = hostAndPort.getPort();
+            HostAndPort publicTarget = getPortForwardManager().lookup(machine, port);
+            if (publicTarget == null) {
+                LOG.debug("network-facing enricher not transforming {} host-and-port {}, because no port-mapping for {}", new Object[] {source, sensorVal, machine});
+                return Maybe.absent();
+            }
+            return Maybe.of(publicTarget.toString());
+        } else {
+            LOG.debug("network-facing enricher not transforming {} host-and-port {} because defines no port", source, hostAndPort);
+            return Maybe.absent();
+        }
+    }
+
+    protected Maybe<String> transformPort(Entity source, MachineLocation machine, int sensorVal) {
+        if (Networking.isPortValid(sensorVal)) {
+            HostAndPort publicTarget = getPortForwardManager().lookup(machine, sensorVal);
+            if (publicTarget == null) {
+                LOG.debug("network-facing enricher not transforming {} host-and-port {}, because no port-mapping for {}", new Object[] {source, sensorVal, machine});
+                return Maybe.absent();
+            }
+            return Maybe.of(publicTarget.toString());
+        } else {
+            LOG.debug("network-facing enricher not transforming {} port {} because not a valid port", source, sensorVal);
+            return Maybe.absent();
+        }
+    }
+
+    protected Maybe<MachineLocation> getMachine() {
+        return Machines.findUniqueMachineLocation(entity.getLocations());
+    }
+    
+    protected PortForwardManager getPortForwardManager() {
+        PortForwardManager portForwardManager = config().get(PORT_FORWARD_MANAGER);
+        if (portForwardManager == null) {
+            portForwardManager = (PortForwardManager) getManagementContext().getLocationRegistry().getLocationManaged("portForwardManager(scope=global)");
+        }
+        return portForwardManager;
+    }
+
+    protected Collection<AttributeSensor<?>> resolveSensorsConfig() {
+        AttributeSensor<?> sensor = getConfig(SENSOR);
+        Collection<? extends AttributeSensor<?>> sensors = getConfig(SENSORS);
+
+        if (!(sensor == null ^ (sensors == null || sensors.isEmpty()))) {
+            throw new IllegalStateException(this+" requires one of sensor or sensors config");
+        }
+        Collection<AttributeSensor<?>> result = Lists.newArrayList();
+        if (sensor != null) {
+            AttributeSensor<?> typedSensor = (AttributeSensor<?>) entity.getEntityType().getSensor(sensor.getName());
+            result.add(typedSensor != null ? typedSensor : sensor);
+        }
+        if (sensors != null) {
+            for (Object s : sensors) {
+                AttributeSensor<?> coercedSensor = TypeCoercions.coerce(s, AttributeSensor.class);
+                AttributeSensor<?> typedSensor = (AttributeSensor<?>) entity.getEntityType().getSensor(coercedSensor.getName());
+                result.add(typedSensor != null ? typedSensor : sensor);
+            }
+        }
+        return result;
+    }
+}
