@@ -1,0 +1,158 @@
+# To test stop effector:
+# services:
+# - type: test-container-stop
+#
+# To test stop cleanup:
+# services:
+# - type: test-container-clean-up
+brooklyn.catalog:
+  version: 2.0.0-SNAPSHOT
+  items:
+### Location templates ###
+#  # Add a location named "location-container" based on this one
+#  - id: location-container-template
+#    itemType: location
+#    item:
+#      type: jclouds:docker
+#      brooklyn.config:
+#        endpoint: https://10.102.2.XXX:3376
+#        identity: <path to>/cert.pem
+#        credential: <path to>/key.pem
+#        # TODO needs "docker pull image" against the swarm master before deployment
+#        imageDescriptionRegex: ubuntu:14.04
+#        waitForSshable: false
+#  # Add a location named "location-swarm-master" based on this one
+#  - id: location-swarm-master-template
+#    itemType: location
+#    item:
+#      type: byon
+#      brooklyn.config:
+#        hosts: ["10.102.2.XXX"]
+#        user: jenkins
+#        privateKeyFile: ~/.ssh/id_rsa
+### Entities under test ###
+  - id: container
+    item:
+      type: org.apache.brooklyn.entity.software.base.EmptySoftwareProcess
+      id: container
+      # Disable SSHing from the entity
+      brooklyn.config:
+        onbox.base.dir.skipResolution: true
+        sshMonitoring.enabled: false
+  - id: swarm-master
+    item:
+      type: org.apache.brooklyn.entity.machine.MachineEntity
+      id: swarm-master
+      brooklyn.parameters:
+      - name: swarm.port
+        default: 3376
+      # Have a copy of the container IP so we have it around when it's stopped.
+      brooklyn.initializers:
+        - type: org.apache.brooklyn.core.sensor.StaticSensor
+          brooklyn.config:
+            static.value: $brooklyn:entity("container").attributeWhenReady("host.subnet.address")
+            name: container.ip
+      location: location-swarm-master
+### Test Cases ###
+  - id: assert-up
+    item:
+      name: TEST [service.isUp] IS [true]
+      type: org.apache.brooklyn.test.framework.TestSensor
+      sensor: service.isUp
+      assert:
+      - equals: true
+  - id: assert-not-up
+    item:
+      name: TEST [service.isUp] IS [false]
+      type: org.apache.brooklyn.test.framework.TestSensor
+      sensor: service.isUp
+      assert:
+      - equals: false
+  - id: test-stop
+    item:
+      name: Invoke [stop] effector
+      type: org.apache.brooklyn.test.framework.TestEffector
+      effector: stop
+  - id: wait-for-container-ip
+    item:
+      name: TEST [container.ip] [exists]
+      description: Make sure we have an eagerly evaluated container ip, before we stop the container
+      type: org.apache.brooklyn.test.framework.TestSensor
+      sensor: container.ip
+      targetId: swarm-master
+      assert:
+      - notNull: true
+  - id: assert-container-destroyed
+    item:
+      name: Assert container is destroyed
+      type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+      targetId: swarm-master
+      command:
+        # TODO Assumes there's only one docker node in the swarm so that bridge IPs are global to the swarm
+        $brooklyn:formatString:
+        - >
+          DOCKER_HOST=%s:%s
+          docker ps -a --format '{{ .ID }}' |
+            xargs -n1 docker inspect --format '{{ .NetworkSettings.IPAddress }}' |
+            grep %s
+        - $brooklyn:entity("swarm-master").attributeWhenReady("host.address")
+        - $brooklyn:entity("swarm-master").config("swarm.port")
+        - $brooklyn:entity("swarm-master").attributeWhenReady("container.ip")
+      assertStatus:
+        - equals: 1
+  - id: wait-for-dd
+    item:
+      name: Wait for dd to complete
+      type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+      targetId: swarm-master
+      command: 
+        $brooklyn:formatString:
+        - >
+          export DOCKER_HOST=%s:%s;
+          export CONTAINER_IP=%s;
+          export CONTAINER_ID=$(docker ps -a --format '{{ .ID }}' |
+            xargs -n1 docker inspect --format '{{ .Id }}    {{.NetworkSettings.IPAddress}}' |
+            grep $CONTAINER_IP | cut -f1 -d' ' | head -n1);
+          ! docker exec $CONTAINER_ID ps | grep dd
+        - $brooklyn:entity("swarm-master").attributeWhenReady("host.address")
+        - $brooklyn:entity("swarm-master").config("swarm.port")
+        - $brooklyn:entity("swarm-master").attributeWhenReady("container.ip")
+  - id: asserts-container-stop
+    item:
+      type: org.apache.brooklyn.test.framework.TestCase
+      targetId: container
+      brooklyn.config:
+        timeout: 1m
+      brooklyn.children:
+      - type: assert-up
+        brooklyn.config:
+          timeout: 10m
+      - type: test-stop
+      - type: assert-container-destroyed
+### Test Suite ###
+  - id: test-container-stop
+    item:
+      name: Jclouds docker provider release test
+      type: org.apache.brooklyn.test.framework.TestCase
+      brooklyn.children:
+      - type: container
+        location: location-container
+        provisioning.properties:
+          templateOptions:
+            entrypoint: ["/bin/bash", "-c", "while true; do sleep 10; done"]
+      - type: swarm-master
+      - type: wait-for-container-ip
+      - type: asserts-container-stop
+  - id: test-container-clean-up
+    item:
+      name: Jclouds docker provider clean up test
+      type: org.apache.brooklyn.test.framework.TestCase
+      brooklyn.children:
+      - type: container
+        location: location-container
+        provisioning.properties:
+          templateOptions:
+            entrypoint: ["/bin/bash", "-c", "dd if=/dev/zero of=5g.img bs=1 count=0 seek=5G; while true; do sleep 10; done"]
+      - type: swarm-master
+      - type: wait-for-container-ip
+      - type: wait-for-dd
