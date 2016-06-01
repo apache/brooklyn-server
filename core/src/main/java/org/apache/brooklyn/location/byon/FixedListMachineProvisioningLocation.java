@@ -54,6 +54,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -80,6 +81,7 @@ implements MachineProvisioningLocation<T>, Closeable {
     
     private static final Logger log = LoggerFactory.getLogger(FixedListMachineProvisioningLocation.class);
     
+    @SuppressWarnings("serial")
     public static final ConfigKey<Function<Iterable<? extends MachineLocation>, MachineLocation>> MACHINE_CHOOSER =
             ConfigKeys.newConfigKey(
                     new TypeToken<Function<Iterable<? extends MachineLocation>, MachineLocation>>() {}, 
@@ -103,10 +105,29 @@ implements MachineProvisioningLocation<T>, Closeable {
     @Beta
     @SuppressWarnings("serial")
     public static final ConfigKey<List<LocationSpec<? extends MachineLocation>>> MACHINE_SPECS = ConfigKeys.newConfigKey(
-                    new TypeToken<List<LocationSpec<? extends MachineLocation>>>() {}, 
-                    "byon.machineSpecs",
-                    "Specs of machines that should be immediatly instantiated on init",
-                    ImmutableList.<LocationSpec<? extends MachineLocation>>of());
+            new TypeToken<List<LocationSpec<? extends MachineLocation>>>() {}, 
+            "byon.machineSpecs",
+            "Specs of machines that should be immediately instantiated on init",
+            ImmutableList.<LocationSpec<? extends MachineLocation>>of());
+
+    /**
+     * The initialMachinesFactory allows {@code JcloudsByonLocationResolver} to work, to defer 
+     * instantiating the {@code JcloudsLocation} and the {@code JcloudsMachineLocation} instances.
+     * (Important because the caller might not use the spec and thus might not unmanage the machine 
+     * instances).
+     * 
+     * We clear the initialMachinesFactory in init, so they will never be persisted. This will help 
+     * with backwards compatibility if we change how this is done.
+     * 
+     * By the end of init(), the {@link #machines} will contain the full list of locations.
+     */
+    @Beta
+    @SuppressWarnings("serial")
+    public static final ConfigKey<Supplier<? extends List<? extends MachineLocation>>> INITIAL_MACHINES_FACTORY = ConfigKeys.newConfigKey(
+            new TypeToken<Supplier<? extends List<? extends MachineLocation>>>() {}, 
+            "byon.initialMachinesFactory",
+            "Factory for creating the machines that should be immediately instantiated on init",
+            null);
 
     private final Object lock = new Object();
     
@@ -147,8 +168,21 @@ implements MachineProvisioningLocation<T>, Closeable {
         }
         config().set(MACHINE_SPECS, (List<LocationSpec<? extends MachineLocation>>) null);
         
+        Supplier<? extends List<? extends MachineLocation>> initialMachinesFactory = getConfig(INITIAL_MACHINES_FACTORY);
+        if (initialMachinesFactory != null) {
+            List<? extends MachineLocation> initialMachines = initialMachinesFactory.get();
+            if (initialMachines != null) {
+                for (MachineLocation machine : initialMachines) {
+                    @SuppressWarnings("unchecked")
+                    T castMachine = (T) machine;
+                    machines.add(castMachine);
+                }
+            }
+        }
+        config().set(INITIAL_MACHINES_FACTORY, (Supplier<List<? extends MachineLocation>>) null);
+        
         Set<T> machinesCopy = MutableSet.of();
-        for (T location: machines) {
+        for (T location : machines) {
             if (location==null) {
                 log.warn(""+this+" initialized with null location, removing (may be due to rebind with reference to an unmanaged location)");
             } else {
