@@ -18,26 +18,14 @@
  */
 package org.apache.brooklyn.location.jclouds;
 
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
-import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.jclouds.compute.ComputeService;
-import org.jclouds.compute.RunNodesException;
-import org.jclouds.compute.domain.ComputeMetadata;
-import org.jclouds.compute.domain.NodeMetadata;
-import org.jclouds.compute.domain.Template;
-import org.jclouds.compute.options.TemplateOptions;
+import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.NodeCreator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 
 /**
  * The VM creation is stubbed out, but it still requires live access (i.e. real account credentials)
@@ -54,74 +42,6 @@ public abstract class AbstractJcloudsStubbedLiveTest extends AbstractJcloudsLive
 
     public static final String LOCATION_SPEC = "jclouds:" + SOFTLAYER_PROVIDER + ":" + SOFTLAYER_AMS01_REGION_NAME;
     
-    public static abstract class NodeCreator {
-        public final List<NodeMetadata> created = Lists.newCopyOnWriteArrayList();
-        public final List<String> destroyed = Lists.newCopyOnWriteArrayList();
-        
-        public Set<? extends NodeMetadata> createNodesInGroup(String group, int count, Template template) throws RunNodesException {
-            Set<NodeMetadata> result = Sets.newLinkedHashSet();
-            for (int i = 0; i < count; i++) {
-                NodeMetadata node = newNode(group, template);
-                created.add(node);
-                result.add(node);
-            }
-            return result;
-        }
-        public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<ComputeMetadata> filter) {
-            return ImmutableSet.of();
-        }
-        public void destroyNode(String id) {
-            destroyed.add(id);
-        }
-        protected abstract NodeMetadata newNode(String group, Template template);
-    }
-    
-    public static class StubbedComputeService extends DelegatingComputeService {
-        private final NodeCreator nodeCreator;
-        
-        public StubbedComputeService(ComputeService delegate, NodeCreator nodeCreator) {
-            super(delegate);
-            this.nodeCreator = nodeCreator;
-        }
-        @Override
-        public Set<? extends NodeMetadata> createNodesInGroup(String group, int count, Template template) throws RunNodesException {
-            return nodeCreator.createNodesInGroup(group, count, template);
-        }
-        @Override
-        public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<ComputeMetadata> filter) {
-            return nodeCreator.listNodesDetailsMatching(filter);
-        }
-        @Override
-        public void destroyNode(String id) {
-            nodeCreator.destroyNode(id);
-        }
-        @Override
-        public Set<? extends NodeMetadata> createNodesInGroup(String group, int count) {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public Set<? extends NodeMetadata> createNodesInGroup(String group, int count, TemplateOptions templateOptions) {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public Set<? extends NodeMetadata> destroyNodesMatching(Predicate<NodeMetadata> filter) {
-            throw new UnsupportedOperationException();
-        }
-    }
-
-    public static class StubbedComputeServiceRegistry implements ComputeServiceRegistry {
-        private final NodeCreator nodeCreator;
-        
-        public StubbedComputeServiceRegistry(NodeCreator nodeCreator) {
-            this.nodeCreator = nodeCreator;
-        }
-        @Override
-        public ComputeService findComputeService(ConfigBag conf, boolean allowReuse) {
-            ComputeService delegate = ComputeServiceRegistryImpl.INSTANCE.findComputeService(conf, allowReuse);
-            return new StubbedComputeService(delegate, nodeCreator);
-        }
-    }
-
     protected NodeCreator nodeCreator;
     protected ComputeServiceRegistry computeServiceRegistry;
     
@@ -152,4 +72,8 @@ public abstract class AbstractJcloudsStubbedLiveTest extends AbstractJcloudsLive
     }
     
     protected abstract NodeCreator newNodeCreator();
+    
+    protected NodeCreator getNodeCreator() {
+        return nodeCreator;
+    }
 }

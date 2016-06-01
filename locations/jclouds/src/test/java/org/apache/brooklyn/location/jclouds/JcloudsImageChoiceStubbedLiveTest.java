@@ -22,6 +22,8 @@ import static org.testng.Assert.assertEquals;
 
 import java.util.Map;
 
+import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.AbstractNodeCreator;
+import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.NodeCreator;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.NodeMetadata.Status;
@@ -44,7 +46,7 @@ public class JcloudsImageChoiceStubbedLiveTest extends AbstractJcloudsStubbedLiv
     
     @Override
     protected NodeCreator newNodeCreator() {
-        return new NodeCreator() {
+        return new AbstractNodeCreator() {
             @Override protected NodeMetadata newNode(String group, Template template) {
                 JcloudsImageChoiceStubbedLiveTest.this.template = template;
                 

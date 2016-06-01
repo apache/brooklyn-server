@@ -28,6 +28,10 @@ import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.core.location.access.PortForwardManagerImpl;
 import org.apache.brooklyn.location.jclouds.AbstractJcloudsStubbedLiveTest;
 import org.apache.brooklyn.location.jclouds.JcloudsLocation;
+import org.apache.brooklyn.location.jclouds.JcloudsSshMachineLocation;
+import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.AbstractNodeCreator;
+import org.apache.brooklyn.util.net.Cidr;
+import org.apache.brooklyn.util.net.Protocol;
 import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.NodeMetadata.Status;
 import org.jclouds.compute.domain.NodeMetadataBuilder;
@@ -36,9 +40,6 @@ import org.jclouds.domain.LoginCredentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
-import org.apache.brooklyn.location.jclouds.JcloudsSshMachineLocation;
-import org.apache.brooklyn.util.net.Cidr;
-import org.apache.brooklyn.util.net.Protocol;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -81,8 +82,8 @@ public class JcloudsPortForwardingStubbedLiveTest extends AbstractJcloudsStubbed
     }
 
     @Override
-    protected NodeCreator newNodeCreator() {
-        return new NodeCreator() {
+    protected AbstractNodeCreator newNodeCreator() {
+        return new AbstractNodeCreator() {
             int nextIpSuffix = 2;
             @Override
             protected NodeMetadata newNode(String group, Template template) {
@@ -100,6 +101,10 @@ public class JcloudsPortForwardingStubbedLiveTest extends AbstractJcloudsStubbed
         };
     }
 
+    protected AbstractNodeCreator getNodeCreator() {
+        return (AbstractNodeCreator) nodeCreator;
+    }
+
     @Test(groups = {"Live", "Live-sanity"})
     protected void testPortForwardingCallsForwarder() throws Exception {
         PortForwardManager pfm = new PortForwardManagerImpl();
@@ -109,8 +114,8 @@ public class JcloudsPortForwardingStubbedLiveTest extends AbstractJcloudsStubbed
                 JcloudsLocation.USE_PORT_FORWARDING, true,
                 JcloudsLocation.PORT_FORWARDER, portForwarder));
         
-        NodeMetadata created = nodeCreator.created.get(0);
-        assertEquals(nodeCreator.created.size(), 1, "created="+nodeCreator.created+"; machine="+machine);
+        NodeMetadata created = getNodeCreator().created.get(0);
+        assertEquals(getNodeCreator().created.size(), 1, "created="+getNodeCreator().created+"; machine="+machine);
         assertEquals(machine.getNode(), created);
         assertEquals(portForwarder.opens.size(), 1, "opens="+portForwarder.opens+"; machine="+machine);
         assertEquals(portForwarder.opens.get(0).get(0), created);
@@ -120,8 +125,8 @@ public class JcloudsPortForwardingStubbedLiveTest extends AbstractJcloudsStubbed
         assertEquals(machine.getSshHostAndPort(), HostAndPort.fromParts("1.2.3.4", 12345));
         
         releaseMachine(machine);
-        String destroyed = nodeCreator.destroyed.get(0);
-        assertEquals(nodeCreator.destroyed.size(), 1, "destroyed="+nodeCreator.destroyed+"; machine="+machine);
+        String destroyed = getNodeCreator().destroyed.get(0);
+        assertEquals(getNodeCreator().destroyed.size(), 1, "destroyed="+getNodeCreator().destroyed+"; machine="+machine);
         assertEquals(destroyed, created.getId());
         assertEquals(portForwarder.closes.size(), 1, "closes="+portForwarder.closes+"; machine="+machine);
         assertEquals(portForwarder.closes.get(0).get(0), created);
@@ -174,7 +179,7 @@ public class JcloudsPortForwardingStubbedLiveTest extends AbstractJcloudsStubbed
                 JcloudsLocation.PORT_FORWARDER, portForwarder,
                 JcloudsLocation.PORT_FORWARDING_MANAGER, pfm));
         
-        NodeMetadata node1 = nodeCreator.created.get(0);
+        NodeMetadata node1 = getNodeCreator().created.get(0);
 
         // Add an association for machine2 - expect that not to be touched when machine1 is released.
         HostAndPort publicHostAndPort = HostAndPort.fromParts("1.2.3.4", 1234);

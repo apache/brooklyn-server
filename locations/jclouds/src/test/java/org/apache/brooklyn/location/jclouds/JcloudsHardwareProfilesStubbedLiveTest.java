@@ -21,6 +21,8 @@ package org.apache.brooklyn.location.jclouds;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.AbstractNodeCreator;
+import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.NodeCreator;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.NodeMetadata.Status;
@@ -42,7 +44,7 @@ public class JcloudsHardwareProfilesStubbedLiveTest extends AbstractJcloudsStubb
     
     @Override
     protected NodeCreator newNodeCreator() {
-        return new NodeCreator() {
+        return new AbstractNodeCreator() {
             @Override protected NodeMetadata newNode(String group, Template template) {
                 JcloudsHardwareProfilesStubbedLiveTest.this.template = template;
                 
