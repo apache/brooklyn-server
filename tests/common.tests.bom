@@ -1,0 +1,28 @@
+brooklyn.catalog:
+  version: 2.0.0-SNAPSHOT
+  items:
+  - id: test-case
+    type: org.apache.brooklyn.test.framework.TestCase
+  - id: ssh-test
+    type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+  - id: assert-up
+    item:
+      type: org.apache.brooklyn.test.framework.TestSensor
+      name: TEST [service.isUp] IS [true]
+      sensor: service.isUp
+      assert:
+      - equals: true
+  - id: assert-not-up
+    item:
+      name: TEST [service.isUp] IS [false]
+      type: org.apache.brooklyn.test.framework.TestSensor
+      sensor: service.isUp
+      assert:
+      - equals: false
+  - id: assert-running
+    item:
+      type: org.apache.brooklyn.test.framework.TestSensor
+      name: TEST [service.state] IS [running]
+      sensor: service.state
+      assert:
+      - matches: running

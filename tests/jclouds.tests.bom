@@ -7,6 +7,7 @@
 # - type: test-container-clean-up
 brooklyn.catalog:
   version: 2.0.0-SNAPSHOT
+  dependsOn: ["common.tests.bom"]
   items:
 ### Location templates ###
 #  # Add a location named "location-container" based on this one
@@ -54,25 +55,6 @@ brooklyn.catalog:
             name: container.ip
       location: location-swarm-master
 ### Test Cases ###
-  - id: assert-up
-    item:
-      name: TEST [service.isUp] IS [true]
-      type: org.apache.brooklyn.test.framework.TestSensor
-      sensor: service.isUp
-      assert:
-      - equals: true
-  - id: assert-not-up
-    item:
-      name: TEST [service.isUp] IS [false]
-      type: org.apache.brooklyn.test.framework.TestSensor
-      sensor: service.isUp
-      assert:
-      - equals: false
-  - id: test-stop
-    item:
-      name: Invoke [stop] effector
-      type: org.apache.brooklyn.test.framework.TestEffector
-      effector: stop
   - id: wait-for-container-ip
     item:
       name: TEST [container.ip] [exists]
@@ -85,7 +67,7 @@ brooklyn.catalog:
   - id: assert-container-destroyed
     item:
       name: Assert container is destroyed
-      type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+      type: ssh-test
       targetId: swarm-master
       command:
         # TODO Assumes there's only one docker node in the swarm so that bridge IPs are global to the swarm
@@ -103,7 +85,7 @@ brooklyn.catalog:
   - id: wait-for-dd
     item:
       name: Wait for dd to complete
-      type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+      type: ssh-test
       targetId: swarm-master
       command: 
         $brooklyn:formatString:
@@ -119,7 +101,7 @@ brooklyn.catalog:
         - $brooklyn:entity("swarm-master").attributeWhenReady("container.ip")
   - id: asserts-container-stop
     item:
-      type: org.apache.brooklyn.test.framework.TestCase
+      type: test-case
       targetId: container
       brooklyn.config:
         timeout: 1m
@@ -133,7 +115,7 @@ brooklyn.catalog:
   - id: test-container-stop
     item:
       name: Jclouds docker provider release test
-      type: org.apache.brooklyn.test.framework.TestCase
+      type: test-case
       brooklyn.children:
       - type: container
         location: location-container
@@ -146,7 +128,7 @@ brooklyn.catalog:
   - id: test-container-clean-up
     item:
       name: Jclouds docker provider clean up test
-      type: org.apache.brooklyn.test.framework.TestCase
+      type: test-case
       brooklyn.children:
       - type: container
         location: location-container
