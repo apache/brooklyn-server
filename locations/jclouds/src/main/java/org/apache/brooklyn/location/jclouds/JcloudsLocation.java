@@ -3072,9 +3072,10 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
      */
     protected String getPublicHostname(NodeMetadata node, Optional<HostAndPort> sshHostAndPort, LoginCredentials userCredentials, ConfigBag setup) {
         String provider = (setup != null) ? setup.get(CLOUD_PROVIDER) : null;
+        Boolean lookupAwsHostname = (setup != null) ? setup.get(LOOKUP_AWS_HOSTNAME) : null;
         if (provider == null) provider= getProvider();
 
-        if ("aws-ec2".equals(provider)) {
+        if ("aws-ec2".equals(provider) && Boolean.TRUE.equals(lookupAwsHostname)) {
             HostAndPort inferredHostAndPort = null;
             if (!sshHostAndPort.isPresent()) {
                 try {
@@ -3168,12 +3169,14 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     
     protected String getPrivateHostname(NodeMetadata node, Optional<HostAndPort> sshHostAndPort, LoginCredentials userCredentials, ConfigBag setup) {
         String provider = (setup != null) ? setup.get(CLOUD_PROVIDER) : null;
-        if (provider == null) provider= getProvider();
+        Boolean lookupAwsHostname = (setup != null) ? setup.get(LOOKUP_AWS_HOSTNAME) : null;
+        
+        if (provider == null) provider = getProvider();
 
         // TODO Discouraged to do cloud-specific things; think of this code for aws as an
         // exceptional situation rather than a pattern to follow. We need a better way to
         // do cloud-specific things.
-        if ("aws-ec2".equals(provider)) {
+        if ("aws-ec2".equals(provider) && Boolean.TRUE.equals(lookupAwsHostname)) {
             Maybe<String> result = getPrivateHostnameAws(node, sshHostAndPort, userCredentials, setup);
             if (result.isPresent()) return result.get();
         }

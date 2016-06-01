@@ -234,6 +234,12 @@ public interface JcloudsLocationConfig extends CloudLocationConfig {
                     + "This config is beta; its default could be changed and/or the option removed in an upcoming release.", 
             true);
     
+    @Beta
+    public static final ConfigKey<Boolean> LOOKUP_AWS_HOSTNAME = ConfigKeys.newBooleanConfigKey(
+            "lookupAwsHostname", 
+            "Whether to lookup the AWS hostname (via a command on the VM), or to just use the IP.", 
+            true);
+    
     public static final ConfigKey<JcloudsPortForwarderExtension> PORT_FORWARDER = ConfigKeys.newConfigKey(
             JcloudsPortForwarderExtension.class, "portforwarding.forwarder", "The port-forwarder to use");
     
