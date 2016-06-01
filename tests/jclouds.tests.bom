@@ -6,8 +6,9 @@
 # services:
 # - type: test-container-clean-up
 brooklyn.catalog:
-  version: 0.0.1-SNAPSHOT
+  version: 2.0.0-SNAPSHOT
   items:
+### Location templates ###
 #  # Add a location named "location-container" based on this one
 #  - id: location-container-template
 #    itemType: location
@@ -29,6 +30,7 @@ brooklyn.catalog:
 #        hosts: ["10.102.2.XXX"]
 #        user: jenkins
 #        privateKeyFile: ~/.ssh/id_rsa
+### Entities under test ###
   - id: container
     item:
       type: org.apache.brooklyn.entity.software.base.EmptySoftwareProcess
@@ -37,6 +39,21 @@ brooklyn.catalog:
       brooklyn.config:
         onbox.base.dir.skipResolution: true
         sshMonitoring.enabled: false
+  - id: swarm-master
+    item:
+      type: org.apache.brooklyn.entity.machine.MachineEntity
+      id: swarm-master
+      brooklyn.parameters:
+      - name: swarm.port
+        default: 3376
+      # Have a copy of the container IP so we have it around when it's stopped.
+      brooklyn.initializers:
+        - type: org.apache.brooklyn.core.sensor.StaticSensor
+          brooklyn.config:
+            static.value: $brooklyn:entity("container").attributeWhenReady("host.subnet.address")
+            name: container.ip
+      location: location-swarm-master
+### Test Cases ###
   - id: assert-up
     item:
       name: TEST [service.isUp] IS [true]
@@ -76,8 +93,8 @@ brooklyn.catalog:
         - >
           DOCKER_HOST=%s:%s
           docker ps -a --format '{{ .ID }}' |
-          xargs -n1 docker inspect --format '{{ .NetworkSettings.IPAddress }}' |
-          grep %s
+            xargs -n1 docker inspect --format '{{ .NetworkSettings.IPAddress }}' |
+            grep %s
         - $brooklyn:entity("swarm-master").attributeWhenReady("host.address")
         - $brooklyn:entity("swarm-master").config("swarm.port")
         - $brooklyn:entity("swarm-master").attributeWhenReady("container.ip")
@@ -94,8 +111,8 @@ brooklyn.catalog:
           export DOCKER_HOST=%s:%s;
           export CONTAINER_IP=%s;
           export CONTAINER_ID=$(docker ps -a --format '{{ .ID }}' |
-          xargs -n1 docker inspect --format '{{ .Id }}    {{.NetworkSettings.IPAddress}}' |
-          grep $CONTAINER_IP | cut -f1 -d' ' | head -n1);
+            xargs -n1 docker inspect --format '{{ .Id }}    {{.NetworkSettings.IPAddress}}' |
+            grep $CONTAINER_IP | cut -f1 -d' ' | head -n1);
           ! docker exec $CONTAINER_ID ps | grep dd
         - $brooklyn:entity("swarm-master").attributeWhenReady("host.address")
         - $brooklyn:entity("swarm-master").config("swarm.port")
@@ -112,20 +129,7 @@ brooklyn.catalog:
           timeout: 10m
       - type: test-stop
       - type: assert-container-destroyed
-  - id: swarm-master
-    item:
-      type: org.apache.brooklyn.entity.machine.MachineEntity
-      id: swarm-master
-      brooklyn.parameters:
-      - name: swarm.port
-        default: 3376
-      # Have a copy of the container IP so we have it around when it's stopped.
-      brooklyn.initializers:
-        - type: org.apache.brooklyn.core.sensor.StaticSensor
-          brooklyn.config:
-            static.value: $brooklyn:entity("container").attributeWhenReady("host.subnet.address")
-            name: container.ip
-      location: location-swarm-master
+### Test Suite ###
   - id: test-container-stop
     item:
       name: Jclouds docker provider release test
