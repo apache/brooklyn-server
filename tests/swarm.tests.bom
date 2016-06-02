@@ -1,27 +1,12 @@
 brooklyn.catalog:
   version: 2.0.0_SNAPSHOT
+  dependsOn: ["common.tests.bom"]
   iconUrl: https://raw.githubusercontent.com/docker-library/docs/c350af05d3fac7b5c3f6327ac82fe4d990d8729c/docker/logo.png
   license_code: TODO
   license_url: TODO
   items:
 
   # Convenience entities
-
-  - id: assert-up
-    item:
-      type: org.apache.brooklyn.test.framework.TestSensor
-      name: TEST [service.isUp] IS [true]
-      sensor: service.isUp
-      assert:
-      - equals: true
-
-  - id: assert-running
-    item:
-      type: org.apache.brooklyn.test.framework.TestSensor
-      name: TEST [service.state] IS [running]
-      sensor: service.state
-      assert:
-      - matches: running
 
   - id: test-docker-client
     item:
