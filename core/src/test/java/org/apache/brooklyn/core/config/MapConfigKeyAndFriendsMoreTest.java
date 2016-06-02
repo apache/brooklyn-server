@@ -64,36 +64,36 @@ public class MapConfigKeyAndFriendsMoreTest extends BrooklynAppUnitTestSupport {
     }
 
     public void testMapModUsage() throws Exception {
-        entity.config().set(TestEntity.CONF_MAP_THING_OBJECT, MapModifications.add(MutableMap.<String,Object>of("a", 1)));
+        entity.config().set(TestEntity.CONF_MAP_OBJ_THING, MapModifications.add(MutableMap.<String,Object>of("a", 1)));
         log.info("Map-Mod: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
-        Assert.assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING_OBJECT), ImmutableMap.<String,Object>of("a", 1));
+        Assert.assertEquals(entity.getConfig(TestEntity.CONF_MAP_OBJ_THING), ImmutableMap.<String,Object>of("a", 1));
     }
 
     public void testMapSubkeyUsage() throws Exception {
-        entity.config().set(TestEntity.CONF_MAP_THING_OBJECT.subKey("a"), 1);
+        entity.config().set(TestEntity.CONF_MAP_OBJ_THING.subKey("a"), 1);
         log.info("Map-SubKey: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
-        Assert.assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING_OBJECT), ImmutableMap.<String,Object>of("a", 1));
+        Assert.assertEquals(entity.getConfig(TestEntity.CONF_MAP_OBJ_THING), ImmutableMap.<String,Object>of("a", 1));
     }
 
     public void testMapDirectUsage() throws Exception {
-        entity.config().set(ConfigKeys.newConfigKey(Object.class, TestEntity.CONF_MAP_THING_OBJECT.getName()), ImmutableMap.<String,Object>of("a", 1));
+        entity.config().set(ConfigKeys.newConfigKey(Object.class, TestEntity.CONF_MAP_OBJ_THING.getName()), ImmutableMap.<String,Object>of("a", 1));
         log.info("Map-Direct: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
-        Assert.assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING_OBJECT), ImmutableMap.<String,Object>of("a", 1));
+        Assert.assertEquals(entity.getConfig(TestEntity.CONF_MAP_OBJ_THING), ImmutableMap.<String,Object>of("a", 1));
     }
     
     public void testMapDotExtensionUsage() throws Exception {
-        entity.config().set(ConfigKeys.newConfigKey(Object.class, TestEntity.CONF_MAP_THING_OBJECT.getName()+".a"), 1);
+        entity.config().set(ConfigKeys.newConfigKey(Object.class, TestEntity.CONF_MAP_OBJ_THING.getName()+".a"), 1);
         log.info("Map-DotExt: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
-        Assert.assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING_OBJECT), ImmutableMap.<String,Object>of("a", 1));
+        Assert.assertEquals(entity.getConfig(TestEntity.CONF_MAP_OBJ_THING), ImmutableMap.<String,Object>of("a", 1));
     }
     
     public void testMapManyWays() throws Exception {
-        entity.config().set(ConfigKeys.newConfigKey(Object.class, TestEntity.CONF_MAP_THING_OBJECT.getName()), ImmutableMap.<String,Object>of("map", 1, "subkey", 0, "dotext", 0));
-        entity.config().set(ConfigKeys.newConfigKey(Object.class, TestEntity.CONF_MAP_THING_OBJECT.getName()+".dotext"), 1);
-        entity.config().set(TestEntity.CONF_MAP_THING_OBJECT.subKey("subkey"), 1);
+        entity.config().set(ConfigKeys.newConfigKey(Object.class, TestEntity.CONF_MAP_OBJ_THING.getName()), ImmutableMap.<String,Object>of("map", 1, "subkey", 0, "dotext", 0));
+        entity.config().set(ConfigKeys.newConfigKey(Object.class, TestEntity.CONF_MAP_OBJ_THING.getName()+".dotext"), 1);
+        entity.config().set(TestEntity.CONF_MAP_OBJ_THING.subKey("subkey"), 1);
         
         log.info("Map-ManyWays: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
-        Assert.assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING_OBJECT), ImmutableMap.<String,Object>of("map", 1, "subkey", 1, "dotext", 1));
+        Assert.assertEquals(entity.getConfig(TestEntity.CONF_MAP_OBJ_THING), ImmutableMap.<String,Object>of("map", 1, "subkey", 1, "dotext", 1));
     }
     
     @SuppressWarnings({ "unchecked", "rawtypes" })

@@ -356,34 +356,34 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
     
     @Test
     public void testMapConfigDeepSetFromMap() throws Exception {
-        entity.config().set(TestEntity.CONF_MAP_THING_OBJECT, (Map)ImmutableMap.of("akey", ImmutableMap.of("aa","AA","a2","A2"), "bkey", "b"));
+        entity.config().set(TestEntity.CONF_MAP_OBJ_THING, (Map)ImmutableMap.of("akey", ImmutableMap.of("aa","AA","a2","A2"), "bkey", "b"));
         
-        assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING_OBJECT.subKey("akey")), ImmutableMap.of("aa", "AA", "a2", "A2"));
-        assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING_OBJECT.subKey("bkey")), "b");
-        assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING_OBJECT), 
+        assertEquals(entity.getConfig(TestEntity.CONF_MAP_OBJ_THING.subKey("akey")), ImmutableMap.of("aa", "AA", "a2", "A2"));
+        assertEquals(entity.getConfig(TestEntity.CONF_MAP_OBJ_THING.subKey("bkey")), "b");
+        assertEquals(entity.getConfig(TestEntity.CONF_MAP_OBJ_THING), 
                 ImmutableMap.of("akey", ImmutableMap.of("aa","AA","a2","A2"), "bkey", "b"));
     }
     
     @Test
     public void testMapConfigDeepSetFromSubkeys() throws Exception {
-        entity.config().set(TestEntity.CONF_MAP_THING_OBJECT.subKey("akey"), ImmutableMap.of("aa", "AA", "a2", "A2"));
-        entity.config().set(TestEntity.CONF_MAP_THING_OBJECT.subKey("bkey"), "b");
+        entity.config().set(TestEntity.CONF_MAP_OBJ_THING.subKey("akey"), ImmutableMap.of("aa", "AA", "a2", "A2"));
+        entity.config().set(TestEntity.CONF_MAP_OBJ_THING.subKey("bkey"), "b");
         
-        assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING_OBJECT.subKey("akey")), ImmutableMap.of("aa", "AA", "a2", "A2"));
-        assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING_OBJECT.subKey("bkey")), "b");
-        assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING_OBJECT), 
+        assertEquals(entity.getConfig(TestEntity.CONF_MAP_OBJ_THING.subKey("akey")), ImmutableMap.of("aa", "AA", "a2", "A2"));
+        assertEquals(entity.getConfig(TestEntity.CONF_MAP_OBJ_THING.subKey("bkey")), "b");
+        assertEquals(entity.getConfig(TestEntity.CONF_MAP_OBJ_THING), 
                 ImmutableMap.of("akey", ImmutableMap.of("aa", "AA", "a2", "A2"), "bkey", "b"));
     }
     
     @Test
     public void testMapConfigAdd() throws Exception {
-        entity.config().set(TestEntity.CONF_MAP_THING_OBJECT.subKey("0key"), 0);
-        entity.config().set(TestEntity.CONF_MAP_THING_OBJECT.subKey("akey"), MutableMap.of("aa", "AA", "a2", "A2"));
-        entity.config().set(TestEntity.CONF_MAP_THING_OBJECT.subKey("bkey"), MutableList.of("b"));
-        entity.config().set((ConfigKey)TestEntity.CONF_MAP_THING_OBJECT, MapModifications.add(ImmutableMap.of("akey", ImmutableMap.of("a3",3), "bkey", "b2", "ckey", "cc")));
+        entity.config().set(TestEntity.CONF_MAP_OBJ_THING.subKey("0key"), 0);
+        entity.config().set(TestEntity.CONF_MAP_OBJ_THING.subKey("akey"), MutableMap.of("aa", "AA", "a2", "A2"));
+        entity.config().set(TestEntity.CONF_MAP_OBJ_THING.subKey("bkey"), MutableList.of("b"));
+        entity.config().set((ConfigKey)TestEntity.CONF_MAP_OBJ_THING, MapModifications.add(ImmutableMap.of("akey", ImmutableMap.of("a3",3), "bkey", "b2", "ckey", "cc")));
         
-        assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING_OBJECT), 
+        assertEquals(entity.getConfig(TestEntity.CONF_MAP_OBJ_THING), 
                 ImmutableMap.of("0key", 0, "akey", ImmutableMap.of("aa","AA","a2","A2","a3",3), "bkey", ImmutableList.of("b","b2"), "ckey", "cc"));
-        assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING_OBJECT.subKey("akey")), ImmutableMap.of("aa", "AA", "a2", "A2", "a3", 3));
+        assertEquals(entity.getConfig(TestEntity.CONF_MAP_OBJ_THING.subKey("akey")), ImmutableMap.of("aa", "AA", "a2", "A2", "a3", 3));
     }
 }
