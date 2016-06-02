@@ -40,6 +40,7 @@ import org.apache.brooklyn.location.jclouds.JcloudsLocationConfig;
 import org.apache.brooklyn.location.jclouds.JcloudsLocationResolver;
 import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry;
 import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.SingleNodeCreator;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.jclouds.compute.ComputeService;
@@ -227,6 +228,29 @@ public class ConfigLocationInheritanceYamlTest extends AbstractYamlTest {
                 Machines.findUniqueMachineLocation(entity.getLocations()).get(),
                 ImmutableMap.of(JcloudsLocationConfig.MIN_RAM, 1234, JcloudsLocationConfig.MIN_CORES, 2),
                 ImmutableMap.of("networks", ImmutableList.of("mynetwork"), "subnetId", "mysubnet"));
+    }
+    
+    @Test(groups="Live")
+    public void testRemoveLocationPropertiesByOverridingWithBlank() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "location: jclouds-config-test-with-conf",
+                "services:",
+                "- type: org.apache.brooklyn.entity.software.base.EmptySoftwareProcess",
+                "  brooklyn.config:",
+                "    provisioning.properties:",
+                "      minRam: ",
+                "      minCores: 2",
+                "      templateOptions:",
+                "        networks: ",
+                "        subnetId: mysubnet");
+        
+        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+
+        assertMachineConfig(
+                Machines.findUniqueMachineLocation(entity.getLocations()).get(),
+                MutableMap.of(JcloudsLocationConfig.MIN_RAM, null, JcloudsLocationConfig.MIN_CORES, 2),
+                MutableMap.of("networks", null, "subnetId", "mysubnet"));
     }
     
     @Test(groups="Live")
