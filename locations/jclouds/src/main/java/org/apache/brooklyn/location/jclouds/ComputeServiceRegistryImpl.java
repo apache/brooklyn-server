@@ -110,7 +110,7 @@ public class ComputeServiceRegistryImpl implements ComputeServiceRegistry, Jclou
         if (extra.size() > 0) {
             LOG.warn("Jclouds using deprecated property overrides: "+Sanitizer.sanitize(extra));
         }
-        properties.putAll(extra);
+        properties.putAll(Maps.filterValues(extra, Predicates.notNull()));
 
         String endpoint = conf.get(CloudLocationConfig.CLOUD_ENDPOINT);
         if (!groovyTruth(endpoint)) endpoint = getDeprecatedProperty(conf, Constants.PROPERTY_ENDPOINT);

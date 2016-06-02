@@ -1148,15 +1148,11 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     }})
             .put(HARDWARE_ID, new CustomizeTemplateBuilder() {
                     public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
-                        if (v != null) {
-                            tb.hardwareId(((CharSequence)v).toString());
-                        }
+                        tb.hardwareId(((CharSequence)v).toString());
                     }})
             .put(IMAGE_ID, new CustomizeTemplateBuilder() {
                     public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
-                        if (v != null) {
-                            tb.imageId(((CharSequence)v).toString());
-                        }
+                        tb.imageId(((CharSequence)v).toString());
                     }})
             .put(IMAGE_DESCRIPTION_REGEX, new CustomizeTemplateBuilder() {
                     public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
@@ -1412,9 +1408,16 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
                     Class<? extends TemplateOptions> clazz = options.getClass();
                     for(final Map.Entry<String, Object> option : optionsMap.entrySet()) {
-                        Maybe<?> result = MethodCoercions.tryFindAndInvokeBestMatchingMethod(options, option.getKey(), option.getValue());
-                        if(result.isAbsent()) {
-                            LOG.warn("Ignoring request to set template option {} because this is not supported by {}", new Object[] { option.getKey(), clazz.getCanonicalName() });
+                        if (option.getValue() != null) {
+                            Maybe<?> result = MethodCoercions.tryFindAndInvokeBestMatchingMethod(options, option.getKey(), option.getValue());
+                            if(result.isAbsent()) {
+                                LOG.warn("Ignoring request to set template option {} because this is not supported by {}", new Object[] { option.getKey(), clazz.getCanonicalName() });
+                            }
+                        } else {
+                            // jclouds really doesn't like you to pass nulls; don't do it! For us,
+                            // null is the only way to remove an inherited value when the templateOptions
+                            // map is being merged.
+                            LOG.debug("Ignoring request to set template option {} because value is null", new Object[] { option.getKey(), clazz.getCanonicalName() });
                         }
                     }
                 }})
@@ -1519,8 +1522,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         for (Map.Entry<ConfigKey<?>, CustomizeTemplateBuilder> entry : SUPPORTED_TEMPLATE_BUILDER_PROPERTIES.entrySet()) {
             ConfigKey<?> name = entry.getKey();
             CustomizeTemplateBuilder code = entry.getValue();
-            if (config.containsKey(name))
+            if (config.containsKey(name) && config.get(name) != null) {
                 code.apply(templateBuilder, config, config.get(name));
+            }
         }
 
         if (templateBuilder instanceof PortableTemplateBuilder) {
@@ -1620,8 +1624,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         for (Map.Entry<ConfigKey<?>, CustomizeTemplateOptions> entry : SUPPORTED_TEMPLATE_OPTIONS_PROPERTIES.entrySet()) {
             ConfigKey<?> key = entry.getKey();
             CustomizeTemplateOptions code = entry.getValue();
-            if (config.containsKey(key))
+            if (config.containsKey(key) && config.get(key) != null) {
                 code.apply(options, config, config.get(key));
+            }
         }
 
         return template;
