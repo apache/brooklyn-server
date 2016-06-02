@@ -230,6 +230,39 @@ public class ConfigLocationInheritanceYamlTest extends AbstractYamlTest {
     }
     
     @Test(groups="Live")
+    public void testMergeTemplateOptionsIsShallow() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  id: jclouds-config-test-with-tempateOptions-mapVal",
+                "  name: stubbed-jclouds-gce",
+                "  itemType: location",
+                "  item:",
+                "    type: jclouds-config-test:"+CLOUD_PROVIDER+":"+CLOUD_REGION,
+                "    brooklyn.config:",
+                "      templateOptions:",
+                "        mymap:",
+                "          key1: val1");
+        
+        String yaml = Joiner.on("\n").join(
+                "location: jclouds-config-test-with-tempateOptions-mapVal",
+                "services:",
+                "- type: org.apache.brooklyn.entity.software.base.EmptySoftwareProcess",
+                "  brooklyn.config:",
+                "    provisioning.properties:",
+                "      templateOptions:",
+                "        mymap:",
+                "          key2: val2");
+        
+        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+
+        assertMachineConfig(
+                Machines.findUniqueMachineLocation(entity.getLocations()).get(),
+                ImmutableMap.<ConfigKey<?>, Object>of(),
+                ImmutableMap.of("mymap", ImmutableMap.of("key2", "val2")));
+    }
+    
+    @Test(groups="Live")
     public void testMergesCatalogEntityLocationProperties() throws Exception {
         addCatalogItems(
                 "brooklyn.catalog:",

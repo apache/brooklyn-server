@@ -611,7 +611,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
         Map<String, Object> flagTemplateOptions = ConfigBag.newInstance(flags).get(TEMPLATE_OPTIONS);
         Map<String, Object> baseTemplateOptions = config().get(TEMPLATE_OPTIONS);
-        Map<String, Object> templateOptions = (Map<String, Object>) deepMerge(Maybe.fromNullable(flagTemplateOptions), Maybe.fromNullable(baseTemplateOptions), TEMPLATE_OPTIONS).orNull();
+        Map<String, Object> templateOptions = (Map<String, Object>) shallowMerge(Maybe.fromNullable(flagTemplateOptions), Maybe.fromNullable(baseTemplateOptions), TEMPLATE_OPTIONS).orNull();
         setup.put(TEMPLATE_OPTIONS, templateOptions);
         
         Integer attempts = setup.get(MACHINE_CREATE_ATTEMPTS);
@@ -3328,8 +3328,8 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         return new JcloudsBlobStoreBasedObjectStore(this, container);
     }
 
-    // TODO Duplicate of EntityConfigMap.deepMerge
-    private <T> Maybe<?> deepMerge(Maybe<? extends T> val1, Maybe<? extends T> val2, ConfigKey<?> keyForLogging) {
+    // TODO Very similar to EntityConfigMap.deepMerge
+    private <T> Maybe<?> shallowMerge(Maybe<? extends T> val1, Maybe<? extends T> val2, ConfigKey<?> keyForLogging) {
         if (val2.isAbsent() || val2.isNull()) {
             return val1;
         } else if (val1.isAbsent()) {
@@ -3337,7 +3337,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         } else if (val1.isNull()) {
             return val1; // an explicit null means an override; don't merge
         } else if (val1.get() instanceof Map && val2.get() instanceof Map) {
-            return Maybe.of(CollectionMerger.builder().build().merge((Map<?,?>)val1.get(), (Map<?,?>)val2.get()));
+            return Maybe.of(CollectionMerger.builder().deep(false).build().merge((Map<?,?>)val1.get(), (Map<?,?>)val2.get()));
         } else {
             // cannot merge; just return val1
             LOG.debug("Cannot merge values for "+keyForLogging.getName()+", because values are not maps: "+val1.get().getClass()+", and "+val2.get().getClass());
