@@ -3,43 +3,111 @@ brooklyn.catalog:
   iconUrl: https://raw.githubusercontent.com/docker-library/docs/c350af05d3fac7b5c3f6327ac82fe4d990d8729c/docker/logo.png
 
   publish:
-    description:  Resources for working with Docker containers from Apache Brooklyn
-    license_code: Apache-2.0
-    overview:     README.md
-    qa:           catalog.tests.bom
+    description: |
+      Resources for working with Docker Engine from Apache Brooklyn
+    license_code: APACHE-2.0
+    overview: README.md
+    qa: catalog.tests.bom
 
   items:
-  - id:           docker-engine
-    description:  The engine for running Docker containers
-    itemType:     entity
+  - id: docker-engine
+    name: "Docker Engine"
+    description: |
+      The engine for running Docker containers
+    itemType: entity
     item:
-
-      name: Docker Engine (host)
       type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
-
-      provisioning.properties:
-        osFamily: centos
+      id: docker-engine
+      name: "docker-engine"
 
       brooklyn.parameters:
+      - name: docker.port
+        label: Docker Port
+        description: |
+          The TCP port for Docker to listen on
+        type: port
+        default: 2375
+      - name: docker.bindaddress
+        label: Docker Bind Address
+        description: |
+          The network address for Docker to listen on
+        type: string
+        default: 0.0.0.0
       - name: docker.additionaloptions
-        description: The additional options to pass to the engine on startup
+        label: Docker Additional Options
+        description: |
+          The additional options to pass to the engine on startup
+        type: string
+      - name: docker.discovery.url
+        label: Docker Discovery URL
+        description: |
+          URL of a KV store for Docker discovery
         type: string
       - name: image.preinstall
-        description: A docker hub image id to pull after installation
+        label: Image Pre-install
+        description: |
+          A docker hub image id to pull after installation
+        type: string
         default: cloudsoft/centos:7
+
+      brooklyn.enrichers:
+      - type: org.apache.brooklyn.enricher.stock.Transformer
+        brooklyn.config:
+          uniqueTag: docker-endpoint-generator
+          enricher.triggerSensors:
+          - host.name
+          - docker.port
+          enricher.sourceSensor: $brooklyn:sensor("docker.port")
+          enricher.targetSensor: $brooklyn:sensor("docker.endpoint")
+          enricher.targetValue:
+            $brooklyn:formatString:
+            - "%s:%s"
+            - $brooklyn:attributeWhenReady("host.name")
+            - $brooklyn:attributeWhenReady("docker.port")
+      - type: org.apache.brooklyn.enricher.stock.Transformer
+        brooklyn.config:
+          uniqueTag: docker-url-generator
+          enricher.sourceSensor: $brooklyn:sensor("docker.endpoint")
+          enricher.targetSensor: $brooklyn:sensor("docker.url")
+          enricher.targetValue:
+            $brooklyn:formatString:
+            - "tcp://%s"
+            - $brooklyn:attributeWhenReady("docker.endpoint")
+      - type: org.apache.brooklyn.enricher.stock.Transformer
+        brooklyn.config:
+          uniqueTag: docker-bind-url-generator
+          enricher.triggerSensors:
+          - docker.port
+          enricher.sourceSensor: $brooklyn:sensor("docker.port")
+          enricher.targetSensor: $brooklyn:sensor("docker.bind.url")
+          enricher.targetValue:
+            $brooklyn:formatString:
+            - "tcp://%s:%s"
+            - $brooklyn:attributeWhenReady("docker.bindaddress")
+            - $brooklyn:attributeWhenReady("docker.port")
+
 
       brooklyn.config:
         dontRequireTtyForSudo: true
         image.preinstall: cloudsoft/centos:7
 
+      provisioning.properties:
+        osFamily: centos
+
       shell.env:
         DOCKER_ADDITIONAL_OPTIONS: $brooklyn:config("docker.additionaloptions")
+        DOCKER_DISCOVERY_URL: $brooklyn:config("docker.discovery.url")
+        HOST_NAME: $brooklyn:attributeWhenReady("host.name")
+        DOCKER_ENDPOINT: $brooklyn:attributeWhenReady("docker.endpoint")
+        DOCKER_BIND_URL: $brooklyn:attributeWhenReady("docker.bind.url")
+        DOCKER_URL: $brooklyn:attributeWhenReady("docker.url")
         DOCKER_IMAGE: $brooklyn:config("image.preinstall")
 
       install.command: |
         set -e # need all commands to execute successfully
 
-        sudo tee /etc/yum.repos.d/docker.repo <<-'EOF'
+        echo "[CLOCKER] Configuring package manager"
+        sudo tee /etc/yum.repos.d/docker.repo <<-EOF
         [dockerrepo]
         name=Docker Repository
         baseurl=https://yum.dockerproject.org/repo/main/centos/$releasever/
@@ -49,23 +117,43 @@ brooklyn.catalog:
         EOF
         sudo yum -y install docker-engine
 
-        echo "Setting up /etc/systemd/system/docker.service.d/docker.conf"
+        echo "[CLOCKER] Setting up Docker systemd service"
         sudo mkdir -p /etc/systemd/system/docker.service.d
         sudo tee /etc/systemd/system/docker.service.d/docker.conf <<-EOF
         [Service]
         # Need to clear the default first and then set a custom value
         ExecStart=
-        ExecStart=/usr/bin/docker daemon ${DOCKER_ADDITIONAL_OPTIONS}
+        ExecStart=/usr/bin/docker daemon \
+          -H ${DOCKER_BIND_URL} \
+          -H unix:///var/run/docker.sock \
+          --label ${HOST_NAME} \
+          --storage-driver=overlay \
+          \$CLUSTER_OPTS \
+          ${DOCKER_ADDITIONAL_OPTIONS}
         EOF
+        if [ "${DOCKER_DISCOVERY_URL}" ]; then
+          sudo tee /etc/systemd/system/docker.service.d/cluster.conf <<-EOF
+          [Service]
+          Environment="CLUSTER_OPTS=--cluster-advertise ${DOCKER_ENDPOINT} --cluster-store ${DOCKER_DISCOVERY_URL}"
+          EOF
+        fi
         sudo systemctl daemon-reload
 
+      post.install.command: |
+        echo "[CLOCKER] Setting up user and group for Docker"
+        sudo groupadd docker
+        sudo usermod -aG docker ${USER}
+
       launch.command: |
-        [ -z "${DOCKER_HOST}" ] && SUDO=sudo
         sudo service docker start && \
-          ( $SUDO docker ${DOCKER_ADDITIONAL_OPTIONS} images --format="{{.Repository}}:{{.Tag}}" | grep -q "$DOCKER_IMAGE" || \
-          $SUDO docker ${DOCKER_ADDITIONAL_OPTIONS} pull $DOCKER_IMAGE )
-      stop.command:         sudo service docker stop
-      checkRunning.command: sudo service docker status
+          ( docker -H ${DOCKER_URL} ${DOCKER_ADDITIONAL_OPTIONS} images --format="{{.Repository}}:{{.Tag}}" | grep -q "$DOCKER_IMAGE" || \
+            docker -H ${DOCKER_URL} ${DOCKER_ADDITIONAL_OPTIONS} pull $DOCKER_IMAGE )
+
+      stop.command: |
+        service docker stop
+
+      checkRunning.command: |
+        sudo service docker status
 
       # ensure docker running before starting children
       childStartMode: foreground_late
@@ -79,8 +167,10 @@ brooklyn.catalog:
       type: docker-engine
 
       brooklyn.parameters:
-      - name: tls.port
-        description: The docker TLS port to listen on.
+      - name: docker.port
+        label: Docker Port
+        description: |
+          The TCP port for Docker to listen on
         type: port
         default: 2376
       - name: docker.bindaddress
@@ -101,34 +191,15 @@ brooklyn.catalog:
         description: |
           URL for the private key of this Docker engine
 
-      brooklyn.enrichers:
-      - type: org.apache.brooklyn.enricher.stock.Transformer
-        brooklyn.config:
-          uniqueTag: docker-endpoint-generator
-          enricher.triggerSensors:
-          - host.name
-          - tls.port
-          enricher.sourceSensor: $brooklyn:sensor("tls.port")
-          enricher.targetSensor: $brooklyn:sensor("docker.endpoint")
-          enricher.targetValue:
-            $brooklyn:formatString:
-            - "tcp://%s:%s/"
-            - $brooklyn:attributeWhenReady("host.address")
-            - $brooklyn:attributeWhenReady("tls.port")
-
       brooklyn.config:
-        tls.port: 2376
-        docker.bindaddress: 0.0.0.0
-        docker.url:
+        docker.tlsoptions:
           $brooklyn:formatString:
-          - "tcp://%s:%s"
-          - $brooklyn:attributeWhenReady("host.address")
-          - $brooklyn:config("tls.port")
+          - "--tlsverify --tlscacert=%1$s/.certs/ca.pem --tlscert=%1$s/.certs/cert.pem --tlskey=%1$s/.certs/key.pem"
+          - $brooklyn:attributeWhenReady("install.dir")
         docker.additionaloptions:
           $brooklyn:formatString:
-          - "-H %s --tlsverify --tlscacert=%2$s/.certs/ca.pem --tlscert=%2$s/.certs/cert.pem --tlskey=%2$s/.certs/key.pem"
-          - $brooklyn:config("docker.url")
-          - $brooklyn:attributeWhenReady("install.dir")
+          - "%s"
+          - $brooklyn:config("docker.tlsoptions")
 
       env:
         CA_CERT_ROOT: $brooklyn:config("ca.request.root")
@@ -137,8 +208,7 @@ brooklyn.catalog:
         PRIV_KEY_URL: $brooklyn:config("private.key.url")
         HOST_ADDRESS: $brooklyn:attributeWhenReady("host.address")
         INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
-        DOCKER_HOST: $brooklyn:config("docker.url")
-        DOCKER_ADDITIONAL_OPTIONS: $brooklyn:config("docker.additionaloptions")
+        TLS_OPTIONS: $brooklyn:config("docker.tlsoptions")
 
       customize.command: |
         set -e # need all commands to execute successfully
@@ -182,29 +252,38 @@ brooklyn.catalog:
         cat > ${HOME}/docker_client.rc <<-EOF
         export DOCKER_TLS_VERIFY=true
         export DOCKER_CERT_PATH=${INSTALL_DIR}/.certs
-        export DOCKER_HOST=${DOCKER_HOST}
+        export DOCKER_HOST=${DOCKER_URL}
         EOF
 
-
       checkRunning.command: |
-         sudo service docker status | fgrep '(running)'
+        sudo service docker status | fgrep '(running)'
 
   - id: docker-engine-container
-    description: An easy way to launch a Docker container, as a child of a docker-engine entity
+    name: "Docker Container"
+    description: |
+      An easy way to launch a Docker container, as a child of a Docker Engine.
     itemType: entity
     item:
       type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
+
+      brooklyn.parameters:
+      - name: container
+        label: Container
+        description: |
+          The Docker Container image details
+        type: string
 
       brooklyn.config:
         dontRequireTtyForSudo: true
 
       # TODO support DSL in name: $brooklyn:formatString("Container (%s)", $brooklyn:config("container"))
       # TODO advertise container id as a sensor.
-      name: Container
+
       shell.env:
         DOCKER_IMAGE: $brooklyn:config("container")
+
       launch.command: |
-        [ -z "${DOCKER_HOST}" ] && SUDO=sudo ; $SUDO docker run -d ${DOCKER_IMAGE}
+        docker -H ${DOCKER_URL} ${DOCKER_ADDITIONAL_OPTIONS} run -d ${DOCKER_IMAGE}
       brooklyn.parameters:
       - name: container
         type: string

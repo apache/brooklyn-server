@@ -1,15 +1,20 @@
-# A simple blueprint deploying an all-in-one "docker-swarm" entity, with
-# built-in Etcd discovery, TLS protected endpoints and an included CA server
-# to create certificates for the swarm.
-# Deploys on Centos nodes.
+id: swarm
+name: "Swarm"
+description: |
+  A simple blueprint deploying an all-in-one Docker Swarm cluster entity, with
+  built-in Etcd discovery, TLS protected endpoints and an included CA server
+  to create certificates for the Swarm.
 
-name: swarmtest
-location: vagrantred
+  Deploys on CentOS 7 VMs.
+
+location:
+  jclouds:softlayer:
+    region: ams01
+
 services:
-
 - type: docker-swarm
-  name: swarm
-
+  id: swarm
+  name: "swarm"
   brooklyn.config:
-    swarm.initial.size: 1
+    swarm.initial.size: 3
     etcd.initial.size: 1

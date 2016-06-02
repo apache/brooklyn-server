@@ -1,9 +1,10 @@
 brooklyn.catalog:
   version: 2.0.0-SNAPSHOT
-  iconUrl: https://raw.githubusercontent.com/docker-library/docs/c350af05d3fac7b5c3f6327ac82fe4d990d8729c/docker/logo.png
-  dependsOn: ["common.tests.bom"]
-  license_code: TODO
-  license_url: TODO
+  iconUrl: https://raw.githubusercontent.com/docker-library/docs/471fa6e4cb58062ccbf91afc111980f9c7004981/swarm/logo.png
+  dependsOn:
+  - common.tests.bom
+  license_code: APACHE-2.0
+
   items:
 
   - id: test-docker-run-pulls
@@ -18,11 +19,11 @@ brooklyn.catalog:
         shell.env:
           INSTALL_DIR: $brooklyn:config("install.dir")
         command: |
-            set -e
-            cd $INSTALL_DIR
-            docker rmi busybox || true # OK to fail
-            ! docker images | grep busybox
-            docker run --rm busybox echo Hello from busybox-image | grep busybox-image && docker images | grep busybox
+          set -e
+          cd $INSTALL_DIR
+          docker rmi busybox || true # OK to fail
+          ! docker images | grep busybox
+          docker run --rm busybox echo Hello from busybox-image | grep busybox-image && docker images | grep busybox
         assertStatus:
           equals: 0
         assertOut:
@@ -40,11 +41,10 @@ brooklyn.catalog:
         shell.env:
           NETWORK_NAME: $brooklyn:config("network.name")
         command: |
-            echo "[TEST] Checking ID of network ${NETWORK_NAME}"
-            docker network inspect --format "{{.ID}}" "${NETWORK_NAME}"
+          echo "[TEST] Checking ID of network ${NETWORK_NAME}"
+          docker network inspect --format "{{.ID}}" "${NETWORK_NAME}"
         assertStatus:
           equals: 0
-
 
   - id: test-swarm
     name: Docker Swarm Tests
@@ -112,22 +112,21 @@ brooklyn.catalog:
               targetId: swarm-manager
               swarm.url: $brooklyn:component("swarm").attributeWhenReady("swarm.url")
               install.dir: $brooklyn:component("swarm-manager").attributeWhenReady("install.dir")
-#
-#          TODO re-enable these after networking updates
-#          - type: test-network-exists
-#            name: "TEST-6 Test default network exists"
-#            brooklyn.config:
-#              targetId: swarm-client
-#              swarm.url: $brooklyn:component("swarm").attributeWhenReady("swarm.url")
-#              ca.url: $brooklyn:component("ca-server").attributeWhenReady("main.uri")
-#              client.address: $brooklyn:component("swarm-client").attributeWhenReady("host.address")
-#              network.name: $brooklyn:component("swarm").config("swarm.defaultnetwork")
-#
-#          - type: test-network-exists
-#            name: "TEST-7 Test named network exists"
-#            brooklyn.config:
-#              targetId: swarm-client
-#              swarm.url: $brooklyn:component("swarm").attributeWhenReady("swarm.url")
-#              ca.url: $brooklyn:component("ca-server").attributeWhenReady("main.uri")
-#              client.address: $brooklyn:component("swarm-client").attributeWhenReady("host.address")
-#              network.name: "test-network-name"
+
+          - type: test-network-exists
+            name: "TEST-6 Test default network exists"
+            brooklyn.config:
+              targetId: swarm-client
+              swarm.url: $brooklyn:component("swarm").attributeWhenReady("swarm.url")
+              ca.url: $brooklyn:component("ca-server").attributeWhenReady("main.uri")
+              client.address: $brooklyn:component("swarm-client").attributeWhenReady("host.address")
+              network.name: $brooklyn:component("swarm").config("swarm.defaultnetwork")
+
+          - type: test-network-exists
+            name: "TEST-7 Test named network exists"
+            brooklyn.config:
+              targetId: swarm-client
+              swarm.url: $brooklyn:component("swarm").attributeWhenReady("swarm.url")
+              ca.url: $brooklyn:component("ca-server").attributeWhenReady("main.uri")
+              client.address: $brooklyn:component("swarm-client").attributeWhenReady("host.address")
+              network.name: "test-network-name"
