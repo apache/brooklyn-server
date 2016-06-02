@@ -80,5 +80,31 @@ brooklyn.catalog:
         assertOut:
           contains: "/swarm join"
 
-
-
+  - id: test-docker-run-pulls
+    item:
+      type: org.apache.brooklyn.test.framework.TestCase
+      name: Test that Docker Swarm cluster can pull containers from docker hub automatically
+      brooklyn.parameters:
+        - install.dir
+        - swarm.url
+      brooklyn.children:
+      - type: ssh-test
+        command:
+          $brooklyn:formatString:
+          - |
+            set -e
+            INSTALL_DIR=%s
+            SWARM_URL=%s
+            TLS_OPTIONS="--tlsverify --tlscacert=.certs/ca.pem --tlscert=.certs/cert.pem --tlskey=.certs/key.pem"
+            DOCKER="docker -H $SWARM_URL $TLS_OPTIONS"
+             
+            cd $INSTALL_DIR
+            $DOCKER rmi busybox || true # OK to fail
+            ! $DOCKER images | grep busybox
+            $DOCKER run --rm busybox echo Hello from busybox-image | grep busybox-image && $DOCKER images | grep busybox
+          - $brooklyn:config("install.dir")
+          - $brooklyn:config("swarm.url")
+        assertStatus:
+          equals: 0
+        assertOut:
+          contains: "busybox-image"

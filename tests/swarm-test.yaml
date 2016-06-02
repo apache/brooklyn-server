@@ -39,5 +39,8 @@ services:
       ca.url: $brooklyn:component("ca-server").attributeWhenReady("main.uri")
       client.address: $brooklyn:component("docker-client").attributeWhenReady("host.address")
 
-
-
+  - type: test-docker-run-pulls
+    brooklyn.config:
+      targetId: swarm-manager
+      swarm.url: $brooklyn:component("swarm").attributeWhenReady("swarm.url")
+      install.dir: $brooklyn:component("swarm-manager").attributeWhenReady("install.dir")
