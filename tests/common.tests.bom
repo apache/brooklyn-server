@@ -2,9 +2,11 @@ brooklyn.catalog:
   version: 2.0.0-SNAPSHOT
   items:
   - id: test-case
-    type: org.apache.brooklyn.test.framework.TestCase
+    item:
+      type: org.apache.brooklyn.test.framework.TestCase
   - id: ssh-test
-    type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+    item:
+      type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
   - id: assert-up
     item:
       type: org.apache.brooklyn.test.framework.TestSensor
