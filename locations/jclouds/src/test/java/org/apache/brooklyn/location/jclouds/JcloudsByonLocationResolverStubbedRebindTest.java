@@ -37,6 +37,8 @@ import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestUtils;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
+import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.AbstractNodeCreator;
+import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.NodeCreator;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.time.Duration;
@@ -112,7 +114,7 @@ public class JcloudsByonLocationResolverStubbedRebindTest extends AbstractJcloud
     protected NodeCreator newNodeCreator() {
         return new NodeCreatorForRebinding();
     }
-    public static class NodeCreatorForRebinding extends NodeCreator {
+    public static class NodeCreatorForRebinding extends AbstractNodeCreator {
         @Override
         public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<ComputeMetadata> filter) {
             NodeMetadata result = new NodeMetadataBuilder()

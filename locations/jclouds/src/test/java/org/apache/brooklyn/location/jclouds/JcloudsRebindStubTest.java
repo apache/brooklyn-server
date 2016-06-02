@@ -31,7 +31,6 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixtureWithApp;
 import org.apache.brooklyn.core.test.entity.TestApplication;
-import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.RunNodesException;
@@ -189,7 +188,7 @@ public class JcloudsRebindStubTest extends RebindTestFixtureWithApp {
                 LoginCredentials.builder().identity("myidentity").password("mypassword").build(), 
                 "myHostname");
         
-        ByonComputeServiceRegistry computeServiceRegistry = new ByonComputeServiceRegistry(node);
+        StubbedComputeServiceRegistry computeServiceRegistry = new StubbedComputeServiceRegistry(node);
 
         JcloudsLocation origJcloudsLoc = newJcloudsLocation(computeServiceRegistry);
     
@@ -223,48 +222,5 @@ public class JcloudsRebindStubTest extends RebindTestFixtureWithApp {
                 JcloudsLocation.COMPUTE_SERVICE_REGISTRY, computeServiceRegistry, 
                 JcloudsLocation.WAIT_FOR_SSHABLE, false,
                 JcloudsLocation.USE_JCLOUDS_SSH_INIT, false));
-    }
-    
-    protected static class ByonComputeServiceRegistry extends ComputeServiceRegistryImpl implements ComputeServiceRegistry {
-        private final NodeMetadata node;
-
-        ByonComputeServiceRegistry(NodeMetadata node) throws Exception {
-            this.node = node;
-        }
-
-        @Override
-        public ComputeService findComputeService(ConfigBag conf, boolean allowReuse) {
-            ComputeService delegate = super.findComputeService(conf, allowReuse);
-            return new StubComputeService(delegate, node);
-        }
-    }
-
-    static class StubComputeService extends DelegatingComputeService {
-        private final NodeMetadata node;
-        
-        public StubComputeService(ComputeService delegate, NodeMetadata node) {
-            super(delegate);
-            this.node = checkNotNull(node, "node");
-        }
-        
-        @Override
-        public void destroyNode(String id) {
-            // no-op
-        }
-        
-        @Override
-        public Set<? extends NodeMetadata> createNodesInGroup(String group, int count) throws RunNodesException {
-            return ImmutableSet.of(node);
-        }
-        
-        @Override
-        public Set<? extends NodeMetadata> createNodesInGroup(String group, int count, Template template) throws RunNodesException {
-            return ImmutableSet.of(node);
-        }
-        
-        @Override
-        public Set<? extends NodeMetadata> createNodesInGroup(String group, int count, TemplateOptions templateOptions) throws RunNodesException {
-            return ImmutableSet.of(node);
-        }
     }
 }
