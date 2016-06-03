@@ -29,8 +29,8 @@ import javax.annotation.Nonnull;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.util.collections.CollectionHelpers;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
@@ -123,10 +123,17 @@ public class ConfigBag {
         }
     }
     
-    /** As {@link #newInstanceExtending(ConfigBag)} but also putting the supplied values. */
+    /** As {@link #newInstanceExtending(ConfigBag)} but also putting the supplied values.
+     * In Apache Brooklyn the method is used only for Location configuration.
+     * The method will do a shallow merge only for templateOptions key, other keys will override with <code>optionalAdditionalValues</code>.
+     */
     @Beta
     public static ConfigBag newInstanceExtending(final ConfigBag configBag, Map<?,?> optionalAdditionalValues) {
-        return newInstanceExtending(configBag).putAll(optionalAdditionalValues);
+        if (optionalAdditionalValues != null) {
+            return newInstance(CollectionHelpers.mergeMapsAndTheirInnerMapValues(configBag.getAllConfig(), (Map<String, Object>) optionalAdditionalValues, "templateOptions"));
+        } else {
+            return newInstanceExtending(configBag);
+        }
     }
 
     /** @deprecated since 0.7.0, not used; kept only for rebind compatibility where the inner class is used 

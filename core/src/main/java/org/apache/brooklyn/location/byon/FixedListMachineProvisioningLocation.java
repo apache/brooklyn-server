@@ -39,6 +39,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
+import org.apache.brooklyn.core.objs.AbstractConfigurationSupportInternal;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -313,7 +314,7 @@ implements MachineProvisioningLocation<T>, Closeable {
     public T obtain(Map<?,?> flags) throws NoMachinesAvailableException {
         T machine;
         T desiredMachine = (T) flags.get("desiredMachine");
-        ConfigBag allflags = ConfigBag.newInstanceExtending(config().getBag()).putAll(flags);
+        ConfigBag allflags = ConfigBag.newInstanceExtending(config().getBag(), flags);
         Function<Iterable<? extends MachineLocation>, MachineLocation> chooser = allflags.get(MACHINE_CHOOSER);
         
         synchronized (lock) {
