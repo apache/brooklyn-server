@@ -9,58 +9,82 @@ brooklyn.catalog:
 
   items:
 
-  - id:  docker-swarm
-    name: "A Docker Swarm with Etcd Discovery and built-in CA server"
+  - id: docker-swarm-template
+    name: "Docker Swarm with Discovery and CA"
     description: |
-      Creates a Swarm of Docker engines, of configurable initial size, using an etcd cluster for discovery.
+      Creates a Swarm of Docker engines, of configurable initial size, using an Etcd cluster for discovery.
     itemType: template
     item:
       services:
-      - type: org.apache.brooklyn.entity.stock.BasicApplication
-        brooklyn.parameters:
-        - name: swarm.initial.size
-          label: Initial Swarm Size
-          description: Size of the swarm when created initially
-          type: java.lang.Integer
-          default: 1
-        - name: etcd.initial.size
-          label: Initial Etcd Size
-          description: Size of the etcd when created initially
-          type: java.lang.Integer
-          default: 1
-        brooklyn.enrichers:
-        - type: org.apache.brooklyn.enricher.stock.Propagator
-          brooklyn.config:
-            uniqueTag: swarm-url-propagator
-            producer: $brooklyn:child("swarm-cluster")
-            propagating:
-            - $brooklyn:sensor("swarm.url")
-        brooklyn.children:
-        - type: ca-server
-          id: ca-server
-          name: "ca-server"
-        - type: etcd-cluster
-          id: etcd-cluster
-          name: "etcd-cluster"
-          initialSize: $brooklyn:config("etcd.initial.size")
-        - type: docker-swarm-cluster
-          id: swarm-cluster
-          name: "swarm-cluster"
-          brooklyn.config:
-            discovery.url:   $brooklyn:component("etcd-cluster").attributeWhenReady("etcd.authority")
-            ca.request.root: $brooklyn:component("ca-server").attributeWhenReady("main.uri")
-            resources.preInstall.latch: $brooklyn:component("ca-server").attributeWhenReady("service.isUp")
-            launch.latch:    $brooklyn:component("etcd-cluster").attributeWhenReady("service.isUp")
+      - type: docker-swarm
+
+  - id:  docker-swarm
+    name: "Docker Swarm with Discovery and CA"
+    description: |
+      Creates a Swarm of Docker engines, of configurable initial size, using an Etcd cluster for discovery.
+    itemType: entity
+    item:
+      type: org.apache.brooklyn.entity.stock.BasicApplication
+
+      brooklyn.parameters:
+      - name: swarm.initial.size
+        label: Initial Swarm Size
+        description: Size of the swarm when created initially
+        type: java.lang.Integer
+        default: 1
+      - name: etcd.initial.size
+        label: Initial Etcd Size
+        description: Size of the etcd when created initially
+        type: java.lang.Integer
+        default: 1
+      - name: swarm.defaultnetwork
+        label: Swarm Default Network
+        description: |
+          The name of a default network to create on startup
+        type: java.lang.String
+        default: "brooklyn"
+
+      brooklyn.enrichers:
+      - type: org.apache.brooklyn.enricher.stock.Propagator
+        brooklyn.config:
+          uniqueTag: swarm-url-propagator
+          producer: $brooklyn:child("swarm-cluster")
+          propagating:
+          - $brooklyn:sensor("swarm.url")
+      - type: org.apache.brooklyn.enricher.stock.Propagator
+        brooklyn.config:
+          uniqueTag: swarm-nw-propagator
+          producer: $brooklyn:child("swarm-cluster")
+          propagating:
+          - $brooklyn:sensor("swarm.url")
+
+      brooklyn.children:
+      - type: ca-server
+        id: ca-server
+        name: "ca-server"
+      - type: etcd-cluster
+        id: etcd-cluster
+        name: "etcd-cluster"
+        initialSize: $brooklyn:config("etcd.initial.size")
+      - type: docker-swarm-cluster
+        id: swarm-cluster
+        name: "swarm-cluster"
+        brooklyn.config:
+          discovery.url:   $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.authority")
+          ca.request.root: $brooklyn:entity("ca-server").attributeWhenReady("main.uri")
+          customize.latch: $brooklyn:entity("ca-server").attributeWhenReady("service.isUp")
+          launch.latch:    $brooklyn:entity("etcd-cluster").attributeWhenReady("service.isUp")
 
 
   - id:  docker-swarm-cluster
     name: "Docker Swarm Cluster"
     description: |
-      Creates a Swarm of Docker engines, of configurable initial size,
-      and using a pre-existing discovery mechanism.
+      Creates a Swarm of Docker engines, of configurable initial size.
+      Requires a pre-existing discovery mechanism and references to a CA server entity.
     itemType: entity
     item:
-      type: org.apache.brooklyn.entity.stock.BasicStartable
+      type: org.apache.brooklyn.entity.stock.BasicApplication
+
       brooklyn.parameters:
       - name: swarm.initial.size
         label: Initial Swarm Size
@@ -94,13 +118,13 @@ brooklyn.catalog:
       - type: org.apache.brooklyn.enricher.stock.Transformer
         brooklyn.config:
           uniqueTag: swarm-url-publisher
-          enricher.producer: $brooklyn:component("swarm-manager")
+          enricher.producer: $brooklyn:entity("swarm-manager")
           enricher.sourceSensor: $brooklyn:sensor("host.address")
           enricher.targetSensor: $brooklyn:sensor("swarm.url")
           enricher.targetValue:
             $brooklyn:formatString:
             - "tcp://%s:%d"
-            - $brooklyn:component("swarm-manager").attributeWhenReady("host.address")
+            - $brooklyn:entity("swarm-manager").attributeWhenReady("host.address")
             - $brooklyn:config("manager.port")
 
       brooklyn.children:
@@ -116,9 +140,6 @@ brooklyn.catalog:
             type: docker-swarm-node
             id: swarm-node
             name: "swarm-node"
-
-
-
 
 
   - id: docker-swarm-node
@@ -147,6 +168,7 @@ brooklyn.catalog:
         NODE_CERT_URL: $brooklyn:config("node.cert.url")
         PRIV_KEY_URL: $brooklyn:config("private.key.url")
         TLS_PORT: $brooklyn:config("tls.port")
+        DOCKER_HOST: $brooklyn:config("docker.url")
         DOCKER_ADDITIONAL_OPTIONS: $brooklyn:config("docker.additionaloptions")
         INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
         TLS_OPTIONS:
@@ -200,6 +222,7 @@ brooklyn.catalog:
         PRIV_KEY_URL: $brooklyn:config("private.key.url")
         TLS_PORT: $brooklyn:config("tls.port")
         MAN_PORT: $brooklyn:config("manager.port")
+        DOCKER_HOST: $brooklyn:config("docker.url")
         DOCKER_ADDITIONAL_OPTIONS: $brooklyn:config("docker.additionaloptions")
         INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
         TLS_OPTIONS:

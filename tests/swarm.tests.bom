@@ -1,84 +1,10 @@
 brooklyn.catalog:
-  version: 2.0.0_SNAPSHOT
-  dependsOn: ["common.tests.bom"]
+  version: 2.0.0-SNAPSHOT
   iconUrl: https://raw.githubusercontent.com/docker-library/docs/c350af05d3fac7b5c3f6327ac82fe4d990d8729c/docker/logo.png
+  dependsOn: ["common.tests.bom"]
   license_code: TODO
   license_url: TODO
   items:
-
-  # Convenience entities
-
-  - id: test-docker-client
-    item:
-      type: server
-      pre.install.command: |
-        # Install docker so we can use it as a client
-        sudo yum -y update
-        sudo tee /etc/yum.repos.d/docker.repo <<-'EOF'
-        [dockerrepo]
-        name=Docker Repository
-        baseurl=https://yum.dockerproject.org/repo/main/centos/$releasever/
-        enabled=1
-        gpgcheck=1
-        gpgkey=https://yum.dockerproject.org/gpg
-        EOF
-        sudo yum -y install docker-engine
-
-  - id: test-connect-fails-without-tls
-    item:
-      type: org.apache.brooklyn.test.framework.TestCase
-      name: Verify Connect Fails without TLS
-      brooklyn.parameters:
-        - name: swarm.url
-          description: URL of the swarm endpoint
-      brooklyn.children:
-      - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
-        command:
-          $brooklyn:formatString:
-          - "docker -H %s ps -a"
-          - $brooklyn:config("swarm.url")
-        assertStatus:
-          equals: 1
-        assertErr:
-          contains: Are you trying to connect to a TLS-enabled daemon without TLS?
-
-
-  - id: test-connect-succeeds-with-tls
-    item:
-      type: org.apache.brooklyn.test.framework.TestCase
-      name: Test Connect Succeeds with TLS
-      brooklyn.parameters:
-        - name: swarm.url
-          description: URL of the swarm endpoint
-        - name: ca.url
-          description: URL of the CA server
-        - name: client.address
-          description: Public address of the test client
-      brooklyn.children:
-      - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
-        command:
-          $brooklyn:formatString:
-          - |
-            echo "[TEST] Running in $(pwd)"
-            IP=%s; # client.address
-            CA=%s; # ca.url
-            SWARM_URL=%s; # swarm.url
-            mkdir -p certs
-            echo "[TEST] Getting certificates from ${ca}"
-            curl -X POST ${ca}/generate/${IP}
-            curl ${CA}/cert/${IP}/ca.pem > certs/ca.pem
-            curl ${CA}/cert/${IP}/cert.pem > certs/cert.pem
-            curl ${CA}/cert/${IP}/key.pem > certs/key.pem
-            TLS_OPTIONS="--tlsverify --tlscacert=certs/ca.pem --tlscert=certs/cert.pem --tlskey=certs/key.pem"
-            echo "[TEST] Connecting to ${SWARM_URL} with TLS options ${TLS_OPTIONS}"
-            docker -H ${SWARM_URL} ${TLS_OPTIONS} ps -a
-          - $brooklyn:config("client.address")
-          - $brooklyn:config("ca.url")
-          - $brooklyn:config("swarm.url")
-        assertStatus:
-          equals: 0
-        assertOut:
-          contains: "/swarm join"
 
   - id: test-docker-run-pulls
     item:
@@ -94,16 +20,12 @@ brooklyn.catalog:
           - |
             set -e
             INSTALL_DIR=%s
-            SWARM_URL=%s
-            TLS_OPTIONS="--tlsverify --tlscacert=.certs/ca.pem --tlscert=.certs/cert.pem --tlskey=.certs/key.pem"
-            DOCKER="docker -H $SWARM_URL $TLS_OPTIONS"
-             
+
             cd $INSTALL_DIR
-            $DOCKER rmi busybox || true # OK to fail
-            ! $DOCKER images | grep busybox
-            $DOCKER run --rm busybox echo Hello from busybox-image | grep busybox-image && $DOCKER images | grep busybox
+            docker rmi busybox || true # OK to fail
+            ! docker images | grep busybox
+            docker run --rm busybox echo Hello from busybox-image | grep busybox-image && docker images | grep busybox
           - $brooklyn:config("install.dir")
-          - $brooklyn:config("swarm.url")
         assertStatus:
           equals: 0
         assertOut:
@@ -111,7 +33,7 @@ brooklyn.catalog:
 
   - id: test-network-exists
     item:
-      type: test-connect-succeeds-with-tls
+      type: org.apache.brooklyn.test.framework.TestCase
       name: Test Network Exists
       brooklyn.parameters:
         - name: network.name
@@ -121,13 +43,96 @@ brooklyn.catalog:
         command:
           $brooklyn:formatString:
           - |
-            SWARM_URL=%s; # swarm.url
             NETWORK=%s; # network.name
-            TLS_OPTIONS="--tlsverify --tlscacert=certs/ca.pem --tlscert=certs/cert.pem --tlskey=certs/key.pem"
             echo "[TEST] Checking ID of network ${NETWORK}"
-            docker -H ${SWARM_URL} ${TLS_OPTIONS} network inspect --format "{{.ID}}" "${NETWORK}"
-          - $brooklyn:config("swarm.url")
+            docker network inspect --format "{{.ID}}" "${NETWORK}"
           - $brooklyn:config("network.name")
         assertStatus:
           equals: 0
 
+
+  - id: test-swarm
+    name: Docker Swarm Tests
+    description: |
+      Tests on Docker Swarm over TLS
+    itemType: entity
+    item:
+      type: org.apache.brooklyn.entity.stock.BasicApplication
+      brooklyn.config:
+        timeout: 1h
+        timeout.initialStartup: 1h
+        swarm.initial.size: 1
+        etcd.initial.size: 1
+
+      brooklyn.children:
+
+        # The swarm to test
+        - type: docker-swarm
+          id: swarm
+          brooklyn.config:
+            swarm.initial.size: 1
+            etcd.initial.size: 1
+            swarm.defaultnetwork: "brooklyn"
+
+        # A client for talking to the swarm
+        - type: test-docker-client-with-tls
+          name: Swarm client with TLS
+          id: swarm-client
+          brooklyn.config:
+            customize.latch: $brooklyn:entity("swarm").attributeWhenReady("service.isUp")
+            client.address: $brooklyn:attributeWhenReady("host.address")
+            ca.url:  $brooklyn:entity("ca-server").attributeWhenReady("main.uri")
+            docker.url: $brooklyn:entity("swarm").attributeWhenReady("swarm.url")
+
+        - type: org.apache.brooklyn.test.framework.TestCase
+          name: Swarm TLS tests
+          brooklyn.children:
+
+          - type: assert-up
+            name: "TEST-1 assert up"
+            brooklyn.config:
+              targetId: swarm
+
+          - type: assert-running
+            name: "TEST-2 assert running"
+            brooklyn.config:
+              targetId: swarm
+
+          - type: test-connect-fails-without-tls
+            name: "TEST-3 Test connect fails without TLS"
+            brooklyn.config:
+              targetId: swarm-client
+              docker.url: $brooklyn:entity("swarm").attributeWhenReady("swarm.url")
+
+          # Run the docker tests against the swarm
+          - type: docker-engine-test
+            name: "TEST-4 Test Swarm over TLS"
+            targetId: swarm-client
+            brooklyn.config:
+              start.latch: $brooklyn:entity("swarm-client").attributeWhenReady("service.isUp")
+
+          - type: test-docker-run-pulls
+            name: "TEST-5 Test Docker run pulls"
+            brooklyn.config:
+              targetId: swarm-manager
+              swarm.url: $brooklyn:component("swarm").attributeWhenReady("swarm.url")
+              install.dir: $brooklyn:component("swarm-manager").attributeWhenReady("install.dir")
+#
+#          TODO re-enable these after networking updates
+#          - type: test-network-exists
+#            name: "TEST-6 Test default network exists"
+#            brooklyn.config:
+#              targetId: swarm-client
+#              swarm.url: $brooklyn:component("swarm").attributeWhenReady("swarm.url")
+#              ca.url: $brooklyn:component("ca-server").attributeWhenReady("main.uri")
+#              client.address: $brooklyn:component("swarm-client").attributeWhenReady("host.address")
+#              network.name: $brooklyn:component("swarm").config("swarm.defaultnetwork")
+#
+#          - type: test-network-exists
+#            name: "TEST-7 Test named network exists"
+#            brooklyn.config:
+#              targetId: swarm-client
+#              swarm.url: $brooklyn:component("swarm").attributeWhenReady("swarm.url")
+#              ca.url: $brooklyn:component("ca-server").attributeWhenReady("main.uri")
+#              client.address: $brooklyn:component("swarm-client").attributeWhenReady("host.address")
+#              network.name: "test-network-name"
