@@ -69,6 +69,20 @@ public class BrooklynAccessUtilsTest extends BrooklynAppUnitTestSupport {
 
         assertEquals(BrooklynAccessUtils.getBrooklynAccessibleAddress(entity, privatePort), HostAndPort.fromParts(publicNatIp, publicNatPort));
     }
+
+    @Test
+    public void testBrooklynAccessibleAddressFindsPreexistingMappingFromDefaultPFM() throws Exception {
+        final int privatePort = 8080;
+        final String publicNatIp = "1.2.3.4";
+        final int publicNatPort = 12000;
+
+        SshMachineLocation machine = mgmt.getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
+                .configure(SshMachineLocation.TCP_PORT_MAPPINGS, ImmutableMap.of(privatePort, publicNatIp+":"+publicNatPort)));
+        entity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
+                .location(machine));
+
+        assertEquals(BrooklynAccessUtils.getBrooklynAccessibleAddress(entity, privatePort), HostAndPort.fromParts(publicNatIp, publicNatPort));
+    }
     
     @Test
     public void testBrooklynAccessibleAddressUsesPrivateHostPortIfNoMapping() throws Exception {
