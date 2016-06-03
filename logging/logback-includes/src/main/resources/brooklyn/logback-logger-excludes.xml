@@ -61,6 +61,12 @@
         <appender-ref ref="FILE" />
     </logger>
 
-    <logger name="org.apache.cxf" level="WARN"/>
+    <!-- CXF logging is extremely verbose, including 
+         debug logging for every REST in and out,
+         and warns and errors which we catch and handle;
+         it might be nice to keep the latter, but they show up in info log (no way to say debug file only?),
+         so simplest is to disable all but severe -->
+    <logger name="org.apache.cxf" level="SEVERE"/>
+    
     <logger name="io.cloudsoft.winrm4j.winrm.WinRmTool" level="DEBUG"/>
 </included>

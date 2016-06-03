@@ -66,13 +66,18 @@ public class DefaultExceptionMapper implements ExceptionMapper<Throwable> {
             return null;
         }
 
-        LOG.debug("REST request running as {} threw: {}", Entitlements.getEntitlementContext(), 
-            Exceptions.collapse(throwable1));
+        Throwable throwable2 = Exceptions.getFirstInteresting(throwable1);
+        if (isSevere(throwable2)) {
+            LOG.warn("REST request running as {} threw: {}", Entitlements.getEntitlementContext(), 
+                Exceptions.collapse(throwable1));
+        } else {
+            LOG.debug("REST request running as {} threw: {}", Entitlements.getEntitlementContext(), 
+                Exceptions.collapse(throwable1));            
+        }
         if (LOG.isTraceEnabled()) {
             LOG.trace("Full details of "+Entitlements.getEntitlementContext()+" "+throwable1, throwable1);
         }
 
-        Throwable throwable2 = Exceptions.getFirstInteresting(throwable1);
         // Some methods will throw this, which gets converted automatically
         if (throwable2 instanceof WebApplicationException) {
             WebApplicationException wae = (WebApplicationException) throwable2;
@@ -113,5 +118,12 @@ public class DefaultExceptionMapper implements ExceptionMapper<Throwable> {
         if (Strings.isBlank(rb.getMessage()))
             rb.message("Internal error. Contact server administrator to consult logs for more details.");
         return rb.build().asResponse(Status.INTERNAL_SERVER_ERROR, MediaType.APPLICATION_JSON_TYPE);
+    }
+    
+    protected boolean isSevere(Throwable t) {
+        // some things, like this, we want more prominent server notice of
+        // (the list could be much larger but this is a start)
+        if (t instanceof OutOfMemoryError) return true;
+        return false;
     }
 }
