@@ -25,6 +25,7 @@ import java.util.Objects;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableMap;
+import org.apache.brooklyn.config.ConfigKey;
 
 public class PolicyConfigSummary extends ConfigSummary {
 
@@ -42,6 +43,11 @@ public class PolicyConfigSummary extends ConfigSummary {
             @JsonProperty("links") Map<String, URI> links) {
         super(name, type, description, defaultValue, reconfigurable, null, null, null);
         this.links = (links == null) ? ImmutableMap.<String, URI>of() : ImmutableMap.copyOf(links);
+    }
+
+    public PolicyConfigSummary(ConfigKey<?> config, String label, Double priority, Map<String, URI> links) {
+        super(config, label, priority);
+        this.links = links != null ? ImmutableMap.copyOf(links) : null;
     }
 
     @Override

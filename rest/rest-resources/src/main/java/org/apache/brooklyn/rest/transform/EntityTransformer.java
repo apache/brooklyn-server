@@ -33,6 +33,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.render.RendererHints;
 import org.apache.brooklyn.rest.domain.EntityConfigSummary;
 import org.apache.brooklyn.rest.domain.EntitySummary;
+import org.apache.brooklyn.rest.domain.PolicyConfigSummary;
 import org.apache.brooklyn.util.collections.MutableMap;
 
 import com.google.common.base.Function;
@@ -122,6 +123,11 @@ public class EntityTransformer {
         Map<String, URI> mapOfLinks =  links==null ? null : ImmutableMap.copyOf(links);
         return new EntityConfigSummary(config, label, priority, mapOfLinks);
     }
+
+    public static PolicyConfigSummary policyConfigSummary(ConfigKey<?> config, String label, Double priority, Map<String, URI> links) {
+        return new PolicyConfigSummary(config, label, priority, links);
+    }
+
     /** generates a representation for a given config key, 
      * with label inferred from annoation in the entity class,
      * and links pointing to the entity and the applicaiton */
@@ -179,4 +185,8 @@ public class EntityTransformer {
         return entityConfigSummary(input.getConfigKey(), input.getLabel(), priority, null);
     }
 
+    public static PolicyConfigSummary policyConfigSummary(SpecParameter<?> input) {
+        Double priority = input.isPinned() ? Double.valueOf(1d) : null;
+        return policyConfigSummary(input.getConfigKey(), input.getLabel(), priority, null);
+    }
 }
