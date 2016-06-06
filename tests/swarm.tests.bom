@@ -59,19 +59,19 @@ brooklyn.catalog:
         command:
           $brooklyn:formatString:
           - |
-            echo Running in $(pwd)
+            echo "[TEST] Running in $(pwd)"
             IP=%s; # client.address
-            ca=%s; # ca.url
-            swarm_url=%s; # swarm.url
+            CA=%s; # ca.url
+            SWARM_URL=%s; # swarm.url
             mkdir -p certs
-            echo Getting certificates from ${ca}
+            echo "[TEST] Getting certificates from ${ca}"
             curl -X POST ${ca}/generate/${IP}
-            curl ${ca}/cert/${IP}/ca.pem > certs/ca.pem
-            curl ${ca}/cert/${IP}/cert.pem > certs/cert.pem
-            curl ${ca}/cert/${IP}/key.pem > certs/key.pem
-            tls_options="--tlsverify --tlscacert=certs/ca.pem --tlscert=certs/cert.pem --tlskey=certs/key.pem"
-            echo Connecting to ${swarm_url} with TLS options ${tls_options}
-            docker -H ${swarm_url} ${tls_options} ps -a
+            curl ${CA}/cert/${IP}/ca.pem > certs/ca.pem
+            curl ${CA}/cert/${IP}/cert.pem > certs/cert.pem
+            curl ${CA}/cert/${IP}/key.pem > certs/key.pem
+            TLS_OPTIONS="--tlsverify --tlscacert=certs/ca.pem --tlscert=certs/cert.pem --tlskey=certs/key.pem"
+            echo "[TEST] Connecting to ${SWARM_URL} with TLS options ${TLS_OPTIONS}"
+            docker -H ${SWARM_URL} ${TLS_OPTIONS} ps -a
           - $brooklyn:config("client.address")
           - $brooklyn:config("ca.url")
           - $brooklyn:config("swarm.url")
@@ -108,3 +108,26 @@ brooklyn.catalog:
           equals: 0
         assertOut:
           contains: "busybox-image"
+
+  - id: test-network-exists
+    item:
+      type: test-connect-succeeds-with-tls
+      name: Test Network Exists
+      brooklyn.parameters:
+        - name: network.name
+          description: Name of the network
+      brooklyn.children:
+      - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+        command:
+          $brooklyn:formatString:
+          - |
+            SWARM_URL=%s; # swarm.url
+            NETWORK=%s; # network.name
+            TLS_OPTIONS="--tlsverify --tlscacert=certs/ca.pem --tlscert=certs/cert.pem --tlskey=certs/key.pem"
+            echo "[TEST] Checking ID of network ${NETWORK}"
+            docker -H ${SWARM_URL} ${TLS_OPTIONS} network inspect --format "{{.ID}}" "${NETWORK}"
+          - $brooklyn:config("swarm.url")
+          - $brooklyn:config("network.name")
+        assertStatus:
+          equals: 0
+

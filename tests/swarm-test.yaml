@@ -44,3 +44,22 @@ services:
       targetId: swarm-manager
       swarm.url: $brooklyn:component("swarm").attributeWhenReady("swarm.url")
       install.dir: $brooklyn:component("swarm-manager").attributeWhenReady("install.dir")
+
+  - type: test-network-exists
+    name: "Test default network exists"
+    brooklyn.config:
+      targetId: docker-client
+      swarm.url: $brooklyn:component("swarm").attributeWhenReady("swarm.url")
+      ca.url: $brooklyn:component("ca-server").attributeWhenReady("main.uri")
+      client.address: $brooklyn:component("docker-client").attributeWhenReady("host.address")
+      network.name: $brooklyn:component("swarm").config("swarm.defaultnetwork")
+
+  - type: test-network-exists
+    name: "Test named network exists"
+    brooklyn.config:
+      targetId: docker-client
+      swarm.url: $brooklyn:component("swarm").attributeWhenReady("swarm.url")
+      ca.url: $brooklyn:component("ca-server").attributeWhenReady("main.uri")
+      client.address: $brooklyn:component("docker-client").attributeWhenReady("host.address")
+      network.name: "test-network-name"
+
