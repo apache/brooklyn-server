@@ -22,6 +22,7 @@ import java.net.URI;
 import java.util.List;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.core.entity.Attributes;
@@ -53,7 +54,8 @@ public class PublicNetworkFaceEnricherTest extends BrooklynAppUnitTestSupport {
     public void setUp() throws Exception {
         super.setUp();
         entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
-        machine = app.newLocalhostProvisioningLocation().obtain();
+        machine = mgmt.getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
+                .configure("address", "127.0.0.1"));
         portForwardManager = (PortForwardManager) mgmt.getLocationRegistry().getLocationManaged(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
     }
     
@@ -67,6 +69,7 @@ public class PublicNetworkFaceEnricherTest extends BrooklynAppUnitTestSupport {
                     result.add(new Object[] {setSensor, createAssociation, addLocation, Attributes.MAIN_URI, URI.create("http://127.0.0.1:1234/my/path"), "http://mypublichost:5678/my/path"});
                     result.add(new Object[] {setSensor, createAssociation, addLocation, TestEntity.NAME, "http://127.0.0.1:1234/my/path", "http://mypublichost:5678/my/path"});
                     result.add(new Object[] {setSensor, createAssociation, addLocation, Attributes.HTTP_PORT, 1234, "mypublichost:5678"});
+                    result.add(new Object[] {setSensor, createAssociation, addLocation, TestEntity.NAME, "1234", "mypublichost:5678"});
                     result.add(new Object[] {setSensor, createAssociation, addLocation, TestEntity.NAME, "127.0.0.1:1234", "mypublichost:5678"});
                     result.add(new Object[] {setSensor, createAssociation, addLocation, hostAndPortSensor, HostAndPort.fromString("127.0.0.1:1234"), "mypublichost:5678"});
                 }
@@ -74,6 +77,23 @@ public class PublicNetworkFaceEnricherTest extends BrooklynAppUnitTestSupport {
         }
         return result.toArray(new Object[result.size()][]);
     }
+    
+    @DataProvider(name = "invalidVariants")
+    public static Object[][] provideInvalidVariants() {
+        AttributeSensor<HostAndPort> hostAndPortSensor = Sensors.newSensor(HostAndPort.class, "test.hostAndPort");
+        List<Object[]> result = Lists.newArrayList();
+        result.add(new Object[] {Attributes.MAIN_URI, (URI)null});
+        result.add(new Object[] {TestEntity.NAME, "127.0.0.1:1234/my/path"}); // must have scheme
+        result.add(new Object[] {Attributes.HTTP_PORT, null});
+        result.add(new Object[] {Attributes.HTTP_PORT, 1234567});
+        result.add(new Object[] {TestEntity.NAME, null});
+        result.add(new Object[] {TestEntity.NAME, "1234567"});
+        result.add(new Object[] {TestEntity.NAME, "thisHasNoPort"});
+        result.add(new Object[] {TestEntity.NAME, "portIsTooBig:1234567"});
+        result.add(new Object[] {hostAndPortSensor, (HostAndPort)null});
+        return result.toArray(new Object[result.size()][]);
+    }
+
     enum Timing {
         BEFORE,
         AFTER;
@@ -112,6 +132,20 @@ public class PublicNetworkFaceEnricherTest extends BrooklynAppUnitTestSupport {
         EntityAsserts.assertAttributeEquals(entity, sensor, sensorVal);
     }
     
+    
+    @Test(dataProvider = "invalidVariants")
+    public <T> void testIgnoresWhenInvalidAttribute(AttributeSensor<T> sensor, T sensorVal) throws Exception {
+        entity.sensors().set(Attributes.SUBNET_ADDRESS, "127.0.0.1");
+        entity.sensors().set(sensor, sensorVal);
+        portForwardManager.associate("myPublicIp", HostAndPort.fromParts("mypublichost", 5678), machine, 1234);
+        entity.addLocations(ImmutableList.of(machine));
+        
+        entity.enrichers().add(EnricherSpec.create(PublicNetworkFaceEnricher.class)
+                .configure(PublicNetworkFaceEnricher.SENSOR, sensor));
+
+        EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", VERY_SHORT_WAIT), entity, Sensors.newStringSensor(sensor.getName()+".mapped.public"), null);
+    }
+
     @Test
     public <T> void testTransformsDefaultHttp80() throws Exception {
         entity.sensors().set(Attributes.SUBNET_ADDRESS, "127.0.0.1");

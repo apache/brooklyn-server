@@ -245,20 +245,28 @@ public class PublicNetworkFaceEnricher extends AbstractEnricher {
             return true;
         }
         try {
-            new URI(sensorVal.toString());
-            return true;
+            URI uri = new URI(sensorVal.toString());
+            return uri.getScheme() != null;
         } catch (URISyntaxException e) {
             return false;
         }
     }
 
     protected boolean isPort(Object sensorVal) {
-        return (sensorVal instanceof Integer || sensorVal instanceof Long || sensorVal instanceof Short);
+        if (sensorVal instanceof Integer || sensorVal instanceof Long) {
+            return Networking.isPortValid(((Number)sensorVal).intValue());
+        } else if (sensorVal instanceof CharSequence) {
+            return sensorVal.toString().trim().matches("[0-9]+");
+        } else {
+            return false;
+        }
     }
 
     protected int toInteger(Object sensorVal) {
         if (sensorVal instanceof Number) {
             return ((Number)sensorVal).intValue();
+        } else if (sensorVal instanceof CharSequence) {
+            return Integer.parseInt(sensorVal.toString().trim());
         } else {
             throw new IllegalArgumentException("Expected number but got "+sensorVal+" of type "+(sensorVal != null ? sensorVal.getClass() : null));
         }
@@ -287,10 +295,11 @@ public class PublicNetworkFaceEnricher extends AbstractEnricher {
         if (port != -1) {
             HostAndPort publicTarget = getPortForwardManager().lookup(machine, port);
             if (publicTarget == null) {
-                // TODO What if publicTarget is still null, but will be set soon? We're not subscribed to changes in the PortForwardManager!
-                // TODO Should we return null or sensorVal? In this method we always return sensorVal;
-                //      but in HostAndPortTransformingEnricher we always return null!
                 LOG.trace("network-facing enricher not transforming {} URI {}, because no port-mapping for {}", new Object[] {source, sensorVal, machine});
+                return Maybe.absent();
+            }
+            if (!publicTarget.hasPort()) {
+                LOG.debug("network-facing enricher not transforming {} URI {}, because no port in public-target {} for {}", new Object[] {source, sensorVal, publicTarget, machine});
                 return Maybe.absent();
             }
             URI result;
