@@ -20,6 +20,15 @@ package org.apache.brooklyn.core.sensor.ssh;
 
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.annotations.Beta;
+import com.google.common.base.Function;
+import com.google.common.base.Functions;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
+
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.config.ConfigKey;
@@ -35,14 +44,6 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.text.Strings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.annotations.Beta;
-import com.google.common.base.Function;
-import com.google.common.base.Functions;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
 
 /** 
  * Configurable {@link EntityInitializer} which adds an SSH sensor feed running the <code>command</code> supplied
@@ -69,7 +70,7 @@ public final class SshCommandSensor<T> extends AddSensor<T> {
 
         // TODO create a supplier for the command string to support attribute embedding
         command = Preconditions.checkNotNull(params.get(SENSOR_COMMAND), "command");
-        
+
         executionDir = params.get(SENSOR_EXECUTION_DIR);
     }
 
@@ -104,7 +105,7 @@ public final class SshCommandSensor<T> extends AddSensor<T> {
                 .onSuccess(Functions.compose(new Function<String, T>() {
                         @Override
                         public T apply(String input) {
-                            return TypeCoercions.coerce(input, getType(type));
+                            return TypeCoercions.coerce(Strings.trimEnd(input), getType(type));
                         }}, SshValueFunctions.stdout()));
 
         SshFeed.builder()

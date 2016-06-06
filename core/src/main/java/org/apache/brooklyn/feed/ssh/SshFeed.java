@@ -198,23 +198,17 @@ public class SshFeed extends AbstractFeed {
                     Objects.equal(env, o.env);
         }
     }
-    
-    /** @deprecated since 0.7.0, use static convenience on {@link Locations} */
-    @Deprecated
-    public static SshMachineLocation getMachineOfEntity(Entity entity) {
-        return Machines.findUniqueMachineLocation(entity.getLocations(), SshMachineLocation.class).orNull();
-    }
 
     /**
      * For rebind; do not call directly; use builder
      */
     public SshFeed() {
     }
-    
+
     protected SshFeed(final Builder builder) {
-        setConfig(ONLY_IF_SERVICE_UP, builder.onlyIfServiceUp);
-        setConfig(MACHINE, builder.machine != null ? builder.machine : null);
-        setConfig(EXEC_AS_COMMAND, builder.execAsCommand);
+        config().set(ONLY_IF_SERVICE_UP, builder.onlyIfServiceUp);
+        config().set(MACHINE, builder.machine);
+        config().set(EXEC_AS_COMMAND, builder.execAsCommand);
         
         SetMultimap<SshPollIdentifier, SshPollConfig<?>> polls = HashMultimap.<SshPollIdentifier,SshPollConfig<?>>create();
         for (SshPollConfig<?> config : builder.polls) {
@@ -223,12 +217,12 @@ public class SshFeed extends AbstractFeed {
             if (configCopy.getPeriod() < 0) configCopy.period(builder.period);
             polls.put(new SshPollIdentifier(config.getCommandSupplier(), config.getEnvSupplier()), configCopy);
         }
-        setConfig(POLLS, polls);
+        config().set(POLLS, polls);
         initUniqueTag(builder.uniqueTag, polls.values());
     }
 
     protected SshMachineLocation getMachine() {
-        Supplier<SshMachineLocation> supplier = getConfig(MACHINE);
+        Supplier<SshMachineLocation> supplier = config().get(MACHINE);
         if (supplier != null) {
             return supplier.get();
         } else {
@@ -238,7 +232,7 @@ public class SshFeed extends AbstractFeed {
     
     @Override
     protected void preStart() {
-        SetMultimap<SshPollIdentifier, SshPollConfig<?>> polls = getConfig(POLLS);
+        SetMultimap<SshPollIdentifier, SshPollConfig<?>> polls = config().get(POLLS);
         
         for (final SshPollIdentifier pollInfo : polls.keySet()) {
             Set<SshPollConfig<?>> configs = polls.get(pollInfo);
@@ -267,13 +261,13 @@ public class SshFeed extends AbstractFeed {
     
     private SshPollValue exec(String command, Map<String,String> env) throws IOException {
         SshMachineLocation machine = getMachine();
-        Boolean execAsCommand = getConfig(EXEC_AS_COMMAND);
+        Boolean execAsCommand = config().get(EXEC_AS_COMMAND);
         if (log.isTraceEnabled()) log.trace("Ssh polling for {}, executing {} with env {}", new Object[] {machine, command, env});
         ByteArrayOutputStream stdout = new ByteArrayOutputStream();
         ByteArrayOutputStream stderr = new ByteArrayOutputStream();
 
         int exitStatus;
-        ConfigBag flags = ConfigBag.newInstance()
+        ConfigBag flags = ConfigBag.newInstanceExtending(config().getBag())
             .configure(SshTool.PROP_NO_EXTRA_OUTPUT, true)
             .configure(SshTool.PROP_OUT_STREAM, stdout)
             .configure(SshTool.PROP_ERR_STREAM, stderr);
