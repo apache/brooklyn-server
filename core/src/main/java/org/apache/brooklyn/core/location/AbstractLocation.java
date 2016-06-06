@@ -44,6 +44,7 @@ import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigInheritance;
+import org.apache.brooklyn.config.ConfigInheritance.InheritanceMode;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
@@ -488,7 +489,8 @@ public abstract class AbstractLocation extends AbstractBrooklynObject implements
         private boolean isInherited(ConfigKey<?> key) {
             ConfigInheritance inheritance = key.getInheritance();
             if (inheritance==null) inheritance = getDefaultInheritance();
-            return inheritance.isInherited(key, getParent(), AbstractLocation.this);
+            InheritanceMode mode = inheritance.isInherited(key, getParent(), AbstractLocation.this);
+            return mode != null && mode != InheritanceMode.NONE;
         }
 
         private ConfigInheritance getDefaultInheritance() {

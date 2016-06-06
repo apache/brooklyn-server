@@ -84,6 +84,7 @@ import org.apache.brooklyn.location.jclouds.templates.PortableTemplateBuilder;
 import org.apache.brooklyn.location.jclouds.zone.AwsAvailabilityZoneExtension;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
+import org.apache.brooklyn.util.collections.CollectionMerger;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -608,6 +609,11 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         ConfigBag setupRaw = ConfigBag.newInstanceExtending(config().getBag(), flags);
         ConfigBag setup = ResolvingConfigBag.newInstanceExtending(getManagementContext(), setupRaw);
 
+        Map<String, Object> flagTemplateOptions = ConfigBag.newInstance(flags).get(TEMPLATE_OPTIONS);
+        Map<String, Object> baseTemplateOptions = config().get(TEMPLATE_OPTIONS);
+        Map<String, Object> templateOptions = (Map<String, Object>) shallowMerge(Maybe.fromNullable(flagTemplateOptions), Maybe.fromNullable(baseTemplateOptions), TEMPLATE_OPTIONS).orNull();
+        setup.put(TEMPLATE_OPTIONS, templateOptions);
+        
         Integer attempts = setup.get(MACHINE_CREATE_ATTEMPTS);
         List<Exception> exceptions = Lists.newArrayList();
         if (attempts == null || attempts < 1) attempts = 1;
@@ -3072,9 +3078,10 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
      */
     protected String getPublicHostname(NodeMetadata node, Optional<HostAndPort> sshHostAndPort, LoginCredentials userCredentials, ConfigBag setup) {
         String provider = (setup != null) ? setup.get(CLOUD_PROVIDER) : null;
+        Boolean lookupAwsHostname = (setup != null) ? setup.get(LOOKUP_AWS_HOSTNAME) : null;
         if (provider == null) provider= getProvider();
 
-        if ("aws-ec2".equals(provider)) {
+        if ("aws-ec2".equals(provider) && Boolean.TRUE.equals(lookupAwsHostname)) {
             HostAndPort inferredHostAndPort = null;
             if (!sshHostAndPort.isPresent()) {
                 try {
@@ -3168,12 +3175,14 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     
     protected String getPrivateHostname(NodeMetadata node, Optional<HostAndPort> sshHostAndPort, LoginCredentials userCredentials, ConfigBag setup) {
         String provider = (setup != null) ? setup.get(CLOUD_PROVIDER) : null;
-        if (provider == null) provider= getProvider();
+        Boolean lookupAwsHostname = (setup != null) ? setup.get(LOOKUP_AWS_HOSTNAME) : null;
+        
+        if (provider == null) provider = getProvider();
 
         // TODO Discouraged to do cloud-specific things; think of this code for aws as an
         // exceptional situation rather than a pattern to follow. We need a better way to
         // do cloud-specific things.
-        if ("aws-ec2".equals(provider)) {
+        if ("aws-ec2".equals(provider) && Boolean.TRUE.equals(lookupAwsHostname)) {
             Maybe<String> result = getPrivateHostnameAws(node, sshHostAndPort, userCredentials, setup);
             if (result.isPresent()) return result.get();
         }
@@ -3319,4 +3328,20 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         return new JcloudsBlobStoreBasedObjectStore(this, container);
     }
 
+    // TODO Very similar to EntityConfigMap.deepMerge
+    private <T> Maybe<?> shallowMerge(Maybe<? extends T> val1, Maybe<? extends T> val2, ConfigKey<?> keyForLogging) {
+        if (val2.isAbsent() || val2.isNull()) {
+            return val1;
+        } else if (val1.isAbsent()) {
+            return val2;
+        } else if (val1.isNull()) {
+            return val1; // an explicit null means an override; don't merge
+        } else if (val1.get() instanceof Map && val2.get() instanceof Map) {
+            return Maybe.of(CollectionMerger.builder().deep(false).build().merge((Map<?,?>)val1.get(), (Map<?,?>)val2.get()));
+        } else {
+            // cannot merge; just return val1
+            LOG.debug("Cannot merge values for "+keyForLogging.getName()+", because values are not maps: "+val1.get().getClass()+", and "+val2.get().getClass());
+            return val1;
+        }
+    }
 }

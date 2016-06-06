@@ -22,12 +22,14 @@ import java.util.Collection;
 import java.util.Map;
 
 import com.google.common.annotations.Beta;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.reflect.TypeToken;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.annotation.Effector;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -39,7 +41,6 @@ import org.apache.brooklyn.core.entity.lifecycle.Lifecycle.Transition;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.time.Duration;
 
@@ -50,6 +51,8 @@ public interface SoftwareProcess extends Entity, Startable {
     AttributeSensor<String> SUBNET_HOSTNAME = Attributes.SUBNET_HOSTNAME;
     AttributeSensor<String> SUBNET_ADDRESS = Attributes.SUBNET_ADDRESS;
 
+    // TODO Want this to have typeInheritance.merge as well, but currently only supported for maps
+    @SuppressWarnings("serial")
     ConfigKey<Collection<Integer>> REQUIRED_OPEN_LOGIN_PORTS = ConfigKeys.newConfigKey(
             new TypeToken<Collection<Integer>>() {},
             "requiredOpenLoginPorts",
@@ -169,10 +172,11 @@ public interface SoftwareProcess extends Entity, Startable {
      * @see #PRE_INSTALL_TEMPLATES
      */
     @Beta
-    @SuppressWarnings("serial")
     @SetFromFlag("preInstallFiles")
-    ConfigKey<Map<String, String>> PRE_INSTALL_FILES = ConfigKeys.newConfigKey(new TypeToken<Map<String, String>>() { },
-            "files.preinstall", "Mapping of files, to be copied before install, to destination name relative to installDir");
+    MapConfigKey<String> PRE_INSTALL_FILES = new MapConfigKey.Builder<String>(String.class, "files.preinstall")
+            .description("Mapping of files, to be copied before install, to destination name relative to installDir") 
+            .typeInheritance(ConfigInheritance.DEEP_MERGE)
+            .build();
 
     /**
      * Templates to be filled in and then copied to the server before install.
@@ -180,10 +184,11 @@ public interface SoftwareProcess extends Entity, Startable {
      * @see #PRE_INSTALL_FILES
      */
     @Beta
-    @SuppressWarnings("serial")
     @SetFromFlag("preInstallTemplates")
-    ConfigKey<Map<String, String>> PRE_INSTALL_TEMPLATES = ConfigKeys.newConfigKey(new TypeToken<Map<String, String>>() { },
-            "templates.preinstall", "Mapping of templates, to be filled in and copied before pre-install, to destination name relative to installDir");
+    MapConfigKey<String> PRE_INSTALL_TEMPLATES = new MapConfigKey.Builder<String>(String.class, "templates.preinstall")
+            .description("Mapping of templates, to be filled in and copied before pre-install, to destination name relative to installDir") 
+            .typeInheritance(ConfigInheritance.DEEP_MERGE)
+            .build();
 
     /**
      * Files to be copied to the server before install.
@@ -194,10 +199,11 @@ public interface SoftwareProcess extends Entity, Startable {
      * @see #INSTALL_TEMPLATES
      */
     @Beta
-    @SuppressWarnings("serial")
     @SetFromFlag("installFiles")
-    ConfigKey<Map<String, String>> INSTALL_FILES = ConfigKeys.newConfigKey(new TypeToken<Map<String, String>>() { },
-            "files.install", "Mapping of files, to be copied before install, to destination name relative to installDir");
+    MapConfigKey<String> INSTALL_FILES = new MapConfigKey.Builder<String>(String.class, "files.install")
+            .description("Mapping of files, to be copied before install, to destination name relative to installDir") 
+            .typeInheritance(ConfigInheritance.DEEP_MERGE)
+            .build();
 
     /**
      * Templates to be filled in and then copied to the server before install.
@@ -205,10 +211,11 @@ public interface SoftwareProcess extends Entity, Startable {
      * @see #INSTALL_FILES
      */
     @Beta
-    @SuppressWarnings("serial")
     @SetFromFlag("installTemplates")
-    ConfigKey<Map<String, String>> INSTALL_TEMPLATES = ConfigKeys.newConfigKey(new TypeToken<Map<String, String>>() { },
-            "templates.install", "Mapping of templates, to be filled in and copied before install, to destination name relative to installDir");
+    MapConfigKey<String> INSTALL_TEMPLATES = new MapConfigKey.Builder<String>(String.class, "templates.install")
+            .description("Mapping of templates, to be filled in and copied before install, to destination name relative to installDir") 
+            .typeInheritance(ConfigInheritance.DEEP_MERGE)
+            .build();
 
     /**
      * Files to be copied to the server after customisation.
@@ -219,10 +226,11 @@ public interface SoftwareProcess extends Entity, Startable {
      * @see #RUNTIME_TEMPLATES
      */
     @Beta
-    @SuppressWarnings("serial")
     @SetFromFlag("runtimeFiles")
-    ConfigKey<Map<String, String>> RUNTIME_FILES = ConfigKeys.newConfigKey(new TypeToken<Map<String, String>>() { },
-            "files.runtime", "Mapping of files, to be copied before customisation, to destination name relative to runDir");
+    MapConfigKey<String> RUNTIME_FILES = new MapConfigKey.Builder<String>(String.class, "files.runtime")
+            .description("Mapping of files, to be copied before customisation, to destination name relative to runDir") 
+            .typeInheritance(ConfigInheritance.DEEP_MERGE)
+            .build();
 
     /**
      * Templates to be filled in and then copied to the server after customisation.
@@ -230,14 +238,18 @@ public interface SoftwareProcess extends Entity, Startable {
      * @see #RUNTIME_FILES
      */
     @Beta
-    @SuppressWarnings("serial")
     @SetFromFlag("runtimeTemplates")
-    ConfigKey<Map<String, String>> RUNTIME_TEMPLATES = ConfigKeys.newConfigKey(new TypeToken<Map<String, String>>() { },
-            "templates.runtime", "Mapping of templates, to be filled in and copied before customisation, to destination name relative to runDir");
+    MapConfigKey<String> RUNTIME_TEMPLATES = new MapConfigKey.Builder<String>(String.class, "templates.runtime")
+            .description("Mapping of templates, to be filled in and copied before customisation, to destination name relative to runDir") 
+            .typeInheritance(ConfigInheritance.DEEP_MERGE)
+            .build();
 
     @SetFromFlag("provisioningProperties")
-    MapConfigKey<Object> PROVISIONING_PROPERTIES = new MapConfigKey<Object>(Object.class,
-            "provisioning.properties", "Custom properties to be passed in when provisioning a new machine", MutableMap.<String,Object>of());
+    MapConfigKey<Object> PROVISIONING_PROPERTIES = new MapConfigKey.Builder<Object>(Object.class, "provisioning.properties")
+            .description("Custom properties to be passed in when provisioning a new machine")
+            .defaultValue(ImmutableMap.<String, Object>of())
+            .typeInheritance(ConfigInheritance.DEEP_MERGE)
+            .build();
 
     @SetFromFlag("maxRebindSensorsDelay")
     ConfigKey<Duration> MAXIMUM_REBIND_SENSOR_CONNECT_DELAY = ConfigKeys.newConfigKey(Duration.class,

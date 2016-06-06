@@ -82,7 +82,7 @@ public class ConfigKeysTest {
         ConfigKey<String> key = ConfigKeys.builder(String.class, "mykey")
             .description("my descr")
             .defaultValue("my default val")
-            .inheritance(ConfigInheritance.NONE)
+            .parentInheritance(ConfigInheritance.NONE)
             .reconfigurable(true)
             .build();
         
@@ -98,7 +98,7 @@ public class ConfigKeysTest {
         assertEquals(key.getDescription(), "my descr");
         assertEquals(key.getDefaultValue(), "my default val");
         assertEquals(key.isReconfigurable(), true);
-        assertEquals(key.getInheritance(), ConfigInheritance.NONE);
+        assertEquals(key.getParentInheritance(), ConfigInheritance.NONE);
     }
 
 }

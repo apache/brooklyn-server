@@ -20,31 +20,62 @@ package org.apache.brooklyn.config;
 
 import java.io.Serializable;
 
+import org.apache.brooklyn.util.text.Strings;
+
 import com.google.common.annotations.Beta;
 
 @SuppressWarnings("serial")
 public abstract class ConfigInheritance implements Serializable {
 
-    public static final ConfigInheritance ALWAYS = new Always();
+    @Beta
+    public enum InheritanceMode {
+        NONE,
+        IF_NO_EXPLICIT_VALUE,
+        DEEP_MERGE
+    }
+
     public static final ConfigInheritance NONE = new None();
+    public static final ConfigInheritance ALWAYS = new Always();
+    public static final ConfigInheritance DEEP_MERGE = new Merged();
+    
+    public static ConfigInheritance fromString(String val) {
+        if (Strings.isBlank(val)) return null;
+        switch (val.toLowerCase().trim()) {
+        case "none":
+            return NONE;
+        case "always": 
+            return ALWAYS;
+        case "deepmerge" :
+        case "deep_merge" :
+            return DEEP_MERGE;
+        default:
+            throw new IllegalArgumentException("Invalid config-inheritance '"+val+"' (legal values are none, always or merge)");
+        }
+    }
     
     private ConfigInheritance() {}
     
     @Beta
-    public abstract boolean isInherited(ConfigKey<?> key, Object from, Object to);
+    public abstract InheritanceMode isInherited(ConfigKey<?> key, Object from, Object to);
 
     private static class Always extends ConfigInheritance {
         @Override
-        public boolean isInherited(ConfigKey<?> key, Object from, Object to) {
-            return true;
+        public InheritanceMode isInherited(ConfigKey<?> key, Object from, Object to) {
+            return InheritanceMode.IF_NO_EXPLICIT_VALUE;
         }
     }
 
     private static class None extends ConfigInheritance {
         @Override
-        public boolean isInherited(ConfigKey<?> key, Object from, Object to) {
-            return false;
+        public InheritanceMode isInherited(ConfigKey<?> key, Object from, Object to) {
+            return InheritanceMode.NONE;
         }
     }
     
+    private static class Merged extends ConfigInheritance {
+        @Override
+        public InheritanceMode isInherited(ConfigKey<?> key, Object from, Object to) {
+            return InheritanceMode.DEEP_MERGE;
+        }
+    }
 }

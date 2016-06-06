@@ -167,9 +167,9 @@ public class ConfigEntityInheritanceTest extends BrooklynAppUnitTestSupport {
     
     public static class MyEntityWithPartiallyHeritableConfig extends AbstractEntity {
         public static final ConfigKey<String> HERITABLE = ConfigKeys.builder(String.class, "herit.default").build();
-        public static final ConfigKey<String> UNINHERITABLE = ConfigKeys.builder(String.class, "herit.none").inheritance(ConfigInheritance.NONE).build();
+        public static final ConfigKey<String> UNINHERITABLE = ConfigKeys.builder(String.class, "herit.none").parentInheritance(ConfigInheritance.NONE).build();
         // i find a strange joy in words where the prefix "in-" does not mean not, like inflammable 
-        public static final ConfigKey<String> ALWAYS_HERITABLE = ConfigKeys.builder(String.class, "herit.always").inheritance(ConfigInheritance.ALWAYS).build();
+        public static final ConfigKey<String> ALWAYS_HERITABLE = ConfigKeys.builder(String.class, "herit.always").parentInheritance(ConfigInheritance.ALWAYS).build();
     }
 
 }

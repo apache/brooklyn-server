@@ -34,7 +34,7 @@ public abstract class AbstractStructuredConfigKey<T,RawT,V> extends BasicConfigK
 
     private static final long serialVersionUID = 7806267541029428561L;
 
-    public final Class<V> subType;
+    protected final Class<V> subType;
 
     public AbstractStructuredConfigKey(Class<T> type, Class<V> subType, String name, String description, T defaultValue) {
         super(type, name, description, defaultValue);

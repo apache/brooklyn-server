@@ -24,6 +24,7 @@ import static org.apache.brooklyn.core.config.ConfigKeys.newConfigKeyWithPrefix;
 import static org.apache.brooklyn.core.config.ConfigKeys.newStringConfigKey;
 
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
@@ -111,11 +112,11 @@ public class BrooklynConfigKeys {
     public static final ConfigKey<String> POST_LAUNCH_COMMAND = ConfigKeys.newStringConfigKey("post.launch.command",
             "Command to be run after the launch method being called on the driver");
 
-    public static final MapConfigKey<Object> SHELL_ENVIRONMENT = new MapConfigKey<Object>(
-            Object.class,
-            "shell.env", 
-            "Map of environment variables to pass to the runtime shell", 
-            ImmutableMap.<String,Object>of());
+    public static final MapConfigKey<Object> SHELL_ENVIRONMENT = new MapConfigKey.Builder<Object>(Object.class, "shell.env")
+            .description("Map of environment variables to pass to the runtime shell") 
+            .defaultValue(ImmutableMap.<String,Object>of())
+            .typeInheritance(ConfigInheritance.DEEP_MERGE)
+            .build();
 
     public static final AttributeSensorAndConfigKey<String, String> INSTALL_DIR = new TemplatedStringAttributeSensorAndConfigKey("install.dir", "Directory for this software to be installed in",
             "${" +

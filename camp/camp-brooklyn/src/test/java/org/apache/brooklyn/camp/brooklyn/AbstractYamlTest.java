@@ -37,6 +37,7 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests.Builder;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
@@ -81,12 +82,20 @@ public abstract class AbstractYamlTest {
     }
 
     protected LocalManagementContext newTestManagementContext() {
-        return LocalManagementContextForTests.builder(true).disableOsgi(disableOsgi()).build();
+        Builder builder = LocalManagementContextForTests.builder(true).disableOsgi(disableOsgi());
+        if (useDefaultProperties()) {
+            builder.useDefaultProperties();
+        }
+        return builder.build();
     }
 
     /** Override to enable OSGi in the management context for all tests in the class. */
     protected boolean disableOsgi() {
         return true;
+    }
+    
+    protected boolean useDefaultProperties() {
+        return false;
     }
     
     @AfterMethod(alwaysRun = true)

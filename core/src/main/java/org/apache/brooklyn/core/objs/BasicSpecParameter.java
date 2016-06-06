@@ -37,6 +37,7 @@ import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.BrooklynType;
 import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey;
@@ -227,6 +228,8 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
             String type = (String)inputDef.get("type");
             Object defaultValue = inputDef.get("default");
             Predicate<?> constraints = parseConstraints(inputDef.get("constraints"), loader);
+            ConfigInheritance parentInheritance = parseInheritance(inputDef.get("inheritance.parent"), loader);
+            ConfigInheritance typeInheritance = parseInheritance(inputDef.get("inheritance.type"), loader);
 
             if (name == null) {
                 throw new IllegalArgumentException("'name' value missing from input definition " + obj + " but is required. Check for typos.");
@@ -240,7 +243,9 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
                 .name(name)
                 .description(description)
                 .defaultValue(defaultValue)
-                .constraint(constraints);
+                .constraint(constraints)
+                .parentInheritance(parentInheritance)
+                .typeInheritance(typeInheritance);
             
             if (PortRange.class.equals(typeToken.getRawType())) {
                 sensorType = new PortAttributeSensorAndConfigKey(builder);
@@ -297,6 +302,14 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
                 }
             } else {
                 return Predicates.alwaysTrue();
+            }
+        }
+        
+        private static ConfigInheritance parseInheritance(Object obj, BrooklynClassLoadingContext loader) {
+            if (obj == null || obj instanceof String) {
+                return ConfigInheritance.fromString((String)obj);
+            } else {
+                throw new IllegalArgumentException ("The config-inheritance '" + obj + "' for a catalog input is invalid format - string supported");
             }
         }
     }

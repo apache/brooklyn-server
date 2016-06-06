@@ -218,6 +218,30 @@ public class FlagUtils {
         }
     }
     
+    /**
+     * Gets all the config keys for the given types (for duplicates, the first class in the list of types takes precedence).
+     */
+    public static Map<String, ConfigKey<?>> findAllConfigKeys(Object optionalInstance, Iterable<? extends Class<?>> types) {
+        Map<String, ConfigKey<?>> result = Maps.newLinkedHashMap();
+        for (Class<?> type : types) {
+            List<ConfigKey<?>> keys = FlagUtils.findAllConfigKeys(optionalInstance, type);
+            for (ConfigKey<?> key : keys) {
+                if (!result.containsKey(key.getName())) result.put(key.getName(), key);
+            }
+        }
+        return result;
+    }
+
+    /** gets all the config keys for the given type */
+    public static <T> List<ConfigKey<?>> findAllConfigKeys(T optionalInstance, Class<? extends T> type) {
+        List<ConfigKey<?>> output = new ArrayList<ConfigKey<?>>();
+        for (Field f: getAllFields(type)) {
+            ConfigKey<?> key = getFieldAsConfigKey(optionalInstance, f);
+            if (key != null) output.add(key);
+        }
+        return output;
+    }
+    
     /** gets all the flags/keys in the given config bag which are applicable to the given type's config keys and flags */
     public static <T> List<FlagConfigKeyAndValueRecord> findAllFlagsAndConfigKeys(T optionalInstance, Class<? extends T> type, ConfigBag input) {
         List<FlagConfigKeyAndValueRecord> output = new ArrayList<FlagUtils.FlagConfigKeyAndValueRecord>();
@@ -250,9 +274,10 @@ public class FlagUtils {
         if (f != null) {
             SetFromFlag flag = f.getAnnotation(SetFromFlag.class);
             if (flag!=null) {
-                result.flagName = flag.value();
-                if (input.containsKey(flag.value()))
-                    result.flagValue = Maybe.of(input.getStringKey(flag.value()));
+                String flagName = elvis(flag.value(), f.getName());
+                result.flagName = flagName;
+                if (input.containsKey(flagName))
+                    result.flagValue = Maybe.of(input.getStringKey(flagName));
             }
         }
         return result;
