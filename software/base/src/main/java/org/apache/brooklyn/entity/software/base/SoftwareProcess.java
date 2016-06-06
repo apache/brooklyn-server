@@ -175,7 +175,7 @@ public interface SoftwareProcess extends Entity, Startable {
     @SetFromFlag("preInstallFiles")
     MapConfigKey<String> PRE_INSTALL_FILES = new MapConfigKey.Builder<String>(String.class, "files.preinstall")
             .description("Mapping of files, to be copied before install, to destination name relative to installDir") 
-            .typeInheritance(ConfigInheritance.MERGE)
+            .typeInheritance(ConfigInheritance.DEEP_MERGE)
             .build();
 
     /**
@@ -187,7 +187,7 @@ public interface SoftwareProcess extends Entity, Startable {
     @SetFromFlag("preInstallTemplates")
     MapConfigKey<String> PRE_INSTALL_TEMPLATES = new MapConfigKey.Builder<String>(String.class, "templates.preinstall")
             .description("Mapping of templates, to be filled in and copied before pre-install, to destination name relative to installDir") 
-            .typeInheritance(ConfigInheritance.MERGE)
+            .typeInheritance(ConfigInheritance.DEEP_MERGE)
             .build();
 
     /**
@@ -202,7 +202,7 @@ public interface SoftwareProcess extends Entity, Startable {
     @SetFromFlag("installFiles")
     MapConfigKey<String> INSTALL_FILES = new MapConfigKey.Builder<String>(String.class, "files.install")
             .description("Mapping of files, to be copied before install, to destination name relative to installDir") 
-            .typeInheritance(ConfigInheritance.MERGE)
+            .typeInheritance(ConfigInheritance.DEEP_MERGE)
             .build();
 
     /**
@@ -214,7 +214,7 @@ public interface SoftwareProcess extends Entity, Startable {
     @SetFromFlag("installTemplates")
     MapConfigKey<String> INSTALL_TEMPLATES = new MapConfigKey.Builder<String>(String.class, "templates.install")
             .description("Mapping of templates, to be filled in and copied before install, to destination name relative to installDir") 
-            .typeInheritance(ConfigInheritance.MERGE)
+            .typeInheritance(ConfigInheritance.DEEP_MERGE)
             .build();
 
     /**
@@ -229,7 +229,7 @@ public interface SoftwareProcess extends Entity, Startable {
     @SetFromFlag("runtimeFiles")
     MapConfigKey<String> RUNTIME_FILES = new MapConfigKey.Builder<String>(String.class, "files.runtime")
             .description("Mapping of files, to be copied before customisation, to destination name relative to runDir") 
-            .typeInheritance(ConfigInheritance.MERGE)
+            .typeInheritance(ConfigInheritance.DEEP_MERGE)
             .build();
 
     /**
@@ -241,14 +241,14 @@ public interface SoftwareProcess extends Entity, Startable {
     @SetFromFlag("runtimeTemplates")
     MapConfigKey<String> RUNTIME_TEMPLATES = new MapConfigKey.Builder<String>(String.class, "templates.runtime")
             .description("Mapping of templates, to be filled in and copied before customisation, to destination name relative to runDir") 
-            .typeInheritance(ConfigInheritance.MERGE)
+            .typeInheritance(ConfigInheritance.DEEP_MERGE)
             .build();
 
     @SetFromFlag("provisioningProperties")
     MapConfigKey<Object> PROVISIONING_PROPERTIES = new MapConfigKey.Builder<Object>(Object.class, "provisioning.properties")
             .description("Custom properties to be passed in when provisioning a new machine")
             .defaultValue(ImmutableMap.<String, Object>of())
-            .typeInheritance(ConfigInheritance.MERGE)
+            .typeInheritance(ConfigInheritance.DEEP_MERGE)
             .build();
 
     @SetFromFlag("maxRebindSensorsDelay")

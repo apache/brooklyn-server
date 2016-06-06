@@ -157,7 +157,7 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
                 parentValue = Maybe.absent();
             }
             break;
-        case MERGE:
+        case DEEP_MERGE:
             if (((ConfigKeySelfExtracting<T>)key).isSet(inheritedConfig)) {
                 parentValue = Maybe.of(((ConfigKeySelfExtracting<T>)key).extractValue(inheritedConfig, exec));
             } else if (inheritedConfigBag.containsKey(key)) {
@@ -177,7 +177,7 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
         switch (parentInheritance) {
         case IF_NO_EXPLICIT_VALUE:
             return ownValue.isPresent() ? ownValue : parentValue;
-        case MERGE:
+        case DEEP_MERGE:
             return (Maybe<T>) deepMerge(ownValue, parentValue, key);
         case NONE:
             return ownValue;

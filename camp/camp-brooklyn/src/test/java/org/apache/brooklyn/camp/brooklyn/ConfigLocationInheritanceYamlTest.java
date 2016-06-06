@@ -322,7 +322,7 @@ public class ConfigLocationInheritanceYamlTest extends AbstractYamlTest {
     // TODO This doesn't work yet. Unfortunately the YAML parsing for entity and location items
     // is different (e.g. BrooklynComponentTemplateResolver.decorateSpec only deals with entities).
     // That is too big to deal with in this pull request that targets entity config!
-    @Test(groups="Live", enabled=false)
+    @Test(groups={"Live", "WIP", "Broken"}, enabled=false)
     public void testMergesCatalogLocationProperties() throws Exception {
         addCatalogItems(
                 "brooklyn.catalog:",

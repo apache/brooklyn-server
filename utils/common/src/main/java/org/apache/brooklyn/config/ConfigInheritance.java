@@ -27,15 +27,16 @@ import com.google.common.annotations.Beta;
 @SuppressWarnings("serial")
 public abstract class ConfigInheritance implements Serializable {
 
+    @Beta
     public enum InheritanceMode {
         NONE,
         IF_NO_EXPLICIT_VALUE,
-        MERGE
+        DEEP_MERGE
     }
 
     public static final ConfigInheritance NONE = new None();
     public static final ConfigInheritance ALWAYS = new Always();
-    public static final ConfigInheritance MERGE = new Merged();
+    public static final ConfigInheritance DEEP_MERGE = new Merged();
     
     public static ConfigInheritance fromString(String val) {
         if (Strings.isBlank(val)) return null;
@@ -44,8 +45,9 @@ public abstract class ConfigInheritance implements Serializable {
             return NONE;
         case "always": 
             return ALWAYS;
-        case "merge" :
-            return MERGE;
+        case "deepmerge" :
+        case "deep_merge" :
+            return DEEP_MERGE;
         default:
             throw new IllegalArgumentException("Invalid config-inheritance '"+val+"' (legal values are none, always or merge)");
         }
@@ -73,7 +75,7 @@ public abstract class ConfigInheritance implements Serializable {
     private static class Merged extends ConfigInheritance {
         @Override
         public InheritanceMode isInherited(ConfigKey<?> key, Object from, Object to) {
-            return InheritanceMode.MERGE;
+            return InheritanceMode.DEEP_MERGE;
         }
     }
 }

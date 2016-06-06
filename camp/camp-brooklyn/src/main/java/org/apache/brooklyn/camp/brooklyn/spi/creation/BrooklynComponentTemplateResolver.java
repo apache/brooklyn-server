@@ -337,7 +337,7 @@ public class BrooklynComponentTemplateResolver {
         switch (mode) {
         case IF_NO_EXPLICIT_VALUE:
             return ownVal.isPresent() ? ownVal : superVal;
-        case MERGE:
+        case DEEP_MERGE:
             return deepMerge(ownVal, superVal, key);
         case NONE:
             return ownVal;

@@ -115,7 +115,7 @@ public class BrooklynConfigKeys {
     public static final MapConfigKey<Object> SHELL_ENVIRONMENT = new MapConfigKey.Builder<Object>(Object.class, "shell.env")
             .description("Map of environment variables to pass to the runtime shell") 
             .defaultValue(ImmutableMap.<String,Object>of())
-            .typeInheritance(ConfigInheritance.MERGE)
+            .typeInheritance(ConfigInheritance.DEEP_MERGE)
             .build();
 
     public static final AttributeSensorAndConfigKey<String, String> INSTALL_DIR = new TemplatedStringAttributeSensorAndConfigKey("install.dir", "Directory for this software to be installed in",

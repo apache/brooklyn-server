@@ -31,10 +31,13 @@ import java.util.concurrent.Executors;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.core.config.MapConfigKey;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.entity.internal.EntityConfigMap;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
+import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.slf4j.Logger;
@@ -44,6 +47,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.api.client.repackaged.com.google.common.base.Joiner;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -396,7 +400,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                 "      brooklyn.parameters:",
                 "      - name: map.type-merged",
                 "        type: java.util.Map",
-                "        inheritance.type: merge",
+                "        inheritance.type: deep_merge",
                 "        default: {myDefaultKey: myDefaultVal}",
                 "      - name: map.type-always",
                 "        type: java.util.Map",
@@ -501,7 +505,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                 "      brooklyn.parameters:",
                 "      - name: map.type-merged",
                 "        type: java.util.Map",
-                "        inheritance.parent: merge",
+                "        inheritance.parent: deep_merge",
                 "        default: {myDefaultKey: myDefaultVal}",
                 "      - name: map.type-always",
                 "        type: java.util.Map",
@@ -636,9 +640,9 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
         EntityAsserts.assertConfigEquals(entity, EmptySoftwareProcess.SHELL_ENVIRONMENT, expectedEnv);
     }
     
-    // TODO Does not work, and probably hard to fix?! We need to figure out that "env" corresponds to the
+    // TODO Has never worked, and probably hard to fix?! We need to figure out that "env" corresponds to the
     // config key. Maybe FlagUtils could respect SetFromFlags when returning Map<String,ConfigKey>?
-    @Test(groups="WIP")
+    @Test(groups={"WIP", "Broken"})
     public void testExtendsSuperTypeConfigMixingShortOverridingShortName() throws Exception {
         ImmutableMap<String, Object> expectedEnv = ImmutableMap.<String, Object>of("ENV1", "myEnv1", "ENV2", "myEnv2");
 
@@ -656,6 +660,141 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
         EntityAsserts.assertConfigEquals(entity, EmptySoftwareProcess.SHELL_ENVIRONMENT, expectedEnv);
     }
     
+    @Test
+    public void testExtendsSuperTypeMultipleLevels() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  id: EmptySoftwareProcess-level1",
+                "  itemType: entity",
+                "  item:",
+                "    type: org.apache.brooklyn.entity.software.base.EmptySoftwareProcess",
+                "    brooklyn.config:",
+                "      shell.env:",
+                "        ENV1: myEnv1");
+
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  id: EmptySoftwareProcess-level2",
+                "  itemType: entity",
+                "  item:",
+                "    type: EmptySoftwareProcess-level1",
+                "    brooklyn.config:",
+                "      shell.env:",
+                "        ENV2: myEnv2");
+
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  id: EmptySoftwareProcess-level3",
+                "  itemType: entity",
+                "  item:",
+                "    type: EmptySoftwareProcess-level2",
+                "    brooklyn.config:",
+                "      shell.env:",
+                "        ENV3: myEnv3");
+
+        String yaml = Joiner.on("\n").join(
+                "location: localhost-stub",
+                "services:",
+                "- type: EmptySoftwareProcess-level3");
+        
+        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        EntityAsserts.assertConfigEquals(entity, EmptySoftwareProcess.SHELL_ENVIRONMENT, 
+                ImmutableMap.<String, Object>of("ENV1", "myEnv1", "ENV2", "myEnv2", "ENV3", "myEnv3"));
+    }
+
+    @Test
+    public void testExtendsSuperTypeMultipleLevelsInheritanceOptions() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  items:",
+                "  - id: TestEntity-level1",
+                "    item:",
+                "      type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "      brooklyn.parameters:",
+                "      - name: map.type-merged",
+                "        type: java.util.Map",
+                "        inheritance.type: deep_merge",
+                "      brooklyn.config:",
+                "        map.type-merged:",
+                "          mykey1: myval1");
+        
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  id: TestEntity-level2",
+                "  itemType: entity",
+                "  item:",
+                "    type: TestEntity-level1",
+                "    brooklyn.config:",
+                "      map.type-merged:",
+                "        mykey2: myval2");
+
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  id: TestEntity-level3",
+                "  itemType: entity",
+                "  item:",
+                "    type: TestEntity-level2",
+                "    brooklyn.config:",
+                "      map.type-merged:",
+                "        mykey3: myval3");
+
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: TestEntity-level3");
+        
+        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+
+        assertEquals(entity.config().get(entity.getEntityType().getConfigKey("map.type-merged")), 
+                ImmutableMap.of("mykey1", "myval1", "mykey2", "myval2", "mykey3", "myval3"));
+    }
+
+    /**
+     * TODO Has always failed, and probably hard to fix?! This is due to the way 
+     * {@link EntityConfigMap#setInheritedConfig(Map, org.apache.brooklyn.util.core.config.ConfigBag)} works:
+     * the parent overrides the grandparent's config. So we only get mykey2+mykey3.
+     */
+    @Test(groups={"Broken", "WIP"})
+    public void testExtendsParentMultipleLevels() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  items:",
+                "  - id: TestEntity-with-conf",
+                "    item:",
+                "      type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "      brooklyn.parameters:",
+                "      - name: map.type-merged",
+                "        type: java.util.Map",
+                "        inheritance.parent: deep_merge");
+
+        String yaml = Joiner.on("\n").join(
+                "location: localhost-stub",
+                "services:",
+                "- type: "+BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    map.type-merged:",
+                "      mykey1: myval1",
+                "  brooklyn.children:",
+                "  - type: "+BasicApplication.class.getName(),
+                "    brooklyn.config:",
+                "      map.type-merged:",
+                "        mykey2: myval2",
+                "    brooklyn.children:",
+                "    - type: TestEntity-with-conf",
+                "      brooklyn.config:",
+                "        map.type-merged:",
+                "          mykey3: myval3");
+
+        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity entity = Iterables.find(Entities.descendants(app), Predicates.instanceOf(TestEntity.class));
+
+        assertEquals(entity.config().get(entity.getEntityType().getConfigKey("map.type-merged")), 
+                ImmutableMap.<String, Object>of("mykey1", "myval1", "mykey2", "myval2", "mykey3", "myval3"));
+    }
+
     protected void assertEmptySoftwareProcessConfig(Entity entity, Map<String, ?> expectedEnv, Map<String, String> expectedFiles, Map<String, ?> expectedProvisioningProps) {
         EntityAsserts.assertConfigEquals(entity, EmptySoftwareProcess.SHELL_ENVIRONMENT, MutableMap.<String, Object>copyOf(expectedEnv));
         

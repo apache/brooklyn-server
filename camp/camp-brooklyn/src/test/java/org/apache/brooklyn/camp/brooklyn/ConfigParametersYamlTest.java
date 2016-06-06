@@ -52,7 +52,7 @@ public class ConfigParametersYamlTest extends AbstractYamlTest {
                 "      - name: testConfigParametersListedInType.mykey",
                 "        description: myDescription",
                 "        type: java.util.Map",
-                "        inheritance.type: merge",
+                "        inheritance.type: deep_merge",
                 "        default: {myDefaultKey: myDefaultVal}");
         
         String yaml = Joiner.on("\n").join(
