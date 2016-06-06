@@ -2901,7 +2901,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         String user = (users.size() == 1) ? Iterables.getOnlyElement(users) : "{" + Joiner.on(",").join(users) + "}";
         String vmIp = hostAndPortOverride.isPresent() ? hostAndPortOverride.get().getHostText() : getFirstReachableAddress(node, setup);
         if (vmIp==null) LOG.warn("Unable to extract IP for "+node+" ("+setup.getDescription()+"): subsequent connection attempt will likely fail");
-        int vmPort = hostAndPortOverride.isPresent() ? hostAndPortOverride.get().getPortOrDefault(22) : 22;
+        int vmPort = hostAndPortOverride.isPresent() ? hostAndPortOverride.get().getPortOrDefault(22) : getLoginPortOrDefault(node, 22);
 
         String connectionDetails = user + "@" + vmIp + ":" + vmPort;
         final HostAndPort hostAndPort = hostAndPortOverride.isPresent() ? hostAndPortOverride.get() : HostAndPort.fromParts(vmIp, vmPort);
@@ -2951,6 +2951,15 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
         
         return credsSuccessful.get();
+    }
+
+    @VisibleForTesting
+    static int getLoginPortOrDefault(NodeMetadata node, int defaultPort) {
+        int loginPort = node.getLoginPort();
+        if (loginPort > 0) {
+            return loginPort;
+        }
+        return defaultPort;
     }
 
     protected void waitForReachable(Callable<Boolean> checker, String hostAndPort, List<LoginCredentials> credentialsToLog, ConfigBag setup, Duration timeout) {

@@ -47,6 +47,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.http.HttpAsserts;
+import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.scriptbuilder.domain.OsFamily;
 import org.jclouds.scriptbuilder.domain.StatementList;
 import org.mockito.Mockito;
@@ -613,5 +614,18 @@ public class JcloudsLocationTest implements JcloudsLocationConfig {
     public void testAwsVpcFailureDocLink() {
         HttpAsserts.assertContentContainsText(JcloudsLocation.AWS_VPC_HELP_URL, "VPC", "Classic");
     }
-    
+
+    @Test
+    public void testGetLoginPortOrDefaultReturnsDefaultWhenLoginPortNve() {
+        NodeMetadata mock = Mockito.mock(NodeMetadata.class);
+        Mockito.when(mock.getLoginPort()).thenReturn(-1);
+        Assert.assertEquals(JcloudsLocation.getLoginPortOrDefault(mock,22), 22);
+    }
+
+    @Test
+    public void testGetLoginPortOrDefaultReturnsPortWhenLoginPortPve() {
+        NodeMetadata mock = Mockito.mock(NodeMetadata.class);
+        Mockito.when(mock.getLoginPort()).thenReturn(666);
+        Assert.assertEquals(JcloudsLocation.getLoginPortOrDefault(mock,22), 666);
+    }
 }
