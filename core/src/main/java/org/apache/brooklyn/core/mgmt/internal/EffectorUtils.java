@@ -33,6 +33,7 @@ import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.effector.ParameterType;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.effector.BasicParameterType;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
@@ -310,7 +311,7 @@ public class EffectorUtils {
         String name = eff.getName();
 
         if (log.isDebugEnabled()) log.debug("Invoking-async effector {} on {}", new Object[] { name, entity });
-        if (log.isTraceEnabled()) log.trace("Invoking-async effector {} on {} with args {}", new Object[] { name, entity, parameters });
+        if (log.isTraceEnabled()) log.trace("Invoking-async effector {} on {} with args {}", new Object[] { name, entity, Sanitizer.sanitize(parameters) });
         EntityManagementSupport mgmtSupport = ((EntityInternal)entity).getManagementSupport();
         if (!mgmtSupport.isDeployed()) {
             mgmtSupport.attemptLegacyAutodeployment(name);
@@ -386,7 +387,7 @@ public class EffectorUtils {
         return MutableMap.builder()
                 .put("description", "Invoking effector "+effector.getName()
                     +" on "+entity.getDisplayName()
-                    +(parameters!=null ? " with parameters "+parameters.getAllConfig() : ""))
+                    +(parameters!=null ? " with parameters "+ Sanitizer.sanitize(parameters.getAllConfig()) : ""))
                 .put("displayName", effector.getName())
                 .put("tags", tags)
                 .build();
