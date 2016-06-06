@@ -50,9 +50,12 @@ public class VersionComparatorTest {
     }
     
     @Test
+    public void testSnapshotSuffixComparison() {
+        assertVersionOrder("0.1-SNAPSHOT", "0.1-R", "0.1-S", "0.1-T", "0.1");
+    }
+
+    @Test
     public void testComparison() {
-        VersionComparator.INSTANCE.compare("B", "B-2");
-        
         assertVersionOrder("0", "1");
         assertVersionOrder("0", "0.0", "0.9", "0.10", "0.10.0", "1");
         
