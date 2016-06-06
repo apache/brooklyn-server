@@ -80,6 +80,12 @@ brooklyn.catalog:
       - name: private.key.url
         label: Private Key URL
         description: Location of the private key to install for authentication of this engine
+      - name: swarm.defaultnetwork
+        label: Swarm Default Network
+        description: |
+          The name of a default network to create on startup
+        type: java.lang.String
+        default: "brooklyn"
 
       brooklyn.config:
         manager.port: 3376
@@ -200,15 +206,21 @@ brooklyn.catalog:
           $brooklyn:formatString:
           - "--tlsverify --tlscacert=%1$s/.certs/ca.pem --tlscert=%1$s/.certs/cert.pem --tlskey=%1$s/.certs/key.pem"
           - $brooklyn:attributeWhenReady("install.dir")
+        SWARM_DEFAULT_NETWORK: $brooklyn:config("swarm.defaultnetwork")
 
       # TODO - remove the -p 12375 mapping below when Duncan's JClouds fixes are in. See https://github.com/cloudsoft/container-service/pull/5#discussion_r64581324
       post.launch.command: |
         docker -H tcp://${HOST_ADDRESS}:${TLS_PORT} ${TLS_OPTIONS} \
           run -d -p ${MAN_PORT}:${MAN_PORT} -p 12375:2375 -v ${INSTALL_DIR}/.certs:/certs:ro --name manager-${HOST_NAME} \
           swarm manage --tlsverify --tlscacert=/certs/ca.pem --tlscert=/certs/cert.pem --tlskey=/certs/key.pem --host=0.0.0.0:${MAN_PORT} ${DISCOVERY_URL}
+        echo "[CLOCKER] Setup default ${SWARM_DEFAULT_NETWORK} overlay network"
+        docker -H tcp://${HOST_ADDRESS}:${TLS_PORT} ${TLS_OPTIONS} network ls | grep "overlay.*${SWARM_DEFAULT_NETWORK}" ||
+          docker -H tcp://${HOST_ADDRESS}:${TLS_PORT} ${TLS_OPTIONS} network create --driver=overlay "${SWARM_DEFAULT_NETWORK}"
+
       checkRunning.command: |
         sudo service docker status && 
           docker -H tcp://${HOST_ADDRESS}:${TLS_PORT} ${TLS_OPTIONS} ps | grep swarm
+
       stop.command: |
         docker -H tcp://${HOST_ADDRESS}:${TLS_PORT} ${TLS_OPTIONS} stop manager-${HOST_NAME}
         docker -H tcp://${HOST_ADDRESS}:${TLS_PORT} ${TLS_OPTIONS} rm manager-${HOST_NAME}
