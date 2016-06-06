@@ -19,6 +19,7 @@
 package org.apache.brooklyn.rest.transform;
 
 import java.net.URI;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -131,7 +132,16 @@ public class CatalogTransformer {
     }
 
     public static CatalogPolicySummary catalogPolicySummary(BrooklynRestResourceUtils b, CatalogItem<? extends Policy,PolicySpec<?>> item, UriBuilder ub) {
-        Set<PolicyConfigSummary> config = ImmutableSet.of();
+        final Set<PolicyConfigSummary> config = Sets.newLinkedHashSet();
+        try{
+            final PolicySpec<?> spec = (PolicySpec<?>) b.getCatalog().createSpec((CatalogItem) item);
+            for (final SpecParameter<?> input : spec.getParameters()){
+                config.add(EntityTransformer.policyConfigSummary(input));
+            }
+        }catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            log.trace("Unable to create policy spec for "+item+": "+e, e);
+        }
         return new CatalogPolicySummary(item.getSymbolicName(), item.getVersion(), item.getDisplayName(),
                 item.getJavaType(), item.getPlanYaml(),
                 item.getDescription(), tidyIconLink(b, item, item.getIconUrl(), ub), config,
