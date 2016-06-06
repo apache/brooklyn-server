@@ -54,7 +54,7 @@ public class PublicNetworkFaceEnricherTest extends BrooklynAppUnitTestSupport {
         super.setUp();
         entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         machine = app.newLocalhostProvisioningLocation().obtain();
-        portForwardManager = (PortForwardManager) mgmt.getLocationRegistry().getLocationManaged("portForwardManager(scope=global)");
+        portForwardManager = (PortForwardManager) mgmt.getLocationRegistry().getLocationManaged(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
     }
     
     @DataProvider(name = "variants")

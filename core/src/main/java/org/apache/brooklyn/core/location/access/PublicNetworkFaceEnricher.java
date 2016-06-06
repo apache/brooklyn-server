@@ -344,7 +344,7 @@ public class PublicNetworkFaceEnricher extends AbstractEnricher {
     protected PortForwardManager getPortForwardManager() {
         PortForwardManager portForwardManager = config().get(PORT_FORWARD_MANAGER);
         if (portForwardManager == null) {
-            portForwardManager = (PortForwardManager) getManagementContext().getLocationRegistry().getLocationManaged("portForwardManager(scope=global)");
+            portForwardManager = (PortForwardManager) getManagementContext().getLocationRegistry().getLocationManaged(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
         }
         return portForwardManager;
     }

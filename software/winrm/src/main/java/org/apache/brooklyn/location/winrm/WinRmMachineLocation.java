@@ -41,6 +41,7 @@ import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
+import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
@@ -177,7 +178,7 @@ public class WinRmMachineLocation extends AbstractLocation implements MachineLoc
         // Register any pre-existing port-mappings with the PortForwardManager
         Map<Integer, String> tcpPortMappings = getConfig(TCP_PORT_MAPPINGS);
         if (tcpPortMappings != null) {
-            PortForwardManager pfm = (PortForwardManager) getManagementContext().getLocationRegistry().getLocationManaged("portForwardManager(scope=global)");
+            PortForwardManager pfm = (PortForwardManager) getManagementContext().getLocationRegistry().getLocationManaged(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
             for (Map.Entry<Integer, String> entry : tcpPortMappings.entrySet()) {
                 int targetPort = entry.getKey();
                 HostAndPort publicEndpoint = HostAndPort.fromString(entry.getValue());

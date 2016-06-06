@@ -47,6 +47,8 @@ public class PortForwardManagerLocationResolver extends AbstractLocationResolver
     private static final Logger LOG = LoggerFactory.getLogger(PortForwardManagerLocationResolver.class);
 
     public static final String PREFIX = "portForwardManager";
+    
+    public static final String PFM_GLOBAL_SPEC = "portForwardManager(scope=global)";
 
     @Override
     public String getPrefix() {
@@ -74,7 +76,7 @@ public class PortForwardManagerLocationResolver extends AbstractLocationResolver
 
     @Override
     protected SpecParser getSpecParser() {
-        return new AbstractLocationResolver.SpecParser(getPrefix()).setExampleUsage("\"portForwardManager\" or \"portForwardManager(scope=global)\"");
+        return new AbstractLocationResolver.SpecParser(getPrefix()).setExampleUsage("\"portForwardManager\" or \""+PFM_GLOBAL_SPEC+"\"");
     }
     
     @Override
