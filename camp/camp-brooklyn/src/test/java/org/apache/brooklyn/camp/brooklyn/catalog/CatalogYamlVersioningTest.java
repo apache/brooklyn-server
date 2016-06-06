@@ -80,6 +80,18 @@ public class CatalogYamlVersioningTest extends AbstractYamlTest {
     }
     
     @Test
+    public void testAddSameSnapshotVersionSucceedsWhenIconIsDifferent() {
+        String symbolicName = "sampleId";
+        String version = "0.1.0-SNAPSHOT";
+        addCatalogEntity(symbolicName, version);
+        String icon = "classpath:/another/icon.png";
+        addCatalogEntity(symbolicName, version, BasicEntity.class.getName(), icon);
+        assertSingleCatalogItem(symbolicName, version);
+        RegisteredType item = types.get(symbolicName, version);
+        assertTrue(item.getIconUrl().equals(icon), "Unexpected iconUrl: " + item.getIconUrl());
+    }
+    
+    @Test
     public void testAddSameVersionForce() {
         String symbolicName = "sampleId";
         String version = "0.1.0";

@@ -965,6 +965,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
      * throwing if item cannot be added */
     private CatalogItem<?, ?> checkItemAllowedAndIfSoReturnAnyDuplicate(CatalogItem<?,?> itemDto, boolean allowDuplicates, boolean forceUpdate) {
         if (forceUpdate) return null;
+        // Can update same snapshot version - very useful while developing blueprints
+        if (itemDto.getVersion().contains("SNAPSHOT")) return null;
         CatalogItemDo<?, ?> existingItem = getCatalogItemDo(itemDto.getSymbolicName(), itemDto.getVersion());
         if (existingItem == null) return null;
         // check if they are equal
