@@ -52,7 +52,7 @@ public class SoftwareProcessLocationUnmanageTest extends BrooklynAppUnitTestSupp
      * identity and credential. The Docker host (or Swarm endpoint) needs to be configured
      * with TLS, and have "ubuntu:14:04" already pulled on the server.
      */
-    @Test(groups={"Live", "WIP"})
+    @Test(groups={"Live", "WIP"}, enabled = false)
     public void testDockerLocationUnmanagedOnStop() {
         LocationSpec<? extends Location> locationSpec = LocationSpec.create(JcloudsLocation.class)
                 .configure(JcloudsLocation.CLOUD_PROVIDER, "docker")

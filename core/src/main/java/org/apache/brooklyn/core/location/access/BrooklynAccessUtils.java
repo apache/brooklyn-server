@@ -26,6 +26,7 @@ import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.location.SupportsPortForwarding;
 import org.slf4j.Logger;
@@ -59,46 +60,52 @@ public class BrooklynAccessUtils {
 
     public static HostAndPort getBrooklynAccessibleAddress(Entity entity, int port) {
         String host;
-        
+
+        EntityInternal entityInternal = (EntityInternal) entity;
+
         // look up port forwarding
         PortForwardManager pfw = entity.getConfig(PORT_FORWARDING_MANAGER);
-        if (pfw!=null) {
-            Collection<Location> ll = entity.getLocations();
-            
-            synchronized (BrooklynAccessUtils.class) {
-                // TODO finer-grained synchronization
-                
-                for (MachineLocation machine : Iterables.filter(ll, MachineLocation.class)) {
-                    HostAndPort hp = pfw.lookup(machine, port);
+        if (pfw == null) {
+            log.debug("No PortForwardManager, using default");
+            pfw = (PortForwardManager) entityInternal.getManagementContext().getLocationRegistry().getLocationManaged("portForwardManager(scope=global)");
+        }
+
+        Collection<Location> ll = entity.getLocations();
+
+        synchronized (BrooklynAccessUtils.class) {
+            // TODO finer-grained synchronization
+
+            for (MachineLocation machine : Iterables.filter(ll, MachineLocation.class)) {
+                HostAndPort hp = pfw.lookup(machine, port);
+                if (hp!=null) {
+                    log.debug("BrooklynAccessUtils found port-forwarded address {} for entity {}, port {}, using machine {}",
+                            new Object[] {hp, entity, port, machine});
+                    return hp;
+                }
+            }
+
+            Maybe<SupportsPortForwarding> supportPortForwardingLoc = Machines.findUniqueElement(ll, SupportsPortForwarding.class);
+            if (supportPortForwardingLoc.isPresent()) {
+                Cidr source = entity.getConfig(MANAGEMENT_ACCESS_CIDR);
+                SupportsPortForwarding loc = supportPortForwardingLoc.get();
+                if (source!=null) {
+                    log.debug("BrooklynAccessUtils requesting new port-forwarding rule to access "+port+" on "+entity+" (at "+loc+", enabled for "+source+")");
+                    // TODO discuss, is this the best way to do it
+                    // (will probably _create_ the port forwarding rule!)
+                    HostAndPort hp = loc.getSocketEndpointFor(source, port);
                     if (hp!=null) {
-                        log.debug("BrooklynAccessUtils found port-forwarded address {} for entity {}, port {}, using machine {}",
-                                new Object[] {hp, entity, port, machine});
+                        log.debug("BrooklynAccessUtils created port-forwarded address {} for entity {}, port {}, using {}",
+                                new Object[] {hp, entity, port, loc});
                         return hp;
                     }
-                }
-                
-                Maybe<SupportsPortForwarding> supportPortForwardingLoc = Machines.findUniqueElement(ll, SupportsPortForwarding.class);
-                if (supportPortForwardingLoc.isPresent()) {
-                    Cidr source = entity.getConfig(MANAGEMENT_ACCESS_CIDR);
-                    SupportsPortForwarding loc = supportPortForwardingLoc.get();
-                    if (source!=null) {
-                        log.debug("BrooklynAccessUtils requesting new port-forwarding rule to access "+port+" on "+entity+" (at "+loc+", enabled for "+source+")");
-                        // TODO discuss, is this the best way to do it
-                        // (will probably _create_ the port forwarding rule!)
-                        HostAndPort hp = loc.getSocketEndpointFor(source, port);
-                        if (hp!=null) {
-                            log.debug("BrooklynAccessUtils created port-forwarded address {} for entity {}, port {}, using {}",
-                                    new Object[] {hp, entity, port, loc});
-                            return hp;
-                        }
-                    } else {
-                        log.warn("No "+MANAGEMENT_ACCESS_CIDR.getName()+" configured for "+entity+", so cannot forward "
-                                +"port "+port+" "+"even though "+PORT_FORWARDING_MANAGER.getName()+" was supplied, and "
-                                +"have location supporting port forwarding "+loc);
-                    }
+                } else {
+                    log.warn("No "+MANAGEMENT_ACCESS_CIDR.getName()+" configured for "+entity+", so cannot forward "
+                            +"port "+port+" "+"even though "+PORT_FORWARDING_MANAGER.getName()+" was supplied, and "
+                            +"have location supporting port forwarding "+loc);
                 }
             }
         }
+
         
         host = entity.getAttribute(Attributes.HOSTNAME);
         if (host!=null) return HostAndPort.fromParts(host, port);

@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.effector.ParameterType;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.core.effector.EffectorAndBody;
 import org.apache.brooklyn.core.effector.EffectorBody;
@@ -54,14 +55,15 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.net.HostAndPort;
 
-public class JcloudsLocationReleasePortForwardingTest extends BrooklynAppLiveTestSupport {
+//For this test, the port forward manager is not set on the location, the default is used.
+public class JcloudsLocationReleasePortForwardingDefaultTest extends BrooklynAppLiveTestSupport {
     
-    private Stopwatch stopwatch;
-    private PortForwardManager portForwardManager;
-    private JcloudsLocation loc;
-    private NodeMetadata node;
-    private JcloudsSshMachineLocation pseudoMachine;
-    private RecordingJcloudsPortForwarderExtension portForwarder;
+    protected Stopwatch stopwatch;
+    protected PortForwardManager portForwardManager;
+    protected JcloudsLocation loc;
+    protected NodeMetadata node;
+    protected JcloudsSshMachineLocation pseudoMachine;
+    protected RecordingJcloudsPortForwarderExtension portForwarder;
     
     @BeforeMethod(alwaysRun=true)
     @Override
@@ -75,15 +77,24 @@ public class JcloudsLocationReleasePortForwardingTest extends BrooklynAppLiveTes
         Mockito.when(node.getId()).thenReturn("mynodeid");
 
         portForwarder = new RecordingJcloudsPortForwarderExtension(stopwatch);
-        pseudoMachine = mgmt.getLocationManager().createLocation(LocationSpec.create(JcloudsSshMachineLocation.class)
+
+        LocationSpec<JcloudsSshMachineLocation> locationSpec = LocationSpec.create(JcloudsSshMachineLocation.class)
                 .configure("jcloudsParent", loc)
                 .configure("address", "1.1.1.1")
                 .configure("port", 2000)
                 .configure("user", "myname")
                 .configure("node", node)
                 .configure(JcloudsLocation.USE_PORT_FORWARDING, true)
-                .configure(JcloudsLocation.PORT_FORWARDER, portForwarder)
-                .configure(JcloudsLocation.PORT_FORWARDING_MANAGER, portForwardManager));
+                .configure(JcloudsLocation.PORT_FORWARDER, portForwarder);
+
+        locationSpec = extraSpecChanges(locationSpec);
+
+        pseudoMachine = mgmt.getLocationManager().createLocation(locationSpec);
+    }
+
+    //To be overidden by subclasses that need to change the spec
+    protected LocationSpec<JcloudsSshMachineLocation> extraSpecChanges(LocationSpec<JcloudsSshMachineLocation> spec) {
+        return spec;
     }
 
     @Test(groups={"Live", "Live-sanity"})
