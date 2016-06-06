@@ -24,6 +24,7 @@ import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.AddSensor;
+import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.text.Identifiers;
 
@@ -33,22 +34,20 @@ public class CreatePasswordSensor extends AddSensor<String> {
 
     public static final ConfigKey<String> ACCEPTABLE_CHARS = ConfigKeys.newStringConfigKey("password.chars", "The characters allowed in password");
 
-    private Integer passwordLength;
-    private String acceptableChars;
-
     public CreatePasswordSensor(Map<String, String> params) {
         this(ConfigBag.newInstance(params));
     }
 
     public CreatePasswordSensor(ConfigBag params) {
         super(params);
-        passwordLength = params.get(PASSWORD_LENGTH);
-        acceptableChars = params.get(ACCEPTABLE_CHARS);
     }
 
     @Override
     public void apply(EntityLocal entity) {
         super.apply(entity);
+
+        Integer passwordLength = EntityInitializers.resolve(params, PASSWORD_LENGTH);
+        String acceptableChars = EntityInitializers.resolve(params, ACCEPTABLE_CHARS);
 
         String password = acceptableChars == null
                 ? Identifiers.makeRandomPassword(passwordLength)

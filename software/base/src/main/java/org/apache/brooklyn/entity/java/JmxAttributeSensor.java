@@ -28,6 +28,7 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.AddSensor;
+import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.sensor.http.HttpRequestSensor;
 import org.apache.brooklyn.core.sensor.ssh.SshCommandSensor;
@@ -61,22 +62,8 @@ public final class JmxAttributeSensor<T> extends AddSensor<T> {
     public static final ConfigKey<String> ATTRIBUTE = ConfigKeys.newStringConfigKey("attribute", "JMX attribute to poll in object");
     public static final ConfigKey<Object> DEFAULT_VALUE = ConfigKeys.newConfigKey(Object.class, "defaultValue", "Default value for sensor; normally null");
 
-    protected final String objectName;
-    protected final String attribute;
-    protected final Object defaultValue;
-
     public JmxAttributeSensor(final ConfigBag params) {
         super(params);
-
-        objectName = Preconditions.checkNotNull(params.get(OBJECT_NAME), "objectName");
-        attribute = Preconditions.checkNotNull(params.get(ATTRIBUTE), "attribute");
-        defaultValue = params.get(DEFAULT_VALUE);
-
-        try {
-            ObjectName.getInstance(objectName);
-        } catch (MalformedObjectNameException mone) {
-            throw new IllegalArgumentException("Malformed JMX object name: " + objectName, mone);
-        }
     }
 
     @Override
@@ -86,6 +73,16 @@ public final class JmxAttributeSensor<T> extends AddSensor<T> {
         if (entity instanceof UsesJmx) {
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Submitting task to add JMX sensor {} to {}", name, entity);
+            }
+
+            final String objectName = Preconditions.checkNotNull(EntityInitializers.resolve(params, OBJECT_NAME), "objectName");
+            final String attribute = Preconditions.checkNotNull(EntityInitializers.resolve(params, ATTRIBUTE), "attribute");
+            final Object defaultValue = EntityInitializers.resolve(params, DEFAULT_VALUE);
+
+            try {
+                ObjectName.getInstance(objectName);
+            } catch (MalformedObjectNameException mone) {
+                throw new IllegalArgumentException("Malformed JMX object name: " + objectName, mone);
             }
 
             Task<Integer> jmxPortTask = DependentConfiguration.attributeWhenReady(entity, UsesJmx.JMX_PORT);
@@ -100,10 +97,10 @@ public final class JmxAttributeSensor<T> extends AddSensor<T> {
                                     .entity(entity)
                                     .period(period)
                                     .helper(helper)
-                                    .pollAttribute(new JmxAttributePollConfig<T>(sensor)
+                                    .pollAttribute(new JmxAttributePollConfig<>(sensor)
                                             .objectName(objectName)
                                             .attributeName(attribute)
-                                            .onFailureOrException(Functions.<T>constant((T) defaultValue)))
+                                            .onFailureOrException(Functions.constant((T) defaultValue)))
                                     .build();
                             entity.addFeed(feed);
                             return feed;

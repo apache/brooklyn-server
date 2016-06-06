@@ -29,6 +29,7 @@ import org.apache.brooklyn.core.effector.EffectorBody;
 import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.effector.Effectors.EffectorBuilder;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
+import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.sensor.ssh.SshCommandSensor;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -58,45 +59,47 @@ public final class SshCommandEffector extends AddEffector {
 
     protected static class Body extends EffectorBody<String> {
         private final Effector<?> effector;
-        private final String command;
-        private final String executionDir;
+        private final ConfigBag params;
 
         public Body(Effector<?> eff, ConfigBag params) {
             this.effector = eff;
-            this.command = Preconditions.checkNotNull(params.get(EFFECTOR_COMMAND), "command must be supplied when defining this effector");
-            this.executionDir = params.get(EFFECTOR_EXECUTION_DIR);
+            Preconditions.checkNotNull(params.getAllConfigRaw().get(EFFECTOR_COMMAND.getName()), "command must be supplied when defining this effector");
+            this.params = params;
             // TODO could take a custom "env" aka effectorShellEnv
         }
 
         @Override
         public String call(ConfigBag params) {
-            String command = this.command;
-            
+            ConfigBag allConfig = ConfigBag.newInstanceCopying(this.params).putAll(params);
+            String command = EntityInitializers.resolve(allConfig, EFFECTOR_COMMAND);
+            String executionDir = EntityInitializers.resolve(allConfig, EFFECTOR_EXECUTION_DIR);
+
             command = SshCommandSensor.makeCommandExecutingInDirectory(command, executionDir, entity());
-            
+
             MutableMap<String, String> env = MutableMap.of();
             // first set all declared parameters, including default values
-            for (ParameterType<?> param: effector.getParameters()) {
-                env.addIfNotNull(param.getName(), Strings.toString( params.get(Effectors.asConfigKey(param)) ));
+            for (ParameterType<?> param : effector.getParameters()) {
+                env.addIfNotNull(param.getName(), Strings.toString(params.get(Effectors.asConfigKey(param))));
             }
-            
+
             // then set things from the entities defined shell environment, if applicable
             env.putAll(Strings.toStringMap(entity().getConfig(BrooklynConfigKeys.SHELL_ENVIRONMENT), ""));
-            
+
             // if we wanted to resolve the surrounding environment in real time -- see above
 //            Map<String,Object> paramsResolved = (Map<String, Object>) Tasks.resolveDeepValue(effectorShellEnv, Map.class, entity().getExecutionContext());
-            
+
             // finally set the parameters we've been passed; this will repeat declared parameters but to no harm,
             // it may pick up additional values (could be a flag defining whether this is permitted or not)
             env.putAll(Strings.toStringMap(params.getAllConfig()));
-            
+
             SshEffectorTasks.SshEffectorTaskFactory<String> t = SshEffectorTasks.ssh(command)
-                .requiringZeroAndReturningStdout()
-                .summary("effector "+effector.getName())
-                .environmentVariables(env);
+                    .requiringZeroAndReturningStdout()
+                    .summary("effector " + effector.getName())
+                    .environmentVariables(env);
             return queue(t).get();
         }
-        
+
     }
-    
+
+
 }
