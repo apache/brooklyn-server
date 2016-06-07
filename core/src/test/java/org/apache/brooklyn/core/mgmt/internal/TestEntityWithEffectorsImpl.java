@@ -18,17 +18,24 @@
  */
 package org.apache.brooklyn.core.mgmt.internal;
 
-import org.apache.brooklyn.core.annotation.EffectorParam;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class TestEntityWithEffectorsImpl extends TestEntityImpl implements TestEntityWithEffectors {
-    private static final Logger log = LoggerFactory.getLogger(EffectorUtils.class);
+    private static final Logger log = LoggerFactory.getLogger(TestEntityWithEffectorsImpl.class);
 
     @Override
-    public Void resetUserPassword(@EffectorParam(name = "newPassword") String newPassword) {
-        log.info("Invoking Test effector {}", this);
+    public Void resetPassword(String newPassword, Integer secretPin) {
+        log.info("Invoked effector from resetPassword with params {} {}", new Object[] {newPassword, secretPin});
+        assert newPassword != null;
+        return null;
+    }
+
+    @Override
+    public Void invokeUserAndPassword(String user,String newPassword, String paramDefault) {
+        log.info("Invoked effector from invokeUserAndPassword with params {} {} {}", new Object[] {user, newPassword, paramDefault});
+        assert user != null;
         assert newPassword != null;
         return null;
     }

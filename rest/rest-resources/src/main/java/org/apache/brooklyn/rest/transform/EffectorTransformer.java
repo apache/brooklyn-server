@@ -26,6 +26,7 @@ import javax.annotation.Nullable;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.effector.ParameterType;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.rest.domain.EffectorSummary;
 import org.apache.brooklyn.rest.domain.EffectorSummary.ParameterSummary;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
@@ -83,7 +84,8 @@ public class EffectorTransformer {
                 .context(entity).timeout(ValueResolver.REAL_QUICK_WAIT).getMaybe();
             return new ParameterSummary(parameterType.getName(), parameterType.getParameterClassName(), 
                 parameterType.getDescription(), 
-                WebResourceUtils.getValueForDisplay(defaultValue.orNull(), true, false));
+                WebResourceUtils.getValueForDisplay(defaultValue.orNull(), true, false),
+                Sanitizer.IS_SECRET_PREDICATE.apply(parameterType.getName()));
         } catch (Exception e) {
             throw Exceptions.propagate(e);
         }

@@ -25,6 +25,11 @@ import org.apache.brooklyn.core.test.entity.TestEntity;
 
 @ImplementedBy(TestEntityWithEffectorsImpl.class)
 public interface TestEntityWithEffectors extends TestEntity {
-    @Effector(description = "Reset User pass effetor")
-    Void resetUserPassword(@EffectorParam(name = "newPassword") String param1);
+    @Effector(description = "Reset password")
+    Void resetPassword(@EffectorParam(name = "newPassword") String param1, @EffectorParam(name = "secretPin") Integer secretPin);
+
+    @Effector(description = "Reset User and password effector")
+    Void invokeUserAndPassword(@EffectorParam(name = "user") String user,
+                               @EffectorParam(name = "newPassword", defaultValue = "Test") String newPassword,
+                               @EffectorParam(name = "paramDefault", defaultValue = "DefaultValue") String paramDefault);
 }
