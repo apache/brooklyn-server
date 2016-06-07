@@ -7,6 +7,12 @@ brooklyn.catalog:
   - id: ssh-test
     item:
       type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+  - id: ssh-test-succeeds
+    item:
+      type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+      brooklyn.config:
+        assertStatus:
+          equals: 0
   - id: assert-up
     item:
       type: org.apache.brooklyn.test.framework.TestSensor
@@ -28,3 +34,8 @@ brooklyn.catalog:
       sensor: service.state
       assert:
       - matches: running
+  - id: test-stop
+    item:
+      name: Invoke [stop] effector
+      type: org.apache.brooklyn.test.framework.TestEffector
+      effector: stop
