@@ -18,18 +18,41 @@
 */
 package org.apache.brooklyn.util.core.internal.ssh;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.brooklyn.util.core.internal.ssh.SshTool;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 /** Mock tool */
 public class RecordingSshTool implements SshTool {
+    
+    public static class CustomResponse {
+        public final int exitCode;
+        public final String stdout;
+        public final String stderr;
+        
+        public CustomResponse(int exitCode, String stdout, String stderr) {
+            this.exitCode = exitCode;
+            this.stdout = stdout;
+            this.stderr = stderr;
+        }
+        
+        @Override
+        public String toString() {
+            return "ExecCmd["+exitCode+"; "+stdout+"; "+stderr+"]";
+        }
+    }
     
     public static class ExecCmd {
         public final Map<String,?> props;
@@ -37,7 +60,7 @@ public class RecordingSshTool implements SshTool {
         public final List<String> commands;
         public final Map<?,?> env;
         
-        ExecCmd(Map<String,?> props, String summaryForLogging, List<String> commands, Map env) {
+        ExecCmd(Map<String,?> props, String summaryForLogging, List<String> commands, Map<?,?> env) {
             this.props = props;
             this.summaryForLogging = summaryForLogging;
             this.commands = commands;
@@ -52,12 +75,22 @@ public class RecordingSshTool implements SshTool {
     
     public static List<ExecCmd> execScriptCmds = Lists.newCopyOnWriteArrayList();
     public static List<Map<?,?>> constructorProps = Lists.newCopyOnWriteArrayList();
+    public static Map<String, CustomResponse> customResponses = Maps.newConcurrentMap();
     
     private boolean connected;
     
     public static void clear() {
         execScriptCmds.clear();
         constructorProps.clear();
+        customResponses.clear();
+    }
+    
+    public static void setCustomResponse(String cmd, CustomResponse response) {
+        customResponses.put(cmd, checkNotNull(response, "response"));
+    }
+    
+    public static ExecCmd getLastExecCmd() {
+        return execScriptCmds.get(execScriptCmds.size()-1);
     }
     
     public RecordingSshTool(Map<?,?> props) {
@@ -77,6 +110,13 @@ public class RecordingSshTool implements SshTool {
     }
     @Override public int execScript(Map<String, ?> props, List<String> commands, Map<String, ?> env) {
         execScriptCmds.add(new ExecCmd(props, "", commands, env));
+        for (String cmd : commands) {
+            if (customResponses.containsKey(cmd)) {
+                CustomResponse response = customResponses.get(cmd);
+                writeCustomResponseStreams(props, response);
+                return response.exitCode;
+            }
+        }
         return 0;
     }
     @Override public int execScript(Map<String, ?> props, List<String> commands) {
@@ -84,6 +124,13 @@ public class RecordingSshTool implements SshTool {
     }
     @Override public int execCommands(Map<String, ?> props, List<String> commands, Map<String, ?> env) {
         execScriptCmds.add(new ExecCmd(props, "", commands, env));
+        for (String cmd : commands) {
+            if (customResponses.containsKey(cmd)) {
+                CustomResponse response = customResponses.get(cmd);
+                writeCustomResponseStreams(props, response);
+                return response.exitCode;
+            }
+        }
         return 0;
     }
     @Override public int execCommands(Map<String, ?> props, List<String> commands) {
@@ -100,5 +147,17 @@ public class RecordingSshTool implements SshTool {
     }
     @Override public int copyFromServer(Map<String, ?> props, String pathAndFileOnRemoteServer, File local) {
         return 0;
+    }
+    protected void writeCustomResponseStreams(Map<String, ?> props, CustomResponse response) {
+        try {
+            if (Strings.isNonBlank(response.stdout) && props.get(SshTool.PROP_OUT_STREAM.getName()) != null) {
+                ((OutputStream)props.get(SshTool.PROP_OUT_STREAM.getName())).write(response.stdout.getBytes());
+            }
+            if (Strings.isNonBlank(response.stderr) && props.get(SshTool.PROP_ERR_STREAM.getName()) != null) {
+                ((OutputStream)props.get(SshTool.PROP_ERR_STREAM.getName())).write(response.stderr.getBytes());
+            }
+        } catch (IOException e) {
+            Exceptions.propagate(e);
+        }
     }
 }
