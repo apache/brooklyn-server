@@ -22,6 +22,8 @@ brooklyn.catalog:
 #        # TODO needs "docker pull image" against the swarm master before deployment
 #        imageDescriptionRegex: ubuntu:14.04
 #        waitForSshable: false
+#        templateOptions:
+#          networkMode: "brooklyn" # the default swarm network
 #  # Add a location named "location-swarm-master" based on this one
 #  - id: location-swarm-master-template
 #    itemType: location
