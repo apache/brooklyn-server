@@ -18,8 +18,13 @@
  */
 package org.apache.brooklyn.core.location.access;
 
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+
 import java.net.URI;
+import java.net.URL;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
@@ -31,11 +36,13 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -61,17 +68,23 @@ public class PublicNetworkFaceEnricherTest extends BrooklynAppUnitTestSupport {
     
     @DataProvider(name = "variants")
     public static Object[][] provideVariants() {
-        AttributeSensor<HostAndPort> hostAndPortSensor = Sensors.newSensor(HostAndPort.class, "test.hostAndPort");
+        AttributeSensor<HostAndPort> hostAndPortSensor = Sensors.newSensor(HostAndPort.class, "test.endpoint");
         List<Object[]> result = Lists.newArrayList();
         for (Timing setSensor : Timing.values()) {
             for (Timing createAssociation : Timing.values()) {
                 for (Timing addLocation : Timing.values()) {
-                    result.add(new Object[] {setSensor, createAssociation, addLocation, Attributes.MAIN_URI, URI.create("http://127.0.0.1:1234/my/path"), "http://mypublichost:5678/my/path"});
-                    result.add(new Object[] {setSensor, createAssociation, addLocation, TestEntity.NAME, "http://127.0.0.1:1234/my/path", "http://mypublichost:5678/my/path"});
-                    result.add(new Object[] {setSensor, createAssociation, addLocation, Attributes.HTTP_PORT, 1234, "mypublichost:5678"});
-                    result.add(new Object[] {setSensor, createAssociation, addLocation, TestEntity.NAME, "1234", "mypublichost:5678"});
-                    result.add(new Object[] {setSensor, createAssociation, addLocation, TestEntity.NAME, "127.0.0.1:1234", "mypublichost:5678"});
-                    result.add(new Object[] {setSensor, createAssociation, addLocation, hostAndPortSensor, HostAndPort.fromString("127.0.0.1:1234"), "mypublichost:5678"});
+                    result.add(new Object[] {setSensor, createAssociation, addLocation, Attributes.MAIN_URI, 
+                            URI.create("http://127.0.0.1:1234/my/path"), "main.uri.mapped.public", "http://mypublichost:5678/my/path"});
+                    result.add(new Object[] {setSensor, createAssociation, addLocation, TestEntity.NAME, 
+                            "http://127.0.0.1:1234/my/path", "test.name.mapped.public", "http://mypublichost:5678/my/path"});
+                    result.add(new Object[] {setSensor, createAssociation, addLocation, Attributes.HTTP_PORT, 
+                            1234, "http.endpoint.mapped.public", "mypublichost:5678"});
+                    result.add(new Object[] {setSensor, createAssociation, addLocation, TestEntity.NAME, 
+                            "1234", "test.name.mapped.public", "mypublichost:5678"});
+                    result.add(new Object[] {setSensor, createAssociation, addLocation, TestEntity.NAME, 
+                            "127.0.0.1:1234", "test.name.mapped.public", "mypublichost:5678"});
+                    result.add(new Object[] {setSensor, createAssociation, addLocation, hostAndPortSensor, 
+                            HostAndPort.fromString("127.0.0.1:1234"), "test.endpoint.mapped.public", "mypublichost:5678"});
                 }
             }
         }
@@ -103,7 +116,8 @@ public class PublicNetworkFaceEnricherTest extends BrooklynAppUnitTestSupport {
      * The sensorVal must include port 1234, so that it will be converted to mypublichost:5678
      */
     @Test(dataProvider = "variants")
-    public <T> void testSensorTransformed(Timing setUri, Timing createAssociation, Timing addLocation, AttributeSensor<T> sensor, T sensorVal, String expectedVal) throws Exception {
+    public <T> void testSensorTransformed(Timing setUri, Timing createAssociation, Timing addLocation, 
+            AttributeSensor<T> sensor, T sensorVal, String targetSensorName, String expectedVal) throws Exception {
         entity.sensors().set(Attributes.SUBNET_ADDRESS, "127.0.0.1");
         if (setUri == Timing.BEFORE) {
             entity.sensors().set(sensor, sensorVal);
@@ -128,7 +142,7 @@ public class PublicNetworkFaceEnricherTest extends BrooklynAppUnitTestSupport {
             entity.addLocations(ImmutableList.of(machine));
         }
         
-        EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newStringSensor(sensor.getName()+".mapped.public"), expectedVal);
+        EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newStringSensor(targetSensorName), expectedVal);
         EntityAsserts.assertAttributeEquals(entity, sensor, sensorVal);
     }
     
@@ -210,5 +224,100 @@ public class PublicNetworkFaceEnricherTest extends BrooklynAppUnitTestSupport {
                 .configure(PublicNetworkFaceEnricher.SENSOR, TestEntity.NAME));
 
         EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", VERY_SHORT_WAIT), entity, Sensors.newStringSensor(TestEntity.NAME.getName()+".mapped.public"), null);
+    }
+    
+    @Test
+    public <T> void testTransformsAllMatchingSensors() throws Exception {
+        AttributeSensor<URI> stronglyTypedUri = Sensors.newSensor(URI.class, "strongly.typed.uri");
+        AttributeSensor<String> stringUri = Sensors.newStringSensor("string.uri");
+        AttributeSensor<URL> stronglyTypedUrl = Sensors.newSensor(URL.class, "strongly.typed.url");
+        AttributeSensor<String> stringUrl = Sensors.newStringSensor("string.url");
+        AttributeSensor<Integer> intPort = Sensors.newIntegerSensor("int.port");
+        AttributeSensor<String> stringPort = Sensors.newStringSensor("string.port");
+        AttributeSensor<HostAndPort> hostAndPort = Sensors.newSensor(HostAndPort.class, "hostAndPort.endpoint");
+        AttributeSensor<String> stringHostAndPort = Sensors.newStringSensor("stringHostAndPort.endpoint");
+
+        entity.sensors().set(Attributes.SUBNET_ADDRESS, "127.0.0.1");
+        entity.sensors().set(stronglyTypedUri, URI.create("http://127.0.0.1:1234/my/path"));
+        entity.sensors().set(stringUri, "http://127.0.0.1:1234/my/path");
+        entity.sensors().set(stronglyTypedUrl, new URL("http://127.0.0.1:1234/my/path"));
+        entity.sensors().set(stringUrl, "http://127.0.0.1:1234/my/path");
+        entity.sensors().set(intPort, 1234);
+        entity.sensors().set(stringPort, "1234");
+        entity.sensors().set(hostAndPort, HostAndPort.fromParts("127.0.0.1", 1234));
+        entity.sensors().set(stringHostAndPort, "127.0.0.1:1234");
+        portForwardManager.associate("myPublicIp", HostAndPort.fromParts("mypublichost", 5678), machine, 1234);
+        entity.addLocations(ImmutableList.of(machine));
+        
+        entity.enrichers().add(EnricherSpec.create(PublicNetworkFaceEnricher.class));
+
+        assertAttributeEqualsEventually("strongly.typed.uri.mapped.public", "http://mypublichost:5678/my/path");
+        assertAttributeEqualsEventually("string.uri.mapped.public", "http://mypublichost:5678/my/path");
+        assertAttributeEqualsEventually("strongly.typed.url.mapped.public", "http://mypublichost:5678/my/path");
+        assertAttributeEqualsEventually("string.url.mapped.public", "http://mypublichost:5678/my/path");
+        assertAttributeEqualsEventually("int.endpoint.mapped.public", "mypublichost:5678");
+        assertAttributeEqualsEventually("string.endpoint.mapped.public", "mypublichost:5678");
+        assertAttributeEqualsEventually("hostAndPort.endpoint.mapped.public", "mypublichost:5678");
+        assertAttributeEqualsEventually("stringHostAndPort.endpoint.mapped.public", "mypublichost:5678");
+    }
+    
+    @Test
+    public <T> void testIgnoresNonMatchingSensors() throws Exception {
+        AttributeSensor<URI> sensor1 = Sensors.newSensor(URI.class, "my.different");
+        AttributeSensor<URL> sensor2 = Sensors.newSensor(URL.class, "my.different2");
+        AttributeSensor<String> sensor3 = Sensors.newStringSensor("my.different3");
+        AttributeSensor<Integer> sensor4 = Sensors.newIntegerSensor("my.different4");
+        AttributeSensor<HostAndPort> sensor5 = Sensors.newSensor(HostAndPort.class, "my.different5");
+
+        entity.sensors().set(Attributes.SUBNET_ADDRESS, "127.0.0.1");
+        entity.sensors().set(sensor1, URI.create("http://127.0.0.1:1234/my/path"));
+        entity.sensors().set(sensor2, new URL("http://127.0.0.1:1234/my/path"));
+        entity.sensors().set(sensor3, "http://127.0.0.1:1234/my/path");
+        entity.sensors().set(sensor4, 1234);
+        entity.sensors().set(sensor5, HostAndPort.fromParts("127.0.0.1", 1234));
+        portForwardManager.associate("myPublicIp", HostAndPort.fromParts("mypublichost", 5678), machine, 1234);
+        entity.addLocations(ImmutableList.of(machine));
+        
+        entity.enrichers().add(EnricherSpec.create(PublicNetworkFaceEnricher.class));
+
+        Asserts.succeedsContinually(ImmutableMap.of("timeout", VERY_SHORT_WAIT), new Runnable() {
+            @Override public void run() {
+                Map<AttributeSensor<?>, Object> allSensors = entity.sensors().getAll();
+                String errMsg = "sensors="+allSensors;
+                for (AttributeSensor<?> sensor : allSensors.keySet()) {
+                    String name = sensor.getName();
+                    assertFalse(name.startsWith("my.different") && sensor.getName().contains("public"), errMsg);
+                }
+            }});
+    }
+    
+    protected void assertAttributeEqualsEventually(String sensorName, String expectedVal) throws Exception {
+        try {
+            EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newStringSensor(sensorName), expectedVal);
+        } catch (Exception e) {
+            throw new Exception("Failed assertion for sensor '"+sensorName+"'; attributes are "+entity.sensors().getAll(), e);
+        }
+    }
+    
+    @Test
+    public void testSensorNameConverter() throws Exception {
+        PublicNetworkFaceEnricher enricher = entity.enrichers().add(EnricherSpec.create(PublicNetworkFaceEnricher.class));
+        Function<? super String, String> converter = enricher.getConfig(PublicNetworkFaceEnricher.SENSOR_NAME_CONVERTER);
+        
+        Map<String, String> testCases = ImmutableMap.<String, String>builder()
+                .put("my.uri", "my.uri.mapped.public")
+                .put("myuri", "myuri.mapped.public")
+                .put("my.UrI", "my.UrI.mapped.public")
+                .put("my.url", "my.url.mapped.public")
+                .put("myurl", "myurl.mapped.public")
+                .put("my.endpoint", "my.endpoint.mapped.public")
+                .put("myendpoint", "myendpoint.mapped.public")
+                .put("my.port", "my.endpoint.mapped.public")
+                .put("myport", "my.endpoint.mapped.public")
+                .build();
+        
+        for (Map.Entry<String, String> entry : testCases.entrySet()) {
+            assertEquals(converter.apply(entry.getKey()), entry.getValue(), "input="+entry.getKey());
+        }
     }
 }

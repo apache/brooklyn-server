@@ -28,6 +28,7 @@ import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
@@ -40,10 +41,15 @@ import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.net.Networking;
+import org.apache.brooklyn.util.text.StringPredicates;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
+import com.google.common.base.Function;
+import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Lists;
 import com.google.common.net.HostAndPort;
@@ -109,22 +115,72 @@ public class PublicNetworkFaceEnricher extends AbstractEnricher {
             new TypeToken<Collection<? extends AttributeSensor<?>>>() {}, 
             "sensors",
             "The multiple sensors whose mapped values are to be re-published (with suffix \"mapped.public\"); "
-                    + "either 'sensor' or 'sensors' should be specified");
+                    + "if neither 'sensor' or 'sensors' is specified, defaults to 'mapAll'");
+
+    public static ConfigKey<String> MAP_MATCHING = ConfigKeys.newStringConfigKey(
+            "mapMatching",
+            "Whether to map all, based on a sensor naming convention (re-published with suffix \"mapped.public\"); "
+                    + "if neither 'sensor' or 'sensors' is specified, defaults to matchin case-insensitive suffix of "
+                    + "'port', 'uri', 'url' or 'endpoint' ",
+            "(?i).*(port|uri|url|endpoint)");
+
+    @SuppressWarnings("serial")
+    public static ConfigKey<Function<? super String, String>> SENSOR_NAME_CONVERTER = ConfigKeys.newConfigKey(
+            new TypeToken<Function<? super String, String>>() {},
+            "sensorNameConverter",
+            "The converter to use, to map from the original sensor name to the re-published sensor name",
+            new SensorNameConverter("public"));
 
     public static final ConfigKey<PortForwardManager> PORT_FORWARD_MANAGER = ConfigKeys.newConfigKey(
             PortForwardManager.class, 
             "portForwardManager",
             "The PortForwardManager storing the port-mappings; if null, the global instance will be used");
     
+    public static class SensorNameConverter implements Function<String, String> {
+        private final String network;
+        
+        public SensorNameConverter(String network) {
+            this.network = network;
+        }
+        
+        @Override
+        public String apply(String input) {
+            if (input == null) throw new NullPointerException("Sensor name must not be null");
+            String lowerInput = input.toLowerCase();
+            if (lowerInput.endsWith("uri")) {
+                return input + ".mapped." + network;
+            } else if (lowerInput.endsWith("url")) {
+                return input + ".mapped." + network;
+            } else if (lowerInput.endsWith("endpoint")) {
+                return input + ".mapped." + network;
+            } else if (lowerInput.endsWith("port")) {
+                String prefix = input.substring(0, input.length() - "port".length());
+                if (prefix.endsWith(".")) prefix = prefix.substring(0, prefix.length() - 1);
+                return prefix + ".endpoint.mapped." + network;
+            } else {
+                return input + ".mapped." + network;
+            }
+        }
+    }
+
     protected Collection<AttributeSensor<?>> sensors;
-    protected PortForwardManager.AssociationListener listener;
+    protected Optional<Predicate<Sensor<?>>> mapMatching;
+    protected Function<? super String, String> sensorNameConverter;
+    protected PortForwardManager.AssociationListener pfmListener;
     
     @Override
     public void setEntity(final EntityLocal entity) {
         super.setEntity(entity);
         
+        checkConfig();
         sensors = resolveSensorsConfig();
-
+        if (sensors.isEmpty()) {
+            mapMatching = Optional.of(resolveMapMatchingConfig());
+        } else {
+            mapMatching = Optional.absent();
+        }
+        sensorNameConverter = getRequiredConfig(SENSOR_NAME_CONVERTER);
+        
         /*
          * To find the transformed sensor value we need several things to be set. Therefore 
          * subscribe to all of them, and re-compute whenever any of the change. These are:
@@ -132,7 +188,7 @@ public class PublicNetworkFaceEnricher extends AbstractEnricher {
          *  - The entity to have a machine location (so we can lookup the mapped port association).
          *  - The relevant sensors to have a value, which includes the private port.
          */
-        listener = new PortForwardManager.AssociationListener() {
+        pfmListener = new PortForwardManager.AssociationListener() {
             @Override
             public void onAssociationCreated(PortForwardManager.AssociationMetadata metadata) {
                 Maybe<MachineLocation> machine = getMachine();
@@ -150,7 +206,7 @@ public class PublicNetworkFaceEnricher extends AbstractEnricher {
                 // no-op
             }
         };
-        getPortForwardManager().addAssociationListener(listener, Predicates.alwaysTrue());
+        getPortForwardManager().addAssociationListener(pfmListener, Predicates.alwaysTrue());
         
         subscriptions().subscribe(entity, AbstractEntity.LOCATION_ADDED, new SensorEventListener<Location>() {
             @Override public void onEvent(SensorEvent<Location> event) {
@@ -166,6 +222,17 @@ public class PublicNetworkFaceEnricher extends AbstractEnricher {
                     tryTransform((AttributeSensor<?>)event.getSensor());
                 }});
         }
+        if (mapMatching.isPresent()) {
+            Sensor<?> wildcardSensor = null;
+            subscriptions().subscribe(entity, wildcardSensor, new SensorEventListener<Object>() {
+                @Override public void onEvent(SensorEvent<Object> event) {
+                    if (mapMatching.get().apply(event.getSensor())) {
+                        LOG.debug("{} attempting transformations, triggered by sensor-event {}->{}, to {}", 
+                                new Object[] {PublicNetworkFaceEnricher.this, event.getSensor().getName(), event.getValue(), entity});
+                        tryTransform((AttributeSensor<?>)event.getSensor());
+                    }
+                }});
+        }
 
         tryTransformAll();
     }
@@ -173,8 +240,8 @@ public class PublicNetworkFaceEnricher extends AbstractEnricher {
     @Override
     public void destroy() {
         try {
-            if (listener != null) {
-                getPortForwardManager().removeAssociationListener(listener);
+            if (pfmListener != null) {
+                getPortForwardManager().removeAssociationListener(pfmListener);
             }
         } finally {
             super.destroy();
@@ -182,6 +249,9 @@ public class PublicNetworkFaceEnricher extends AbstractEnricher {
     }
 
     protected void tryTransformAll() {
+        if (!isRunning()) {
+            return;
+        }
         Maybe<MachineLocation> machine = getMachine();
         if (machine.isAbsent()) {
             return;
@@ -195,9 +265,25 @@ public class PublicNetworkFaceEnricher extends AbstractEnricher {
                 LOG.warn("Problem transforming sensor "+sensor+" of "+entity, e);
             }
         }
+        if (mapMatching.isPresent()) {
+            for (Sensor<?> sensor : entity.getEntityType().getSensors()) {
+                if (sensor instanceof AttributeSensor && mapMatching.get().apply(sensor)) {
+                    try {
+                        tryTransform(machine.get(), (AttributeSensor<?>)sensor);
+                    } catch (Exception e) {
+                        // TODO Avoid repeated logging
+                        Exceptions.propagateIfFatal(e);
+                        LOG.warn("Problem transforming sensor "+sensor+" of "+entity, e);
+                    }
+                }
+            }
+        }
     }
 
     protected void tryTransform(AttributeSensor<?> sensor) {
+        if (!isRunning()) {
+            return;
+        }
         Maybe<MachineLocation> machine = getMachine();
         if (machine.isAbsent()) {
             return;
@@ -214,7 +300,7 @@ public class PublicNetworkFaceEnricher extends AbstractEnricher {
         if (newVal.isAbsent()) {
             return;
         }
-        AttributeSensor<String> mappedSensor = Sensors.newStringSensor(sensor.getName()+".mapped.public");
+        AttributeSensor<String> mappedSensor = Sensors.newStringSensor(sensorNameConverter.apply(sensor.getName()));
         if (newVal.get().equals(entity.sensors().get(mappedSensor))) {
             // ignore duplicate
             return;
@@ -358,13 +444,27 @@ public class PublicNetworkFaceEnricher extends AbstractEnricher {
         return portForwardManager;
     }
 
+    protected void checkConfig() {
+        AttributeSensor<?> sensor = getConfig(SENSOR);
+        Collection<? extends AttributeSensor<?>> sensors = getConfig(SENSORS);
+        Maybe<Object> rawMapMatching = config().getRaw(MAP_MATCHING);
+        String mapMatching = config().get(MAP_MATCHING);
+        
+        if (sensor != null && sensors != null && sensors.isEmpty()) {
+            throw new IllegalStateException(this+" must not have both 'sensor' and 'sensors' config");
+        } else if (sensor == null && (sensors == null || sensors.isEmpty())) {
+            if (Strings.isBlank(mapMatching)) {
+                throw new IllegalStateException(this+" requires one of 'sensor' or 'sensors' config (when 'mapMatching' is explicitly blank)");
+            }
+        } else if (rawMapMatching.isPresent()) {
+            throw new IllegalStateException(this+" must not have explicit 'mapMatching', and either of 'sensor' or 'sensors' config");
+        }
+    }
+    
     protected Collection<AttributeSensor<?>> resolveSensorsConfig() {
         AttributeSensor<?> sensor = getConfig(SENSOR);
         Collection<? extends AttributeSensor<?>> sensors = getConfig(SENSORS);
 
-        if (!(sensor == null ^ (sensors == null || sensors.isEmpty()))) {
-            throw new IllegalStateException(this+" requires one of sensor or sensors config");
-        }
         Collection<AttributeSensor<?>> result = Lists.newArrayList();
         if (sensor != null) {
             AttributeSensor<?> typedSensor = (AttributeSensor<?>) entity.getEntityType().getSensor(sensor.getName());
@@ -378,5 +478,15 @@ public class PublicNetworkFaceEnricher extends AbstractEnricher {
             }
         }
         return result;
+    }
+    
+    protected Predicate<Sensor<?>> resolveMapMatchingConfig() {
+        String regex = getConfig(MAP_MATCHING);
+        final Predicate<CharSequence> namePredicate = StringPredicates.matchesRegex(regex);
+        return new Predicate<Sensor<?>>() {
+            @Override public boolean apply(Sensor<?> input) {
+                return input != null && namePredicate.apply(input.getName());
+            }
+        };
     }
 }
