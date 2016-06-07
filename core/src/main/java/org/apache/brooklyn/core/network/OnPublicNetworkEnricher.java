@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.location.access;
+package org.apache.brooklyn.core.network;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -36,6 +36,10 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.location.Machines;
+import org.apache.brooklyn.core.location.access.PortForwardManager;
+import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
+import org.apache.brooklyn.core.location.access.PortForwardManager.AssociationListener;
+import org.apache.brooklyn.core.location.access.PortForwardManager.AssociationMetadata;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -84,7 +88,7 @@ import com.google.common.reflect.TypeToken;
  * </pre>
  */
 @Beta
-public class PublicNetworkFaceEnricher extends AbstractEnricher {
+public class OnPublicNetworkEnricher extends AbstractEnricher {
 
     // TODO Is this the best package for the enricher?
     //
@@ -101,7 +105,7 @@ public class PublicNetworkFaceEnricher extends AbstractEnricher {
     // just hasn't been created yet. If we publish the wrong (i.e. untransformed) value, that
     // will cause other entity's using attributeWhenReady to immediately trigger.
 
-    private static final Logger LOG = LoggerFactory.getLogger(PublicNetworkFaceEnricher.class);
+    private static final Logger LOG = LoggerFactory.getLogger(OnPublicNetworkEnricher.class);
 
     @SuppressWarnings("serial")
     public static final ConfigKey<AttributeSensor<?>> SENSOR = ConfigKeys.newConfigKey(
@@ -198,7 +202,7 @@ public class PublicNetworkFaceEnricher extends AbstractEnricher {
                 }
                 
                 LOG.debug("{} attempting transformations, triggered by port-association {}, with machine {} of entity {}", 
-                        new Object[] {PublicNetworkFaceEnricher.this, metadata, machine.get(), entity});
+                        new Object[] {OnPublicNetworkEnricher.this, metadata, machine.get(), entity});
                 tryTransformAll();
             }
             @Override
@@ -210,7 +214,7 @@ public class PublicNetworkFaceEnricher extends AbstractEnricher {
         
         subscriptions().subscribe(entity, AbstractEntity.LOCATION_ADDED, new SensorEventListener<Location>() {
             @Override public void onEvent(SensorEvent<Location> event) {
-                LOG.debug("{} attempting transformations, triggered by location-added {}, to {}", new Object[] {PublicNetworkFaceEnricher.this, event.getValue(), entity});
+                LOG.debug("{} attempting transformations, triggered by location-added {}, to {}", new Object[] {OnPublicNetworkEnricher.this, event.getValue(), entity});
                 tryTransformAll();
             }});
 
@@ -218,7 +222,7 @@ public class PublicNetworkFaceEnricher extends AbstractEnricher {
             subscriptions().subscribe(entity, sensor, new SensorEventListener<Object>() {
                 @Override public void onEvent(SensorEvent<Object> event) {
                     LOG.debug("{} attempting transformations, triggered by sensor-event {}->{}, to {}", 
-                            new Object[] {PublicNetworkFaceEnricher.this, event.getSensor().getName(), event.getValue(), entity});
+                            new Object[] {OnPublicNetworkEnricher.this, event.getSensor().getName(), event.getValue(), entity});
                     tryTransform((AttributeSensor<?>)event.getSensor());
                 }});
         }
@@ -228,7 +232,7 @@ public class PublicNetworkFaceEnricher extends AbstractEnricher {
                 @Override public void onEvent(SensorEvent<Object> event) {
                     if (mapMatching.get().apply(event.getSensor())) {
                         LOG.debug("{} attempting transformations, triggered by sensor-event {}->{}, to {}", 
-                                new Object[] {PublicNetworkFaceEnricher.this, event.getSensor().getName(), event.getValue(), entity});
+                                new Object[] {OnPublicNetworkEnricher.this, event.getSensor().getName(), event.getValue(), entity});
                         tryTransform((AttributeSensor<?>)event.getSensor());
                     }
                 }});

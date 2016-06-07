@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.location.access;
+package org.apache.brooklyn.core.network;
 
 import java.net.URI;
 
@@ -24,7 +24,10 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.location.access.PortForwardManager;
+import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixtureWithApp;
+import org.apache.brooklyn.core.network.OnPublicNetworkEnricher;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
@@ -35,7 +38,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.net.HostAndPort;
 
-public class PublicNetworkFaceEnricherRebindTest extends RebindTestFixtureWithApp {
+public class OnPublicNetworkEnricherRebindTest extends RebindTestFixtureWithApp {
 
     private TestEntity origEntity;
     private SshMachineLocation origMachine;
@@ -52,8 +55,8 @@ public class PublicNetworkFaceEnricherRebindTest extends RebindTestFixtureWithAp
     public <T> void testRebind() throws Exception {
         origEntity.sensors().set(Attributes.SUBNET_ADDRESS, "127.0.0.1");
         
-        origEntity.enrichers().add(EnricherSpec.create(PublicNetworkFaceEnricher.class)
-                .configure(PublicNetworkFaceEnricher.SENSOR, Attributes.MAIN_URI));
+        origEntity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class)
+                .configure(OnPublicNetworkEnricher.SENSOR, Attributes.MAIN_URI));
 
         rebind();
         TestEntity newEntity = (TestEntity) Iterables.getOnlyElement(newApp.getChildren());
