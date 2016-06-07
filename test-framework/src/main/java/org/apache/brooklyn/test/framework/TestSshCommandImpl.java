@@ -30,20 +30,12 @@ import static org.apache.brooklyn.util.text.Strings.isNonBlank;
 
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Joiner;
-import com.google.common.base.Splitter;
-import com.google.common.base.Suppliers;
-import com.google.common.collect.ImmutableMap;
 
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.TaskFactory;
@@ -60,6 +52,15 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
+import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 
 // TODO assertions below should use TestFrameworkAssertions but that class needs to be improved to give better error messages
 public class TestSshCommandImpl extends TargetableTestComponentImpl implements TestSshCommand {
@@ -149,6 +150,9 @@ public class TestSshCommandImpl extends TargetableTestComponentImpl implements T
         String downloadName = DOWNLOAD_URL.getName();
         String commandName = COMMAND.getName();
 
+        Map<String, Object> env = getConfig(SHELL_ENVIRONMENT);
+        if (env == null) env = ImmutableMap.of();
+        
         if (!(isNonBlank(downloadUrl) ^ isNonBlank(command))) {
             throw illegal("Must specify exactly one of", downloadName, "and", commandName);
         }
@@ -156,49 +160,55 @@ public class TestSshCommandImpl extends TargetableTestComponentImpl implements T
         if (isNonBlank(downloadUrl)) {
             String scriptDir = getConfig(SCRIPT_DIR);
             String scriptPath = calculateDestPath(downloadUrl, scriptDir);
-            result = executeDownloadedScript(machineLocation, downloadUrl, scriptPath);
+            result = executeDownloadedScript(machineLocation, downloadUrl, scriptPath, env);
         }
 
         if (isNonBlank(command)) {
-            result = executeShellCommand(machineLocation, command);
+            result = executeShellCommand(machineLocation, command, env);
         }
 
         handle(result);
     }
 
-    private Result executeDownloadedScript(SshMachineLocation machineLocation, String url, String scriptPath) {
+    private Result executeDownloadedScript(SshMachineLocation machineLocation, String url, String scriptPath, Map<String, Object> env) {
 
         TaskFactory<?> install = SshTasks.installFromUrl(ImmutableMap.<String, Object>of(), machineLocation, url, scriptPath);
         DynamicTasks.queue(install);
         DynamicTasks.waitForLast();
 
-        List<String> commands = new ArrayList<>();
-        commands.add("chmod u+x " + scriptPath);
-        maybeCdToRunDir(commands);
-        commands.add(scriptPath);
+        List<String> commands = ImmutableList.<String>builder()
+                .add("chmod u+x " + scriptPath)
+                .addAll(maybeCdToRunDirCmd())
+                .add(scriptPath)
+                .build();
 
-        return runCommands(machineLocation, commands);
+        return runCommands(machineLocation, commands, env);
     }
 
-    private Result executeShellCommand(SshMachineLocation machineLocation, String command) {
+    private Result executeShellCommand(SshMachineLocation machineLocation, String command, Map<String, Object> env) {
 
-        List<String> commands = new ArrayList<>();
-        maybeCdToRunDir(commands);
-        commands.add(command);
+        List<String> commands = ImmutableList.<String>builder()
+                .addAll(maybeCdToRunDirCmd())
+                .add(command)
+                .build();
 
-        return runCommands(machineLocation, commands);
+        return runCommands(machineLocation, commands, env);
     }
 
-    private void maybeCdToRunDir(List<String> commands) {
+    private List<String> maybeCdToRunDirCmd() {
         String runDir = getConfig(RUN_DIR);
         if (!isBlank(runDir)) {
-            commands.add(CD + " " + runDir);
+            return ImmutableList.of(CD + " " + runDir);
+        } else {
+            return ImmutableList.of();
         }
     }
 
-    private Result runCommands(SshMachineLocation machine, List<String> commands) {
+    private Result runCommands(SshMachineLocation machine, List<String> commands, Map<String, Object> env) {
+        @SuppressWarnings({ "unchecked", "rawtypes" })
         SshEffectorTasks.SshEffectorTaskFactory<Integer> etf = SshEffectorTasks.ssh(commands.toArray(new String[]{}))
-            .machine(machine);
+                .environmentVariables((Map<String, String>)(Map)env)
+                .machine(machine);
 
         ProcessTaskWrapper<Integer> job = DynamicTasks.queue(etf);
         job.asTask().blockUntilEnded();
@@ -207,8 +217,9 @@ public class TestSshCommandImpl extends TargetableTestComponentImpl implements T
 
 
 
-    private IllegalArgumentException illegal(String message, String ...messages) {
-        return new IllegalArgumentException(Joiner.on(' ').join(this.toString() + ":", message, messages));
+    private IllegalArgumentException illegal(String message, String... messages) {
+        Iterable<String> allmsgs = Iterables.concat(MutableList.of(this.toString() + ":", message), Arrays.asList(messages));
+        return new IllegalArgumentException(Joiner.on(' ').join(allmsgs));
     }
 
     private String calculateDestPath(String url, String directory) {

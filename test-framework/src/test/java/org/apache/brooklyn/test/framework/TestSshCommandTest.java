@@ -27,6 +27,7 @@ import static org.apache.brooklyn.test.framework.TestSshCommand.ASSERT_OUT;
 import static org.apache.brooklyn.test.framework.TestSshCommand.ASSERT_STATUS;
 import static org.apache.brooklyn.test.framework.TestSshCommand.COMMAND;
 import static org.apache.brooklyn.test.framework.TestSshCommand.DOWNLOAD_URL;
+import static org.apache.brooklyn.test.framework.TestSshCommand.SHELL_ENVIRONMENT;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
@@ -46,6 +47,7 @@ import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
+import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecCmd;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.testng.annotations.AfterMethod;
@@ -275,6 +277,24 @@ public class TestSshCommandTest extends BrooklynAppUnitTestSupport {
         assertServiceFailed(test);
     }
     
+    @Test
+    public void shouldIncludeEnv() throws Exception {
+        Map<String, Object> env = ImmutableMap.<String, Object>of("ENV1", "val1", "ENV2", "val2");
+        
+        TestSshCommand test = app.createAndManageChild(EntitySpec.create(TestSshCommand.class)
+            .configure(TARGET_ENTITY, testEntity)
+            .configure(COMMAND, "mycmd")
+            .configure(SHELL_ENVIRONMENT, env));
+
+        app.start(ImmutableList.<Location>of());
+
+        assertServiceHealthy(test);
+        
+        ExecCmd cmdExecuted = RecordingSshTool.getLastExecCmd();
+        assertThat(cmdExecuted.commands).isEqualTo(ImmutableList.of("mycmd"));
+        assertThat(cmdExecuted.env).isEqualTo(env);
+    }
+
     private Path createTempScript(String filename, String contents) {
         try {
             Path tempFile = Files.createTempFile("TestSshCommandTest-" + filename, ".sh");
