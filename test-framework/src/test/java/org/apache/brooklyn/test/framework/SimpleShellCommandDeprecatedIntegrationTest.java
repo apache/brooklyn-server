@@ -52,7 +52,11 @@ import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
 
-public class SimpleShellCommandIntegrationTest extends BrooklynAppUnitTestSupport {
+/**
+ * @deprecated since 0.10.0
+ */
+@Deprecated
+public class SimpleShellCommandDeprecatedIntegrationTest extends BrooklynAppUnitTestSupport {
 
     private static final String UP = "up";
 
