@@ -193,13 +193,15 @@ public class ServiceStateLogic {
         private ServiceNotUpLogic() {}
         
         public static final EnricherSpec<?> newEnricherForServiceUpIfNotUpIndicatorsEmpty() {
+            // The function means: if the serviceNotUpIndicators is not null, then serviceNotUpIndicators.size()==0;
+            // otherwise return the default value.
             return Enrichers.builder()
                 .transforming(SERVICE_NOT_UP_INDICATORS).<Object>publishing(Attributes.SERVICE_UP)
                 .suppressDuplicates(true)
                 .computing(
                     Functionals.<Map<String,?>>
                         ifNotEquals(null).<Object>apply(Functions.forPredicate(CollectionFunctionals.<String>mapSizeEquals(0)))
-                        .defaultValue(Entities.REMOVE) )
+                        .defaultValue(Entities.UNCHANGED) )
                 .uniqueTag(DEFAULT_ENRICHER_UNIQUE_TAG)
                 .build();
         }
@@ -287,46 +289,46 @@ public class ServiceStateLogic {
             }
         }
 
-        protected Lifecycle computeActualStateWhenExpectedRunning(Map<String, Object> problems, Boolean serviceUp) {
+        protected Maybe<Lifecycle> computeActualStateWhenExpectedRunning(Map<String, Object> problems, Boolean serviceUp) {
             if (Boolean.TRUE.equals(serviceUp) && (problems==null || problems.isEmpty())) {
-                return Lifecycle.RUNNING;
+                return Maybe.of(Lifecycle.RUNNING);
             } else {
                 if (!Lifecycle.ON_FIRE.equals(entity.getAttribute(SERVICE_STATE_ACTUAL))) {
                     BrooklynLogging.log(log, BrooklynLogging.levelDependingIfReadOnly(entity, LoggingLevel.WARN, LoggingLevel.TRACE, LoggingLevel.DEBUG),
                         "Setting "+entity+" "+Lifecycle.ON_FIRE+" due to problems when expected running, up="+serviceUp+", "+
                             (problems==null || problems.isEmpty() ? "not-up-indicators: "+entity.getAttribute(SERVICE_NOT_UP_INDICATORS) : "problems: "+problems));
                 }
-                return Lifecycle.ON_FIRE;
+                return Maybe.of(Lifecycle.ON_FIRE);
             }
         }
         
-        protected Lifecycle computeActualStateWhenNotExpectedRunning(Map<String, Object> problems, Boolean up, Lifecycle.Transition stateTransition) {
+        protected Maybe<Lifecycle> computeActualStateWhenNotExpectedRunning(Map<String, Object> problems, Boolean up, Lifecycle.Transition stateTransition) {
             if (stateTransition!=null) {
                 // if expected state is present but not running, just echo the expected state (ignore problems and up-ness)
-                return stateTransition.getState();
+                return Maybe.of(stateTransition.getState());
                 
             } else if (problems!=null && !problems.isEmpty()) {
                 // if there is no expected state, then if service is not up, say stopped, else say on fire (whether service up is true or not present)
                 if (Boolean.FALSE.equals(up)) {
-                    return Lifecycle.STOPPED;
+                    return Maybe.of(Lifecycle.STOPPED);
                 } else {
                     BrooklynLogging.log(log, BrooklynLogging.levelDependingIfReadOnly(entity, LoggingLevel.WARN, LoggingLevel.TRACE, LoggingLevel.DEBUG),
                         "Setting "+entity+" "+Lifecycle.ON_FIRE+" due to problems when expected "+stateTransition+" / up="+up+": "+problems);
-                    return Lifecycle.ON_FIRE;
+                    return Maybe.of(Lifecycle.ON_FIRE);
                 }
             } else {
                 // no expected transition and no problems
                 // if the problems map is non-null, then infer from service up;
                 // if there is no problems map, then leave unchanged (user may have set it explicitly)
                 if (problems!=null)
-                    return (up==null ? null /* remove if up is not set */ : 
-                        up ? Lifecycle.RUNNING : Lifecycle.STOPPED);
+                    return Maybe.of(up==null ? null /* remove if up is not set */ : 
+                        (up ? Lifecycle.RUNNING : Lifecycle.STOPPED));
                 else
-                    return entity.getAttribute(SERVICE_STATE_ACTUAL);
+                    return Maybe.absent();
             }
         }
 
-        protected void setActualState(@Nullable Lifecycle state) {
+        protected void setActualState(Maybe<Lifecycle> state) {
             if (log.isTraceEnabled()) log.trace("{} setting actual state {}", this, state);
             if (((EntityInternal)entity).getManagementSupport().isNoLongerManaged()) {
                 // won't catch everything, but catches some
@@ -334,7 +336,8 @@ public class ServiceStateLogic {
                     entity+" is no longer managed when told to set actual state to "+state+"; suppressing");
                 return;
             }
-            emit(SERVICE_STATE_ACTUAL, (state==null ? Entities.REMOVE : state));
+            Object newVal = (state.isAbsent() ? Entities.UNCHANGED : (state.get() == null ? Entities.REMOVE : state.get()));
+            emit(SERVICE_STATE_ACTUAL, newVal);
         }
 
     }
