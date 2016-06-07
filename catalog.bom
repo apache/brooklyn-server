@@ -27,11 +27,17 @@ brooklyn.catalog:
       - name: docker.additionaloptions
         description: The additional options to pass to the engine on startup
         type: string
+      - name: image.preinstall
+        description: A docker hub image id to pull after installation
+        default: cloudsoft/centos:7
 
       shell.env:
         DOCKER_ADDITIONAL_OPTIONS: $brooklyn:config("docker.additionaloptions")
+        DOCKER_IMAGE: $brooklyn:config("image.preinstall")
 
       install.command: |
+        set -e # need all commands to execute successfully
+
         sudo yum -y update
         sudo tee /etc/yum.repos.d/docker.repo <<-'EOF'
         [dockerrepo]
@@ -53,7 +59,10 @@ brooklyn.catalog:
         EOF
         sudo systemctl daemon-reload
 
-      launch.command:       sudo service docker start
+      launch.command: |
+        sudo service docker start && \
+          ( sudo docker ${DOCKER_ADDITIONAL_OPTIONS} images --format="{{.Repository}}:{{.Tag}}" | grep -q "$DOCKER_IMAGE" || \
+          sudo docker ${DOCKER_ADDITIONAL_OPTIONS} pull $DOCKER_IMAGE )
       stop.command:         sudo service docker stop
       checkRunning.command: sudo service docker status
 
@@ -98,11 +107,9 @@ brooklyn.catalog:
         docker.bindaddress: 0.0.0.0
         docker.additionaloptions:
           $brooklyn:formatString:
-          - "-H tcp://%s:%s --tlsverify --tlscacert=%s/.certs/ca.pem --tlscert=%s/.certs/cert.pem --tlskey=%s/.certs/key.pem"
+          - "-H tcp://%s:%s --tlsverify --tlscacert=%3$s/.certs/ca.pem --tlscert=%3$s/.certs/cert.pem --tlskey=%3$s/.certs/key.pem"
           - $brooklyn:config("docker.bindaddress")
           - $brooklyn:config("tls.port")
-          - $brooklyn:attributeWhenReady("install.dir")
-          - $brooklyn:attributeWhenReady("install.dir")
           - $brooklyn:attributeWhenReady("install.dir")
 
       env:
@@ -115,6 +122,8 @@ brooklyn.catalog:
         DOCKER_ADDITIONAL_OPTIONS: $brooklyn:config("docker.additionaloptions")
 
       pre.install.command: |
+        set -e # need all commands to execute successfully
+
         mkdir -p ${INSTALL_DIR}/.certs
         sudo yum install -y curl
         function failwith() {
