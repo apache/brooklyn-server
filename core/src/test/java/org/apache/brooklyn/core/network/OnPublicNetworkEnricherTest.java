@@ -323,4 +323,25 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
             assertEquals(converter.apply(entry.getKey()), entry.getValue(), "input="+entry.getKey());
         }
     }
+    
+    @Test(expectedExceptions=IllegalStateException.class, expectedExceptionsMessageRegExp=".*must not have both 'sensor' and 'sensors'.*")
+    public void testFailsIfSensorAndSensorsConfigured() throws Exception {
+        entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class)
+                .configure(OnPublicNetworkEnricher.SENSOR, Attributes.HTTP_PORT)
+                .configure(OnPublicNetworkEnricher.SENSORS, ImmutableList.of(Attributes.HTTPS_PORT)));
+    }
+    
+    @Test(expectedExceptions=IllegalStateException.class, expectedExceptionsMessageRegExp=".*must not have explicit 'mapMatching', and either of 'sensor' or 'sensors'.*")
+    public void testFailsIfSensorAndMapMatchingConfigured() throws Exception {
+        entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class)
+                .configure(OnPublicNetworkEnricher.SENSOR, Attributes.HTTP_PORT)
+                .configure(OnPublicNetworkEnricher.MAP_MATCHING, ".*uri"));
+    }
+    
+    @Test(expectedExceptions=IllegalStateException.class, expectedExceptionsMessageRegExp=".*must not have explicit 'mapMatching', and either of 'sensor' or 'sensors'.*")
+    public void testFailsIfSensorsAndMapMatchingConfigured() throws Exception {
+        entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class)
+                .configure(OnPublicNetworkEnricher.SENSORS, ImmutableList.of(Attributes.HTTPS_PORT))
+                .configure(OnPublicNetworkEnricher.MAP_MATCHING, ".*uri"));
+    }
 }

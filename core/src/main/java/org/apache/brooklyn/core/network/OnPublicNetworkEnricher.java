@@ -38,8 +38,6 @@ import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
-import org.apache.brooklyn.core.location.access.PortForwardManager.AssociationListener;
-import org.apache.brooklyn.core.location.access.PortForwardManager.AssociationMetadata;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -61,9 +59,9 @@ import com.google.common.reflect.TypeToken;
 
 /**
  * Can be added to an entity so that it advertises its mapped ports (according to the port-mappings
- * recorded in the PortForwardManager). This can be used with sensors of type URI, HostAndPort
+ * recorded in the {@link PortForwardManager}). This can be used with sensors of type URI, HostAndPort
  * or plain integer port values. The port-mappings is retrieved by looking up the entity's machine
- * and the private port, in the PortForwardManager's recorded port-mappings.
+ * and the private port, in the {@link PortForwardManager}'s recorded port-mappings.
  * 
  * For example, to configure each Tomcat node to publish its mapped uri, and to use that sensor
  * in Nginx for the target servers:
@@ -77,7 +75,7 @@ import com.google.common.reflect.TypeToken;
  *      $brooklyn:entitySpec:
  *        type: org.apache.brooklyn.entity.webapp.tomcat.TomcatServer
  *        brooklyn.enrichers:
- *        - type: org.apache.brooklyn.core.location.access.PublicNetworkFaceEnricher
+ *        - type: org.apache.brooklyn.core.network.OnPublicNetworkEnricher
  *          brooklyn.config:
  *            sensor: main.uri
  * - type: org.apache.brooklyn.entity.proxy.nginx.NginxController
@@ -454,7 +452,7 @@ public class OnPublicNetworkEnricher extends AbstractEnricher {
         Maybe<Object> rawMapMatching = config().getRaw(MAP_MATCHING);
         String mapMatching = config().get(MAP_MATCHING);
         
-        if (sensor != null && sensors != null && sensors.isEmpty()) {
+        if (sensor != null && sensors != null && !sensors.isEmpty()) {
             throw new IllegalStateException(this+" must not have both 'sensor' and 'sensors' config");
         } else if (sensor == null && (sensors == null || sensors.isEmpty())) {
             if (Strings.isBlank(mapMatching)) {
