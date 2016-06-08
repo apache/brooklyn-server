@@ -1,7 +1,0 @@
-name: catalog-test
-location: vagrantred
-
-services:
-
-- type: docker-engine-test
-- type: docker-engine-and-container-test

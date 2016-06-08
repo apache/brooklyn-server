@@ -29,7 +29,7 @@ services:
       swarm.initial.size: 3
       discovery.url: $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.authority")
       launch.latch: $brooklyn:entity("etcd-cluster").attributeWhenReady("service.isUp")
-      resources.preInstall.latch: $brooklyn:component("ca-server").attributeWhenReady("service.isUp")
+      customize.latch: $brooklyn:entity("ca-server").attributeWhenReady("service.isUp")
       ca.request.root: $brooklyn:entity("ca-server").attributeWhenReady("main.uri")
 
 
