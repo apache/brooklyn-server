@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.cxf.interceptor.Fault;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,6 +56,8 @@ import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
+
+import javax.xml.ws.WebServiceException;
 
 public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwareProcessDriver implements NativeWindowsScriptRunner {
     private static final Logger LOG = LoggerFactory.getLogger(AbstractSoftwareProcessWinRmDriver.class);
@@ -161,7 +164,12 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
     }
 
     protected int executeCommandInTask(String command, String psCommand, String phase) {
+        return executeCommandInTask(command, psCommand, phase, null);
+    }
+
+    protected int executeCommandInTask(String command, String psCommand, String phase, String ntDomain) {
         return newScript(phase)
+                .setNtDomain(ntDomain)
                 .setCommand(command)
                 .setPsCommand(psCommand)
                 .failOnNonZeroResultCode()
@@ -278,10 +286,16 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
         }
 
         WinRmToolResponse response;
+
+        ImmutableMap.Builder winrmProps = ImmutableMap.builder();
+        if (flags.get(WinRmTool.COMPUTER_NAME) != null) {
+            winrmProps.put(WinRmTool.COMPUTER_NAME, flags.get(WinRmTool.COMPUTER_NAME));
+        }
+
         if (Strings.isBlank(regularCommand)) {
-            response = getLocation().executePsScript(ImmutableList.of(powerShellCommand));
+            response = getLocation().executePsScript(winrmProps.build(), ImmutableList.of(powerShellCommand));
         } else {
-            response = getLocation().executeCommand(ImmutableList.of(regularCommand));
+            response = getLocation().executeCommand(winrmProps.build(), ImmutableList.of(regularCommand));
         }
 
         if (currentTask != null) {
@@ -321,14 +335,35 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
     }
 
     public void rebootAndWait() {
+        rebootAndWait(null);
+    }
+
+    public void rebootAndWait(String hostname) {
         try {
-            executePsScriptNoRetry(ImmutableList.of("Restart-Computer -Force"));
+            if (hostname != null) {
+                getLocation().executePsScript(ImmutableMap.of(WinRmTool.COMPUTER_NAME, hostname), ImmutableList.of("Restart-Computer -Force"));
+            } else {
+                getLocation().executePsScript(ImmutableList.of("Restart-Computer -Force"));
+            }
         } catch (Exception e) {
-            // Restarting the computer will cause the command to fail; ignore the exception and continue
-            Exceptions.propagateIfFatal(e);
+            Throwable interestingCause = findExceptionCausedByWindowsRestart(e);
+            if (interestingCause != null) {
+                LOG.debug("Restarting... exception while closing winrm session from the restart command {}", getEntity(), e);
+            } else {
+                throw e;
+            }
         }
+
         waitForWinRmStatus(false, entity.getConfig(VanillaWindowsProcess.REBOOT_BEGUN_TIMEOUT));
         waitForWinRmStatus(true, entity.getConfig(VanillaWindowsProcess.REBOOT_COMPLETED_TIMEOUT)).getWithError();
+    }
+
+    /**
+     * If machine is restarting, then will get WinRM IOExceptions
+     */
+    protected Throwable findExceptionCausedByWindowsRestart(Exception e) {
+        return Exceptions.getFirstThrowableOfType(e, WebServiceException.class) != null ?
+                Exceptions.getFirstThrowableOfType(e, WebServiceException.class/*Wraps Soap exceptions*/) : Exceptions.getFirstThrowableOfType(e, Fault.class/*Wraps IO exceptions*/);
     }
 
     private String getDirectory(String fileName) {

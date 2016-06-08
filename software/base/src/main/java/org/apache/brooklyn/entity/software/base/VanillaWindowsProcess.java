@@ -20,6 +20,7 @@ package org.apache.brooklyn.entity.software.base;
 
 import java.util.Collection;
 
+import com.google.common.annotations.Beta;
 import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.catalog.CatalogConfig;
 import org.apache.brooklyn.api.entity.ImplementedBy;
@@ -96,9 +97,12 @@ public interface VanillaWindowsProcess extends AbstractVanillaProcess {
 
     ConfigKey<Boolean> PRE_INSTALL_REBOOT_REQUIRED = ConfigKeys.newBooleanConfigKey("pre.install.reboot.required",
             "indicates that a reboot should be performed after the pre-install command is run", false);
-    
+
+    @Beta
     ConfigKey<Boolean> INSTALL_REBOOT_REQUIRED = ConfigKeys.newBooleanConfigKey("install.reboot.required",
-            "indicates that a reboot should be performed after the install command is run", false);
+            "indicates that a reboot should be performed after the install command is run." +
+            "When running the install command and the reboot command this parameter adds computername when authenticating.",
+            false);
     
     ConfigKey<Boolean> CUSTOMIZE_REBOOT_REQUIRED = ConfigKeys.newBooleanConfigKey("customize.reboot.required",
             "indicates that a reboot should be performed after the customize command is run", false);

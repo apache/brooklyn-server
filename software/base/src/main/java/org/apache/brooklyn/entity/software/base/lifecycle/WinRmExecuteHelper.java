@@ -32,6 +32,7 @@ import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskQueueingContext;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -54,6 +55,7 @@ public class WinRmExecuteHelper {
     protected final NativeWindowsScriptRunner runner;
     public final String summary;
 
+    private String domain;
     private String command;
     private String psCommand;
 
@@ -65,6 +67,11 @@ public class WinRmExecuteHelper {
     public WinRmExecuteHelper(NativeWindowsScriptRunner runner, String summary) {
         this.runner = runner;
         this.summary = summary;
+    }
+
+    public WinRmExecuteHelper setNtDomain(String domain) {
+        this.domain = domain;
+        return this;
     }
 
     public WinRmExecuteHelper setCommand(String command) {
@@ -142,6 +149,7 @@ public class WinRmExecuteHelper {
             flags.put("out", stdout);
             flags.put("err", stderr);
         }
+        flags.put(WinRmTool.COMPUTER_NAME, domain);
         result = runner.executeNativeOrPsCommand(flags, command, psCommand, summary, false);
         if (!resultCodeCheck.apply(result)) {
             throw logWithDetailsAndThrow(format("Execution failed, invalid result %s for %s", result, summary), null);

@@ -20,6 +20,7 @@ package org.apache.brooklyn.entity.software.base;
 
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.entity.software.base.lifecycle.WinRmExecuteHelper;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -49,15 +50,27 @@ public class VanillaWindowsProcessWinRmDriver extends AbstractSoftwareProcessWin
 
     @Override
     public void install() {
+        // TODO: At some point in the future, this should probably be refactored to get the name of the machine in WinRmMachineLocation and set it as the hostname sensor
+        String hostname = null;
+        if (entity.getConfig(VanillaWindowsProcess.INSTALL_REBOOT_REQUIRED)) {
+            WinRmExecuteHelper checkHostnameTask = newScript("Checking hostname")
+                    .setCommand("hostname")
+                    .failOnNonZeroResultCode()
+                    .gatherOutput();
+            checkHostnameTask.execute();
+            hostname = Strings.trimEnd(checkHostnameTask.getResultStdout());
+        }
+
         // TODO: Follow install path of VanillaSoftwareProcessSshDriver
         if(Strings.isNonBlank(getEntity().getConfig(VanillaWindowsProcess.INSTALL_COMMAND)) || Strings.isNonBlank(getEntity().getConfig(VanillaWindowsProcess.INSTALL_POWERSHELL_COMMAND))) {
             executeCommandInTask(
                     getEntity().getConfig(VanillaWindowsProcess.INSTALL_COMMAND),
                     getEntity().getConfig(VanillaWindowsProcess.INSTALL_POWERSHELL_COMMAND),
-                    "install-command");
+                    "install-command",
+                    hostname);
         }
         if (entity.getConfig(VanillaWindowsProcess.INSTALL_REBOOT_REQUIRED)) {
-            rebootAndWait();
+            rebootAndWait(hostname);
         }
     }
 
@@ -76,10 +89,13 @@ public class VanillaWindowsProcessWinRmDriver extends AbstractSoftwareProcessWin
 
     @Override
     public void launch() {
-        executeCommandInTask(
-                getEntity().getConfig(VanillaWindowsProcess.LAUNCH_COMMAND),
-                getEntity().getConfig(VanillaWindowsProcess.LAUNCH_POWERSHELL_COMMAND),
-                "launch-command");
+        if (Strings.isNonBlank(getEntity().getConfig(VanillaWindowsProcess.LAUNCH_COMMAND)) ||
+                Strings.isNonBlank(getEntity().getConfig(VanillaWindowsProcess.LAUNCH_POWERSHELL_COMMAND))) {
+            executeCommandInTask(
+                    getEntity().getConfig(VanillaWindowsProcess.LAUNCH_COMMAND),
+                    getEntity().getConfig(VanillaWindowsProcess.LAUNCH_POWERSHELL_COMMAND),
+                    "launch-command");
+        }
     }
 
     @Override
@@ -90,9 +106,7 @@ public class VanillaWindowsProcessWinRmDriver extends AbstractSoftwareProcessWin
                     getEntity().getConfig(VanillaWindowsProcess.CHECK_RUNNING_COMMAND),
                     getEntity().getConfig(VanillaWindowsProcess.CHECK_RUNNING_POWERSHELL_COMMAND), "is-running-command");
         } catch (Exception e) {
-            // If machine is restarting, then will get WinRM IOExceptions - don't propagate such exceptions
-            Throwable interestingCause = Exceptions.getFirstThrowableOfType(e, WebServiceException.class) != null ?
-                    Exceptions.getFirstThrowableOfType(e, WebServiceException.class/*Wraps Soap exceptions*/) : Exceptions.getFirstThrowableOfType(e, Fault.class/*Wraps IO exceptions*/);
+            Throwable interestingCause = findExceptionCausedByWindowsRestart(e);
             if (interestingCause != null) {
                 LOG.warn(getEntity() + " isRunning check failed. Executing WinRM command failed.", e);
                 return false;
