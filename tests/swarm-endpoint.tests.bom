@@ -1,3 +1,19 @@
+ ###
+ # Tests deploying AMP blueprints to a pre-existing docker swarm endpoint.
+ #
+ # Needs a location of the form:
+ #
+ # location:
+ #   jclouds:docker:
+ #   endpoint: https://192.168.99.100:3376/
+ #   identity: /Users/duncangrant/.docker/machine/machines/manager/cert.pem
+ #   credential: /Users/duncangrant/.docker/machine/machines/manager/key.pem
+ #   imageId: sha256:5670c22f2f46bfc7578447978fa7be62699d1e90ed88bf7e415ec96b2571ce0b
+ #   loginUser: root
+ #   loginUser.password: p4ssw0rd
+ #   onbox.base.dir: /tmp
+ ##
+  
 brooklyn.catalog:
   version: "2.0.0-SNAPSHOT"
   iconUrl: https://raw.githubusercontent.com/docker-library/docs/471fa6e4cb58062ccbf91afc111980f9c7004981/swarm/logo.png
@@ -6,24 +22,12 @@ brooklyn.catalog:
   items:
 
   ###
-  # Tests that we can deploy to a pre-provision docker swarm end point
-  #
-  # Needs a location of the form below
-  #
-  # location:
-  #   jclouds:docker:
-  #     endpoint: https://10.10.10.10:3376/
-  #     identity: /path/to/.docker/machine/machines/manager/server.pem
-  #     credential: /path/to/.docker/machine/machines/manager/server-key.pem
-  #     imageId: sha256:90d5884b1ee07f7f791f51bab92933943c87357bcd2fa6be0e82c48411bbb653
-  #     loginUser: root
-  #     loginUser.password: p4ssw0rd
-  #     onbox.base.dir: /tmp
+  # Deploy a single-node blueprint, and confirm SSH works.
   ##
-
-  - id: docker-swarm-test
-    name: Docker swarm test
-    description: Test that we can provision a container on a docker swarm endpoint
+  - id: deploy-app-to-swarm-single-node
+    name: Single-node app to Docker Swarm endpoint
+    description: | 
+      Test that we can provision a simple Brooklyn SoftwareProcess to a docker swarm endpoint
     item:
 
       services:
@@ -58,3 +62,120 @@ brooklyn.catalog:
               contains: hello-world
             assertErr:
               isEmpty: true
+
+  ###
+  # Deploys a multi-node blueprint, with everything running in containers, consisting of:
+  #  - a cluster of Tomcat nodes (size 1)
+  #  - nginx
+  #  - database
+  # 
+  # Asserts that:
+  #  - app comes up
+  #  - via nginx, can connect to web-app
+  #  - via nginx, can write to database and read from database
+  #
+  # FIXME: relies as running as root, because base image does not have `which` or `sudo` installed.
+  ##
+  - id: deploy-app-to-swarm-multi-node
+    name: Deploy multi-node app to a Docker Swarm endpoint
+    description: | 
+      Test that we can provision a multi-node Brooklyn app to a docker swarm endpoint
+    item:
+
+      services:
+      - type: org.apache.brooklyn.entity.stock.BasicApplication
+        id: app
+        brooklyn.children:
+        - type: org.apache.brooklyn.entity.group.DynamicCluster
+          name: Cluster
+          id: cluster
+          brooklyn.config:
+            initialSize: 1
+            memberSpec:
+              $brooklyn:entitySpec:
+                type: org.apache.brooklyn.entity.webapp.tomcat.TomcatServer
+                name: Tomcat Server
+                brooklyn.config:
+                  #FIXME Delete when have new docker image
+                  pre.install.command: yum install -y which sudo
+                  wars.root: http://search.maven.org/remotecontent?filepath=org/apache/brooklyn/example/brooklyn-example-hello-world-sql-webapp/0.9.0/brooklyn-example-hello-world-sql-webapp-0.9.0.war
+                  java.sysprops: 
+                    brooklyn.example.db.url:
+                      $brooklyn:formatString:
+                      - "jdbc:%s%s?user=%s&password=%s"
+                      - $brooklyn:component("db").attributeWhenReady("datastore.url.mapped.subnet")
+                      - "visitors"
+                      - "brooklyn"
+                      - "br00k11n"
+          brooklyn.enrichers:
+          - type: org.apache.brooklyn.enricher.stock.Aggregator
+            brooklyn.config:
+              enricher.sourceSensor: $brooklyn:sensor("webapp.reqs.perSec.windowed")
+              enricher.targetSensor: $brooklyn:sensor("webapp.reqs.perSec.perNode")
+              enricher.aggregating.fromMembers: true
+              transformation: average
+
+        - type: org.apache.brooklyn.entity.proxy.nginx.NginxController
+          id: nginx
+          name: Load Balancer (nginx)
+          brooklyn.config:
+            #FIXME Delete when have new docker image
+            pre.install.command: yum install -y which sudo
+            loadbalancer.serverpool: $brooklyn:entity("cluster")
+            nginx.sticky: false
+          brooklyn.enrichers:
+          - type: org.apache.brooklyn.core.network.OnPublicNetworkEnricher
+            brooklyn.config:
+              sensors:
+              - main.uri
+          
+        - type: org.apache.brooklyn.entity.database.mysql.MySqlNode
+          id: db
+          name: DB (MySQL)
+          brooklyn.config:
+            #FIXME Delete when have new docker image
+            #FIXME mysql should install perl itself!
+            pre.install.command: yum install -y which sudo perl perl-Data-Dumper libaio
+            datastore.creation.script.url: https://github.com/apache/brooklyn-library/raw/master/examples/simple-web-cluster/src/main/resources/visitors-creation-script.sql
+          brooklyn.enrichers:
+          - type: org.apache.brooklyn.core.network.OnSubnetNetworkEnricher
+            brooklyn.config:
+              sensors:
+              - datastore.url
+    
+      - type: org.apache.brooklyn.test.framework.TestCase
+        brooklyn.config:
+          timeout: 30m
+          targetId: app
+        brooklyn.children:
+        - type: org.apache.brooklyn.test.framework.TestCase
+          name: "Sensor Tests"
+          brooklyn.children:
+          - type: assert-up
+          - type: assert-running
+          - type: org.apache.brooklyn.test.framework.TestHttpCall
+            name: Check HTTP Response Status Code
+            url: $brooklyn:component("nginx").attributeWhenReady("main.uri.mapped.public")
+            timeout: 60s
+            applyAssertionTo: status
+            assert:
+            - isEqualTo: 200
+          - type: org.apache.brooklyn.test.framework.TestHttpCall
+            name: Check Write to web-app message board
+            url:
+              $brooklyn:formatString:
+              - "%s/db.jsp?name=myname&message=mymessage"
+              - $brooklyn:component("nginx").attributeWhenReady("main.uri.mapped.public")
+            applyAssertionTo: status
+            assert:
+            - isEqualTo: 200
+          - type: org.apache.brooklyn.test.framework.TestHttpCall
+            name: Check Read from web-app message board
+            url:
+              $brooklyn:formatString:
+              - "%sdb.jsp"
+              - $brooklyn:component("nginx").attributeWhenReady("main.uri.mapped.public")
+            applyAssertionTo: body
+            assert:
+            - contains: "myname"
+            - contains: "mymessage"
