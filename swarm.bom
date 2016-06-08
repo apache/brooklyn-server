@@ -156,16 +156,16 @@ brooklyn.catalog:
         # TODO - decide if it's ok to publicise the HOST_NAME below and in the manager, from a security point of view.
         # TODO - remove the -p 12375 mapping below when Duncan's JClouds fixes are in. See https://github.com/cloudsoft/container-service/pull/5#discussion_r64581324
         post.launch.command: |
-          docker -H ${DOCKER_URL} ${TLS_OPTIONS} run -d -p 12375:2375 --name swarm-${HOST_NAME} \
+          docker run -d -p 12375:2375 --name swarm-${HOST_NAME} \
             swarm join --addr=${DOCKER_ENDPOINT} ${DISCOVERY_URL}
 
         checkRunning.command: |
           sudo service docker status &&
-            docker -H ${DOCKER_URL} ${TLS_OPTIONS} ps | grep swarm
+            docker ps | grep swarm
 
         stop.command: |
-          docker -H ${DOCKER_URL} ${TLS_OPTIONS} stop swarm-${HOST_NAME}
-          docker -H ${DOCKER_URL} ${TLS_OPTIONS} rm swarm-${HOST_NAME}
+          docker stop swarm-${HOST_NAME}
+          docker rm swarm-${HOST_NAME}
           sudo service docker stop
 
   - id: docker-swarm-manager
@@ -190,19 +190,20 @@ brooklyn.catalog:
 
         # TODO - remove the -p 12375 mapping below when Duncan's JClouds fixes are in. See https://github.com/cloudsoft/container-service/pull/5#discussion_r64581324
         post.launch.command: |
-          docker -H ${DOCKER_URL} ${TLS_OPTIONS} \
-            run -d -p ${SWARM_PORT}:${SWARM_PORT} -p 12375:2375 -v ${INSTALL_DIR}/.certs:/certs:ro --name manager-${HOST_NAME} \
+          echo "[CLOCKER] Launch Swarm manager"
+          docker run -d -p ${SWARM_PORT}:${SWARM_PORT} -p 12375:2375 \
+            -v ${INSTALL_DIR}/.certs:/certs:ro --name manager-${HOST_NAME} \
             swarm manage --tlsverify --tlscacert=/certs/ca.pem --tlscert=/certs/cert.pem --tlskey=/certs/key.pem \
               --host=0.0.0.0:${SWARM_PORT} ${SWARM_DISCOVERY_URL}
           echo "[CLOCKER] Setup default ${SWARM_DEFAULT_NETWORK} overlay network"
-          docker -H ${DOCKER_URL} ${TLS_OPTIONS} network ls | grep "overlay.*${SWARM_DEFAULT_NETWORK}" ||
-            docker -H ${DOCKER_URL} ${TLS_OPTIONS} network create --driver=overlay "${SWARM_DEFAULT_NETWORK}"
+          docker network ls | grep "overlay.*${SWARM_DEFAULT_NETWORK}" ||
+            docker network create --driver=overlay "${SWARM_DEFAULT_NETWORK}"
 
         checkRunning.command: |
           sudo service docker status &&
-            docker -H ${DOCKER_URL} ${TLS_OPTIONS} ps | grep swarm
+            docker ps | grep swarm
 
         stop.command: |
-          docker -H ${DOCKER_URL} ${TLS_OPTIONS} stop manager-${HOST_NAME}
-          docker -H ${DOCKER_URL} ${TLS_OPTIONS} rm manager-${HOST_NAME}
+          docker stop manager-${HOST_NAME}
+          docker rm manager-${HOST_NAME}
           sudo service docker stop

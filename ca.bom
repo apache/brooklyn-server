@@ -23,13 +23,11 @@ brooklyn.catalog:
     name: "Certificate Authority Server"
     description:  |
       An X.509 Certificate Authority tool with a simple REST API.
-      Request creation of a certificate for a client with a POST to http://<ca-ip>:8080/generate/<your-ip-address>,
-      e.g. curl -X POST http://10.20.30.40:8080/generate/10.10.10.10
-      where 10.10.10.10 is the address of your client host.
-      Following generation of the certificate, download the CA certificate, client certificate and key with GETs to
-      http://<ca-ip>:8080/cert/<your-ip-address>/ca.pem
-      http://<ca-ip>:8080/cert/<your-ip-address>/cert.pem
-      http://<ca-ip>:8080/cert/<your-ip-address>/key.pem
+
+      Request creation of a certificate for a client with a POST request to
+      '/generate/{nodeAddress}' then download the CA certificate, client
+      certificate and private key with GET requests to '/cert/{nodeAddress}/ca.pem'
+      '/cert/{nodeAddress}/cert.pem' and '/cert/{nodeAddress}/key.pem'
     itemType: entity
     item:
       type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess

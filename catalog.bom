@@ -99,7 +99,7 @@ brooklyn.catalog:
           HOST_NAME: $brooklyn:attributeWhenReady("host.name")
           DOCKER_ENDPOINT: $brooklyn:attributeWhenReady("docker.endpoint")
           DOCKER_BIND_URL: $brooklyn:attributeWhenReady("docker.bind.url")
-          DOCKER_URL: $brooklyn:attributeWhenReady("docker.url")
+          DOCKER_HOST: $brooklyn:attributeWhenReady("docker.url")
           DOCKER_IMAGE: $brooklyn:config("image.preinstall")
 
         install.command: |
@@ -145,8 +145,8 @@ brooklyn.catalog:
 
         launch.command: |
           sudo service docker start && \
-            ( docker -H ${DOCKER_URL} ${DOCKER_ADDITIONAL_OPTIONS} images --format="{{.Repository}}:{{.Tag}}" | grep -q "$DOCKER_IMAGE" || \
-              docker -H ${DOCKER_URL} ${DOCKER_ADDITIONAL_OPTIONS} pull $DOCKER_IMAGE )
+            ( docker images --format="{{.Repository}}:{{.Tag}}" | grep -q "${DOCKER_IMAGE}" || \
+              docker pull ${DOCKER_IMAGE} )
 
         stop.command: |
           service docker stop
@@ -173,22 +173,34 @@ brooklyn.catalog:
           type: port
           default: 2376
         - name: docker.bindaddress
-          description: The docker network address to to listen on.
+          label: Docker Bind Address
+          description: |
+            The docker network address to to listen on.
           type: string
           default: 0.0.0.0
-        - name: ca.request.root
+        - name: ca.request.root.url
+          label: CA Request Root URL
           description: |
-            Optional: URL for a CA server. Use this or the triplet of
-            'ca.cert.url', 'node.cert.url', 'private.key.url'
+            Optional URL for a CA server.
+
+            Use this or the triplet of 'ca.cert.url', 'node.cert.url' and
+            'private.key.url' configuration.
+          type: string
         - name: ca.cert.url
+          label: CA Certificate URL
           description: |
             URL for the CA certificate
+          type: string
         - name: node.cert.url
+          label: Node Certificate URL
           description: |
             URL for the TLS certificate for this Docker engine
+          type: string
         - name: private.key.url
+          label: Private Key URL
           description: |
             URL for the private key of this Docker engine
+          type: string
 
       brooklyn.config:
         docker.tlsoptions:
@@ -201,13 +213,18 @@ brooklyn.catalog:
           - $brooklyn:config("docker.tlsoptions")
 
         shell.env:
-          CA_CERT_ROOT: $brooklyn:config("ca.request.root")
+          CA_REQUEST_ROOT_URL: $brooklyn:config("ca.request.root.url")
           CA_CERT_URL: $brooklyn:config("ca.cert.url")
           NODE_CERT_URL: $brooklyn:config("node.cert.url")
           PRIV_KEY_URL: $brooklyn:config("private.key.url")
           HOST_ADDRESS: $brooklyn:attributeWhenReady("host.address")
           INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
           TLS_OPTIONS: $brooklyn:config("docker.tlsoptions")
+          DOCKER_TLS_VERIFY: true
+          DOCKER_CERT_PATH:
+            $brooklyn:formatString:
+            - "%s/.certs"
+            - $brooklyn:attributeWhenReady("install.dir")
 
         customize.command: |
           set -e # need all commands to execute successfully
@@ -215,7 +232,7 @@ brooklyn.catalog:
           mkdir -p ${INSTALL_DIR}/.certs
           function failwith() {
             local err=$?
-            1>&2 echo $1
+            1>&2 echo "[CLOCKER] $1"
             exit $err
           }
           function getcert() {
@@ -224,34 +241,35 @@ brooklyn.catalog:
             curl -L ${url} --output ${file} --write-out "%{http_code}"  | grep 200 ||
               failwith "${file} not received from CA"
           }
-          if [ "${CA_CERT_ROOT}" ] ; then
-              echo "Requesting creation of certificates from ${CA_CERT_ROOT}"
-              curl -d "" -X POST --write-out "%{http_code}" ${CA_CERT_ROOT}/generate/${HOST_ADDRESS} | grep 201 ||
+          if [ "${CA_REQUEST_ROOT_URL}" ] ; then
+              echo "[CLOCKER] Requesting creation of certificates from ${CA_REQUEST_ROOT_URL}"
+              curl -d "" -X POST --write-out "%{http_code}" ${CA_REQUEST_ROOT_URL}/generate/${HOST_ADDRESS} | grep 201 ||
                 failwith "Could not request certificate for ${HOST_ADDRESS} from ${CA_CERT_ROOT}"
               echo "Requesting generated certificates from ${CA_CERT_ROOT}"
-              getcert ${CA_CERT_ROOT}/cert/${HOST_ADDRESS}/ca.pem    ${INSTALL_DIR}/.certs/ca.pem
-              getcert ${CA_CERT_ROOT}/cert/${HOST_ADDRESS}/cert.pem  ${INSTALL_DIR}/.certs/cert.pem
-              getcert ${CA_CERT_ROOT}/cert/${HOST_ADDRESS}/key.pem   ${INSTALL_DIR}/.certs/key.pem
-              echo "Certifcates for ${HOST_ADDRESS} received"
+              getcert ${CA_REQUEST_ROOT_URL}/cert/${HOST_ADDRESS}/ca.pem ${INSTALL_DIR}/.certs/ca.pem
+              getcert ${CA_REQUEST_ROOT_URL}/cert/${HOST_ADDRESS}/cert.pem ${INSTALL_DIR}/.certs/cert.pem
+              getcert ${CA_REQUEST_ROOT_URL}/cert/${HOST_ADDRESS}/key.pem ${INSTALL_DIR}/.certs/key.pem
+              echo "[CLOCKER] Certifcates for ${HOST_ADDRESS} received"
           else
-              echo "Downloading certificates from configuration settings"
-              getcert ${CA_CERT_URL}    ${INSTALL_DIR}/.certs/ca.pem
-              getcert ${NODE_CERT_URL}  ${INSTALL_DIR}/.certs/cert.pem
-              getcert ${PRIV_KEY_URL}   ${INSTALL_DIR}/.certs/key.pem
+              echo "[CLOCKER] Downloading certificates from configuration settings"
+              getcert ${CA_CERT_URL} ${INSTALL_DIR}/.certs/ca.pem
+              getcert ${NODE_CERT_URL} ${INSTALL_DIR}/.certs/cert.pem
+              getcert ${PRIV_KEY_URL} ${INSTALL_DIR}/.certs/key.pem
           fi
           # TODO verify certs with openssl
           test -f ${INSTALL_DIR}/.certs/ca.pem || failwith "Failed to download ca.pem"
           test -f ${INSTALL_DIR}/.certs/cert.pem || failwith "Failed to download cert.pem"
           test -f ${INSTALL_DIR}/.certs/key.pem || failwith "Failed to download key.pem"
 
-          # Set up 'well known' Docker environment variables for host and TLS
+          echo "[CLOCKER] Set up Docker environment variables"
           if ! grep docker_client ${HOME}/.bashrc ; then
             echo ". docker_client.rc" >> ${HOME}/.bashrc
           fi
           cat > ${HOME}/docker_client.rc <<-EOF
-          export DOCKER_TLS_VERIFY=true
-          export DOCKER_CERT_PATH=${INSTALL_DIR}/.certs
-          export DOCKER_HOST=${DOCKER_URL}
+          DOCKER_TLS_VERIFY=${DOCKER_TLS_VERIFY}
+          DOCKER_CERT_PATH=${DOCKER_CERT_PATH}
+          DOCKER_HOST=${DOCKER_HOST}
+          export DOCKER_TLS_VERIFY DOCKER_CERT_PATH DOCKER_HOST
           EOF
 
   - id: docker-engine-container
@@ -279,4 +297,4 @@ brooklyn.catalog:
           DOCKER_IMAGE: $brooklyn:config("container")
 
         launch.command: |
-          docker -H ${DOCKER_URL} ${DOCKER_ADDITIONAL_OPTIONS} run -d ${DOCKER_IMAGE}
+          docker run -d ${DOCKER_IMAGE}
