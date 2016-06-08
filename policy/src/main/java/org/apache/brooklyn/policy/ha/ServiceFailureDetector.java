@@ -42,6 +42,7 @@ import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.task.BasicTask;
 import org.apache.brooklyn.util.core.task.ScheduledTask;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 
@@ -159,11 +160,11 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
     }
     
     @Override
-    protected void setActualState(Lifecycle state) {
+    protected void setActualState(Maybe<Lifecycle> state) {
         long now = System.currentTimeMillis();
 
         synchronized (mutex) {
-            if (state==Lifecycle.ON_FIRE) {
+            if (state.orNull() == Lifecycle.ON_FIRE) {
                 if (lastPublished == LastPublished.FAILED) {
                     if (currentRecoveryStartTime != null) {
                         if (LOG.isDebugEnabled()) LOG.debug("{} health-check for {}, component was recovering, now failing: {}", new Object[] {this, entity, getExplanation(state)});
@@ -189,7 +190,7 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
                 currentRecoveryStartTime = null;
                 publishEntityRecoveredTime = null;
                 
-            } else if (state == Lifecycle.RUNNING) {
+            } else if (state.orNull() == Lifecycle.RUNNING) {
                 if (lastPublished == LastPublished.FAILED) {
                     if (currentRecoveryStartTime == null) {
                         if (LOG.isDebugEnabled()) LOG.debug("{} health-check for {}, component now recovering: {}", new Object[] {this, entity, getExplanation(state)});
@@ -265,14 +266,14 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
         }
     }
 
-    protected String getExplanation(Lifecycle state) {
+    protected String getExplanation(Maybe<Lifecycle> state) {
         Duration serviceFailedStabilizationDelay = getConfig(ENTITY_FAILED_STABILIZATION_DELAY);
         Duration serviceRecoveredStabilizationDelay = getConfig(ENTITY_RECOVERED_STABILIZATION_DELAY);
 
         return String.format("location=%s; status=%s; lastPublished=%s; timeNow=%s; "+
                     "currentFailurePeriod=%s; currentRecoveryPeriod=%s",
                 entity.getLocations(), 
-                (state != null ? state : "<unreported>"),
+                (state.orNull() != null ? state : "<unreported>"),
                 lastPublished,
                 Time.makeDateString(System.currentTimeMillis()),
                 (currentFailureStartTime != null ? getTimeStringSince(currentFailureStartTime) : "<none>") + " (stabilization "+Time.makeTimeStringRounded(serviceFailedStabilizationDelay) + ")",
