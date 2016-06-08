@@ -46,6 +46,7 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.Callables;
 
 public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
 
@@ -184,19 +185,53 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
     }
 
     // DSL words which return things
-    
+
+    public BrooklynDslDeferredSupplier<?> identity() {
+        return new Identity(this);
+    }
+    protected static class Identity extends BrooklynDslDeferredSupplier<Object> {
+        private static final long serialVersionUID = -1L;
+        private final DslComponent component;
+        public Identity(DslComponent component) {
+            this.component = Preconditions.checkNotNull(component);
+        }
+
+        @Override
+        public Task<Object> newTask() {
+            Entity targetEntity = component.get();
+            return Tasks.create("identity", Callables.<Object>returning(targetEntity.getId()));
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(component);
+        }
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            Identity that = Identity.class.cast(obj);
+            return Objects.equal(this.component, that.component);
+        }
+        @Override
+        public String toString() {
+            return (component.scope==Scope.THIS ? "" : component.toString()+".") + "identity()";
+        }
+    }
+
     public BrooklynDslDeferredSupplier<?> attributeWhenReady(final String sensorName) {
         return new AttributeWhenReady(this, sensorName);
     }
-    // class simply makes the memento XML files nicer
     protected static class AttributeWhenReady extends BrooklynDslDeferredSupplier<Object> {
         private static final long serialVersionUID = 1740899524088902383L;
         private final DslComponent component;
         private final String sensorName;
+
         public AttributeWhenReady(DslComponent component, String sensorName) {
             this.component = Preconditions.checkNotNull(component);
             this.sensorName = sensorName;
         }
+
         @SuppressWarnings("unchecked")
         @Override
         public Task<Object> newTask() {
@@ -207,11 +242,11 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
             }
             return (Task<Object>) DependentConfiguration.attributeWhenReady(targetEntity, (AttributeSensor<?>)targetSensor);
         }
+
         @Override
         public int hashCode() {
             return Objects.hashCode(component, sensorName);
         }
-
         @Override
         public boolean equals(Object obj) {
             if (this == obj) return true;
