@@ -71,17 +71,16 @@ brooklyn.catalog:
       name: Assert container is destroyed
       type: ssh-test
       targetId: swarm-master
-      command:
-        # TODO Assumes there's only one docker node in the swarm so that bridge IPs are global to the swarm
-        $brooklyn:formatString:
-        - >
-          DOCKER_HOST=%s:%s
-          docker ps -a --format '{{ .ID }}' |
-            xargs -n1 docker inspect --format '{{ .NetworkSettings.IPAddress }}' |
-            grep %s
-        - $brooklyn:entity("swarm-master").attributeWhenReady("host.address")
-        - $brooklyn:entity("swarm-master").config("swarm.port")
-        - $brooklyn:entity("swarm-master").attributeWhenReady("container.ip")
+      shell.env:
+        HOST_ADDRESS: $brooklyn:entity("swarm-master").attributeWhenReady("host.address")
+        SWARM_PORT: $brooklyn:entity("swarm-master").config("swarm.port")
+        CONTAINER_IP: $brooklyn:entity("swarm-master").attributeWhenReady("container.ip")
+      # TODO Assumes there's only one docker node in the swarm so that bridge IPs are global to the swarm
+      command: |
+        DOCKER_HOST=${HOST_ADDRESS}:${SWARM_PORT}
+        docker ps -a --format '{{ .ID }}' |
+          xargs -n1 docker inspect --format '{{ .NetworkSettings.IPAddress }}' |
+          grep "${CONTAINER_IP}"
       assertStatus:
         - equals: 1
   - id: wait-for-dd
@@ -89,18 +88,16 @@ brooklyn.catalog:
       name: Wait for dd to complete
       type: ssh-test
       targetId: swarm-master
-      command: 
-        $brooklyn:formatString:
-        - >
-          export DOCKER_HOST=%s:%s;
-          export CONTAINER_IP=%s;
-          export CONTAINER_ID=$(docker ps -a --format '{{ .ID }}' |
-            xargs -n1 docker inspect --format '{{ .Id }}    {{.NetworkSettings.IPAddress}}' |
-            grep $CONTAINER_IP | cut -f1 -d' ' | head -n1);
-          ! docker exec $CONTAINER_ID ps | grep dd
-        - $brooklyn:entity("swarm-master").attributeWhenReady("host.address")
-        - $brooklyn:entity("swarm-master").config("swarm.port")
-        - $brooklyn:entity("swarm-master").attributeWhenReady("container.ip")
+      shell.env:
+        HOST_ADDRESS: $brooklyn:entity("swarm-master").attributeWhenReady("host.address")
+        SWARM_PORT: $brooklyn:entity("swarm-master").config("swarm.port")
+        CONTAINER_IP: $brooklyn:entity("swarm-master").attributeWhenReady("container.ip")
+      command: |
+        DOCKER_HOST=${HOST_ADDRESS}:${SWARM_PORT}
+        export CONTAINER_ID=$(docker ps -a --format '{{ .ID }}' |
+          xargs -n1 docker inspect --format '{{ .Id }}    {{.NetworkSettings.IPAddress}}' |
+          grep $CONTAINER_IP | cut -f1 -d' ' | head -n1);
+        ! docker exec $CONTAINER_ID ps | grep dd
   - id: asserts-container-stop
     item:
       type: test-case
