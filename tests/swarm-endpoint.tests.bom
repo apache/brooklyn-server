@@ -52,7 +52,7 @@ brooklyn.catalog:
             assert:
             - matches: running
           # Can ssh
-          - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+          - type: ssh-test
             command: echo hello-world
             assertStatus:
               equals: 0

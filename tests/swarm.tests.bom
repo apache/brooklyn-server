@@ -15,17 +15,14 @@ brooklyn.catalog:
         - swarm.url
       brooklyn.children:
       - type: ssh-test
-        command:
-          $brooklyn:formatString:
-          - |
+        shell.env:
+          INSTALL_DIR: $brooklyn:config("install.dir")
+        command: |
             set -e
-            INSTALL_DIR=%s
-
             cd $INSTALL_DIR
             docker rmi busybox || true # OK to fail
             ! docker images | grep busybox
             docker run --rm busybox echo Hello from busybox-image | grep busybox-image && docker images | grep busybox
-          - $brooklyn:config("install.dir")
         assertStatus:
           equals: 0
         assertOut:
@@ -39,14 +36,12 @@ brooklyn.catalog:
         - name: network.name
           description: Name of the network
       brooklyn.children:
-      - type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
-        command:
-          $brooklyn:formatString:
-          - |
-            NETWORK=%s; # network.name
-            echo "[TEST] Checking ID of network ${NETWORK}"
-            docker network inspect --format "{{.ID}}" "${NETWORK}"
-          - $brooklyn:config("network.name")
+      - type: ssh-test
+        shell.env:
+          NETWORK_NAME: $brooklyn:config("network.name")
+        command: |
+            echo "[TEST] Checking ID of network ${NETWORK_NAME}"
+            docker network inspect --format "{{.ID}}" "${NETWORK_NAME}"
         assertStatus:
           equals: 0
 
