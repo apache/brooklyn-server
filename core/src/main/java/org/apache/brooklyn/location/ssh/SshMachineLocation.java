@@ -68,6 +68,7 @@ import org.apache.brooklyn.core.location.LocationConfigUtils;
 import org.apache.brooklyn.core.location.LocationConfigUtils.OsCredential;
 import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
+import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.LocalLocationManager;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -301,7 +302,7 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
         // Register any pre-existing port-mappings with the PortForwardManager
         Map<Integer, String> tcpPortMappings = getConfig(TCP_PORT_MAPPINGS);
         if (tcpPortMappings != null) {
-            PortForwardManager pfm = (PortForwardManager) getManagementContext().getLocationRegistry().getLocationManaged("portForwardManager(scope=global)");
+            PortForwardManager pfm = (PortForwardManager) getManagementContext().getLocationRegistry().getLocationManaged(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
             for (Map.Entry<Integer, String> entry : tcpPortMappings.entrySet()) {
                 int targetPort = entry.getKey();
                 HostAndPort publicEndpoint = HostAndPort.fromString(entry.getValue());

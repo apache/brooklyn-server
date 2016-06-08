@@ -33,6 +33,7 @@ import org.apache.brooklyn.core.effector.EffectorBody;
 import org.apache.brooklyn.core.effector.EffectorTasks.EffectorBodyTaskFactory;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
+import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
 import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.location.jclouds.networking.JcloudsPortForwarderExtension;
@@ -70,7 +71,7 @@ public class JcloudsLocationReleasePortForwardingDefaultTest extends BrooklynApp
     public void setUp() throws Exception {
         super.setUp();
         stopwatch = Stopwatch.createStarted();
-        portForwardManager = (PortForwardManager) mgmt.getLocationRegistry().getLocationManaged("portForwardManager(scope=global)");
+        portForwardManager = (PortForwardManager) mgmt.getLocationRegistry().getLocationManaged(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
         loc = (JcloudsLocation) mgmt.getLocationRegistry().getLocationManaged("jclouds:aws-ec2:us-east-1");
 
         node = Mockito.mock(NodeMetadata.class);

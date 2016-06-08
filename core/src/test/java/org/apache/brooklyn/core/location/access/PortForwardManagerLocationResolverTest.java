@@ -46,7 +46,7 @@ public class PortForwardManagerLocationResolverTest {
     public void testReturnsSameInstanceBasedOnScope() {
         Location global1 = resolve("portForwardManager()"); // defaults to global
         Location global2 = resolve("portForwardManager()");
-        Location global3 = resolve("portForwardManager(scope=global)");
+        Location global3 = resolve(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
         assertSame(global1, global2);
         assertSame(global1, global3);
         

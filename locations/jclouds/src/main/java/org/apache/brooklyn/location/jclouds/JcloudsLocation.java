@@ -70,6 +70,7 @@ import org.apache.brooklyn.core.location.LocationConfigUtils;
 import org.apache.brooklyn.core.location.LocationConfigUtils.OsCredential;
 import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
+import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
 import org.apache.brooklyn.core.location.access.PortMapping;
 import org.apache.brooklyn.core.location.cloud.AbstractCloudMachineProvisioningLocation;
 import org.apache.brooklyn.core.location.cloud.AvailabilityZoneExtension;
@@ -829,7 +830,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             PortForwardManager portForwardManager = setup.get(PORT_FORWARDING_MANAGER);
             if (portForwardManager == null) {
                 LOG.debug("No PortForwardManager, using default");
-                portForwardManager = (PortForwardManager) getManagementContext().getLocationRegistry().getLocationManaged("portForwardManager(scope=global)");
+                portForwardManager = (PortForwardManager) getManagementContext().getLocationRegistry().getLocationManaged(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
             }
 
             if (usePortForwarding && sshHostAndPortOverride.isPresent()) {
@@ -2588,7 +2589,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         PortForwardManager portForwardManager = machine.getConfig(PORT_FORWARDING_MANAGER);
         if (portForwardManager == null) {
             LOG.debug("No PortForwardManager, using default");
-            portForwardManager = (PortForwardManager) getManagementContext().getLocationRegistry().getLocationManaged("portForwardManager(scope=global)");
+            portForwardManager = (PortForwardManager) getManagementContext().getLocationRegistry().getLocationManaged(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
         }
 
         if (portForwarder == null) {

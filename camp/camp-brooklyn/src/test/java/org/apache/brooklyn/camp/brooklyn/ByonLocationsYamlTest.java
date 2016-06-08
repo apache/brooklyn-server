@@ -32,6 +32,7 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.location.LocationPredicates;
 import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
+import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.entity.software.base.DoNothingSoftwareProcess;
 import org.slf4j.Logger;
@@ -200,7 +201,7 @@ public class ByonLocationsYamlTest extends AbstractYamlTest {
 
         Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
         FixedListMachineProvisioningLocation<MachineLocation> loc = (FixedListMachineProvisioningLocation<MachineLocation>) Iterables.get(app.getLocations(), 0);
-        PortForwardManager pfm = (PortForwardManager) mgmt().getLocationRegistry().getLocationManaged("portForwardManager(scope=global)");
+        PortForwardManager pfm = (PortForwardManager) mgmt().getLocationRegistry().getLocationManaged(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
         
         Set<MachineLocation> machines = loc.getAvailable();
         assertEquals(machines.size(), 2, "machines="+machines);
