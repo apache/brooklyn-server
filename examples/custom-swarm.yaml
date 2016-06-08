@@ -1,5 +1,4 @@
 id: custom-swarm
-name: "Custom Swarm"
 description: |
   A blueprint deploying an application built with the Docker swarm entities from the catalog. This
   is intended to illustrate the process of composing a blueprint to create a swarm, using pre-existing

@@ -1,5 +1,4 @@
 id: swarm-using-external-resources
-name: "Swarm Using External Resources"
 description: |
   An example deploying a Docker Swarm cluster using an existing discovery
   mechanism (an Etcd cluster) and providing external URLs for the TLS

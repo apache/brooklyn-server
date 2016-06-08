@@ -11,19 +11,13 @@ brooklyn.catalog:
 
   include: https://raw.githubusercontent.com/brooklyncentral/brooklyn-etcd/master/catalog.bom
 
-<<<<<<< HEAD
+  items:
   - id: docker-swarm-template
     name: "Docker Swarm with Discovery and CA"
-=======
-  items:
-  - id:  docker-swarm
-    name: "A Docker Swarm with Etcd Discovery and built-in CA server"
->>>>>>> Tidy up configuration in BOM files
     description: |
       Creates a Swarm of Docker engines, of configurable initial size, using an Etcd cluster for discovery.
     itemType: template
     item:
-<<<<<<< HEAD
       services:
       - type: docker-swarm
 
@@ -33,93 +27,53 @@ brooklyn.catalog:
       Creates a Swarm of Docker engines, of configurable initial size, using an Etcd cluster for discovery.
     itemType: entity
     item:
-=======
->>>>>>> Tidy up configuration in BOM files
       type: org.apache.brooklyn.entity.stock.BasicApplication
 
       brooklyn.parameters:
-      - name: swarm.initial.size
-        label: Initial Swarm Size
-        description: Size of the swarm when created initially
-<<<<<<< HEAD
-        type: java.lang.Integer
-=======
-        type: integer
->>>>>>> Tidy up configuration in BOM files
-        default: 1
-      - name: etcd.initial.size
-        label: Initial Etcd Size
-        description: Size of the etcd when created initially
-<<<<<<< HEAD
-        type: java.lang.Integer
-        default: 1
-      - name: swarm.defaultnetwork
-        label: Swarm Default Network
-        description: |
-          The name of a default network to create on startup
-        type: java.lang.String
-        default: "brooklyn"
+        - name: swarm.initial.size
+          label: Initial Swarm Size
+          description: |
+            Size of the swarm cluster when created initially
+          type: integer
+          default: 1
+        - name: etcd.initial.size
+          label: Initial Etcd Size
+          description: |
+            Size of the etcd cluster when created initially
+          type: integer
+          default: 1
+        - name: swarm.defaultnetwork
+          label: Swarm Default Network
+          description: |
+            The name of a default network to create on startup
+          type: string
+          default: "brooklyn"
 
       brooklyn.enrichers:
-      - type: org.apache.brooklyn.enricher.stock.Propagator
-        brooklyn.config:
-          uniqueTag: swarm-url-propagator
-          producer: $brooklyn:child("swarm-cluster")
-          propagating:
-          - $brooklyn:sensor("swarm.url")
-      - type: org.apache.brooklyn.enricher.stock.Propagator
-        brooklyn.config:
-          uniqueTag: swarm-nw-propagator
-          producer: $brooklyn:child("swarm-cluster")
-          propagating:
-          - $brooklyn:sensor("swarm.url")
+        - type: org.apache.brooklyn.enricher.stock.Propagator
+          brooklyn.config:
+            uniqueTag: swarm-url-propagator
+            producer: $brooklyn:child("swarm-cluster")
+            propagating:
+            - $brooklyn:sensor("swarm.url")
 
       brooklyn.children:
-      - type: ca-server
-        id: ca-server
-        name: "ca-server"
-      - type: etcd-cluster
-        id: etcd-cluster
-        name: "etcd-cluster"
-        initialSize: $brooklyn:config("etcd.initial.size")
-      - type: docker-swarm-cluster
-        id: swarm-cluster
-        name: "swarm-cluster"
-        brooklyn.config:
-          discovery.url:   $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.authority")
-          ca.request.root: $brooklyn:entity("ca-server").attributeWhenReady("main.uri")
-          customize.latch: $brooklyn:entity("ca-server").attributeWhenReady("service.isUp")
-          launch.latch:    $brooklyn:entity("etcd-cluster").attributeWhenReady("service.isUp")
-=======
-        type: integer
-        default: 1
->>>>>>> Tidy up configuration in BOM files
-
-      brooklyn.enrichers:
-      - type: org.apache.brooklyn.enricher.stock.Propagator
-        brooklyn.config:
-          uniqueTag: swarm-url-propagator
-          producer: $brooklyn:child("swarm-cluster")
-          propagating:
-          - $brooklyn:sensor("swarm.url")
-
-      brooklyn.children:
-      - type: ca-server
-        id: ca-server
-        name: "ca-server"
-      - type: etcd-cluster
-        id: etcd-cluster
-        name: "etcd-cluster"
-        initialSize: $brooklyn:config("etcd.initial.size")
-      - type: docker-swarm-cluster
-        id: swarm-cluster
-        name: "swarm-cluster"
-        brooklyn.config:
-          swarm.discovery.url: $brooklyn:component("etcd-cluster").attributeWhenReady("etcd.authority")
-          docker.cluster.url: $brooklyn:component("etcd-cluster").attributeWhenReady("etcd.authority")
-          ca.request.root: $brooklyn:component("ca-server").attributeWhenReady("main.uri")
-          resources.preInstall.latch: $brooklyn:component("ca-server").attributeWhenReady("service.isUp")
-          launch.latch: $brooklyn:component("etcd-cluster").attributeWhenReady("service.isUp")
+        - type: ca-server
+          id: ca-server
+          name: "ca-server"
+        - type: etcd-cluster
+          id: etcd-cluster
+          name: "etcd-cluster"
+          initialSize: $brooklyn:config("etcd.initial.size")
+        - type: docker-swarm-cluster
+          id: swarm-cluster
+          name: "swarm-cluster"
+          brooklyn.config:
+            swarm.discovery.url: $brooklyn:component("etcd-cluster").attributeWhenReady("etcd.authority")
+            docker.cluster.url: $brooklyn:component("etcd-cluster").attributeWhenReady("etcd.authority")
+            ca.request.root: $brooklyn:component("ca-server").attributeWhenReady("main.uri")
+            resources.preInstall.latch: $brooklyn:component("ca-server").attributeWhenReady("service.isUp")
+            launch.latch: $brooklyn:component("etcd-cluster").attributeWhenReady("service.isUp")
 
   - id:  docker-swarm-cluster
     name: "Docker Swarm Cluster"
@@ -131,61 +85,61 @@ brooklyn.catalog:
       type: org.apache.brooklyn.entity.stock.BasicApplication
 
       brooklyn.parameters:
-      - name: swarm.discovery.url
-        label: Discovery URL
-        description: |
-          URL of a provided discovery mechanism for the swarm
-        type: string
-      - name: ca.cert.url
-        label: CA Certificate URL
-        description: |
-          Location of the CA certificate to install for authentication of this engine
-        type: string
-      - name: node.cert.url
-        label: Certificate URL
-        description: |
-          Location of the public key certificate to install for this engine
-        type: string
-      - name: private.key.url
-        label: Private Key URL
-        description: |
-          Location of the private key to install for authentication of this engine
-      - name: swarm.defaultnetwork
-        label: Swarm Default Network
-        description: |
-          The name of a default network to create on startup
-        type: string
-        default: "brooklyn"
+        - name: swarm.discovery.url
+          label: Discovery URL
+          description: |
+            URL of a provided discovery mechanism for the swarm
+          type: string
+        - name: ca.cert.url
+          label: CA Certificate URL
+          description: |
+            Location of the CA certificate to install for authentication of this engine
+          type: string
+        - name: node.cert.url
+          label: Certificate URL
+          description: |
+            Location of the public key certificate to install for this engine
+          type: string
+        - name: private.key.url
+          label: Private Key URL
+          description: |
+            Location of the private key to install for authentication of this engine
+        - name: swarm.defaultnetwork
+          label: Swarm Default Network
+          description: |
+            The name of a default network to create on startup
+          type: string
+          default: "brooklyn"
 
       brooklyn.enrichers:
-      - type: org.apache.brooklyn.enricher.stock.Transformer
-        brooklyn.config:
-          uniqueTag: swarm-url-publisher
-          enricher.producer: $brooklyn:entity("swarm-manager")
-          enricher.triggerSensors:
-          - host.address
-          - swarm.port
-          enricher.sourceSensor: $brooklyn:sensor("host.address")
-          enricher.targetSensor: $brooklyn:sensor("swarm.url")
-          enricher.targetValue:
-            $brooklyn:formatString:
-            - "tcp://%s:%d"
-            - $brooklyn:component("swarm-manager").attributeWhenReady("host.address")
-            - $brooklyn:component("swarm-manager").attributeWhenReady("swarm.port")
+        - type: org.apache.brooklyn.enricher.stock.Transformer
+          brooklyn.config:
+            uniqueTag: swarm-url-publisher
+            enricher.producer: $brooklyn:entity("swarm-manager")
+            enricher.triggerSensors:
+            - host.address
+            - swarm.port
+            enricher.sourceSensor: $brooklyn:sensor("host.address")
+            enricher.targetSensor: $brooklyn:sensor("swarm.url")
+            enricher.targetValue:
+              $brooklyn:formatString:
+              - "tcp://%s:%d"
+              - $brooklyn:component("swarm-manager").attributeWhenReady("host.address")
+              - $brooklyn:component("swarm-manager").attributeWhenReady("swarm.port")
 
       brooklyn.children:
-      - type: docker-swarm-manager
-        id: swarm-manager
-        name: "swarm-manager"
-      - type: cluster
-        id: docker-cluster
-        name: "docker-swarm-nodes"
-        initialSize: $brooklyn:config("swarm.initial.size")
-        memberSpec:
-          $brooklyn:entitySpec:
-            type: docker-swarm-node
-            id: swarm-node
-            name: "swarm-node"
+        - type: docker-swarm-manager
+          id: swarm-manager
+          name: "swarm-manager"
+        - type: cluster
+          id: docker-cluster
+          name: "docker-swarm-nodes"
+          initialSize: $brooklyn:config("swarm.initial.size")
+          memberSpec:
+            $brooklyn:entitySpec:
+              type: docker-swarm-node
+              id: swarm-node
+              name: "swarm-node"
 
   - id: docker-swarm-node
     name: "Docker Swarm Node"
@@ -195,23 +149,24 @@ brooklyn.catalog:
     item:
       type: docker-engine-tls
 
-      env:
-        SWARM_DISCOVERY_URL: $brooklyn:config("swarm.discovery.url")
+      brooklyn.config:
+        shell.env:
+          SWARM_DISCOVERY_URL: $brooklyn:config("swarm.discovery.url")
 
-      # TODO - decide if it's ok to publicise the HOST_NAME below and in the manager, from a security point of view.
-      # TODO - remove the -p 12375 mapping below when Duncan's JClouds fixes are in. See https://github.com/cloudsoft/container-service/pull/5#discussion_r64581324
-      post.launch.command: |
-        docker -H ${DOCKER_URL} ${TLS_OPTIONS} run -d -p 12375:2375 --name swarm-${HOST_NAME} \
-          swarm join --addr=${DOCKER_ENDPOINT} ${DISCOVERY_URL}
+        # TODO - decide if it's ok to publicise the HOST_NAME below and in the manager, from a security point of view.
+        # TODO - remove the -p 12375 mapping below when Duncan's JClouds fixes are in. See https://github.com/cloudsoft/container-service/pull/5#discussion_r64581324
+        post.launch.command: |
+          docker -H ${DOCKER_URL} ${TLS_OPTIONS} run -d -p 12375:2375 --name swarm-${HOST_NAME} \
+            swarm join --addr=${DOCKER_ENDPOINT} ${DISCOVERY_URL}
 
-      checkRunning.command: |
-        sudo service docker status &&
-          docker -H ${DOCKER_URL} ${TLS_OPTIONS} ps | grep swarm
+        checkRunning.command: |
+          sudo service docker status &&
+            docker -H ${DOCKER_URL} ${TLS_OPTIONS} ps | grep swarm
 
-      stop.command: |
-        docker -H ${DOCKER_URL} ${TLS_OPTIONS} stop swarm-${HOST_NAME}
-        docker -H ${DOCKER_URL} ${TLS_OPTIONS} rm swarm-${HOST_NAME}
-        sudo service docker stop
+        stop.command: |
+          docker -H ${DOCKER_URL} ${TLS_OPTIONS} stop swarm-${HOST_NAME}
+          docker -H ${DOCKER_URL} ${TLS_OPTIONS} rm swarm-${HOST_NAME}
+          sudo service docker stop
 
   - id: docker-swarm-manager
     name: "Docker Swarm Manager"
@@ -221,32 +176,33 @@ brooklyn.catalog:
       type: docker-engine-tls
 
       brooklyn.parameters:
-      - name: swarm.port
-        label: Swarm Port
-        description: |
-          The external port the Swarm manager listens on
-        type: port
-        default: 3376
+        - name: swarm.port
+          label: Swarm Port
+          description: |
+            The external port the Swarm manager listens on
+          type: port
+          default: 3376
 
-      env:
-        SWARM_DISCOVERY_URL: $brooklyn:config("swarm.discovery.url")
-        SWARM_PORT: $brooklyn:config("swarm.port")
+      brooklyn.config:
+        shell.env:
+          SWARM_DISCOVERY_URL: $brooklyn:config("swarm.discovery.url")
+          SWARM_PORT: $brooklyn:config("swarm.port")
 
-      # TODO - remove the -p 12375 mapping below when Duncan's JClouds fixes are in. See https://github.com/cloudsoft/container-service/pull/5#discussion_r64581324
-      post.launch.command: |
-        docker -H ${DOCKER_URL} ${TLS_OPTIONS} \
-          run -d -p ${SWARM_PORT}:${SWARM_PORT} -p 12375:2375 -v ${INSTALL_DIR}/.certs:/certs:ro --name manager-${HOST_NAME} \
-          swarm manage --tlsverify --tlscacert=/certs/ca.pem --tlscert=/certs/cert.pem --tlskey=/certs/key.pem \
-            --host=0.0.0.0:${SWARM_PORT} ${SWARM_DISCOVERY_URL}
-        echo "[CLOCKER] Setup default ${SWARM_DEFAULT_NETWORK} overlay network"
-        docker -H ${DOCKER_URL} ${TLS_OPTIONS} network ls | grep "overlay.*${SWARM_DEFAULT_NETWORK}" ||
-          docker -H ${DOCKER_URL} ${TLS_OPTIONS} network create --driver=overlay "${SWARM_DEFAULT_NETWORK}"
+        # TODO - remove the -p 12375 mapping below when Duncan's JClouds fixes are in. See https://github.com/cloudsoft/container-service/pull/5#discussion_r64581324
+        post.launch.command: |
+          docker -H ${DOCKER_URL} ${TLS_OPTIONS} \
+            run -d -p ${SWARM_PORT}:${SWARM_PORT} -p 12375:2375 -v ${INSTALL_DIR}/.certs:/certs:ro --name manager-${HOST_NAME} \
+            swarm manage --tlsverify --tlscacert=/certs/ca.pem --tlscert=/certs/cert.pem --tlskey=/certs/key.pem \
+              --host=0.0.0.0:${SWARM_PORT} ${SWARM_DISCOVERY_URL}
+          echo "[CLOCKER] Setup default ${SWARM_DEFAULT_NETWORK} overlay network"
+          docker -H ${DOCKER_URL} ${TLS_OPTIONS} network ls | grep "overlay.*${SWARM_DEFAULT_NETWORK}" ||
+            docker -H ${DOCKER_URL} ${TLS_OPTIONS} network create --driver=overlay "${SWARM_DEFAULT_NETWORK}"
 
-      checkRunning.command: |
-        sudo service docker status &&
-          docker -H ${DOCKER_URL} ${TLS_OPTIONS} ps | grep swarm
+        checkRunning.command: |
+          sudo service docker status &&
+            docker -H ${DOCKER_URL} ${TLS_OPTIONS} ps | grep swarm
 
-      stop.command: |
-        docker -H ${DOCKER_URL} ${TLS_OPTIONS} stop manager-${HOST_NAME}
-        docker -H ${DOCKER_URL} ${TLS_OPTIONS} rm manager-${HOST_NAME}
-        sudo service docker stop
+        stop.command: |
+          docker -H ${DOCKER_URL} ${TLS_OPTIONS} stop manager-${HOST_NAME}
+          docker -H ${DOCKER_URL} ${TLS_OPTIONS} rm manager-${HOST_NAME}
+          sudo service docker stop

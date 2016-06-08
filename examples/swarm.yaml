@@ -1,5 +1,4 @@
 id: swarm
-name: "Swarm"
 description: |
   A simple blueprint deploying an all-in-one Docker Swarm cluster entity, with
   built-in Etcd discovery, TLS protected endpoints and an included CA server
