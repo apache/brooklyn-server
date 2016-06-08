@@ -75,7 +75,7 @@ public class BasicParameterType<T> implements ParameterType<T> {
 
     @Override
     public Class<T> getParameterClass() { return type; }
-    
+
     @Override
     public String getParameterClassName() { return type.getCanonicalName(); }
 

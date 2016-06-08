@@ -27,6 +27,8 @@ import javax.management.MBeanParameterInfo;
  *
  * @see Effector
  */
+// TODO rename this to ParameterInfo rather than type. A ParameterType object is used for each parameter not for each type of parameter.
+// check MethodEffector.AnnotationsOnMethod.toParameterType
 public interface ParameterType<T> extends Serializable {
     
     public String getName();

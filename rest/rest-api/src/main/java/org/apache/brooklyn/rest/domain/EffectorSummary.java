@@ -40,16 +40,19 @@ public class EffectorSummary implements HasName, Serializable {
         @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
         private final String description;
         private final T defaultValue;
+        private final boolean shouldSanitize;
 
         public ParameterSummary (
                 @JsonProperty("name") String name,
                 @JsonProperty("type") String type,
                 @JsonProperty("description") String description,
-                @JsonProperty("defaultValue") T defaultValue) {
+                @JsonProperty("defaultValue") T defaultValue,
+                @JsonProperty("shouldSanitize") boolean shouldSanitize) {
             this.name = name;
             this.type = type;
             this.description = description;
             this.defaultValue = defaultValue;
+            this.shouldSanitize = shouldSanitize;
         }
 
         @Override
@@ -59,6 +62,10 @@ public class EffectorSummary implements HasName, Serializable {
 
         public String getType() {
             return type;
+        }
+
+        public boolean shouldSanitize() {
+            return shouldSanitize;
         }
 
         public String getDescription() {

@@ -29,6 +29,7 @@ import javax.ws.rs.core.Response;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.StringAndArgument;
 import org.apache.brooklyn.core.mgmt.internal.EffectorUtils;
@@ -89,7 +90,7 @@ public class EffectorResource extends AbstractBrooklynRestResource implements Ef
             throw WebResourceUtils.forbidden("User '%s' is not authorized to invoke effector %s on entity %s",
                     Entitlements.getEntitlementContext().user(), effector.get().getName(), entity);
         }
-        log.info("REST invocation of " + entity + "." + effector.get() + " " + parameters);
+        log.info("REST invocation of " + entity + "." + effector.get() + " " + Sanitizer.sanitize(parameters));
         Task<?> t = entity.invoke(effector.get(), parameters);
 
         try {
