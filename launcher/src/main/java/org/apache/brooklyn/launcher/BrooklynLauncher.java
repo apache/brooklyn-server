@@ -61,6 +61,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
 import com.google.common.base.Stopwatch;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 
@@ -105,6 +106,7 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
 
     private String globalBrooklynPropertiesFile = Os.mergePaths(Os.home(), ".brooklyn", "brooklyn.properties");
     private String localBrooklynPropertiesFile;
+    private Supplier<Map<?, ?>> brooklynPropertiesSupplier;
 
     public BrooklynServerDetails getServerDetails() {
         if (!isStarted()) throw new IllegalStateException("Cannot retrieve server details until started");
@@ -234,18 +236,29 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
 
     @Override
     protected void initManagementContext() {
-        setBrooklynPropertiesBuilder(
-                new BrooklynPropertiesFactoryHelper(
-                        globalBrooklynPropertiesFile,
-                        localBrooklynPropertiesFile,
-                        getBrooklynProperties())
-                .createPropertiesBuilder());
+        initBrooklynPropertiesBuilder();
 
         super.initManagementContext();
 
         if (customizeManagement!=null) {
             customizeManagement.apply(getManagementContext());
         }
+    }
+
+    protected void initBrooklynPropertiesBuilder() {
+        if (getBrooklynPropertiesBuilder() == null) {
+            setBrooklynPropertiesBuilder(
+                    new BrooklynPropertiesFactoryHelper(
+                            globalBrooklynPropertiesFile,
+                            localBrooklynPropertiesFile,
+                            getBrooklynProperties(),
+                            getBrooklynPropertiesSupplier())
+                    .createPropertiesBuilder());
+        }
+    }
+
+    private Supplier<Map<?, ?>> getBrooklynPropertiesSupplier() {
+        return brooklynPropertiesSupplier;
     }
 
     @Override
@@ -417,4 +430,13 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
         return this;
     }
 
+    /**
+     * Poperties returned by the supplier have less precedence (get overwritten) by global & local properties
+     */
+    public BrooklynLauncher brooklynPropertiesSupplier(Supplier<Map<?, ?>> brooklynPropertiesSupplier) {
+        this.brooklynPropertiesSupplier = brooklynPropertiesSupplier;
+        return this;
+    }
+
+    
 }

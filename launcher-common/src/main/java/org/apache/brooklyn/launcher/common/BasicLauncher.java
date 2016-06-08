@@ -760,6 +760,10 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
     public void setBrooklynPropertiesBuilder(BrooklynProperties.Factory.Builder brooklynPropertiesBuilder) {
         this.brooklynPropertiesBuilder = brooklynPropertiesBuilder;
     }
+    
+    public BrooklynProperties.Factory.Builder getBrooklynPropertiesBuilder() {
+        return brooklynPropertiesBuilder;
+    }
 
     public BrooklynProperties getBrooklynProperties() {
         return brooklynProperties;
