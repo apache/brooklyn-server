@@ -77,6 +77,7 @@ public class WebAppContextProvider {
         // but i think it actually *is* per-server instance, since we don't cache sessions server-side,
         // so i think this is write. [Alex 2015-09]
         context.setInitParameter(SessionManager.__SessionCookieProperty, SessionManager.__DefaultSessionCookie + "_" + "BROOKLYN" + Identifiers.makeRandomId(6));
+        context.setInitParameter("org.eclipse.jetty.servlet.Default.dirAllowed", "false");
         context.setAttribute(BrooklynServiceAttributes.BROOKLYN_MANAGEMENT_CONTEXT, managementContext);
         for (Map.Entry<String, Object> attributeEntry : attributes.entrySet()) {
             context.setAttribute(attributeEntry.getKey(), attributeEntry.getValue());
