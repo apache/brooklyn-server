@@ -50,6 +50,7 @@ public final class Sanitizer {
     private static class IsSecretPredicate implements Predicate<Object> {
         @Override
         public boolean apply(Object name) {
+            if (name == null) return false;
             String lowerName = name.toString().toLowerCase();
             for (String secretName : SECRET_NAMES) {
                 if (lowerName.contains(secretName))
@@ -69,6 +70,7 @@ public final class Sanitizer {
     private static final Predicate<Object> IS_SECRET_PREDICATE_DEPRECATED = new Predicate<Object>() {
         @Override
         public boolean apply(Object name) {
+            if (name == null) return false;
             String lowerName = name.toString().toLowerCase();
             for (String secretName : SECRET_NAMES) {
                 if (lowerName.contains(secretName))
@@ -111,7 +113,7 @@ public final class Sanitizer {
     private <K> Map<K, Object> apply(Map<K, ?> input, Set<Object> visited) {
         Map<K, Object> result = Maps.newLinkedHashMap();
         for (Map.Entry<K, ?> e : input.entrySet()) {
-            if (predicate.apply(e.getKey())){
+            if (e.getKey() != null && predicate.apply(e.getKey())){
                 result.put(e.getKey(), "xxxxxxxx");
                 continue;
             } 
