@@ -11,6 +11,23 @@ brooklyn.catalog:
 
   items:
 
+  - id: docker-preinstall-tests
+    name: Preinstalled image tests
+    description: Tests of pre-installed Docker image
+    itemType: entity
+    item:
+      type: org.apache.brooklyn.test.framework.TestCase
+
+      brooklyn.children:
+
+      - type: docker-engine
+        name: Docker Engine
+        id: preinstall-engine
+
+      - type: preinstall-image-tests
+        name: Preinstalled Image Tests
+        targetId: preinstall-engine
+
   - id: docker-engine-tests
     name: Docker Engine Tests without TLS
     description: Tests on Docker Engine without TLS
@@ -39,22 +56,8 @@ brooklyn.catalog:
         name: Test Docker with Container
         targetId: docker-engine-with-centos
 
-  - id: docker-preinstall-tests
-    name: Preinstalled image tests
-    description: Tests of pre-installed Docker image
-    itemType: entity
-    item:
-      type: org.apache.brooklyn.entity.stock.BasicApplication
-
-      brooklyn.children:
-
-      - type: docker-engine
-        name: Docker Engine
-        id: preinstall-engine
-
-      - type: preinstall-image-tests
-        name: Preinstall Image Tests
-        targetId: preinstall-engine
+      - type: docker-preinstall-tests
+        name: Preinstalled Image Tests
 
   - id: docker-engine-tls-tests
     name: Docker Engine Tests with TLS
