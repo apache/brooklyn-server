@@ -8,7 +8,7 @@
 brooklyn.catalog:
   version: 2.0.0-SNAPSHOT
   dependsOn:
-  - common.tests.bom
+    - common.tests.bom
 
   items:
 ### Location templates ###

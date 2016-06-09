@@ -5,7 +5,7 @@ brooklyn.catalog:
   publish:
     description: |
       Resources for working with Docker Swarm from Apache Brooklyn
-    license_code: APACHE-2.0
+    license_code: CLOUDSOFT-1.0
     overview: README.md
     qa: swarm.tests.bom
 

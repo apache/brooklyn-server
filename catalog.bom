@@ -5,9 +5,9 @@ brooklyn.catalog:
   publish:
     description: |
       Resources for working with Docker Engine from Apache Brooklyn
-    license_code: APACHE-2.0
+    license_code: CLOUDSOFT-1.0
     overview: README.md
-    qa: catalog.tests.bom
+    qa: docker.tests.bom
 
   items:
   - id: docker-engine

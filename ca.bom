@@ -5,7 +5,7 @@ brooklyn.catalog:
   publish:
     description: |
       An X.509 Certificate Authority tool using OpenSSL
-    license_code: APACHE-2.0
+    license_code: CLOUDSOFT-1.0
 
   items:
 
