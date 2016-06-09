@@ -1,9 +1,14 @@
 brooklyn.catalog:
-  version: 2.0.0-SNAPSHOT
+  version: "2.0.0-SNAPSHOT"
   iconUrl: https://raw.githubusercontent.com/docker-library/docs/471fa6e4cb58062ccbf91afc111980f9c7004981/swarm/logo.png
   dependsOn:
     - common.tests.bom
   license_code: CLOUDSOFT-1.0
+
+  brooklyn.config:
+    timeout: 1h
+    timeout.initialStartup: 1h
+    timeout.runtimeAssertion: 1h
 
   items:
 
@@ -13,7 +18,6 @@ brooklyn.catalog:
       name: Test that Docker Swarm cluster can pull containers from docker hub automatically
       brooklyn.parameters:
         - install.dir
-        - swarm.url
       brooklyn.children:
       - type: ssh-test
         shell.env:
@@ -34,8 +38,7 @@ brooklyn.catalog:
       type: org.apache.brooklyn.test.framework.TestCase
       name: Test Network Exists
       brooklyn.parameters:
-        - name: network.name
-          description: Name of the network
+        - network.name
       brooklyn.children:
       - type: ssh-test
         shell.env:
@@ -46,28 +49,24 @@ brooklyn.catalog:
         assertStatus:
           equals: 0
 
-  - id: test-swarm
+  - id: docker-swarm-tests
     name: Docker Swarm Tests
     description: |
       Tests on Docker Swarm over TLS
     itemType: entity
     item:
       type: org.apache.brooklyn.test.framework.TestCase
+
       brooklyn.config:
-        timeout: 1h
-        timeout.initialStartup: 1h
-        swarm.initial.size: 1
+        swarm.initial.size: 2
         etcd.initial.size: 1
+        swarm.defaultnetwork: "brooklyn"
 
       brooklyn.children:
 
         # The swarm to test
         - type: docker-swarm
           id: swarm
-          brooklyn.config:
-            swarm.initial.size: 1
-            etcd.initial.size: 1
-            swarm.defaultnetwork: "brooklyn"
 
         # A client for talking to the swarm
         - type: test-docker-client-with-tls

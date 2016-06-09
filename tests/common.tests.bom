@@ -1,5 +1,5 @@
 brooklyn.catalog:
-  version: 2.0.0-SNAPSHOT
+  version: "2.0.0-SNAPSHOT"
   iconUrl: https://raw.githubusercontent.com/docker-library/docs/c350af05d3fac7b5c3f6327ac82fe4d990d8729c/docker/logo.png
   license_code: CLOUDSOFT-1.0
 
@@ -54,11 +54,11 @@ brooklyn.catalog:
           osFamily: centos
 
         pre.install.command: |
-          # Install docker so we can use it as a client
-          sudo tee /etc/yum.repos.d/docker.repo <<-'EOF'
+          echo "[TEST] Install docker so we can use it as a client"
+          sudo tee /etc/yum.repos.d/docker.repo <<-EOF
           [dockerrepo]
           name=Docker Repository
-          baseurl=https://yum.dockerproject.org/repo/main/centos/$releasever/
+          baseurl=https://yum.dockerproject.org/repo/main/centos/\$releasever/
           enabled=1
           gpgcheck=1
           gpgkey=https://yum.dockerproject.org/gpg
@@ -87,29 +87,30 @@ brooklyn.catalog:
         shell.env:
           INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
           DOCKER_HOST: $brooklyn:config("docker.url")
+          DOCKER_TLS_VERIFY: true
+          DOCKER_CERT_PATH:
+            $brooklyn:formatString:
+              - "%s/.certs"
+              - $brooklyn:attributeWhenReady("install.dir")
+          IP: $brooklyn:config("client.address")
+          CA: $brooklyn:config("ca.url")
 
-        customize.command:
-          $brooklyn:formatString:
-          - |
-            echo [TEST] Installing certificates in ${INSTALL_DIR}/.certs
-            IP=%s; # client.address
-            CA=%s; # ca.url
-            mkdir -p ${INSTALL_DIR}/.certs
-            echo [TEST] Getting certificates from ${CA}
-            curl -X POST ${CA}/generate/${IP}
-            curl ${CA}/cert/${IP}/ca.pem > ${INSTALL_DIR}/.certs/ca.pem
-            curl ${CA}/cert/${IP}/cert.pem > ${INSTALL_DIR}/.certs/cert.pem
-            curl ${CA}/cert/${IP}/key.pem > ${INSTALL_DIR}/.certs/key.pem
-            if ! grep docker_client ${HOME}/.bashrc ; then
-              echo ". docker_client.rc" >> ${HOME}/.bashrc
-            fi
-            cat > ${HOME}/docker_client.rc <<-EOF
-            export DOCKER_TLS_VERIFY=true
-            export DOCKER_CERT_PATH=${INSTALL_DIR}/.certs
-            export DOCKER_HOST=${DOCKER_HOST}
-            EOF
-          - $brooklyn:config("client.address")
-          - $brooklyn:config("ca.url")
+        customize.command: |
+          echo [TEST] Installing certificates in ${INSTALL_DIR}/.certs
+          mkdir -p ${INSTALL_DIR}/.certs
+          echo [TEST] Getting certificates from ${CA}
+          curl -X POST ${CA}/generate/${IP}
+          curl ${CA}/cert/${IP}/ca.pem > ${INSTALL_DIR}/.certs/ca.pem
+          curl ${CA}/cert/${IP}/cert.pem > ${INSTALL_DIR}/.certs/cert.pem
+          curl ${CA}/cert/${IP}/key.pem > ${INSTALL_DIR}/.certs/key.pem
+          if ! grep docker_client ${HOME}/.bashrc ; then
+            echo ". docker_client.rc" >> ${HOME}/.bashrc
+          fi
+          cat > ${HOME}/docker_client.rc <<-EOF
+          export DOCKER_TLS_VERIFY=true
+          export DOCKER_CERT_PATH=${DOCKER_CERT_PATH}
+          export DOCKER_HOST=${DOCKER_HOST}
+          EOF
 
   - id: test-connect-fails-without-tls
     item:
@@ -118,7 +119,7 @@ brooklyn.catalog:
       command: |
         unset DOCKER_TLS_VERIFY
         unset DOCKER_CERT_PATH
-        [ -z "${DOCKER_HOST}" ] && SUDO=sudo ; $SUDO  docker ps -a
+        docker ps -a
       assertStatus:
         equals: 1
       assertErr:
@@ -130,34 +131,42 @@ brooklyn.catalog:
     item:
       type: org.apache.brooklyn.test.framework.TestCase
 
+      brooklyn.parameters:
+        - name: timeout.initialStartup
+          description: |
+            The timeout for provisioning, installing and launching the application
+            under test.
+          type: org.apache.brooklyn.util.time.Duration
+          default: 1h
+        - name: timeout.runtimeAssertion
+          type: org.apache.brooklyn.util.time.Duration
+          description: |
+            The timeout for any other operation e.g. invoking an effector or
+            waiting for a sensor to be updated.
+          default: 15m
+
       brooklyn.config:
-        timeout.initialStartup: 1h
+        image.preinstall: cloudsoft/centos:7
 
       brooklyn.children:
       - type: ssh-test
         name: TEST-1 docker stock image
-        brooklyn.parameters:
-        - name: image.preinstall
-          default: cloudsoft/centos:7
         brooklyn.config:
           # Should already be pulled by the docker-engine blueprint
           shell.env:
             IMAGE_PREINSTALLED: $brooklyn:config("image.preinstall")
           command: |
-            sudo docker images --format "{{.Repository}}:{{.Tag}}" | grep "${IMAGE_PREINSTALLED}"
+            docker images --format "{{.Repository}}:{{.Tag}}" | grep "${IMAGE_PREINSTALLED}"
           assert.status:
             equals: 0
       - type: ssh-test
         name: TEST-2 Remove pre-installed image
-        brooklyn.parameters:
-        - name: image.preinstall
-          default: cloudsoft/centos:7
         brooklyn.config:
           # Should already be pulled by the docker-engine blueprint
           shell.env:
             IMAGE_PREINSTALLED: $brooklyn:config("image.preinstall")
           command: |
-            sudo docker rmi "${IMAGE_PREINSTALLED}"
+            docker rmi "${IMAGE_PREINSTALLED}"
           assert.status:
             equals: 0
       - type: org.apache.brooklyn.test.framework.TestEffector
@@ -166,15 +175,12 @@ brooklyn.catalog:
           effector: restart
       - type: ssh-test
         name: TEST-4 docker re-downloads stock images
-        brooklyn.parameters:
-        - name: image.preinstall
-          default: cloudsoft/centos:7
         brooklyn.config:
           # Should already be pulled by the docker-engine blueprint
           shell.env:
             IMAGE_PREINSTALLED: $brooklyn:config("image.preinstall")
           command:
-            sudo docker images --format "{{.Repository}}:{{.Tag}}" | grep "${IMAGE_PREINSTALLED}"
+            docker images --format "{{.Repository}}:{{.Tag}}" | grep "${IMAGE_PREINSTALLED}"
           assert.status:
             equals: 0
 
@@ -189,17 +195,18 @@ brooklyn.catalog:
       type: org.apache.brooklyn.test.framework.TestCase
 
       brooklyn.parameters:
-      - name: timeout.initialStartup
-        description: The timeout for provisioning, installing and launching the app-under-test.
-        type: org.apache.brooklyn.util.time.Duration
-        default: 1h
-      - name: timeout.runtimeAssertion
-        type: org.apache.brooklyn.util.time.Duration
-        description: The timeout for any other operation (e.g. invoking an effector or waiting for a sensor to be updated)
-        default: 1h
-
-      brooklyn.config:
-        timeout.initialStartup: 1h
+        - name: timeout.initialStartup
+          description: |
+            The timeout for provisioning, installing and launching the application
+            under test.
+          type: org.apache.brooklyn.util.time.Duration
+          default: 1h
+        - name: timeout.runtimeAssertion
+          type: org.apache.brooklyn.util.time.Duration
+          description: |
+            The timeout for any other operation e.g. invoking an effector or
+            waiting for a sensor to be updated.
+          default: 15m
 
       brooklyn.children:
         # Basic startup tests
@@ -213,73 +220,75 @@ brooklyn.catalog:
           name: TEST-1-3 docker CLI commands succeed
           brooklyn.config:
             command: |
-              [ -z "${DOCKER_HOST}" ] && SUDO=sudo ; $SUDO docker ps
+              docker ps
 
         # Test image pull and delete
         - type: org.apache.brooklyn.test.framework.TestCase
           name: TEST-2 image pull and delete
+
           brooklyn.children:
           - type: ssh-test
             name: TEST-2-1 docker pull
             command: |
-              [ -z "${DOCKER_HOST}" ] && SUDO=sudo ; $SUDO docker pull redis
+              docker pull redis
 
           - type: ssh-test
             name: TEST-2-2 docker images added
             command: |
-              [ -z "${DOCKER_HOST}" ] && SUDO=sudo ; $SUDO docker images
+              docker images
             assertOut:
               contains: redis
 
           - type: ssh-test
             name: TEST-2-3 docker rmi
             command: |
-              [ -z "${DOCKER_HOST}" ] && SUDO=sudo ; $SUDO docker rmi redis
+              docker rmi redis
 
           - type: ssh-test
             name: TEST-2-4 docker images removed
             command: |
-              [ -z "${DOCKER_HOST}" ] && SUDO=sudo ; $SUDO docker images | grep -c redis
+              docker images | grep -c redis
             assertOut:
                 equals: "0"
 
         # Test starting and stopping and restarting a container
         - type: org.apache.brooklyn.test.framework.TestCase
           name: TEST-3 docker containers
+
           brooklyn.children:
           - type: ssh-test
             name: TEST-3-1 docker run MongoDB
             command: |
-              [ -z "${DOCKER_HOST}" ] && SUDO=sudo ; $SUDO docker run -d --name "test-MongoDB" mongo
+              docker run -d --name "test-MongoDB" mongo
 
           - type: ssh-test
             name: TEST-3-2 docker ps MongoDB is up
             command: |
-              [ -z "${DOCKER_HOST}" ] && SUDO=sudo ; $SUDO docker ps
+              docker ps
             assertOut:
               contains: test-MongoDB
 
           - type: ssh-test
             name: TEST-3-4 docker stop MongoDB
             command: |
-              [ -z "${DOCKER_HOST}" ] && SUDO=sudo ; $SUDO docker stop test-MongoDB
+              docker stop test-MongoDB
 
           - type: ssh-test
             name: TEST-3-5 docker ps MongoDB is stopped
             command: |
-              [ -z "${DOCKER_HOST}" ] && SUDO=sudo ; $SUDO docker ps | grep -c test-MongoDB
+              docker ps | grep -c test-MongoDB
             assertOut:
               equals: "0"
 
           - type: ssh-test
             name: TEST-3-6 docker start MongoDB
             command: |
-              [ -z "${DOCKER_HOST}" ] && SUDO=sudo ; $SUDO docker start test-MongoDB
+              docker start test-MongoDB
 
           - type: ssh-test
             name: TEST-3-7 docker ps MongoDB is up again
             command: |
-              [ -z "${DOCKER_HOST}" ] && SUDO=sudo ; $SUDO docker ps
+              docker ps
             assertOut:
               contains: test-MongoDB
 
@@ -296,12 +305,12 @@ brooklyn.catalog:
             - type: ssh-test
               name: TEST-3-8b docker build
               command: |
-                [ -z "${DOCKER_HOST}" ] && SUDO=sudo ; $SUDO docker build -t test_dockerfile:latest test_dockerfile_dir
+                docker build -t test_dockerfile:latest test_dockerfile_dir
 
             - type: ssh-test
               name: TEST-3-8c docker images built
               command: |
-                [ -z "${DOCKER_HOST}" ] && SUDO=sudo ; $SUDO docker images
+                docker images
               assertOut:
                 contains: test_dockerfile
 
@@ -313,23 +322,31 @@ brooklyn.catalog:
     name: TEST-4 Docker Engine and Container test
     description: Test that can run a container on the Docker Engine
     item:
-
       type: org.apache.brooklyn.test.framework.TestCase
+
       brooklyn.parameters:
-      - name: timeout.runtimeAssertion
-        type: org.apache.brooklyn.util.time.Duration
-        description: The timeout for any other operation (e.g. invoking an effector or waiting for a sensor to be updated)
-        default: 1h
-      brooklyn.config:
-        timeout.runtimeAssertion: 1h
+        - name: timeout.initialStartup
+          description: |
+            The timeout for provisioning, installing and launching the application
+            under test.
+          type: org.apache.brooklyn.util.time.Duration
+          default: 1h
+        - name: timeout.runtimeAssertion
+          type: org.apache.brooklyn.util.time.Duration
+          description: |
+            The timeout for any other operation e.g. invoking an effector or
+            waiting for a sensor to be updated.
+          default: 15m
+
       brooklyn.children:
       - type: assert-up
         name: TEST-4-1 assert-up
-        timeout: $brooklyn:config("timeout.runtimeAssertion")
+        brooklyn.config:
+          timeout: $brooklyn:config("timeout.initialStartup")
       - type: ssh-test
         name: TEST-4-2 assert-running
         brooklyn.config:
           command: |
-            [ -z "${DOCKER_HOST}" ] && SUDO=sudo ; $SUDO docker ps
+            docker ps
           assert.out:
             contains: cloudsoft/centos:7
