@@ -50,7 +50,7 @@ brooklyn.catalog:
         name: Docker Engine with Centos Container
         brooklyn.children:
         - type: docker-engine-container
-          container: cloudsoft/centos:7
+          image.details: cloudsoft/centos:7
 
       - type: docker-engine-and-container-test
         name: Test Docker with Container
@@ -93,12 +93,12 @@ brooklyn.catalog:
         brooklyn.config:
           customize.latch: $brooklyn:entity("dock-eng-ca").attributeWhenReady("service.isUp")
           client.address: $brooklyn:attributeWhenReady("host.address")
-          ca.url:  $brooklyn:entity("dock-eng-ca").attributeWhenReady("main.uri")
+          ca.url: $brooklyn:entity("dock-eng-ca").attributeWhenReady("main.uri")
           docker.url:
             $brooklyn:formatString:
             - "tcp://%s:%s/"
             - $brooklyn:entity("docker-engine-tls").attributeWhenReady("host.address")
-            - $brooklyn:entity("docker-engine-tls").config("tls.port")
+            - $brooklyn:entity("docker-engine-tls").attributeWhenReady("docker.port")
 
       - type: docker-engine-test
         name: Test Docker over TLS

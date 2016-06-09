@@ -141,6 +141,16 @@ brooklyn.catalog:
           sudo groupadd docker
           sudo usermod -aG docker ${USER}
 
+        post.customize.command: |
+          echo "[CLOCKER] Set up Docker environment variables"
+          if ! grep docker_client ${HOME}/.bashrc ; then
+            echo ". docker_client.rc" >> ${HOME}/.bashrc
+          fi
+          cat > ${HOME}/docker_client.rc <<-EOF
+          DOCKER_HOST=${DOCKER_HOST}
+          export DOCKER_HOST
+          EOF
+
         launch.command: |
           sudo service docker start && \
             ( docker images --format="{{.Repository}}:{{.Tag}}" | grep -q "${DOCKER_IMAGE}" || \
@@ -259,7 +269,8 @@ brooklyn.catalog:
           test -f ${INSTALL_DIR}/.certs/cert.pem || failwith "Failed to download cert.pem"
           test -f ${INSTALL_DIR}/.certs/key.pem || failwith "Failed to download key.pem"
 
-          echo "[CLOCKER] Set up Docker environment variables"
+        post.customize.command: |
+          echo "[CLOCKER] Set up Docker environment variables with TLS"
           if ! grep docker_client ${HOME}/.bashrc ; then
             echo ". docker_client.rc" >> ${HOME}/.bashrc
           fi

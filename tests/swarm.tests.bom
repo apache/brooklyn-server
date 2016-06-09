@@ -122,11 +122,12 @@ brooklyn.catalog:
               client.address: $brooklyn:component("swarm-client").attributeWhenReady("host.address")
               network.name: $brooklyn:component("swarm").config("swarm.defaultnetwork")
 
-          - type: test-network-exists
-            name: "TEST-7 Test named network exists"
-            brooklyn.config:
-              targetId: swarm-client
-              swarm.url: $brooklyn:component("swarm").attributeWhenReady("swarm.url")
-              ca.url: $brooklyn:component("ca-server").attributeWhenReady("main.uri")
-              client.address: $brooklyn:component("swarm-client").attributeWhenReady("host.address")
-              network.name: "test-network-name"
+# TODO re-implement this using a separately configured swarm-cluster
+#          - type: test-network-exists
+#            name: "TEST-7 Test named network exists"
+#            brooklyn.config:
+#              targetId: swarm-client
+#              swarm.url: $brooklyn:component("swarm").attributeWhenReady("swarm.url")
+#              ca.url: $brooklyn:component("ca-server").attributeWhenReady("main.uri")
+#              client.address: $brooklyn:component("swarm-client").attributeWhenReady("host.address")
+#              network.name: "test-network-name"

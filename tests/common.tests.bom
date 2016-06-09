@@ -50,22 +50,25 @@ brooklyn.catalog:
       brooklyn.config:
         dontRequireTtyForSudo: true
 
-      pre.install.command: |
-        # Install docker so we can use it as a client
-        sudo tee /etc/yum.repos.d/docker.repo <<-'EOF'
-        [dockerrepo]
-        name=Docker Repository
-        baseurl=https://yum.dockerproject.org/repo/main/centos/$releasever/
-        enabled=1
-        gpgcheck=1
-        gpgkey=https://yum.dockerproject.org/gpg
-        EOF
+        provisioning.properties:
+          osFamily: centos
 
-      install.command: |
-        sudo yum -y install docker-engine
+        pre.install.command: |
+          # Install docker so we can use it as a client
+          sudo tee /etc/yum.repos.d/docker.repo <<-'EOF'
+          [dockerrepo]
+          name=Docker Repository
+          baseurl=https://yum.dockerproject.org/repo/main/centos/$releasever/
+          enabled=1
+          gpgcheck=1
+          gpgkey=https://yum.dockerproject.org/gpg
+          EOF
 
-      launch.command: |
-        while true ; do sleep 3600; done & echo $! > ${PID_FILE}
+        install.command: |
+          sudo yum -y install docker-engine
+
+        launch.command: |
+          while true ; do sleep 3600; done & echo $! > ${PID_FILE}
 
   - id: test-docker-client-with-tls
     item:
@@ -73,40 +76,40 @@ brooklyn.catalog:
       name: "test-docker-client-with-tls"
 
       brooklyn.parameters:
-      - name: docker.url
-        description: URL of the docker endpoint
-      - name: ca.url
-        description: URL of the CA server
-      - name: client.address
-        description: Public address of this test client
+        - name: docker.url
+          description: URL of the docker endpoint
+        - name: ca.url
+          description: URL of the CA server
+        - name: client.address
+          description: Public address of this test client
 
-      env:
-        INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
-        DOCKER_HOST: $brooklyn:config("docker.url")
+      brooklyn.config:
+        shell.env:
+          INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
+          DOCKER_HOST: $brooklyn:config("docker.url")
 
-      customize.command:
-        $brooklyn:formatString:
-        - |
-          echo [TEST] Installing certificates in ${INSTALL_DIR}/.certs
-          IP=%s; # client.address
-          CA=%s; # ca.url
-          mkdir -p ${INSTALL_DIR}/.certs
-          echo [TEST] Getting certificates from ${CA}
-          curl -X POST ${CA}/generate/${IP}
-          curl ${CA}/cert/${IP}/ca.pem > ${INSTALL_DIR}/.certs/ca.pem
-          curl ${CA}/cert/${IP}/cert.pem > ${INSTALL_DIR}/.certs/cert.pem
-          curl ${CA}/cert/${IP}/key.pem > ${INSTALL_DIR}/.certs/key.pem
-          if ! grep docker_client ${HOME}/.bashrc ; then
-            echo ". docker_client.rc" >> ${HOME}/.bashrc
-          fi
-          cat > ${HOME}/docker_client.rc <<-EOF
-          export DOCKER_TLS_VERIFY=true
-          export DOCKER_CERT_PATH=${INSTALL_DIR}/.certs
-          export DOCKER_HOST=${DOCKER_HOST}
-          EOF
-        - $brooklyn:config("client.address")
-        - $brooklyn:config("ca.url")
-
+        customize.command:
+          $brooklyn:formatString:
+          - |
+            echo [TEST] Installing certificates in ${INSTALL_DIR}/.certs
+            IP=%s; # client.address
+            CA=%s; # ca.url
+            mkdir -p ${INSTALL_DIR}/.certs
+            echo [TEST] Getting certificates from ${CA}
+            curl -X POST ${CA}/generate/${IP}
+            curl ${CA}/cert/${IP}/ca.pem > ${INSTALL_DIR}/.certs/ca.pem
+            curl ${CA}/cert/${IP}/cert.pem > ${INSTALL_DIR}/.certs/cert.pem
+            curl ${CA}/cert/${IP}/key.pem > ${INSTALL_DIR}/.certs/key.pem
+            if ! grep docker_client ${HOME}/.bashrc ; then
+              echo ". docker_client.rc" >> ${HOME}/.bashrc
+            fi
+            cat > ${HOME}/docker_client.rc <<-EOF
+            export DOCKER_TLS_VERIFY=true
+            export DOCKER_CERT_PATH=${INSTALL_DIR}/.certs
+            export DOCKER_HOST=${DOCKER_HOST}
+            EOF
+          - $brooklyn:config("client.address")
+          - $brooklyn:config("ca.url")
 
   - id: test-connect-fails-without-tls
     item:
@@ -125,10 +128,11 @@ brooklyn.catalog:
     name: Preinstalled Image Tests
     description: Tests on the default Docker image
     item:
-
       type: org.apache.brooklyn.test.framework.TestCase
+
       brooklyn.config:
         timeout.initialStartup: 1h
+
       brooklyn.children:
       - type: ssh-test
         name: TEST-1 docker stock image
@@ -175,15 +179,15 @@ brooklyn.catalog:
             equals: 0
 
   ###
-   # Tests that we can deploy a Docker Engine. We assert that it reports success, is reachable
-   # and basic health checks (via Docker CLI) also report success.
-   ##
+  # Tests that we can deploy a Docker Engine. We assert that it reports success, is reachable
+  # and basic health checks (via Docker CLI) also report success.
+  ##
   - id: docker-engine-test
     name: Docker Engine test
     description: Test that Docker Engine is deployed correctly
     item:
-
       type: org.apache.brooklyn.test.framework.TestCase
+
       brooklyn.parameters:
       - name: timeout.initialStartup
         description: The timeout for provisioning, installing and launching the app-under-test.
@@ -193,8 +197,10 @@ brooklyn.catalog:
         type: org.apache.brooklyn.util.time.Duration
         description: The timeout for any other operation (e.g. invoking an effector or waiting for a sensor to be updated)
         default: 1h
+
       brooklyn.config:
         timeout.initialStartup: 1h
+
       brooklyn.children:
         # Basic startup tests
         - type: assert-up
@@ -299,13 +305,10 @@ brooklyn.catalog:
               assertOut:
                 contains: test_dockerfile
 
-
-
-
   ###
-   # Tests that we can deploy a Docker Engine along with a long-running container.
-   # We assert that the container comes up (according to the CLI command `docker ps`).
-   ##
+  # Tests that we can deploy a Docker Engine along with a long-running container.
+  # We assert that the container comes up (according to the CLI command `docker ps`).
+  ##
   - id: docker-engine-and-container-test
     name: TEST-4 Docker Engine and Container test
     description: Test that can run a container on the Docker Engine
