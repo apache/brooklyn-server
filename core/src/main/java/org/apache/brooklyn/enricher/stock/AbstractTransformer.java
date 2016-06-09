@@ -59,6 +59,14 @@ public abstract class AbstractTransformer<T,U> extends AbstractEnricher implemen
             "Sensors that will trigger re-evaluation",
             ImmutableList.<Sensor<?>>of());
 
+    public static final ConfigKey<Boolean> ALLOW_CYCLIC_PUBLISHING = ConfigKeys.newBooleanConfigKey(
+            "enricher.allowCyclicPublishing",
+            "Whether to all a transformer to publish to the same sensor (on the same entity) to "
+                    + "which it's subscribed, thus risking an infinite loop. Defaults to false. "
+                    + "Use with caution (e.g. if transformer implementation is very selective about "
+                    + "when to publish, filters out duplicates, etc",
+            false);
+
     protected Entity producer;
     protected Sensor<T> sourceSensor;
     protected Sensor<U> targetSensor;
@@ -84,14 +92,20 @@ public abstract class AbstractTransformer<T,U> extends AbstractEnricher implemen
             throw new IllegalArgumentException("Enricher "+JavaClassNames.simpleClassName(this)+" has no "+SOURCE_SENSOR.getName()+" and no "+TRIGGER_SENSORS.getName());
         }
         if (producer.equals(entity) && (targetSensor.equals(sourceSensor) || triggerSensors.contains(targetSensor))) {
-            // We cannot call getTransformation() here to log the tranformation, as it will attempt
-            // to resolve the transformation, which will cause the entity initialization thread to block
-            LOG.error("Refusing to add an enricher which reads and publishes on the same sensor: "+
-                producer+"->"+targetSensor+" (computing transformation with "+JavaClassNames.simpleClassName(this)+")");
-            // we don't throw because this error may manifest itself after a lengthy deployment, 
-            // and failing it at that point simply because of an enricher is not very pleasant
-            // (at least not until we have good re-run support across the board)
-            return;
+            boolean allowCyclicPublishing = Boolean.TRUE.equals(getConfig(ALLOW_CYCLIC_PUBLISHING));
+            if (allowCyclicPublishing) {
+                LOG.debug("Permitting cyclic publishing, though detected enricher will read and publish on the same sensor: "+
+                    producer+"->"+targetSensor+" (computing transformation with "+JavaClassNames.simpleClassName(this)+")");
+            } else {
+                // We cannot call getTransformation() here to log the tranformation, as it will attempt
+                // to resolve the transformation, which will cause the entity initialization thread to block
+                LOG.error("Refusing to add an enricher which reads and publishes on the same sensor: "+
+                    producer+"->"+targetSensor+" (computing transformation with "+JavaClassNames.simpleClassName(this)+")");
+                // we don't throw because this error may manifest itself after a lengthy deployment, 
+                // and failing it at that point simply because of an enricher is not very pleasant
+                // (at least not until we have good re-run support across the board)
+                return;
+            }
         }
         
         if (sourceSensor != null) {
