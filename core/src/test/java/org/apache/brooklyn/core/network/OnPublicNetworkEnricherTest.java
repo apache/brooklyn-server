@@ -70,7 +70,7 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
     }
     
     @DataProvider(name = "variants")
-    public static Object[][] provideVariants() {
+    public Object[][] provideVariants() {
         AttributeSensor<HostAndPort> hostAndPortSensor = Sensors.newSensor(HostAndPort.class, "test.endpoint");
         List<Object[]> result = Lists.newArrayList();
         for (Timing setSensor : Timing.values()) {
@@ -95,7 +95,7 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
     }
     
     @DataProvider(name = "invalidVariants")
-    public static Object[][] provideInvalidVariants() {
+    public Object[][] provideInvalidVariants() {
         AttributeSensor<HostAndPort> hostAndPortSensor = Sensors.newSensor(HostAndPort.class, "test.hostAndPort");
         List<Object[]> result = Lists.newArrayList();
         result.add(new Object[] {Attributes.MAIN_URI, (URI)null});
