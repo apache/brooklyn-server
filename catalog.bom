@@ -119,7 +119,7 @@ brooklyn.catalog:
           DOCKER_ENDPOINT: $brooklyn:attributeWhenReady("docker.endpoint")
           DOCKER_BIND_URL: $brooklyn:attributeWhenReady("docker.bind.url")
           DOCKER_HOST: $brooklyn:attributeWhenReady("docker.url")
-          DOCKER_IMAGE: $brooklyn:config("image.preinstall")
+          DOCKER_IMAGE_PREINSTALL: $brooklyn:config("image.preinstall")
           DOCKER_PACKAGE: $brooklyn:config("docker.package")
           DOCKER_VERSION: $brooklyn:config("docker.version")
           DOCKER_REPOSITORY_URL: $brooklyn:config("docker.repository.url")
@@ -191,8 +191,8 @@ brooklyn.catalog:
 
         launch.command: |
           sudo service docker start && \
-            ( docker images --format="{{.Repository}}:{{.Tag}}" | grep -q "${DOCKER_IMAGE}" || \
-              docker pull ${DOCKER_IMAGE} )
+            ( docker images --format="{{.Repository}}:{{.Tag}}" | grep -q "${DOCKER_IMAGE_PREINSTALL}" || \
+              docker pull ${DOCKER_IMAGE_PREINSTALL} )
 
         stop.command: |
           sudo service docker stop
@@ -347,3 +347,35 @@ brooklyn.catalog:
 
         launch.command: |
           docker run -d ${IMAGE_DETAILS}
+
+  - id: docker-vm-container
+    name: Docker Entity
+    description: |
+      An easy way to launch a single Docker container on a VM
+    itemType: entity
+    item:
+      type: docker-engine
+
+      brooklyn.config:
+        shell.env:
+          DOCKER_IMAGE: $brooklyn:config("docker.image")
+
+        # TODO Move the empty docker.image test to pre-install steps after they fail the start effector
+        # Breaks compatibility with docker-engine - doesn't install "image.preinstall" to save on copy & paste
+        launch.command: |
+          set -e
+          if [ -z "${DOCKER_IMAGE}" ]; then
+            echo "[CLOCKER] 'docker.image' not configured on the entity" >&2
+            exit 1
+          fi
+          sudo service docker start
+          rm -f "${PID_FILE}" # docker won't overwrite
+          docker run -d --cidfile "${PID_FILE}" "${DOCKER_IMAGE}"
+
+        checkRunning.command: |
+          STATE=$(docker inspect --format "{{ .State.Status }}" $(cat "${PID_FILE}"))
+          sudo service docker status && [ "${STATE}" = "running" ]
+
+        stop.command: |
+          docker stop $(cat "${PID_FILE}"))
+          sudo service docker stop
