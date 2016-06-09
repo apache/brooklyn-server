@@ -24,6 +24,7 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.Sensor;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
@@ -46,7 +47,10 @@ import com.google.common.collect.ImmutableMap;
 public class TransformingEnricherTest extends BrooklynAppUnitTestSupport {
 
     public static final Logger log = LoggerFactory.getLogger(TransformingEnricherTest.class);
-            
+
+    private static final Duration SHORT_WAIT = Duration.millis(250);
+    private static final Duration VERY_SHORT_WAIT = Duration.millis(100);
+    
     TestEntity producer;
     AttributeSensor<Integer> intSensorA;
     AttributeSensor<Integer> intSensorB;
@@ -175,7 +179,7 @@ public class TransformingEnricherTest extends BrooklynAppUnitTestSupport {
 
         // Short wait; expect us to never re-publish the source-sensor as that would cause infinite loop.
         producer.sensors().set(intSensorA, 1);
-        EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", Duration.millis(250)), producer, intSensorA, 1);
+        EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", SHORT_WAIT), producer, intSensorA, 1);
     }
     
     @Test
@@ -194,7 +198,7 @@ public class TransformingEnricherTest extends BrooklynAppUnitTestSupport {
                     }}));
 
         producer.sensors().set(intSensorA, 1);
-        EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", Duration.millis(250)), producer, intSensorA, 1);
+        EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", SHORT_WAIT), producer, intSensorA, 1);
     }
     
     @Test
@@ -225,17 +229,39 @@ public class TransformingEnricherTest extends BrooklynAppUnitTestSupport {
         EntityAsserts.assertAttributeEqualsEventually(app, intSensorA, 3);
     }
 
+    @Test
+    public void testAllowCyclicPublishing() throws Exception {
+        app.enrichers().add(EnricherSpec.create(Transformer.class)
+                .configure(Transformer.SOURCE_SENSOR, intSensorA)
+                .configure(Transformer.TARGET_SENSOR, intSensorA)
+                .configure(Transformer.ALLOW_CYCLIC_PUBLISHING, true)
+                .configure(Transformer.TRANSFORMATION_FROM_VALUE, new Function<Integer, Object>() {
+                    @Override public Object apply(Integer input) {
+                        if (input != null && input < 10) {
+                            return input + 1;
+                        } else {
+                            return Entities.UNCHANGED;
+                        }
+                    }}));
+
+        app.sensors().set(intSensorA, 3);
+
+        EntityAsserts.assertAttributeEqualsEventually(app, intSensorA, 10);
+        EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", VERY_SHORT_WAIT), app, intSensorA, 10);
+    }
+
+    @Test
     public void testTransformerFailsWithEmptyConfig() throws Exception {
         EnricherSpec<?> spec = EnricherSpec.create(Transformer.class);
 
-        assertAddEnricherThrowsNullPointerException(spec, "Value required");
+        assertAddEnricherThrowsIllegalArgumentException(spec, "Transformer has no");
     }
     
-    private void assertAddEnricherThrowsNullPointerException(EnricherSpec<?> spec, String expectedPhrase) {
+    private void assertAddEnricherThrowsIllegalArgumentException(EnricherSpec<?> spec, String expectedPhrase) {
         try {
             app.enrichers().add(spec);
             Asserts.shouldHaveFailedPreviously();
-        } catch (NullPointerException e) {
+        } catch (IllegalArgumentException e) {
             Asserts.expectedFailureContains(e, expectedPhrase);
         }
     }
