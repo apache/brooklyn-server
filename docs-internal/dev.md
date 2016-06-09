@@ -37,7 +37,7 @@ not an iron rule that we have to keep.
    - https://github.com/cloudsoft/cloudsoft/wiki/QA%20Framework
    - https://github.com/cloudsoft/cloudsoft/wiki/Blue-Box
 
-    br add-catalog https://raw.githubusercontent.com/cloudsoft/blueprint-qa-seed/master/locations/bluebox-singapore-centos7.bom
+    br add-catalog https://raw.githubusercontent.com/cloudsoft/blueprint-qa-seed/master/locations/bluebox-singapore-centos7.bom?token=ANfNJ5kY9pvufckGUZZ3mzM4FlHq1D2Aks5XX93owA%3D%3D
 
 NOTE - you'll have to get a fresh token of your own by going to Github - I find it convenient enough to 
 navigate to https://github.com/cloudsoft/blueprint-qa-seed/tree/master/locations, pick the cloud I want, hit the
@@ -176,3 +176,10 @@ To be able to execute `docker ...` commands locally:
     # Run something, and check it is listed
     docker -H  ${swarm_endpoint} ${TLS_OPTIONS} run hello-world
     docker -H ${swarm_endpoint}  ${TLS_OPTIONS} ps -a
+
+Instead of explicit parameters to `docker` you can use its environment variables as follows:
+
+    export DOCKER_HOST=tcp://10.10.10.152:3376
+    export DOCKER_TLS_VERIFY=true
+    export DOCKER_CERT_PATH=.certs
+    docker ps -a
