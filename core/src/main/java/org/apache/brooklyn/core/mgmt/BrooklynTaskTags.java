@@ -190,9 +190,16 @@ public class BrooklynTaskTags extends TaskTags {
         public Integer getStreamSize() {
             return streamSize.get();
         }
-        // there is a stream api so don't return everything unless explicitly requested!
+        // there is a stream call on Activity REST api which accesses streamContent.get() directly;
+        // so when serializing the tag, abbreviate things
         @JsonProperty("streamContents")
         public String getStreamContentsAbbreviated() {
+            // TODO would be nice to just get the first 80 chars but that's a refactoring
+            // which might affect persistence.  if stream is very large (100MB+) then we sometimes
+            // get OOME without it, so let's abbreviate
+            if (streamSize.get()>8192) {
+                return "<contents-too-large>";
+            }
             return Strings.maxlenWithEllipsis(streamContents.get(), 80);
         }
         @Override
