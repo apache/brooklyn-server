@@ -1,15 +1,22 @@
-# A blueprint deploying an application built with the Docker swarm entities from the catalog. This
-# is intended to illustrate the process of composing a blueprint to create a swarm, using pre-existing
-# entities.  For this purpose it uses entities from the catalog for each of the parts, but in
-# another scenario the CA server and discovery components might be provided by other entities
-# that the user has available.
+id: custom-swarm
+description: |
+  A blueprint deploying an application built with the Docker swarm entities from the catalog. This
+  is intended to illustrate the process of composing a blueprint to create a swarm, using pre-existing
+  entities.  For this purpose it uses entities from the catalog for each of the parts, but in
+  another scenario the CA server and discovery components might be provided by other entities
+  that the user has available.
 
-location: my-cloud
+location:
+  jclouds:softlayer:
+    region: ams01
 
 services:
 - type: org.apache.brooklyn.entity.stock.BasicApplication
+  id: swarm
+  name: "swarm"
   brooklyn.enrichers:
   - type: org.apache.brooklyn.enricher.stock.Propagator
+    brooklyn.config:
       uniqueTag: swarm-url-propagator
       producer: $brooklyn:child("swarm-cluster")
       propagating:
@@ -27,9 +34,8 @@ services:
     name: "swarm-cluster"
     brooklyn.config:
       swarm.initial.size: 3
-      discovery.url: $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.authority")
+      swarm.discovery.url: $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.authority")
+      docker.discovery.url: $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.authority")
       launch.latch: $brooklyn:entity("etcd-cluster").attributeWhenReady("service.isUp")
       customize.latch: $brooklyn:entity("ca-server").attributeWhenReady("service.isUp")
-      ca.request.root: $brooklyn:entity("ca-server").attributeWhenReady("main.uri")
-
-
+      ca.request.root.url: $brooklyn:entity("ca-server").attributeWhenReady("main.uri")

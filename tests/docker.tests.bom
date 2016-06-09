@@ -1,9 +1,9 @@
 brooklyn.catalog:
   version: 2.0.0-SNAPSHOT
   iconUrl: https://raw.githubusercontent.com/docker-library/docs/c350af05d3fac7b5c3f6327ac82fe4d990d8729c/docker/logo.png
-  dependsOn: ["common.tests.bom"]
-  license_code: TODO
-  license_url: TODO
+  dependsOn:
+    - common.tests.bom
+  license_code: CLOUDSOFT-1.0
 
   brooklyn.config:
     timeout: 1h
@@ -50,7 +50,7 @@ brooklyn.catalog:
         name: Docker Engine with Centos Container
         brooklyn.children:
         - type: docker-engine-container
-          container: cloudsoft/centos:7
+          image.details: cloudsoft/centos:7
 
       - type: docker-engine-and-container-test
         name: Test Docker with Container
@@ -79,11 +79,11 @@ brooklyn.catalog:
         id: docker-engine-tls
         brooklyn.config:
           customize.latch: $brooklyn:entity("dock-eng-ca").attributeWhenReady("service.isUp")
-          ca.request.root:
+          ca.request.root.url:
             $brooklyn:formatString:
             - "%s:%d"
             - $brooklyn:entity("dock-eng-ca").attributeWhenReady("host.address")
-            - $brooklyn:entity("dock-eng-ca").attributeWhenReady("ca.port")
+            - $brooklyn:entity("dock-eng-ca").attributeWhenReady("ca.server.port")
 
 
       # A client for talking to the engine
@@ -93,12 +93,12 @@ brooklyn.catalog:
         brooklyn.config:
           customize.latch: $brooklyn:entity("dock-eng-ca").attributeWhenReady("service.isUp")
           client.address: $brooklyn:attributeWhenReady("host.address")
-          ca.url:  $brooklyn:entity("dock-eng-ca").attributeWhenReady("main.uri")
+          ca.url: $brooklyn:entity("dock-eng-ca").attributeWhenReady("main.uri")
           docker.url:
             $brooklyn:formatString:
             - "tcp://%s:%s/"
             - $brooklyn:entity("docker-engine-tls").attributeWhenReady("host.address")
-            - $brooklyn:entity("docker-engine-tls").config("tls.port")
+            - $brooklyn:entity("docker-engine-tls").attributeWhenReady("docker.port")
 
       - type: docker-engine-test
         name: Test Docker over TLS

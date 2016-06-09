@@ -92,7 +92,7 @@ To deploy a Docker Engine with TLS (which will also require a CA server):
     - type: docker-engine-tls
       brooklyn.config:
         customize.latch: $brooklyn:entity("ca-server").attributeWhenReady("service.isUp")
-        ca.request.root: $brooklyn:entity("ca-server").attributeWhenReady("main.uri")
+        ca.request.root.url: $brooklyn:entity("ca-server").attributeWhenReady("main.uri")
 
 
 #### Docker Swarm

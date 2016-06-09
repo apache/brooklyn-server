@@ -1,0 +1,27 @@
+id: swarm-using-external-resources
+description: |
+  An example deploying a Docker Swarm cluster using an existing discovery
+  mechanism (an Etcd cluster) and providing external URLs for the TLS
+  certificates and private keys for each Swarm node.  Note the same URL will
+  be used for each Swarm node so the certificate will have to be suitable
+  for use on all of them, typically a wildcard certifiate.
+
+  Deploys on CentOS nodes.
+
+# TODO this needs to be reviewed, it hasn't been tested yet.
+
+location:
+  jclouds:softlayer:
+    region: ams01
+
+services:
+- type: docker-swarm-cluster
+  id: swarm
+  name: "swarm"
+  brooklyn.config:
+    swarm.initial.size: 3
+    swarm.discovery.url: etcd://10.10.10.123:2380/
+    docker.discovery.url: etcd://10.10.10.123:2380/
+    ca.cert.url: http://10.10.10.101:8080/default/ca.pem
+    node.cert.url: http://10.10.10.101:8080/default/cert.pem
+    private.key.url: http://10.10.10.101:8080/default/key.pem

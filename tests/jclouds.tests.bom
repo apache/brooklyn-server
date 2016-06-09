@@ -7,7 +7,9 @@
 # - type: test-container-clean-up
 brooklyn.catalog:
   version: 2.0.0-SNAPSHOT
-  dependsOn: ["common.tests.bom"]
+  dependsOn:
+    - common.tests.bom
+
   items:
 ### Location templates ###
 #  # Add a location named "location-container" based on this one
