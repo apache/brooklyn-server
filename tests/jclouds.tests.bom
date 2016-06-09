@@ -70,7 +70,7 @@ brooklyn.catalog:
       brooklyn.initializers:
         - type: org.apache.brooklyn.core.sensor.StaticSensor
           brooklyn.config:
-            static.value: $brooklyn:entity("container").attributeWhenReady("host.subnet.address")
+            static.value: $brooklyn:ancestor("test-scope").descendant("container").attributeWhenReady("host.subnet.address")
             name: container.ip
       location: location-swarm-master
 
@@ -83,18 +83,18 @@ brooklyn.catalog:
       description: Make sure we have an eagerly evaluated container ip, before we stop the container
       type: org.apache.brooklyn.test.framework.TestSensor
       sensor: container.ip
-      targetId: swarm-master
+      target: $brooklyn:ancestor("test-scope").descendant("swarm-master")
       assert:
       - notNull: true
   - id: assert-container-destroyed
     item:
       name: Assert container is destroyed
       type: ssh-test
-      targetId: swarm-master
+      target: $brooklyn:ancestor("test-scope").descendant("swarm-master")
       shell.env:
-        HOST_ADDRESS: $brooklyn:entity("swarm-master").attributeWhenReady("host.address")
-        SWARM_PORT: $brooklyn:entity("swarm-master").config("swarm.port")
-        CONTAINER_IP: $brooklyn:entity("swarm-master").attributeWhenReady("container.ip")
+        HOST_ADDRESS: $brooklyn:ancestor("test-scope").descendant("swarm-master").attributeWhenReady("host.address")
+        SWARM_PORT: $brooklyn:ancestor("test-scope").descendant("swarm-master").config("swarm.port")
+        CONTAINER_IP: $brooklyn:ancestor("test-scope").descendant("swarm-master").attributeWhenReady("container.ip")
       # TODO Assumes there's only one docker node in the swarm so that bridge IPs are global to the swarm
       command: |
         export DOCKER_HOST=${HOST_ADDRESS}:${SWARM_PORT};
@@ -107,11 +107,11 @@ brooklyn.catalog:
     item:
       name: Wait for dd to complete
       type: ssh-test
-      targetId: swarm-master
+      target: $brooklyn:ancestor("test-scope").descendant("swarm-master")
       shell.env:
-        HOST_ADDRESS: $brooklyn:entity("swarm-master").attributeWhenReady("host.address")
-        SWARM_PORT: $brooklyn:entity("swarm-master").config("swarm.port")
-        CONTAINER_IP: $brooklyn:entity("swarm-master").attributeWhenReady("container.ip")
+        HOST_ADDRESS: $brooklyn:ancestor("test-scope").descendant("swarm-master").attributeWhenReady("host.address")
+        SWARM_PORT: $brooklyn:ancestor("test-scope").descendant("swarm-master").config("swarm.port")
+        CONTAINER_IP: $brooklyn:ancestor("test-scope").descendant("swarm-master").attributeWhenReady("container.ip")
       command: |
         export DOCKER_HOST=${HOST_ADDRESS}:${SWARM_PORT};
         export CONTAINER_ID=$(docker ps -a --format '{{ .ID }}' |
@@ -121,7 +121,7 @@ brooklyn.catalog:
   - id: asserts-container-stop
     item:
       type: test-case
-      targetId: container
+      target: $brooklyn:ancestor("test-scope").descendant("container")
       brooklyn.config:
         timeout: 1m
       brooklyn.children:
@@ -135,12 +135,12 @@ brooklyn.catalog:
       name: Assert specific image is used
       type: ssh-test
       brooklyn.config:
-        targetId: swarm-master
+        target: $brooklyn:ancestor("test-scope").descendant("swarm-master")
         shell.env:
-          HOST_ADDRESS: $brooklyn:entity("swarm-master").attributeWhenReady("host.address")
-          SWARM_PORT: $brooklyn:entity("swarm-master").config("swarm.port")
+          HOST_ADDRESS: $brooklyn:ancestor("test-scope").descendant("swarm-master").attributeWhenReady("host.address")
+          SWARM_PORT: $brooklyn:ancestor("test-scope").descendant("swarm-master").config("swarm.port")
           IMAGE_PREINSTALL_ID: $brooklyn:config("image.preinstall.id")
-          CONTAINER_IP: $brooklyn:entity("swarm-master").attributeWhenReady("container.ip")
+          CONTAINER_IP: $brooklyn:ancestor("test-scope").descendant("swarm-master").attributeWhenReady("container.ip")
         # TODO Assumes there's only one docker node in the swarm so that bridge IPs are global to the swarm
         command: |
           export DOCKER_HOST=$HOST_ADDRESS:$SWARM_PORT;
@@ -154,10 +154,10 @@ brooklyn.catalog:
       name: Pull Docker image
       type: ssh-test
       brooklyn.config:
-        targetId: swarm-master
+        target: $brooklyn:ancestor("test-scope").descendant("swarm-master")
         shell.env:
-          HOST_ADDRESS: $brooklyn:entity("swarm-master").attributeWhenReady("host.address")
-          SWARM_PORT: $brooklyn:entity("swarm-master").config("swarm.port")
+          HOST_ADDRESS: $brooklyn:ancestor("test-scope").descendant("swarm-master").attributeWhenReady("host.address")
+          SWARM_PORT: $brooklyn:ancestor("test-scope").descendant("swarm-master").config("swarm.port")
           PULL_IMAGE_NAME: $brooklyn:config("pull.image.name")
         command: |
           export DOCKER_HOST=$HOST_ADDRESS:$SWARM_PORT;
@@ -169,9 +169,10 @@ brooklyn.catalog:
   - id: test-location-image
     item:
       name: Location image test
+      id: test-scope
       type: test-case
       brooklyn.config:
-        targetId: container
+        target: $brooklyn:ancestor("test-scope").descendant("container")
         timeout: 1m
       brooklyn.children:
       - type: swarm-master
@@ -192,6 +193,7 @@ brooklyn.catalog:
   - id: test-container-stop
     item:
       name: Jclouds docker provider release test
+      id: test-scope
       type: test-case
       brooklyn.children:
       - type: swarm-master
@@ -205,6 +207,7 @@ brooklyn.catalog:
   - id: test-container-clean-up
     item:
       name: Jclouds docker provider clean up test
+      id: test-scope
       type: test-case
       brooklyn.children:
       - type: container
@@ -245,10 +248,10 @@ brooklyn.catalog:
       location:
         location-container:
           imageDescriptionRegex: busybox:1.24
-  # TODO Doesn't work - will have different entities with same PLAN_ID, messing up references
   - id: jclouds-tests
     item:
       type: org.apache.brooklyn.entity.stock.BasicApplication
+      name: Jclouds provider tests
       brooklyn.children:
       - type: test-container-stop
       - type: test-container-clean-up

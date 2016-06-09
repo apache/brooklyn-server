@@ -1,9 +1,10 @@
 brooklyn.catalog:
-  version: 2.0.0-SNAPSHOT
-  iconUrl: https://raw.githubusercontent.com/docker-library/docs/c350af05d3fac7b5c3f6327ac82fe4d990d8729c/docker/logo.png
-  dependsOn: ["docker.tests.bom", "swarm.tests.bom", "jclouds.tests.bom"]
-  license_code: TODO
-  license_url: TODO
+  version: "2.0.0-SNAPSHOT"
+  iconUrl: https://raw.githubusercontent.com/docker-library/docs/471fa6e4cb58062ccbf91afc111980f9c7004981/swarm/logo.png
+  dependsOn:
+    - docker.tests.bom
+    - jclouds.tests.bom
+  license_code: CLOUDSOFT-1.0
 
   items:
     - id: existing-swarm-tests

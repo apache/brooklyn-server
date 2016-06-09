@@ -21,3 +21,4 @@ brooklyn.catalog:
           - type: docker-engine-tests
           - type: docker-engine-tls-tests
           - type: docker-swarm-tests
+          - type: jclouds-tests
