@@ -9,6 +9,9 @@ brooklyn.catalog:
     overview: README.md
     qa: swarm.tests.bom
 
+  brooklyn.libraries:
+    - https://oss.sonatype.org/content/repositories/releases/io/brooklyn/etcd/brooklyn-etcd/2.0.0/brooklyn-etcd-2.0.0.jar
+
   include: https://raw.githubusercontent.com/brooklyncentral/brooklyn-etcd/master/catalog.bom
 
   items:
@@ -64,16 +67,17 @@ brooklyn.catalog:
         - type: etcd-cluster
           id: etcd-cluster
           name: "etcd-cluster"
-          initialSize: $brooklyn:config("etcd.initial.size")
+          brooklyn.config:
+            cluster.initial.size: $brooklyn:config("etcd.initial.size")
         - type: docker-swarm-cluster
           id: swarm-cluster
           name: "swarm-cluster"
           brooklyn.config:
-            swarm.discovery.url: $brooklyn:component("etcd-cluster").attributeWhenReady("etcd.authority")
-            docker.cluster.url: $brooklyn:component("etcd-cluster").attributeWhenReady("etcd.authority")
-            ca.request.root: $brooklyn:component("ca-server").attributeWhenReady("main.uri")
-            resources.preInstall.latch: $brooklyn:component("ca-server").attributeWhenReady("service.isUp")
-            launch.latch: $brooklyn:component("etcd-cluster").attributeWhenReady("service.isUp")
+            swarm.discovery.url: $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.authority")
+            docker.discovery.url: $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.authority")
+            ca.request.root.url: $brooklyn:entity("ca-server").attributeWhenReady("main.uri")
+            resources.preInstall.latch: $brooklyn:entity("ca-server").attributeWhenReady("service.isUp")
+            launch.latch: $brooklyn:entity("etcd-cluster").attributeWhenReady("service.isUp")
 
   - id:  docker-swarm-cluster
     name: "Docker Swarm Cluster"
@@ -82,7 +86,7 @@ brooklyn.catalog:
       Requires a pre-existing discovery mechanism and references to a CA server entity.
     itemType: entity
     item:
-      type: org.apache.brooklyn.entity.stock.BasicApplication
+      type: org.apache.brooklyn.entity.stock.BasicStartable
 
       brooklyn.parameters:
         - name: swarm.discovery.url
@@ -119,27 +123,29 @@ brooklyn.catalog:
             enricher.triggerSensors:
             - host.address
             - swarm.port
-            enricher.sourceSensor: $brooklyn:sensor("host.address")
             enricher.targetSensor: $brooklyn:sensor("swarm.url")
             enricher.targetValue:
               $brooklyn:formatString:
               - "tcp://%s:%d"
-              - $brooklyn:component("swarm-manager").attributeWhenReady("host.address")
-              - $brooklyn:component("swarm-manager").attributeWhenReady("swarm.port")
+              - $brooklyn:entity("swarm-manager").attributeWhenReady("host.address")
+              - $brooklyn:entity("swarm-manager").attributeWhenReady("swarm.port")
 
       brooklyn.children:
         - type: docker-swarm-manager
           id: swarm-manager
           name: "swarm-manager"
         - type: cluster
-          id: docker-cluster
+          id: docker-swarm-nodes
           name: "docker-swarm-nodes"
-          initialSize: $brooklyn:config("swarm.initial.size")
-          memberSpec:
-            $brooklyn:entitySpec:
-              type: docker-swarm-node
-              id: swarm-node
-              name: "swarm-node"
+          brooklyn.config:
+            cluster.initial.size: $brooklyn:config("swarm.initial.size")
+            dynamiccluster.memberspec:
+              $brooklyn:entitySpec:
+                type: docker-swarm-node
+                id: swarm-node
+                name: "swarm-node"
+                brooklyn.config:
+                  launch.latch: $brooklyn:entity("swarm-manager").attributeWhenReady("service.isUp")
 
   - id: docker-swarm-node
     name: "Docker Swarm Node"
@@ -153,11 +159,9 @@ brooklyn.catalog:
         shell.env:
           SWARM_DISCOVERY_URL: $brooklyn:config("swarm.discovery.url")
 
-        # TODO - decide if it's ok to publicise the HOST_NAME below and in the manager, from a security point of view.
-        # TODO - remove the -p 12375 mapping below when Duncan's JClouds fixes are in. See https://github.com/cloudsoft/container-service/pull/5#discussion_r64581324
         post.launch.command: |
-          docker run -d -p 12375:2375 --name swarm-${HOST_NAME} \
-            swarm join --addr=${DOCKER_ENDPOINT} ${DISCOVERY_URL}
+          docker run -d --name swarm-${HOST_NAME} \
+            swarm join --addr=${DOCKER_ENDPOINT} ${SWARM_DISCOVERY_URL}
 
         checkRunning.command: |
           sudo service docker status &&
@@ -179,19 +183,32 @@ brooklyn.catalog:
         - name: swarm.port
           label: Swarm Port
           description: |
-            The external port the Swarm manager listens on
+            The TCP port the Swarm manager listens on
           type: port
           default: 3376
+        # TODO fix the way brooklyn.parameters are merged in blueprints
+        - name: docker.port
+          label: Docker Port
+          description: |
+            The TCP port for Docker to listen on
+          type: port
+          default: 2376
+        - name: docker.bindaddress
+          label: Docker Bind Address
+          description: |
+            The network address for Docker to listen on
+          type: string
+          default: 0.0.0.0
 
       brooklyn.config:
         shell.env:
           SWARM_DISCOVERY_URL: $brooklyn:config("swarm.discovery.url")
-          SWARM_PORT: $brooklyn:config("swarm.port")
+          SWARM_DEFAULT_NETWORK: $brooklyn:config("swarm.defaultnetwork")
+          SWARM_PORT: $brooklyn:attributeWhenReady("swarm.port")
 
-        # TODO - remove the -p 12375 mapping below when Duncan's JClouds fixes are in. See https://github.com/cloudsoft/container-service/pull/5#discussion_r64581324
         post.launch.command: |
           echo "[CLOCKER] Launch Swarm manager"
-          docker run -d -p ${SWARM_PORT}:${SWARM_PORT} -p 12375:2375 \
+          docker run -d -p ${SWARM_PORT}:${SWARM_PORT} \
             -v ${INSTALL_DIR}/.certs:/certs:ro --name manager-${HOST_NAME} \
             swarm manage --tlsverify --tlscacert=/certs/ca.pem --tlscert=/certs/cert.pem --tlskey=/certs/key.pem \
               --host=0.0.0.0:${SWARM_PORT} ${SWARM_DISCOVERY_URL}

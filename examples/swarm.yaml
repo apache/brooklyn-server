@@ -17,3 +17,5 @@ services:
   brooklyn.config:
     swarm.initial.size: 3
     etcd.initial.size: 1
+    swarm.port: 4000
+    swarm.defaultnetwork: "swarm"

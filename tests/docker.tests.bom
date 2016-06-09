@@ -79,11 +79,11 @@ brooklyn.catalog:
         id: docker-engine-tls
         brooklyn.config:
           customize.latch: $brooklyn:entity("dock-eng-ca").attributeWhenReady("service.isUp")
-          ca.request.root:
+          ca.request.root.url:
             $brooklyn:formatString:
             - "%s:%d"
             - $brooklyn:entity("dock-eng-ca").attributeWhenReady("host.address")
-            - $brooklyn:entity("dock-eng-ca").attributeWhenReady("ca.port")
+            - $brooklyn:entity("dock-eng-ca").attributeWhenReady("ca.server.port")
 
 
       # A client for talking to the engine

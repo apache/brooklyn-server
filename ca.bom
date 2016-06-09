@@ -25,9 +25,10 @@ brooklyn.catalog:
       An X.509 Certificate Authority tool with a simple REST API.
 
       Request creation of a certificate for a client with a POST request to
-      '/generate/{nodeAddress}' then download the CA certificate, client
-      certificate and private key with GET requests to '/cert/{nodeAddress}/ca.pem'
-      '/cert/{nodeAddress}/cert.pem' and '/cert/{nodeAddress}/key.pem'
+      '/generate/{nodeName}' with nodeName set to the IP address of the node.
+      Download the CA certificate, client certificate and private key with GET
+      requests to '/cert/{nodeName}/ca.pem' '/cert/{nodeName}/cert.pem' and
+      '/cert/{nodeName}/key.pem'
     itemType: entity
     item:
       type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
@@ -39,7 +40,7 @@ brooklyn.catalog:
           description: |
             The external port the CA Server web service listens on
           type: port
-          default: 8000
+          default: 8080
 
       brooklyn.config:
         dontRequireTtyForSudo: true
@@ -74,7 +75,7 @@ brooklyn.catalog:
           npm install express@4.13
 
           echo "[CLOCKER] Set up Bash OpenSSL scripts"
-          cat > bash.functions <<-EOF
+          cat > bash.functions <<-'EOF'
           function generate() {
             local ca_dir=$1
             local node_ip=$2
@@ -93,7 +94,7 @@ brooklyn.catalog:
           }
           EOF
 
-          cat > generate.sh <<-EOF
+          cat > generate.sh <<-'EOF'
           #!/usr/bin/env bash
           source bash.functions
           generate $(pwd) $1
@@ -160,12 +161,12 @@ brooklyn.catalog:
             description: |
               Generate public certificate and private key for a node
             parameters:
-              nodeAddress:
+              nodeName:
                 description: |
                   IP address for the node
             command: |
               source bash.functions
-              generate $(pwd) ${nodeAddress}
+              generate $(pwd) ${nodeName}
 
       brooklyn.enrichers:
         - type: org.apache.brooklyn.enricher.stock.Transformer

@@ -18,10 +18,7 @@ brooklyn.catalog:
           etcd.initial.size: 1
 
         services:
-        - type: docker-engine-tests
-        - type: docker-engine-tls-tests
-        - type: test-swarm
-
-
-
+          - type: docker-engine-tests
+          - type: docker-engine-tls-tests
+          - type: test-swarm
 

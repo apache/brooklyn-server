@@ -57,7 +57,6 @@ brooklyn.catalog:
             enricher.triggerSensors:
             - host.name
             - docker.port
-            enricher.sourceSensor: $brooklyn:sensor("docker.port")
             enricher.targetSensor: $brooklyn:sensor("docker.endpoint")
             enricher.targetValue:
               $brooklyn:formatString:
@@ -78,12 +77,11 @@ brooklyn.catalog:
             uniqueTag: docker-bind-url-generator
             enricher.triggerSensors:
             - docker.port
-            enricher.sourceSensor: $brooklyn:sensor("docker.port")
             enricher.targetSensor: $brooklyn:sensor("docker.bind.url")
             enricher.targetValue:
               $brooklyn:formatString:
               - "tcp://%s:%s"
-              - $brooklyn:attributeWhenReady("docker.bindaddress")
+              - $brooklyn:config("docker.bindaddress")
               - $brooklyn:attributeWhenReady("docker.port")
 
       brooklyn.config:
@@ -109,7 +107,7 @@ brooklyn.catalog:
           sudo tee /etc/yum.repos.d/docker.repo <<-EOF
           [dockerrepo]
           name=Docker Repository
-          baseurl=https://yum.dockerproject.org/repo/main/centos/$releasever/
+          baseurl=https://yum.dockerproject.org/repo/main/centos/\$releasever/
           enabled=1
           gpgcheck=1
           gpgkey=https://yum.dockerproject.org/gpg
@@ -125,16 +123,16 @@ brooklyn.catalog:
           ExecStart=/usr/bin/docker daemon \
             -H ${DOCKER_BIND_URL} \
             -H unix:///var/run/docker.sock \
-            --label ${HOST_NAME} \
+            --label name=${HOST_NAME} \
             --storage-driver=overlay \
             \$CLUSTER_OPTS \
             ${DOCKER_ADDITIONAL_OPTIONS}
           EOF
           if [ "${DOCKER_DISCOVERY_URL}" ]; then
             sudo tee /etc/systemd/system/docker.service.d/cluster.conf <<-EOF
-            [Service]
-            Environment="CLUSTER_OPTS=--cluster-advertise ${DOCKER_ENDPOINT} --cluster-store ${DOCKER_DISCOVERY_URL}"
-            EOF
+          [Service]
+          Environment="CLUSTER_OPTS=--cluster-advertise ${DOCKER_ENDPOINT} --cluster-store ${DOCKER_DISCOVERY_URL}"
+          EOF
           fi
           sudo systemctl daemon-reload
 
@@ -149,7 +147,7 @@ brooklyn.catalog:
               docker pull ${DOCKER_IMAGE} )
 
         stop.command: |
-          service docker stop
+          sudo service docker stop
 
         checkRunning.command: |
           sudo service docker status
@@ -181,10 +179,10 @@ brooklyn.catalog:
         - name: ca.request.root.url
           label: CA Request Root URL
           description: |
-            Optional URL for a CA server.
+            Optional root URL for a CA server.
 
-            Use this or the triplet of 'ca.cert.url', 'node.cert.url' and
-            'private.key.url' configuration.
+            Use this or set the configuration for the certificate and key
+            URLs separately.
           type: string
         - name: ca.cert.url
           label: CA Certificate URL
@@ -281,20 +279,22 @@ brooklyn.catalog:
       type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
 
       brooklyn.parameters:
-        - name: container
-          label: Container
+        - name: image.details
+          label: Image Details
           description: |
-            The Docker Container image details
+            The Docker Container image details.
+
+            Either the name of a Docker Hub image or the id of an image that has
+            been pulled and is available on the Engine already.
           type: string
 
       brooklyn.config:
         dontRequireTtyForSudo: true
 
-        # TODO support DSL in name: $brooklyn:formatString("Container (%s)", $brooklyn:config("container"))
         # TODO advertise container id as a sensor.
 
         shell.env:
-          DOCKER_IMAGE: $brooklyn:config("container")
+          IMAGE_DETAILS: $brooklyn:config("image.details")
 
         launch.command: |
-          docker run -d ${DOCKER_IMAGE}
+          docker run -d ${IMAGE_DETAILS}
