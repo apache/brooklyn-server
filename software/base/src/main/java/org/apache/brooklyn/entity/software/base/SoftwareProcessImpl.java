@@ -482,7 +482,23 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
 
     protected Map<String,Object> obtainProvisioningFlags(MachineProvisioningLocation location) {
         ConfigBag result = ConfigBag.newInstance(location.getProvisioningFlags(ImmutableList.of(getClass().getName())));
-        result.putAll(getConfig(PROVISIONING_PROPERTIES));
+
+        // copy provisioning properties raw in case they contain deferred values
+        // normal case is to have provisioning.properties.xxx in the map, so this is how we get it
+        Map<String, Object> raw1 = PROVISIONING_PROPERTIES.rawValue(config().getBag().getAllConfigRaw());
+        // do this also, just in case a map is stored at the key itself (not sure this is needed, raw1 may include it already)
+        Maybe<Object> raw2 = config().getRaw(PROVISIONING_PROPERTIES);
+        if (raw2.isPresentAndNonNull()) {
+            Object pp = raw2.get();
+            if (!(pp instanceof Map)) {
+                log.debug("When obtaining provisioning properties for "+this+" to deploy to "+location+", detected that coercion was needed, so coercing sooner than we would otherwise");
+                pp = config().get(PROVISIONING_PROPERTIES);
+            }
+            result.putAll((Map<?,?>)pp);
+        }
+        // finally write raw1 on top
+        result.putAll(raw1);
+
         if (result.get(CloudLocationConfig.INBOUND_PORTS) == null) {
             Collection<Integer> ports = getRequiredOpenPorts();
             Object requiredPorts = result.get(CloudLocationConfig.ADDITIONAL_INBOUND_PORTS);
