@@ -2,13 +2,21 @@
 
 1. Run a bleeding-edge AMP (e.g. a very recent snapshot build)
 
-2. Add each of the .bom files to the catalog (e.g. using a build of `br` from after 8th May):
+2. Add each of the .bom files to the catalog 
+
+Using the CLI:
 
     for b in *.bom tests/*.bom ; do 
-      br add-catalog $b
-    done
+       echo $b
+       br add-catalog $b || break
+     done
 
-   Or:
+Note that the order in which you add the catalog entries matters, as you can’t load a file that uses a definition
+that hasn’t been loaded yet.  the loop above relies on the fact that so far the files in alphabetical order are also
+in dependency order, just for the convenience of the command. This is really just a convenience and
+not an iron rule that we have to keep.  
+ 
+**or** via the REST API:
 
     AMP_URL=http://127.0.0.1:8081
     AMP_USER=admin
@@ -31,6 +39,10 @@
 
     br add-catalog https://raw.githubusercontent.com/cloudsoft/blueprint-qa-seed/master/locations/bluebox-singapore-centos7.bom?token=ANfNJ5kY9pvufckGUZZ3mzM4FlHq1D2Aks5XX93owA%3D%3D
 
+NOTE - you'll have to get a fresh token of your own by going to Github - I find it convenient enough to 
+navigate to https://github.com/cloudsoft/blueprint-qa-seed/tree/master/locations, pick the cloud I want, hit the
+"Raw" button and copy its URL.  Also note to add-catalog from https://... make sure you are using a build of `br` from 
+after 8th May.
 
 4. Delete the 1.0.0 version of the etcd entities from the catalog.
    (TODO: we don't replace it because snapshot versions (i.e. our 2.0.0-SNAPSHOT) does not take
@@ -164,3 +176,10 @@ To be able to execute `docker ...` commands locally:
     # Run something, and check it is listed
     docker -H  ${swarm_endpoint} ${TLS_OPTIONS} run hello-world
     docker -H ${swarm_endpoint}  ${TLS_OPTIONS} ps -a
+
+Instead of explicit parameters to `docker` you can use its environment variables as follows:
+
+    export DOCKER_HOST=tcp://10.10.10.152:3376
+    export DOCKER_TLS_VERIFY=true
+    export DOCKER_CERT_PATH=.certs
+    docker ps -a
