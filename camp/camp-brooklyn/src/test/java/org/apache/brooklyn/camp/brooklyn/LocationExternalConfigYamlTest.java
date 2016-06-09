@@ -34,8 +34,6 @@ import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -44,8 +42,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 public class LocationExternalConfigYamlTest extends AbstractYamlRebindTest {
-
-	private static final Logger log = LoggerFactory.getLogger(ExternalConfigYamlTest.class);
 
     private static final ConfigKey<String> MY_CONFIG_KEY = ConfigKeys.newStringConfigKey("my.config.key");
     
@@ -71,11 +67,9 @@ public class LocationExternalConfigYamlTest extends AbstractYamlRebindTest {
 
         Entity entity = Iterables.getOnlyElement( origApp.getChildren() );
         Location l = Iterables.getOnlyElement( entity.getLocations() );
-        log.info("Location: "+l);
         assertEquals(l.config().get(MY_CONFIG_KEY), "myval");
                 
         Maybe<Object> rawConfig = ((BrooklynObjectInternal.ConfigurationSupportInternal)l.config()).getRaw(MY_CONFIG_KEY);
-        log.info("Raw config: "+rawConfig);
         Assert.assertTrue(rawConfig.isPresentAndNonNull());
         Assert.assertTrue(rawConfig.get() instanceof DeferredSupplier, "Expected deferred raw value; got "+rawConfig.get());
     }
@@ -102,26 +96,21 @@ public class LocationExternalConfigYamlTest extends AbstractYamlRebindTest {
 
         Entity entity = Iterables.getOnlyElement( origApp.getChildren() );
         Location l = Iterables.getOnlyElement( entity.getLocations() );
-        log.info("Location: "+l);
         assertEquals(l.config().get(ConfigKeys.builder(Integer.class, "simple").build()), (Integer)42);
         assertEquals(l.config().get(MY_CONFIG_KEY), "myval");
                 
         Maybe<Object> rawConfig = ((BrooklynObjectInternal.ConfigurationSupportInternal)l.config()).getRaw(MY_CONFIG_KEY);
-        log.info("Raw config: "+rawConfig);
         Assert.assertTrue(rawConfig.isPresentAndNonNull());
         Assert.assertTrue(rawConfig.get() instanceof DeferredSupplier, "Expected deferred raw value; got "+rawConfig.get());
         
         newApp = rebind();
-        log.info("After catalog rebind: "+newApp);
         
         entity = Iterables.getOnlyElement( newApp.getChildren() );
         l = Iterables.getOnlyElement( entity.getLocations() );
-        log.info("Location: "+l);
         assertEquals(l.config().get(ConfigKeys.builder(Integer.class, "simple").build()), (Integer)42);
         assertEquals(l.config().get(MY_CONFIG_KEY), "myval");
                 
         rawConfig = ((BrooklynObjectInternal.ConfigurationSupportInternal)l.config()).getRaw(MY_CONFIG_KEY);
-        log.info("Raw config: "+rawConfig);
         Assert.assertTrue(rawConfig.isPresentAndNonNull());
         Assert.assertTrue(rawConfig.get() instanceof DeferredSupplier, "Expected deferred raw value; got "+rawConfig.get());
     }
@@ -140,12 +129,10 @@ public class LocationExternalConfigYamlTest extends AbstractYamlRebindTest {
 
         Entity entity = Iterables.getOnlyElement( origApp.getChildren() );
         Location l = Iterables.getOnlyElement( entity.getLocations() );
-        log.info("Location: "+l);
         assertEquals(l.config().get(ConfigKeys.builder(Integer.class, "simple").build()), (Integer)42);
         assertEquals(l.config().get(MY_CONFIG_KEY), "myval");
                 
         Maybe<Object> rawConfig = ((BrooklynObjectInternal.ConfigurationSupportInternal)l.config()).getRaw(MY_CONFIG_KEY);
-        log.info("Raw config: "+rawConfig);
         Assert.assertTrue(rawConfig.isPresentAndNonNull());
         Assert.assertTrue(rawConfig.get() instanceof DeferredSupplier, "Expected deferred raw value; got "+rawConfig.get());
     }
