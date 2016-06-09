@@ -33,7 +33,7 @@ brooklyn.catalog:
     description: Tests on Docker Engine without TLS
     itemType: entity
     item:
-      type: org.apache.brooklyn.entity.stock.BasicApplication
+      type: org.apache.brooklyn.test.framework.TestCase
 
       brooklyn.children:
 
@@ -64,7 +64,7 @@ brooklyn.catalog:
     description: Tests on Docker Engine with TLS
     itemType: entity
     item:
-      type: org.apache.brooklyn.entity.stock.BasicApplication
+      type: org.apache.brooklyn.test.framework.TestCase
 
       brooklyn.children:
 
