@@ -52,7 +52,7 @@ brooklyn.catalog:
       Tests on Docker Swarm over TLS
     itemType: entity
     item:
-      type: org.apache.brooklyn.entity.stock.BasicApplication
+      type: org.apache.brooklyn.test.framework.TestCase
       brooklyn.config:
         timeout: 1h
         timeout.initialStartup: 1h
