@@ -62,6 +62,26 @@ brooklyn.catalog:
       type: org.apache.brooklyn.test.framework.TestEffector
       effector: restart
 
+  - id: test-restart-process
+    item:
+      name: Invoke [restart] effector (process)
+      type: org.apache.brooklyn.test.framework.TestEffector
+      effector: restart
+      params:
+        restartMachine: false
+
+  - id: test-restart-machine
+    item:
+      name: Invoke [restart] effector (machine)
+      type: org.apache.brooklyn.test.framework.TestEffector
+      effector: restart
+      params:
+        restartMachine: true
+  - id: test-reachable
+    item:
+      name: TEST endpoint reachable
+      type: org.apache.brooklyn.test.framework.TestEndpointReachable
+
   - id: test-docker-client
     item:
       type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess

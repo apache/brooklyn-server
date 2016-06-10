@@ -24,7 +24,8 @@ brooklyn.catalog:
         name: Docker Entity
         id: docker-entity
         brooklyn.config:
-          docker.image: cloudsoft/centos:7
+          # cloudsoft/centos:7 fails because it tries to bind to the already reserved (by the host) port 22
+          docker.image: redis:latest
 
       - type: test-case
         name: Docker Entity tests
@@ -43,15 +44,14 @@ brooklyn.catalog:
             params:
               stopMachineMode: NEVER
         - type: test-start
-        - type: test-restart
+        - type: test-restart-process
+        - type: test-restart-machine
+        - type: test-reachable
           brooklyn.config:
-            params:
-              restartMachine: false
-        - type: test-restart
-          name: Invoke [restart] effector - restart machine
-          brooklyn.config:
-            params:
-              restartMachine: true
+            endpoint: 
+              $brooklyn:formatString:
+              - "%s:6379"
+              - $brooklyn:entity("docker-entity").attributeWhenReady("host.address")
 
   # TODO Unused, need to express that start effector is expected to fail
   - id: docker-vm-container-fails-test

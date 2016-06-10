@@ -369,7 +369,7 @@ brooklyn.catalog:
           fi
           sudo service docker start
           rm -f "${PID_FILE}" # docker won't overwrite
-          docker run -d --cidfile "${PID_FILE}" "${DOCKER_IMAGE}"
+          docker run -d --cidfile "${PID_FILE}" --net="host" "${DOCKER_IMAGE}"
 
         checkRunning.command: |
           STATE=$(docker inspect --format "{{ .State.Status }}" $(cat "${PID_FILE}"))
