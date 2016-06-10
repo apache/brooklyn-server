@@ -58,6 +58,23 @@ To run the suite of tests, use `tests.bom`. For example:
     services:
     - type: docker-and-swarm-engine-tests
 
+And to run tests against an existing Swarm endpoint (changing the part to the pem files accordingly):
+
+    location:
+      jclouds:docker:
+        endpoint: https://10.104.0.75:3376/
+        identity: /Users/aled/.docker/.certs-from-server/cert.pem
+        credential: /Users/aled/.docker/.certs-from-server/key.pem
+        imageId: sha256:5670c22f2f46bfc7578447978fa7be62699d1e90ed88bf7e415ec96b2571ce0b
+        loginUser: root
+        loginUser.password: p4ssw0rd
+        onbox.base.dir: /tmp
+        # FIXME
+        user: root
+    services:
+    - type: deploy-app-to-swarm-single-node
+    - type: deploy-app-to-swarm-multi-node
+    
 
 ### Running as an end-user
 
