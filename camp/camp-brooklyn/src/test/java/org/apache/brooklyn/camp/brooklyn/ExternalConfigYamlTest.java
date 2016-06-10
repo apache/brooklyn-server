@@ -27,6 +27,7 @@ import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
@@ -37,14 +38,17 @@ import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.core.mgmt.internal.CampYamlParser;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
+import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
@@ -215,6 +219,27 @@ public class ExternalConfigYamlTest extends AbstractYamlTest {
         assertEquals(item.getDisplayName(), "CentOS 6.6");
         assertEquals(item.getIconUrl(), "classpath:///centos.png");
         assertEquals(Iterables.getOnlyElement(item.getLibraries()).getUrl(), LIBRARY_URL);
+    }
+
+    @Test(groups="Integration")
+    public void testExternalisedLocationConfigInheritanceReferencedFromYaml() throws Exception {
+        ConfigKey<String> MY_CONFIG_KEY = ConfigKeys.newStringConfigKey("my.config.key");
+
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: "+EmptySoftwareProcess.class.getName(),
+                "location:",
+                "  localhost:",
+                "    my.config.key: $brooklyn:external(\"myprovider\", \"mykey\")");
+
+        Entity app = createAndStartApplication(yaml);
+        waitForApplicationTasks(app);
+        Entity entity = Iterables.getOnlyElement( app.getChildren() );
+        Location l = Iterables.getOnlyElement( entity.getLocations() );
+        assertEquals(l.config().get(MY_CONFIG_KEY), "myval");
+        Maybe<Object> rawConfig = ((BrooklynObjectInternal.ConfigurationSupportInternal)l.config()).getRaw(MY_CONFIG_KEY);
+        Assert.assertTrue(rawConfig.isPresentAndNonNull());
+        Assert.assertTrue(rawConfig.get() instanceof DeferredSupplier, "Expected deferred raw value; got "+rawConfig.get());
     }
 
     @Test(groups="Integration")

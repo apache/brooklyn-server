@@ -38,6 +38,7 @@ import org.apache.brooklyn.core.location.BasicOsDetails;
 import org.apache.brooklyn.core.location.LocationConfigUtils;
 import org.apache.brooklyn.core.location.LocationConfigUtils.OsCredential;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.net.Networking;
@@ -480,7 +481,7 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
     }
 
     private LoginCredentials getLoginCredentials() {
-        OsCredential creds = LocationConfigUtils.getOsCredential(config().getBag());
+        OsCredential creds = LocationConfigUtils.getOsCredential(new ResolvingConfigBag(getManagementContext(), config().getBag()));
         
         return LoginCredentials.builder()
                 .user(getUser())
