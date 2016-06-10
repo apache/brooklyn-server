@@ -7,99 +7,7 @@ brooklyn.catalog:
 
   items:
 
-  - id: docker-preinstall-tests
-    name: Preinstalled image tests
-    description: Tests of pre-installed Docker image
-    itemType: entity
-    item:
-      type: org.apache.brooklyn.test.framework.TestCase
-
-      brooklyn.children:
-
-      - type: docker-engine
-        name: Docker Engine
-        id: preinstall-engine
-
-      - type: preinstall-image-tests
-        name: Preinstalled Image Tests
-        targetId: preinstall-engine
-
-  - id: docker-engine-tests
-    name: Docker Engine Tests without TLS
-    description: Tests on Docker Engine without TLS
-    itemType: entity
-    item:
-      type: org.apache.brooklyn.test.framework.TestCase
-
-      brooklyn.children:
-
-      - type: docker-engine
-        name: Docker Engine
-        id: docker-engine
-
-      - type: docker-engine-test
-        name: Test Docker Engine
-        targetId: docker-engine
-
-      - type: docker-engine
-        id: docker-engine-with-centos
-        name: Docker Engine with Centos Container
-        brooklyn.children:
-        - type: docker-engine-container
-          image.details: cloudsoft/centos:7
-
-      - type: docker-engine-and-container-test
-        name: Test Docker with Container
-        targetId: docker-engine-with-centos
-
-      - type: docker-preinstall-tests
-        name: Preinstalled Image Tests
-
-  - id: docker-engine-tls-tests
-    name: Docker Engine Tests with TLS
-    description: Tests on Docker Engine with TLS
-    itemType: entity
-    item:
-      type: org.apache.brooklyn.test.framework.TestCase
-
-      brooklyn.children:
-
-      # A CA server
-      - type:  ca-server
-        name: CA
-        id:  dock-eng-ca
-
-      # the engine protected by TLS
-      - type: docker-engine-tls
-        name: Docker Engine with TLS
-        id: docker-engine-tls
-        brooklyn.config:
-          customize.latch: $brooklyn:entity("dock-eng-ca").attributeWhenReady("service.isUp")
-          ca.request.root.url:
-            $brooklyn:formatString:
-            - "%s:%d"
-            - $brooklyn:entity("dock-eng-ca").attributeWhenReady("host.address")
-            - $brooklyn:entity("dock-eng-ca").attributeWhenReady("ca.server.port")
-
-
-      # A client for talking to the engine
-      - type: test-docker-client-with-tls
-        name: Docker client with TLS
-        id: tls-client
-        brooklyn.config:
-          customize.latch: $brooklyn:entity("dock-eng-ca").attributeWhenReady("service.isUp")
-          client.address: $brooklyn:attributeWhenReady("host.address")
-          ca.url: $brooklyn:entity("dock-eng-ca").attributeWhenReady("main.uri")
-          docker.url:
-            $brooklyn:formatString:
-            - "tcp://%s:%s/"
-            - $brooklyn:entity("docker-engine-tls").attributeWhenReady("host.address")
-            - $brooklyn:entity("docker-engine-tls").attributeWhenReady("docker.port")
-
-      - type: docker-engine-test
-        name: Test Docker over TLS
-        targetId: tls-client
-
+  
   - id: docker-vm-container-happy-test
     name: Docker Entity tests
     description: Tests of wrapper-vm docker
@@ -216,3 +124,99 @@ brooklyn.catalog:
       - type: docker-vm-container-happy-test
       #- type: docker-vm-container-fails-test
       #- type: docker-vm-container-exits-test
+
+  - id: docker-preinstall-tests
+    name: Preinstalled image tests
+    description: Tests of pre-installed Docker image
+    itemType: entity
+    item:
+      type: org.apache.brooklyn.test.framework.TestCase
+
+      brooklyn.children:
+
+      - type: docker-engine
+        name: Docker Engine
+        id: preinstall-engine
+
+      - type: preinstall-image-tests
+        name: Preinstalled Image Tests
+        targetId: preinstall-engine
+
+  - id: docker-engine-tests
+    name: Docker Engine Tests without TLS
+    description: Tests on Docker Engine without TLS
+    itemType: entity
+    item:
+      type: org.apache.brooklyn.test.framework.TestCase
+
+      brooklyn.children:
+
+      - type: docker-engine
+        name: Docker Engine
+        id: docker-engine
+
+      - type: docker-engine-test
+        name: Test Docker Engine
+        targetId: docker-engine
+
+      - type: docker-engine
+        id: docker-engine-with-centos
+        name: Docker Engine with Centos Container
+        brooklyn.children:
+        - type: docker-engine-container
+          image.details: cloudsoft/centos:7
+
+      - type: docker-engine-and-container-test
+        name: Test Docker with Container
+        targetId: docker-engine-with-centos
+
+      - type: docker-preinstall-tests
+        name: Preinstalled Image Tests
+        
+      - type: docker-vm-container-tests
+        name: Docker VM Wrapper tests
+
+  - id: docker-engine-tls-tests
+    name: Docker Engine Tests with TLS
+    description: Tests on Docker Engine with TLS
+    itemType: entity
+    item:
+      type: org.apache.brooklyn.test.framework.TestCase
+
+      brooklyn.children:
+
+      # A CA server
+      - type:  ca-server
+        name: CA
+        id:  dock-eng-ca
+
+      # the engine protected by TLS
+      - type: docker-engine-tls
+        name: Docker Engine with TLS
+        id: docker-engine-tls
+        brooklyn.config:
+          customize.latch: $brooklyn:entity("dock-eng-ca").attributeWhenReady("service.isUp")
+          ca.request.root.url:
+            $brooklyn:formatString:
+            - "%s:%d"
+            - $brooklyn:entity("dock-eng-ca").attributeWhenReady("host.address")
+            - $brooklyn:entity("dock-eng-ca").attributeWhenReady("ca.server.port")
+
+
+      # A client for talking to the engine
+      - type: test-docker-client-with-tls
+        name: Docker client with TLS
+        id: tls-client
+        brooklyn.config:
+          customize.latch: $brooklyn:entity("dock-eng-ca").attributeWhenReady("service.isUp")
+          client.address: $brooklyn:attributeWhenReady("host.address")
+          ca.url: $brooklyn:entity("dock-eng-ca").attributeWhenReady("main.uri")
+          docker.url:
+            $brooklyn:formatString:
+            - "tcp://%s:%s/"
+            - $brooklyn:entity("docker-engine-tls").attributeWhenReady("host.address")
+            - $brooklyn:entity("docker-engine-tls").attributeWhenReady("docker.port")
+
+      - type: docker-engine-test
+        name: Test Docker over TLS
+        targetId: tls-client
