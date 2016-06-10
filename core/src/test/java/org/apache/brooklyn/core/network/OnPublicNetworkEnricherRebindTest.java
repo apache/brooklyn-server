@@ -56,7 +56,7 @@ public class OnPublicNetworkEnricherRebindTest extends RebindTestFixtureWithApp 
         origEntity.sensors().set(Attributes.SUBNET_ADDRESS, "127.0.0.1");
         
         origEntity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class)
-                .configure(OnPublicNetworkEnricher.SENSOR, Attributes.MAIN_URI));
+                .configure(OnPublicNetworkEnricher.SENSORS, ImmutableList.of(Attributes.MAIN_URI)));
 
         rebind();
         TestEntity newEntity = (TestEntity) Iterables.getOnlyElement(newApp.getChildren());
