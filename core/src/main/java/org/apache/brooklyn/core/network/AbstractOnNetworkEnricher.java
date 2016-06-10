@@ -257,7 +257,10 @@ public abstract class AbstractOnNetworkEnricher extends AbstractEnricher {
         if (sensorVal instanceof Integer || sensorVal instanceof Long) {
             return Networking.isPortValid(((Number)sensorVal).intValue());
         } else if (sensorVal instanceof CharSequence) {
-            return sensorVal.toString().trim().matches("[0-9]+");
+            String val = sensorVal.toString().trim();
+            return val.matches("[0-9]+") && val.length() <= 5
+                    && Networking.isPortValid(Integer.parseInt(val));
+
         } else {
             return false;
         }
