@@ -72,9 +72,9 @@ public class EffectorUtils {
         if (args instanceof Map) {
             return prepareArgsForEffectorFromMap(eff, (Map) args);
         }
-        log.warn("Deprecated effector invocation style for call to "+eff+", expecting a map or an array, got: "+args);
+        log.warn("Deprecated effector invocation style for call to "+eff+", expecting a map or an array, got: "+sanitizeArgs(args));
         if (log.isDebugEnabled()) {
-            log.debug("Deprecated effector invocation style for call to "+eff+", expecting a map or an array, got: "+args,
+            log.debug("Deprecated effector invocation style for call to "+eff+", expecting a map or an array, got: "+sanitizeArgs(args),
                 new Throwable("Trace for deprecated effector invocation style"));
         }
         return oldPrepareArgsForEffector(eff, args);
@@ -144,16 +144,16 @@ public class EffectorUtils {
                 //finally, default values are used to make up for missing parameters
                 v = ((BasicParameterType)it).getDefaultValue();
             } else {
-                throw new IllegalArgumentException("Invalid arguments (missing argument "+it+") for effector "+eff+": "+m);
+                throw new IllegalArgumentException("Invalid arguments (missing argument "+it+") for effector "+eff+": "+Sanitizer.sanitize(m));
             }
 
             newArgs.add(TypeCoercions.coerce(v, it.getParameterClass()));
             newArgsNeeded--;
         }
         if (newArgsNeeded>0)
-            throw new IllegalArgumentException("Invalid arguments (missing "+newArgsNeeded+") for effector "+eff+": "+m);
+            throw new IllegalArgumentException("Invalid arguments (missing "+newArgsNeeded+") for effector "+eff+": "+Sanitizer.sanitize(m));
         if (!m.isEmpty()) {
-            log.warn("Unsupported parameter to "+eff+" (ignoring): "+m);
+            log.warn("Unsupported parameter to "+eff+" (ignoring): "+Sanitizer.sanitize(m));
         }
         return newArgs.toArray(new Object[newArgs.size()]);
     }
@@ -219,19 +219,19 @@ public class EffectorUtils {
                 //finally, default values are used to make up for missing parameters
                 newArgs.add(((BasicParameterType)it).getDefaultValue());
             } else {
-                throw new IllegalArgumentException("Invalid arguments (count mismatch) for effector "+eff+": "+args);
+                throw new IllegalArgumentException("Invalid arguments (count mismatch) for effector "+eff+": "+sanitizeArgs(args));
             }
 
             newArgsNeeded--;
         }
         if (newArgsNeeded > 0) {
-            throw new IllegalArgumentException("Invalid arguments (missing "+newArgsNeeded+") for effector "+eff+": "+args);
+            throw new IllegalArgumentException("Invalid arguments (missing "+newArgsNeeded+") for effector "+eff+": "+sanitizeArgs(args));
         }
         if (!l.isEmpty()) {
-            throw new IllegalArgumentException("Invalid arguments ("+l.size()+" extra) for effector "+eff+": "+args);
+            throw new IllegalArgumentException("Invalid arguments ("+l.size()+" extra) for effector "+eff+": "+sanitizeArgs(args));
         }
         if (truth(m) && !mapUsed) {
-            throw new IllegalArgumentException("Invalid arguments ("+m.size()+" extra named) for effector "+eff+": "+args);
+            throw new IllegalArgumentException("Invalid arguments ("+m.size()+" extra named) for effector "+eff+": "+sanitizeArgs(args));
         }
         return newArgs.toArray(new Object[newArgs.size()]);
     }
@@ -393,4 +393,7 @@ public class EffectorUtils {
                 .build();
     }
 
+    private static Object sanitizeArgs(Object args) {
+        return args instanceof Map ? Sanitizer.sanitize((Map)args) : args;
+    }
 }
