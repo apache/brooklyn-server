@@ -15,39 +15,110 @@ brooklyn.catalog:
   - id: test-docker-run-pulls
     item:
       type: org.apache.brooklyn.test.framework.TestCase
-      name: Test that Docker Swarm cluster can pull containers from docker hub automatically
+      description: |
+        Test that Docker Swarm cluster can pull containers from Docker Hub
+        automatically
       brooklyn.parameters:
         - install.dir
       brooklyn.children:
-      - type: ssh-test
-        shell.env:
-          INSTALL_DIR: $brooklyn:config("install.dir")
-        command: |
-          set -e
-          cd $INSTALL_DIR
-          docker rmi busybox || true # OK to fail
-          ! docker images | grep busybox
-          docker run --rm busybox echo Hello from busybox-image | grep busybox-image && docker images | grep busybox
-        assertStatus:
-          equals: 0
-        assertOut:
-          contains: "busybox-image"
+        - type: ssh-test
+          shell.env:
+            INSTALL_DIR: $brooklyn:config("install.dir")
+          command: |
+            set -e
+            cd ${INSTALL_DIR}
+            docker rmi busybox || true # OK to fail
+            ! docker images | grep busybox
+            docker run --rm busybox echo "Hello from busybox-image" | grep busybox-image
+            docker images | grep busybox
+          assertStatus:
+            equals: 0
+          assertOut:
+            contains: "busybox-image"
 
-  - id: test-network-exists
+  - id: test-swarm-networking
     item:
       type: org.apache.brooklyn.test.framework.TestCase
-      name: Test Network Exists
+      description: |
+        Test Swarm networking between containers on different hosts, using
+        shared Docker overlay network
       brooklyn.parameters:
         - network.name
       brooklyn.children:
-      - type: ssh-test
-        shell.env:
-          NETWORK_NAME: $brooklyn:config("network.name")
-        command: |
-          echo "[TEST] Checking ID of network ${NETWORK_NAME}"
-          docker network inspect --format "{{.ID}}" "${NETWORK_NAME}"
-        assertStatus:
-          equals: 0
+        - type: ssh-test
+          name: "TEST-6-1 Test network exists"
+          brooklyn.config:
+            shell.env:
+              NETWORK_NAME: $brooklyn:config("network.name")
+            command: |
+              echo "[TEST] Checking ID of network ${NETWORK_NAME}"
+              docker network inspect --format "{{.ID}}" ${NETWORK_NAME}
+            assertStatus:
+              equals: 0
+            assertErr:
+              isEmpty: true
+        - type: ssh-test
+          name: "TEST-6-2 Test network properties"
+          brooklyn.config:
+            shell.env:
+              NETWORK_NAME: $brooklyn:config("network.name")
+            command: |
+              echo "[TEST] Create container on ${NETWORK_NAME} network"
+              docker run -di --name workload_A --net ${NETWORK_NAME} cloudsoft/centos:7 /bin/bash
+              CONTAINER_NETWORK_ID=$(docker inspect --format "{{.NetworkSettings.Networks.${NETWORK_NAME}.NetworkID}}" workload_A)
+              NETWORK_ID=$(docker network inspect --format "{{.ID}}" ${NETWORK_NAME})
+              docker rm -f workload_A
+              [[ "${CONTAINER_NETWORK_ID}" == "${NETWORK_ID}" ]]
+            assertStatus:
+              equals: 0
+            assertErr:
+              isEmpty: true
+        - type: ssh-test
+          name: "TEST-6-3 Test same network connectivity"
+          brooklyn.config:
+            shell.env:
+              NETWORK_NAME: $brooklyn:config("network.name")
+            command: |
+              echo "[TEST] Creating two containers on ${NETWORK_NAME} network"
+              docker run -di --name workload_B --net ${NETWORK_NAME} cloudsoft/centos:7 /bin/bash
+              docker run -di --name workload_C --net ${NETWORK_NAME} -e affinity:container!=workload_B cloudsoft/centos:7 /bin/bash
+              docker exec workload_B ping -W 10 -c 4 workload_C.${NETWORK_NAME}
+              docker exec workload_C ping -W 10 -c 4 workload_B.${NETWORK_NAME}
+              docker rm -f workload_B
+              docker rm -f workload_C
+            assertOut:
+              - contains:
+                  $brooklyn:formatString:
+                    - "--- workload_B.%s ping statistics ---\n4 packets transmitted, 4 received"
+                    - $brooklyn:config("network.name")
+              - contains:
+                  $brooklyn:formatString:
+                    - "--- workload_C.%s ping statistics ---\n4 packets transmitted, 4 received"
+                    - $brooklyn:config("network.name")
+            assertErr:
+              isEmpty: true
+        - type: ssh-test
+          name: "TEST-6-4 Test different network connectivity failure"
+          brooklyn.config:
+            shell.env:
+              NETWORK_NAME: $brooklyn:config("network.name")
+            command: |
+              echo "[TEST] Creating two containers on different networks"
+              docker run -di --name workload_D --net ${NETWORK_NAME} cloudsoft/centos:7 /bin/bash
+              docker run -di --name workload_E --net bridge -e affinity:container!=workload_D cloudsoft/centos:7 /bin/bash
+              WORKLOAD_D_IP=$(docker inspect --format "{{.NetworkSettings.Networks.${NETWORK_NAME}.IPAddress}}" workload_D)
+              docker exec workload_E ping -W 10 -c 4 workload_D.${NETWORK_NAME} || true
+              docker exec workload_E ping -W 10 -c 4 ${WORKLOAD_D_IP} || true
+              docker rm -f workload_D
+              docker rm -f workload_E
+            assertErr:
+              contains:
+                $brooklyn:formatString:
+                  - "ping: unknown host workload_D.%s"
+                  - $brooklyn:config("network.name")
+            assertOut:
+              contains: "ping statistics ---\n4 packets transmitted, 0 received"
+
 
   - id: docker-swarm-tests
     name: Docker Swarm Tests
@@ -75,7 +146,7 @@ brooklyn.catalog:
           brooklyn.config:
             customize.latch: $brooklyn:entity("swarm").attributeWhenReady("service.isUp")
             client.address: $brooklyn:attributeWhenReady("host.address")
-            ca.url:  $brooklyn:entity("ca-server").attributeWhenReady("main.uri")
+            ca.url: $brooklyn:entity("ca-server").attributeWhenReady("main.uri")
             docker.url: $brooklyn:entity("swarm").attributeWhenReady("swarm.url")
 
         - type: org.apache.brooklyn.test.framework.TestCase
@@ -83,12 +154,12 @@ brooklyn.catalog:
           brooklyn.children:
 
           - type: assert-up
-            name: "TEST-1 assert up"
+            name: "TEST-1 Assert up"
             brooklyn.config:
               targetId: swarm
 
           - type: assert-running
-            name: "TEST-2 assert running"
+            name: "TEST-2 Assert running"
             brooklyn.config:
               targetId: swarm
 
@@ -97,36 +168,28 @@ brooklyn.catalog:
             brooklyn.config:
               targetId: swarm-client
               docker.url: $brooklyn:entity("swarm").attributeWhenReady("swarm.url")
+              start.latch: $brooklyn:entity("swarm-client").attributeWhenReady("service.isUp")
 
           # Run the docker tests against the swarm
           - type: docker-engine-test
             name: "TEST-4 Test Swarm over TLS"
-            targetId: swarm-client
             brooklyn.config:
+              targetId: swarm-client
               start.latch: $brooklyn:entity("swarm-client").attributeWhenReady("service.isUp")
 
           - type: test-docker-run-pulls
-            name: "TEST-5 Test Docker run pulls"
+            name: "TEST-5 Test docker run pulls"
             brooklyn.config:
               targetId: swarm-manager
               swarm.url: $brooklyn:component("swarm").attributeWhenReady("swarm.url")
               install.dir: $brooklyn:component("swarm-manager").attributeWhenReady("install.dir")
 
-          - type: test-network-exists
-            name: "TEST-6 Test default network exists"
+          - type: test-swarm-networking
+            name: "TEST-6 Test Swarm networking"
             brooklyn.config:
               targetId: swarm-client
+              start.latch: $brooklyn:entity("swarm-client").attributeWhenReady("service.isUp")
               swarm.url: $brooklyn:component("swarm").attributeWhenReady("swarm.url")
               ca.url: $brooklyn:component("ca-server").attributeWhenReady("main.uri")
               client.address: $brooklyn:component("swarm-client").attributeWhenReady("host.address")
               network.name: $brooklyn:component("swarm").config("swarm.defaultnetwork")
-
-# TODO re-implement this using a separately configured swarm-cluster
-#          - type: test-network-exists
-#            name: "TEST-7 Test named network exists"
-#            brooklyn.config:
-#              targetId: swarm-client
-#              swarm.url: $brooklyn:component("swarm").attributeWhenReady("swarm.url")
-#              ca.url: $brooklyn:component("ca-server").attributeWhenReady("main.uri")
-#              client.address: $brooklyn:component("swarm-client").attributeWhenReady("host.address")
-#              network.name: "test-network-name"

@@ -4,6 +4,7 @@ brooklyn.catalog:
   dependsOn:
     - docker.tests.bom
     - swarm.tests.bom
+    - jclouds.tests.bom
   license_code: CLOUDSOFT-1.0
 
   items:
