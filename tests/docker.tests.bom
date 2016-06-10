@@ -13,12 +13,13 @@ brooklyn.catalog:
     description: Tests of wrapper-vm docker
     itemType: entity
     item:
+      type: org.apache.brooklyn.entity.stock.BasicApplication
       name: Docker Entity test happy path
 
       brooklyn.config:
         timeout: 10m
       
-      services:
+      brooklyn.children:
       - type: docker-vm-container
         name: Docker Entity
         id: docker-entity
