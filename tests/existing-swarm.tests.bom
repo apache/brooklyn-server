@@ -1,0 +1,19 @@
+brooklyn.catalog:
+  version: "2.0.0-SNAPSHOT"
+  iconUrl: https://raw.githubusercontent.com/docker-library/docs/471fa6e4cb58062ccbf91afc111980f9c7004981/swarm/logo.png
+  dependsOn:
+    - docker.tests.bom
+    - jclouds.tests.bom
+  license_code: CLOUDSOFT-1.0
+
+  items:
+    - id: existing-swarm-tests
+      name: Existing Swarm tests
+      description: Tests targeting an existing swarm.
+      itemType: template
+      item:
+        services:
+        # NOTE: Requires pre-installed locations location-container, location-swarm-master, see jclouds.tests.bom for details
+        - type: jclouds-tests
+
+

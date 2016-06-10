@@ -30,8 +30,6 @@ brooklyn.catalog:
 #        endpoint: https://10.102.2.XXX:3376
 #        identity: <path to>/cert.pem
 #        credential: <path to>/key.pem
-#        # TODO needs "docker pull image" against the swarm master before deployment
-#        imageDescriptionRegex: ubuntu:14.04
 #        waitForSshable: false
 #        templateOptions:
 #          networkMode: "brooklyn" # the default swarm network
@@ -72,7 +70,7 @@ brooklyn.catalog:
       brooklyn.initializers:
         - type: org.apache.brooklyn.core.sensor.StaticSensor
           brooklyn.config:
-            static.value: $brooklyn:entity("container").attributeWhenReady("host.subnet.address")
+            static.value: $brooklyn:ancestor("test-scope").descendant("container").attributeWhenReady("host.subnet.address")
             name: container.ip
       location: location-swarm-master
 
@@ -85,21 +83,21 @@ brooklyn.catalog:
       description: Make sure we have an eagerly evaluated container ip, before we stop the container
       type: org.apache.brooklyn.test.framework.TestSensor
       sensor: container.ip
-      targetId: swarm-master
+      target: $brooklyn:ancestor("test-scope").descendant("swarm-master")
       assert:
       - notNull: true
   - id: assert-container-destroyed
     item:
       name: Assert container is destroyed
       type: ssh-test
-      targetId: swarm-master
+      target: $brooklyn:ancestor("test-scope").descendant("swarm-master")
       shell.env:
-        HOST_ADDRESS: $brooklyn:entity("swarm-master").attributeWhenReady("host.address")
-        SWARM_PORT: $brooklyn:entity("swarm-master").config("swarm.port")
-        CONTAINER_IP: $brooklyn:entity("swarm-master").attributeWhenReady("container.ip")
+        HOST_ADDRESS: $brooklyn:ancestor("test-scope").descendant("swarm-master").attributeWhenReady("host.address")
+        SWARM_PORT: $brooklyn:ancestor("test-scope").descendant("swarm-master").config("swarm.port")
+        CONTAINER_IP: $brooklyn:ancestor("test-scope").descendant("swarm-master").attributeWhenReady("container.ip")
       # TODO Assumes there's only one docker node in the swarm so that bridge IPs are global to the swarm
       command: |
-        DOCKER_HOST=${HOST_ADDRESS}:${SWARM_PORT}
+        export DOCKER_HOST=${HOST_ADDRESS}:${SWARM_PORT};
         docker ps -a --format '{{ .ID }}' |
           xargs -n1 docker inspect --format '{{ .NetworkSettings.IPAddress }}' |
           grep "${CONTAINER_IP}"
@@ -109,13 +107,13 @@ brooklyn.catalog:
     item:
       name: Wait for dd to complete
       type: ssh-test
-      targetId: swarm-master
+      target: $brooklyn:ancestor("test-scope").descendant("swarm-master")
       shell.env:
-        HOST_ADDRESS: $brooklyn:entity("swarm-master").attributeWhenReady("host.address")
-        SWARM_PORT: $brooklyn:entity("swarm-master").config("swarm.port")
-        CONTAINER_IP: $brooklyn:entity("swarm-master").attributeWhenReady("container.ip")
+        HOST_ADDRESS: $brooklyn:ancestor("test-scope").descendant("swarm-master").attributeWhenReady("host.address")
+        SWARM_PORT: $brooklyn:ancestor("test-scope").descendant("swarm-master").config("swarm.port")
+        CONTAINER_IP: $brooklyn:ancestor("test-scope").descendant("swarm-master").attributeWhenReady("container.ip")
       command: |
-        DOCKER_HOST=${HOST_ADDRESS}:${SWARM_PORT}
+        export DOCKER_HOST=${HOST_ADDRESS}:${SWARM_PORT};
         export CONTAINER_ID=$(docker ps -a --format '{{ .ID }}' |
           xargs -n1 docker inspect --format '{{ .Id }}    {{.NetworkSettings.IPAddress}}' |
           grep $CONTAINER_IP | cut -f1 -d' ' | head -n1);
@@ -123,7 +121,7 @@ brooklyn.catalog:
   - id: asserts-container-stop
     item:
       type: test-case
-      targetId: container
+      target: $brooklyn:ancestor("test-scope").descendant("container")
       brooklyn.config:
         timeout: 1m
       brooklyn.children:
@@ -132,6 +130,62 @@ brooklyn.catalog:
           timeout: 10m
       - type: test-stop
       - type: assert-container-destroyed
+  - id: assert-location-image
+    item:
+      name: Assert specific image is used
+      type: ssh-test
+      brooklyn.config:
+        target: $brooklyn:ancestor("test-scope").descendant("swarm-master")
+        shell.env:
+          HOST_ADDRESS: $brooklyn:ancestor("test-scope").descendant("swarm-master").attributeWhenReady("host.address")
+          SWARM_PORT: $brooklyn:ancestor("test-scope").descendant("swarm-master").config("swarm.port")
+          IMAGE_PREINSTALL_ID: $brooklyn:config("image.preinstall.id")
+          CONTAINER_IP: $brooklyn:ancestor("test-scope").descendant("swarm-master").attributeWhenReady("container.ip")
+        # TODO Assumes there's only one docker node in the swarm so that bridge IPs are global to the swarm
+        command: |
+          export DOCKER_HOST=$HOST_ADDRESS:$SWARM_PORT;
+          docker ps -a --format '{{ .ID }}' |
+            xargs -n1 docker inspect --format '{{ .Image }}@{{ .NetworkSettings.IPAddress }}' |
+            grep $IMAGE_PREINSTALL_ID@$CONTAINER_IP
+        assert.status:
+          - equals: 0
+  - id: docker-pull-image
+    item:
+      name: Pull Docker image
+      type: ssh-test
+      brooklyn.config:
+        target: $brooklyn:ancestor("test-scope").descendant("swarm-master")
+        shell.env:
+          HOST_ADDRESS: $brooklyn:ancestor("test-scope").descendant("swarm-master").attributeWhenReady("host.address")
+          SWARM_PORT: $brooklyn:ancestor("test-scope").descendant("swarm-master").config("swarm.port")
+          PULL_IMAGE_NAME: $brooklyn:config("pull.image.name")
+        command: |
+          export DOCKER_HOST=$HOST_ADDRESS:$SWARM_PORT;
+          if [ "$PULL_IMAGE_NAME" ]; then
+            docker pull $PULL_IMAGE_NAME
+          fi
+        assert.status:
+          - equals: 0
+  - id: test-location-image
+    item:
+      name: Location image test
+      id: test-scope
+      type: test-case
+      brooklyn.config:
+        target: $brooklyn:ancestor("test-scope").descendant("container")
+        timeout: 1m
+      brooklyn.children:
+      - type: swarm-master
+      - type: docker-pull-image
+      - type: container
+        provisioning.properties:
+          templateOptions:
+            entrypoint: ["/bin/sh", "-c", "while true; do sleep 10; done"]
+      - type: assert-up
+        brooklyn.config:
+          timeout: 10m
+      - type: wait-for-container-ip
+      - type: assert-location-image
 
   ##
   # Test Suite
@@ -139,26 +193,68 @@ brooklyn.catalog:
   - id: test-container-stop
     item:
       name: Jclouds docker provider release test
+      id: test-scope
       type: test-case
       brooklyn.children:
+      - type: swarm-master
       - type: container
         location: location-container
         provisioning.properties:
           templateOptions:
-            entrypoint: ["/bin/bash", "-c", "while true; do sleep 10; done"]
-      - type: swarm-master
+            entrypoint: ["/bin/sh", "-c", "while true; do sleep 10; done"]
       - type: wait-for-container-ip
       - type: asserts-container-stop
   - id: test-container-clean-up
     item:
       name: Jclouds docker provider clean up test
+      id: test-scope
       type: test-case
       brooklyn.children:
       - type: container
         location: location-container
         provisioning.properties:
           templateOptions:
-            entrypoint: ["/bin/bash", "-c", "dd if=/dev/zero of=5g.img bs=1 count=0 seek=5G; while true; do sleep 10; done"]
+            entrypoint: ["/bin/sh", "-c", "dd if=/dev/zero of=5g.img bs=1M count=5120; while true; do sleep 10; done"]
       - type: swarm-master
       - type: wait-for-container-ip
       - type: wait-for-dd
+  - id: test-default-image
+    item:
+      name: Default image test
+      type: test-location-image
+      brooklyn.config:
+        # Should already be there
+        # pull.image.name: cloudsoft/centos:7
+        pull.image.name: ""
+        image.preinstall.id: sha256:5670c22f2f46bfc7578447978fa7be62699d1e90ed88bf7e415ec96b2571ce0b
+      location: location-container
+  - id: test-explicit-image-id
+    item:
+      name: Explicit imageId test
+      type: test-location-image
+      brooklyn.config:
+        pull.image.name: busybox:1.24
+        image.preinstall.id: sha256:47bcc53f74dc94b1920f0b34f6036096526296767650f223433fe65c35f149eb
+      location:
+        location-container:
+          imageId: sha256:47bcc53f74dc94b1920f0b34f6036096526296767650f223433fe65c35f149eb
+  - id: test-explicit-image-name
+    item:
+      name: Explicit image name test
+      type: test-location-image
+      brooklyn.config:
+        pull.image.name: busybox:1.24
+        image.preinstall.id: sha256:47bcc53f74dc94b1920f0b34f6036096526296767650f223433fe65c35f149eb
+      location:
+        location-container:
+          imageDescriptionRegex: busybox:1.24
+  - id: jclouds-tests
+    item:
+      type: org.apache.brooklyn.entity.stock.BasicApplication
+      name: Jclouds provider tests
+      brooklyn.children:
+      - type: test-container-stop
+      - type: test-container-clean-up
+      - type: test-default-image
+      - type: test-explicit-image-id
+      - type: test-explicit-image-name
