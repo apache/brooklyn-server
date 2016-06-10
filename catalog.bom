@@ -27,6 +27,27 @@ brooklyn.catalog:
             The TCP port for Docker to listen on
           type: port
           default: 2375
+        - name: docker.package
+          label: Docker Package
+          description: |
+            The Docker Engine package to install
+          type: string
+          default: docker-engine
+        - name: docker.version
+          label: Docker Version
+          description: |
+            The Docker Engine version to install
+          type: string
+        - name: docker.repository.url
+          label: Docker Repository URL
+          description: |
+            The Docker repository URL to use for installation
+          type: string
+        - name: docker.gpgkey.url
+          label: Docker GPG Key URL
+          description: |
+            The Docker GPG key URL to use to authenticate the installation
+          type: string
         - name: docker.bindaddress
           label: Docker Bind Address
           description: |
@@ -99,12 +120,23 @@ brooklyn.catalog:
           DOCKER_BIND_URL: $brooklyn:attributeWhenReady("docker.bind.url")
           DOCKER_HOST: $brooklyn:attributeWhenReady("docker.url")
           DOCKER_IMAGE: $brooklyn:config("image.preinstall")
+          DOCKER_PACKAGE: $brooklyn:config("docker.package")
+          DOCKER_VERSION: $brooklyn:config("docker.version")
+          DOCKER_REPOSITORY_URL: $brooklyn:config("docker.repository.url")
+          DOCKER_GPG_KEY_URL: $brooklyn:config("docker.gpgkey.url")
 
         install.command: |
           set -e # need all commands to execute successfully
 
           echo "[CLOCKER] Configuring package manager"
-          sudo tee /etc/yum.repos.d/docker.repo <<-EOF
+          if [[ "${DOCKER_REPOSITORY_URL}" && "${DOCKER_GPG_KEY_URL}" ]] ; then
+            # Commercially Supported Docker Engine
+            sudo rpm --import "${DOCKER_GPG_KEY_URL}"
+            sudo yum install -y yum-utils
+            sudo yum-config-manager --add-repo "${DOCKER_REPOSITORY_URL}"
+          else
+            # Open-Source Docker Engine
+            sudo tee /etc/yum.repos.d/docker.repo <<-EOF
           [dockerrepo]
           name=Docker Repository
           baseurl=https://yum.dockerproject.org/repo/main/centos/\$releasever/
@@ -112,7 +144,12 @@ brooklyn.catalog:
           gpgcheck=1
           gpgkey=https://yum.dockerproject.org/gpg
           EOF
-          sudo yum -y install docker-engine
+          fi
+          if [[ "${DOCKER_VERSION}" ]] ; then
+            sudo yum -y install ${DOCKER_PACKAGE}-${DOCKER_VERSION}
+          else
+            sudo yum -y install ${DOCKER_PACKAGE}
+          fi
 
           echo "[CLOCKER] Setting up Docker systemd service"
           sudo mkdir -p /etc/systemd/system/docker.service.d
@@ -128,12 +165,13 @@ brooklyn.catalog:
             \$CLUSTER_OPTS \
             ${DOCKER_ADDITIONAL_OPTIONS}
           EOF
-          if [ "${DOCKER_DISCOVERY_URL}" ]; then
+          if [[ "${DOCKER_DISCOVERY_URL}" ]] ; then
             sudo tee /etc/systemd/system/docker.service.d/cluster.conf <<-EOF
           [Service]
           Environment="CLUSTER_OPTS=--cluster-advertise ${DOCKER_ENDPOINT} --cluster-store ${DOCKER_DISCOVERY_URL}"
           EOF
           fi
+          sudo systemctl enable docker.service
           sudo systemctl daemon-reload
 
         post.install.command: |
