@@ -314,6 +314,13 @@ brooklyn.catalog:
               assertOut:
                 contains: test_dockerfile
 
+          - type: ssh-test
+            name: TEST-3-9 docker remove MongoDB
+            command: |
+              docker rm -f test-MongoDB
+            assertOut:
+              contains: test-MongoDB
+
   ###
   # Tests that we can deploy a Docker Engine along with a long-running container.
   # We assert that the container comes up (according to the CLI command `docker ps`).
