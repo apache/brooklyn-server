@@ -65,12 +65,16 @@ And to run tests against an existing Swarm endpoint (changing the part to the pe
         endpoint: https://10.104.0.75:3376/
         identity: /Users/aled/.docker/.certs-from-server/cert.pem
         credential: /Users/aled/.docker/.certs-from-server/key.pem
+        # FIXME Should be able to remove imageId (added as default in AMP)
         imageId: sha256:5670c22f2f46bfc7578447978fa7be62699d1e90ed88bf7e415ec96b2571ce0b
         loginUser: root
         loginUser.password: p4ssw0rd
         onbox.base.dir: /tmp
-        # FIXME
+        # FIXME Need to cloudsoft/centos image that has 'sudo' and 'which' pre-installed
         user: root
+        # FIXME Need to add 'brooklyn' network to our pre-existing swarm cluster
+        #templateOptions:
+        #  networkMode: "brooklyn" # the default swarm network
     services:
     - type: deploy-app-to-swarm-single-node
     - type: deploy-app-to-swarm-multi-node
