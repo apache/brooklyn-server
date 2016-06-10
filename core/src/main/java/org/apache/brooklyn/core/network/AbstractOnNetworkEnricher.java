@@ -71,8 +71,8 @@ public abstract class AbstractOnNetworkEnricher extends AbstractEnricher {
             "mapMatching",
             "Whether to map all, based on a sensor naming convention (re-published with suffix \"mapped.networkName\"); "
                     + "if 'sensors' is not specified, defaults to matching case-insensitive suffix of "
-                    + "'port', 'uri', 'url' or 'endpoint' ",
-            "(?i).*(port|uri|url|endpoint)");
+                    + "'port', 'uri', 'url', 'endpoint' or 'hostAndPort'",
+            "(?i)(.+\\.)?(port|uri|url|endpoint|hostandport)");
 
     @SuppressWarnings("serial")
     public static ConfigKey<Function<? super String, String>> SENSOR_NAME_CONVERTER = ConfigKeys.newConfigKey(
@@ -97,13 +97,20 @@ public abstract class AbstractOnNetworkEnricher extends AbstractEnricher {
                 return input + ".mapped." + network;
             } else if (lowerInput.endsWith("endpoint")) {
                 return input + ".mapped." + network;
+            } else if (lowerInput.endsWith("hostandport")) {
+                return input + ".mapped." + network;
             } else if (lowerInput.endsWith("port")) {
                 String prefix = input.substring(0, input.length() - "port".length());
-                if (prefix.endsWith(".")) prefix = prefix.substring(0, prefix.length() - 1);
-                return prefix + ".endpoint.mapped." + network;
+                boolean includeDot = (!prefix.isEmpty() && !prefix.endsWith("."));
+                return prefix + (includeDot ? "." : "") + "endpoint.mapped." + network;
             } else {
                 return input + ".mapped." + network;
             }
+        }
+        
+        @Override
+        public String toString() {
+            return getClass().getSimpleName()+"("+network+")";
         }
     }
 

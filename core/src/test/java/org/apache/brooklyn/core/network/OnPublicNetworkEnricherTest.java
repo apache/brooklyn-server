@@ -236,8 +236,11 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
         AttributeSensor<String> stringUrl = Sensors.newStringSensor("string.url");
         AttributeSensor<Integer> intPort = Sensors.newIntegerSensor("int.port");
         AttributeSensor<String> stringPort = Sensors.newStringSensor("string.port");
-        AttributeSensor<HostAndPort> hostAndPort = Sensors.newSensor(HostAndPort.class, "hostAndPort.endpoint");
-        AttributeSensor<String> stringHostAndPort = Sensors.newStringSensor("stringHostAndPort.endpoint");
+        AttributeSensor<Integer> portNoPrefix = Sensors.newIntegerSensor("port");
+        AttributeSensor<HostAndPort> endpoint = Sensors.newSensor(HostAndPort.class, "hostAndPort.endpoint");
+        AttributeSensor<String> stringEndpoint = Sensors.newStringSensor("string.hostAndPort.endpoint");
+        AttributeSensor<HostAndPort> hostAndPort = Sensors.newSensor(HostAndPort.class, "example.hostAndPort");
+        AttributeSensor<String> stringHostAndPort = Sensors.newStringSensor("string.hostAndPort");
 
         entity.sensors().set(Attributes.SUBNET_ADDRESS, "127.0.0.1");
         entity.sensors().set(stronglyTypedUri, URI.create("http://127.0.0.1:1234/my/path"));
@@ -246,11 +249,14 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
         entity.sensors().set(stringUrl, "http://127.0.0.1:1234/my/path");
         entity.sensors().set(intPort, 1234);
         entity.sensors().set(stringPort, "1234");
+        entity.sensors().set(portNoPrefix, 1234);
+        entity.sensors().set(endpoint, HostAndPort.fromParts("127.0.0.1", 1234));
+        entity.sensors().set(stringEndpoint, "127.0.0.1:1234");
         entity.sensors().set(hostAndPort, HostAndPort.fromParts("127.0.0.1", 1234));
         entity.sensors().set(stringHostAndPort, "127.0.0.1:1234");
         portForwardManager.associate("myPublicIp", HostAndPort.fromParts("mypublichost", 5678), machine, 1234);
         entity.addLocations(ImmutableList.of(machine));
-        
+
         entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class));
 
         assertAttributeEqualsEventually("strongly.typed.uri.mapped.public", "http://mypublichost:5678/my/path");
@@ -259,8 +265,11 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
         assertAttributeEqualsEventually("string.url.mapped.public", "http://mypublichost:5678/my/path");
         assertAttributeEqualsEventually("int.endpoint.mapped.public", "mypublichost:5678");
         assertAttributeEqualsEventually("string.endpoint.mapped.public", "mypublichost:5678");
+        assertAttributeEqualsEventually("endpoint.mapped.public", "mypublichost:5678");
         assertAttributeEqualsEventually("hostAndPort.endpoint.mapped.public", "mypublichost:5678");
-        assertAttributeEqualsEventually("stringHostAndPort.endpoint.mapped.public", "mypublichost:5678");
+        assertAttributeEqualsEventually("string.hostAndPort.endpoint.mapped.public", "mypublichost:5678");
+        assertAttributeEqualsEventually("example.hostAndPort.mapped.public", "mypublichost:5678");
+        assertAttributeEqualsEventually("string.hostAndPort.mapped.public", "mypublichost:5678");
     }
     
     @Test
@@ -328,6 +337,30 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
+    public void testDefaultMapMatching() throws Exception {
+        OnPublicNetworkEnricher enricher = entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class));
+        String regex = enricher.getConfig(OnPublicNetworkEnricher.MAP_MATCHING);
+        
+        Map<String, Boolean> testCases = ImmutableMap.<String, Boolean>builder()
+                .put("my.uri", true)
+                .put("my.UrI", true)
+                .put("my.url", true)
+                .put("my.endpoint", true)
+                .put("my.port", true)
+                .put("port", true)
+                .put("uri", true)
+                .put("PREFIX_NO_DOTuri", false)
+                .put("PREFIX_NO_DOTendpoint", false)
+                .put("PREFIX_NO_DOTport", false)
+                .put("portSUFFIX", false)
+                .build();
+        
+        for (Map.Entry<String, Boolean> entry : testCases.entrySet()) {
+            assertEquals(Boolean.valueOf(entry.getKey().matches(regex)), entry.getValue(), "input="+entry.getKey());
+        }
+    }
+    
+    @Test
     public void testSensorNameConverter() throws Exception {
         OnPublicNetworkEnricher enricher = entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class));
         Function<? super String, String> converter = enricher.getConfig(OnPublicNetworkEnricher.SENSOR_NAME_CONVERTER);
@@ -342,6 +375,8 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
                 .put("myendpoint", "myendpoint.mapped.public")
                 .put("my.port", "my.endpoint.mapped.public")
                 .put("myport", "my.endpoint.mapped.public")
+                .put("port", "endpoint.mapped.public")
+                .put("uri", "uri.mapped.public")
                 .build();
         
         for (Map.Entry<String, String> entry : testCases.entrySet()) {
