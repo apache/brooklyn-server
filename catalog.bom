@@ -32,7 +32,6 @@ brooklyn.catalog:
           description: |
             The Docker Engine package to install
           type: string
-          default: docker-engine
         - name: docker.version
           label: Docker Version
           description: |
@@ -146,9 +145,9 @@ brooklyn.catalog:
           EOF
           fi
           if [[ "${DOCKER_VERSION}" ]] ; then
-            sudo yum -y install ${DOCKER_PACKAGE}-${DOCKER_VERSION}
+            sudo yum -y install ${DOCKER_PACKAGE:-docker-engine}-${DOCKER_VERSION}
           else
-            sudo yum -y install ${DOCKER_PACKAGE}
+            sudo yum -y install ${DOCKER_PACKAGE:-docker-engine}
           fi
 
           echo "[CLOCKER] Setting up Docker systemd service"
