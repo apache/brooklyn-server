@@ -250,7 +250,7 @@ brooklyn.catalog:
           imageDescriptionRegex: busybox:1.24
   - id: jclouds-tests
     item:
-      type: org.apache.brooklyn.entity.stock.BasicApplication
+      type: test-case
       name: Jclouds provider tests
       brooklyn.children:
       - type: test-container-stop
