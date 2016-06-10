@@ -376,5 +376,5 @@ brooklyn.catalog:
           sudo service docker status && [ "${STATE}" = "running" ]
 
         stop.command: |
-          docker stop $(cat "${PID_FILE}"))
+          docker stop $(cat "${PID_FILE}")
           sudo service docker stop
