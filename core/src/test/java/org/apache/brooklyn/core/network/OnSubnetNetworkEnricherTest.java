@@ -126,7 +126,7 @@ public class OnSubnetNetworkEnricherTest extends BrooklynAppUnitTestSupport {
         }
         
         entity.enrichers().add(EnricherSpec.create(OnSubnetNetworkEnricher.class)
-                .configure(OnSubnetNetworkEnricher.SENSOR, sensor));
+                .configure(OnSubnetNetworkEnricher.SENSORS, ImmutableList.of(sensor)));
 
         if (setUri == Timing.AFTER) {
             entity.sensors().set(sensor, sensorVal);
@@ -147,7 +147,7 @@ public class OnSubnetNetworkEnricherTest extends BrooklynAppUnitTestSupport {
         entity.addLocations(ImmutableList.of(machine));
         
         entity.enrichers().add(EnricherSpec.create(OnSubnetNetworkEnricher.class)
-                .configure(OnSubnetNetworkEnricher.SENSOR, sensor));
+                .configure(OnSubnetNetworkEnricher.SENSORS, ImmutableList.of(sensor)));
 
         EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", VERY_SHORT_WAIT), entity, Sensors.newStringSensor(sensor.getName()+".mapped.subnet"), null);
     }
@@ -157,7 +157,7 @@ public class OnSubnetNetworkEnricherTest extends BrooklynAppUnitTestSupport {
         entity.sensors().set(Attributes.HTTP_PORT, 1234);
         
         entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class)
-                .configure(OnPublicNetworkEnricher.SENSOR, Attributes.HTTP_PORT));
+                .configure(OnPublicNetworkEnricher.SENSORS, ImmutableList.of(Attributes.HTTP_PORT)));
 
         EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", VERY_SHORT_WAIT), entity, Sensors.newStringSensor(Attributes.HTTP_PORT.getName()+".mapped.subnet"), null);
     }
@@ -255,21 +255,7 @@ public class OnSubnetNetworkEnricherTest extends BrooklynAppUnitTestSupport {
         }
     }
     
-    @Test(expectedExceptions=IllegalStateException.class, expectedExceptionsMessageRegExp=".*must not have both 'sensor' and 'sensors'.*")
-    public void testFailsIfSensorAndSensorsConfigured() throws Exception {
-        entity.enrichers().add(EnricherSpec.create(OnSubnetNetworkEnricher.class)
-                .configure(OnSubnetNetworkEnricher.SENSOR, Attributes.HTTP_PORT)
-                .configure(OnSubnetNetworkEnricher.SENSORS, ImmutableList.of(Attributes.HTTPS_PORT)));
-    }
-    
-    @Test(expectedExceptions=IllegalStateException.class, expectedExceptionsMessageRegExp=".*must not have explicit 'mapMatching', and either of 'sensor' or 'sensors'.*")
-    public void testFailsIfSensorAndMapMatchingConfigured() throws Exception {
-        entity.enrichers().add(EnricherSpec.create(OnSubnetNetworkEnricher.class)
-                .configure(OnSubnetNetworkEnricher.SENSOR, Attributes.HTTP_PORT)
-                .configure(OnSubnetNetworkEnricher.MAP_MATCHING, ".*uri"));
-    }
-    
-    @Test(expectedExceptions=IllegalStateException.class, expectedExceptionsMessageRegExp=".*must not have explicit 'mapMatching', and either of 'sensor' or 'sensors'.*")
+    @Test(expectedExceptions=IllegalStateException.class, expectedExceptionsMessageRegExp=".*must not have explicit 'mapMatching' and 'sensors'.*")
     public void testFailsIfSensorsAndMapMatchingConfigured() throws Exception {
         entity.enrichers().add(EnricherSpec.create(OnSubnetNetworkEnricher.class)
                 .configure(OnSubnetNetworkEnricher.SENSORS, ImmutableList.of(Attributes.HTTPS_PORT))

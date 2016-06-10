@@ -61,23 +61,16 @@ public abstract class AbstractOnNetworkEnricher extends AbstractEnricher {
     private static final Logger LOG = LoggerFactory.getLogger(AbstractOnNetworkEnricher.class);
 
     @SuppressWarnings("serial")
-    public static final ConfigKey<AttributeSensor<?>> SENSOR = ConfigKeys.newConfigKey(
-            new TypeToken<AttributeSensor<?>>() {}, 
-            "sensor",
-            "The sensor whose mapped value is to be re-published (with suffix \"mapped.networkName\"); "
-                    + "either 'sensor' or 'sensors' should be specified");
-
-    @SuppressWarnings("serial")
     public static ConfigKey<Collection<? extends AttributeSensor<?>>> SENSORS = ConfigKeys.newConfigKey(
             new TypeToken<Collection<? extends AttributeSensor<?>>>() {}, 
             "sensors",
             "The multiple sensors whose mapped values are to be re-published (with suffix \"mapped.networkName\"); "
-                    + "if neither 'sensor' or 'sensors' is specified, defaults to 'mapAll'");
+                    + "if 'sensors' is not specified, defaults to 'mapMatching'");
 
     public static ConfigKey<String> MAP_MATCHING = ConfigKeys.newStringConfigKey(
             "mapMatching",
             "Whether to map all, based on a sensor naming convention (re-published with suffix \"mapped.networkName\"); "
-                    + "if neither 'sensor' or 'sensors' is specified, defaults to matchin case-insensitive suffix of "
+                    + "if 'sensors' is not specified, defaults to matching case-insensitive suffix of "
                     + "'port', 'uri', 'url' or 'endpoint' ",
             "(?i).*(port|uri|url|endpoint)");
 
@@ -360,36 +353,28 @@ public abstract class AbstractOnNetworkEnricher extends AbstractEnricher {
     }
     
     protected void checkConfig() {
-        AttributeSensor<?> sensor = getConfig(SENSOR);
         Collection<? extends AttributeSensor<?>> sensors = getConfig(SENSORS);
         Maybe<Object> rawMapMatching = config().getRaw(MAP_MATCHING);
         String mapMatching = config().get(MAP_MATCHING);
         
-        if (sensor != null && sensors != null && !sensors.isEmpty()) {
-            throw new IllegalStateException(this+" must not have both 'sensor' and 'sensors' config");
-        } else if (sensor == null && (sensors == null || sensors.isEmpty())) {
+        if (sensors == null || sensors.isEmpty()) {
             if (Strings.isBlank(mapMatching)) {
-                throw new IllegalStateException(this+" requires one of 'sensor' or 'sensors' config (when 'mapMatching' is explicitly blank)");
+                throw new IllegalStateException(this+" requires 'sensors' config (when 'mapMatching' is explicitly blank)");
             }
         } else if (rawMapMatching.isPresent()) {
-            throw new IllegalStateException(this+" must not have explicit 'mapMatching', and either of 'sensor' or 'sensors' config");
+            throw new IllegalStateException(this+" must not have explicit 'mapMatching' and 'sensors' config");
         }
     }
     
     protected Collection<AttributeSensor<?>> resolveSensorsConfig() {
-        AttributeSensor<?> sensor = getConfig(SENSOR);
         Collection<? extends AttributeSensor<?>> sensors = getConfig(SENSORS);
 
         Collection<AttributeSensor<?>> result = Lists.newArrayList();
-        if (sensor != null) {
-            AttributeSensor<?> typedSensor = (AttributeSensor<?>) entity.getEntityType().getSensor(sensor.getName());
-            result.add(typedSensor != null ? typedSensor : sensor);
-        }
         if (sensors != null) {
             for (Object s : sensors) {
                 AttributeSensor<?> coercedSensor = TypeCoercions.coerce(s, AttributeSensor.class);
                 AttributeSensor<?> typedSensor = (AttributeSensor<?>) entity.getEntityType().getSensor(coercedSensor.getName());
-                result.add(typedSensor != null ? typedSensor : sensor);
+                result.add(typedSensor != null ? typedSensor : coercedSensor);
             }
         }
         return result;

@@ -34,7 +34,6 @@ import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
-import org.apache.brooklyn.core.network.OnPublicNetworkEnricher;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
@@ -133,7 +132,7 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
         }
         
         entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class)
-                .configure(OnPublicNetworkEnricher.SENSOR, sensor));
+                .configure(OnPublicNetworkEnricher.SENSORS, ImmutableList.of(sensor)));
 
         if (setUri == Timing.AFTER) {
             entity.sensors().set(sensor, sensorVal);
@@ -158,7 +157,7 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
         entity.addLocations(ImmutableList.of(machine));
         
         entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class)
-                .configure(OnPublicNetworkEnricher.SENSOR, sensor));
+                .configure(OnPublicNetworkEnricher.SENSORS, ImmutableList.of(sensor)));
 
         EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", VERY_SHORT_WAIT), entity, Sensors.newStringSensor(sensor.getName()+".mapped.public"), null);
     }
@@ -171,7 +170,7 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
         entity.addLocations(ImmutableList.of(machine));
         
         entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class)
-                .configure(OnPublicNetworkEnricher.SENSOR, Attributes.MAIN_URI));
+                .configure(OnPublicNetworkEnricher.SENSORS, ImmutableList.of(Attributes.MAIN_URI)));
 
         EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newStringSensor(Attributes.MAIN_URI.getName()+".mapped.public"), "http://mypublichost:5678/my/path");
     }
@@ -184,7 +183,7 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
         entity.addLocations(ImmutableList.of(machine));
         
         entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class)
-                .configure(OnPublicNetworkEnricher.SENSOR, Attributes.MAIN_URI));
+                .configure(OnPublicNetworkEnricher.SENSORS, ImmutableList.of(Attributes.MAIN_URI)));
 
         EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newStringSensor(Attributes.MAIN_URI.getName()+".mapped.public"), "https://mypublichost:5678/my/path");
     }
@@ -198,7 +197,7 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
         entity.addLocations(ImmutableList.of(machine));
         
         entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class)
-                .configure(OnPublicNetworkEnricher.SENSOR, Attributes.HTTP_PORT));
+                .configure(OnPublicNetworkEnricher.SENSORS, ImmutableList.of(Attributes.HTTP_PORT)));
 
         EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", VERY_SHORT_WAIT), entity, Sensors.newStringSensor(Attributes.HTTP_PORT.getName()+".mapped.public"), null);
     }
@@ -211,7 +210,7 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
         portForwardManager.associate("myPublicIp", HostAndPort.fromParts("mypublichost", 5678), machine, 1234);
         
         entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class)
-                .configure(OnPublicNetworkEnricher.SENSOR, Attributes.HTTP_PORT));
+                .configure(OnPublicNetworkEnricher.SENSORS, ImmutableList.of(Attributes.HTTP_PORT)));
 
         EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", VERY_SHORT_WAIT), entity, Sensors.newStringSensor(Attributes.HTTP_PORT.getName()+".mapped.public"), null);
     }
@@ -224,7 +223,7 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
         portForwardManager.associate("myPublicIp", HostAndPort.fromParts("mypublichost", 5678), machine, 1234);
         
         entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class)
-                .configure(OnPublicNetworkEnricher.SENSOR, TestEntity.NAME));
+                .configure(OnPublicNetworkEnricher.SENSORS, ImmutableList.of(TestEntity.NAME)));
 
         EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", VERY_SHORT_WAIT), entity, Sensors.newStringSensor(TestEntity.NAME.getName()+".mapped.public"), null);
     }
@@ -293,15 +292,41 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
                 }
             }});
     }
-    
-    protected void assertAttributeEqualsEventually(String sensorName, String expectedVal) throws Exception {
-        try {
-            EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newStringSensor(sensorName), expectedVal);
-        } catch (Exception e) {
-            throw new Exception("Failed assertion for sensor '"+sensorName+"'; attributes are "+entity.sensors().getAll(), e);
-        }
+
+    @Test
+    public <T> void testDoesNotDoRegexMatchingWhenSensorsSpecified() throws Exception {
+        AttributeSensor<String> sensor = Sensors.newStringSensor("mysensor");
+        AttributeSensor<Integer> intPort = Sensors.newIntegerSensor("int.port");
+
+        entity.sensors().set(Attributes.SUBNET_ADDRESS, "127.0.0.1");
+        entity.sensors().set(intPort, 1234);
+        entity.sensors().set(sensor, "127.0.0.1:1234");
+        portForwardManager.associate("myPublicIp", HostAndPort.fromParts("mypublichost", 5678), machine, 1234);
+        entity.addLocations(ImmutableList.of(machine));
+        
+        entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class)
+                .configure(OnPublicNetworkEnricher.SENSORS, ImmutableList.of(sensor)));
+
+        assertAttributeEqualsEventually("mysensor.mapped.public", "mypublichost:5678");
+        assertAttributeEqualsContinually("int.endpoint.mapped.public", null, VERY_SHORT_WAIT);
     }
     
+    @Test
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    public <T> void testCoercesSensorName() throws Exception {
+        AttributeSensor<String> sensor = Sensors.newStringSensor("mysensor");
+
+        entity.sensors().set(sensor, "127.0.0.1:1234");
+        portForwardManager.associate("myPublicIp", HostAndPort.fromParts("mypublichost", 5678), machine, 1234);
+        entity.addLocations(ImmutableList.of(machine));
+        
+        // Ugly casting in java, but easy to get passed this when constructed from YAML
+        entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class)
+                .configure(OnPublicNetworkEnricher.SENSORS, ((List<AttributeSensor<?>>)(List)ImmutableList.of("mysensor"))));
+
+        assertAttributeEqualsEventually("mysensor.mapped.public", "mypublichost:5678");
+    }
+
     @Test
     public void testSensorNameConverter() throws Exception {
         OnPublicNetworkEnricher enricher = entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class));
@@ -324,24 +349,27 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
         }
     }
     
-    @Test(expectedExceptions=IllegalStateException.class, expectedExceptionsMessageRegExp=".*must not have both 'sensor' and 'sensors'.*")
-    public void testFailsIfSensorAndSensorsConfigured() throws Exception {
-        entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class)
-                .configure(OnPublicNetworkEnricher.SENSOR, Attributes.HTTP_PORT)
-                .configure(OnPublicNetworkEnricher.SENSORS, ImmutableList.of(Attributes.HTTPS_PORT)));
-    }
-    
-    @Test(expectedExceptions=IllegalStateException.class, expectedExceptionsMessageRegExp=".*must not have explicit 'mapMatching', and either of 'sensor' or 'sensors'.*")
-    public void testFailsIfSensorAndMapMatchingConfigured() throws Exception {
-        entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class)
-                .configure(OnPublicNetworkEnricher.SENSOR, Attributes.HTTP_PORT)
-                .configure(OnPublicNetworkEnricher.MAP_MATCHING, ".*uri"));
-    }
-    
-    @Test(expectedExceptions=IllegalStateException.class, expectedExceptionsMessageRegExp=".*must not have explicit 'mapMatching', and either of 'sensor' or 'sensors'.*")
+    @Test(expectedExceptions=IllegalStateException.class, expectedExceptionsMessageRegExp=".*must not have explicit 'mapMatching' and 'sensors'.*")
     public void testFailsIfSensorsAndMapMatchingConfigured() throws Exception {
         entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class)
                 .configure(OnPublicNetworkEnricher.SENSORS, ImmutableList.of(Attributes.HTTPS_PORT))
                 .configure(OnPublicNetworkEnricher.MAP_MATCHING, ".*uri"));
     }
+    
+    protected void assertAttributeEqualsEventually(String sensorName, String expectedVal) throws Exception {
+        try {
+            EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newStringSensor(sensorName), expectedVal);
+        } catch (Exception e) {
+            throw new Exception("Failed assertion for sensor '"+sensorName+"'; attributes are "+entity.sensors().getAll(), e);
+        }
+    }
+    
+    protected void assertAttributeEqualsContinually(String sensorName, String expectedVal, Duration duration) throws Exception {
+        try {
+            EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", duration), entity, Sensors.newStringSensor(sensorName), expectedVal);
+        } catch (Exception e) {
+            throw new Exception("Failed assertion for sensor '"+sensorName+"'; attributes are "+entity.sensors().getAll(), e);
+        }
+    }
 }
+
