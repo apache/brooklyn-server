@@ -75,7 +75,10 @@ And to run tests against an existing Swarm endpoint (changing the part to the pe
     services:
     - type: deploy-app-to-swarm-single-node
     - type: deploy-app-to-swarm-multi-node
-    
+
+There is also a test available to test a Riak multi-node deployment, `riak-cluster-to-swarm-multi-node`, but this
+currently requires you to do a docker pull of the cloudsoft Ubuntu 14.04 image onto your swarm before you set up
+your location. See the comments in swarm-endpoint-tests.bom.
 
 ### Running as an end-user
 
