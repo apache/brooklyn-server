@@ -1,18 +1,27 @@
+brooklyn.catalog:
+  version: "2.0.0-SNAPSHOT"
+  iconUrl: https://raw.githubusercontent.com/docker-library/docs/c350af05d3fac7b5c3f6327ac82fe4d990d8729c/docker/logo.png
+  dependsOn:
+    - common.tests.bom
+  license_code: CLOUDSOFT-1.0
+
+##
 # To test stop effector:
+#
 # services:
 # - type: test-container-stop
 #
 # To test stop cleanup:
+#
 # services:
 # - type: test-container-clean-up
-brooklyn.catalog:
-  version: 2.0.0-SNAPSHOT
-  dependsOn:
-    - common.tests.bom
+##
 
-  items:
-### Location templates ###
-#  # Add a location named "location-container" based on this one
+##
+# Location templates
+#
+# Add a location named "location-container" based on this one:
+#
 #  - id: location-container-template
 #    itemType: location
 #    item:
@@ -26,7 +35,9 @@ brooklyn.catalog:
 #        waitForSshable: false
 #        templateOptions:
 #          networkMode: "brooklyn" # the default swarm network
-#  # Add a location named "location-swarm-master" based on this one
+#
+# Add a location named "location-swarm-master" based on this one:
+#
 #  - id: location-swarm-master-template
 #    itemType: location
 #    item:
@@ -35,7 +46,13 @@ brooklyn.catalog:
 #        hosts: ["10.102.2.XXX"]
 #        user: jenkins
 #        privateKeyFile: ~/.ssh/id_rsa
-### Entities under test ###
+##
+
+  items:
+
+  ##
+  # Entities Under Test
+  ##
   - id: container
     item:
       type: org.apache.brooklyn.entity.software.base.EmptySoftwareProcess
@@ -58,7 +75,10 @@ brooklyn.catalog:
             static.value: $brooklyn:entity("container").attributeWhenReady("host.subnet.address")
             name: container.ip
       location: location-swarm-master
-### Test Cases ###
+
+  ##
+  # Test Cases
+  ##
   - id: wait-for-container-ip
     item:
       name: TEST [container.ip] [exists]
@@ -112,7 +132,10 @@ brooklyn.catalog:
           timeout: 10m
       - type: test-stop
       - type: assert-container-destroyed
-### Test Suite ###
+
+  ##
+  # Test Suite
+  ##
   - id: test-container-stop
     item:
       name: Jclouds docker provider release test
