@@ -36,11 +36,31 @@ brooklyn.catalog:
       assert:
       - matches: running
 
+  - id: assert-failed
+    item:
+      type: org.apache.brooklyn.test.framework.TestSensor
+      name: TEST [service.state] IS [on-fire]
+      sensor: service.state
+      assert:
+      - matches: on-fire
+
   - id: test-stop
     item:
       name: Invoke [stop] effector
       type: org.apache.brooklyn.test.framework.TestEffector
       effector: stop
+
+  - id: test-start
+    item:
+      name: Invoke [start] effector
+      type: org.apache.brooklyn.test.framework.TestEffector
+      effector: start
+
+  - id: test-restart
+    item:
+      name: Invoke [restart] effector
+      type: org.apache.brooklyn.test.framework.TestEffector
+      effector: restart
 
   - id: test-docker-client
     item:

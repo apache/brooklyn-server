@@ -5,11 +5,6 @@ brooklyn.catalog:
     - common.tests.bom
   license_code: CLOUDSOFT-1.0
 
-  brooklyn.config:
-    timeout: 1h
-    timeout.initialStartup: 1h
-    timeout.runtimeAssertion: 1h
-
   items:
 
   - id: docker-preinstall-tests
@@ -104,3 +99,120 @@ brooklyn.catalog:
       - type: docker-engine-test
         name: Test Docker over TLS
         targetId: tls-client
+
+  - id: docker-vm-container-happy-test
+    name: Docker Entity tests
+    description: Tests of wrapper-vm docker
+    itemType: entity
+    item:
+      name: Docker Entity test happy path
+
+      brooklyn.config:
+        timeout: 10m
+      
+      services:
+      - type: docker-vm-container
+        name: Docker Entity
+        id: docker-entity
+        brooklyn.config:
+          docker.image: cloudsoft/centos:7
+
+      - type: test-case
+        name: Docker Entity tests
+        targetId: docker-entity
+        brooklyn.children:
+        - type: assert-up
+          brooklyn.parameters:
+          - name: timeout.initialStartup
+            description: The timeout for provisioning, installing and launching the app-under-test.
+            type: org.apache.brooklyn.util.time.Duration
+            default: 1h
+          brooklyn.config:
+            timeout: $brooklyn:config("timeout.initialStartup")
+        - type: test-stop
+          brooklyn.config:
+            params:
+              stopMachineMode: NEVER
+        - type: test-start
+        - type: test-restart
+          brooklyn.config:
+            params:
+              restartMachine: false
+        - type: test-restart
+          name: Invoke [restart] effector - restart machine
+          brooklyn.config:
+            params:
+              restartMachine: true
+
+  # TODO Unused, need to express that start effector is expected to fail
+  - id: docker-vm-container-fails-test
+    name: Docker Entity test failure on image exit
+    description: Tests of wrapper-vm docker
+    itemType: entity
+    item:
+      type: org.apache.brooklyn.entity.stock.BasicApplication
+      name: Docker Entity test no image configured
+      brooklyn.children:
+      # Doesn't propagate failures
+      - type: org.apache.brooklyn.entity.stock.BasicEntity
+        name: Ignore failure wrapper
+        brooklyn.children:
+        - type: docker-vm-container
+          name: Docker Entity
+          id: docker-entity-no-image
+
+      - type: test-case
+        name: Docker Entity tests
+        targetId: docker-entity-no-image
+        brooklyn.children:
+        - type: test-start
+          brooklyn.parameters:
+          - name: timeout.initialStartup
+            description: The timeout for provisioning, installing and launching the app-under-test.
+            type: org.apache.brooklyn.util.time.Duration
+            default: 1h
+          brooklyn.config:
+            timeout: $brooklyn:config("timeout.initialStartup")
+
+  # TODO Unused, need to express that start effector is expected to fail
+  - id: docker-vm-container-exits-test
+    name: Docker Entity test failure on image exit
+    description: Tests of wrapper-vm docker
+    itemType: entity
+    item:
+      type: org.apache.brooklyn.entity.stock.BasicApplication
+      name: Docker Entity test image exits immediately failure
+
+      brooklyn.config:
+        timeout: 10m
+
+      brooklyn.children:
+      # Doesn't propagate failures
+      - type: org.apache.brooklyn.entity.stock.BasicEntity
+        name: Ignore failure wrapper
+        brooklyn.children:
+        - type: docker-vm-container
+          name: Docker Entity
+          id: docker-entity-exits
+          brooklyn.config:
+            docker.image: busybox:1.24
+
+      - type: test-case
+        name: Docker Entity tests
+        targetId: docker-entity-exits
+        brooklyn.children:
+        - type: test-start
+          brooklyn.parameters:
+          - name: timeout.initialStartup
+            description: The timeout for provisioning, installing and launching the app-under-test.
+            type: org.apache.brooklyn.util.time.Duration
+            default: 1h
+          brooklyn.config:
+            timeout: $brooklyn:config("timeout.initialStartup")
+  - id: docker-vm-container-tests
+    item:
+      type: org.apache.brooklyn.entity.stock.BasicApplication
+      brooklyn.children:
+      - type: docker-vm-container-happy-test
+      #- type: docker-vm-container-fails-test
+      #- type: docker-vm-container-exits-test
