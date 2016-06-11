@@ -21,9 +21,10 @@ not an iron rule that we have to keep.
     AMP_URL=http://127.0.0.1:8081
     AMP_USER=admin
     AMP_PASSWORD=pa55w0rd
-    BOMS="ca.bom etcd.bom catalog.bom swarm.bom"
+    BOMS="ca.bom catalog.bom swarm.bom"
     BOMS="${BOMS} tests/common.tests.bom tests/docker.tests.bom tests/swarm.tests.bom "
-    BOMS="${BOMS} tests/jclouds.tests.bom tests/swarm-endpoint.tests.bom tests/tests.bom"
+    BOMS="${BOMS} tests/jclouds.tests.bom tests/swarm-endpoint.tests.bom "
+    BOMS="${BOMS} tests/tests.bom existing-swarm.tests.bom"
     for i in ${BOMS}; do
       curl -u ${AMP_USER}:${AMP_PASSWORD} ${AMP_URL}/v1/catalog --data-binary @${i}
     done
@@ -43,10 +44,6 @@ NOTE - you'll have to get a fresh token of your own by going to Github - I find 
 navigate to https://github.com/cloudsoft/blueprint-qa-seed/tree/master/locations, pick the cloud I want, hit the
 "Raw" button and copy its URL.  Also note to add-catalog from https://... make sure you are using a build of `br` from 
 after 8th May.
-
-4. Delete the 1.0.0 version of the etcd entities from the catalog.
-   (TODO: we don't replace it because snapshot versions (i.e. our 2.0.0-SNAPSHOT) does not take
-   precedence over the 1.0.0 version).
 
 
 ### Running tests
