@@ -84,7 +84,7 @@ public class BrooklynMavenArtifactsTest {
         Asserts.succeedsEventually(new Runnable() {
             @Override public void run() {
                 try {
-                    byte[] bytes = Streams.readFully(ResourceUtils.create(this).getResourceFromUrl(url));
+                    byte[] bytes = Streams.readFullyAndClose(ResourceUtils.create(this).getResourceFromUrl(url));
                     // confirm this follow redirects!
                     Assert.assertTrue(bytes.length > 100*1000, "download of "+url+" is suspect ("+Strings.makeSizeString(bytes.length)+")");
                     // (could also check it is a zip etc)

@@ -173,7 +173,7 @@ public class SensorResourceTest extends BrooklynRestResourceTest {
     @Test
     public void testGetJsonBytes() throws Exception {
         Response response = doSensorTest(null, MediaType.APPLICATION_JSON_TYPE, null);
-        byte[] bytes = Streams.readFully(response.readEntity(InputStream.class));
+        byte[] bytes = Streams.readFullyAndClose(response.readEntity(InputStream.class));
         // assert we have one set of surrounding quotes
         assertEquals(bytes.length, 13);
     }

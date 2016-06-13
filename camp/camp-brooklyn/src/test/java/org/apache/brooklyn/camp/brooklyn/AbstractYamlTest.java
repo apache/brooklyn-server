@@ -125,7 +125,7 @@ public abstract class AbstractYamlTest {
     }
     
     protected Entity createAndStartApplication(Reader input) throws Exception {
-        return createAndStartApplication(Streams.readFully(input));
+        return createAndStartApplication(Streams.readFullyAndClose(input));
     }
 
     protected Entity createAndStartApplication(String input) throws Exception {

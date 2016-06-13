@@ -78,11 +78,11 @@ public class SecureKeys extends SecureKeysWithoutBouncyCastle {
         return new X509Principal("" + "C=None," + "L=None," + "O=None," + "OU=None," + "CN=" + commonName);
     }
 
-    /** reads RSA or DSA / pem style private key files (viz {@link #toPem(KeyPair)}), extracting also the public key if possible
+    /** reads RSA or DSA / pem style private key files (viz {@link #toPem(KeyPair)}), extracting also the public key if possible. Closes the stream.
      * @throws IllegalStateException on errors, in particular {@link PassphraseProblem} if that is the problem */
     public static KeyPair readPem(InputStream input, final String passphrase) {
         // TODO cache is only for fallback "reader" strategy (2015-01); delete when Parser confirmed working
-        byte[] cache = Streams.readFully(input);
+        byte[] cache = Streams.readFullyAndClose(input);
         input = new ByteArrayInputStream(cache);
 
         try {

@@ -76,34 +76,34 @@ public class ResourceUtilsHttpTest {
     @Test
     public void testGet() throws Exception {
         InputStream stream = utils.getResourceFromUrl(baseUrl + "/simple");
-        assertEquals(Streams.readFullyString(stream), "OK");
+        assertEquals(Streams.readFullyStringAndClose(stream), "OK");
     }
 
     @Test
     public void testGetEmpty() throws Exception {
         InputStream stream = utils.getResourceFromUrl(baseUrl + "/empty");
-        assertEquals(Streams.readFullyString(stream), "");
+        assertEquals(Streams.readFullyStringAndClose(stream), "");
     }
 
     @Test
     public void testGetProtected() throws Exception {
         String url = baseUrl.replace("http://", "http://test:test@") + "/auth";
         InputStream stream = utils.getResourceFromUrl(url);
-        assertEquals(Streams.readFullyString(stream), "OK");
+        assertEquals(Streams.readFullyStringAndClose(stream), "OK");
     }
 
     @Test
     public void testGetProtectedEscape() throws Exception {
         String url = baseUrl.replace("http://", "http://test%40me%3A%2F:test@") + "/auth_escape";
         InputStream stream = utils.getResourceFromUrl(url);
-        assertEquals(Streams.readFullyString(stream), "OK");
+        assertEquals(Streams.readFullyStringAndClose(stream), "OK");
     }
 
     @Test
     public void testGetProtectedEscape2() throws Exception {
         String url = baseUrl.replace("http://", "http://test%40me%3Atest@") + "/auth_escape2";
         InputStream stream = utils.getResourceFromUrl(url);
-        assertEquals(Streams.readFullyString(stream), "OK");
+        assertEquals(Streams.readFullyStringAndClose(stream), "OK");
     }
 
     @Test(expectedExceptions = RuntimeException.class)
@@ -115,19 +115,19 @@ public class ResourceUtilsHttpTest {
     public void testInvalidCredentialsNotPassed() throws Exception {
         String url = baseUrl + "/no_credentials?no:auth@needed";
         InputStream stream = utils.getResourceFromUrl(url);
-        assertEquals(Streams.readFullyString(stream), "OK");
+        assertEquals(Streams.readFullyStringAndClose(stream), "OK");
     }
 
     @Test
     public void testRedirect() throws Exception {
         InputStream stream = utils.getResourceFromUrl(baseUrl + "/redirect");
-        assertEquals(Streams.readFullyString(stream), "OK");
+        assertEquals(Streams.readFullyStringAndClose(stream), "OK");
     }
 
     @Test(expectedExceptions = RuntimeException.class)
     public void testCycleRedirect() throws Exception {
         InputStream stream = utils.getResourceFromUrl(baseUrl + "/cycle");
-        assertEquals(Streams.readFullyString(stream), "OK");
+        assertEquals(Streams.readFullyStringAndClose(stream), "OK");
     }
 
     @Test(expectedExceptions = RuntimeException.class)

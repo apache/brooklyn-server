@@ -78,7 +78,7 @@ public class RebindEntityDynamicTypeInfoTest extends RebindTestFixtureWithApp {
         RebindTestUtils.waitForPersisted(origApp);
         
         File mementoFile = new File(new File(mementoDir, "entities"), origApp.getId());
-        String memento = Streams.readFully(new FileReader(mementoFile));
+        String memento = Streams.readFullyAndClose(new FileReader(mementoFile));
         log.info("memento is:\n"+memento);
         // make sure it's not too long, and doesn't have declared items
         Assert.assertTrue(memento.length() < 4000, "length is: "+memento.length());

@@ -115,13 +115,13 @@ public class ResourceUtilsTest {
         // while Windows itself supports the latter only. 
         // Note that file://C:/temp is *wrong*, because C: is interpreted as the host
         InputStream stream = utils.getResourceFromUrl(tempFile.toURI().toURL().toString());
-        assertEquals(Streams.readFullyString(stream), tempFileContents);
+        assertEquals(Streams.readFullyStringAndClose(stream), tempFileContents);
     }
     
     @Test
     public void testGetResourceViaFileWithoutPrefix() throws Exception {
         InputStream stream = utils.getResourceFromUrl(tempFile.getAbsolutePath());
-        assertEquals(Streams.readFullyString(stream), tempFileContents);
+        assertEquals(Streams.readFullyStringAndClose(stream), tempFileContents);
     }
 
     @Test
@@ -155,14 +155,14 @@ public class ResourceUtilsTest {
     @Test(groups="Integration")
     public void testGetResourceViaSftp() throws Exception {
         InputStream stream = utils.getResourceFromUrl("sftp://localhost:"+tempFile.getAbsolutePath());
-        assertEquals(Streams.readFullyString(stream), tempFileContents);
+        assertEquals(Streams.readFullyStringAndClose(stream), tempFileContents);
     }
     
     @Test(groups="Integration")
     public void testGetResourceViaSftpWithUsername() throws Exception {
         String user = System.getProperty("user.name");
         InputStream stream = utils.getResourceFromUrl("sftp://"+user+"@localhost:"+tempFile.getAbsolutePath());
-        assertEquals(Streams.readFullyString(stream), tempFileContents);
+        assertEquals(Streams.readFullyStringAndClose(stream), tempFileContents);
     }
 
     @Test

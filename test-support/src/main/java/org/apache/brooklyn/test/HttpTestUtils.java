@@ -314,7 +314,7 @@ public class HttpTestUtils {
             int status;
             try {
                 InputStream errStream = connection.getErrorStream();
-                err = Streams.readFullyString(errStream);
+                err = Streams.readFullyStringAndClose(errStream);
                 status = connection.getResponseCode();
             } finally {
                 closeQuietly(connection);
@@ -331,7 +331,7 @@ public class HttpTestUtils {
     
     public static String getContent(String url) {
         try {
-            return Streams.readFullyString(SslTrustUtils.trustAll(new URL(url).openConnection()).getInputStream());
+            return Streams.readFullyStringAndClose(SslTrustUtils.trustAll(new URL(url).openConnection()).getInputStream());
         } catch (Exception e) {
             throw Throwables.propagate(e);
         }

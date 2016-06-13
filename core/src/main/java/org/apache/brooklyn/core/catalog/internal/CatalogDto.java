@@ -76,7 +76,7 @@ public class CatalogDto {
         if (LOG.isDebugEnabled()) LOG.debug("Retrieving catalog from: {}", url);
         try {
             InputStream source = ResourceUtils.create().getResourceFromUrl(url);
-            String contents = Streams.readFullyString(source);
+            String contents = Streams.readFullyStringAndClose(source);
             return newDtoFromXmlContents(contents, url);
         } catch (Throwable t) {
             Exceptions.propagateIfFatal(t);

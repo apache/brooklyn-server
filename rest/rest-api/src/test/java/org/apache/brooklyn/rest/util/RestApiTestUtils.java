@@ -45,7 +45,7 @@ public class RestApiTestUtils {
     public static String jsonFixture(String path) {
         InputStream stream = RestApiTestUtils.class.getClassLoader().getResourceAsStream(path);
         if (stream==null) throw new IllegalStateException("Cannot find resource: "+path);
-        return asJson(fromJson(Streams.readFullyString(stream), Object.class));
+        return asJson(fromJson(Streams.readFullyStringAndClose(stream), Object.class));
     }
 
     public static <T> T fromJson(String text, TypeReference<T> type) {

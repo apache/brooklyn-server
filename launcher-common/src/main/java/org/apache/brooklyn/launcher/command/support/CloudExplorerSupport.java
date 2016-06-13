@@ -415,7 +415,7 @@ public abstract class CloudExplorerSupport implements Callable<Void> {
             }
             stdout.println(indent+"\t}");
             stdout.println(indent+"\tmetadata : "+content.getMetadata());
-            stdout.println(indent+"\tpayload : "+ Streams.readFullyString(content.getPayload().openStream()));
+            stdout.println(indent+"\tpayload : "+ Streams.readFullyStringAndClose(content.getPayload().openStream()));
             stdout.println(indent+"}");
         }
     }

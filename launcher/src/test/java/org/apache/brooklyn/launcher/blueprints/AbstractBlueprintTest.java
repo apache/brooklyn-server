@@ -119,7 +119,7 @@ public abstract class AbstractBlueprintTest {
     
     protected void runCatalogTest(String catalogFile, Reader yamlApp, Predicate<? super Application> assertion) throws Exception {
         Reader catalogInput = Streams.reader(new ResourceUtils(this).getResourceFromUrl(catalogFile));
-        String catalogContent = Streams.readFully(catalogInput);
+        String catalogContent = Streams.readFullyAndClose(catalogInput);
         Iterable<? extends CatalogItem<?, ?>> items = launcher.getManagementContext().getCatalog().addItems(catalogContent);
         
         try {

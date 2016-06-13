@@ -690,7 +690,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
 
     @Test
     public void testWithEntityLocationsAndStartInLocation() throws Exception {
-        Entity app = createAndStartApplication(Streams.readFully(loadYaml("test-entity-basic-template.yaml",  
+        Entity app = createAndStartApplication(Streams.readFullyAndClose(loadYaml("test-entity-basic-template.yaml",  
             "  location: localhost:(name=localhost name)")),
             // must pass as JSON list because otherwise the comma confuses the list parser
             MutableMap.of("locations", "[ "+JavaStringEscapes.wrapJavaString(
