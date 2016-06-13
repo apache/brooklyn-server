@@ -5,7 +5,7 @@
  #
  # location:
  #   jclouds:docker:
- #   endpoint: https://192.168.99.100:3376/
+ #   endpoint: https://10.104.2.37:3376/
  #   identity: /Users/duncangrant/.docker/machine/machines/manager/cert.pem
  #   credential: /Users/duncangrant/.docker/machine/machines/manager/key.pem
  #   # Needed only if running against Brooklyn (no default image)
@@ -13,8 +13,10 @@
  #   loginUser: root
  #   loginUser.password: p4ssw0rd
  #   onbox.base.dir: /tmp
+ #   templateOptions:
+ #     networkMode: "brooklyn" # the default swarm network
  ##
-  
+
 brooklyn.catalog:
   version: "2.0.0-SNAPSHOT"
   iconUrl: https://raw.githubusercontent.com/docker-library/docs/471fa6e4cb58062ccbf91afc111980f9c7004981/swarm/logo.png
@@ -74,8 +76,6 @@ brooklyn.catalog:
   #  - app comes up
   #  - via nginx, can connect to web-app
   #  - via nginx, can write to database and read from database
-  #
-  # FIXME: relies as running as root, because base image does not have `which` or `sudo` installed.
   ##
   - id: deploy-app-to-swarm-multi-node
     name: Deploy multi-node app to a Docker Swarm endpoint
@@ -97,8 +97,6 @@ brooklyn.catalog:
                 type: org.apache.brooklyn.entity.webapp.tomcat.TomcatServer
                 name: Tomcat Server
                 brooklyn.config:
-                  #FIXME Delete when have new docker image
-                  pre.install.command: yum install -y which sudo
                   wars.root: http://search.maven.org/remotecontent?filepath=org/apache/brooklyn/example/brooklyn-example-hello-world-sql-webapp/0.9.0/brooklyn-example-hello-world-sql-webapp-0.9.0.war
                   java.sysprops: 
                     brooklyn.example.db.url:
@@ -120,8 +118,6 @@ brooklyn.catalog:
           id: nginx
           name: Load Balancer (nginx)
           brooklyn.config:
-            #FIXME Delete when have new docker image
-            pre.install.command: yum install -y which sudo
             loadbalancer.serverpool: $brooklyn:entity("cluster")
             nginx.sticky: false
           brooklyn.enrichers:
@@ -134,9 +130,8 @@ brooklyn.catalog:
           id: db
           name: DB (MySQL)
           brooklyn.config:
-            #FIXME Delete when have new docker image
             #FIXME mysql should install perl itself!
-            pre.install.command: yum install -y which sudo perl perl-Data-Dumper libaio
+            pre.install.command: sudo yum install -y perl perl-Data-Dumper
             datastore.creation.script.url: https://github.com/apache/brooklyn-library/raw/master/examples/simple-web-cluster/src/main/resources/visitors-creation-script.sql
           brooklyn.enrichers:
           - type: org.apache.brooklyn.core.network.OnSubnetNetworkEnricher
