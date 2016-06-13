@@ -83,7 +83,10 @@ public abstract class AbstractBrooklynObjectSpec<T,SpecT extends AbstractBrookly
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("type", getType()).toString()+"@"+Integer.toHexString(System.identityHashCode(this));
+        return Objects.toStringHelper(this).omitNullValues()
+                .add("type", type)
+                .add("displayName", displayName)
+                .toString();
     }
 
     protected abstract void checkValidType(Class<? extends T> type);

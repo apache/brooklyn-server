@@ -179,4 +179,10 @@ public class ComputeServiceRegistryImpl implements ComputeServiceRegistry, Jclou
             return null;
         }
     }
+
+    @Override
+    public String toString(){
+        return getClass().getName();
+    }
+
 }

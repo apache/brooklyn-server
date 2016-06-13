@@ -432,5 +432,5 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
     private void checkMutable() {
         if (immutable) throw new IllegalStateException("Cannot modify immutable entity spec "+this);
     }
-    
+
 }

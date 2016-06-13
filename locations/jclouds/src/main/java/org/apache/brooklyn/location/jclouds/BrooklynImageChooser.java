@@ -371,7 +371,12 @@ public class BrooklynImageChooser implements Cloneable {
             } else {
                 return this;
             }
-        }        
+        }
+
+        @Override
+        public String toString(){
+            return getClass().getName();
+        }
     }
 
     public static Function<Iterable<? extends Image>, Image> imageChooserFromOrdering(final Ordering<Image> ordering) {
@@ -461,5 +466,10 @@ public class BrooklynImageChooser implements Cloneable {
     public Function<Iterable<? extends Image>,Image> chooser() {
         return imageChooserFromOrdering(ordering());
     }
-    
+
+    @Override
+    public String toString(){
+        return getClass().getName();
+    }
+
 }
