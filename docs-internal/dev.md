@@ -62,8 +62,8 @@ And to run tests against an existing Swarm endpoint (changing the part to the pe
         endpoint: https://10.104.0.75:3376/
         identity: /Users/aled/.docker/.certs-from-server/cert.pem
         credential: /Users/aled/.docker/.certs-from-server/key.pem
-        # FIXME Should be able to remove imageId (added as default in AMP)
-        imageId: sha256:5670c22f2f46bfc7578447978fa7be62699d1e90ed88bf7e415ec96b2571ce0b
+        # Needed only if running against Brooklyn (no default image)
+        # imageDescriptionRegex: cloudsoft/centos:7
         loginUser: root
         loginUser.password: p4ssw0rd
         onbox.base.dir: /tmp
@@ -138,7 +138,8 @@ Engine directly, use port 2376; if targeting swarm, use 3376:
         endpoint: https://10.104.0.105:2376/
         identity: /Users/aled/.docker/.certs-from-server/cert.pem
         credential: /Users/aled/.docker/.certs-from-server/key.pem
-        imageId: sha256:5670c22f2f46bfc7578447978fa7be62699d1e90ed88bf7e415ec96b2571ce0b
+        # Needed only if running against Brooklyn (no default image)
+        # imageDescriptionRegex: cloudsoft/centos:7
         loginUser: root
         loginUser.password: p4ssw0rd
         onbox.base.dir: /tmp
