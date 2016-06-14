@@ -188,8 +188,9 @@ brooklyn.catalog:
           EOF
 
         launch.command: |
-          sudo service docker start && \
-            ( docker images --format="{{.Repository}}:{{.Tag}}" | grep -q "${DOCKER_IMAGE_PREINSTALL}" || \
+          sudo service docker start &&
+            [ -z "${DOCKER_IMAGE_PREINSTALL}" ] ||
+            ( docker images --format="{{.Repository}}:{{.Tag}}" | grep -q "${DOCKER_IMAGE_PREINSTALL}" ||
               docker pull ${DOCKER_IMAGE_PREINSTALL} )
 
         stop.command: |
@@ -355,18 +356,17 @@ brooklyn.catalog:
       type: docker-engine
 
       brooklyn.config:
+        image.preinstall:
         shell.env:
           DOCKER_IMAGE: $brooklyn:config("docker.image")
 
-        # TODO Move the empty docker.image test to pre-install steps after they fail the start effector
-        # Breaks compatibility with docker-engine - doesn't install "image.preinstall" to save on copy & paste
-        launch.command: |
-          set -e
+        # TODO Failure should abort start effector
+        pre.launch.command: |
           if [ -z "${DOCKER_IMAGE}" ]; then
             echo "[CLOCKER] 'docker.image' not configured on the entity" >&2
             exit 1
           fi
-          sudo service docker start
+        post.launch.command: |
           rm -f "${PID_FILE}" # docker won't overwrite
           docker run -d --cidfile "${PID_FILE}" --net="host" "${DOCKER_IMAGE}"
 

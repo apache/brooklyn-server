@@ -224,6 +224,36 @@ brooklyn.catalog:
           assert.status:
             equals: 0
 
+  - id: no-preinstall-image-tests
+    name: Empty Preinstalled Image Tests
+    description: Tests empty image.preinstall will skip pull
+    item:
+      type: org.apache.brooklyn.test.framework.TestCase
+
+      brooklyn.parameters:
+        - name: timeout.initialStartup
+          description: |
+            The timeout for provisioning, installing and launching the application
+            under test.
+          type: org.apache.brooklyn.util.time.Duration
+          default: 1h
+        - name: timeout.runtimeAssertion
+          type: org.apache.brooklyn.util.time.Duration
+          description: |
+            The timeout for any other operation e.g. invoking an effector or
+            waiting for a sensor to be updated.
+          default: 15m
+
+      brooklyn.children:
+      - type: ssh-test
+        name: TEST-1 no docker images
+        brooklyn.config:
+          command: |
+            # Only header expected
+            [ "$(docker images | wc -l)" -eq "1" ]
+          assert.status:
+            equals: 0
+
   ###
   # Tests that we can deploy a Docker Engine. We assert that it reports success, is reachable
   # and basic health checks (via Docker CLI) also report success.

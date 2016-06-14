@@ -143,6 +143,25 @@ brooklyn.catalog:
         name: Preinstalled Image Tests
         targetId: preinstall-engine
 
+  - id: docker-no-preinstall-tests
+    name: Preinstalled image tests
+    description: Tests of pre-installed Docker image
+    itemType: entity
+    item:
+      type: org.apache.brooklyn.test.framework.TestCase
+
+      brooklyn.children:
+
+      - type: docker-engine
+        name: Docker Engine
+        id: no-preinstall-engine
+        brooklyn.config:
+          image.preinstall:
+
+      - type: no-preinstall-image-tests
+        name: Empty Preinstalled Image Tests
+        targetId: no-preinstall-engine
+
   - id: docker-engine-tests
     name: Docker Engine Tests without TLS
     description: Tests on Docker Engine without TLS
