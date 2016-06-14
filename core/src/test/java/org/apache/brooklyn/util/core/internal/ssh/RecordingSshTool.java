@@ -26,6 +26,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
@@ -85,8 +86,8 @@ public class RecordingSshTool implements SshTool {
         customResponses.clear();
     }
     
-    public static void setCustomResponse(String cmd, CustomResponse response) {
-        customResponses.put(cmd, checkNotNull(response, "response"));
+    public static void setCustomResponse(String cmdRegex, CustomResponse response) {
+        customResponses.put(cmdRegex, checkNotNull(response, "response"));
     }
     
     public static ExecCmd getLastExecCmd() {
@@ -111,10 +112,12 @@ public class RecordingSshTool implements SshTool {
     @Override public int execScript(Map<String, ?> props, List<String> commands, Map<String, ?> env) {
         execScriptCmds.add(new ExecCmd(props, "", commands, env));
         for (String cmd : commands) {
-            if (customResponses.containsKey(cmd)) {
-                CustomResponse response = customResponses.get(cmd);
-                writeCustomResponseStreams(props, response);
-                return response.exitCode;
+            for (Entry<String, CustomResponse> entry : customResponses.entrySet()) {
+                if (cmd.matches(entry.getKey())) {
+                    CustomResponse response = entry.getValue();
+                    writeCustomResponseStreams(props, response);
+                    return response.exitCode;
+                }
             }
         }
         return 0;
@@ -125,10 +128,12 @@ public class RecordingSshTool implements SshTool {
     @Override public int execCommands(Map<String, ?> props, List<String> commands, Map<String, ?> env) {
         execScriptCmds.add(new ExecCmd(props, "", commands, env));
         for (String cmd : commands) {
-            if (customResponses.containsKey(cmd)) {
-                CustomResponse response = customResponses.get(cmd);
-                writeCustomResponseStreams(props, response);
-                return response.exitCode;
+            for (Entry<String, CustomResponse> entry : customResponses.entrySet()) {
+                if (cmd.matches(entry.getKey())) {
+                    CustomResponse response = entry.getValue();
+                    writeCustomResponseStreams(props, response);
+                    return response.exitCode;
+                }
             }
         }
         return 0;

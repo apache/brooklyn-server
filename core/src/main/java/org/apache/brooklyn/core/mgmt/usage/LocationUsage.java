@@ -132,4 +132,11 @@ public class LocationUsage {
     public void addEvent(LocationEvent event) {
         events.add(checkNotNull(event, "event"));
     }
+    
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this)
+                .add("locationId", locationId)
+                .toString();
+    }
 }

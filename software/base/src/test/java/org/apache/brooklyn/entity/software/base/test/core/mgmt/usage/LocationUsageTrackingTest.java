@@ -30,16 +30,20 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.mgmt.usage.LocationUsage;
 import org.apache.brooklyn.core.mgmt.usage.LocationUsage.LocationEvent;
 import org.apache.brooklyn.core.mgmt.usage.UsageListener.LocationMetadata;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.entity.software.base.SoftwareProcessEntityTest;
+import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.time.Time;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -58,6 +62,7 @@ public class LocationUsageTrackingTest extends BrooklynAppUnitTestSupport {
     public void setUp() throws Exception {
         super.setUp();
         loc = mgmt.getLocationManager().createLocation(LocationSpec.create(DynamicLocalhostMachineProvisioningLocation.class));
+        RecordingSshTool.clear();
     }
 
     @Test
@@ -127,6 +132,53 @@ public class LocationUsageTrackingTest extends BrooklynAppUnitTestSupport {
         assertLocationEvent(usage2.getEvents().get(1), app.getApplicationId(), entity.getId(), entity.getEntityType().getName(), Lifecycle.DESTROYED, preStop, postStop);
         
         assertEquals(usage2.getEvents().size(), 2, "usage="+usage2);
+    }
+
+    @Test
+    public void testFoo() throws Exception {
+        DynamicLocalhostMachineProvisioningLocation recordingLoc = mgmt.getLocationManager().createLocation(LocationSpec.create(DynamicLocalhostMachineProvisioningLocation.class)
+                .configure("sshToolClass", RecordingSshTool.class.getName()));
+
+        SoftwareProcessEntityTest.MyService entity = app.createAndManageChild(EntitySpec.create(SoftwareProcessEntityTest.MyService.class));
+
+        // Start the app; expect record of location in use
+        long preStart = System.currentTimeMillis();
+        app.start(ImmutableList.of(recordingLoc));
+        long postStart = System.currentTimeMillis();
+        SshMachineLocation machine = Machines.findUniqueMachineLocation(entity.getLocations(), SshMachineLocation.class).get();
+
+        Set<LocationUsage> usages1 = mgmt.getUsageManager().getLocationUsage(Predicates.alwaysTrue());
+        LocationUsage usage1 = Iterables.getOnlyElement(usages1);
+        
+        assertEquals(usage1.getLocationId(), machine.getId(), "usage="+usage1);
+        assertNotNull(usage1.getMetadata(), "usage="+usage1);
+
+        assertLocationEvent(usage1.getEvents().get(0), entity, Lifecycle.CREATED, preStart, postStart);
+
+//        assertEquals(event.getApplicationId(), expectedAppId);
+//        assertEquals(event.getEntityId(), expectedEntityId);
+//        assertEquals(event.getEntityType(), expectedEntityType);
+//        assertEquals(event.getState(), expectedState);
+//        long eventTime = event.getDate().getTime();
+//        if (eventTime < (preEvent - TIMING_GRACE) || eventTime > (postEvent + TIMING_GRACE)) {
+//            fail("for "+expectedState+": event=" + Time.makeDateString(eventTime) + "("+eventTime + "); "
+//                    + "pre=" + Time.makeDateString(preEvent) + " ("+preEvent+ "); "
+//                    + "post=" + Time.makeDateString(postEvent) + " ("+postEvent + ")");
+//        }
+
+        // Stop the app; expect record of location no longer in use
+        long preStop = System.currentTimeMillis();
+        app.stop();
+        long postStop = System.currentTimeMillis();
+
+        Set<LocationUsage> usages2 = mgmt.getUsageManager().getLocationUsage(Predicates.alwaysTrue());
+        LocationUsage usage2 = Iterables.getOnlyElement(usages2);
+        assertLocationUsage(usage2, machine);
+        assertLocationEvent(usage2.getEvents().get(1), app.getApplicationId(), entity.getId(), entity.getEntityType().getName(), Lifecycle.DESTROYED, preStop, postStop);
+        
+        assertEquals(usage2.getEvents().size(), 2, "usage="+usage2);
+        
+        System.out.println(RecordingSshTool.execScriptCmds);
     }
 
     public static class DynamicLocalhostMachineProvisioningLocation extends LocalhostMachineProvisioningLocation {

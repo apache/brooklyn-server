@@ -1062,9 +1062,12 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
 
     protected MachineDetails inferMachineDetails() {
         boolean detectionEnabled = getConfig(DETECT_MACHINE_DETAILS);
-        if (!detectionEnabled)
+        if (!detectionEnabled) {
             return new BasicMachineDetails(new BasicHardwareDetails(-1, -1), new BasicOsDetails("UNKNOWN", "UNKNOWN", "UNKNOWN"));
-
+        } else if (!isManaged()) {
+            return new BasicMachineDetails(new BasicHardwareDetails(-1, -1), new BasicOsDetails("UNKNOWN", "UNKNOWN", "UNKNOWN"));
+        }
+        
         Tasks.setBlockingDetails("Waiting for machine details");
         try {
             return BasicMachineDetails.forSshMachineLocationLive(this);
