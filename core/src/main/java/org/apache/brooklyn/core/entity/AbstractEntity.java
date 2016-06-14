@@ -59,6 +59,7 @@ import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.BrooklynLogging;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.config.ConfigConstraints;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.render.RendererHints;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.internal.EntityConfigMap;
@@ -149,6 +150,11 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     
     static { BrooklynInitialization.initAll(); }
     
+    /**
+     * The default name to use for this entity, if not explicitly overridden.
+     */
+    public static final ConfigKey<String> DEFAULT_DISPLAY_NAME = ConfigKeys.newStringConfigKey("defaultDisplayName");
+
     public static final BasicNotificationSensor<Location> LOCATION_ADDED = new BasicNotificationSensor<Location>(
             Location.class, "entity.location.added", "Location dynamically added to entity");
     public static final BasicNotificationSensor<Location> LOCATION_REMOVED = new BasicNotificationSensor<Location>(
@@ -1611,6 +1617,9 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     public void init() {
         super.init();
         initEnrichers();
+        if (Strings.isNonBlank(getConfig(DEFAULT_DISPLAY_NAME))) {
+            setDefaultDisplayName(getConfig(DEFAULT_DISPLAY_NAME));
+        }
     }
     
     /**

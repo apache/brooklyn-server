@@ -26,7 +26,6 @@ import java.util.List;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
@@ -136,24 +135,5 @@ public class AbstractApplicationLegacyTest extends BrooklynAppUnitTestSupport {
         
         app.stop();
         assertEquals(child.getCallHistory(), ImmutableList.of());
-    }
-    
-    @Test
-    public void testAppUsesDefaultDisplayName() {
-        EntitySpec<TestApplication> appSpec = EntitySpec.create(TestApplication.class)
-                .configure(AbstractApplication.DEFAULT_DISPLAY_NAME, "myDefaultName");
-        TestApplication app2 = ApplicationBuilder.newManagedApp(appSpec, mgmt);
-        
-        assertEquals(app2.getDisplayName(), "myDefaultName");
-    }
-    
-    @Test
-    public void testAppUsesDisplayNameOverDefaultName() {
-        EntitySpec<TestApplication> appSpec = EntitySpec.create(TestApplication.class)
-                .displayName("myName")
-                .configure(AbstractApplication.DEFAULT_DISPLAY_NAME, "myDefaultName");
-        TestApplication app2 = ApplicationBuilder.newManagedApp(appSpec, mgmt);
-        
-        assertEquals(app2.getDisplayName(), "myName");
     }
 }

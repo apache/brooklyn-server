@@ -21,16 +21,9 @@ package org.apache.brooklyn.core.entity;
 import java.util.Collection;
 import java.util.Map;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.ImmutableSet;
-
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
-import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceProblemsLogic;
@@ -38,8 +31,11 @@ import org.apache.brooklyn.core.entity.trait.StartableMethods;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
-import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Time;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.ImmutableSet;
 
 /**
  * Users can extend this to define the entities in their application, and the relationships between
@@ -47,18 +43,18 @@ import org.apache.brooklyn.util.time.Time;
  * their entities.
  */
 public abstract class AbstractApplication extends AbstractEntity implements StartableApplication {
-    
-    private static final Logger log = LoggerFactory.getLogger(AbstractApplication.class);
-    
-    /**
-     * The default name to use for this app, if not explicitly overridden by the top-level app.
+
+    /*
+     * Note that DEFAULT_DISPLAY_NAME is particularly important for apps.
+     * It gives the default name to use for this app, if not explicitly overridden by the top-level app.
      * Necessary to avoid the app being wrapped in another layer of "BasicApplication" on deployment.
      * Previously, the catalog item gave an explicit name (rathe rthan this defaultDisplayName), which
      * meant that if the user chose a different name then AMP would automatically wrap this app so
      * that both names would be presented.
      */
-    public static final ConfigKey<String> DEFAULT_DISPLAY_NAME = ConfigKeys.newStringConfigKey("defaultDisplayName");
 
+    private static final Logger log = LoggerFactory.getLogger(AbstractApplication.class);
+    
     private volatile Application application;
 
     public AbstractApplication() {
@@ -66,9 +62,6 @@ public abstract class AbstractApplication extends AbstractEntity implements Star
 
     public void init() { 
         super.init();
-        if (Strings.isNonBlank(getConfig(DEFAULT_DISPLAY_NAME))) {
-            setDefaultDisplayName(getConfig(DEFAULT_DISPLAY_NAME));
-        }
         initApp();
     }
     
