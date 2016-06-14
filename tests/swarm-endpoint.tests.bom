@@ -8,7 +8,8 @@
  #   endpoint: https://192.168.99.100:3376/
  #   identity: /Users/duncangrant/.docker/machine/machines/manager/cert.pem
  #   credential: /Users/duncangrant/.docker/machine/machines/manager/key.pem
- #   imageId: sha256:5670c22f2f46bfc7578447978fa7be62699d1e90ed88bf7e415ec96b2571ce0b
+ #   # Needed only if running against Brooklyn (no default image)
+ #   # imageDescriptionRegex: cloudsoft/centos:7
  #   loginUser: root
  #   loginUser.password: p4ssw0rd
  #   onbox.base.dir: /tmp
