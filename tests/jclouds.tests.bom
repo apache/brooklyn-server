@@ -226,7 +226,7 @@ brooklyn.catalog:
         # Should already be there
         # pull.image.name: cloudsoft/centos:7
         pull.image.name: ""
-        image.preinstall.id: sha256:28489afa742851aba768a336456b66a1ca0fcbb1c19054643aa4712f27da1c56
+        image.preinstall.id: sha256:6a0c0700e98ddc24192bec532b107b61cb0d76b27a3a7daeff0cb0a28692d311
       location: location-container
   - id: test-explicit-image-id
     item:
