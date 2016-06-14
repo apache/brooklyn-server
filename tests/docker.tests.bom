@@ -53,6 +53,45 @@ brooklyn.catalog:
               - "%s:6379"
               - $brooklyn:entity("docker-entity").attributeWhenReady("host.address")
 
+  - id: docker-vm-container-run-options
+    name: Docker Entity run options tests
+    description: Tests of wrapper-vm docker
+    itemType: entity
+    item:
+      type: org.apache.brooklyn.entity.stock.BasicApplication
+      name: Docker Entity test run options
+
+      brooklyn.config:
+        timeout: 10m
+      
+      brooklyn.children:
+      - type: docker-vm-container
+        name: Docker Entity
+        id: docker-vm-entity-run-options
+        brooklyn.config:
+          docker.image: busybox:1.24
+          docker.run.arguments: /bin/sh -c "while echo docker-run-arguments; do sleep 60; done;"
+
+      - type: test-case
+        name: Docker Entity run options tests
+        targetId: docker-vm-entity-run-options
+        brooklyn.children:
+        - type: assert-up
+          brooklyn.parameters:
+          - name: timeout.initialStartup
+            description: The timeout for provisioning, installing and launching the app-under-test.
+            type: org.apache.brooklyn.util.time.Duration
+            default: 1h
+          brooklyn.config:
+            timeout: $brooklyn:config("timeout.initialStartup")
+        - type: ssh-test
+          brooklyn.config:
+            env:
+              CONTAINER_ID: $brooklyn:entity("docker-vm-entity-run-options").attributeWhenReady("container.id")
+            command: |
+              COMMAND=$(docker inspect --format "{{ .Path }} {{ .Args }}" ${CONTAINER_ID})
+              [ "${COMMAND}" = "/bin/sh [-c while echo docker-run-arguments; do sleep 60; done;]" ]
+
   # TODO Unused, need to express that start effector is expected to fail
   - id: docker-vm-container-fails-test
     name: Docker Entity test failure on image exit
@@ -123,6 +162,7 @@ brooklyn.catalog:
       type: org.apache.brooklyn.entity.stock.BasicApplication
       brooklyn.children:
       - type: docker-vm-container-happy-test
+      - type: docker-vm-container-run-options
       #- type: docker-vm-container-fails-test
       #- type: docker-vm-container-exits-test
 

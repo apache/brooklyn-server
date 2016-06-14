@@ -355,10 +355,25 @@ brooklyn.catalog:
     item:
       type: docker-engine
 
+#      TODO implement parameters merge behaviour and remove defaults from brooklyn.config below
+#      brooklyn.parameters.inheritance.type: prepend/append/overwrite/hide?
+#      brooklyn.parameters:
+#        - name: docker.image
+#          label: Docker Image
+#          description: |
+#            The docker image to use when running the container
+#        - name: docker.run.arguments
+#          label: Docker Run Arguments
+#          description: |
+#            Arguments to pass to the docker run command
+
       brooklyn.config:
         image.preinstall:
+        # Avoids null which fails the deployment
+        docker.run.arguments: 
         shell.env:
           DOCKER_IMAGE: $brooklyn:config("docker.image")
+          DOCKER_RUN_ARGUMENTS: $brooklyn:config("docker.run.arguments")
 
         # TODO Failure should abort start effector
         pre.launch.command: |
@@ -368,7 +383,8 @@ brooklyn.catalog:
           fi
         post.launch.command: |
           rm -f "${PID_FILE}" # docker won't overwrite
-          docker run -d --cidfile "${PID_FILE}" --net="host" "${DOCKER_IMAGE}"
+          # use xargs so that DOCKER_RUN_ARGUMENTS is NOT treated as a single argument 
+          echo ${DOCKER_RUN_ARGUMENTS} | xargs docker run -d --cidfile "${PID_FILE}" --net="host" "${DOCKER_IMAGE}" 
 
         checkRunning.command: |
           STATE=$(docker inspect --format "{{ .State.Status }}" $(cat "${PID_FILE}"))
@@ -385,7 +401,7 @@ brooklyn.catalog:
           name: container.id
           period: 1m
           type: int
-          command: "[ -f pid.txt ] && cat \"pid.txt\""
+          command: "[ -f pid.txt ] && cat pid.txt"
       - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
         brooklyn.config:
           name: container.stats.cpu.percent
