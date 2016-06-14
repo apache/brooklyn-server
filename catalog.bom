@@ -160,7 +160,6 @@ brooklyn.catalog:
             -H ${DOCKER_BIND_URL} \
             -H unix:///var/run/docker.sock \
             --label name=${HOST_NAME} \
-            --storage-driver=overlay \
             \$CLUSTER_OPTS \
             ${DOCKER_ADDITIONAL_OPTIONS}
           EOF
