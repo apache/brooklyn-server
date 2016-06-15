@@ -69,7 +69,7 @@ public interface ManagementContextInternal extends ManagementContext {
     
     long getTotalEffectorInvocations();
 
-    <T> T invokeEffectorMethodSync(final Entity entity, final Effector<T> eff, final Object args) throws ExecutionException;
+    <T> T invokeEffectorMethodSync(final Entity entity, final Effector<T> eff, final Map<String,?> args) throws ExecutionException;
     
     <T> Task<T> invokeEffector(final Entity entity, final Effector<T> eff, @SuppressWarnings("rawtypes") final Map parameters);
 

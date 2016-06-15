@@ -144,9 +144,8 @@ public class MethodEffector<T> extends AbstractEffector<T> {
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public T call(Entity entity, Map parameters) {
-        Object[] parametersArray = EffectorUtils.prepareArgsForEffector(this, parameters);
         if (entity instanceof AbstractEntity) {
-            return EffectorUtils.invokeMethodEffector(entity, this, parametersArray);
+            return EffectorUtils.invokeMethodEffector(entity, this, (Map<String,?>)parameters);
         } else {
             // we are dealing with a proxy here
             // this implementation invokes the method on the proxy
@@ -158,6 +157,7 @@ public class MethodEffector<T> extends AbstractEffector<T> {
             
             // TODO Should really find method with right signature, rather than just the right args.
             // TODO prepareArgs can miss things out that have "default values"! Code below will probably fail if that happens.
+            Object[] parametersArray = EffectorUtils.prepareArgsForEffector(this, parameters);
             Method[] methods = entity.getClass().getMethods();
             for (Method method : methods) {
                 if (method.getName().equals(getName())) {
