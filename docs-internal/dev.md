@@ -115,6 +115,17 @@ To deploy a Docker Engine with TLS (which will also require a CA server):
         customize.latch: $brooklyn:entity("ca-server").attributeWhenReady("service.isUp")
         ca.request.root.url: $brooklyn:entity("ca-server").attributeWhenReady("main.uri")
 
+#### VM with Single Docker Container
+
+To deploy a VM with a single container running on it:
+
+    name: VM with Container
+    location: ibm-bluebox-sng-centos7-vpn
+    services:
+    - type: docker-vm-container
+      brooklyn.config:
+        docker.image: redis:latest
+
 
 #### Docker Swarm
 
