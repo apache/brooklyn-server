@@ -68,15 +68,6 @@ public class EntityNameYamlTest extends AbstractYamlTest {
         deployAndAssertDisplayName(yaml, "PREFIXmyvalSUFFIX");
     }
 
-    @Test
-    public void testBrooklynConfig() throws Exception {
-        String yaml = Joiner.on("\n").join(
-                "services:",
-                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
-                "  name: myDisplayName");
-        deployAndAssertDisplayName(yaml, "myDisplayName");
-    }
-
     protected void deployAndAssertDisplayName(String yaml, String expectedName) throws Exception {
         Entity app = createAndStartApplication(yaml);
         Entity entity = Iterables.getOnlyElement(Entities.descendants(app, Predicates.instanceOf(TestEntity.class)));
