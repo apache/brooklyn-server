@@ -21,18 +21,14 @@ package org.apache.brooklyn.entity.software.base;
 import java.util.Collection;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.location.PortRanges;
+import org.apache.brooklyn.core.sensor.PortAttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
-import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
 import org.testng.Assert;
+import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableSet;
 
@@ -50,4 +46,26 @@ public class InboundPortsUtilsTest extends BrooklynAppUnitTestSupport {
         Collection<Integer> dynamicRequiredOpenPorts = InboundPortsUtils.getRequiredOpenPorts(entity, ImmutableSet.<ConfigKey<?>>of(), true, null);
         Assert.assertEquals(dynamicRequiredOpenPorts, ImmutableSet.of(9999), "Expected new port to be added");
     }
+
+    @Test
+    public void testGetRequiredOpenPortsGetsDynamicallyAddedPortBasedKeys() {
+        TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+
+        PortAttributeSensorAndConfigKey newTestConfigKeyPort = ConfigKeys.newPortSensorAndConfigKey("new.test.config.port.string.first", "port", "7777+");
+        PortAttributeSensorAndConfigKey newTestConfigKeyPort2 = ConfigKeys.newPortSensorAndConfigKey("new.test.config.port.string.second", "port");
+
+        ConfigKey<Object> newTestConfigKeyObject = ConfigKeys.newConfigKey(Object.class, "new.test.config.object");
+        ConfigKey<String> newTestConfigKeyString = ConfigKeys.newStringConfigKey("new.test.config.key.string");
+        entity.config().set(newTestConfigKeyPort, PortRanges.fromString("8888+"));
+        entity.config().set(newTestConfigKeyPort2, PortRanges.fromInteger(9999));
+        entity.config().set(newTestConfigKeyObject, PortRanges.fromInteger(2222));
+        entity.config().set(newTestConfigKeyString, "foo.bar");
+
+        Collection<Integer> dynamicRequiredOpenPorts = InboundPortsUtils.getRequiredOpenPorts(entity, ImmutableSet.<ConfigKey<?>>of(), true, null);
+        Assert.assertTrue(dynamicRequiredOpenPorts.contains(8888));
+        Assert.assertTrue(dynamicRequiredOpenPorts.contains(9999));
+        Assert.assertTrue(dynamicRequiredOpenPorts.contains(2222));
+    }
+
+
 }

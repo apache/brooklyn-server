@@ -18,22 +18,25 @@
  */
 package org.apache.brooklyn.entity.software.base;
 
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
-import com.google.common.reflect.TypeToken;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Set;
+import java.util.regex.Pattern;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collection;
-import java.util.Set;
-import java.util.regex.Pattern;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
+import com.google.common.reflect.TypeToken;
 
 public class InboundPortsUtils {
     private static final Logger log = LoggerFactory.getLogger(InboundPortsUtils.class);
@@ -43,10 +46,11 @@ public class InboundPortsUtils {
      * If {@code portsAutoInfer} is {@code true} then
      * return the first value for each {@link org.apache.brooklyn.core.sensor.PortAttributeSensorAndConfigKey}
      * config key {@link PortRange} plus any ports defined with a config key matching the provided regex.
-     * @param entity the Entity
+     *
+     * @param entity         the Entity
      * @param portsAutoInfer if {@code true} then also return the first value for each {@link org.apache.brooklyn.core.sensor.PortAttributeSensorAndConfigKey}
-     * config key {@link PortRange} plus any ports defined with a config keys matching the provided regex
-     * @param portRegex the regex to match config keys that define inbound ports
+     *                       config key {@link PortRange} plus any ports defined with a config keys matching the provided regex
+     * @param portRegex      the regex to match config keys that define inbound ports
      * @return a collection of port numbers
      */
     public static Collection<Integer> getRequiredOpenPorts(Entity entity, Boolean portsAutoInfer, String portRegex) {
@@ -59,11 +63,12 @@ public class InboundPortsUtils {
      * return the first value for each {@link org.apache.brooklyn.core.sensor.PortAttributeSensorAndConfigKey}
      * config key {@link PortRange} plus any ports defined with a config key matching the provided regex.
      * This method also accepts an extra set of config keys in addition to those that are defined in the EntityType of the entity itself.
-     * @param entity the Entity
+     *
+     * @param entity          the Entity
      * @param extraConfigKeys extra set of config key to inspect for inbound ports
-     * @param portsAutoInfer if {@code true} then return the first value for each {@link org.apache.brooklyn.core.sensor.PortAttributeSensorAndConfigKey}
-     * config key {@link PortRange} plus any ports defined with a config keys matching the provided regex
-     * @param portRegex the regex to match config keys that define inbound ports
+     * @param portsAutoInfer  if {@code true} then return the first value for each {@link org.apache.brooklyn.core.sensor.PortAttributeSensorAndConfigKey}
+     *                        config key {@link PortRange} plus any ports defined with a config keys matching the provided regex
+     * @param portRegex       the regex to match config keys that define inbound ports
      * @return a collection of port numbers
      */
     public static Collection<Integer> getRequiredOpenPorts(Entity entity, Set<ConfigKey<?>> extraConfigKeys, Boolean portsAutoInfer, String portRegex) {
@@ -77,12 +82,17 @@ public class InboundPortsUtils {
             Set<ConfigKey<?>> configKeys = Sets.newHashSet(extraConfigKeys);
             configKeys.addAll(entity.getEntityType().getConfigKeys());
             // Also add dynamically added config keys
-            configKeys.addAll(((EntityInternal)entity).config().getBag().getAllConfigAsConfigKeyMap().keySet());
+            Map<ConfigKey<?>, ?> configuredConfigKeys = MutableMap.copyOf(((EntityInternal) entity).config().getBag().getAllConfigAsConfigKeyMap());
+            configKeys.addAll(configuredConfigKeys.keySet());
 
-            if (portRegex == null) portRegex = ".*\\.port"; // defaults to legacy regex if not specified
+            if (portRegex == null) {
+                portRegex = ".*\\.port"; // defaults to legacy regex if not specified
+            }
+
             Pattern portsPattern = Pattern.compile(portRegex);
             for (ConfigKey<?> k : configKeys) {
-                if (PortRange.class.isAssignableFrom(k.getType()) || portsPattern.matcher(k.getName()).matches()) {
+                if (isAssignableFromPortConfigKey(configuredConfigKeys, k)
+                        || (portsPattern.matcher(k.getName()).matches())) {
                     Object value = entity.config().get(k);
                     Maybe<PortRange> maybePortRange = TypeCoercions.tryCoerce(value, new TypeToken<PortRange>() {
                     });
@@ -98,4 +108,17 @@ public class InboundPortsUtils {
         log.debug("getRequiredOpenPorts detected default {} for {}", ports, entity);
         return ports;
     }
+
+    /**
+     * Checks if a configkey can be managed as a config key {@link PortRange}. The method checks if
+     * the config type or the entity config key value are assignable from the {@link PortRange}.
+     *
+     * @param configuredConfigKeys the configured entity config keys
+     * @param configKey            the configkey that could be assigned as a {@link org.apache.brooklyn.api.location.PortRange}
+     */
+    private static boolean isAssignableFromPortConfigKey(Map<ConfigKey<?>, ?> configuredConfigKeys, ConfigKey<?> configKey) {
+        return PortRange.class.isAssignableFrom(configKey.getType())
+                || configuredConfigKeys.get(configKey) instanceof PortRange;
+    }
+
 }

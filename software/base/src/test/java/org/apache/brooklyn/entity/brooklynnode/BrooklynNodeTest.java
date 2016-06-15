@@ -19,99 +19,111 @@
 package org.apache.brooklyn.entity.brooklynnode;
 
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+import java.util.Collection;
 import java.util.List;
 
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.entity.drivers.downloads.DownloadResolver;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.feed.ConfigToAttributes;
+import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 public class BrooklynNodeTest {
 
+    private static final Logger log = LoggerFactory.getLogger(BrooklynNodeTest.class);
+
     // TODO Need test for copying/setting classpath
-    
+
     private TestApplication app;
     private SshMachineLocation loc;
-    
+
     public static class SlowStopBrooklynNode extends BrooklynNodeImpl {
-        public SlowStopBrooklynNode() {}
-        
+        public SlowStopBrooklynNode() {
+        }
+
         @Override
         protected void postStop() {
             super.postStop();
-            
+
             //Make sure UnmanageTask will wait for the STOP effector to complete.
             Time.sleep(Duration.FIVE_SECONDS);
         }
-        
+
     }
 
-    @BeforeMethod(alwaysRun=true)
+    @BeforeMethod(alwaysRun = true)
     public void setUp() throws Exception {
         app = TestApplication.Factory.newManagedInstanceForTests();
         loc = new SshMachineLocation(MutableMap.of("address", "localhost"));
     }
 
-    @AfterMethod(alwaysRun=true)
+    @AfterMethod(alwaysRun = true)
     public void tearDown() throws Exception {
         if (app != null) Entities.destroyAll(app.getManagementContext());
     }
-    
+
     @Test
     public void testGeneratesCorrectSnapshotDownload() throws Exception {
         String version = "0.0.1-SNAPSHOT";
-        String expectedUrl = "https://repository.apache.org/service/local/artifact/maven/redirect?r=snapshots&g=org.apache.brooklyn&v="+version+"&a=brooklyn-dist&c=dist&e=tar.gz";
+        String expectedUrl = "https://repository.apache.org/service/local/artifact/maven/redirect?r=snapshots&g=org.apache.brooklyn&v=" + version + "&a=brooklyn-dist&c=dist&e=tar.gz";
         runTestGeneratesCorrectDownloadUrl(version, expectedUrl);
     }
-    
+
     @Test
     public void testGeneratesCorrectReleaseDownload() throws Exception {
         String version = "0.0.1";
-        String expectedUrl = "http://search.maven.org/remotecontent?filepath=org/apache/brooklyn/brooklyn-dist/"+version+"/brooklyn-dist-"+version+"-dist.tar.gz";
+        String expectedUrl = "http://search.maven.org/remotecontent?filepath=org/apache/brooklyn/brooklyn-dist/" + version + "/brooklyn-dist-" + version + "-dist.tar.gz";
         runTestGeneratesCorrectDownloadUrl(version, expectedUrl);
     }
-    
+
     private void runTestGeneratesCorrectDownloadUrl(String version, String expectedUrl) throws Exception {
         // TODO Using BrooklynNodeImpl directly, because want to instantiate a BroolynNodeSshDriver.
         //      Really want to make that easier to test, without going through "wrong" code path for creating entity.
         BrooklynNode entity = app.addChild(EntitySpec.create(BrooklynNode.class)
                 .configure(BrooklynNode.SUGGESTED_VERSION, version));
         BrooklynNodeImpl entityImpl = (BrooklynNodeImpl) Entities.deproxy(entity);
-        
-        ConfigToAttributes.apply((EntityLocal)entity);
+
+        ConfigToAttributes.apply((EntityLocal) entity);
         BrooklynNodeSshDriver driver = new BrooklynNodeSshDriver(entityImpl, loc);
-        
+
         DownloadResolver resolver = Entities.newDownloader(driver);
         List<String> urls = resolver.getTargets();
-        
-        System.out.println("urls="+urls);
-        assertTrue(urls.contains(expectedUrl), "urls="+urls);
+
+        System.out.println("urls=" + urls);
+        assertTrue(urls.contains(expectedUrl), "urls=" + urls);
     }
-    
+
     @Test(groups = "Integration")
     public void testUnmanageOnStop() throws Exception {
         final BrooklynNode node = app.addChild(EntitySpec.create(BrooklynNode.class).impl(SlowStopBrooklynNode.class));
         assertTrue(Entities.isManaged(node), "Entity " + node + " must be managed.");
-        node.invoke(Startable.STOP, ImmutableMap.<String,Object>of()).asTask().getUnchecked();
+        node.invoke(Startable.STOP, ImmutableMap.<String, Object>of()).asTask().getUnchecked();
         //The UnmanageTask will unblock after the STOP effector completes, so we are competing with it here.
         Asserts.succeedsEventually(new Runnable() {
             @Override
@@ -120,7 +132,7 @@ public class BrooklynNodeTest {
             }
         });
     }
-    
+
 
     @Test
     public void testCanStartSameNode() throws Exception {
@@ -128,10 +140,49 @@ public class BrooklynNodeTest {
         // but test BrooklynNodeRestTest in downstream project does
         BrooklynNode bn = app.createAndManageChild(EntitySpec.create(BrooklynNode.class, SameBrooklynNodeImpl.class));
         bn.start(MutableSet.<Location>of());
-        
-        Assert.assertEquals(bn.getAttribute(Attributes.SERVICE_UP), (Boolean)true);
+
+        Assert.assertEquals(bn.getAttribute(Attributes.SERVICE_UP), (Boolean) true);
         // no URI
         Assert.assertNull(bn.getAttribute(BrooklynNode.WEB_CONSOLE_URI));
+    }
+
+    @Test(groups = "Integration")
+    public void testOpenHttpConsoleWebPort() throws Exception {
+
+        BrooklynNodeWithOpenedPorts brooklynNode = app.createAndManageChild(
+                EntitySpec.create(BrooklynNodeWithOpenedPorts.class)
+                        .configure(BrooklynNode.ON_EXISTING_PROPERTIES_FILE, BrooklynNode.ExistingFileBehaviour.DO_NOT_USE)
+                        .configure(BrooklynNode.NO_WEB_CONSOLE_AUTHENTICATION, true)
+                        .configure(BrooklynNode.HTTP_PORT, PortRanges.fromString("8082+")));
+
+        app.start(ImmutableList.of(loc));
+        assertNotNull(app);
+
+        log.info("started " + app + " containing " + brooklynNode + " for " + JavaClassNames.niceClassAndMethod());
+
+        EntityAsserts.assertAttributeEqualsEventually(brooklynNode, BrooklynNode.SERVICE_UP, true);
+        assertTrue(brooklynNode.getRequiredOpenPorts().contains(8082));
+
+        brooklynNode.stop();
+        EntityAsserts.assertAttributeEquals(brooklynNode, BrooklynNode.SERVICE_UP, false);
+    }
+
+    @ImplementedBy(BrooklynNodeWithOpenedPortsImpl.class)
+    public interface BrooklynNodeWithOpenedPorts extends BrooklynNode {
+
+        public Collection<Integer> getRequiredOpenPorts();
+    }
+
+    public static class BrooklynNodeWithOpenedPortsImpl extends BrooklynNodeImpl
+            implements BrooklynNodeWithOpenedPorts {
+
+        public BrooklynNodeWithOpenedPortsImpl() {
+            super();
+        }
+
+        public Collection<Integer> getRequiredOpenPorts() {
+            return super.getRequiredOpenPorts();
+        }
     }
 
 }
