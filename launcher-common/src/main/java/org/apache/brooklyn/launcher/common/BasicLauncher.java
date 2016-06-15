@@ -45,6 +45,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.StartableApplication;
+import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
@@ -60,6 +61,7 @@ import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
 import org.apache.brooklyn.core.mgmt.rebind.PersistenceExceptionHandlerImpl;
 import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
 import org.apache.brooklyn.core.mgmt.rebind.transformer.CompoundTransformer;
+import org.apache.brooklyn.core.mgmt.rebind.transformer.impl.DeleteOrphanedLocationsTransformer;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServerPaths;
 import org.apache.brooklyn.entity.brooklynnode.BrooklynNode;
@@ -373,13 +375,16 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
                 managementContext, destinationLocationSpec, destinationDir);
             BrooklynPersistenceUtils.writeMemento(managementContext, memento, destinationObjectStore);
             BrooklynPersistenceUtils.writeManagerMemento(managementContext, planeState, destinationObjectStore);
-
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
             LOG.debug("Error copying persisted state (rethrowing): " + e, e);
             throw new FatalRuntimeException("Error copying persisted state: " +
                 Exceptions.collapseText(e), e);
         }
+    }
+
+    public void cleanOrphanedLocations(String destinationDir, @Nullable String destinationLocationSpec) {
+        copyPersistedState(destinationDir, destinationLocationSpec, DeleteOrphanedLocationsTransformer.builder().build());
     }
 
     /** @deprecated since 0.7.0 use {@link #copyPersistedState} instead */

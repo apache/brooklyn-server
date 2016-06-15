@@ -827,6 +827,82 @@ public class Main extends AbstractMain {
         }
     }
 
+    @Command(name = "clean-orphaned-locations", description = "Removes existing orphaned locations")
+    public static class CleanOrphanedLocationsCommand extends BrooklynCommandCollectingArgs {
+
+        @Option(name = { "--localBrooklynProperties" }, title = "local brooklyn.properties file",
+                description = "local brooklyn.properties file, specific to this launch (appending to and overriding global properties)")
+        public String localBrooklynProperties;
+
+        @Option(name = { "--persistenceDir" }, title = "persistence dir",
+                description = "The directory to read persisted state (or container name if using an object store)")
+        public String persistenceDir;
+
+        @Option(name = { "--persistenceLocation" }, title = "persistence location",
+                description = "The location spec for an object store to read persisted state")
+        public String persistenceLocation;
+
+        @Option(name = { "--destinationDir" }, required = true, title = "destination dir",
+                description = "The directory to copy persistence data to without orphaned locations")
+        public String destinationDir;
+
+        @Option(name = { "--destinationLocation" }, title = "persistence location",
+                description = "The location spec for an object store to copy data to")
+        public String destinationLocation;
+
+        @Option(name = { "--transformations" }, title = "transformations",
+                description = "local transformations file, to be applied to the copy of the data before uploading it")
+        public String transformations;
+
+        @Override
+        public Void call() throws Exception {
+            checkNotNull(destinationDir, "orphanedReferencesTmpDir");
+
+            BrooklynLauncher launcher;
+            failIfArguments();
+
+            try {
+                log.info("Retrieving and copying persisted state to " + destinationDir + " without orphaned locations");
+
+
+                PersistMode persistMode = PersistMode.AUTO;
+                HighAvailabilityMode highAvailabilityMode = HighAvailabilityMode.DISABLED;
+
+                launcher = BrooklynLauncher.newInstance()
+                        .localBrooklynPropertiesFile(localBrooklynProperties)
+                        .brooklynProperties(OsgiManager.USE_OSGI, false)
+                        .persistMode(persistMode)
+                        .persistenceDir(persistenceDir)
+                        .persistenceLocation(persistenceLocation)
+                        .highAvailabilityMode(highAvailabilityMode);
+
+            } catch (FatalConfigurationRuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new FatalConfigurationRuntimeException("Fatal error configuring Brooklyn launch: "+e.getMessage(), e);
+            }
+
+            try {
+                launcher.cleanOrphanedLocations(destinationDir, destinationLocation);
+            } catch (FatalRuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                log.error("Error retrieving persisted state: "+Exceptions.collapseText(e), e);
+                Exceptions.propagate(e);
+            } finally {
+                try {
+                    launcher.terminate();
+                } catch (Exception e2) {
+                    log.warn("Subsequent error during termination: "+e2);
+                    log.debug("Details of subsequent error during termination: "+e2, e2);
+                }
+            }
+
+            return null;
+        }
+    }
+
     @Command(name = "copy-state", description = "Retrieves persisted state")
     public static class CopyStateCommand extends BrooklynCommandCollectingArgs {
 
@@ -931,6 +1007,7 @@ public class Main extends AbstractMain {
                         HelpCommand.class,
                         cliInfoCommand(),
                         GeneratePasswordCommand.class,
+                        CleanOrphanedLocationsCommand.class,
                         CopyStateCommand.class,
                         ListAllCommand.class,
                         cliLaunchCommand()
