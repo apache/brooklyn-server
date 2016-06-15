@@ -20,7 +20,6 @@ package org.apache.brooklyn.camp.brooklyn;
 
 import static org.testng.Assert.assertEquals;
 
-import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -147,7 +146,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                 "services:",
                 "- type: EmptySoftwareProcess-with-conf");
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         Entity entity = Iterables.getOnlyElement(app.getChildren());
         
         assertEmptySoftwareProcessConfig(
@@ -183,7 +182,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                 "      templateOptions:",
                 "        myOptionsKey2: myOptionsVal2");
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         Entity entity = Iterables.getOnlyElement(app.getChildren());
         
         assertEmptySoftwareProcessConfig(
@@ -222,7 +221,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                 "  brooklyn.children:",
                 "  - type: org.apache.brooklyn.entity.software.base.EmptySoftwareProcess");
 
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         Entity entity = Iterables.getOnlyElement(app.getChildren());
         
         assertEmptySoftwareProcessConfig(
@@ -253,7 +252,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                 "  brooklyn.children:",
                 "  - type: org.apache.brooklyn.core.test.entity.TestEntity");
 
-        final Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        final Entity app = createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
      
         // Task that resolves quickly
@@ -280,7 +279,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                 "  brooklyn.children:",
                 "  - type: org.apache.brooklyn.core.test.entity.TestEntity");
 
-        final Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        final Entity app = createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
      
         // Task that resolves quickly
@@ -306,7 +305,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                 "  brooklyn.children:",
                 "  - type: org.apache.brooklyn.core.test.entity.TestEntity");
 
-        final Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        final Entity app = createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
      
         assertEquals(entity.config().get(TestEntity.CONF_MAP_THING), ImmutableMap.of("mykey", "myval", "mykey2", "myOther"));
@@ -325,7 +324,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                 "  brooklyn.children:",
                 "  - type: org.apache.brooklyn.core.test.entity.TestEntity");
 
-        final Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        final Entity app = createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
      
         assertEquals(entity.config().get(TestEntity.CONF_MAP_THING), ImmutableMap.of("mykey", "myval", "mykey2", "myOther"));
@@ -378,7 +377,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                 "        templateOptions:",
                 "          myOptionsKey2: myOptionsVal2");
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         Entity entity = Iterables.getOnlyElement(app.getChildren());
         
         assertEmptySoftwareProcessConfig(
@@ -427,7 +426,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                     "services:",
                     "- type: entity-with-keys");
             
-            Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+            Entity app = createStartWaitAndLogApplication(yaml);
             TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
     
             assertEquals(entity.config().get(entity.getEntityType().getConfigKey("map.type-merged")), ImmutableMap.of("myDefaultKey", "myDefaultVal"));
@@ -448,7 +447,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                     "    map.type-never:",
                     "      mykey2: myval2");
             
-            Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+            Entity app = createStartWaitAndLogApplication(yaml);
             TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
     
             assertEquals(entity.config().get(entity.getEntityType().getConfigKey("map.type-merged")), ImmutableMap.of("mykey2", "myval2"));
@@ -463,7 +462,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                     "services:",
                     "- type: entity-with-conf");
             
-            Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+            Entity app = createStartWaitAndLogApplication(yaml);
             TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
     
             assertEquals(entity.config().get(entity.getEntityType().getConfigKey("map.type-merged")), ImmutableMap.of("mykey", "myval"));
@@ -484,7 +483,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                     "    map.type-never:",
                     "      mykey2: myval2");
             
-            Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+            Entity app = createStartWaitAndLogApplication(yaml);
             TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
     
             assertEquals(entity.config().get(entity.getEntityType().getConfigKey("map.type-merged")), ImmutableMap.of("mykey", "myval", "mykey2", "myval2"));
@@ -524,7 +523,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                     "  brooklyn.children:",
                     "  - type: entity-with-keys");
             
-            Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+            Entity app = createStartWaitAndLogApplication(yaml);
             TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
     
             assertEquals(entity.config().get(entity.getEntityType().getConfigKey("map.type-merged")), ImmutableMap.of("myDefaultKey", "myDefaultVal"));
@@ -547,7 +546,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                     "  brooklyn.children:",
                     "  - type: entity-with-keys");
             
-            Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+            Entity app = createStartWaitAndLogApplication(yaml);
             TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
     
             assertEquals(entity.config().get(entity.getEntityType().getConfigKey("map.type-merged")), ImmutableMap.of("mykey", "myval"));
@@ -577,7 +576,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                     "      map.type-never:",
                     "        mykey2: myval2");
             
-            Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+            Entity app = createStartWaitAndLogApplication(yaml);
             TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
     
             assertEquals(entity.config().get(entity.getEntityType().getConfigKey("map.type-merged")), ImmutableMap.of("mykey", "myval", "mykey2", "myval2"));
@@ -599,7 +598,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                 "    shell.env:",
                 "      ENV2: myEnv2");
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         Entity entity = Iterables.getOnlyElement(app.getChildren());
         EntityAsserts.assertConfigEquals(entity, EmptySoftwareProcess.SHELL_ENVIRONMENT, expectedEnv);
     }
@@ -617,7 +616,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                 "    shell.env:",
                 "      ENV2: myEnv2");
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         Entity entity = Iterables.getOnlyElement(app.getChildren());
         EntityAsserts.assertConfigEquals(entity, EmptySoftwareProcess.SHELL_ENVIRONMENT, expectedEnv);
     }
@@ -635,7 +634,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                 "    env:",
                 "      ENV2: myEnv2");
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         Entity entity = Iterables.getOnlyElement(app.getChildren());
         EntityAsserts.assertConfigEquals(entity, EmptySoftwareProcess.SHELL_ENVIRONMENT, expectedEnv);
     }
@@ -655,7 +654,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                 "    env:",
                 "      ENV2: myEnv2");
 
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         Entity entity = Iterables.getOnlyElement(app.getChildren());
         EntityAsserts.assertConfigEquals(entity, EmptySoftwareProcess.SHELL_ENVIRONMENT, expectedEnv);
     }
@@ -697,7 +696,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                 "services:",
                 "- type: EmptySoftwareProcess-level3");
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         Entity entity = Iterables.getOnlyElement(app.getChildren());
         EntityAsserts.assertConfigEquals(entity, EmptySoftwareProcess.SHELL_ENVIRONMENT, 
                 ImmutableMap.<String, Object>of("ENV1", "myEnv1", "ENV2", "myEnv2", "ENV3", "myEnv3"));
@@ -744,7 +743,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                 "services:",
                 "- type: TestEntity-level3");
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
 
         assertEquals(entity.config().get(entity.getEntityType().getConfigKey("map.type-merged")), 
@@ -788,7 +787,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                 "        map.type-merged:",
                 "          mykey3: myval3");
 
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         Entity entity = Iterables.find(Entities.descendants(app), Predicates.instanceOf(TestEntity.class));
 
         assertEquals(entity.config().get(entity.getEntityType().getConfigKey("map.type-merged")), 

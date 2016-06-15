@@ -22,7 +22,6 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-import java.io.StringReader;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -61,7 +60,6 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Functionals;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -690,8 +688,8 @@ public class EntitiesYamlTest extends AbstractYamlTest {
 
     @Test
     public void testWithEntityLocationsAndStartInLocation() throws Exception {
-        Entity app = createAndStartApplication(Streams.readFullyAndClose(loadYaml("test-entity-basic-template.yaml",  
-            "  location: localhost:(name=localhost name)")),
+        Entity app = createAndStartApplication(loadYaml("test-entity-basic-template.yaml",  
+            "  location: localhost:(name=localhost name)"),
             // must pass as JSON list because otherwise the comma confuses the list parser
             MutableMap.of("locations", "[ "+JavaStringEscapes.wrapJavaString(
                 "byon:(hosts=\"1.1.1.1\", name=\"byon name\")")+" ]") );
@@ -781,7 +779,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
                 "       brooklyn.config:\n"+
                 "         test.confName: inchildspec\n";
         
-        Application app = (Application) createStartWaitAndLogApplication(new StringReader(yaml));
+        Application app = (Application) createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         
         TestEntity child = (TestEntity) entity.createAndManageChildFromConfig();
@@ -800,7 +798,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
                 "       type: org.apache.brooklyn.core.test.entity.TestEntity\n"+
                 "       confName: inchildspec\n";
         
-        Application app = (Application) createStartWaitAndLogApplication(new StringReader(yaml));
+        Application app = (Application) createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         
         TestEntity child = (TestEntity) entity.createAndManageChildFromConfig();
@@ -821,7 +819,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
                 "       brooklyn.flags:\n"+
                 "         confName: inchildspec\n";
         
-        Application app = (Application) createStartWaitAndLogApplication(new StringReader(yaml));
+        Application app = (Application) createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         
         TestEntity child = (TestEntity) entity.createAndManageChildFromConfig();
@@ -848,7 +846,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
                 "           brooklyn.config:\n" +
                 "             test.confName: greatgrandchild\n";
         
-        Application app = (Application) createStartWaitAndLogApplication(new StringReader(yaml));
+        Application app = (Application) createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         
         TestEntity child = (TestEntity) entity.createAndManageChildFromConfig();
@@ -880,7 +878,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
                 "             brooklyn.config:\n"+
                 "               test.confName: ingrandchildspec\n";
         
-        Application app = (Application) createStartWaitAndLogApplication(new StringReader(yaml));
+        Application app = (Application) createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         
         TestEntity child = (TestEntity) entity.createAndManageChildFromConfig();
@@ -902,7 +900,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
                 "       brooklyn.config:\n"+
                 "         test.confName: inchildspec\n";
         
-        Application app = (Application) createStartWaitAndLogApplication(new StringReader(yaml));
+        Application app = (Application) createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         EntitySpec<?> entitySpec = (EntitySpec<?>) entity.config().getBag().getStringKey("key.does.not.match");
         assertEquals(entitySpec.getType(), TestEntity.class);
@@ -934,7 +932,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
                 "services:\n"+
                 "- serviceType: org.apache.brooklyn.core.test.entity.TestEntityImpl\n";
         
-        Application app = (Application) createStartWaitAndLogApplication(new StringReader(yaml));
+        Application app = (Application) createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         assertTrue(entity.getCallHistory().contains("start"), "history="+entity.getCallHistory());
     }
@@ -946,7 +944,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
                 "- type: "+TestEntity.class.getName()+"\n"+
                 "  brooklyn.initializers: [ { type: "+TestSensorAndEffectorInitializer.class.getName()+" } ]";
         
-        Application app = (Application) createStartWaitAndLogApplication(new StringReader(yaml));
+        Application app = (Application) createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         
         Effector<?> hi = entity.getEffector(TestSensorAndEffectorInitializer.EFFECTOR_SAY_HELLO);
@@ -975,7 +973,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
                 "- type: "+TestEntity.class.getName()+"\n"+
                 "  brooklyn.initializers: [ { type: "+TestSensorAndEffectorInitializer.TestConfigurableInitializer.class.getName()+" } ]";
         
-        Application app = (Application) createStartWaitAndLogApplication(new StringReader(yaml));
+        Application app = (Application) createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         
         Task<String> saying = entity.invoke(Effectors.effector(String.class, TestSensorAndEffectorInitializer.EFFECTOR_SAY_HELLO).buildAbstract(), 
@@ -993,7 +991,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
                   + "brooklyn.config: { "+TestSensorAndEffectorInitializer.TestConfigurableInitializer.HELLO_WORD+": Hey }"
                   + " } ]";
         
-        Application app = (Application) createStartWaitAndLogApplication(new StringReader(yaml));
+        Application app = (Application) createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         
         Task<String> saying = entity.invoke(Effectors.effector(String.class, TestSensorAndEffectorInitializer.EFFECTOR_SAY_HELLO).buildAbstract(), 
@@ -1007,7 +1005,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
                 "services:"+"\n"+
                 "- type: "+CustomTestEntityImpl.class.getName()+"\n";
 
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
 
         Entity testEntity = Iterables.getOnlyElement(app.getChildren());
         assertEquals(testEntity.getEntityType().getName(), "CustomTestEntityImpl");

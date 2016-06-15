@@ -22,7 +22,6 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-import java.io.StringReader;
 import java.util.List;
 
 import org.apache.brooklyn.api.entity.Entity;
@@ -52,7 +51,7 @@ public class LocationsYamlTest extends AbstractYamlTest {
                 "services:\n"+
                 "- type: org.apache.brooklyn.core.test.entity.TestEntity\n";
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         LocalhostMachineProvisioningLocation loc = (LocalhostMachineProvisioningLocation) Iterables.getOnlyElement(app.getLocations());
         assertNotNull(loc);
     }
@@ -64,7 +63,7 @@ public class LocationsYamlTest extends AbstractYamlTest {
                 "services:\n"+
                 "- type: org.apache.brooklyn.core.test.entity.TestEntity\n";
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         LocalhostMachineProvisioningLocation loc = (LocalhostMachineProvisioningLocation) Iterables.getOnlyElement(app.getLocations());
         assertEquals(loc.getDisplayName(), "myname");
     }
@@ -77,7 +76,7 @@ public class LocationsYamlTest extends AbstractYamlTest {
                 "services:\n"+
                 "- type: org.apache.brooklyn.core.test.entity.TestEntity\n";
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         LocalhostMachineProvisioningLocation loc = (LocalhostMachineProvisioningLocation) Iterables.getOnlyElement(app.getLocations());
         assertNotNull(loc);
     }
@@ -91,7 +90,7 @@ public class LocationsYamlTest extends AbstractYamlTest {
                 "services:\n"+
                 "- type: org.apache.brooklyn.core.test.entity.TestEntity\n";
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         List<Location> locs = ImmutableList.copyOf(app.getLocations());
         assertEquals(locs.size(), 2, "locs="+locs);
         LocalhostMachineProvisioningLocation loc1 = (LocalhostMachineProvisioningLocation) locs.get(0);
@@ -110,7 +109,7 @@ public class LocationsYamlTest extends AbstractYamlTest {
                 "services:\n"+
                 "- type: org.apache.brooklyn.core.test.entity.TestEntity\n";
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         LocalhostMachineProvisioningLocation loc = (LocalhostMachineProvisioningLocation) Iterables.getOnlyElement(app.getLocations());
         assertEquals(loc.getDisplayName(), "myname");
         assertEquals(loc.config().getLocalBag().getStringKey("myconfkey"), "myconfval");
@@ -129,7 +128,7 @@ public class LocationsYamlTest extends AbstractYamlTest {
                 "services:\n"+
                 "- type: org.apache.brooklyn.core.test.entity.TestEntity\n";
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         List<Location> locs = ImmutableList.copyOf(app.getLocations());
         assertEquals(locs.size(), 2, "locs="+locs);
         LocalhostMachineProvisioningLocation loc1 = (LocalhostMachineProvisioningLocation) locs.get(0);
@@ -148,7 +147,7 @@ public class LocationsYamlTest extends AbstractYamlTest {
                 "services:\n"+
                 "- type: org.apache.brooklyn.core.test.entity.TestEntity\n";
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         assertTrue(app.getLocations().isEmpty(), "locs="+app.getLocations());
     }
 
@@ -162,7 +161,7 @@ public class LocationsYamlTest extends AbstractYamlTest {
                 "- type: org.apache.brooklyn.core.test.entity.TestEntity\n";
         
         try {
-            createStartWaitAndLogApplication(new StringReader(yaml));
+            createStartWaitAndLogApplication(yaml);
         } catch (Exception e) {
             if (!e.toString().contains("Conflicting 'location' and 'locations'")) throw e;
         }
@@ -178,7 +177,7 @@ public class LocationsYamlTest extends AbstractYamlTest {
                 "- type: org.apache.brooklyn.core.test.entity.TestEntity\n";
         
         try {
-            createStartWaitAndLogApplication(new StringReader(yaml));
+            createStartWaitAndLogApplication(yaml);
         } catch (Exception e) {
             if (!e.toString().contains("must be a string or map")) throw e;
         }
@@ -192,7 +191,7 @@ public class LocationsYamlTest extends AbstractYamlTest {
                 "services:\n"+
                 "- type: org.apache.brooklyn.core.test.entity.TestEntity\n";
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         Entity child = Iterables.getOnlyElement(app.getChildren());
         LocalhostMachineProvisioningLocation loc = (LocalhostMachineProvisioningLocation) Iterables.getOnlyElement(Entities.getAllInheritedLocations(child));
         assertEquals(loc.getDisplayName(), "loc1");
@@ -211,7 +210,7 @@ public class LocationsYamlTest extends AbstractYamlTest {
                 "services:\n"+
                 "- type: org.apache.brooklyn.core.test.entity.TestEntity\n";
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         Entity child = Iterables.getOnlyElement(app.getChildren());
         FixedListMachineProvisioningLocation<?> loc = (FixedListMachineProvisioningLocation<?>) Iterables.getOnlyElement(Entities.getAllInheritedLocations(child));
         Assert.assertEquals(loc.getChildren().size(), 2);
@@ -232,7 +231,7 @@ public class LocationsYamlTest extends AbstractYamlTest {
                 "services:\n"+
                 "- type: org.apache.brooklyn.core.test.entity.TestEntity\n";
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         Entity child = Iterables.getOnlyElement(app.getChildren());
         FixedListMachineProvisioningLocation<?> loc = (FixedListMachineProvisioningLocation<?>) Iterables.getOnlyElement(Entities.getAllInheritedLocations(child));
         Assert.assertEquals(loc.getChildren().size(), 5);
@@ -260,7 +259,7 @@ public class LocationsYamlTest extends AbstractYamlTest {
                 "services:\n"+
                 "- type: org.apache.brooklyn.core.test.entity.TestEntity\n";
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         Entity child = Iterables.getOnlyElement(app.getChildren());
         MultiLocation<?> loc = (MultiLocation<?>) Iterables.getOnlyElement(Entities.getAllInheritedLocations(child));
         Assert.assertEquals(loc.getSubLocations().size(), 2);

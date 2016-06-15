@@ -23,7 +23,6 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
-import java.io.StringReader;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -294,7 +293,7 @@ public class WindowsYamlLiveTest extends AbstractYamlTest {
         }
 
         if (Strings.isBlank(cmdFailed)) {
-            app = createAndStartApplication(new StringReader(Joiner.on("\n").join(yaml)));
+            app = createAndStartApplication(Joiner.on("\n").join(yaml));
             waitForApplicationTasks(app);
             log.info("App started:");
             Entities.dumpInfo(app);
@@ -305,7 +304,7 @@ public class WindowsYamlLiveTest extends AbstractYamlTest {
             assertStreams(entity, stdouts);
             
         } else if (cmdFailed.equals("stop-command")) {
-            app = createAndStartApplication(new StringReader(Joiner.on("\n").join(yaml)));
+            app = createAndStartApplication(Joiner.on("\n").join(yaml));
             waitForApplicationTasks(app);
             log.info("App started:");
             Entities.dumpInfo(app);
@@ -317,7 +316,7 @@ public class WindowsYamlLiveTest extends AbstractYamlTest {
             
         } else {
             try {
-                app = createAndStartApplication(new StringReader(Joiner.on("\n").join(yaml)));
+                app = createAndStartApplication(Joiner.on("\n").join(yaml));
                 fail("start should have failed for app="+app);
             } catch (Exception e) {
                 if (e.toString().contains("invalid result") && e.toString().contains("for "+cmdFailed)) throw e;

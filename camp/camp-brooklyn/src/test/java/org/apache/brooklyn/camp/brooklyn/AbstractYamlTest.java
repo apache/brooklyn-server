@@ -19,7 +19,6 @@
 package org.apache.brooklyn.camp.brooklyn;
 
 import java.io.Reader;
-import java.io.StringReader;
 import java.util.Map;
 import java.util.Set;
 
@@ -112,20 +111,21 @@ public abstract class AbstractYamlTest {
         }
     }
 
-    protected Reader loadYaml(String yamlFileName, String ...extraLines) throws Exception {
+    protected String loadYaml(String yamlFileName, String ...extraLines) throws Exception {
         String input = new ResourceUtils(this).getResourceAsString(yamlFileName).trim();
         StringBuilder builder = new StringBuilder(input);
         for (String l: extraLines)
             builder.append("\n").append(l);
-        return new StringReader(builder.toString());
+        return builder.toString();
     }
     
     protected Entity createAndStartApplication(String... multiLineYaml) throws Exception {
         return createAndStartApplication(joinLines(multiLineYaml));
     }
     
+    /** @deprecated since 0.10.0, use {@link #createAndStartApplication(String)} instead */
     protected Entity createAndStartApplication(Reader input) throws Exception {
-        return createAndStartApplication(Streams.readFullyAndClose(input));
+        return createAndStartApplication(Streams.readFully(input));
     }
 
     protected Entity createAndStartApplication(String input) throws Exception {
@@ -140,7 +140,13 @@ public abstract class AbstractYamlTest {
         return app;
     }
 
+    /** @deprecated since 0.10.0, use {@link #createStartWaitAndLogApplication(String)} instead */
+    @Deprecated
     protected Entity createStartWaitAndLogApplication(Reader input) throws Exception {
+        return createStartWaitAndLogApplication(Streams.readFully(input));
+    }
+
+    protected Entity createStartWaitAndLogApplication(String input) throws Exception {
         Entity app = createAndStartApplication(input);
         waitForApplicationTasks(app);
         getLogger().info("App started: "+app);

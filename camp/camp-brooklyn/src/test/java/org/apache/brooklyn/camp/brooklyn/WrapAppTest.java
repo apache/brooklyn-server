@@ -84,9 +84,6 @@ public class WrapAppTest extends AbstractYamlTest {
     }
     
     private StartableApplication createApp(String yaml) throws Exception {
-        StringReader in = new StringReader(yaml);
-        StartableApplication app = (StartableApplication)createAndStartApplication(in);
-        in.close();
-        return app;
+        return (StartableApplication)createAndStartApplication(yaml);
     }
 }

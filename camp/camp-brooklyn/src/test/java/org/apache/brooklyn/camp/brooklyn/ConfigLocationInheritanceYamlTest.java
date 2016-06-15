@@ -20,7 +20,6 @@ package org.apache.brooklyn.camp.brooklyn;
 
 import static org.testng.Assert.assertEquals;
 
-import java.io.StringReader;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -200,7 +199,7 @@ public class ConfigLocationInheritanceYamlTest extends AbstractYamlTest {
                 "services:",
                 "- type: org.apache.brooklyn.entity.software.base.EmptySoftwareProcess");
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         Entity entity = Iterables.getOnlyElement(app.getChildren());
         
         assertMachineConfig(
@@ -221,7 +220,7 @@ public class ConfigLocationInheritanceYamlTest extends AbstractYamlTest {
                 "      templateOptions:",
                 "        subnetId: mysubnet");
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         Entity entity = Iterables.getOnlyElement(app.getChildren());
 
         assertMachineConfig(
@@ -244,7 +243,7 @@ public class ConfigLocationInheritanceYamlTest extends AbstractYamlTest {
                 "        networks: ",
                 "        subnetId: mysubnet");
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         Entity entity = Iterables.getOnlyElement(app.getChildren());
 
         assertMachineConfig(
@@ -277,7 +276,7 @@ public class ConfigLocationInheritanceYamlTest extends AbstractYamlTest {
                 "        mymap:",
                 "          key2: val2");
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         Entity entity = Iterables.getOnlyElement(app.getChildren());
 
         assertMachineConfig(
@@ -310,7 +309,7 @@ public class ConfigLocationInheritanceYamlTest extends AbstractYamlTest {
                 "      templateOptions:",
                 "        subnetId: mysubnet");
 
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         Entity entity = Iterables.getOnlyElement(app.getChildren());
 
         assertMachineConfig(
@@ -341,7 +340,7 @@ public class ConfigLocationInheritanceYamlTest extends AbstractYamlTest {
                 "services:",
                 "- type: org.apache.brooklyn.entity.software.base.EmptySoftwareProcess");
 
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         Entity entity = Iterables.getOnlyElement(app.getChildren());
 
         assertMachineConfig(
