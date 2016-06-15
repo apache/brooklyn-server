@@ -349,7 +349,7 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
     }
     
     @Override
-    public <T> T invokeEffectorMethodSync(final Entity entity, final Effector<T> eff, final Object args) throws ExecutionException {
+    public <T> T invokeEffectorMethodSync(final Entity entity, final Effector<T> eff, final Map<String,?> args) throws ExecutionException {
         throw new IllegalStateException("Non-deployment context "+this+" is not valid for this operation: cannot invoke effector "+eff+" on entity "+entity);
     }
     

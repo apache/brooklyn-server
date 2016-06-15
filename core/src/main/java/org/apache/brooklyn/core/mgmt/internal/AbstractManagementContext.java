@@ -302,7 +302,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
         return runAtEntity(entity, eff, parameters);
     }
     
-    protected <T> T invokeEffectorMethodLocal(Entity entity, Effector<T> eff, Object args) {
+    protected <T> T invokeEffectorMethodLocal(Entity entity, Effector<T> eff, Map<String, ?> args) {
         assert isManagedLocally(entity) : "cannot invoke effector method at "+this+" because it is not managed here";
         totalEffectorInvocationCount.incrementAndGet();
         Object[] transformedArgs = EffectorUtils.prepareArgsForEffector(eff, args);
@@ -315,7 +315,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
      * @throws ExecutionException 
      */
     @Override
-    public <T> T invokeEffectorMethodSync(final Entity entity, final Effector<T> eff, final Object args) throws ExecutionException {
+    public <T> T invokeEffectorMethodSync(final Entity entity, final Effector<T> eff, final Map<String, ?> args) throws ExecutionException {
         try {
             Task<?> current = Tasks.current();
             if (current == null || !entity.equals(BrooklynTaskTags.getContextEntity(current)) || !isManagedLocally(entity)) {

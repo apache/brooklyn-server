@@ -60,21 +60,40 @@ public class EffectorUtils {
 
     private static final Logger log = LoggerFactory.getLogger(EffectorUtils.class);
 
-    /** prepares arguments for an effector either accepting:
-     *  an array, which should contain the arguments in order, optionally omitting those which have defaults defined;
-     *  or a map, which should contain the arguments by name, again optionally omitting those which have defaults defined,
-     *  and in this case also performing type coercion.
+    /**
+     * Prepares arguments for an effector, taking an array, which should contain the arguments in 
+     * order, optionally omitting those which have defaults defined.
      */
+    public static Object[] prepareArgsForEffector(Effector<?> eff, Object[] args) {
+        return prepareArgsForEffectorFromArray(eff, args);
+    }
+
+    /**
+     * Prepares arguments for an effector, taking a map, which should contain the arguments by 
+     * name, optionally omitting those which have defaults defined; performs type coercion on
+     * the values.
+     */
+    public static Object[] prepareArgsForEffector(Effector<?> eff, Map<?,?> args) {
+        return prepareArgsForEffectorFromMap(eff, (Map<?,?>) args);
+    }
+
+    /** prepares arguments for an effector either accepting:
+     *  an array (see {@link #prepareArgsForEffector(Effector, Object[])};
+     *  or a map (see {@link #prepareArgsForEffector(Effector, Map)}.
+     *  
+     * @deprecated since 0.10.0
+     */
+    @Deprecated
     public static Object[] prepareArgsForEffector(Effector<?> eff, Object args) {
         if (args != null && args.getClass().isArray()) {
             return prepareArgsForEffectorFromArray(eff, (Object[]) args);
         }
         if (args instanceof Map) {
-            return prepareArgsForEffectorFromMap(eff, (Map) args);
+            return prepareArgsForEffectorFromMap(eff, (Map<?,?>) args);
         }
-        log.warn("Deprecated effector invocation style for call to "+eff+", expecting a map or an array, got: "+sanitizeArgs(args));
+        log.warn("Deprecated effector invocation style for call to "+eff+", expecting a map or an array, got: "+(args == null ? null : args.getClass().getName()));
         if (log.isDebugEnabled()) {
-            log.debug("Deprecated effector invocation style for call to "+eff+", expecting a map or an array, got: "+sanitizeArgs(args),
+            log.debug("Deprecated effector invocation style for call to "+eff+", expecting a map or an array, got: "+(args == null ? null : args.getClass().getName()),
                 new Throwable("Trace for deprecated effector invocation style"));
         }
         return oldPrepareArgsForEffector(eff, args);
@@ -115,16 +134,16 @@ public class EffectorUtils {
                 //finally, default values are used to make up for missing parameters
                 newArgs.put(it.getName(), ((BasicParameterType)it).getDefaultValue());
             } else {
-                throw new IllegalArgumentException("Invalid arguments (count mismatch) for effector "+eff+": "+args);
+                throw new IllegalArgumentException("Invalid arguments (count mismatch) for effector "+eff+": "+args.length+" args");
             }
 
             newArgsNeeded--;
         }
         if (newArgsNeeded > 0) {
-            throw new IllegalArgumentException("Invalid arguments (missing "+newArgsNeeded+") for effector "+eff+": "+args);
+            throw new IllegalArgumentException("Invalid arguments (missing "+newArgsNeeded+") for effector "+eff+": "+args.length+" args");
         }
         if (!l.isEmpty()) {
-            throw new IllegalArgumentException("Invalid arguments ("+l.size()+" extra) for effector "+eff+": "+args);
+            throw new IllegalArgumentException("Invalid arguments ("+l.size()+" extra) for effector "+eff+": "+args.length+" args");
         }
         return newArgs;
     }
@@ -219,19 +238,19 @@ public class EffectorUtils {
                 //finally, default values are used to make up for missing parameters
                 newArgs.add(((BasicParameterType)it).getDefaultValue());
             } else {
-                throw new IllegalArgumentException("Invalid arguments (count mismatch) for effector "+eff+": "+sanitizeArgs(args));
+                throw new IllegalArgumentException("Invalid arguments (count mismatch) for effector "+eff+": "+argsArray.length+" args");
             }
 
             newArgsNeeded--;
         }
         if (newArgsNeeded > 0) {
-            throw new IllegalArgumentException("Invalid arguments (missing "+newArgsNeeded+") for effector "+eff+": "+sanitizeArgs(args));
+            throw new IllegalArgumentException("Invalid arguments (missing "+newArgsNeeded+") for effector "+eff+": "+argsArray.length+" args");
         }
         if (!l.isEmpty()) {
-            throw new IllegalArgumentException("Invalid arguments ("+l.size()+" extra) for effector "+eff+": "+sanitizeArgs(args));
+            throw new IllegalArgumentException("Invalid arguments ("+l.size()+" extra) for effector "+eff+": "+argsArray.length+" args");
         }
         if (truth(m) && !mapUsed) {
-            throw new IllegalArgumentException("Invalid arguments ("+m.size()+" extra named) for effector "+eff+": "+sanitizeArgs(args));
+            throw new IllegalArgumentException("Invalid arguments ("+m.size()+" extra named) for effector "+eff+": "+argsArray.length+" args");
         }
         return newArgs.toArray(new Object[newArgs.size()]);
     }
@@ -239,19 +258,20 @@ public class EffectorUtils {
     /**
      * Invokes a method effector so that its progress is tracked. For internal use only, when we know the effector is backed by a method which is local.
      */
-    public static <T> T invokeMethodEffector(Entity entity, Effector<T> eff, Object[] args) {
+    public static <T> T invokeMethodEffector(Entity entity, Effector<T> eff, Map<String,?> args) {
+        Object[] parametersArray = EffectorUtils.prepareArgsForEffector(eff, args);
         String name = eff.getName();
 
         try {
             if (log.isDebugEnabled()) log.debug("Invoking effector {} on {}", new Object[] {name, entity});
-            if (log.isTraceEnabled()) log.trace("Invoking effector {} on {} with args {}", new Object[] {name, entity, args});
+            if (log.isTraceEnabled()) log.trace("Invoking effector {} on {} with args {}", new Object[] {name, entity, Sanitizer.sanitize(args)});
             EntityManagementSupport mgmtSupport = ((EntityInternal)entity).getManagementSupport();
             if (!mgmtSupport.isDeployed()) {
                 mgmtSupport.attemptLegacyAutodeployment(name);
             }
             ManagementContextInternal mgmtContext = (ManagementContextInternal) ((EntityInternal) entity).getManagementContext();
 
-            mgmtSupport.getEntityChangeListener().onEffectorStarting(eff, args);
+            mgmtSupport.getEntityChangeListener().onEffectorStarting(eff, parametersArray);
             try {
                 return mgmtContext.invokeEffectorMethodSync(entity, eff, args);
             } finally {
@@ -391,9 +411,5 @@ public class EffectorUtils {
                 .put("displayName", effector.getName())
                 .put("tags", tags)
                 .build();
-    }
-
-    private static Object sanitizeArgs(Object args) {
-        return args instanceof Map ? Sanitizer.sanitize((Map)args) : args;
     }
 }
