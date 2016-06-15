@@ -7,7 +7,7 @@ brooklyn.catalog:
       Resources for working with Docker Engine from Apache Brooklyn
     license_code: CLOUDSOFT-1.0
     overview: README.md
-    qa: docker.tests.bom
+    qa: tests/docker.tests.bom
 
   items:
   - id: docker-engine
@@ -366,14 +366,26 @@ brooklyn.catalog:
 #          label: Docker Run Arguments
 #          description: |
 #            Arguments to pass to the docker run command
+#        - name: docker.run.volumes
+#          label: Container Volumns
+#          description: |
+#            A list of volumes in the format the -v argument of docker run expects. Semicolon separated.
+#        - name: docker.run.env
+#          label: Container Environment
+#          description: |
+#            A list of environment key value pairs. Semicolon separated. No quotes.
 
       brooklyn.config:
         image.preinstall:
         # Avoids null which fails the deployment
         docker.run.arguments: 
+        docker.run.volumes: 
+        docker.run.env:
         shell.env:
           DOCKER_IMAGE: $brooklyn:config("docker.image")
           DOCKER_RUN_ARGUMENTS: $brooklyn:config("docker.run.arguments")
+          DOCKER_RUN_VOLUMES: $brooklyn:config("docker.run.volumes")
+          DOCKER_RUN_ENV: $brooklyn:config("docker.run.env")
 
         # TODO Failure should abort start effector
         pre.launch.command: |
@@ -382,9 +394,31 @@ brooklyn.catalog:
             exit 1
           fi
         post.launch.command: |
+          set -e
+          # Won't escape quotes in the arguments, but those are not expected
+          function parse_args {
+            OPT=$1
+            INPUT=$2
+            echo "${INPUT}" | awk -F';' '
+            { 
+              for (i = 1; i <= NF; i++) {
+                gsub(/ +$/, "", $i);
+                gsub(/^ +/, "", $i);
+                if ($i) {
+                  args= args " -'$OPT' \"" $i "\"";
+                }
+              }
+              print args 
+            }'
+          }
           rm -f "${PID_FILE}" # docker won't overwrite
-          # use xargs so that DOCKER_RUN_ARGUMENTS is NOT treated as a single argument 
-          echo ${DOCKER_RUN_ARGUMENTS} | xargs docker run -d --cidfile "${PID_FILE}" --net="host" "${DOCKER_IMAGE}" 
+          DOCKER="docker run -d --cidfile \"${PID_FILE}\" --net=host"
+          [ "${DOCKER_RUN_VOLUMES}" ] && DOCKER="${DOCKER} $( parse_args v "${DOCKER_RUN_VOLUMES}" )"
+          [ "${DOCKER_RUN_ENV}" ] && DOCKER="${DOCKER} $( parse_args e "${DOCKER_RUN_ENV}" )"
+          DOCKER="${DOCKER} \"${DOCKER_IMAGE}\""
+          [ "${DOCKER_RUN_ARGUMENTS}" ] && DOCKER="${DOCKER} ${DOCKER_RUN_ARGUMENTS}"
+          echo "${DOCKER}"
+          echo "${DOCKER}" | bash
 
         checkRunning.command: |
           STATE=$(docker inspect --format "{{ .State.Status }}" $(cat "${PID_FILE}"))
