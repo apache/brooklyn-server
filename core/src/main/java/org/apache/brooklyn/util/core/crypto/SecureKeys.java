@@ -78,12 +78,17 @@ public class SecureKeys extends SecureKeysWithoutBouncyCastle {
         return new X509Principal("" + "C=None," + "L=None," + "O=None," + "OU=None," + "CN=" + commonName);
     }
 
+    /** @deprecated since 0.10.0 - use {@link #readPem(byte[], String)} instead */
+    @Deprecated
+    public static KeyPair readPem(InputStream input, final String passphrase) {
+        return readPem(Streams.readFully(input), passphrase);
+    }
+
     /** reads RSA or DSA / pem style private key files (viz {@link #toPem(KeyPair)}), extracting also the public key if possible. Closes the stream.
      * @throws IllegalStateException on errors, in particular {@link PassphraseProblem} if that is the problem */
-    public static KeyPair readPem(InputStream input, final String passphrase) {
+    public static KeyPair readPem(byte[] key, final String passphrase) {
         // TODO cache is only for fallback "reader" strategy (2015-01); delete when Parser confirmed working
-        byte[] cache = Streams.readFullyAndClose(input);
-        input = new ByteArrayInputStream(cache);
+        InputStream input = new ByteArrayInputStream(key);
 
         try {
             PEMParser pemParser = new PEMParser(new InputStreamReader(input));
@@ -122,7 +127,7 @@ public class SecureKeys extends SecureKeysWithoutBouncyCastle {
             // replaced with above based on http://stackoverflow.com/questions/14919048/bouncy-castle-pemreader-pemparser
             // passes the same tests (Jan 2015) but leaving the old code as a fallback for the time being 
 
-            input = new ByteArrayInputStream(cache);
+            input = new ByteArrayInputStream(key);
             try {
                 Security.addProvider(new BouncyCastleProvider());
                 @SuppressWarnings("deprecation")
@@ -155,7 +160,7 @@ public class SecureKeys extends SecureKeysWithoutBouncyCastle {
 
     /** returns the PEM (base64, ie for id_rsa) string for the private key / key pair;
      * this starts -----BEGIN PRIVATE KEY----- and ends similarly, like id_rsa.
-     * also see {@link #readPem(InputStream, String)} */
+     * also see {@link #readPem(byte[], String)} */
     public static String toPem(KeyPair key) {
         return stringPem(key);
     }

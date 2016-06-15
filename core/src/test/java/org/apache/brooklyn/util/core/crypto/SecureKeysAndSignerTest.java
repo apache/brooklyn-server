@@ -19,7 +19,6 @@
 package org.apache.brooklyn.util.core.crypto;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.nio.charset.Charset;
 import java.security.KeyPair;
 import java.security.PublicKey;
@@ -30,6 +29,7 @@ import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.crypto.SecureKeys.PassphraseProblem;
 import org.apache.brooklyn.util.crypto.AuthorizedKeysParser;
 import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.stream.Streams;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -91,21 +91,21 @@ public class SecureKeysAndSignerTest {
 
     @Test
     public void testReadRsaKey() throws Exception {
-        KeyPair key = SecureKeys.readPem(ResourceUtils.create(this).getResourceFromUrl("classpath://brooklyn/util/crypto/sample_rsa.pem"), null);
+        KeyPair key = readPem("classpath://brooklyn/util/crypto/sample_rsa.pem", null);
         checkNonTrivial(key);
     }
 
     @Test(expectedExceptions=IllegalStateException.class)
     public void testReadRsaPublicKeyAsPemFails() throws Exception {
         // should fail; see next test
-        SecureKeys.readPem(ResourceUtils.create(this).getResourceFromUrl("classpath://brooklyn/util/crypto/sample_rsa.pem.pub"), null);
+        readPem("classpath://brooklyn/util/crypto/sample_rsa.pem.pub", null);
     }
     
     @Test
     public void testReadRsaPublicKeyAsAuthKeysWorks() throws Exception {
         PublicKey key = AuthorizedKeysParser.decodePublicKey(
             ResourceUtils.create(this).getResourceAsString("classpath://brooklyn/util/crypto/sample_rsa.pem.pub"));
-        KeyPair fromPem = SecureKeys.readPem(ResourceUtils.create(this).getResourceFromUrl("classpath://brooklyn/util/crypto/sample_rsa.pem"), null);        
+        KeyPair fromPem = readPem("classpath://brooklyn/util/crypto/sample_rsa.pem", null);
         Assert.assertEquals(key, fromPem.getPublic());
     }
 
@@ -131,28 +131,28 @@ public class SecureKeysAndSignerTest {
 
     @Test
     public void testReadDsaKey() throws Exception {
-        KeyPair key = SecureKeys.readPem(ResourceUtils.create(this).getResourceFromUrl("classpath://brooklyn/util/crypto/sample_dsa.pem"), null);
+        KeyPair key = readPem("classpath://brooklyn/util/crypto/sample_dsa.pem", null);
         checkNonTrivial(key);
     }
 
     @Test(expectedExceptions=Exception.class)
     public void testCantReadRsaPassphraseKeyWithoutPassphrase() throws Exception {
-        KeyPair key = SecureKeys.readPem(ResourceUtils.create(this).getResourceFromUrl("classpath://brooklyn/util/crypto/sample_rsa_passphrase.pem"), null);
+        KeyPair key = readPem("classpath://brooklyn/util/crypto/sample_rsa_passphrase.pem", null);
         checkNonTrivial(key);
     }
 
     @Test(expectedExceptions=PassphraseProblem.class)
     public void testReadRsaPassphraseWithoutKeyFails() throws Exception {
-        SecureKeys.readPem(ResourceUtils.create(this).getResourceFromUrl("classpath://brooklyn/util/crypto/sample_rsa_passphrase.pem"), null);
+        readPem("classpath://brooklyn/util/crypto/sample_rsa_passphrase.pem", null);
     }
     
     @Test
     public void testReadRsaPassphraseKeyAndWriteWithoutPassphrase() throws Exception {
-        KeyPair key = SecureKeys.readPem(ResourceUtils.create(this).getResourceFromUrl("classpath://brooklyn/util/crypto/sample_rsa_passphrase.pem"), "passphrase");
+        KeyPair key = readPem("classpath://brooklyn/util/crypto/sample_rsa_passphrase.pem", "passphrase");
         checkNonTrivial(key);
         File f = Os.newTempFile(getClass(), "brooklyn-sample_rsa_passphrase_without_passphrase.pem");
         Files.write(SecureKeys.toPem(key), f, Charset.defaultCharset());
-        KeyPair key2 = SecureKeys.readPem(new FileInputStream(f), null);
+        KeyPair key2 = readPem(f.toURI().toString(), null);
         checkNonTrivial(key2);
         Assert.assertEquals(key2.getPrivate().getEncoded(), key.getPrivate().getEncoded());
         Assert.assertEquals(key2.getPublic().getEncoded(), key.getPublic().getEncoded());
@@ -163,4 +163,7 @@ public class SecureKeysAndSignerTest {
         Assert.assertNotEquals(key.getPublic().getEncoded().length, 0);
     }
 
+    private KeyPair readPem(String url, String passphrase) {
+        return SecureKeys.readPem(Streams.readFullyAndClose(ResourceUtils.create(this).getResourceFromUrl(url)), passphrase);
+    }
 }
