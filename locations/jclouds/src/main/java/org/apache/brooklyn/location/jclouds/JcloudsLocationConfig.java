@@ -79,8 +79,11 @@ public interface JcloudsLocationConfig extends CloudLocationConfig {
     public static final ConfigKey<Boolean> AUTO_ASSIGN_FLOATING_IP = ConfigKeys.newBooleanConfigKey("autoAssignFloatingIp",
             "Whether to generate floating ips (in Nova paralance), or elastic IPs (in CloudStack parlance)");
 
-    public static final ConfigKey<Boolean> DONT_CREATE_USER = ConfigKeys.newBooleanConfigKey("dontCreateUser", 
-            "Whether to skip creation of 'user' when provisioning machines (default false)", false);
+    public static final ConfigKey<Boolean> DONT_CREATE_USER = ConfigKeys.newBooleanConfigKey("dontCreateUser",
+            "Whether to skip creation of 'user' when provisioning machines (default false). " +
+            "Note that setting this will prevent jclouds from overwriting /etc/sudoers which might be " +
+            "configured incorrectly by default. See 'dontRequireTtyForSudo' for details.",
+            false);
     public static final ConfigKey<Boolean> GRANT_USER_SUDO = ConfigKeys.newBooleanConfigKey("grantUserSudo",
             "Whether to grant the created user sudo privileges. Irrelevant if dontCreateUser is true. Default: true.", true);
     public static final ConfigKey<Boolean> DISABLE_ROOT_AND_PASSWORD_SSH = ConfigKeys.newBooleanConfigKey("disableRootAndPasswordSsh",
@@ -172,6 +175,17 @@ public interface JcloudsLocationConfig extends CloudLocationConfig {
 
     public static final ConfigKey<Boolean> INCLUDE_BROOKLYN_USER_METADATA = ConfigKeys.newBooleanConfigKey("includeBrooklynUserMetadata", 
         "Whether to set metadata about the context of a machine, e.g. brooklyn-entity-id, brooklyn-app-name (default true)", true);
+
+    // See also SoftwareProcess.DONT_REQUIRE_TTY_FOR_SUDO
+    public static final ConfigKey<Boolean> DONT_REQUIRE_TTY_FOR_SUDO = ConfigKeys.newBooleanConfigKey("dontRequireTtyForSudo",
+            "Whether to explicitly set /etc/sudoers, so don't need tty (will leave unchanged if 'false'); " +
+            "some machines require a tty for sudo; brooklyn by default does not use a tty " +
+            "(so that it can get separate error+stdout streams); you can enable a tty as an " +
+            "option to every ssh command, or you can do it once and " +
+            "modify the machine so that a tty is not subsequently required. " +
+            "Usually used in conjunction with 'dontCreateUser' since it will prevent " +
+            "jclouds from overwriting /etc/sudoers and overriding the system default. " +
+            "When not explicitly set will be applied if 'dontCreateUser' is set.");
 
     public static final ConfigKey<Boolean> MAP_DEV_RANDOM_TO_DEV_URANDOM = ConfigKeys.newBooleanConfigKey(
             "installDevUrandom", "Map /dev/random to /dev/urandom to prevent halting on insufficient entropy", true);

@@ -58,6 +58,7 @@ import org.apache.brooklyn.api.location.NoMachinesAvailableException;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.mgmt.AccessController;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.BrooklynVersion;
@@ -101,8 +102,13 @@ import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmToolResponse;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.core.task.DynamicTasks.TaskQueueingResult;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
+import org.apache.brooklyn.util.core.task.TaskInternal;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.core.task.ssh.SshTasks;
+import org.apache.brooklyn.util.core.task.system.ProcessTaskFactory;
+import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -868,10 +874,29 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                         String scriptContent = ResourceUtils.create(this).getResourceAsString(setupScriptItem);
                         String script = TemplateProcessor.processTemplateContents(scriptContent, getManagementContext(), substitutions);
                         if (windows) {
-                            ((WinRmMachineLocation)machineLocation).executeCommand(ImmutableList.copyOf((script.replace("\r", "").split("\n"))));
+                            WinRmToolResponse resp = ((WinRmMachineLocation)machineLocation).executeCommand(ImmutableList.copyOf((script.replace("\r", "").split("\n"))));
+                            if (resp.getStatusCode() != 0) {
+                                throw new IllegalStateException("Command 'Customizing node " + this + "' failed with exit code " + resp.getStatusCode() + " for location " + machineLocation);
+                            }
                         } else {
-                            ((SshMachineLocation)machineLocation).execCommands("Customizing node " + this, ImmutableList.of(script));
+                            executeCommandThrowingOnError(
+                                    (SshMachineLocation)machineLocation,
+                                    "Customizing node " + this,
+                                    ImmutableList.of(script));
                         }
+                    }
+                }
+                
+                Boolean dontRequireTtyForSudo = setup.get(JcloudsLocationConfig.DONT_REQUIRE_TTY_FOR_SUDO);
+                if (Boolean.TRUE.equals(dontRequireTtyForSudo) ||
+                        (dontRequireTtyForSudo == null && setup.get(DONT_CREATE_USER))) {
+                    if (windows) {
+                        LOG.warn("Ignoring flag DONT_REQUIRE_TTY_FOR_SUDO on Windows location {}", machineLocation);
+                    } else {
+                        customisationForLogging.add("patch /etc/sudoers to disable requiretty");
+
+                        queueLocationTask("patch /etc/sudoers to disable requiretty",
+                                SshTasks.dontRequireTtyForSudo((SshMachineLocation)machineLocation, true).newTask().asTask());
                     }
                 }
 
@@ -881,7 +906,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     } else {
                         customisationForLogging.add("point /dev/random to urandom");
 
-                        ((SshMachineLocation)machineLocation).execCommands("using urandom instead of random",
+                        executeCommandThrowingOnError(
+                                (SshMachineLocation)machineLocation,
+                                "using urandom instead of random",
                                 Arrays.asList("sudo mv /dev/random /dev/random-real", "sudo ln -s /dev/urandom /dev/random"));
                     }
                 }
@@ -894,7 +921,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     } else {
                         customisationForLogging.add("configure hostname");
 
-                        ((SshMachineLocation)machineLocation).execCommands("Generate hostname " + node.getName(),
+                        executeCommandThrowingOnError(
+                                (SshMachineLocation)machineLocation,
+                                "Generate hostname " + node.getName(),
                                 Arrays.asList("sudo hostname " + node.getName(),
                                         "sudo sed -i \"s/HOSTNAME=.*/HOSTNAME=" + node.getName() + "/g\" /etc/sysconfig/network",
                                         "sudo bash -c \"echo 127.0.0.1   `hostname` >> /etc/hosts\"")
@@ -932,14 +961,23 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                             for (String rule : iptablesRules) {
                                 batch.add(rule);
                                 if (batch.size() == 50) {
-                                    ((SshMachineLocation)machineLocation).execCommands("Inserting iptables rules, 50 command batch", batch);
+                                    executeCommandWarningOnError(
+                                            (SshMachineLocation)machineLocation,
+                                            "Inserting iptables rules, 50 command batch",
+                                            batch);
                                     batch.clear();
                                 }
                             }
                             if (batch.size() > 0) {
-                                ((SshMachineLocation)machineLocation).execCommands("Inserting iptables rules", batch);
+                                executeCommandWarningOnError(
+                                        (SshMachineLocation)machineLocation,
+                                        "Inserting iptables rules",
+                                        batch);
                             }
-                            ((SshMachineLocation)machineLocation).execCommands("List iptables rules", ImmutableList.of(IptablesCommands.listIptablesRule()));
+                            executeCommandWarningOnError(
+                                    (SshMachineLocation)machineLocation,
+                                    "List iptables rules",
+                                    ImmutableList.of(IptablesCommands.listIptablesRule()));
                         }
                     }
                 }
@@ -958,7 +996,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                         } else {
                             cmds = ImmutableList.of(IptablesCommands.iptablesServiceStop(), IptablesCommands.iptablesServiceStatus());
                         }
-                        ((SshMachineLocation)machineLocation).execCommands("Stopping iptables", cmds);
+                        executeCommandWarningOnError(
+                                (SshMachineLocation)machineLocation,
+                                "Stopping iptables", cmds);
                     }
                 }
 
@@ -971,7 +1011,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                         for (String keyUrl : extraKeyUrlsToAuth) {
                             extraKeyDataToAuth.add(ResourceUtils.create().getResourceAsString(keyUrl));
                         }
-                        ((SshMachineLocation)machineLocation).execCommands("Authorizing ssh keys",
+                        executeCommandThrowingOnError(
+                                (SshMachineLocation)machineLocation,
+                                "Authorizing ssh keys",
                                 ImmutableList.of(new AuthorizeRSAPublicKeys(extraKeyDataToAuth).render(org.jclouds.scriptbuilder.domain.OsFamily.UNIX)));
                     }
                 }
@@ -1059,6 +1101,51 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             }
 
             throw Exceptions.propagate(e);
+        }
+    }
+    
+    private void executeCommandThrowingOnError(SshMachineLocation loc, String name, List<String> commands) {
+        executeCommandThrowingOnError(ImmutableMap.<String, Object>of(), loc, name, commands);
+    }
+
+    private void executeCommandThrowingOnError(Map<String, Object> flags, SshMachineLocation loc, String name, List<String> commands) {
+        Task<Integer> task = SshTasks.newSshExecTaskFactory(loc, commands)
+            .summary(name)
+            .requiringExitCodeZero()
+            .configure(flags)
+            .newTask()
+            .asTask();
+        queueLocationTask("waiting for '" + name + "' on machine " + loc, task);
+    }
+
+    protected <T> T queueLocationTask(String msg, Task<T> task) {
+        TaskQueueingResult<T> queueResult = DynamicTasks.queueIfPossible(task);
+        final String origDetails = Tasks.setBlockingDetails(msg);
+        try {
+            if(queueResult.isQueuedOrSubmitted()){
+                return task.getUnchecked();
+            } else {
+                // TODO Should we add an `orExecuteInSameThread()` in `TaskQueueingResult`?
+                try {
+                    return ((TaskInternal<T>)task).getJob().call();
+                } catch (Exception e) {
+                    throw Exceptions.propagate(e);
+                }
+            }
+        } finally {
+            Tasks.setBlockingDetails(origDetails);
+        }
+    }
+
+    private void executeCommandWarningOnError(SshMachineLocation loc, String name, List<String> commands) {
+        Task<Integer> task = SshTasks.newSshExecTaskFactory(loc, commands)
+            .summary(name)
+            .allowingNonZeroExitCode()
+            .newTask()
+            .asTask();
+        int ret = queueLocationTask("waiting for '" + name + "' on machine " + loc, task);
+        if (ret != 0) {
+            LOG.warn("Command '{}' failed with exit code {} for location {}", new Object[] {name, ret, this});
         }
     }
 
