@@ -48,12 +48,12 @@ import org.apache.brooklyn.core.mgmt.usage.ApplicationUsage;
 import org.apache.brooklyn.core.mgmt.usage.LocationUsage;
 import org.apache.brooklyn.core.mgmt.usage.UsageListener;
 import org.apache.brooklyn.core.mgmt.usage.UsageManager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
@@ -243,12 +243,25 @@ public class LocalUsageManager implements UsageManager {
     public void recordApplicationEvent(final Application app, final Lifecycle state) {
         log.debug("Storing application lifecycle usage event: application {} in state {}", new Object[] {app, state});
         ConcurrentMap<String, ApplicationUsage> eventMap = managementContext.getStorage().getMap(APPLICATION_USAGE_KEY);
+        
+        // Don't call out to alien-code (i.e. app.toMetadataRecord()) while holding mutex. It might take a while.
+        // If we don't have a usage record, then generate one outside of the mutex. But then double-check while
+        // holding the mutex to see if another thread has created one. If it has, stick with that rather than 
+        // overwriting it.
+        ApplicationUsage usage;
         synchronized (mutex) {
-            ApplicationUsage usage = eventMap.get(app.getId());
-            if (usage == null) {
-                usage = new ApplicationUsage(app.getId(), app.getDisplayName(), app.getEntityType().getName(), ((EntityInternal)app).toMetadataRecord());
+            usage = eventMap.get(app.getId());
+        }
+        if (usage == null) {
+            usage = new ApplicationUsage(app.getId(), app.getDisplayName(), app.getEntityType().getName(), ((EntityInternal)app).toMetadataRecord());
+        }
+        final ApplicationUsage.ApplicationEvent event = new ApplicationUsage.ApplicationEvent(state, getUser());
+        
+        synchronized (mutex) {
+            ApplicationUsage otherUsage = eventMap.get(app.getId());
+            if (otherUsage != null) {
+                usage = otherUsage;
             }
-            final ApplicationUsage.ApplicationEvent event = new ApplicationUsage.ApplicationEvent(state, getUser());
             usage.addEvent(event);        
             eventMap.put(app.getId(), usage);
 
@@ -297,35 +310,53 @@ public class LocalUsageManager implements UsageManager {
         Object callerContext = loc.getConfig(LocationConfigKeys.CALLER_CONTEXT);
         
         if (callerContext != null && callerContext instanceof Entity) {
-            log.debug("Storing location lifecycle usage event: location {} in state {}; caller context {}", new Object[] {loc, state, callerContext});
-            
             Entity caller = (Entity) callerContext;
-            String entityTypeName = caller.getEntityType().getName();
-            String appId = caller.getApplicationId();
-
-            final LocationUsage.LocationEvent event = new LocationUsage.LocationEvent(state, caller.getId(), entityTypeName, appId, getUser());
-            
-            ConcurrentMap<String, LocationUsage> usageMap = managementContext.getStorage().<String, LocationUsage>getMap(LOCATION_USAGE_KEY);
-            synchronized (mutex) {
-                LocationUsage usage = usageMap.get(loc.getId());
-                if (usage == null) {
-                    usage = new LocationUsage(loc.getId(), ((LocationInternal)loc).toMetadataRecord());
-                }
-                usage.addEvent(event);
-                usageMap.put(loc.getId(), usage);
-                
-                execOnListeners(new Function<UsageListener, Void>() {
-                        public Void apply(UsageListener listener) {
-                            listener.onLocationEvent(new LocationMetadataImpl(loc), event);
-                            return null;
-                        }
-                        public String toString() {
-                            return "locationEvent("+loc+", "+state+")";
-                        }});
-            }
+            recordLocationEvent(loc, caller, state);
         } else {
             // normal for high-level locations
             log.trace("Not recording location lifecycle usage event for {} in state {}, because no caller context", new Object[] {loc, state});
+        }
+    }
+    
+    protected void recordLocationEvent(final Location loc, final Entity caller, final Lifecycle state) {
+        log.debug("Storing location lifecycle usage event: location {} in state {}; caller context {}", new Object[] {loc, state, caller});
+        ConcurrentMap<String, LocationUsage> eventMap = managementContext.getStorage().<String, LocationUsage>getMap(LOCATION_USAGE_KEY);
+        
+        String entityTypeName = caller.getEntityType().getName();
+        String appId = caller.getApplicationId();
+
+        final LocationUsage.LocationEvent event = new LocationUsage.LocationEvent(state, caller.getId(), entityTypeName, appId, getUser());
+        
+        
+        // Don't call out to alien-code (i.e. loc.toMetadataRecord()) while holding mutex. It might take a while,
+        // e.g. ssh'ing to the machine!
+        // If we don't have a usage record, then generate one outside of the mutex. But then double-check while
+        // holding the mutex to see if another thread has created one. If it has, stick with that rather than 
+        // overwriting it.
+        LocationUsage usage;
+        synchronized (mutex) {
+            usage = eventMap.get(loc.getId());
+        }
+        if (usage == null) {
+            usage = new LocationUsage(loc.getId(), ((LocationInternal)loc).toMetadataRecord());
+        }
+        
+        synchronized (mutex) {
+            LocationUsage otherUsage = eventMap.get(loc.getId());
+            if (otherUsage != null) {
+                usage = otherUsage;
+            }
+            usage.addEvent(event);
+            eventMap.put(loc.getId(), usage);
+            
+            execOnListeners(new Function<UsageListener, Void>() {
+                    public Void apply(UsageListener listener) {
+                        listener.onLocationEvent(new LocationMetadataImpl(loc), event);
+                        return null;
+                    }
+                    public String toString() {
+                        return "locationEvent("+loc+", "+state+")";
+                    }});
         }
     }
 
