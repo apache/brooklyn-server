@@ -27,10 +27,6 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 
-/**
- * @author m4rkmckenna on 27/10/2015.
- */
-
 @ImplementedBy(TestEntityImpl.class)
 public interface TestEntity extends Entity, Startable {
 

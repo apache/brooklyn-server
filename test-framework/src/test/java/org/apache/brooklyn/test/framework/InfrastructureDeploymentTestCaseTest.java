@@ -47,9 +47,6 @@ import org.testng.annotations.Test;
 import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
 
-/**
- * @author Graeme Miller on 27/10/2015.
- */
 @SuppressWarnings("serial")
 public class InfrastructureDeploymentTestCaseTest {
 

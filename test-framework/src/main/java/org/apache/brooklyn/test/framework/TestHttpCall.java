@@ -25,8 +25,6 @@ import org.apache.brooklyn.util.core.flags.SetFromFlag;
 
 /**
  * Entity that makes a HTTP Request and tests the response
- *
- * @author johnmccabe
  */
 @ImplementedBy(value = TestHttpCallImpl.class)
 public interface TestHttpCall extends BaseTest {

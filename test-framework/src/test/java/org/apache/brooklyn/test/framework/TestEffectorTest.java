@@ -41,9 +41,6 @@ import org.testng.annotations.Test;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-/**
- * @author m4rkmckenna on 27/10/2015.
- */
 public class TestEffectorTest {
 
     private TestApplication app;

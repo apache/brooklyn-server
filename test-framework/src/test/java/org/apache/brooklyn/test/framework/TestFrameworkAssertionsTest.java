@@ -35,10 +35,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-
-/**
- * @author m4rkmckenna on 11/11/2015.
- */
 public class TestFrameworkAssertionsTest {
     private static final Logger LOG = LoggerFactory.getLogger(TestFrameworkAssertionsTest.class);
 

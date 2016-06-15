@@ -32,9 +32,6 @@ import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.sensor.Sensors;
 
-/**
- * Created by graememiller on 04/12/2015.
- */
 public class InfrastructureDeploymentTestCaseImpl extends TestCaseImpl implements InfrastructureDeploymentTestCase {
 
     @Override

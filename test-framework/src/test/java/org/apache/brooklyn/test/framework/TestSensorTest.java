@@ -43,9 +43,6 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * @author m4rkmckenna on 27/10/2015.
- */
 public class TestSensorTest {
 
     private static final AttributeSensorAndConfigKey<Boolean, Boolean> BOOLEAN_SENSOR = ConfigKeys.newSensorAndConfigKey(Boolean.class, "boolean-sensor", "Boolean Sensor");

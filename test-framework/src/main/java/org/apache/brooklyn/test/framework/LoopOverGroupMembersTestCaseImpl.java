@@ -35,9 +35,6 @@ import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 
-/**
- * Created by graememiller on 11/12/2015.
- */
 public class LoopOverGroupMembersTestCaseImpl extends TargetableTestComponentImpl implements LoopOverGroupMembersTestCase {
 
     private static final Logger logger = LoggerFactory.getLogger(LoopOverGroupMembersTestCaseImpl.class);

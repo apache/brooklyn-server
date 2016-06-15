@@ -39,8 +39,6 @@ import org.apache.brooklyn.util.text.Strings;
 
 /**
  * Utility class to evaluate test-framework assertions
- *
- * @author m4rkmckenna on 11/11/2015.
  */
 public class TestFrameworkAssertions {
 

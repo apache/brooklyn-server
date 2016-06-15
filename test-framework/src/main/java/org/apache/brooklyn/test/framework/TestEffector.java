@@ -31,8 +31,6 @@ import java.util.Map;
 
 /**
  * Entity that invokes an effector on another entity
- *
- * @author m4rkmckenna
  */
 @ImplementedBy(value = TestEffectorImpl.class)
 public interface TestEffector extends BaseTest {

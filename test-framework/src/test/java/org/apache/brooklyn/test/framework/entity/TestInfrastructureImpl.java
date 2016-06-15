@@ -28,9 +28,6 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 import org.apache.brooklyn.entity.stock.BasicApplicationImpl;
 
-/**
- * Created by graememiller on 17/12/2015.
- */
 public class TestInfrastructureImpl extends BasicApplicationImpl implements TestInfrastructure {
 
     private final AttributeSensorAndConfigKey<Location, Location> DEPLOYMENT_LOCATION = ConfigKeys.newSensorAndConfigKey(

@@ -33,8 +33,6 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 
 /**
  * This implementation will start all child entities in parallel.
- * 
- * @author Chris Burke
  */
 public class ParallelTestCaseImpl extends TargetableTestComponentImpl implements ParallelTestCase {
 
