@@ -62,11 +62,12 @@ public class EntityNameTest extends BrooklynAppUnitTestSupport {
     @Test
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public void testDefaultDisplayNameUsesDeferredSupplier() {
-        TestEntity entity = app.addChild(EntitySpec.create(TestEntity.class)
-                .configure((ConfigKey)AbstractEntity.DEFAULT_DISPLAY_NAME, new DeferredSupplier<String>() {
-                        @Override public String get() {
-                            return "myDefaultName";
-                        }}));
+        EntitySpec<TestEntity> spec = EntitySpec.create(TestEntity.class);
+        spec.configure((ConfigKey)AbstractEntity.DEFAULT_DISPLAY_NAME, new DeferredSupplier<String>() {
+            @Override public String get() {
+                return "myDefaultName";
+            }});
+        TestEntity entity = app.addChild(spec);
         assertEquals(entity.getDisplayName(), "myDefaultName");
     }
     
