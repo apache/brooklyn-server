@@ -18,15 +18,23 @@
  */
 package org.apache.brooklyn.entity.chef;
 
-import org.apache.brooklyn.api.sensor.AttributeSensor;
-import org.apache.brooklyn.core.feed.PollConfig;
-
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
+
+import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.core.feed.PollConfig;
 
 public class ChefAttributePollConfig<T> extends PollConfig<Object, T, ChefAttributePollConfig<T>>{
 
     private String chefAttributePath;
+
+    public static <T> ChefAttributePollConfig<T> forSensor(AttributeSensor<T> sensor) {
+        return new ChefAttributePollConfig<T>(sensor);
+    }
+
+    public static ChefAttributePollConfig<Void> forMultiple() {
+        return new ChefAttributePollConfig<Void>(PollConfig.NO_SENSOR);
+    }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public ChefAttributePollConfig(AttributeSensor<T> sensor) {

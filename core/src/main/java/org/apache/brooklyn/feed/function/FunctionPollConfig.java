@@ -23,6 +23,8 @@ import groovy.lang.Closure;
 
 import java.util.concurrent.Callable;
 
+import com.google.common.base.Supplier;
+
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.feed.FeedConfig;
 import org.apache.brooklyn.core.feed.PollConfig;
@@ -30,14 +32,16 @@ import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
 import org.apache.brooklyn.util.guava.Functionals;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 
-import com.google.common.base.Supplier;
-
 public class FunctionPollConfig<S, T> extends PollConfig<S, T, FunctionPollConfig<S, T>> {
 
     private Callable<?> callable;
     
     public static <T> FunctionPollConfig<?, T> forSensor(AttributeSensor<T> sensor) {
         return new FunctionPollConfig<Object, T>(sensor);
+    }
+
+    public static FunctionPollConfig<?, Void> forMultiple() {
+        return new FunctionPollConfig<Object, Void>(PollConfig.NO_SENSOR);
     }
     
     public FunctionPollConfig(AttributeSensor<T> sensor) {
