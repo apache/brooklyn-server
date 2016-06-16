@@ -219,16 +219,55 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
      */
     public void preInstall() {}
 
+    /**
+     * Implementations should fail if the return code is non-zero, by throwing some appropriate exception.
+     */
     public abstract void runPreInstallCommand();
+
+    /**
+     * Implementations should fail if the return code is non-zero, by throwing some appropriate exception.
+     */
     public abstract void setup();
+
+    /**
+     * Implementations should fail if the return code is non-zero, by throwing some appropriate exception.
+     */
     public abstract void install();
+
+    /**
+     * Implementations should fail if the return code is non-zero, by throwing some appropriate exception.
+     */
     public abstract void runPostInstallCommand();
+
+    /**
+     * Implementations should fail if the return code is non-zero, by throwing some appropriate exception.
+     */
     public abstract void runPreCustomizeCommand();
+
+    /**
+     * Implementations should fail if the return code is non-zero, by throwing some appropriate exception.
+     */
     public abstract void customize();
+
+    /**
+     * Implementations should fail if the return code is non-zero, by throwing some appropriate exception.
+     */
     public abstract void runPostCustomizeCommand();
+
+    /**
+     * Implementations should fail if the return code is non-zero, by throwing some appropriate exception.
+     */
     public abstract void runPreLaunchCommand();
+
+    /**
+     * Implementations should fail if the return code is non-zero, by throwing some appropriate exception.
+     */
     public abstract void launch();
-    /** Only run if launch is run (if start is not skipped). */
+
+    /**
+     * Only run if launch is run (if start is not skipped).
+     * Implementations should fail if the return code is non-zero, by throwing some appropriate exception.
+     */
     public abstract void runPostLaunchCommand();
 
     @Override

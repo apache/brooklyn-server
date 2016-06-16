@@ -79,6 +79,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
@@ -583,6 +584,39 @@ public class SoftwareProcessEntityTest extends BrooklynAppUnitTestSupport {
         Assert.assertTrue(entity.getRequiredOpenPorts().contains(9999));
     }
 
+    @DataProvider
+    public Object[][] runCommandsProvider() {
+        return new Object[][] {
+            {BrooklynConfigKeys.PRE_INSTALL_COMMAND},
+            {BrooklynConfigKeys.POST_INSTALL_COMMAND},
+            {BrooklynConfigKeys.PRE_CUSTOMIZE_COMMAND},
+            {BrooklynConfigKeys.POST_CUSTOMIZE_COMMAND},
+            {BrooklynConfigKeys.PRE_LAUNCH_COMMAND},
+            {BrooklynConfigKeys.POST_LAUNCH_COMMAND}
+        };
+    }
+
+    @Test(dataProvider = "runCommandsProvider")
+    public void testCommandFailureCausesEntityFailure(ConfigKey<String> configKey) {
+        String failingCommand = "unsuccessfulCommand";
+        final ConfigurableFailingCommandMachineLocation location = mgmt.getLocationManager().createLocation(
+            LocationSpec.create(ConfigurableFailingCommandMachineLocation.class)
+                .configure("address", "localhost")
+                .configure(ConfigurableFailingCommandMachineLocation.FAILURE_COMMAND, failingCommand)
+        );
+        VanillaSoftwareProcess entity = app.createAndManageChild(EntitySpec.create(VanillaSoftwareProcess.class)
+            .configure(configKey, failingCommand)
+        );
+
+        try {
+            app.start(ImmutableList.<Location>of(location));
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, configKey.getName());
+        }
+        EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+    }
+
     @ImplementedBy(MyServiceImpl.class)
     public interface MyService extends SoftwareProcess {
         PortAttributeSensorAndConfigKey HTTP_PORT = Attributes.HTTP_PORT;
@@ -805,4 +839,14 @@ public class SoftwareProcessEntityTest extends BrooklynAppUnitTestSupport {
 
     }
 
+    public static class ConfigurableFailingCommandMachineLocation extends SshMachineLocation {
+
+        public static ConfigKey<String> FAILURE_COMMAND =
+            ConfigKeys.newConfigKey("failingCommand", "A command that will return non zero result", "fail");
+
+        @Override
+        public int execScript(Map<String,?> props, String summaryForLogging, List<String> commands, Map<String,?> env) {
+            return commands.contains(getConfig(FAILURE_COMMAND)) ? 1 : 0;
+        }
+    }
 }
