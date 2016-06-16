@@ -221,7 +221,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
 
     private Collection<AbstractPolicy> policiesInternal = Lists.newCopyOnWriteArrayList();
     private Collection<AbstractEnricher> enrichersInternal = Lists.newCopyOnWriteArrayList();
-    Collection<Feed> feeds = Lists.newCopyOnWriteArrayList();
+    private Collection<Feed> feedsInternal = Lists.newCopyOnWriteArrayList();
 
     // FIXME we do not currently support changing parents, but to implement a cluster that can shrink we need to support at least
     // orphaning (i.e. removing ownership). This flag notes if the entity has previously had a parent, and if an attempt is made to
@@ -248,6 +248,8 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     private final BasicEnricherSupport enrichers = new BasicEnricherSupport();
 
     private final BasicGroupSupport groups = new BasicGroupSupport();
+
+    private final BasicFeedSupport feeds = new BasicFeedSupport();
 
     /**
      * The config values of this entity. Updating this map should be done
@@ -1664,9 +1666,8 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
      * {@link BasicPolicySupport}.
      */
     @Beta
-    // TODO revert to private when config() is reverted to return SensorSupportInternal
     public class BasicPolicySupport implements PolicySupportInternal {
-        
+
         @Override
         public Iterator<Policy> iterator() {
             return asList().iterator();
@@ -1692,11 +1693,11 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
                 LOG.debug("Removing "+old+" when adding "+policy+" to "+AbstractEntity.this);
                 remove(old);
             }
-            
+
             CatalogUtils.setCatalogItemIdOnAddition(AbstractEntity.this, policy);
             policiesInternal.add((AbstractPolicy)policy);
             ((AbstractPolicy)policy).setEntity(AbstractEntity.this);
-            
+
             getManagementSupport().getEntityChangeListener().onPolicyAdded(policy);
             sensors().emit(AbstractEntity.POLICY_ADDED, new PolicyDescriptor(policy));
         }
@@ -1707,19 +1708,19 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
             add(policy);
             return policy;
         }
-        
+
         @Override
         public boolean remove(Policy policy) {
             ((AbstractPolicy)policy).destroy();
             boolean changed = policiesInternal.remove(policy);
-            
+
             if (changed) {
                 getManagementSupport().getEntityChangeListener().onPolicyRemoved(policy);
                 sensors().emit(AbstractEntity.POLICY_REMOVED, new PolicyDescriptor(policy));
             }
             return changed;
         }
-        
+
         @Override
         public boolean removeAllPolicies() {
             boolean changed = false;
@@ -1737,7 +1738,6 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
      * {@link BasicEnricherSupport}.
      */
     @Beta
-    // TODO revert to private when config() is reverted to return SensorSupportInternal
     public class BasicEnricherSupport implements EnricherSupportInternal {
         @Override
         public Iterator<Enricher> iterator() {
@@ -1976,12 +1976,12 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
      */
     @Override
     public <T extends Feed> T addFeed(T feed) {
-        return feeds().addFeed(feed);
+        return feeds().add(feed);
     }
 
     @Override
     public FeedSupport feeds() {
-        return new BasicFeedSupport();
+        return feeds;
     }
     
     @Override
@@ -1989,16 +1989,22 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     public FeedSupport getFeedSupport() {
         return feeds();
     }
-    
+
     protected class BasicFeedSupport implements FeedSupport {
+
         @Override
         public Collection<Feed> getFeeds() {
-            return ImmutableList.<Feed>copyOf(feeds);
+            return ImmutableList.<Feed>copyOf(feedsInternal);
+        }
+
+        @Override
+        public <T extends Feed> T add(T feed) {
+            return addFeed(feed);
         }
 
         @Override
         public <T extends Feed> T addFeed(T feed) {
-            Feed old = findApparentlyEqualAndWarnIfNotSameUniqueTag(feeds, feed);
+            Feed old = findApparentlyEqualAndWarnIfNotSameUniqueTag(feedsInternal, feed);
             if (old != null) {
                 if (old == feed) {
                     if (!BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_FEED_REGISTRATION_PROPERTY)) {
@@ -2013,7 +2019,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
             }
             
             CatalogUtils.setCatalogItemIdOnAddition(AbstractEntity.this, feed);
-            feeds.add(feed);
+            feedsInternal.add(feed);
             if (!AbstractEntity.this.equals(((AbstractFeed)feed).getEntity()))
                 ((AbstractFeed)feed).setEntity(AbstractEntity.this);
 
@@ -2025,9 +2031,14 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         }
 
         @Override
+        public boolean remove(Feed feed) {
+            return removeFeed(feed);
+        }
+
+        @Override
         public boolean removeFeed(Feed feed) {
             feed.stop();
-            boolean changed = feeds.remove(feed);
+            boolean changed = feedsInternal.remove(feed);
             
             if (changed) {
                 getManagementContext().getRebindManager().getChangeListener().onUnmanaged(feed);
@@ -2037,9 +2048,14 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         }
 
         @Override
+        public boolean removeAll() {
+            return removeAllFeeds();
+        }
+
+        @Override
         public boolean removeAllFeeds() {
             boolean changed = false;
-            for (Feed feed : feeds) {
+            for (Feed feed : feedsInternal) {
                 changed = removeFeed(feed) || changed;
             }
             return changed;

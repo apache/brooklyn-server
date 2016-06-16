@@ -222,24 +222,37 @@ public interface EntityInternal extends BrooklynObjectInternal, EntityLocal, Reb
     }
 
     public interface FeedSupport {
+
         Collection<Feed> getFeeds();
-        
+
         /**
          * Adds the given feed to this entity. The feed will automatically be re-added on brooklyn restart.
          */
+        <T extends Feed> T add(T feed);
+
+        /** @deprecated since 0.10.0; use {@link #add()} */
+        @Deprecated
         <T extends Feed> T addFeed(T feed);
-        
+
         /**
          * Removes the given feed from this entity. 
          * @return True if the feed existed at this entity; false otherwise
          */
+        boolean remove(Feed feed);
+
+        /** @deprecated since 0.10.0; use {@link #remove()} */
+        @Deprecated
         boolean removeFeed(Feed feed);
-        
+
         /**
          * Removes all feeds from this entity.
          * Use with caution as some entities automatically register feeds; this will remove those feeds as well.
          * @return True if any feeds existed at this entity; false otherwise
          */
+        boolean removeAll();
+
+        /** @deprecated since 0.10.0; use {@link #removeAll()} */
+        @Deprecated
         boolean removeAllFeeds();
     }
     

@@ -151,10 +151,10 @@ public class AutoScalerPolicy extends AbstractPolicy {
             this.resizeUpIterationMax = val; return this;
         }
         public Builder resizeDownIterationIncrement(Integer val) {
-            this.resizeUpIterationIncrement = val; return this;
+            this.resizeDownIterationIncrement = val; return this;
         }
         public Builder resizeDownIterationMax(Integer val) {
-            this.resizeUpIterationMax = val; return this;
+            this.resizeDownIterationMax = val; return this;
         }
 
         public Builder minPeriodBetweenExecs(Duration val) {

@@ -18,39 +18,29 @@
  */
 package org.apache.brooklyn.entity.machine;
 
-import java.util.List;
 import java.util.concurrent.TimeoutException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
 import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.entity.software.base.AbstractSoftwareProcessSshDriver;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcessDriver;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcessImpl;
 import org.apache.brooklyn.feed.ssh.SshFeed;
-import org.apache.brooklyn.feed.ssh.SshPollConfig;
-import org.apache.brooklyn.feed.ssh.SshPollValue;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
-
-import com.google.common.base.Function;
-import com.google.common.base.Functions;
-import com.google.common.base.Splitter;
 
 public class MachineEntityImpl extends EmptySoftwareProcessImpl implements MachineEntity {
 
     private static final Logger LOG = LoggerFactory.getLogger(MachineEntityImpl.class);
 
-    static {
-        MachineAttributes.init();
-    }
-
-    private transient SshFeed sensorFeed;
+    private transient SshFeed machineMetricsFeed;
 
     @Override
     public void init() {
@@ -61,82 +51,17 @@ public class MachineEntityImpl extends EmptySoftwareProcessImpl implements Machi
     @Override
     protected void connectSensors() {
         super.connectSensors();
-
-        // Sensors linux-specific
-        if (!getMachine().getMachineDetails().getOsDetails().isLinux()) return;
-
-        sensorFeed = SshFeed.builder()
-                .entity(this)
-                .period(Duration.THIRTY_SECONDS)
-                .poll(new SshPollConfig<Duration>(UPTIME)
-                        .command("cat /proc/uptime")
-                        .onFailureOrException(Functions.<Duration>constant(null))
-                        .onSuccess(new Function<SshPollValue, Duration>() {
-                            @Override
-                            public Duration apply(SshPollValue input) {
-                                return Duration.seconds( Double.valueOf( Strings.getFirstWord(input.getStdout()) ) );
-                            }
-                        }))
-                .poll(new SshPollConfig<Double>(LOAD_AVERAGE)
-                        .command("uptime")
-                        .onFailureOrException(Functions.constant(-1d))
-                        .onSuccess(new Function<SshPollValue, Double>() {
-                            @Override
-                            public Double apply(SshPollValue input) {
-                                String loadAverage = Strings.getFirstWordAfter(input.getStdout(), "load average:").replace(",", "");
-                                return Double.valueOf(loadAverage);
-                            }
-                        }))
-                .poll(new SshPollConfig<Double>(CPU_USAGE)
-                        .command("cat /proc/stat")
-                        .onFailureOrException(Functions.constant(-1d))
-                        .onSuccess(new Function<SshPollValue, Double>() {
-                            @Override
-                            public Double apply(SshPollValue input) {
-                                List<String> cpuData = Splitter.on(" ").omitEmptyStrings().splitToList(Strings.getFirstLine(input.getStdout()));
-                                Integer system = Integer.parseInt(cpuData.get(1));
-                                Integer user = Integer.parseInt(cpuData.get(3));
-                                Integer idle = Integer.parseInt(cpuData.get(4));
-                                return (double) (system + user) / (double) (system + user + idle);
-                            }
-                        }))
-                .poll(new SshPollConfig<Long>(USED_MEMORY)
-                        .command("free | grep Mem:")
-                        .onFailureOrException(Functions.constant(-1L))
-                        .onSuccess(new Function<SshPollValue, Long>() {
-                            @Override
-                            public Long apply(SshPollValue input) {
-                                List<String> memoryData = Splitter.on(" ").omitEmptyStrings().splitToList(Strings.getFirstLine(input.getStdout()));
-                                return Long.parseLong(memoryData.get(2));
-                            }
-                        }))
-                .poll(new SshPollConfig<Long>(FREE_MEMORY)
-                        .command("free | grep Mem:")
-                        .onFailureOrException(Functions.constant(-1L))
-                        .onSuccess(new Function<SshPollValue, Long>() {
-                            @Override
-                            public Long apply(SshPollValue input) {
-                                List<String> memoryData = Splitter.on(" ").omitEmptyStrings().splitToList(Strings.getFirstLine(input.getStdout()));
-                                return Long.parseLong(memoryData.get(3));
-                            }
-                        }))
-                .poll(new SshPollConfig<Long>(TOTAL_MEMORY)
-                        .command("free | grep Mem:")
-                        .onFailureOrException(Functions.constant(-1L))
-                        .onSuccess(new Function<SshPollValue, Long>() {
-                            @Override
-                            public Long apply(SshPollValue input) {
-                                List<String> memoryData = Splitter.on(" ").omitEmptyStrings().splitToList(Strings.getFirstLine(input.getStdout()));
-                                return Long.parseLong(memoryData.get(1));
-                            }
-                        }))
-                .build();
-
+        Maybe<SshMachineLocation> location = Machines.findUniqueMachineLocation(getLocations(), SshMachineLocation.class);
+        if (location.isPresent() && location.get().getOsDetails().isLinux()) {
+            machineMetricsFeed = AddMachineMetrics.createMachineMetricsFeed(this);
+            AddMachineMetrics.addMachineMetricsEnrichers(this);
+        } else {
+            LOG.warn("Not adding machine metrics feed as no suitable location available on entity");
+        }
     }
 
-    @Override
     public void disconnectSensors() {
-        if (sensorFeed != null) sensorFeed.stop();
+        if (machineMetricsFeed != null) machineMetricsFeed.stop();
         super.disconnectSensors();
     }
 

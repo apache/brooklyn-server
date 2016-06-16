@@ -40,12 +40,12 @@ public class MachineEntityEc2LiveTest extends AbstractEc2LiveTest {
         
         Asserts.succeedsEventually(new Runnable() {
             @Override public void run() {
-                assertNotNull(server.getAttribute(MachineEntity.UPTIME));
-                assertNotNull(server.getAttribute(MachineEntity.LOAD_AVERAGE));
-                assertNotNull(server.getAttribute(MachineEntity.CPU_USAGE));
-                assertNotNull(server.getAttribute(MachineEntity.FREE_MEMORY));
-                assertNotNull(server.getAttribute(MachineEntity.TOTAL_MEMORY));
-                assertNotNull(server.getAttribute(MachineEntity.USED_MEMORY));
+                assertNotNull(server.getAttribute(MachineAttributes.UPTIME));
+                assertNotNull(server.getAttribute(MachineAttributes.LOAD_AVERAGE));
+                assertNotNull(server.getAttribute(MachineAttributes.CPU_USAGE));
+                assertNotNull(server.getAttribute(MachineAttributes.FREE_MEMORY));
+                assertNotNull(server.getAttribute(MachineAttributes.TOTAL_MEMORY));
+                assertNotNull(server.getAttribute(MachineAttributes.USED_MEMORY));
             }});
         
         String result = server.execCommand("MY_ENV=myval && echo start $MY_ENV");
