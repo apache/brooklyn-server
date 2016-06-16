@@ -32,14 +32,17 @@ import com.google.common.collect.Iterables;
 @Test
 public class EmptyWindowsProcessYamlTest extends AbstractYamlTest {
 
-    @Test(groups="Integration")
+    // takes couple of seconds unfortunately (why?!), but our only unit-test coverage of 
+    // EmptyWindowsProcess so including in unit tests anyway.
+    @Test
     public void testNoWinrm() throws Exception {
         Entity app = createAndStartApplication(
                 "location: byon:(hosts=\"1.2.3.4\",osFamily=windows)",
                 "services:",
                 "- type: "+EmptyWindowsProcess.class.getName(),
                 "  brooklyn.config:",
-                "    winrmMonitoring.enabled: false");
+                "    winrmMonitoring.enabled: false",
+                "    onbox.base.dir.skipResolution: true");
         waitForApplicationTasks(app);
 
         EmptyWindowsProcess entity = Iterables.getOnlyElement(Entities.descendants(app, EmptyWindowsProcess.class));
