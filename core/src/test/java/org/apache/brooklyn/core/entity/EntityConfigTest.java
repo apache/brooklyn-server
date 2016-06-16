@@ -274,7 +274,7 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
     public void testGetConfigKeysReturnsFromSuperAndInterfacesAndSubClass() throws Exception {
         MySubEntity entity = app.addChild(EntitySpec.create(MySubEntity.class));
         assertEquals(entity.getEntityType().getConfigKeys(), ImmutableSet.of(
-                MySubEntity.SUPER_KEY_1, MySubEntity.SUPER_KEY_2, MySubEntity.SUB_KEY_2, MySubEntity.INTERFACE_KEY_1));
+                MySubEntity.SUPER_KEY_1, MySubEntity.SUPER_KEY_2, MySubEntity.SUB_KEY_2, MySubEntity.INTERFACE_KEY_1, AbstractEntity.DEFAULT_DISPLAY_NAME));
     }
 
     @Test
