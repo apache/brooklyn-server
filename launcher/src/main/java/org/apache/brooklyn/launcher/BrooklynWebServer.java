@@ -566,8 +566,11 @@ public class BrooklynWebServer {
             }
             File tmp = Os.newTempFile("brooklyn-keystore", "ks");
             tmp.deleteOnExit();
-            FileUtil.copyTo(keystoreStream, tmp);
-            Streams.closeQuietly(keystoreStream);
+            try {
+                FileUtil.copyTo(keystoreStream, tmp);
+            } finally {
+                Streams.closeQuietly(keystoreStream);
+            }
             return tmp.getAbsolutePath();
         }
     }

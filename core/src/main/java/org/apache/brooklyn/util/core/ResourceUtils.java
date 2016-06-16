@@ -471,7 +471,7 @@ public class ResourceUtils {
     /** takes {@link #getResourceFromUrl(String)} and reads fully, into a string */
     public String getResourceAsString(String url) {
         try {
-            return readFullyString(getResourceFromUrl(url));
+            return Streams.readFullyStringAndClose(getResourceFromUrl(url));
         } catch (Exception e) {
             log.debug("ResourceUtils got error reading "+url+(context==null?"":" "+context)+" (rethrowing): "+e);
             throw Throwables.propagate(e);
@@ -560,16 +560,6 @@ public class ResourceUtils {
 
     public static URL getContainerUrl(URL url, String resourceInThatDir) {
         return OsgiUtils.getContainerUrl(url, resourceInThatDir);
-    }
-    
-    /** @deprecated since 0.7.0 use {@link Streams#readFullyString(InputStream) */ @Deprecated
-    public static String readFullyString(InputStream is) throws IOException {
-        return Streams.readFullyString(is);
-    }
-
-    /** @deprecated since 0.7.0 use {@link Streams#readFully(InputStream) */ @Deprecated
-    public static byte[] readFullyBytes(InputStream is) throws IOException {
-        return Streams.readFully(is);
     }
     
     /** @deprecated since 0.7.0 use {@link Streams#copy(InputStream, OutputStream)} */ @Deprecated

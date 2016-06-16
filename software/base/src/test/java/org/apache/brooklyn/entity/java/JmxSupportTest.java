@@ -119,7 +119,7 @@ public class JmxSupportTest {
     private void checkValidArchive(String url, long minSize) {
         byte[] bytes;
         try {
-            bytes = Streams.readFully(ResourceUtils.create(this).getResourceFromUrl(url));
+            bytes = Streams.readFullyAndClose(ResourceUtils.create(this).getResourceFromUrl(url));
             log.info("read "+bytes.length+" bytes from "+url+" for "+JavaClassNames.callerNiceClassAndMethod(1));
         } catch (Exception e) {
             log.warn("Unable to read URL "+url+" for " +JavaClassNames.callerNiceClassAndMethod(1)+

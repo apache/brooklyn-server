@@ -59,7 +59,7 @@ public class ConfigParametersYamlTest extends AbstractYamlTest {
                 "services:",
                 "- type: entity-with-keys");
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
 
         // Check config key is listed

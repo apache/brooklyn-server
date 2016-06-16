@@ -77,7 +77,7 @@ public class EmbeddedFelixFrameworkTest {
         log.info("Bundles and exported packages:");
         MutableSet<String> allPackages = MutableSet.of();
         while (manifests.hasMoreElements()) {
-            ManifestHelper mf = ManifestHelper.forManifestContents(Streams.readFullyString(manifests.nextElement().openStream()));
+            ManifestHelper mf = ManifestHelper.forManifestContents(Streams.readFullyStringAndClose(manifests.nextElement().openStream()));
             List<String> mfPackages = mf.getExportedPackages();
             log.info("  " + mf.getSymbolicNameVersion() + ": " + mfPackages);
             allPackages.addAll(mfPackages);

@@ -1113,7 +1113,7 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
         OsCredential creds = LocationConfigUtils.getOsCredential(config().getBag());
         if (creds.hasKey()) {
             String data = creds.getPrivateKeyData();
-            return SecureKeys.readPem(new ReaderInputStream(new StringReader(data)), getConfig(SshTool.PROP_PRIVATE_KEY_PASSPHRASE));
+            return SecureKeys.readPem(data.getBytes(), getConfig(SshTool.PROP_PRIVATE_KEY_PASSPHRASE));
         } else {
             return null;
         }

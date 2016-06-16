@@ -124,7 +124,7 @@ public class CampYamlLiteTest {
     @SuppressWarnings({ "rawtypes", "unchecked" })
     @Test
     public void testAddChildrenEffector() throws Exception {
-        String childYaml = Streams.readFullyString(getClass().getResourceAsStream("test-app-service-blueprint.yaml"));
+        String childYaml = Streams.readFullyStringAndClose(getClass().getResourceAsStream("test-app-service-blueprint.yaml"));
         AddChildrenEffector newEff = new AddChildrenEffector(ConfigBag.newInstance()
             .configure(AddChildrenEffector.EFFECTOR_NAME, "add_tomcat")
             .configure(AddChildrenEffector.BLUEPRINT_YAML, childYaml)
@@ -157,7 +157,7 @@ public class CampYamlLiteTest {
     public void testYamlServiceForCatalog() {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
 
-        CatalogItem<?, ?> realItem = Iterables.getOnlyElement(mgmt.getCatalog().addItems(Streams.readFullyString(getClass().getResourceAsStream("test-app-service-blueprint.yaml"))));
+        CatalogItem<?, ?> realItem = Iterables.getOnlyElement(mgmt.getCatalog().addItems(Streams.readFullyStringAndClose(getClass().getResourceAsStream("test-app-service-blueprint.yaml"))));
         Iterable<CatalogItem<Object, Object>> retrievedItems = mgmt.getCatalog()
                 .getCatalogItems(CatalogPredicates.symbolicName(Predicates.equalTo("catalog-name")));
         
@@ -254,7 +254,7 @@ public class CampYamlLiteTest {
         assertEquals(item.getIconUrl(), "classpath:/org/apache/brooklyn/test/osgi/entities/icon.gif");
 
         // and confirm we can resolve ICON
-        byte[] iconData = Streams.readFully(ResourceUtils.create(CatalogUtils.newClassLoadingContext(mgmt, item)).getResourceFromUrl(item.getIconUrl()));
+        byte[] iconData = Streams.readFullyAndClose(ResourceUtils.create(CatalogUtils.newClassLoadingContext(mgmt, item)).getResourceFromUrl(item.getIconUrl()));
         assertEquals(iconData.length, 43);
     }
 

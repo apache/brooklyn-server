@@ -21,7 +21,6 @@ package org.apache.brooklyn.camp.brooklyn;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
-import java.io.StringReader;
 import java.util.Map;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
@@ -105,7 +104,7 @@ public class ExternalConfigYamlTest extends AbstractYamlTest {
             "  brooklyn.config:",
             "    my.config.key: $brooklyn:external(\"myprovider\", \"mykey\")");
 
-        TestApplication app = (TestApplication) createAndStartApplication(new StringReader(yaml));
+        TestApplication app = (TestApplication) createAndStartApplication(yaml);
         waitForApplicationTasks(app);
 
         assertEquals(app.getConfig(MY_CONFIG_KEY), "myval");
@@ -122,7 +121,7 @@ public class ExternalConfigYamlTest extends AbstractYamlTest {
             "  localhost:",
             "    my.config.key: $brooklyn:external(\"myprovider\", \"mykey\")");
 
-        TestApplication app = (TestApplication) createAndStartApplication(new StringReader(yaml));
+        TestApplication app = (TestApplication) createAndStartApplication(yaml);
         waitForApplicationTasks(app);
         assertEquals(Iterables.getOnlyElement( app.getLocations() ).config().get(MY_CONFIG_KEY), "myval");
     }
@@ -227,7 +226,7 @@ public class ExternalConfigYamlTest extends AbstractYamlTest {
             "    credential: $brooklyn:external(\"myprovider\", \"mykey\")",
             "location: localhost");
 
-        Entity app = createAndStartApplication(new StringReader(yaml));
+        Entity app = createAndStartApplication(yaml);
         waitForApplicationTasks(app);
         Entity entity = Iterables.getOnlyElement( app.getChildren() );
         assertEquals(Iterables.getOnlyElement( entity.getLocations() ).config().get(CloudLocationConfig.ACCESS_CREDENTIAL), "myval");
@@ -243,7 +242,7 @@ public class ExternalConfigYamlTest extends AbstractYamlTest {
             "  brooklyn.config:",
             "    my.config.key: $brooklyn:external(\"myproviderWithoutMapArg\", \"mykey\")");
 
-        TestApplication app = (TestApplication) createAndStartApplication(new StringReader(yaml));
+        TestApplication app = (TestApplication) createAndStartApplication(yaml);
         waitForApplicationTasks(app);
 
         assertEquals(app.getConfig(MY_CONFIG_KEY), "myHardcodedVal");

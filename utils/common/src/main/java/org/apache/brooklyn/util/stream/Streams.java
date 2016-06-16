@@ -90,7 +90,8 @@ public class Streams {
     }
 
     /** reads the input stream fully, returning a byte array; throws unchecked exception on failure;
-     *  to get a string, use <code>readFully(reader(is))</code> or <code>readFullyString(is)</code> */
+     *  to get a string, use <code>readFully(reader(is))</code> or <code>readFullyString(is)</code>;
+     *  consider using {@ #readFullyAndClose(InputStream)} instead;*/
     public static byte[] readFully(InputStream is) {
         try {
             return ByteStreams.toByteArray(is);
@@ -98,16 +99,46 @@ public class Streams {
             throw Exceptions.propagate(ioe);
         }
     }
+    
+    public static byte[] readFullyAndClose(InputStream is) {
+        try {
+            return readFully(is);
+        } finally {
+            Streams.closeQuietly(is);
+        }
+    }
 
+    /**
+     * Consider using {@link #readFullyStringAndClose(InputStream)} instead.
+     */
     public static String readFullyString(InputStream is) {
         return readFully(reader(is));
     }
-    
+
+    public static String readFullyStringAndClose(InputStream is) {
+        try {
+            return readFullyString(is);
+        } finally {
+            Streams.closeQuietly(is);
+        }
+    }
+
+    /**
+     * Consider using {@link #readFullyAndClose(Reader)} instead.
+     */
     public static String readFully(Reader is) {
         try {
             return CharStreams.toString(is);
         } catch (IOException ioe) {
             throw Exceptions.propagate(ioe);
+        }
+    }
+    
+    public static String readFullyAndClose(Reader is) {
+        try {
+            return readFully(is);
+        } finally {
+            Streams.closeQuietly(is);
         }
     }
 

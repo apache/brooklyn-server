@@ -22,8 +22,6 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
-import java.io.StringReader;
-
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.test.entity.TestApplication;
@@ -46,7 +44,7 @@ public class AppYamlTest extends AbstractYamlTest {
                 "services:",
                 "- serviceType: org.apache.brooklyn.core.test.entity.TestEntity");
         
-        BasicApplication app = (BasicApplication) createStartWaitAndLogApplication(new StringReader(yaml));
+        BasicApplication app = (BasicApplication) createStartWaitAndLogApplication(yaml);
         @SuppressWarnings("unused")
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
     }
@@ -57,7 +55,7 @@ public class AppYamlTest extends AbstractYamlTest {
                 "services:",
                 "- serviceType: org.apache.brooklyn.core.test.entity.TestApplication");
         
-        TestApplication app = (TestApplication) createStartWaitAndLogApplication(new StringReader(yaml));
+        TestApplication app = (TestApplication) createStartWaitAndLogApplication(yaml);
         assertTrue(app.getChildren().isEmpty());
     }
     
@@ -69,7 +67,7 @@ public class AppYamlTest extends AbstractYamlTest {
                 "- serviceType: org.apache.brooklyn.core.test.entity.TestApplication",
                 "  name: myEntityName");
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         assertNull(app.getConfig(EntityManagementUtils.WRAPPER_APP_MARKER));
         assertEquals(app.getDisplayName(), "myTopLevelName");
         assertEquals(app.getChildren().size(), 0);
@@ -82,7 +80,7 @@ public class AppYamlTest extends AbstractYamlTest {
                 "services:",
                 "- serviceType: org.apache.brooklyn.core.test.entity.TestApplication");
         
-        TestApplication app = (TestApplication) createStartWaitAndLogApplication(new StringReader(yaml));
+        TestApplication app = (TestApplication) createStartWaitAndLogApplication(yaml);
         assertTrue(app.getChildren().isEmpty());
         assertEquals(app.getDisplayName(), "myTopLevelName");
     }
@@ -96,7 +94,7 @@ public class AppYamlTest extends AbstractYamlTest {
                 "  brooklyn.config:",
                 "    defaultDisplayName: myDefaultEntityName");
         
-        TestApplication app = (TestApplication) createStartWaitAndLogApplication(new StringReader(yaml));
+        TestApplication app = (TestApplication) createStartWaitAndLogApplication(yaml);
         assertTrue(app.getChildren().isEmpty());
         assertEquals(app.getDisplayName(), "myTopLevelName");
     }
@@ -109,7 +107,7 @@ public class AppYamlTest extends AbstractYamlTest {
                 "  brooklyn.config:",
                 "    defaultDisplayName: myDefaultEntityName");
         
-        TestApplication app = (TestApplication) createStartWaitAndLogApplication(new StringReader(yaml));
+        TestApplication app = (TestApplication) createStartWaitAndLogApplication(yaml);
         assertTrue(app.getChildren().isEmpty());
         assertEquals(app.getDisplayName(), "myDefaultEntityName");
     }

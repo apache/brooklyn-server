@@ -20,6 +20,7 @@ package org.apache.brooklyn.entity.chef;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.LocationSpec;
@@ -31,6 +32,7 @@ import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.io.FileUtil;
 import org.apache.brooklyn.util.stream.InputStreamSupplier;
+import org.apache.brooklyn.util.stream.Streams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
@@ -83,7 +85,12 @@ public class ChefLiveTestSupport extends BrooklynAppLiveTestSupport {
         try {
             for (String f: new String[] { "knife.rb", "brooklyn-tests.pem", "brooklyn-validator.pem" }) {
                 String contents = r.getResourceAsString("classpath:///org/apache/brooklyn/entity/chef/hosted-chef-brooklyn-credentials/"+f);
-                FileUtil.copyTo(InputStreamSupplier.fromString(contents).getInput(), new File(tempDir, f));
+                InputStream in = InputStreamSupplier.fromString(contents).getInput();
+                try {
+                    FileUtil.copyTo(in, new File(tempDir, f));
+                } finally {
+                    Streams.closeQuietly(in);
+                }
             }
         } catch (IOException e) {
             throw Throwables.propagate(e);

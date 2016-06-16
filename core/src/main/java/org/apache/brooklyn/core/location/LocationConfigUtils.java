@@ -319,7 +319,7 @@ public class LocationConfigUtils {
             KeyPair privateKey = null;
             String passphrase = config.get(CloudLocationConfig.PRIVATE_KEY_PASSPHRASE);
             try {
-                privateKey = SecureKeys.readPem(new ByteArrayInputStream(privateKeyData.getBytes()), passphrase);
+                privateKey = SecureKeys.readPem(privateKeyData.getBytes(), passphrase);
                 if (passphrase!=null) {
                     // get the unencrypted key data for our internal use (jclouds requires this)
                     privateKeyData = SecureKeys.toPem(privateKey);

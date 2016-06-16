@@ -232,7 +232,7 @@ public class ItemLister {
                 BrooklynCatalog catalog = lmgmt.getCatalog();
 
                 for (URL url: urls) {
-                    String yamlContent = Streams.readFullyString(url.openStream());
+                    String yamlContent = Streams.readFullyStringAndClose(url.openStream());
 
                     Iterable<? extends CatalogItem<?, ?>> items = catalog.addItems(yamlContent);
                     for (CatalogItem<?,?> item: items) {

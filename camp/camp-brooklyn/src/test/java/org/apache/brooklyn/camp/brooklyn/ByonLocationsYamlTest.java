@@ -21,7 +21,6 @@ package org.apache.brooklyn.camp.brooklyn;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 
-import java.io.StringReader;
 import java.util.Map;
 import java.util.Set;
 
@@ -35,6 +34,11 @@ import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.entity.software.base.DoNothingSoftwareProcess;
+import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
+import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.net.UserAndHostAndPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
@@ -47,12 +51,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.net.HostAndPort;
 
-import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
-import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
-import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.util.net.UserAndHostAndPort;
-
 public class ByonLocationsYamlTest extends AbstractYamlTest {
     private static final Logger log = LoggerFactory.getLogger(ByonLocationsYamlTest.class);
 
@@ -64,7 +62,7 @@ public class ByonLocationsYamlTest extends AbstractYamlTest {
                 "services:",
                 "- serviceType: org.apache.brooklyn.entity.stock.BasicApplication");
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         FixedListMachineProvisioningLocation<SshMachineLocation> loc = (FixedListMachineProvisioningLocation<SshMachineLocation>) Iterables.get(app.getLocations(), 0);
         
         Set<SshMachineLocation> machines = loc.getAvailable();
@@ -87,7 +85,7 @@ public class ByonLocationsYamlTest extends AbstractYamlTest {
                 "services:",
                 "- serviceType: org.apache.brooklyn.entity.stock.BasicApplication");
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         FixedListMachineProvisioningLocation<SshMachineLocation> loc = (FixedListMachineProvisioningLocation<SshMachineLocation>) Iterables.get(app.getLocations(), 0);
         
         Set<SshMachineLocation> machines = loc.getAvailable();
@@ -114,7 +112,7 @@ public class ByonLocationsYamlTest extends AbstractYamlTest {
                 "services:",
                 "- serviceType: org.apache.brooklyn.entity.stock.BasicApplication");
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         FixedListMachineProvisioningLocation<WinRmMachineLocation> loc = (FixedListMachineProvisioningLocation<WinRmMachineLocation>) Iterables.get(app.getLocations(), 0);
         
         Set<WinRmMachineLocation> machines = loc.getAvailable();
@@ -151,7 +149,7 @@ public class ByonLocationsYamlTest extends AbstractYamlTest {
                 "services:",
                 "- serviceType: org.apache.brooklyn.entity.stock.BasicApplication");
         
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         FixedListMachineProvisioningLocation<MachineLocation> loc = (FixedListMachineProvisioningLocation<MachineLocation>) Iterables.get(app.getLocations(), 0);
         
         Set<MachineLocation> machines = loc.getAvailable();
@@ -199,7 +197,7 @@ public class ByonLocationsYamlTest extends AbstractYamlTest {
                 "services:",
                 "- serviceType: org.apache.brooklyn.entity.stock.BasicApplication");
 
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         FixedListMachineProvisioningLocation<MachineLocation> loc = (FixedListMachineProvisioningLocation<MachineLocation>) Iterables.get(app.getLocations(), 0);
         PortForwardManager pfm = (PortForwardManager) mgmt().getLocationRegistry().getLocationManaged(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
         
@@ -240,7 +238,7 @@ public class ByonLocationsYamlTest extends AbstractYamlTest {
                 "  brooklyn.config:",
                 "    requiredOpenLoginPorts: [22, 1024]");
 
-        Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        Entity app = createStartWaitAndLogApplication(yaml);
         DoNothingSoftwareProcess entity = (DoNothingSoftwareProcess) Iterables.find(Entities.descendants(app), Predicates.instanceOf(DoNothingSoftwareProcess.class));
         FixedListMachineProvisioningLocation<MachineLocation> loc = (FixedListMachineProvisioningLocation<MachineLocation>) Iterables.get(app.getLocations(), 0);
         

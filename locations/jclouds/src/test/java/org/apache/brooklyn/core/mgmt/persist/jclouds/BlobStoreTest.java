@@ -108,7 +108,7 @@ public class BlobStoreTest {
         context.getBlobStore().putBlob(testContainerName, b);
         
         Blob b2 = context.getBlobStore().getBlob(testContainerName, "my-blob-1");
-        Assert.assertEquals(Streams.readFullyString(b2.getPayload().openStream()), "hello world");
+        Assert.assertEquals(Streams.readFullyStringAndClose(b2.getPayload().openStream()), "hello world");
         
         context.getBlobStore().deleteContainer(testContainerName);
     }
@@ -128,10 +128,10 @@ public class BlobStoreTest {
 
         // both these syntaxes work:
         Blob b2 = context.getBlobStore().getBlob(testContainerName+"/"+"my-dir-1", "my-blob-1");
-        Assert.assertEquals(Streams.readFullyString(b2.getPayload().openStream()), "hello world");
+        Assert.assertEquals(Streams.readFullyStringAndClose(b2.getPayload().openStream()), "hello world");
 
         Blob b3 = context.getBlobStore().getBlob(testContainerName, "my-dir-1"+"/"+"my-blob-1");
-        Assert.assertEquals(Streams.readFullyString(b3.getPayload().openStream()), "hello world");
+        Assert.assertEquals(Streams.readFullyStringAndClose(b3.getPayload().openStream()), "hello world");
 
         context.getBlobStore().deleteContainer(testContainerName);
     }

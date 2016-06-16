@@ -21,7 +21,6 @@ package org.apache.brooklyn.camp.brooklyn;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-import java.io.StringReader;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -76,7 +75,7 @@ public class ConfigYamlTest extends AbstractYamlTest {
                 "    test.confSetPlain:",
                 "    - myval");
 
-        final Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        final Entity app = createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
      
         // Task that resolves quickly
@@ -108,7 +107,7 @@ public class ConfigYamlTest extends AbstractYamlTest {
                 "    test.confSetObjThing:",
                 "    - myval");
 
-        final Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        final Entity app = createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
      
         // Task that resolves quickly
@@ -137,7 +136,7 @@ public class ConfigYamlTest extends AbstractYamlTest {
                 "    test.confSetThing.mysubkey: myval",
                 "    test.confSetObjThing.mysubkey: myval");
 
-        final Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        final Entity app = createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
      
         // Task that resolves quickly
@@ -171,7 +170,7 @@ public class ConfigYamlTest extends AbstractYamlTest {
                 "    - $brooklyn:config(\"myOtherConf\")",
                 "    myOtherConf: myOther");
 
-        final Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        final Entity app = createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
      
         assertEquals(entity.config().get(TestEntity.CONF_NAME), "myOther");
@@ -191,7 +190,7 @@ public class ConfigYamlTest extends AbstractYamlTest {
                 "  brooklyn.config:",
                 "    test.confName: $brooklyn:attributeWhenReady(\"myOtherSensor\")");
 
-        final Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        final Entity app = createStartWaitAndLogApplication(yaml);
         final TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
 
         // Attribute not yet set; non-blocking will return promptly without the value
@@ -226,7 +225,7 @@ public class ConfigYamlTest extends AbstractYamlTest {
                 "    test.confSetThing:",
                 "    - $brooklyn:attributeWhenReady(\"myOtherSensor\")");
 
-        final Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        final Entity app = createStartWaitAndLogApplication(yaml);
         final TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
 
         // Attribute not yet set; non-blocking will return promptly without the value
@@ -277,7 +276,7 @@ public class ConfigYamlTest extends AbstractYamlTest {
                 "    test.confSetPlain:",
                 "    - $brooklyn:attributeWhenReady(\"myOtherSensor\")");
 
-        final Entity app = createStartWaitAndLogApplication(new StringReader(yaml));
+        final Entity app = createStartWaitAndLogApplication(yaml);
         final TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
 
         // Attribute not yet set; non-blocking will return promptly without the value
