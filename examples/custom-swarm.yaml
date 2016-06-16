@@ -11,31 +11,33 @@ location:
     region: ams01
 
 services:
-- type: org.apache.brooklyn.entity.stock.BasicApplication
-  id: swarm
-  name: "swarm"
-  brooklyn.enrichers:
-  - type: org.apache.brooklyn.enricher.stock.Propagator
-    brooklyn.config:
-      uniqueTag: swarm-url-propagator
-      producer: $brooklyn:child("swarm-cluster")
-      propagating:
-      - $brooklyn:sensor("swarm.url")
-  brooklyn.children:
-  - type: ca-server
-    id: ca-server
-    name: "ca-server"
-  - type: etcd-cluster
-    id: etcd-cluster
-    name: "etcd-cluster"
-    initialSize: 1
-  - type: docker-swarm-cluster
-    id: swarm-cluster
-    name: "swarm-cluster"
-    brooklyn.config:
-      swarm.initial.size: 3
-      swarm.discovery.url: $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.authority")
-      docker.discovery.url: $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.authority")
-      launch.latch: $brooklyn:entity("etcd-cluster").attributeWhenReady("service.isUp")
-      customize.latch: $brooklyn:entity("ca-server").attributeWhenReady("service.isUp")
-      ca.request.root.url: $brooklyn:entity("ca-server").attributeWhenReady("main.uri")
+  - type: org.apache.brooklyn.entity.stock.BasicApplication
+    id: swarm
+    name: "swarm"
+    brooklyn.enrichers:
+      - type: org.apache.brooklyn.enricher.stock.Propagator
+        brooklyn.config:
+          uniqueTag: swarm-url-propagator
+          producer: $brooklyn:child("swarm-cluster")
+          propagating:
+            - $brooklyn:sensor("swarm.url")
+    brooklyn.children:
+      - type: ca-server
+        id: ca-server
+        name: "ca-server"
+      - type: etcd-cluster
+        id: etcd-cluster
+        name: "etcd-cluster"
+        brooklyn.config:
+          initialSize: 1
+      - type: docker-swarm-cluster
+        id: swarm-cluster
+        name: "swarm-cluster"
+        brooklyn.config:
+          swarm.initial.size: 3
+          swarm.max.size: 3
+          swarm.discovery.url: $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.authority")
+          docker.discovery.url: $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.authority")
+          launch.latch: $brooklyn:entity("etcd-cluster").attributeWhenReady("service.isUp")
+          customize.latch: $brooklyn:entity("ca-server").attributeWhenReady("service.isUp")
+          ca.request.root.url: $brooklyn:entity("ca-server").attributeWhenReady("main.uri")

@@ -11,11 +11,12 @@ location:
     region: ams01
 
 services:
-- type: docker-swarm
-  id: swarm
-  name: "swarm"
-  brooklyn.config:
-    swarm.initial.size: 3
-    etcd.initial.size: 1
-    swarm.port: 4000
-    swarm.defaultnetwork: "swarm"
+  - type: docker-swarm
+    id: swarm
+    name: "swarm"
+    brooklyn.config:
+      swarm.initial.size: 2
+      swarm.max.size: 5
+      etcd.initial.size: 1
+      swarm.port: 4000
+      swarm.defaultnetwork: "swarm"
