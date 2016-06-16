@@ -24,9 +24,9 @@ not an iron rule that we have to keep.
     BOMS="ca.bom catalog.bom swarm.bom"
     BOMS="${BOMS} tests/common.tests.bom tests/docker.tests.bom tests/swarm.tests.bom "
     BOMS="${BOMS} tests/jclouds.tests.bom tests/swarm-endpoint.tests.bom "
-    BOMS="${BOMS} tests/tests.bom existing-swarm.tests.bom"
+    BOMS="${BOMS} tests/tests.bom tests/existing-swarm.tests.bom"
     for i in ${BOMS}; do
-      curl -u ${AMP_USER}:${AMP_PASSWORD} ${AMP_URL}/v1/catalog --data-binary @${i}
+      curl -u ${AMP_USER}:${AMP_PASSWORD} ${AMP_URL}/v1/catalog --data-binary @${i} || (echo "FAIL ${i}" && break )
     done
 
 
