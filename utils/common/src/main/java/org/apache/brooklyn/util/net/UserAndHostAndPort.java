@@ -21,6 +21,7 @@ package org.apache.brooklyn.util.net;
 import java.io.Serializable;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Optional;
 import com.google.common.net.HostAndPort;
 
 public class UserAndHostAndPort implements Serializable {
@@ -29,6 +30,14 @@ public class UserAndHostAndPort implements Serializable {
 
     public static UserAndHostAndPort fromParts(String user, String host, int port) {
         return new UserAndHostAndPort(user, HostAndPort.fromParts(host, port));
+    }
+
+    public static UserAndHostAndPort fromParts(String user, String host, Optional<Integer> port) {
+        HostAndPort hostAndPort = port.isPresent() ? HostAndPort.fromParts(host, port.get()) : HostAndPort.fromString(host);
+        if (!port.isPresent() && hostAndPort.hasPort()) {
+            throw new IllegalArgumentException("optional port absent, but host '"+host+"' parsed as containing port");
+        }
+        return new UserAndHostAndPort(user, hostAndPort);
     }
 
     public static UserAndHostAndPort fromParts(String user, HostAndPort hostAndPort) {

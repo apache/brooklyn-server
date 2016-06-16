@@ -28,6 +28,8 @@ import org.apache.brooklyn.util.net.UserAndHostAndPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Optional;
+
 public class EmptyWindowsProcessWinRmDriver extends AbstractSoftwareProcessWinRmDriver implements VanillaWindowsProcessDriver {
     @SuppressWarnings("unused")
     private static final Logger LOG = LoggerFactory.getLogger(EmptyWindowsProcessWinRmDriver.class);
@@ -41,7 +43,8 @@ public class EmptyWindowsProcessWinRmDriver extends AbstractSoftwareProcessWinRm
     @Override
     public void start() {
         WinRmMachineLocation machine = (WinRmMachineLocation) location;
-        UserAndHostAndPort winrmAddress = UserAndHostAndPort.fromParts(machine.getUser(), machine.getAddress().getHostName(), entity.getConfig(WinRmTool.PROP_PORT));
+        Integer port = entity.getConfig(WinRmTool.PROP_PORT);
+        UserAndHostAndPort winrmAddress = UserAndHostAndPort.fromParts(machine.getUser(), machine.getAddress().getHostName(), Optional.fromNullable(port));
         getEntity().sensors().set(Attributes.WINRM_ADDRESS, winrmAddress);
 
         super.start();
