@@ -94,25 +94,19 @@ public class FileBasedObjectStore implements PersistenceObjectStore {
     }
     
     public void prepareForMasterUse() {
-        if (doneFirstContentiousWrite.get())
-            return;
-        synchronized (this) {
-            if (doneFirstContentiousWrite.get())
-                return;
-            try {
-                if (deferredBackupNeeded) {
-                    // defer backup and path creation until first write
-                    // this way if node is standby or auto, the backup is not created superfluously
+        if (doneFirstContentiousWrite.getAndSet(true)) return;
+        try {
+            if (deferredBackupNeeded) {
+                // defer backup and path creation until first write
+                // this way if node is standby or auto, the backup is not created superfluously
 
-                    File backup = backupDirByCopying(basedir);
-                    log.info("Persistence deferred backup, directory "+basedir+" backed up to "+backup.getAbsolutePath());
+                File backup = backupDirByCopying(basedir);
+                log.info("Persistence deferred backup, directory "+basedir+" backed up to "+backup.getAbsolutePath());
 
-                    deferredBackupNeeded = false;
-                }
-            } catch (Exception e) {
-                throw Exceptions.propagate(e);
+                deferredBackupNeeded = false;
             }
-            doneFirstContentiousWrite.getAndSet(true);
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
         }
     }
     
