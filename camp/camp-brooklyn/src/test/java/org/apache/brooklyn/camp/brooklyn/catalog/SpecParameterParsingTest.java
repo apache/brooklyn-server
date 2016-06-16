@@ -23,6 +23,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import java.util.List;
+import java.util.Set;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -30,6 +31,9 @@ import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
+import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.AbstractEntity;
+import org.apache.brooklyn.core.objs.BasicSpecParameter;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
@@ -38,6 +42,7 @@ import org.testng.annotations.Test;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 
@@ -127,11 +132,12 @@ public class SpecParameterParsingTest  extends AbstractYamlTest {
         AbstractBrooklynObjectSpec<?,?> spec = createSpec(item);
         List<SpecParameter<?>> inputs = spec.getParameters();
         if (inputs.isEmpty()) Assert.fail("no inputs (if you're in the IDE, mvn clean install may need to be run to rebuild osgi test JARs)");
-        assertEquals(inputs.size(), 1);
-        SpecParameter<?> input = inputs.get(0);
-        assertEquals(input.getLabel(), "more_config");
-        assertFalse(input.isPinned());
-        assertEquals(input.getConfigKey().getName(), "more_config");
+        
+        Set<SpecParameter<?>> actual = ImmutableSet.copyOf(inputs);
+        Set<SpecParameter<?>> expected = ImmutableSet.<SpecParameter<?>>of(
+                new BasicSpecParameter<>("more_config", false, ConfigKeys.newStringConfigKey("more_config")),
+                new BasicSpecParameter<>(AbstractEntity.DEFAULT_DISPLAY_NAME.getName(), false, AbstractEntity.DEFAULT_DISPLAY_NAME));
+        assertEquals(actual, expected);
     }
 
     private String add(String... def) {

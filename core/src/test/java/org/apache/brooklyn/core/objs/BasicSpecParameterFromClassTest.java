@@ -19,8 +19,11 @@
 package org.apache.brooklyn.core.objs;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.apache.brooklyn.api.catalog.CatalogConfig;
 import org.apache.brooklyn.api.entity.Entity;
@@ -34,8 +37,10 @@ import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+import org.testng.collections.Sets;
 
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 
 public class BasicSpecParameterFromClassTest {
@@ -94,10 +99,18 @@ public class BasicSpecParameterFromClassTest {
 
     @Test
     public void testConfigInImplVisible() {
+        Map<String, ConfigKey<?>> expectedKeys = ImmutableMap.<String, ConfigKey<?>>of(
+                ConfigInImplParameterTestEntityImpl.SUGGESTED_VERSION.getName(),
+                ConfigInImplParameterTestEntityImpl.SUGGESTED_VERSION,
+                AbstractEntity.DEFAULT_DISPLAY_NAME.getName(),
+                AbstractEntity.DEFAULT_DISPLAY_NAME);
         List<SpecParameter<?>> inputs = BasicSpecParameter.fromClass(mgmt, ConfigInImplParameterTestEntity.class);
-        assertEquals(inputs.size(), 1);
-        ConfigKey<String> key = ConfigInImplParameterTestEntityImpl.SUGGESTED_VERSION;
-        assertInput(inputs.get(0), key.getName(), false, key);
+        assertEquals(inputs.size(), expectedKeys.size());
+        for (SpecParameter<?> in : inputs) {
+            ConfigKey<?> key = expectedKeys.get(in.getConfigKey().getName());
+            assertNotNull(key);
+            assertInput(in, key.getName(), false, key);
+        }
     }
 
     private void assertInput(SpecParameter<?> input, String label, boolean pinned, ConfigKey<?> type) {

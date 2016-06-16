@@ -63,6 +63,7 @@ public class DynamicEntityTypeConfigTest extends BrooklynAppUnitTestSupport {
             ConfigEntityForTesting.INSTALL_UNIQUE_LABEL,
             ConfigEntityForTestingImpl.PRE_INSTALL_COMMAND,
             ConfigEntityForTestingImpl.POST_INSTALL_COMMAND,
+            AbstractEntity. DEFAULT_DISPLAY_NAME,
             SPEC_CONFIG); 
 
     @BeforeMethod(alwaysRun=true)
