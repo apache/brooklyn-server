@@ -318,26 +318,24 @@ public class LocalManagementContext extends AbstractManagementContext {
     
     @Override
     public void terminate() {
-        synchronized (terminated) {
-            if (terminated.getAndSet(true)) {
-                log.trace("Already terminated management context "+this);
-                // no harm in doing it twice, but it makes logs ugly!
-                return;
-            }
-            log.debug("Terminating management context "+this);
-            
-            INSTANCES.remove(this);
-            super.terminate();
-            if (osgiManager!=null) {
-                osgiManager.stop();
-                osgiManager = null;
-            }
-            if (usageManager != null) usageManager.terminate();
-            if (execution != null) execution.shutdownNow();
-            if (gc != null) gc.shutdownNow();
-            
-            log.debug("Terminated management context "+this);
+        if (terminated.getAndSet(true)) {
+            log.trace("Already terminated management context "+this);
+            // no harm in doing it twice, but it makes logs ugly!
+            return;
         }
+        log.debug("Terminating management context "+this);
+
+        INSTANCES.remove(this);
+        super.terminate();
+        if (osgiManager!=null) {
+            osgiManager.stop();
+            osgiManager = null;
+        }
+        if (usageManager != null) usageManager.terminate();
+        if (execution != null) execution.shutdownNow();
+        if (gc != null) gc.shutdownNow();
+
+        log.debug("Terminated management context "+this);
     }
 
     @Override

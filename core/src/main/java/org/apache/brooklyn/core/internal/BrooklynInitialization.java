@@ -61,14 +61,14 @@ public class BrooklynInitialization {
      * 
      */
     
-    public synchronized static void initAll() {
-        if (done.get()) return;
-        initTypeCoercionStandardAdapters();
-        initSecureKeysBouncyCastleProvider();
-        initNetworking();
-        initPortRanges();
-        initLegacyLanguageExtensions();
-        done.set(true);
+    public static void initAll() {
+        if (done.compareAndSet(false, true)) {
+            initTypeCoercionStandardAdapters();
+            initSecureKeysBouncyCastleProvider();
+            initNetworking();
+            initPortRanges();
+            initLegacyLanguageExtensions();
+        }
     }
 
     @SuppressWarnings("deprecation")
