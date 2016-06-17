@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.brooklyn.config.ConfigKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -226,19 +227,31 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
         return SshEffectorTasks.getSshFlags(getEntity(), getMachine());
     }
 
+    /**
+     * @deprecated since 0.10.0 This method will become private in a future release.
+     */
+    @Deprecated
     public int execute(String command, String summaryForLogging) {
         return execute(ImmutableList.of(command), summaryForLogging);
     }
 
+    /**
+     * @deprecated since 0.10.0 This method will become private in a future release.
+     */
+    @Deprecated
     public int execute(List<String> script, String summaryForLogging) {
         return execute(Maps.newLinkedHashMap(), script, summaryForLogging);
     }
 
+    /**
+     * @deprecated since 0.10.0 This method will become private in a future release.
+     */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     @Override
+    @Deprecated
     public int execute(Map flags2, List<String> script, String summaryForLogging) {
         // TODO replace with SshEffectorTasks.ssh ?; remove the use of flags
-
+        // TODO log the stdin/stdout/stderr upon error
         Map flags = Maps.newLinkedHashMap();
         if (!flags2.containsKey(IGNORE_ENTITY_SSH_FLAGS)) {
             flags.putAll(getSshFlags());
@@ -285,46 +298,45 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
         }
     }
 
+    private void executeSuccessfully(ConfigKey<String> configKey, String label) {
+        if(Strings.isNonBlank(getEntity().getConfig(configKey))) {
+            log.debug("Executing {} on entity {}", label, entity.getDisplayName());
+            int result = execute(ImmutableList.of(getEntity().getConfig(configKey)), label);
+            if (0 != result) {
+                log.debug("Executing {} failed with return code {}", label, result);
+                throw new IllegalStateException("commands for " + configKey.getName() + " failed with return code " + result);
+            }
+        }
+    }
+
     @Override
     public void runPreInstallCommand() {
-        if(Strings.isNonBlank(getEntity().getConfig(BrooklynConfigKeys.PRE_INSTALL_COMMAND))) {
-            execute(ImmutableList.of(getEntity().getConfig(BrooklynConfigKeys.PRE_INSTALL_COMMAND)), "running pre-install commands");
-        }
+        executeSuccessfully(BrooklynConfigKeys.PRE_INSTALL_COMMAND, "running pre-install commands");
     }
 
     @Override
     public void runPostInstallCommand() {
-        if (Strings.isNonBlank(entity.getConfig(BrooklynConfigKeys.POST_INSTALL_COMMAND))) {
-            execute(ImmutableList.of(entity.getConfig(BrooklynConfigKeys.POST_INSTALL_COMMAND)), "running post-install commands");
-        }
+        executeSuccessfully(BrooklynConfigKeys.POST_INSTALL_COMMAND, "running post-install commands");
     }
 
     @Override
     public void runPreCustomizeCommand() {
-        if(Strings.isNonBlank(getEntity().getConfig(BrooklynConfigKeys.PRE_CUSTOMIZE_COMMAND))) {
-            execute(ImmutableList.of(getEntity().getConfig(BrooklynConfigKeys.PRE_CUSTOMIZE_COMMAND)), "running pre-customize commands");
-        }
+        executeSuccessfully(BrooklynConfigKeys.PRE_CUSTOMIZE_COMMAND, "running pre-customize commands");
     }
 
     @Override
     public void runPostCustomizeCommand() {
-        if (Strings.isNonBlank(entity.getConfig(BrooklynConfigKeys.POST_CUSTOMIZE_COMMAND))) {
-            execute(ImmutableList.of(entity.getConfig(BrooklynConfigKeys.POST_CUSTOMIZE_COMMAND)), "running post-customize commands");
-        }
+        executeSuccessfully(BrooklynConfigKeys.POST_CUSTOMIZE_COMMAND, "running post-customize commands");
     }
 
     @Override
     public void runPreLaunchCommand() {
-        if (Strings.isNonBlank(entity.getConfig(BrooklynConfigKeys.PRE_LAUNCH_COMMAND))) {
-            execute(ImmutableList.of(entity.getConfig(BrooklynConfigKeys.PRE_LAUNCH_COMMAND)), "running pre-launch commands");
-        }
+        executeSuccessfully(BrooklynConfigKeys.PRE_LAUNCH_COMMAND, "running pre-launch commands");
     }
 
     @Override
     public void runPostLaunchCommand() {
-        if (Strings.isNonBlank(entity.getConfig(BrooklynConfigKeys.POST_LAUNCH_COMMAND))) {
-            execute(ImmutableList.of(entity.getConfig(BrooklynConfigKeys.POST_LAUNCH_COMMAND)), "running post-launch commands");
-        }
+        executeSuccessfully(BrooklynConfigKeys.POST_LAUNCH_COMMAND, "running post-launch commands");
     }
 
     /**
