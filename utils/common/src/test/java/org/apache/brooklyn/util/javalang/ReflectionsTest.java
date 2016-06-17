@@ -56,6 +56,11 @@ public class ReflectionsTest {
         assertNoDuplicates(fields);
     }
     
+    @Test
+    public void testConstructLangObject() {
+        Reflections.invokeConstructorWithArgs(java.util.Date.class);
+    }
+    
     public static interface MyInterface {
         public static final int MY_FIELD = 0;
         public void mymethod();
