@@ -19,13 +19,19 @@
 package org.apache.brooklyn.entity.stock;
 
 import org.apache.brooklyn.core.entity.AbstractApplication;
+import org.apache.brooklyn.util.text.Strings;
 
 public class BasicApplicationImpl extends AbstractApplication implements BasicApplication {
 
     @Override
     public void init() {
+        // Set the default name *before* calling super.init(), and only do so if we don't have an 
+        // explicit default. This is a belt-and-braces fix: before we overwrote the defaultDisplayName
+        // that was inferred from the catalog item name.
+        if (Strings.isBlank(getConfig(DEFAULT_DISPLAY_NAME))) {
+            setDefaultDisplayName("Application ("+getId()+")");
+        }
         super.init();
-        setDefaultDisplayName("Application ("+getId()+")");
     }
     
 }
