@@ -174,7 +174,7 @@ brooklyn.catalog:
 
         post.install.command: |
           echo "[CLOCKER] Setting up user and group for Docker"
-          sudo groupadd docker
+          sudo groupadd -f docker
           sudo usermod -aG docker ${USER}
 
         post.customize.command: |

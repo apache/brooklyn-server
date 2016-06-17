@@ -183,10 +183,7 @@ brooklyn.catalog:
 
 # A Riak cluster example.
 #
-# Requires:
-# - a location configured with cloudsoft/ubuntu:14.04 for the Riak application to deploy to.
-# - both user: root and loginUser: root, as in the example below.
-# - appropriate timeouts for JClouds - request-timeout, connection-timeout, so-timeout.
+# Requires a (docker swarm) location pre-configured with cloudsoft/ubuntu:14.04 for the Riak application to deploy to.
 # For example:
 #brooklyn.catalog:
 #  version: "2.0.0-SNAPSHOT"
@@ -205,15 +202,10 @@ brooklyn.catalog:
 #        identity: /home/whoever/.certs/cert.pem
 #        credential: /home/whoever/.certs/key.pem
 #        imageId: sha256:64fab039ab48f81535d71c183b7422812d492f7ea0dbca145888d707c336bbff # cloudsoft/ubuntu:14.04
-#        user: root
-#        loginUser: root
 #        loginUser.password: p4ssw0rd
-#        onbox.base.dir: /tmp
-#        jclouds.request-timeout: 36000000
-#        jclouds.connection-timeout: 36000000
-#        jclouds.so-timeout: 36000000
 #        templateOptions:
 #          networkMode: "brooklyn" # the default swarm network
+#
   - id: riak-cluster-to-swarm-multi-node
     name: "Riak Cluster"
     description: |
@@ -297,6 +289,7 @@ brooklyn.catalog:
               $brooklyn:formatString:
               - "%s/riak.jsp?name=myname&message=mymessage"
               - $brooklyn:component("riak-app").attributeWhenReady("main.uri.mapped.public")
+            timeout: 60s
             applyAssertionTo: status
             assert:
             - isEqualTo: 200
@@ -306,6 +299,7 @@ brooklyn.catalog:
               $brooklyn:formatString:
               - "%s/riak.jsp"
               - $brooklyn:component("riak-app").attributeWhenReady("main.uri.mapped.public")
+            timeout: 60s
             applyAssertionTo: body
             assert:
             - contains: "myname"
