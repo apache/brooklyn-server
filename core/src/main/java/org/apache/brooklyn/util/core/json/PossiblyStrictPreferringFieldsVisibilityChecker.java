@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.rest.util.json;
+package org.apache.brooklyn.util.core.json;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Member;
@@ -57,7 +57,7 @@ public class PossiblyStrictPreferringFieldsVisibilityChecker implements Visibili
         return BidiSerialization.isStrictSerialization() ? vizStrict : vizDefault;
     }
     
-    @Override public boolean isGetterVisible(Method m) { 
+    @Override public boolean isGetterVisible(Method m) {
         return viz().isGetterVisible(m);
     }
 

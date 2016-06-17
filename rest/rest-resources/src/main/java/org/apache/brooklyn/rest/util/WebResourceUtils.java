@@ -32,7 +32,6 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.rest.domain.ApiError;
 import org.apache.brooklyn.rest.util.json.BrooklynJacksonJsonProvider;
-import org.apache.brooklyn.util.core.osgi.Compat;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
 import org.apache.brooklyn.util.net.Urls;

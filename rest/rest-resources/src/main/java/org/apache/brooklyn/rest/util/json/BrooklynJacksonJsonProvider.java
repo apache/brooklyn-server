@@ -34,12 +34,11 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.server.BrooklynServiceAttributes;
 import org.apache.brooklyn.rest.util.OsgiCompat;
+import org.apache.brooklyn.util.core.json.BrooklynObjectsJsonMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.core.Version;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider;
 
 @Provider
@@ -153,23 +152,7 @@ public class BrooklynJacksonJsonProvider extends JacksonJsonProvider implements
             throw new IllegalStateException("No management context available for creating ObjectMapper");
         }
 
-        ConfigurableSerializerProvider sp = new ConfigurableSerializerProvider();
-        sp.setUnknownTypeSerializer(new ErrorAndToStringUnknownTypeSerializer());
-
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.setSerializerProvider(sp);
-        mapper.setVisibilityChecker(new PossiblyStrictPreferringFieldsVisibilityChecker());
-
-        SimpleModule mapperModule = new SimpleModule("Brooklyn", new Version(0, 0, 0, "ignored", null, null));
-
-        new BidiSerialization.ManagementContextSerialization(mgmt).install(mapperModule);
-        new BidiSerialization.EntitySerialization(mgmt).install(mapperModule);
-        new BidiSerialization.LocationSerialization(mgmt).install(mapperModule);
-
-        mapperModule.addSerializer(new MultimapSerializer());
-        mapper.registerModule(mapperModule);
-
-        return mapper;
+        return BrooklynObjectsJsonMapper.newMapper(mgmt);
     }
 
 }
