@@ -175,3 +175,127 @@ brooklyn.catalog:
             assert:
             - contains: "myname"
             - contains: "mymessage"
+
+# A Riak cluster example.
+#
+# Requires a (docker swarm) location pre-configured with cloudsoft/ubuntu:14.04 for the Riak application to deploy to.
+# For example:
+#brooklyn.catalog:
+#  version: "2.0.0-SNAPSHOT"
+#  iconUrl: https://raw.githubusercontent.com/docker-library/docs/c350af05d3fac7b5c3f6327ac82fe4d990d8729c/docker/logo.png
+#  dependsOn:
+#    - common.tests.bom
+#  license_code: CLOUDSOFT-1.0
+#  items:
+#
+#  - id: location-swarm-master
+#    itemType: location
+#    item:
+#      type: jclouds:docker
+#      brooklyn.config:
+#        endpoint: https://159.122.217.177:3376
+#        identity: /home/whoever/.certs/cert.pem
+#        credential: /home/whoever/.certs/key.pem
+#        imageId: sha256:64fab039ab48f81535d71c183b7422812d492f7ea0dbca145888d707c336bbff # cloudsoft/ubuntu:14.04
+#        loginUser.password: p4ssw0rd
+#        templateOptions:
+#          networkMode: "brooklyn" # the default swarm network
+#
+  - id: riak-cluster-to-swarm-multi-node
+    name: "Riak Cluster"
+    description: |
+      Riak cluster with load-balanced chatroom webapp
+    iconUrl: classpath://riak-icon.png
+    itemType: template
+    item:
+      services:
+      - type: org.apache.brooklyn.entity.stock.BasicApplication
+        id: riak-app
+        name: "Riak App"
+        brooklyn.children:
+        - type: org.apache.brooklyn.entity.nosql.riak.RiakCluster
+          id: riak-cluster
+          name: "Riak Cluster"
+          brooklyn.config:
+            initialSize: 3
+            install.version: 2.1.4
+            riak.networking.optimize: false
+            erlangPortRangeEnd: 6010+
+        - type: org.apache.brooklyn.entity.webapp.ControlledDynamicWebAppCluster
+          name: "Web Cluster"
+          id: web-cluster
+          brooklyn.config:
+            initialSize: 2
+            dynamiccluster.memberspec:
+              $brooklyn:entitySpec:
+                type: org.apache.brooklyn.entity.webapp.tomcat.Tomcat8Server
+                brooklyn.config:
+                  wars.root:
+                    "https://s3-eu-west-1.amazonaws.com/brooklyn-clocker/brooklyn-example-hello-world-sql-webapp.war"
+                  java.sysprops:
+                    brooklyn.example.riak.nodes:
+                      $brooklyn:component("riak-cluster").attributeWhenReady("riak.cluster.nodeList")
+            controlleddynamicwebappcluster.controllerSpec:
+              $brooklyn:entitySpec:
+                type: org.apache.brooklyn.entity.proxy.nginx.NginxController
+                id: load-balancer
+                brooklyn.enrichers:
+                - type: org.apache.brooklyn.core.network.OnPublicNetworkEnricher
+                  brooklyn.config:
+                    sensors:
+                    - main.uri
+          brooklyn.enrichers:
+          # publish the mapped URL at the cluster
+          - type: org.apache.brooklyn.enricher.stock.Propagator
+            brooklyn.config:
+              uniqueTag: url-propagator
+              enricher.producer: $brooklyn:component("load-balancer")
+              enricher.propagating.inclusions:
+              - main.uri.mapped.public
+        brooklyn.enrichers:
+        # publish the cluster URL (the mapped public one) as the main.uri of the top-level app
+        - type: org.apache.brooklyn.enricher.stock.Propagator
+          brooklyn.config:
+            uniqueTag: main-uri-publisher
+            enricher.producer: $brooklyn:entity("web-cluster")
+            enricher.propagating.inclusions:
+            - main.uri.mapped.public
+
+      - type: org.apache.brooklyn.test.framework.TestCase
+        brooklyn.config:
+          timeout: 30m
+          targetId: riak-app
+        brooklyn.children:
+        - type: org.apache.brooklyn.test.framework.TestCase
+          name: "Sensor Tests"
+          brooklyn.children:
+          - type: assert-up
+          - type: assert-running
+          - type: org.apache.brooklyn.test.framework.TestHttpCall
+            name: Check HTTP Response Status Code
+            url: $brooklyn:component("riak-app").attributeWhenReady("main.uri.mapped.public")
+            timeout: 60s
+            applyAssertionTo: status
+            assert:
+            - isEqualTo: 200
+          - type: org.apache.brooklyn.test.framework.TestHttpCall
+            name: Check Write to web-app message board
+            url:
+              $brooklyn:formatString:
+              - "%s/riak.jsp?name=myname&message=mymessage"
+              - $brooklyn:component("riak-app").attributeWhenReady("main.uri.mapped.public")
+            timeout: 60s
+            applyAssertionTo: status
+            assert:
+            - isEqualTo: 200
+          - type: org.apache.brooklyn.test.framework.TestHttpCall
+            name: Check Read from web-app message board
+            url:
+              $brooklyn:formatString:
+              - "%s/riak.jsp"
+              - $brooklyn:component("riak-app").attributeWhenReady("main.uri.mapped.public")
+            timeout: 60s
+            applyAssertionTo: body
+            assert:
+            - contains: "myname"
+            - contains: "mymessage"
