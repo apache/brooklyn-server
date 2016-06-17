@@ -148,6 +148,13 @@ brooklyn.catalog:
             The name of a default network to create on startup
           type: string
           default: "brooklyn"
+        - name: swarm.scaling.cpu.limit
+          label: Swarm Scaling CPU Limit
+          description: |
+            The average CPU usage limit for the Swarm cluster, before another node
+            will automatically be added. The default is 0.95 or 95%
+          type: double
+          default: 0.95
 
       brooklyn.enrichers:
         - type: org.apache.brooklyn.enricher.stock.Transformer
@@ -176,8 +183,8 @@ brooklyn.catalog:
               brooklyn.config:
                 autoscaler.metric:
                   $brooklyn:sensor("org.apache.brooklyn.entity.machine.MachineAttributes", "cpu.average")
-                autoscaler.metricLowerBound: 0.50
-                autoscaler.metricUpperBound: 0.95
+                autoscaler.metricLowerBound: 0.00
+                autoscaler.metricUpperBound: $brooklyn:config("swarm.scaling.cpu.limit")
                 autoscaler.minPoolSize: $brooklyn:config("swarm.initial.size")
                 autoscaler.maxPoolSize: $brooklyn:config("swarm.max.size")
                 autoscaler.resizeUpStabilizationDelay: 30s
