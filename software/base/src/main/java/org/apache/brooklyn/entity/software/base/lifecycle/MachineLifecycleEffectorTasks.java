@@ -28,15 +28,26 @@ import java.util.concurrent.Callable;
 
 import javax.annotation.Nullable;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.annotations.Beta;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.MachineManagementMixins;
+import org.apache.brooklyn.api.location.MachineManagementMixins.SuspendsMachines;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
-import org.apache.brooklyn.api.location.MachineManagementMixins.SuspendsMachines;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.Sanitizer;
@@ -62,24 +73,14 @@ import org.apache.brooklyn.entity.machine.MachineInitTasks;
 import org.apache.brooklyn.entity.machine.ProvidesProvisioningFlags;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.RestartSoftwareParameters;
-import org.apache.brooklyn.entity.software.base.SoftwareProcess.StopSoftwareParameters;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.RestartSoftwareParameters.RestartMachineMode;
+import org.apache.brooklyn.entity.software.base.SoftwareProcess.StopSoftwareParameters;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.StopSoftwareParameters.StopMode;
 import org.apache.brooklyn.entity.stock.EffectorStartableImpl.StartParameters;
-import org.apache.brooklyn.util.collections.MutableSet;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.annotations.Beta;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -709,9 +710,11 @@ public abstract class MachineLifecycleEffectorTasks {
         DynamicTasks.queue("pre-stop", new PreStopCustomTask());
 
         Maybe<MachineLocation> machine = Machines.findUniqueMachineLocation(entity().getLocations());
-        Task<String> stoppingProcess = null;
+        Task<List<?>> stoppingProcess = null;
         if (canStop(stopProcessMode, entity())) {
-            stoppingProcess = DynamicTasks.queue("stopping (process)", new StopProcessesAtMachineTask());
+            stoppingProcess = Tasks.parallel(
+                        DynamicTasks.queue("stopping (process)", new StopProcessesAtMachineTask()),
+                        DynamicTasks.queue("stopping (feeds)", new StopFeedsAtMachineTask()));
         }
 
         Task<StopMachineDetails<Integer>> stoppingMachine = null;
@@ -790,6 +793,17 @@ public abstract class MachineLifecycleEffectorTasks {
             stopProcessesAtMachine();
             DynamicTasks.waitForLast();
             return "Stop processes completed with no errors.";
+        }
+    }
+
+    private class StopFeedsAtMachineTask implements Callable<String> {
+        public String call() {
+            DynamicTasks.markInessential();
+            for (Feed feed : entity().feeds().getFeeds()) {
+                if (feed.isActivated()) feed.stop();
+            }
+            DynamicTasks.waitForLast();
+            return "Stop feeds completed with no errors.";
         }
     }
 
