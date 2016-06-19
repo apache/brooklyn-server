@@ -29,7 +29,7 @@ brooklyn.catalog:
   ##
   - id: deploy-app-to-swarm-single-node
     name: Single-node app to Docker Swarm endpoint
-    description: | 
+    description: |
       Test that we can provision a simple Brooklyn SoftwareProcess to a docker swarm endpoint
     item:
 
@@ -67,7 +67,7 @@ brooklyn.catalog:
   #  - a cluster of Tomcat nodes (size 1)
   #  - nginx
   #  - database
-  # 
+  #
   # Asserts that:
   #  - app comes up
   #  - via nginx, can connect to web-app
@@ -75,7 +75,7 @@ brooklyn.catalog:
   ##
   - id: deploy-app-to-swarm-multi-node
     name: Deploy multi-node app to a Docker Swarm endpoint
-    description: | 
+    description: |
       Test that we can provision a multi-node Brooklyn app to a docker swarm endpoint
     item:
 
@@ -94,7 +94,7 @@ brooklyn.catalog:
                 name: Tomcat Server
                 brooklyn.config:
                   wars.root: http://search.maven.org/remotecontent?filepath=org/apache/brooklyn/example/brooklyn-example-hello-world-sql-webapp/0.9.0/brooklyn-example-hello-world-sql-webapp-0.9.0.war
-                  java.sysprops: 
+                  java.sysprops:
                     brooklyn.example.db.url:
                       $brooklyn:formatString:
                       - "jdbc:%s%s?user=%s&password=%s"
@@ -220,7 +220,7 @@ brooklyn.catalog:
             initialSize: 3
             install.version: 2.1.4
             riak.networking.optimize: false
-            erlangPortRangeEnd: 6010+
+            riak.networking.internal: false
         - type: org.apache.brooklyn.entity.webapp.ControlledDynamicWebAppCluster
           name: "Web Cluster"
           id: web-cluster
