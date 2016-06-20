@@ -75,7 +75,12 @@ public class LoopOverGroupMembersTestCaseImpl extends TargetableTestComponentImp
             try {
                 TargetableTestComponent targetableTestComponent = this.addChild(testSpecCopy);
                 targetableTestComponent.start(locations);
-                logger.debug("Task of {} successfully run, targetting {}", this, member);
+                if (Lifecycle.RUNNING.equals(targetableTestComponent.sensors().get(Attributes.SERVICE_STATE_ACTUAL))) {
+                    logger.debug("Task of {} successfully run, targetting {}", this, member);
+                } else {
+                    logger.warn("Problem in child test-case of {}, targetting {}", this, member);
+                    allSuccesful = false;
+                }
             } catch (Throwable t) {
                 Exceptions.propagateIfFatal(t);
                 logger.warn("Problem in child test-case of "+this+", targetting "+member, t);
