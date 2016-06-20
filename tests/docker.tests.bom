@@ -61,8 +61,14 @@ brooklyn.catalog:
         brooklyn.config:
           docker.image: busybox:1.24
           docker.run.arguments: /bin/nc -ll -p 1234 -e /bin/ls
-          docker.run.volumes: /tmp/vol1:/vol1; named:/named1; named:/named2;
-          docker.run.env: k1=v1; k2=v2; some weird key=multi space var;
+          docker.run.volumes:
+          - /tmp/vol1:/vol1
+          - named:/named1
+          - named:/named2
+          docker.run.env:
+            k1: v1
+            k2: v2
+            some weird key: multi space var
           my.server.port: 1234
 
       - type: test-case
