@@ -70,6 +70,8 @@ brooklyn.catalog:
         - type: ca-server
           id: ca-server
           name: "ca-server"
+          brooklyn.config:
+            common.name: ca
         - type: etcd-cluster
           id: etcd-cluster
           name: "etcd-cluster"
@@ -85,12 +87,55 @@ brooklyn.catalog:
               INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
             pre.install.command: |
               set -e
-              curl -X POST -d "" --fail ${CA_REQUEST_ROOT_URL}/generate/${HOST_ADDRESS}
-              CA_URL="${CA_REQUEST_ROOT_URL}/cert/${HOST_ADDRESS}"
+              cat > functions.sh <<-'EOC'
+              function generate_key () {
+                openssl genrsa -out $1 2048
+              }
+
+              function generate_conf () {
+                local IP=$1
+                local CNF=$2
+                cat > ${CNF} <<-EOF
+                  [ req ]
+                  req_extensions=v3_req
+                  distinguished_name=req_distinguished_name
+
+                  [ req_distinguished_name ]
+                  commonName                      = Common Name (eg, your name or your server\'s hostname)
+                  commonName_max                  = 64
+
+                  [ v3_req ]
+                  subjectAltName=IP:${IP}
+              EOF
+              }
+
+              function generate_csr () {
+                echo $(hostname) | openssl req -config $1 -new -key $2 -days 1825 -out $3
+              }
+
+              function failwith() {
+                local err=$?
+                1>&2 echo "[CLOCKER] $1"
+                exit $err
+              }
+
+              function getcert() {
+                local url=$1
+                local file=$2
+                curl -L ${url} --output ${file} --write-out "%{http_code}"  | grep 200 ||
+                  failwith "${file} not received from CA"
+              }
+              EOC
+              source functions.sh
+
               mkdir -p ${INSTALL_DIR}/certs
-              curl -L ${CA_URL}/ca.pem -o ${INSTALL_DIR}/certs/ca.pem --fail
-              curl -L ${CA_URL}/cert.pem -o ${INSTALL_DIR}/certs/cert.pem --fail
-              curl -L ${CA_URL}/key.pem -o ${INSTALL_DIR}/certs/key.pem --fail
+              getcert ${CA_REQUEST_ROOT_URL}/cacert/ca.pem ${INSTALL_DIR}/certs/ca.pem
+              generate_key ${INSTALL_DIR}/certs/key.pem
+              generate_conf ${HOST_ADDRESS} ${INSTALL_DIR}/certs/csr.cnf
+              generate_csr ${INSTALL_DIR}/certs/csr.cnf ${INSTALL_DIR}/certs/key.pem ${INSTALL_DIR}/certs/csr.pem
+
+              curl -X POST --data-binary @${INSTALL_DIR}/certs/csr.pem  ${CA_REQUEST_ROOT_URL}/sign > ${INSTALL_DIR}/certs/cert.pem
+
             etcd.options.additional:
               $brooklyn:formatString:
               - >-
@@ -252,6 +297,7 @@ brooklyn.catalog:
       brooklyn.config:
         shell.env:
           SWARM_DISCOVERY_URL: $brooklyn:config("swarm.discovery.url")
+          HOST_ADDRESS: $brooklyn:attributeWhenReady("host.address")
 
         post.launch.command: |
           docker run -d --name swarm-${HOST_NAME} \

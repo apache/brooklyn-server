@@ -171,17 +171,17 @@ brooklyn.catalog:
         - name: ca.cert.url
           label: CA Certificate URL
           description: |
-            URL for the CA certificate
+            Optional URL for the CA certificate
           type: string
         - name: node.cert.url
           label: Node Certificate URL
           description: |
-            URL for the TLS certificate for this Docker engine
+            Optional URL for the TLS certificate for this Docker engine
           type: string
         - name: private.key.url
           label: Private Key URL
           description: |
-            URL for the private key of this Docker engine
+            Optional URL for the private key of this Docker engine
           type: string
 
       brooklyn.enrichers:
@@ -219,14 +219,18 @@ brooklyn.catalog:
               - $brooklyn:attributeWhenReady("docker.port")
 
       brooklyn.config:
+        docker.cert.path:
+          $brooklyn:formatString:
+          - "%s/.certs"
+          - $brooklyn:attributeWhenReady("install.dir")
         docker.tlsoptions:
           $brooklyn:formatString:
           - >-
             --tlsverify
-            --tlscacert=%1$s/.certs/ca.pem
-            --tlscert=%1$s/.certs/cert.pem
-            --tlskey=%1$s/.certs/key.pem
-          - $brooklyn:attributeWhenReady("install.dir")
+            --tlscacert=%1$s/ca.pem
+            --tlscert=%1$s/cert.pem
+            --tlskey=%1$s/key.pem
+          - $brooklyn:config("docker.cert.path")
         docker.additionaloptions.docker-engine-tls:
           $brooklyn:formatString:
           - "-H %s %s"
@@ -245,45 +249,78 @@ brooklyn.catalog:
           DOCKER_ENDPOINT: $brooklyn:attributeWhenReady("docker.endpoint")
           DOCKER_HOST: $brooklyn:attributeWhenReady("docker.url")
           DOCKER_TLS_VERIFY: true
-          DOCKER_CERT_PATH:
-            $brooklyn:formatString:
-            - "%s/.certs"
-            - $brooklyn:attributeWhenReady("install.dir")
+          DOCKER_CERT_PATH: $brooklyn:config("docker.cert.path")
 
         customize.command: |
           set -e # need all commands to execute successfully
+          cat > functions.sh <<-'EOC'
+          function generate_key () {
+            openssl genrsa -out $1 2048
+          }
 
-          mkdir -p ${INSTALL_DIR}/.certs
+          function generate_conf () {
+            local IP=$1
+            local CNF=$2
+            cat > ${CNF} <<-EOF
+              [ req ]
+              req_extensions=v3_req
+              distinguished_name=req_distinguished_name
+
+              [ req_distinguished_name ]
+              commonName                      = Common Name (eg, your name or your server\'s hostname)
+              commonName_max                  = 64
+
+              [ v3_req ]
+              subjectAltName=IP:${IP}
+          EOF
+          }
+
+          function generate_csr () {
+            echo $(hostname) | openssl req -config $1 -new -key $2 -days 1825 -out $3
+          }
+
           function failwith() {
             local err=$?
             1>&2 echo "[CLOCKER] $1"
             exit $err
           }
+
           function getcert() {
             local url=$1
             local file=$2
             curl -L ${url} --output ${file} --write-out "%{http_code}"  | grep 200 ||
               failwith "${file} not received from CA"
           }
+          EOC
+
+          # main
+          set -e
+          source functions.sh
+
+          echo "Creating ${DOCKER_CERT_PATH}"
+          mkdir -p ${DOCKER_CERT_PATH}
+
           if [ "${CA_REQUEST_ROOT_URL}" ] ; then
-              echo "[CLOCKER] Requesting creation of certificates from ${CA_REQUEST_ROOT_URL}"
-              curl -d "" -X POST --write-out "%{http_code}" ${CA_REQUEST_ROOT_URL}/generate/${HOST_ADDRESS} | grep 201 ||
-                failwith "Could not request certificate for ${HOST_ADDRESS} from ${CA_CERT_ROOT}"
-              echo "Requesting generated certificates from ${CA_CERT_ROOT}"
-              getcert ${CA_REQUEST_ROOT_URL}/cert/${HOST_ADDRESS}/ca.pem ${INSTALL_DIR}/.certs/ca.pem
-              getcert ${CA_REQUEST_ROOT_URL}/cert/${HOST_ADDRESS}/cert.pem ${INSTALL_DIR}/.certs/cert.pem
-              getcert ${CA_REQUEST_ROOT_URL}/cert/${HOST_ADDRESS}/key.pem ${INSTALL_DIR}/.certs/key.pem
-              echo "[CLOCKER] Certifcates for ${HOST_ADDRESS} received"
+            #echo "$CA_CERTIFICATE" >  ${DOCKER_CERT_PATH}/ca.pem # commented out until after we get back to this.
+            getcert ${CA_REQUEST_ROOT_URL}/cacert/ca.pem ${DOCKER_CERT_PATH}/ca.pem
+
+            generate_key ${DOCKER_CERT_PATH}/key.pem
+            generate_conf ${HOST_ADDRESS} ${DOCKER_CERT_PATH}/csr.cnf
+            generate_csr ${DOCKER_CERT_PATH}/csr.cnf ${DOCKER_CERT_PATH}/key.pem ${DOCKER_CERT_PATH}/csr.pem
+
+            echo "[CLOCKER] Requesting certificate from ${CA_REQUEST_ROOT_URL}"
+            curl -X POST --data-binary @${DOCKER_CERT_PATH}/csr.pem  ${CA_REQUEST_ROOT_URL}/sign > ${DOCKER_CERT_PATH}/cert.pem
+            echo "[CLOCKER] Certifcate for ${HOST_ADDRESS} received"
           else
-              echo "[CLOCKER] Downloading certificates from configuration settings"
-              getcert ${CA_CERT_URL} ${INSTALL_DIR}/.certs/ca.pem
-              getcert ${NODE_CERT_URL} ${INSTALL_DIR}/.certs/cert.pem
-              getcert ${PRIV_KEY_URL} ${INSTALL_DIR}/.certs/key.pem
+            echo "[CLOCKER] Downloading certificates from configuration settings"
+            getcert ${CA_CERT_URL} > ${DOCKER_CERT_PATH}/ca.pem
+            getcert ${NODE_CERT_URL} > ${DOCKER_CERT_PATH}/cert.pem
+            getcert ${PRIV_KEY_URL}  > ${DOCKER_CERT_PATH}/key.pem
           fi
           # TODO verify certs with openssl
-          test -f ${INSTALL_DIR}/.certs/ca.pem || failwith "Failed to download ca.pem"
-          test -f ${INSTALL_DIR}/.certs/cert.pem || failwith "Failed to download cert.pem"
-          test -f ${INSTALL_DIR}/.certs/key.pem || failwith "Failed to download key.pem"
+          test -f ${DOCKER_CERT_PATH}/ca.pem || failwith "Failed to obtain ca.pem"
+          test -f ${DOCKER_CERT_PATH}/cert.pem || failwith "Failed to obtain cert.pem"
+          test -f ${DOCKER_CERT_PATH}/key.pem || failwith "Failed to obtain key.pem"
 
         post.customize.command: |
           echo "[CLOCKER] Set up Docker environment variables with TLS"
@@ -296,6 +333,13 @@ brooklyn.catalog:
           DOCKER_HOST=${DOCKER_HOST}
           export DOCKER_TLS_VERIFY DOCKER_CERT_PATH DOCKER_HOST
           EOF
+
+      brooklyn.initializers:
+      - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
+        brooklyn.config:
+          name: CSR
+          command: cat ${DOCKER_CERT_PATH}/csr.pem
+
 
   - id: docker-engine-container
     name: "Docker Container"

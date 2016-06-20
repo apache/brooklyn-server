@@ -168,13 +168,26 @@ brooklyn.catalog:
           CA: $brooklyn:config("ca.url")
 
         customize.command: |
-          echo [TEST] Installing certificates in ${INSTALL_DIR}/.certs
-          mkdir -p ${INSTALL_DIR}/.certs
+          set -e
+          CERT_DIR=${INSTALL_DIR}/.certs
+          echo [TEST] Generating certificate request in ${CERT_DIR}
+          mkdir -p ${CERT_DIR}
+          openssl genrsa -out ${CERT_DIR}/key.pem 2048
+          # provide defaults for most prompts as '.' below, meaning 'ignore'. CN is '*'
+          openssl req  -new -key ${CERT_DIR}/key.pem -days 1825 -out ${CERT_DIR}/csr.pem <<-EOF
+          .
+          .
+          .
+          .
+          .
+          *
+          .
+          .
+          .
+          EOF
           echo [TEST] Getting certificates from ${CA}
-          curl -X POST ${CA}/generate/${IP}
-          curl ${CA}/cert/${IP}/ca.pem > ${INSTALL_DIR}/.certs/ca.pem
-          curl ${CA}/cert/${IP}/cert.pem > ${INSTALL_DIR}/.certs/cert.pem
-          curl ${CA}/cert/${IP}/key.pem > ${INSTALL_DIR}/.certs/key.pem
+          curl -L ${CA}/cacert/ca.pem --output ${CERT_DIR}/ca.pem
+          curl -X POST --data-binary @${CERT_DIR}/csr.pem ${CA}/sign > ${CERT_DIR}/cert.pem
           if ! grep docker_client ${HOME}/.bashrc ; then
             echo ". docker_client.rc" >> ${HOME}/.bashrc
           fi

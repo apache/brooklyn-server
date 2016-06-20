@@ -18,7 +18,6 @@ brooklyn.catalog:
       services:
       - type: ca-server
 
-  # TODO update REST API below to avoid transmitting key.pem
   - id: ca-server
     name: "Certificate Authority Server"
     description:  |
@@ -56,7 +55,8 @@ brooklyn.catalog:
           ORGANIZATION_UNIT: $brooklyn:config("organization.unit")
           COMMON_NAME: $brooklyn:config("common.name")
           EMAIL_ADDRESS: $brooklyn:config("email.address")
-          DOMAIN: $brooklyn:config("domain")
+          CHALLENGE_PASSWORD: $brooklyn:config("challenge.password")
+          OPTIONAL_COMPANY_NAME: $brooklyn:config("optional.company.name")
           CA_SERVER_PORT: $brooklyn:config("ca.server.port")
           INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
           NODE_PATH:
@@ -65,85 +65,95 @@ brooklyn.catalog:
             - $brooklyn:attributeWhenReady("install.dir")
 
         install.command: |
+          echo "[CLOCKER] Install OpenSSL"
           sudo yum install -y openssl
+
+          echo "[CLOCKER] Install Node.js webapp prerequisites"
           curl --silent --location https://rpm.nodesource.com/setup | sudo bash -
           sudo yum install -y install nodejs
-
-        customize.command: |
-          echo "[CLOCKER] Install Node.js webapp prerequisites"
           npm config set prefix ${INSTALL_DIR}
           npm install express@4.13
 
+        customize.command: |
           echo "[CLOCKER] Set up Bash OpenSSL scripts"
-          cat > bash.functions <<-'EOF'
-          function generate() {
-            local ca_dir=$1
-            local node_ip=$2
+          cat > functions.sh <<-'EOF'
+          function setup_structure() {
+            sed -e "/copy_extensions/s/^# *//" -e "/^dir/c dir = $(pwd)" -e '/^#unique/s/#//' /etc/pki/tls/openssl.cnf > openssl.cnf
+            mkdir certs crl newcerts private
+            openssl rand -hex 16 > serial
+            touch index.txt
+          }
 
-            local node_dir=nodes/${node_ip}
-            mkdir -p ${node_dir}
-            cp ${ca_dir}/ca.pem ${node_dir}
-            cd ${node_dir}
-            echo "subjectAltName = IP:${node_ip}" > cert.cnf
-            openssl genrsa -out key.pem 2048
-            openssl req -subj "/CN=*" -new -key key.pem -out cert-req.csr
-            openssl x509 -req -days 1825 -in cert-req.csr -CA ${ca_dir}/ca.pem -CAkey ${ca_dir}/ca-priv-key.pem \
-                -CAcreateserial -out cert.pem  -extfile cert.cnf
-            # Is the line below actually doing anything?
-            openssl rsa -in key.pem -out key.pem
+          function self_sign_ca_certificate () {
+            echo "[CLOCKER] Generate a CA root certificate"
+            openssl genrsa -out private/cakey.pem 2048
+            openssl req -config openssl.cnf -new -key private/cakey.pem -days 1825 -out ca.csr <<-EOC
+          ${COUNTRY:-.}
+          ${STATE:-.}
+          ${LOCALITY:-.}
+          ${ORGANIZATION_NAME:-.}
+          ${ORGANIZATION_UNIT:-.}
+          ${COMMON_NAME:-'*'}
+          ${EMAIL_ADDRESS:-.}
+          ${CHALLENGE_PASSWORD:-.}
+          ${OPTIONAL_COMPANY_NAME:-.}
+          EOC
+            yes | openssl ca -config openssl.cnf -selfsign -in ca.csr -out ca.pem -policy policy_anything -extensions v3_ca
+          }
+
+          function sign_cert () {
+            csr_file=$1
+            yes | openssl ca -config openssl.cnf -cert ca.pem  -extensions usr_cert -policy policy_anything -in ${csr_file}
           }
           EOF
 
-          cat > generate.sh <<-'EOF'
+
+          cat > sign_cert.sh <<-'EOF'
           #!/usr/bin/env bash
-          source bash.functions
-          generate $(pwd) $1
+          source functions.sh
+          temp_request=$(mktemp)
+
+          # cat all input to the temp request file
+          cat > ${temp_request}
+
+          sign_cert ${temp_request} || {
+             res=$?
+             echo Error signing certificate
+             exit res
+          }
           EOF
-          chmod +x generate.sh
+          chmod +x sign_cert.sh
+
+          source functions.sh
+
+          setup_structure
 
           echo "[CLOCKER] Set up Node.js web service"
           cat > webserver.js <<-EOF
           var http = require('http');
           var fs = require('fs');
           var express = require('express');
-          const execFile = require('child_process').execFile;
+          const spawn = require('child_process').spawn;
 
-          const PORT=${CA_SERVER_PORT};
+          const PORT=8080;
 
           var server = express();
-          server.use('/cert', express.static('nodes'));
-
-          server.post("/generate/:nodeName", function(req, res) {
-              console.log("POST received on " + req.url);
-              console.log("Node name is " + req.params.nodeName);
-              execFile('./generate.sh', [req.params.nodeName], [], function(error, stdout, stderr) {
-                  if (error) {
-                      console.log(error);
-                      throw error;
-                  }
-                  res.writeHead(201, {'Content-Type': 'text/plain'});
-                  res.end('Created')
-              });
+          server.use('/cacert', express.static('cacert'));
+          server.post("/sign", function(request, response) {
+              console.log("POST received on " + request.url);
+                  var proc = spawn('./sign_cert.sh');
+                  request.pipe(proc.stdin);
+                  proc.stdout.pipe(response);
           });
 
           server.listen(PORT, function(req, res){
-              console.log("Server listening on: http://localhost:%s", PORT);
+              console.log("Server listening on port %s", PORT);
           });
           EOF
 
-          mkdir nodes
-
-          echo "[CLOCKER] Generate the CA root certificate"
-          openssl genrsa -out ca-priv-key.pem 2048
-          openssl req -config /etc/pki/tls/openssl.cnf -new -key ca-priv-key.pem -x509 -days 1825 -out ca.pem <<-EOF
-          ${COUNTRY}
-          ${STATE}
-          ${LOCALITY}
-          ${ORGANIZATION_NAME}
-          ${ORGANIZATION_UNIT}
-          ${COMMON_NAME}
-          ${EMAIL_ADDRESS}
-          EOF
+          self_sign_ca_certificate
+          mkdir cacert
+          cp ca.pem cacert
 
         launch.command: |
           nohup node webserver.js  > webserver.out 2> webserver.err & echo $! > ${PID_FILE}
@@ -155,6 +165,13 @@ brooklyn.catalog:
           kill -9 $(cat ${PID_FILE})
 
       brooklyn.initializers:
+        - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
+          brooklyn.config:
+            name: CA_CERT
+            description: |
+              Present the CA certificate for the ca-server
+            command: |
+              [ -f ca.pem ] && cat ca.pem
         - type: org.apache.brooklyn.core.effector.ssh.SshCommandEffector
           brooklyn.config:
             name: generate
@@ -165,8 +182,20 @@ brooklyn.catalog:
                 description: |
                   IP address for the node
             command: |
-              source bash.functions
+              source functions.sh
               generate $(pwd) ${nodeName}
+        - type: org.apache.brooklyn.core.effector.ssh.SshCommandEffector
+          brooklyn.config:
+            name: sign
+            description: Take an X.509 Certificate Signing Request and return the signed certificate
+            parameters:
+              csr:
+                description: Text of an X.509 Certificate Signing Request in PEM format
+            command: |
+              source functions.sh
+              temp_request=$(mktemp)
+              echo "$csr" >> ${temp_request}
+              sign_cert ${temp_request} && rm -f ${temp_request}
 
       brooklyn.enrichers:
         - type: org.apache.brooklyn.enricher.stock.Transformer
