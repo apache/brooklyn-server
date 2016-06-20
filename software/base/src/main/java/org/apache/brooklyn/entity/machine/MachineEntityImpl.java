@@ -23,12 +23,12 @@ import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
 import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.entity.software.base.AbstractSoftwareProcessSshDriver;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcessDriver;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcessImpl;
-import org.apache.brooklyn.feed.ssh.SshFeed;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
@@ -40,28 +40,33 @@ public class MachineEntityImpl extends EmptySoftwareProcessImpl implements Machi
 
     private static final Logger LOG = LoggerFactory.getLogger(MachineEntityImpl.class);
 
-    private transient SshFeed machineMetricsFeed;
+    private transient Feed machineMetrics;
 
     @Override
-    public void init() {
-        LOG.info("Starting server pool machine with id {}", getId());
-        super.init();
+    protected void initEnrichers() {
+        LOG.info("Adding machine metrics enrichers");
+        AddMachineMetrics.addMachineMetricsEnrichers(this);
+
+        super.initEnrichers();
     }
 
     @Override
     protected void connectSensors() {
         super.connectSensors();
+
         Maybe<SshMachineLocation> location = Machines.findUniqueMachineLocation(getLocations(), SshMachineLocation.class);
         if (location.isPresent() && location.get().getOsDetails().isLinux()) {
-            machineMetricsFeed = AddMachineMetrics.createMachineMetricsFeed(this);
-            AddMachineMetrics.addMachineMetricsEnrichers(this);
+            LOG.info("Adding machine metrics feed");
+            machineMetrics = AddMachineMetrics.createMachineMetricsFeed(this);
         } else {
             LOG.warn("Not adding machine metrics feed as no suitable location available on entity");
         }
     }
 
-    public void disconnectSensors() {
-        if (machineMetricsFeed != null) machineMetricsFeed.stop();
+    @Override
+    protected void disconnectSensors() {
+        if (machineMetrics != null) machineMetrics.stop();
+
         super.disconnectSensors();
     }
 
