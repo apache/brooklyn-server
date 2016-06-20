@@ -131,7 +131,7 @@ public abstract class AbstractYamlTest {
     protected Entity createAndStartApplication(String input) throws Exception {
         return createAndStartApplication(input, MutableMap.<String,String>of());
     }
-    protected Entity createAndStartApplication(String input, Map<String,String> startParameters) throws Exception {
+    protected Entity createAndStartApplication(String input, Map<String,?> startParameters) throws Exception {
         EntitySpec<?> spec = 
             mgmt().getTypeRegistry().createSpecFromPlan(CampTypePlanTransformer.FORMAT, input, RegisteredTypeLoadingContexts.spec(Application.class), EntitySpec.class);
         final Entity app = brooklynMgmt.getEntityManager().createEntity(spec);
