@@ -183,6 +183,12 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         }
 
         if (entityIds != null) {
+            entityIds = entityIds.trim();
+            if ((entityIds.startsWith("{") && entityIds.endsWith("}")) ||
+                    (entityIds.startsWith("[") && entityIds.endsWith("]"))) {
+                // trim [] or {} in case caller supplied glob or json syntax
+                entityIds = entityIds.substring(1, entityIds.length()-1);
+            }
             for (String entityId: entityIds.split(",")) {
                 Entity entity = mgmt().getEntityManager().getEntity(entityId.trim());
                 while (entity != null && entity.getParent() != null) {
