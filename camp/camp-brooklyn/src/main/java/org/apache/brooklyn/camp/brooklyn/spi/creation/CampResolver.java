@@ -36,6 +36,7 @@ import org.apache.brooklyn.camp.brooklyn.api.AssemblyTemplateSpecInstantiator;
 import org.apache.brooklyn.camp.spi.AssemblyTemplate;
 import org.apache.brooklyn.camp.spi.instantiate.AssemblyTemplateInstantiator;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
+import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -115,17 +116,20 @@ class CampResolver {
             throw new IllegalStateException("Creating spec from "+item+", got "+spec.getType()+" which is incompatible with expected "+expectedType);                
         }
 
-        ((AbstractBrooklynObjectSpec<?, ?>)spec).catalogItemIdIfNotNull(item.getId());
+        spec.catalogItemIdIfNotNull(item.getId());
 
         if (spec instanceof EntitySpec) {
-            if (Strings.isBlank( ((AbstractBrooklynObjectSpec<?, ?>)spec).getDisplayName() )) {
-                ((AbstractBrooklynObjectSpec<?, ?>)spec).displayName(item.getDisplayName());
+            String name = spec.getDisplayName();
+            Object defaultNameConf = spec.getConfig().get(AbstractEntity.DEFAULT_DISPLAY_NAME);
+            Object defaultNameFlag = spec.getFlags().get(AbstractEntity.DEFAULT_DISPLAY_NAME.getName());
+            if (Strings.isBlank(name) && defaultNameConf == null && defaultNameFlag == null) {
+                spec.configure(AbstractEntity.DEFAULT_DISPLAY_NAME, item.getDisplayName());
             }
         } else {
             // See https://issues.apache.org/jira/browse/BROOKLYN-248, and the tests in 
             // ApplicationYamlTest and CatalogYamlLocationTest.
             if (Strings.isNonBlank(item.getDisplayName())) {
-                ((AbstractBrooklynObjectSpec<?, ?>)spec).displayName(item.getDisplayName());
+                spec.displayName(item.getDisplayName());
             }
         }
         
