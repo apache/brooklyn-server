@@ -144,7 +144,19 @@ public interface Attributes {
     
     AttributeSensor<URI> MAIN_URI = MainUri.MAIN_URI;
 
- // this class is added because the MAIN_URI relies on a static initialization which unfortunately can't be added to an interface.
+    AttributeSensor<JcloudsProvisioningState> JCLOUDS_PROVISIONING_RUNNING = new BasicAttributeSensor(TypeToken.of(JcloudsProvisioningState.class), "jclouds.provisioning.running",
+            "Internal sensor. Please do NOT change its value across entities.", AttributeSensor.SensorPersistenceMode.NONE);
+    /**
+     * Used only by {@link org.apache.brooklyn.entity.software.base.lifecycle.MachineLifecycleEffectorTasks#doStop}
+     */
+    @Beta
+    enum JcloudsProvisioningState {
+        STARTED,
+        DONE,
+        NONE
+    }
+
+    // this class is added because the MAIN_URI relies on a static initialization which unfortunately can't be added to an interface.
     class MainUri {
         private final static AttributeSensor<URI> MAIN_URI = Sensors.newSensor(URI.class, "main.uri", "Main URI for contacting the service/endpoint offered by this entity");
 
