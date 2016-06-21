@@ -19,6 +19,21 @@ brooklyn.catalog:
       brooklyn.config:
         assertStatus:
           equals: 0
+          
+  - id: assert-up-initial
+    item:
+      type: org.apache.brooklyn.test.framework.TestSensor
+      name: TEST [service.isUp] IS [true]
+      sensor: service.isUp
+      brooklyn.parameters:
+      - name: timeout.initialStartup
+        description: The timeout for provisioning, installing and launching the app-under-test.
+        type: org.apache.brooklyn.util.time.Duration
+        default: 1h
+      brooklyn.config:
+        timeout: $brooklyn:config("timeout.initialStartup")
+      assert:
+      - equals: true
 
   - id: assert-up
     item:
@@ -44,11 +59,24 @@ brooklyn.catalog:
       assert:
       - matches: on-fire
 
-  - id: test-stop
+  - id: test-stop-machine
     item:
-      name: Invoke [stop] effector
+      name: Invoke [stop] effector (machine)
       type: org.apache.brooklyn.test.framework.TestEffector
       effector: stop
+
+  - id: test-stop
+    item:
+      type: test-stop-machine
+
+  - id: test-stop-process
+    item:
+      name: Invoke [stop] effector (process)
+      type: org.apache.brooklyn.test.framework.TestEffector
+      effector: stop
+      brooklyn.config:
+        params:
+          stopMachineMode: NEVER
 
   - id: test-start
     item:
@@ -221,6 +249,36 @@ brooklyn.catalog:
             IMAGE_PREINSTALLED: $brooklyn:config("image.preinstall")
           command:
             docker images --format "{{.Repository}}:{{.Tag}}" | grep "${IMAGE_PREINSTALLED}"
+          assert.status:
+            equals: 0
+
+  - id: no-preinstall-image-tests
+    name: Empty Preinstalled Image Tests
+    description: Tests empty image.preinstall will skip pull
+    item:
+      type: org.apache.brooklyn.test.framework.TestCase
+
+      brooklyn.parameters:
+        - name: timeout.initialStartup
+          description: |
+            The timeout for provisioning, installing and launching the application
+            under test.
+          type: org.apache.brooklyn.util.time.Duration
+          default: 1h
+        - name: timeout.runtimeAssertion
+          type: org.apache.brooklyn.util.time.Duration
+          description: |
+            The timeout for any other operation e.g. invoking an effector or
+            waiting for a sensor to be updated.
+          default: 15m
+
+      brooklyn.children:
+      - type: ssh-test
+        name: TEST-1 no docker images
+        brooklyn.config:
+          command: |
+            # Only header expected
+            [ "$(docker images | wc -l)" -eq "1" ]
           assert.status:
             equals: 0
 

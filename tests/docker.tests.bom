@@ -31,18 +31,8 @@ brooklyn.catalog:
         name: Docker Entity tests
         targetId: docker-entity
         brooklyn.children:
-        - type: assert-up
-          brooklyn.parameters:
-          - name: timeout.initialStartup
-            description: The timeout for provisioning, installing and launching the app-under-test.
-            type: org.apache.brooklyn.util.time.Duration
-            default: 1h
-          brooklyn.config:
-            timeout: $brooklyn:config("timeout.initialStartup")
-        - type: test-stop
-          brooklyn.config:
-            params:
-              stopMachineMode: NEVER
+        - type: assert-up-initial
+        - type: test-stop-process
         - type: test-start
         - type: test-restart-process
         - type: test-restart-machine
@@ -52,6 +42,81 @@ brooklyn.catalog:
               $brooklyn:formatString:
               - "%s:6379"
               - $brooklyn:entity("docker-entity").attributeWhenReady("host.address")
+
+  - id: docker-vm-container-run-options
+    name: Docker Entity run options tests
+    description: Tests of wrapper-vm docker
+    itemType: entity
+    item:
+      type: org.apache.brooklyn.entity.stock.BasicApplication
+      name: Docker Entity test run options
+
+      brooklyn.config:
+        timeout: 10m
+
+      brooklyn.children:
+      - type: docker-vm-container
+        name: Docker Entity
+        id: docker-vm-entity-run-options
+        brooklyn.config:
+          docker.image: busybox:1.24
+          docker.run.arguments: /bin/nc -ll -p 1234 -e /bin/ls
+          docker.run.volumes:
+          - /tmp/vol1:/vol1
+          - named:/named1
+          - named:/named2
+          docker.run.env:
+            k1: v1
+            k2: v2
+            some weird key: multi space var
+          my.server.port: 1234
+
+      - type: test-case
+        name: Docker Entity run options tests
+        targetId: docker-vm-entity-run-options
+        brooklyn.children:
+        - type: assert-up
+          brooklyn.parameters:
+          - name: timeout.initialStartup
+            description: The timeout for provisioning, installing and launching the app-under-test.
+            type: org.apache.brooklyn.util.time.Duration
+            default: 1h
+          brooklyn.config:
+            timeout: $brooklyn:config("timeout.initialStartup")
+        - type: ssh-test
+          name: TEST container arguments applied
+          brooklyn.config:
+            env:
+              CONTAINER_ID: $brooklyn:entity("docker-vm-entity-run-options").attributeWhenReady("container.id")
+            command: |
+              COMMAND=$(docker inspect --format "{{ .Path }} {{ .Args }}" ${CONTAINER_ID})
+              [ "${COMMAND}" = "/bin/nc [-ll -p 1234 -e /bin/ls]" ]
+        - type: ssh-test
+          name: TEST volume arguments applied
+          brooklyn.config:
+            env:
+              CONTAINER_ID: $brooklyn:entity("docker-vm-entity-run-options").attributeWhenReady("container.id")
+            command: |
+              ACTUAL=$(docker inspect --format "{{range .Mounts }}{{ .Name }}, {{ .Source }}, {{ .Destination }}
+              {{ end }}"  ${CONTAINER_ID} | sort)
+              echo "ACTUAL=$ACTUAL"
+              EXPECTED=$(printf "\nnamed, /var/lib/docker/volumes/named/_data, /named1\nnamed, /var/lib/docker/volumes/named/_data, /named2\n, /tmp/vol1, /vol1")
+              [ "${ACTUAL}" = "${EXPECTED}" ]
+        - type: ssh-test
+          name: TEST environment arguments applied
+          brooklyn.config:
+            env:
+              CONTAINER_ID: $brooklyn:entity("docker-vm-entity-run-options").attributeWhenReady("container.id")
+            command: |
+              ACTUAL=$(docker inspect --format "{{ .Config.Env }}"  ${CONTAINER_ID})
+              echo "ACTUAL=$ACTUAL"
+              [ "${ACTUAL}" = "[k1=v1 k2=v2 some weird key=multi space var]" ]
+        - type: test-reachable
+          brooklyn.config:
+            endpoint:
+              $brooklyn:formatString:
+              - "%s:1234"
+              - $brooklyn:entity("docker-vm-entity-run-options").attributeWhenReady("host.address")
 
   # TODO Unused, need to express that start effector is expected to fail
   - id: docker-vm-container-fails-test
@@ -123,6 +188,7 @@ brooklyn.catalog:
       type: org.apache.brooklyn.entity.stock.BasicApplication
       brooklyn.children:
       - type: docker-vm-container-happy-test
+      - type: docker-vm-container-run-options
       #- type: docker-vm-container-fails-test
       #- type: docker-vm-container-exits-test
 
@@ -142,6 +208,25 @@ brooklyn.catalog:
       - type: preinstall-image-tests
         name: Preinstalled Image Tests
         targetId: preinstall-engine
+
+  - id: docker-no-preinstall-tests
+    name: Preinstalled image tests
+    description: Tests of pre-installed Docker image
+    itemType: entity
+    item:
+      type: org.apache.brooklyn.test.framework.TestCase
+
+      brooklyn.children:
+
+      - type: docker-engine
+        name: Docker Engine
+        id: no-preinstall-engine
+        brooklyn.config:
+          image.preinstall:
+
+      - type: no-preinstall-image-tests
+        name: Empty Preinstalled Image Tests
+        targetId: no-preinstall-engine
 
   - id: docker-engine-tests
     name: Docker Engine Tests without TLS

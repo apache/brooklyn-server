@@ -7,7 +7,7 @@ brooklyn.catalog:
       Resources for working with Docker Engine from Apache Brooklyn
     license_code: CLOUDSOFT-1.0
     overview: README.md
-    qa: docker.tests.bom
+    qa: tests/docker.tests.bom
 
   items:
   - id: docker-engine
@@ -188,8 +188,9 @@ brooklyn.catalog:
           EOF
 
         launch.command: |
-          sudo service docker start && \
-            ( docker images --format="{{.Repository}}:{{.Tag}}" | grep -q "${DOCKER_IMAGE_PREINSTALL}" || \
+          sudo service docker start &&
+            [ -z "${DOCKER_IMAGE_PREINSTALL}" ] ||
+            ( docker images --format="{{.Repository}}:{{.Tag}}" | grep -q "${DOCKER_IMAGE_PREINSTALL}" ||
               docker pull ${DOCKER_IMAGE_PREINSTALL} )
 
         stop.command: |
@@ -354,21 +355,67 @@ brooklyn.catalog:
     item:
       type: docker-engine
 
+#      TODO implement parameters merge behaviour and remove defaults from brooklyn.config below
+#      brooklyn.parameters.inheritance.type: prepend/append/overwrite/hide?
+#      brooklyn.parameters:
+#        - name: docker.image
+#          label: Docker Image
+#          description: |
+#            The docker image to use when running the container
+#        - name: docker.run.arguments
+#          label: Docker Run Arguments
+#          description: |
+#            Arguments to pass to the docker run command
+#        - name: docker.run.volumes
+#          label: Container Volumns
+#          type: java.util.List
+#          description: |
+#            List of volumes to mount. Items follow the documents docker format of -v
+#        - name: docker.run.env
+#          label: Container Environment
+#          type: java.util.Map
+#          description: |
+#            Map of environment variables to pass to the container
+
       brooklyn.config:
+        image.preinstall:
+        # Avoids null which fails the deployment
+        docker.run.arguments: 
+        docker.run.volumes: 
+        docker.run.env:
         shell.env:
           DOCKER_IMAGE: $brooklyn:config("docker.image")
+          DOCKER_RUN_ARGUMENTS: $brooklyn:config("docker.run.arguments")
+          DOCKER_RUN_VOLUMES: $brooklyn:config("docker.run.volumes")
+          DOCKER_RUN_ENV: $brooklyn:config("docker.run.env")
 
-        # TODO Move the empty docker.image test to pre-install steps after they fail the start effector
-        # Breaks compatibility with docker-engine - doesn't install "image.preinstall" to save on copy & paste
-        launch.command: |
-          set -e
+        pre.install.command: |
+          sudo yum -y install epel-release
+          sudo yum -y install jq
+        pre.launch.command: |
           if [ -z "${DOCKER_IMAGE}" ]; then
             echo "[CLOCKER] 'docker.image' not configured on the entity" >&2
             exit 1
           fi
-          sudo service docker start
+        post.launch.command: |
+          set -e
+          # Won't escape quotes in the arguments, but those are not expected
+          function parse_docker_volumes {
+            echo ${DOCKER_RUN_VOLUMES} |
+              jq -r '["-v \"" + .[] + "\" "] | add'
+          }
+          function parse_docker_env {
+            echo ${DOCKER_RUN_ENV} |
+              jq -r 'to_entries | map("-e \"" + .key + "=" + .value + "\" ") | add'
+          }
           rm -f "${PID_FILE}" # docker won't overwrite
-          docker run -d --cidfile "${PID_FILE}" --net="host" "${DOCKER_IMAGE}"
+          DOCKER="docker run -d --cidfile \"${PID_FILE}\" --net=host"
+          [ "${DOCKER_RUN_VOLUMES}" ] && DOCKER="${DOCKER} $( parse_docker_volumes )"
+          [ "${DOCKER_RUN_ENV}" ] && DOCKER="${DOCKER} $( parse_docker_env )"
+          DOCKER="${DOCKER} \"${DOCKER_IMAGE}\""
+          [ "${DOCKER_RUN_ARGUMENTS}" ] && DOCKER="${DOCKER} ${DOCKER_RUN_ARGUMENTS}"
+          echo "${DOCKER}"
+          echo "${DOCKER}" | bash
 
         checkRunning.command: |
           STATE=$(docker inspect --format "{{ .State.Status }}" $(cat "${PID_FILE}"))
@@ -377,3 +424,22 @@ brooklyn.catalog:
         stop.command: |
           docker stop $(cat "${PID_FILE}")
           sudo service docker stop
+          rm -f "${PID_FILE}"
+
+      brooklyn.initializers:
+      - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
+        brooklyn.config:
+          name: container.id
+          period: 1m
+          type: int
+          command: "[ -f pid.txt ] && cat pid.txt"
+      - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
+        brooklyn.config:
+          name: container.stats.cpu.percent
+          period: 1m
+          command: "[ -f pid.txt ] && docker stats --no-stream `pid.txt` | tail -n+2 | cut -c21-40"
+      - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
+        brooklyn.config:
+          name: container.stats.memory.percent
+          period: 1m
+          command: "[ -f pid.txt ] && docker stats --no-stream `pid.txt` | tail -n+2 | cut -c63-82"
