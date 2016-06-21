@@ -51,7 +51,7 @@ public class RecordingSshTool implements SshTool {
         
         @Override
         public String toString() {
-            return "ExecCmd["+exitCode+"; "+stdout+"; "+stderr+"]";
+            return "CustomResponse["+exitCode+"; "+stdout+"; "+stderr+"]";
         }
     }
     

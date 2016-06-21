@@ -28,6 +28,7 @@ import static org.apache.brooklyn.test.framework.TestSshCommand.ASSERT_STATUS;
 import static org.apache.brooklyn.test.framework.TestSshCommand.COMMAND;
 import static org.apache.brooklyn.test.framework.TestSshCommand.DOWNLOAD_URL;
 import static org.apache.brooklyn.test.framework.TestSshCommand.RUN_DIR;
+import static org.apache.brooklyn.test.framework.TestSshCommand.TIMEOUT;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
@@ -38,12 +39,15 @@ import java.util.Map;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -58,9 +62,36 @@ public class TestSshCommandIntegrationTest extends BrooklynAppUnitTestSupport {
     @Override
     public void setUp() throws Exception {
         super.setUp();
-
         testEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
                 .location(TestApplication.LOCALHOST_MACHINE_SPEC));
+    }
+
+    @Test(groups = "Integration")
+    public void shouldRetryCommandWithinTimeout() throws Exception {
+        TestSshCommand testWithCmd = app.createAndManageChild(EntitySpec.create(TestSshCommand.class)
+                .configure(TARGET_ENTITY, testEntity)
+                .configure(COMMAND, "_djaf-_f£39r24")
+                .configure(RUN_DIR, "/tmp")
+                .configure(TIMEOUT, Duration.TEN_SECONDS)
+                .configure(ASSERT_STATUS, makeAssertions(ImmutableMap.of(EQUALS, 0))));
+
+        // Run the test's assertions in parallel with the app.
+        Thread t = new Thread() {
+            @Override
+            public void run() {
+                app.start(ImmutableList.<Location>of());
+            }
+        };
+        t.start();
+
+        // Times out in one second.
+        EntityAsserts.assertAttributeContinuallyNotEqualTo(testWithCmd, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+
+        // Replace command with a valid one and the test should start to pass.
+        testWithCmd.config().set(COMMAND, "true");
+        EntityAsserts.assertAttributeEqualsEventually(testWithCmd, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+
+        t.join();
     }
 
     @Test(groups = "Integration")
