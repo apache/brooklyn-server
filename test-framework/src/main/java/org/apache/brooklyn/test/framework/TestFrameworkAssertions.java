@@ -65,21 +65,23 @@ public class TestFrameworkAssertions {
      *  Get assertions tolerantly from a configuration key.
      *  This supports either a simple map of assertions, such as
      *
-     <pre>
-     assertOut:
-       contains: 2 users
-       matches: .*[\d]* days.*
-     </pre>
+     * <pre>
+     * assertOut:
+     *   contains: 2 users
+     *   matches: .*[\d]* days.*
+     * </pre>
      * or a list of such maps, (which allows you to repeat keys):
-     <pre>
-     assertOut:
-     - contains: 2 users
-     - contains: 2 days
-     </pre>
-     or
-    private static List<Map<String,Object>> getAssertions(ConfigKey<Object> key) {
-    }
-    */
+     * <pre>
+     * assertOut:
+     * - contains: 2 users
+     * - contains: 2 days
+     * </pre>
+     * or
+     * <pre>
+     * private static List<Map<String,Object>> getAssertions(ConfigKey<Object> key) {
+     * }
+     * </pre>
+     */
     public static List<Map<String, Object>> getAssertions(Entity entity, ConfigKey<Object> key) {
         Object config = entity.getConfig(key);
         Maybe<Map<String, Object>> maybeMap = TypeCoercions.tryCoerce(config, new TypeToken<Map<String, Object>>() {});
