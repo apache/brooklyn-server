@@ -251,6 +251,9 @@ public class Duration implements Comparable<Duration>, Serializable {
     public Duration multiply(long x) {
         return nanos(nanos() * x);
     }
+
+    /** @deprecated since 0.10.0 use {@link #multiply} instead. */
+    @Deprecated
     public Duration times(long x) {
         return multiply(x);
     }
