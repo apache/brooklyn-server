@@ -1,0 +1,107 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <artifactId>docker-location</artifactId>
+    <packaging>jar</packaging>
+
+    <parent>
+        <groupId>io.cloudsoft.amp.containerservice</groupId>
+        <artifactId>containerservice-parent</artifactId>
+        <version>2.0.0-SNAPSHOT</version> <!-- CONTAINER_SERVICE_VERSION -->
+    </parent>
+
+    <name>Docker Location</name>
+
+    <properties>
+        <jclouds.cloudsoft.groupId>io.cloudsoft.jclouds</jclouds.cloudsoft.groupId>
+        <jclouds.docker.groupId>${jclouds.cloudsoft.groupId}</jclouds.docker.groupId>
+        <jclouds.docker.version>1.9.2-cloudsoft.20160617</jclouds.docker.version>
+    </properties>
+
+    <dependencies>
+        <!--
+            Including only as a test dependency to make AMP build easier - expect AMP to include
+            the very latest jclouds-docker. So if this version is not kept up-to-date then it
+            won't impact AMP.
+        -->
+        <dependency>
+            <groupId>${jclouds.docker.groupId}.labs</groupId>
+            <artifactId>docker</artifactId>
+            <version>${jclouds.docker.version}</version>
+            <exclusions>
+                <exclusion>
+                    <!-- Conflicts with javax.ws.rs-api -->
+                    <groupId>javax.ws.rs</groupId>
+                    <artifactId>jsr311-api</artifactId>
+                </exclusion>
+            </exclusions>
+            <scope>test</scope>
+        </dependency>
+    
+        <dependency>
+            <groupId>org.apache.brooklyn</groupId>
+            <artifactId>brooklyn-locations-jclouds</artifactId>
+            <version>${brooklyn.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.jclouds.labs</groupId>
+                    <artifactId>docker</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.brooklyn</groupId>
+            <artifactId>brooklyn-logback-xml</artifactId>
+            <version>${brooklyn.version}</version>
+            <!-- optional so that this project has logging; dependencies may redeclare or supply their own -->
+            <optional>true</optional>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.brooklyn</groupId>
+            <artifactId>brooklyn-test-support</artifactId>
+            <version>${brooklyn.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <version>${testng.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.brooklyn</groupId>
+            <artifactId>brooklyn-core</artifactId>
+            <version>${brooklyn.version}</version>
+            <classifier>tests</classifier>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.brooklyn</groupId>
+            <artifactId>brooklyn-locations-jclouds</artifactId>
+            <version>${brooklyn.version}</version>
+            <classifier>tests</classifier>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.jclouds.labs</groupId>
+                    <artifactId>docker</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.ws.rs</groupId>
+            <artifactId>javax.ws.rs-api</artifactId>
+            <version>${jax-rs-api.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+</project>
