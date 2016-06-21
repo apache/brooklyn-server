@@ -33,6 +33,7 @@ import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
@@ -54,6 +55,8 @@ import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.entity.group.DynamicCluster;
 import org.apache.brooklyn.entity.group.DynamicFabric;
 import org.apache.brooklyn.entity.software.base.SameServerEntity;
+import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
+import org.apache.brooklyn.entity.software.base.SoftwareProcessShellEnvironmentTest.EnvRecordingLocation;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -1009,6 +1012,43 @@ public class EntitiesYamlTest extends AbstractYamlTest {
 
         Entity testEntity = Iterables.getOnlyElement(app.getChildren());
         assertEquals(testEntity.getEntityType().getName(), "CustomTestEntityImpl");
+    }
+    
+    @Test
+    public void testShellEnvFromYaml() throws Exception {
+        String[] yaml = {
+                "services:",
+                "- type: " + VanillaSoftwareProcess.class.getName(),
+                "  id: self",
+                "  brooklyn.config:",
+                "    map-config:",
+                "      key1: val1",
+                "      key2: $brooklyn:entity(\"self\")",
+                "    list-config:",
+                "    - 4.12",
+                "    - true",
+                "    - $brooklyn:entity(\"self\")",
+                "    shell.env:",
+                "      mapRef: $brooklyn:config(\"map-config\")",
+                "      listRef: $brooklyn:config(\"list-config\")",
+                "      bean:",
+                "        $brooklyn:object:",
+                "          type: org.apache.brooklyn.entity.software.base.SoftwareProcessShellEnvironmentTest$SimpleBean",
+                "          object.fields:",
+                "            propString: bean-string",
+                "            propInt: -1"
+        };
+        final EnvRecordingLocation recordingMachine = mgmt().getLocationManager().createLocation(LocationSpec.create(EnvRecordingLocation.class)
+                .configure("address", "127.0.0.1"));
+        Entity app = createAndStartApplication(joinLines(yaml), ImmutableMap.<String, Object>of("locations", ImmutableList.of(recordingMachine)));
+        Entity entity = app.getChildren().iterator().next();
+        waitForApplicationTasks(app);
+
+        Map<String, ?> env = recordingMachine.getRecordedEnv().get(1);
+        String entityRef = "{\"type\":\"org.apache.brooklyn.api.entity.Entity\",\"id\":\"" + entity.getId() + "\"}";
+        assertEquals(env.get("mapRef"), "{\"key1\":\"val1\",\"key2\":" + entityRef + "}");
+        assertEquals(env.get("listRef"), "[4.12,true," + entityRef + "]");
+        assertEquals(env.get("bean"), "{\"propString\":\"bean-string\",\"propInt\":-1}");
     }
     
     public static class CustomTestEntityImpl extends TestEntityImpl {

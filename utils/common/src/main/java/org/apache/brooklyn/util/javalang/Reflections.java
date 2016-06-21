@@ -242,7 +242,13 @@ public class Reflections {
 
     /** Invokes a suitable constructor, supporting varargs and primitives */
     public static <T> Optional<T> invokeConstructorWithArgs(Class<T> clazz, Object[] argsArray, boolean setAccessible) {
-        Reflections reflections = new Reflections(clazz.getClassLoader());
+        ClassLoader cl = clazz.getClassLoader();
+        // if bootstrap class loader
+        if (cl == null) {
+            // The classloader isn't actually used so anything non-null will work
+            cl = ClassLoader.getSystemClassLoader();
+        }
+        Reflections reflections = new Reflections(cl);
         return invokeConstructorWithArgs(reflections, clazz, argsArray, setAccessible);
     }
 

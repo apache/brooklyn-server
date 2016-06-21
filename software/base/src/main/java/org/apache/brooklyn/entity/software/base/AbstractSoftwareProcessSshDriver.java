@@ -25,27 +25,19 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
-
-import org.apache.brooklyn.config.ConfigKey;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.drivers.downloads.DownloadResolver;
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynLogging;
 import org.apache.brooklyn.core.effector.EffectorTasks;
 import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.feed.ConfigToAttributes;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.entity.software.base.lifecycle.NaiveScriptRunner;
@@ -64,6 +56,16 @@ import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 /**
  * An abstract SSH implementation of the {@link AbstractSoftwareProcessDriver}.
@@ -344,9 +346,23 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
      * @see SoftwareProcess#SHELL_ENVIRONMENT
      */
     public Map<String, String> getShellEnvironment() {
-        return Strings.toStringMap(entity.getConfig(SoftwareProcess.SHELL_ENVIRONMENT), "");
+        Map<String, Object> env = entity.getConfig(SoftwareProcess.SHELL_ENVIRONMENT);
+        if (env == null) {
+            return null;
+        }
+        ShellEnvironmentSerializer envSerializer = new ShellEnvironmentSerializer(((EntityInternal)entity).getManagementContext());
+        Map<String, String> serializedEnv = Maps.newHashMap();
+        for (Entry<String, Object> entry : env.entrySet()) {
+            String key = serializeShellEnv(envSerializer, entry.getKey());
+            String value = serializeShellEnv(envSerializer, entry.getValue());
+            serializedEnv.put(key, value);
+        }
+        return serializedEnv;
     }
 
+    private String serializeShellEnv(ShellEnvironmentSerializer envSerializer, Object value) {
+        return StringUtils.defaultString(envSerializer.serialize(value));
+    }
 
     /**
      * @param sshFlags Extra flags to be used when making an SSH connection to the entity's machine.
