@@ -23,7 +23,7 @@ import static org.apache.brooklyn.core.entity.lifecycle.Lifecycle.RUNNING;
 import static org.apache.brooklyn.core.entity.lifecycle.Lifecycle.STARTING;
 import static org.apache.brooklyn.core.entity.lifecycle.Lifecycle.STOPPED;
 import static org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.setExpectedState;
-import static org.apache.brooklyn.test.framework.TestFrameworkAssertions.checkAssertions;
+import static org.apache.brooklyn.test.framework.TestFrameworkAssertions.checkActualAgainstAssertions;
 import static org.apache.brooklyn.test.framework.TestFrameworkAssertions.getAssertions;
 import static org.apache.brooklyn.util.text.Strings.isBlank;
 import static org.apache.brooklyn.util.text.Strings.isNonBlank;
@@ -36,6 +36,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.TaskFactory;
@@ -43,12 +44,13 @@ import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
-import org.apache.brooklyn.test.framework.TestFrameworkAssertions.AssertionSupport;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.ssh.SshTasks;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.ReferenceWithError;
+import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
@@ -57,17 +59,15 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
-// TODO assertions below should use TestFrameworkAssertions but that class needs to be improved to give better error messages
 public class TestSshCommandImpl extends TargetableTestComponentImpl implements TestSshCommand {
 
     private static final Logger LOG = LoggerFactory.getLogger(TestSshCommandImpl.class);
     private static final int A_LINE = 80;
-    public static final String DEFAULT_NAME = "download.sh";
+    private static final String DEFAULT_NAME = "download.sh";
     private static final String CD = "cd";
 
     @Override
@@ -113,36 +113,59 @@ public class TestSshCommandImpl extends TargetableTestComponentImpl implements T
         }
     }
 
-    protected void handle(Result result) {
-        LOG.debug("{}, Result is {}\nwith output [\n{}\n] and error [\n{}\n]", new Object[] {
-            this, result.getExitCode(), shorten(result.getStdout()), shorten(result.getStderr())
-        });
-        ImmutableMap<String, Duration> flags = ImmutableMap.of("timeout", getConfig(TIMEOUT));
-        AssertionSupport support = new AssertionSupport();
-        checkAssertions(support, flags, exitCodeAssertions(), "exit code", Suppliers.ofInstance(result.getExitCode()));
-        checkAssertions(support, flags, getAssertions(this, ASSERT_OUT), "stdout", Suppliers.ofInstance(result.getStdout()));
-        checkAssertions(support, flags, getAssertions(this, ASSERT_ERR), "stderr", Suppliers.ofInstance(result.getStderr()));
-        support.validate();
-    }
-
     private String shorten(String text) {
         return Strings.maxlenWithEllipsis(text, A_LINE);
     }
 
+    private static class MarkerException extends Exception {
+        public MarkerException(Throwable cause) {
+            super(cause);
+        }
+    }
+
     public void execute() {
         try {
-            SshMachineLocation machineLocation =
-                Machines.findUniqueMachineLocation(resolveTarget().getLocations(), SshMachineLocation.class).get();
-            executeCommand(machineLocation);
-            setUpAndRunState(true, RUNNING);
+            final SshMachineLocation machineLocation =
+                    Machines.findUniqueMachineLocation(resolveTarget().getLocations(), SshMachineLocation.class).get();
+            final Duration timeout = config().get(TIMEOUT);
+
+            ReferenceWithError<Boolean> result = Repeater.create("Running ssh-command tests")
+                    .limitTimeTo(timeout)
+                    .every(timeout.multiply(0.1))
+                    .until(new Callable<Boolean>() {
+                        @Override
+                        public Boolean call() throws Exception {
+                            try {
+                                Result result = executeCommand(machineLocation);
+                                handle(result);
+                            } catch (AssertionError e) {
+                                // Repeater will only handle Exceptions gracefully. Other Throwables are thrown
+                                // immediately, so the AssertionError thrown by handle causes early exit.
+                                throw new MarkerException(e);
+                            }
+                            return true;
+                        }
+                    })
+                    .runKeepingError();
+
+            if (!result.hasError()) {
+                setUpAndRunState(true, RUNNING);
+            } else {
+                setUpAndRunState(false, ON_FIRE);
+                Throwable error = result.getError();
+                if (error instanceof MarkerException) {
+                    error = error.getCause();
+                }
+                throw Exceptions.propagate(error);
+            }
+
         } catch (Throwable t) {
             setUpAndRunState(false, ON_FIRE);
             throw Exceptions.propagate(t);
         }
     }
 
-    private void executeCommand(SshMachineLocation machineLocation) {
-
+    private Result executeCommand(SshMachineLocation machineLocation) {
         Result result = null;
         String downloadUrl = getConfig(DOWNLOAD_URL);
         String command = getConfig(COMMAND);
@@ -167,7 +190,22 @@ public class TestSshCommandImpl extends TargetableTestComponentImpl implements T
             result = executeShellCommand(machineLocation, command, env);
         }
 
-        handle(result);
+        return result;
+    }
+
+    protected void handle(Result result) {
+        LOG.debug("{}, Result is {}\nwith output [\n{}\n] and error [\n{}\n]", new Object[] {
+            this, result.getExitCode(), shorten(result.getStdout()), shorten(result.getStderr())
+        });
+        for (Map<String, Object> assertion : exitCodeAssertions()) {
+            checkActualAgainstAssertions(assertion, "exit code", result.getExitCode());
+        }
+        for (Map<String, Object> assertion : getAssertions(this, ASSERT_OUT)) {
+            checkActualAgainstAssertions(assertion, "stdout", result.getStdout());
+        }
+        for (Map<String, Object> assertion : getAssertions(this, ASSERT_ERR)) {
+            checkActualAgainstAssertions(assertion, "stderr", result.getStderr());
+        }
     }
 
     private Result executeDownloadedScript(SshMachineLocation machineLocation, String url, String scriptPath, Map<String, Object> env) {

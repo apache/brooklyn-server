@@ -155,7 +155,7 @@ public class TestFrameworkAssertions {
         }
     }
 
-    private static <T> void checkActualAgainstAssertions(Map<String, Object> assertions,
+    public static <T> void checkActualAgainstAssertions(Map<String, Object> assertions,
                                                          String target, T actual) {
         for (Map.Entry<String, Object> assertion : assertions.entrySet()) {
             String condition = assertion.getKey().toString();
