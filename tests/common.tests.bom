@@ -13,6 +13,10 @@ brooklyn.catalog:
     item:
       type: org.apache.brooklyn.test.framework.TestSshCommand
 
+  - id: sensor-test
+    item:
+      type: org.apache.brooklyn.test.framework.TestSensor
+
   - id: ssh-test-succeeds
     item:
       type: org.apache.brooklyn.test.framework.TestSshCommand
@@ -37,7 +41,7 @@ brooklyn.catalog:
 
   - id: assert-up
     item:
-      type: org.apache.brooklyn.test.framework.TestSensor
+      type: sensor-test
       name: TEST [service.isUp] IS [true]
       sensor: service.isUp
       assert:
@@ -45,7 +49,7 @@ brooklyn.catalog:
 
   - id: assert-running
     item:
-      type: org.apache.brooklyn.test.framework.TestSensor
+      type: sensor-test
       name: TEST [service.state] IS [running]
       sensor: service.state
       assert:
@@ -53,7 +57,7 @@ brooklyn.catalog:
 
   - id: assert-failed
     item:
-      type: org.apache.brooklyn.test.framework.TestSensor
+      type: sensor-test
       name: TEST [service.state] IS [on-fire]
       sensor: service.state
       assert:

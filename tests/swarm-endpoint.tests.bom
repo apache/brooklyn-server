@@ -50,12 +50,8 @@ brooklyn.catalog:
           name: "Sensor Tests"
           brooklyn.children:
           # Is up and can deploy
-          - type: org.apache.brooklyn.test.framework.TestSensor
-            name: TEST [service.state] IS [running]
-            target: $brooklyn:component("empty")
-            sensor: service.state
-            assert:
-            - matches: running
+          - type: assert-up
+          - type: assert-running
           # Can ssh
           - type: ssh-test
             command: echo hello-world
@@ -125,7 +121,7 @@ brooklyn.catalog:
             brooklyn.config:
               sensors:
               - main.uri
-          
+
         - type: org.apache.brooklyn.entity.database.mysql.MySqlNode
           id: db
           name: DB (MySQL)
@@ -138,7 +134,7 @@ brooklyn.catalog:
             brooklyn.config:
               sensors:
               - datastore.url
-    
+
       - type: org.apache.brooklyn.test.framework.TestCase
         brooklyn.config:
           timeout: 30m

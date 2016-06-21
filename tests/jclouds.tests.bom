@@ -81,7 +81,7 @@ brooklyn.catalog:
     item:
       name: TEST [container.ip] [exists]
       description: Make sure we have an eagerly evaluated container ip, before we stop the container
-      type: org.apache.brooklyn.test.framework.TestSensor
+      type: sensor-test
       sensor: container.ip
       target: $brooklyn:ancestor("test-scope").descendant("swarm-master")
       assert:
