@@ -197,15 +197,17 @@ public class TestSshCommandImpl extends TargetableTestComponentImpl implements T
         LOG.debug("{}, Result is {}\nwith output [\n{}\n] and error [\n{}\n]", new Object[] {
             this, result.getExitCode(), shorten(result.getStdout()), shorten(result.getStderr())
         });
+        TestFrameworkAssertions.AssertionSupport support = new TestFrameworkAssertions.AssertionSupport();
         for (Map<String, Object> assertion : exitCodeAssertions()) {
-            checkActualAgainstAssertions(assertion, "exit code", result.getExitCode());
+            checkActualAgainstAssertions(support, assertion, "exit code", result.getExitCode());
         }
         for (Map<String, Object> assertion : getAssertions(this, ASSERT_OUT)) {
-            checkActualAgainstAssertions(assertion, "stdout", result.getStdout());
+            checkActualAgainstAssertions(support, assertion, "stdout", result.getStdout());
         }
         for (Map<String, Object> assertion : getAssertions(this, ASSERT_ERR)) {
-            checkActualAgainstAssertions(assertion, "stderr", result.getStderr());
+            checkActualAgainstAssertions(support, assertion, "stderr", result.getStderr());
         }
+        support.validate();
     }
 
     private Result executeDownloadedScript(SshMachineLocation machineLocation, String url, String scriptPath, Map<String, Object> env) {
