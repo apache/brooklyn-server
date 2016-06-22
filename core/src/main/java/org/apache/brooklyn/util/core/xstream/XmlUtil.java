@@ -32,6 +32,8 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
+import com.google.common.annotations.Beta;
+
 public class XmlUtil {
 
     /**
@@ -71,6 +73,60 @@ public class XmlUtil {
             throw Exceptions.propagate(e);
         } catch (XPathExpressionException e) {
             throw Exceptions.propagate(e);
+        }
+    }
+    
+    /**
+     * Executes the given xpath on the given xml. If this fails becaues the xml is invalid
+     * (e.g. contains "&#x1b;"), then it will attempt to escape such illegal characters
+     * and try again. Note that the *escaped* values may be contained in the returned result!
+     * The escaping used is the prefix "BR_UNICODE_"; if that string is already in the xml,
+     * then it will replace that with "NOT_BR_UNICODE_".
+     */
+    @Beta
+    public static Object xpathHandlingIllegalChars(String xml, String xpath) {
+        try {
+            return xpath(xml, xpath);
+        } catch (Exception e) {
+            SAXException saxe = Exceptions.getFirstThrowableOfType(e, SAXException.class);
+            if (saxe != null && saxe.toString().contains("&#")) {
+                // Looks like illegal chars (e.g. xstream converts unicode char 27 to "&#x1b;", 
+                // which is not valid in XML! Try again with an escaped xml.
+                Escaper escaper = new Escaper();
+                String xmlCleaned = escaper.escape(xml);
+                try {
+                    Object result = xpath(xmlCleaned, xpath);
+                    if (result instanceof String) {
+                        return escaper.unescape((String)result);
+                    } else {
+                        return result;
+                    }
+                } catch (Exception e2) {
+                    Exceptions.propagateIfFatal(e2);
+                }
+            }
+            throw e;
+        }
+    }
+
+    /**
+     * Replaces things like "&#x1b;" with "BR_UNICODE_x1b". This is because xstream happily writes 
+     * out such characters (which are not valid in xml), but xpath fails when parsing them.
+     */
+    @Beta
+    protected static class Escaper {
+
+        public String escape(String string) {
+            String unicodeRegex = "&#([x0-9a-fA-f]{1,5});";
+            return string.replaceAll("BR_UNICODE_", "NOT_BR_UNICODE_")
+                    .replaceAll(unicodeRegex, "BR_UNICODE_$1;");
+        }
+        
+        public String unescape(String string) {
+            String unicodeRegex = "(?<!NOT_)BR_UNICODE_([x0-9a-fA-F]{1,5})";
+            return string
+                    .replaceAll(unicodeRegex, "&#$1")
+                    .replaceAll("NOT_BR_UNICODE_", "BR_UNICODE_");
         }
     }
 }

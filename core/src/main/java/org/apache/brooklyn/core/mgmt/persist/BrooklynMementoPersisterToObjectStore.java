@@ -294,7 +294,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
                     exceptionHandler.onLoadMementoFailed(type, "memento "+id+" read error", e);
                 }
                 
-                String xmlId = (String) XmlUtil.xpath(contents, "/"+type.toCamelCase()+"/id");
+                String xmlId = (String) XmlUtil.xpathHandlingIllegalChars(contents, "/"+type.toCamelCase()+"/id");
                 String safeXmlId = Strings.makeValidFilename(xmlId);
                 if (!Objects.equal(id, safeXmlId))
                     LOG.warn("ID mismatch on "+type.toCamelCase()+", "+id+" from path, "+safeXmlId+" from xml");
@@ -334,7 +334,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
 
                 class XPathHelper {
                     private String get(String innerPath) {
-                        return (String) XmlUtil.xpath(contents, prefix+innerPath);
+                        return (String) XmlUtil.xpathHandlingIllegalChars(contents, prefix+innerPath);
                     }
                 }
                 XPathHelper x = new XPathHelper();

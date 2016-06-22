@@ -44,10 +44,14 @@ public class XmlSerializerTest {
         assertSerializeAndDeserialize(new StringHolder("abc"));
     }
 
+    /**
+     * See https://issues.apache.org/jira/browse/BROOKLYN-305 and http://x-stream.github.io/faq.html#XML_control_char
+     */
     @Test
     public void testIllegalXmlCharacter() throws Exception {
-        String val = "abc\u001b";
-        assertEquals((int)val.charAt(3), 27); // expect that to give us unicode character 27
+        String val = "PREFIX_\u001b\u0000_SUFFIX";
+        assertEquals((int)val.charAt(7), 27); // expect that to give us unicode character 27
+        assertEquals((int)val.charAt(8), 0); // expect that to give us unicode character 0
         assertSerializeAndDeserialize(val);
         assertSerializeAndDeserialize(new StringHolder(val));
     }

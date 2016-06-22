@@ -73,6 +73,7 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
+import org.apache.brooklyn.util.core.xstream.XmlSerializerTest;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.time.Durations;
 import org.testng.Assert;
@@ -620,6 +621,25 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
 
         newApp = rebind();
         assertNull(newApp.getAttribute(MY_DYNAMIC_SENSOR));
+    }
+
+    /**
+     * @see {@link XmlSerializerTest#testIllegalXmlCharacter()}
+     */
+    @Test
+    public void testRebindAttributeWithSpecialCharacters() throws Exception {
+        String val = "abc\u001b";
+        assertEquals((int)val.charAt(3), 27); // expect that to give us unicode character 27
+        
+        MyEntity origE = origApp.createAndManageChild(EntitySpec.create(MyEntity.class));
+        origE.sensors().set(MyEntity.MY_SENSOR, val);
+
+        assertEquals(origE.getAttribute(MyEntity.MY_SENSOR), val);
+
+        newApp = rebind();
+        MyEntity newE = (MyEntity) Iterables.find(newApp.getChildren(), Predicates.instanceOf(MyEntity.class));
+        
+        assertEquals(newE.getAttribute(MyEntity.MY_SENSOR), val);
     }
 
     @Test
