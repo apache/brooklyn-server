@@ -26,13 +26,13 @@ import java.util.concurrent.TimeUnit;
 
 import javax.annotation.Nullable;
 
+import com.google.common.base.Predicate;
+import com.google.common.collect.Maps;
+
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.feed.PollConfig;
 import org.apache.brooklyn.feed.ssh.SshPollValue;
 import org.apache.brooklyn.util.collections.MutableList;
-
-import com.google.common.base.Predicate;
-import com.google.common.collect.Maps;
 
 public class ShellPollConfig<T> extends PollConfig<SshPollValue, T, ShellPollConfig<T>> {
 
@@ -47,6 +47,14 @@ public class ShellPollConfig<T> extends PollConfig<SshPollValue, T, ShellPollCon
         public boolean apply(@Nullable SshPollValue input) {
             return input != null && input.getExitStatus() == 0;
         }};
+
+    public static <T> ShellPollConfig<T> forSensor(AttributeSensor<T> sensor) {
+        return new ShellPollConfig<T>(sensor);
+    }
+
+    public static ShellPollConfig<Void> forMultiple() {
+        return new ShellPollConfig<Void>(PollConfig.NO_SENSOR);
+    }
 
     public ShellPollConfig(AttributeSensor<T> sensor) {
         super(sensor);

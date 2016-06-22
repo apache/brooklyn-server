@@ -21,16 +21,24 @@ package org.apache.brooklyn.feed.jmx;
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 
-import org.apache.brooklyn.api.sensor.AttributeSensor;
-import org.apache.brooklyn.core.feed.PollConfig;
-
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
+
+import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.core.feed.PollConfig;
 
 public class JmxAttributePollConfig<T> extends PollConfig<Object, T, JmxAttributePollConfig<T>>{
 
     private ObjectName objectName;
     private String attributeName;
+
+    public static <T> JmxAttributePollConfig<T> forSensor(AttributeSensor<T> sensor) {
+        return new JmxAttributePollConfig<T>(sensor);
+    }
+
+    public static JmxAttributePollConfig<Void> forMultiple() {
+        return new JmxAttributePollConfig<Void>(PollConfig.NO_SENSOR);
+    }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public JmxAttributePollConfig(AttributeSensor<T> sensor) {

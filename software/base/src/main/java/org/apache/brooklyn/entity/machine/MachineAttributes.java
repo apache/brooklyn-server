@@ -52,6 +52,7 @@ public class MachineAttributes {
     public static final AttributeSensor<Long> FREE_MEMORY = Sensors.newLongSensor("machine.memory.free", "Current free memory");
     public static final AttributeSensor<Long> TOTAL_MEMORY = Sensors.newLongSensor("machine.memory.total", "Total memory");
     public static final AttributeSensor<Long> USED_MEMORY = Sensors.newLongSensor("machine.memory.used", "Current memory usage");
+
     public static final AttributeSensor<Double> USED_MEMORY_DELTA_PER_SECOND_LAST = Sensors.newDoubleSensor("memory.used.delta", "Change in memory usage per second");
     public static final AttributeSensor<Double> USED_MEMORY_DELTA_PER_SECOND_IN_WINDOW = Sensors.newDoubleSensor("memory.used.windowed", "Average change in memory usage over 30s");
 

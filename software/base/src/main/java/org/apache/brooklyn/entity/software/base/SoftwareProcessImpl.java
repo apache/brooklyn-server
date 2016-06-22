@@ -27,7 +27,14 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Functions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
@@ -36,12 +43,10 @@ import org.apache.brooklyn.api.entity.drivers.EntityDriverManager;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
-import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
-import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Attributes;
@@ -59,7 +64,6 @@ import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -67,15 +71,6 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Functions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
-import com.google.common.reflect.TypeToken;
 
 /**
  * An {@link Entity} representing a piece of software which can be installed, run, and controlled.
@@ -85,15 +80,16 @@ import com.google.common.reflect.TypeToken;
  * It exposes sensors for service state (Lifecycle) and status (String), and for host info, log file location.
  */
 public abstract class SoftwareProcessImpl extends AbstractEntity implements SoftwareProcess, DriverDependentEntity {
-    private static final Logger log = LoggerFactory.getLogger(SoftwareProcessImpl.class);
-    
+
+    private static final Logger LOG = LoggerFactory.getLogger(SoftwareProcessImpl.class);
+
     private transient SoftwareProcessDriver driver;
 
     /** @see #connectServiceUpIsRunning() */
-    private volatile FunctionFeed serviceProcessIsRunning;
+    private transient FunctionFeed serviceProcessIsRunning;
 
     protected boolean connectedSensors = false;
-    
+
     public SoftwareProcessImpl() {
         super(MutableMap.of(), null);
     }
@@ -340,7 +336,7 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
         // whereas on start the *driver* calls connectSensors, before calling postStart,
         // ie waiting for the entity truly to be started before calling postStart;
         // TODO feels like that confusion could be eliminated with a single place for pre/post logic!)
-        log.debug("disconnecting sensors for "+this+" in entity.preStop");
+        LOG.debug("disconnecting sensors for "+this+" in entity.preStop");
         disconnectSensors();
         
         // Must set the serviceProcessIsRunning explicitly to false - we've disconnected the sensors
@@ -387,18 +383,18 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
             connectSensors();
         } else {
             long delay = (long) (Math.random() * configuredMaxDelay.toMilliseconds());
-            log.debug("Scheduled reconnection of sensors on {} in {}ms", this, delay);
+            LOG.debug("Scheduled reconnection of sensors on {} in {}ms", this, delay);
             Timer timer = new Timer();
             timer.schedule(new TimerTask() {
                 @Override public void run() {
                     try {
                         if (getManagementSupport().isNoLongerManaged()) {
-                            log.debug("Entity {} no longer managed; ignoring scheduled connect sensors on rebind", SoftwareProcessImpl.this);
+                            LOG.debug("Entity {} no longer managed; ignoring scheduled connect sensors on rebind", SoftwareProcessImpl.this);
                             return;
                         }
                         connectSensors();
                     } catch (Throwable e) {
-                        log.warn("Problem connecting sensors on rebind of "+SoftwareProcessImpl.this, e);
+                        LOG.warn("Problem connecting sensors on rebind of "+SoftwareProcessImpl.this, e);
                         Exceptions.propagateIfFatal(e);
                     }
                 }
@@ -439,28 +435,27 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
         //Only if the expected state is ON_FIRE then the entity has permanently failed.
         Transition expectedState = getAttribute(SERVICE_STATE_EXPECTED);
         if (expectedState == null || expectedState.getState() != Lifecycle.RUNNING) {
-            log.warn("On rebind of {}, not calling software process rebind hooks because expected state is {}", this, expectedState);
+            LOG.warn("On rebind of {}, not calling software process rebind hooks because expected state is {}", this, expectedState);
             return;
         }
 
         Lifecycle actualState = getAttribute(SERVICE_STATE_ACTUAL);
         if (actualState == null || actualState != Lifecycle.RUNNING) {
-            log.warn("Rebinding entity {}, even though actual state is {}. Expected state is {}", new Object[] {this, actualState, expectedState});
+            LOG.warn("Rebinding entity {}, even though actual state is {}. Expected state is {}", new Object[] { this, actualState, expectedState });
         }
 
         // e.g. rebinding to a running instance
         // FIXME For rebind, what to do about things in STARTING or STOPPING state?
         // FIXME What if location not set?
-        log.info("Rebind {} connecting to pre-running service", this);
+        LOG.info("Rebind {} connecting to pre-running service", this);
         
         MachineLocation machine = getMachineOrNull();
         if (machine != null) {
             initDriver(machine);
             driver.rebind();
-            if (log.isDebugEnabled()) log.debug("On rebind of {}, re-created driver {}", this, driver);
+            LOG.debug("On rebind of {}, re-created driver {}", this, driver);
         } else {
-            log.info("On rebind of {}, no MachineLocation found (with locations {}) so not generating driver",
-                    this, getLocations());
+            LOG.info("On rebind of {}, no MachineLocation found (with locations {}) so not generating driver", this, getLocations());
         }
         
         callRebindHooks();
@@ -491,7 +486,7 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
         if (raw2.isPresentAndNonNull()) {
             Object pp = raw2.get();
             if (!(pp instanceof Map)) {
-                log.debug("When obtaining provisioning properties for "+this+" to deploy to "+location+", detected that coercion was needed, so coercing sooner than we would otherwise");
+                LOG.debug("When obtaining provisioning properties for "+this+" to deploy to "+location+", detected that coercion was needed, so coercing sooner than we would otherwise");
                 pp = config().get(PROVISIONING_PROPERTIES);
             }
             result.putAll((Map<?,?>)pp);
@@ -548,7 +543,7 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
             if ((driver instanceof AbstractSoftwareProcessDriver) && machine.equals(((AbstractSoftwareProcessDriver)driver).getLocation())) {
                 return driver; //just reuse
             } else {
-                log.warn("driver/location change is untested for {} at {}; changing driver and continuing", this, machine);
+                LOG.warn("driver/location change is untested for {} at {}; changing driver and continuing", this, machine);
                 return newDriver(machine);
             }
         } else {
@@ -558,7 +553,7 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
     
     // TODO Find a better way to detect early death of process.
     public void waitForEntityStart() {
-        if (log.isDebugEnabled()) log.debug("waiting to ensure {} doesn't abort prematurely", this);
+        LOG.debug("waiting to ensure {} doesn't abort prematurely", this);
         Duration startTimeout = getConfig(START_TIMEOUT);
         CountdownTimer timer = startTimeout.countdownTimer();
         boolean isRunningResult = false;
@@ -568,7 +563,7 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
             Time.sleep(delay);
             try {
                 isRunningResult = driver.isRunning();
-                if (log.isDebugEnabled()) log.debug("checked {}, 'is running' returned: {}", this, isRunningResult);
+                LOG.debug("checked {}, 'is running' returned: {}", this, isRunningResult);
             } catch (Exception  e) {
                 Exceptions.propagateIfFatal(e);
 
@@ -576,13 +571,13 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
                 if (driver != null) {
                     String msg = "checked " + this + ", 'is running' threw an exception; logging subsequent exceptions at debug level";
                     if (firstFailure == null) {
-                        log.error(msg, e);
+                        LOG.error(msg, e);
                     } else {
-                        log.debug(msg, e);
+                        LOG.debug(msg, e);
                     }
                 } else {
                     // provide extra context info, as we're seeing this happen in strange circumstances
-                    log.error(this+" concurrent start and shutdown detected", e);
+                    LOG.error(this+" concurrent start and shutdown detected", e);
                 }
                 if (firstFailure == null) {
                     firstFailure = e;
@@ -598,7 +593,7 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
             if (firstFailure != null) {
                 msg += "; check failed at least once with exception: " + firstFailure.getMessage() + ", see logs for details";
             }
-            log.warn(msg+" (throwing)");
+            LOG.warn(msg+" (throwing)");
             ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
             throw new IllegalStateException(msg, firstFailure);
         }

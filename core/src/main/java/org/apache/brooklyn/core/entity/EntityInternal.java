@@ -23,6 +23,8 @@ import java.util.Map;
 
 import javax.annotation.Nullable;
 
+import com.google.common.annotations.Beta;
+
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
@@ -34,17 +36,13 @@ import org.apache.brooklyn.api.mgmt.SubscriptionContext;
 import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
 import org.apache.brooklyn.api.mgmt.rebind.Rebindable;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.EntityMemento;
-import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.internal.EntityConfigMap;
 import org.apache.brooklyn.core.mgmt.internal.EntityManagementSupport;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
-import org.apache.brooklyn.core.objs.BrooklynObjectInternal.SubscriptionSupportInternal;
 import org.apache.brooklyn.util.core.config.ConfigBag;
-
-import com.google.common.annotations.Beta;
 
 /** 
  * Extended Entity interface with additional functionality that is purely-internal (i.e. intended 
@@ -222,24 +220,37 @@ public interface EntityInternal extends BrooklynObjectInternal, EntityLocal, Reb
     }
 
     public interface FeedSupport {
+
         Collection<Feed> getFeeds();
-        
+
         /**
          * Adds the given feed to this entity. The feed will automatically be re-added on brooklyn restart.
          */
+        <T extends Feed> T add(T feed);
+
+        /** @deprecated since 0.10.0; use {@link #add()} */
+        @Deprecated
         <T extends Feed> T addFeed(T feed);
-        
+
         /**
          * Removes the given feed from this entity. 
          * @return True if the feed existed at this entity; false otherwise
          */
+        boolean remove(Feed feed);
+
+        /** @deprecated since 0.10.0; use {@link #remove()} */
+        @Deprecated
         boolean removeFeed(Feed feed);
-        
+
         /**
          * Removes all feeds from this entity.
          * Use with caution as some entities automatically register feeds; this will remove those feeds as well.
          * @return True if any feeds existed at this entity; false otherwise
          */
+        boolean removeAll();
+
+        /** @deprecated since 0.10.0; use {@link #removeAll()} */
+        @Deprecated
         boolean removeAllFeeds();
     }
     

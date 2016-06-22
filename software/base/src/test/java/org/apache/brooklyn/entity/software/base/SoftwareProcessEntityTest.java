@@ -30,6 +30,21 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.testng.Assert;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
+
+import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+
+import org.jclouds.util.Throwables2;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -59,14 +74,17 @@ import org.apache.brooklyn.core.sensor.PortAttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.RestartSoftwareParameters;
-import org.apache.brooklyn.entity.software.base.SoftwareProcess.StopSoftwareParameters;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.RestartSoftwareParameters.RestartMachineMode;
+import org.apache.brooklyn.entity.software.base.SoftwareProcess.StopSoftwareParameters;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.StopSoftwareParameters.StopMode;
 import org.apache.brooklyn.entity.software.base.lifecycle.MachineLifecycleEffectorTasksTest;
+import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.core.task.TaskPredicates;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
@@ -74,21 +92,6 @@ import org.apache.brooklyn.util.net.UserAndHostAndPort;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
-import org.jclouds.util.Throwables2;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.testng.Assert;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
-
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-
-import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
 
 
 public class SoftwareProcessEntityTest extends BrooklynAppUnitTestSupport {
@@ -429,7 +432,9 @@ public class SoftwareProcessEntityTest extends BrooklynAppUnitTestSupport {
         Iterator<Task<?>> failures;
         failures = Tasks.failed(Tasks.descendants(t, true)).iterator();
         Assert.assertTrue(failures.hasNext(), "Expected error in descendants");
-        failures = Tasks.failed(Tasks.children(t)).iterator();
+        Optional<Task<?>> stopping = Iterables.tryFind(Tasks.children(t), TaskPredicates.displayNameEqualTo("stopping"));
+        Assert.assertTrue(stopping.isPresent(), "Could not find stopping task");
+        failures = Tasks.failed(Tasks.children(stopping.get())).iterator();
         Assert.assertTrue(failures.hasNext(), "Expected error in child");
         Throwable e = Tasks.getError(failures.next());
         if (e == null || !e.toString().contains("Simulating stop error")) 

@@ -39,6 +39,7 @@ import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -78,7 +79,14 @@ public class Tasks {
         if (current instanceof TaskInternal)
             ((TaskInternal<?>)current).resetBlockingTask(); 
     }
-    
+
+    public static <T> Task<T> create(String name, Callable<T> job) {
+        return Tasks.<T>builder().displayName(name).body(job).build();
+    }
+    public static <T> Task<T> create(String name, Runnable job) {
+        return Tasks.<T>builder().displayName(name).body(job).build();
+    }
+
     /** convenience for setting "blocking details" on any task where the current thread is running,
      * while the passed code is executed; often used from groovy as
      * <pre>{@code withBlockingDetails("sleeping 5s") { Thread.sleep(5000); } }</pre>

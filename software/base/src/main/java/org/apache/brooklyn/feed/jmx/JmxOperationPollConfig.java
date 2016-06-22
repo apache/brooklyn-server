@@ -39,6 +39,14 @@ public class JmxOperationPollConfig<T> extends PollConfig<Object, T, JmxOperatio
     private List<String> signature = Collections.emptyList();
     private List<?> params = Collections.emptyList();
 
+    public static <T> JmxOperationPollConfig<T> forSensor(AttributeSensor<T> sensor) {
+        return new JmxOperationPollConfig<T>(sensor);
+    }
+
+    public static JmxOperationPollConfig<Void> forMultiple() {
+        return new JmxOperationPollConfig<Void>(PollConfig.NO_SENSOR);
+    }
+
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public JmxOperationPollConfig(AttributeSensor<T> sensor) {
         super(sensor);

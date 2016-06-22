@@ -18,15 +18,23 @@
  */
 package org.apache.brooklyn.feed.windows;
 
-import org.apache.brooklyn.api.sensor.AttributeSensor;
-import org.apache.brooklyn.core.feed.PollConfig;
-
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
+
+import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.core.feed.PollConfig;
 
 public class WindowsPerformanceCounterPollConfig<T> extends PollConfig<Object, T, WindowsPerformanceCounterPollConfig<T>>{
 
     private String performanceCounterName;
+
+    public static <T> WindowsPerformanceCounterPollConfig<T> forSensor(AttributeSensor<T> sensor) {
+        return new WindowsPerformanceCounterPollConfig<T>(sensor);
+    }
+
+    public static WindowsPerformanceCounterPollConfig<Void> forMultiple() {
+        return new WindowsPerformanceCounterPollConfig<Void>(PollConfig.NO_SENSOR);
+    }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public WindowsPerformanceCounterPollConfig(AttributeSensor<T> sensor) {

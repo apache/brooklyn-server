@@ -26,16 +26,16 @@ import java.util.Map;
 
 import javax.annotation.Nullable;
 
-import org.apache.brooklyn.api.sensor.AttributeSensor;
-import org.apache.brooklyn.core.feed.PollConfig;
-import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.collections.MutableMap;
-
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+
+import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.core.feed.PollConfig;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 
 public class SshPollConfig<T> extends PollConfig<SshPollValue, T, SshPollConfig<T>> {
 
@@ -47,6 +47,14 @@ public class SshPollConfig<T> extends PollConfig<SshPollValue, T, SshPollConfig<
         public boolean apply(@Nullable SshPollValue input) {
             return input != null && input.getExitStatus() == 0;
         }};
+
+    public static <T> SshPollConfig<T> forSensor(AttributeSensor<T> sensor) {
+        return new SshPollConfig<T>(sensor);
+    }
+
+    public static SshPollConfig<Void> forMultiple() {
+        return new SshPollConfig<Void>(PollConfig.NO_SENSOR);
+    }
 
     public SshPollConfig(AttributeSensor<T> sensor) {
         super(sensor);
