@@ -20,7 +20,6 @@ package org.apache.brooklyn.util.core.xstream;
 
 import static org.testng.Assert.assertEquals;
 
-import org.apache.brooklyn.util.core.xstream.XmlUtil;
 import org.testng.annotations.Test;
 
 
@@ -29,6 +28,8 @@ public class XmlUtilTest {
     @Test
     public void testXpath() throws Exception {
         String xml = "<a><b>myb</b></a>";
-        assertEquals(XmlUtil.xpath(xml, "/a/b[text()]"), "myb");
+        for (int i = 0; i < 2; i++) {
+            assertEquals(XmlUtil.xpath(xml, "/a/b[text()]"), "myb");
+        }
     }
 }
