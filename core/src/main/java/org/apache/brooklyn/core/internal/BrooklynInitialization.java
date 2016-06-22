@@ -61,21 +61,22 @@ public class BrooklynInitialization {
      * 
      */
     
-    public synchronized static void initAll() {
-        if (done.get()) return;
-        initTypeCoercionStandardAdapters();
-        initSecureKeysBouncyCastleProvider();
-        initNetworking();
-        initPortRanges();
-        initLegacyLanguageExtensions();
-        done.set(true);
+    public static void initAll() {
+        if (done.compareAndSet(false, true)) {
+            initTypeCoercionStandardAdapters();
+            initSecureKeysBouncyCastleProvider();
+            initNetworking();
+            initPortRanges();
+            initLegacyLanguageExtensions();
+        }
     }
 
     @SuppressWarnings("deprecation")
     public synchronized static void reinitAll() {
-        done.set(false);
-        org.apache.brooklyn.util.core.BrooklynLanguageExtensions.reinit();
-        initAll();
+        if (done.compareAndSet(true, false)) {
+            org.apache.brooklyn.util.core.BrooklynLanguageExtensions.reinit();
+            initAll();
+        }
     }
 
 }
