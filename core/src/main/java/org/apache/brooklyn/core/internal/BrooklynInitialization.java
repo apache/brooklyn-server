@@ -73,10 +73,9 @@ public class BrooklynInitialization {
 
     @SuppressWarnings("deprecation")
     public synchronized static void reinitAll() {
-        if (done.compareAndSet(true, false)) {
-            org.apache.brooklyn.util.core.BrooklynLanguageExtensions.reinit();
-            initAll();
-        }
+        done.set(false);
+        org.apache.brooklyn.util.core.BrooklynLanguageExtensions.reinit();
+        initAll();
     }
 
 }
