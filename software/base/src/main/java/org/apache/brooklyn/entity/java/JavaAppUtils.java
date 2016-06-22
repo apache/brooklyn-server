@@ -235,26 +235,21 @@ public class JavaAppUtils {
 
     /** Setup renderer hints for the MXBean attributes. */
     public static void init() {
-        if (initialized.get()) return;
-        synchronized (initialized) {
-            if (initialized.get()) return;
+        if (initialized.getAndSet(true)) return;
 
-            RendererHints.register(UsesJavaMXBeans.USED_HEAP_MEMORY, RendererHints.displayValue(ByteSizeStrings.metric()));
-            RendererHints.register(UsesJavaMXBeans.INIT_HEAP_MEMORY, RendererHints.displayValue(ByteSizeStrings.metric()));
-            RendererHints.register(UsesJavaMXBeans.MAX_HEAP_MEMORY, RendererHints.displayValue(ByteSizeStrings.metric()));
-            RendererHints.register(UsesJavaMXBeans.COMMITTED_HEAP_MEMORY, RendererHints.displayValue(ByteSizeStrings.metric()));
-            RendererHints.register(UsesJavaMXBeans.NON_HEAP_MEMORY_USAGE, RendererHints.displayValue(ByteSizeStrings.metric()));
-            RendererHints.register(UsesJavaMXBeans.TOTAL_PHYSICAL_MEMORY_SIZE, RendererHints.displayValue(ByteSizeStrings.metric()));
-            RendererHints.register(UsesJavaMXBeans.FREE_PHYSICAL_MEMORY_SIZE, RendererHints.displayValue(ByteSizeStrings.metric()));
+        RendererHints.register(UsesJavaMXBeans.USED_HEAP_MEMORY, RendererHints.displayValue(ByteSizeStrings.metric()));
+        RendererHints.register(UsesJavaMXBeans.INIT_HEAP_MEMORY, RendererHints.displayValue(ByteSizeStrings.metric()));
+        RendererHints.register(UsesJavaMXBeans.MAX_HEAP_MEMORY, RendererHints.displayValue(ByteSizeStrings.metric()));
+        RendererHints.register(UsesJavaMXBeans.COMMITTED_HEAP_MEMORY, RendererHints.displayValue(ByteSizeStrings.metric()));
+        RendererHints.register(UsesJavaMXBeans.NON_HEAP_MEMORY_USAGE, RendererHints.displayValue(ByteSizeStrings.metric()));
+        RendererHints.register(UsesJavaMXBeans.TOTAL_PHYSICAL_MEMORY_SIZE, RendererHints.displayValue(ByteSizeStrings.metric()));
+        RendererHints.register(UsesJavaMXBeans.FREE_PHYSICAL_MEMORY_SIZE, RendererHints.displayValue(ByteSizeStrings.metric()));
 
-            RendererHints.register(UsesJavaMXBeans.START_TIME, RendererHints.displayValue(Time.toDateString()));
-            RendererHints.register(UsesJavaMXBeans.UP_TIME, RendererHints.displayValue(Duration.millisToStringRounded()));
-            RendererHints.register(UsesJavaMXBeans.PROCESS_CPU_TIME, RendererHints.displayValue(Duration.millisToStringRounded()));
-            RendererHints.register(UsesJavaMXBeans.PROCESS_CPU_TIME_FRACTION_LAST, RendererHints.displayValue(MathFunctions.percent(4)));
-            RendererHints.register(UsesJavaMXBeans.PROCESS_CPU_TIME_FRACTION_IN_WINDOW, RendererHints.displayValue(MathFunctions.percent(4)));
-
-            initialized.set(true);
-        }
+        RendererHints.register(UsesJavaMXBeans.START_TIME, RendererHints.displayValue(Time.toDateString()));
+        RendererHints.register(UsesJavaMXBeans.UP_TIME, RendererHints.displayValue(Duration.millisToStringRounded()));
+        RendererHints.register(UsesJavaMXBeans.PROCESS_CPU_TIME, RendererHints.displayValue(Duration.millisToStringRounded()));
+        RendererHints.register(UsesJavaMXBeans.PROCESS_CPU_TIME_FRACTION_LAST, RendererHints.displayValue(MathFunctions.percent(4)));
+        RendererHints.register(UsesJavaMXBeans.PROCESS_CPU_TIME_FRACTION_IN_WINDOW, RendererHints.displayValue(MathFunctions.percent(4)));
     }
 
     static {

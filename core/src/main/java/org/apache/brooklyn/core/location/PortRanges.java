@@ -22,22 +22,21 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.apache.brooklyn.api.location.PortRange;
-import org.apache.brooklyn.util.core.flags.TypeCoercions;
-import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
-
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
+
+import org.apache.brooklyn.api.location.PortRange;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 
 public class PortRanges {
 
@@ -246,13 +245,12 @@ public class PortRanges {
         }
     }
 
-    private static AtomicBoolean initialized = new AtomicBoolean(false); 
+    private static AtomicBoolean initialized = new AtomicBoolean(false);
+
     /** performs the language extensions required for this project */
     @SuppressWarnings("rawtypes")
     public static void init() {
-        if (initialized.get()) return;
-        synchronized (initialized) {
-            if (initialized.get()) return;
+        if (initialized.compareAndSet(false, true)) {
             TypeCoercions.registerAdapter(Integer.class, PortRange.class, new Function<Integer,PortRange>() {
                 public PortRange apply(Integer x) { return fromInteger(x); }
             });
@@ -262,12 +260,11 @@ public class PortRanges {
             TypeCoercions.registerAdapter(Iterable.class, PortRange.class, new Function<Iterable,PortRange>() {
                 public PortRange apply(Iterable x) { return fromIterable(x); }
             });
-            initialized.set(true);
         }
     }
-    
+
     static {
         init();
     }
-    
+
 }

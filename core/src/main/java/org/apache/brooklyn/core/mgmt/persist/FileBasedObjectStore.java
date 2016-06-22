@@ -33,18 +33,9 @@ import java.util.Date;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.annotation.Nullable;
 
-import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
-import org.apache.brooklyn.core.server.BrooklynServerConfig;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.exceptions.FatalConfigurationRuntimeException;
-import org.apache.brooklyn.util.io.FileUtil;
-import org.apache.brooklyn.util.os.Os;
-import org.apache.brooklyn.util.os.Os.DeletionResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,9 +47,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 
-/**
- * @author Andrea Turli
- */
+import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
+import org.apache.brooklyn.core.server.BrooklynServerConfig;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.FatalConfigurationRuntimeException;
+import org.apache.brooklyn.util.io.FileUtil;
+import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.os.Os.DeletionResult;
+
 public class FileBasedObjectStore implements PersistenceObjectStore {
 
     private static final Logger log = LoggerFactory.getLogger(FileBasedObjectStore.class);
@@ -72,7 +69,7 @@ public class FileBasedObjectStore implements PersistenceObjectStore {
     private ManagementContext mgmt;
     private boolean prepared = false;
     private boolean deferredBackupNeeded = false;
-    private AtomicBoolean doneFirstContentiousWrite = new AtomicBoolean(false);
+    private boolean doneFirstContentiousWrite = false;
 
     /**
      * @param basedir
@@ -92,30 +89,26 @@ public class FileBasedObjectStore implements PersistenceObjectStore {
     public File getBaseDir() {
         return basedir;
     }
-    
-    public void prepareForMasterUse() {
-        if (doneFirstContentiousWrite.get())
-            return;
-        synchronized (this) {
-            if (doneFirstContentiousWrite.get())
-                return;
-            try {
-                if (deferredBackupNeeded) {
-                    // defer backup and path creation until first write
-                    // this way if node is standby or auto, the backup is not created superfluously
 
-                    File backup = backupDirByCopying(basedir);
-                    log.info("Persistence deferred backup, directory "+basedir+" backed up to "+backup.getAbsolutePath());
+    @Override
+    public synchronized void prepareForMasterUse() {
+        if (doneFirstContentiousWrite) return;
+        try {
+            if (deferredBackupNeeded) {
+                // defer backup and path creation until first write
+                // this way if node is standby or auto, the backup is not created superfluously
 
-                    deferredBackupNeeded = false;
-                }
-            } catch (Exception e) {
-                throw Exceptions.propagate(e);
+                File backup = backupDirByCopying(basedir);
+                log.info("Persistence deferred backup, directory "+basedir+" backed up to "+backup.getAbsolutePath());
+
+                deferredBackupNeeded = false;
+                doneFirstContentiousWrite = true;
             }
-            doneFirstContentiousWrite.getAndSet(true);
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
         }
     }
-    
+
     @Override
     public void createSubPath(String subPath) {
         if (!prepared) throw new IllegalStateException("Not yet prepared: "+this);
