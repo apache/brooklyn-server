@@ -1029,9 +1029,9 @@ public class EntitiesYamlTest extends AbstractYamlTest {
                 "    - true",
                 "    - $brooklyn:entity(\"self\")",
                 "    shell.env:",
-                "      mapRef: $brooklyn:config(\"map-config\")",
-                "      listRef: $brooklyn:config(\"list-config\")",
-                "      bean:",
+                "      MAP_REF: $brooklyn:config(\"map-config\")",
+                "      LIST_REF: $brooklyn:config(\"list-config\")",
+                "      BEAN:",
                 "        $brooklyn:object:",
                 "          type: org.apache.brooklyn.entity.software.base.SoftwareProcessShellEnvironmentTest$SimpleBean",
                 "          object.fields:",
@@ -1046,9 +1046,9 @@ public class EntitiesYamlTest extends AbstractYamlTest {
 
         Map<String, ?> env = recordingMachine.getRecordedEnv().get(1);
         String entityRef = "{\"type\":\"org.apache.brooklyn.api.entity.Entity\",\"id\":\"" + entity.getId() + "\"}";
-        assertEquals(env.get("mapRef"), "{\"key1\":\"val1\",\"key2\":" + entityRef + "}");
-        assertEquals(env.get("listRef"), "[4.12,true," + entityRef + "]");
-        assertEquals(env.get("bean"), "{\"propString\":\"bean-string\",\"propInt\":-1}");
+        assertEquals(env.get("MAP_REF"), "{\"key1\":\"val1\",\"key2\":" + entityRef + "}");
+        assertEquals(env.get("LIST_REF"), "[4.12,true," + entityRef + "]");
+        assertEquals(env.get("BEAN"), "{\"propString\":\"bean-string\",\"propInt\":-1}");
     }
     
     public static class CustomTestEntityImpl extends TestEntityImpl {

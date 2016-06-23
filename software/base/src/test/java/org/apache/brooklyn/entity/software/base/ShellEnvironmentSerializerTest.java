@@ -54,6 +54,8 @@ public class ShellEnvironmentSerializerTest extends BrooklynAppUnitTestSupport {
         assertSerialize(null, null);
         assertSerialize(ImmutableList.of(str, 3.14, 0.14));
         assertSerialize(ImmutableMap.of("string", str, "num1", 3.14, "num2", 0.14));
+        assertSerialize(ImmutableMap.of("list", ImmutableList.of(str, 3.14, 0.14), 
+                "map", ImmutableMap.of("string", str, "num1", 3.14, "num2", 0.14)));
         assertSerialize(app, appExpected);
         assertSerialize(ImmutableList.of(app), "[" + appExpected + "]");
         assertSerialize(ImmutableMap.of("app", app), "{\"app\":" + appExpected + "}");
