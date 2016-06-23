@@ -257,7 +257,8 @@ brooklyn.catalog:
 
         shell.env:
           SWARM_DISCOVERY_URL: $brooklyn:config("swarm.discovery.url")
-          SWARM_DEFAULT_NETWORK: $brooklyn:config("swarm.defaultnetwork")
+          # parent() has a parameter for swarm.defaultnetwork with a default value
+          SWARM_DEFAULT_NETWORK: $brooklyn:parent().config("swarm.defaultnetwork")
           SWARM_PORT: $brooklyn:attributeWhenReady("swarm.port")
 
         post.launch.command: |
