@@ -69,6 +69,34 @@ brooklyn.catalog:
           name: "etcd-cluster"
           brooklyn.config:
             cluster.initial.size: $brooklyn:config("etcd.initial.size")
+            etcd.client.secure: true
+            etcd.peer.secure: true
+            ca.request.root.url: $brooklyn:entity("ca-server").attributeWhenReady("main.uri")
+            resources.preInstall.latch: $brooklyn:entity("ca-server").attributeWhenReady("service.isUp")
+            shell.env:
+              CA_REQUEST_ROOT_URL: $brooklyn:config("ca.request.root.url")
+              HOST_ADDRESS: $brooklyn:attributeWhenReady("host.address")
+              INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
+            pre.install.command: |
+              set -e
+              curl -X POST -d "" --fail ${CA_REQUEST_ROOT_URL}/generate/${HOST_ADDRESS}
+              CA_URL="${CA_REQUEST_ROOT_URL}/cert/${HOST_ADDRESS}"
+              mkdir -p ${INSTALL_DIR}/certs
+              curl -L ${CA_URL}/ca.pem -o ${INSTALL_DIR}/certs/ca.pem --fail
+              curl -L ${CA_URL}/cert.pem -o ${INSTALL_DIR}/certs/cert.pem --fail
+              curl -L ${CA_URL}/key.pem -o ${INSTALL_DIR}/certs/key.pem --fail
+            etcd.options.additional:
+              $brooklyn:formatString:
+              - >-
+                --cert-file="%1$s/certs/cert.pem"
+                --key-file="%1$s/certs/key.pem"
+                --trusted-ca-file="%1$s/certs/ca.pem"
+                --client-cert-auth
+                --peer-cert-file="%1$s/certs/cert.pem"
+                --peer-key-file="%1$s/certs/key.pem"
+                --peer-trusted-ca-file="%1$s/certs/ca.pem"
+                --peer-client-cert-auth
+              - $brooklyn:attributeWhenReady("install.dir")
         - type: docker-swarm-cluster
           id: swarm-cluster
           name: "swarm-cluster"
@@ -156,12 +184,28 @@ brooklyn.catalog:
       type: docker-engine-tls
 
       brooklyn.config:
+        docker.discovery.tlsoptions:
+          $brooklyn:formatString:
+          - "--cluster-store-opt \"kv.cacertfile=%1$s/.certs/ca.pem\"  --cluster-store-opt \"kv.certfile=%1$s/.certs/cert.pem\"  --cluster-store-opt \"kv.keyfile=%1$s/.certs/key.pem\""
+          - $brooklyn:attributeWhenReady("install.dir")
+        docker.additionaloptions:
+          $brooklyn:formatString:
+          - "%s %s"
+          - $brooklyn:config("docker.tlsoptions")
+          - $brooklyn:config("docker.discovery.tlsoptions")
+
         shell.env:
           SWARM_DISCOVERY_URL: $brooklyn:config("swarm.discovery.url")
 
         post.launch.command: |
           docker run -d --name swarm-${HOST_NAME} \
-            swarm join --addr=${DOCKER_ENDPOINT} ${SWARM_DISCOVERY_URL}
+            -v ${INSTALL_DIR}/.certs:/certs:ro \
+            swarm join --addr=${DOCKER_ENDPOINT} \
+              --discovery-opt kv.cacertfile="/certs/ca.pem" \
+              --discovery-opt kv.certfile="/certs/cert.pem" \
+              --discovery-opt kv.keyfile="/certs/key.pem" \
+              ${SWARM_DISCOVERY_URL}
+
 
         checkRunning.command: |
           sudo service docker status &&
@@ -201,6 +245,16 @@ brooklyn.catalog:
           default: 0.0.0.0
 
       brooklyn.config:
+        docker.discovery.tlsoptions:
+          $brooklyn:formatString:
+          - "--cluster-store-opt \"kv.cacertfile=%1$s/.certs/ca.pem\"  --cluster-store-opt \"kv.certfile=%1$s/.certs/cert.pem\"  --cluster-store-opt \"kv.keyfile=%1$s/.certs/key.pem\""
+          - $brooklyn:attributeWhenReady("install.dir")
+        docker.additionaloptions:
+          $brooklyn:formatString:
+          - "%s %s"
+          - $brooklyn:config("docker.tlsoptions")
+          - $brooklyn:config("docker.discovery.tlsoptions")
+
         shell.env:
           SWARM_DISCOVERY_URL: $brooklyn:config("swarm.discovery.url")
           SWARM_DEFAULT_NETWORK: $brooklyn:config("swarm.defaultnetwork")
@@ -211,7 +265,12 @@ brooklyn.catalog:
           docker run -d -p ${SWARM_PORT}:${SWARM_PORT} \
             -v ${INSTALL_DIR}/.certs:/certs:ro --name manager-${HOST_NAME} \
             swarm manage --tlsverify --tlscacert=/certs/ca.pem --tlscert=/certs/cert.pem --tlskey=/certs/key.pem \
-              --host=0.0.0.0:${SWARM_PORT} ${SWARM_DISCOVERY_URL}
+              --host=0.0.0.0:${SWARM_PORT} \
+              --discovery-opt kv.cacertfile="/certs/ca.pem" \
+              --discovery-opt kv.certfile="/certs/cert.pem" \
+              --discovery-opt kv.keyfile="/certs/key.pem" \
+              ${SWARM_DISCOVERY_URL}
+          
           echo "[CLOCKER] Setup default ${SWARM_DEFAULT_NETWORK} overlay network"
           docker network ls | grep "overlay.*${SWARM_DEFAULT_NETWORK}" ||
             docker network create --driver=overlay "${SWARM_DEFAULT_NETWORK}"
