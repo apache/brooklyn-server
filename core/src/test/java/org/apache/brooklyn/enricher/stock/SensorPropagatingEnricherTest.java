@@ -273,6 +273,30 @@ public class SensorPropagatingEnricherTest extends BrooklynAppUnitTestSupport {
     }
     
     @Test
+    public void testPropagatorDefaultsToProducerAsSelf() throws Exception {
+        AttributeSensor<String> sourceSensor = Sensors.newSensor(String.class, "mySensor");
+        AttributeSensor<String> targetSensor = Sensors.newSensor(String.class, "myTarget");
+
+        app.enrichers().add(EnricherSpec.create(Propagator.class)
+                .configure(Propagator.PRODUCER, app)
+                .configure(Propagator.SENSOR_MAPPING, ImmutableMap.of(sourceSensor, targetSensor)));
+
+        app.sensors().set(sourceSensor, "myval");
+        EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, "myval");
+    }
+
+    @Test
+    public void testPropagatorAvoidsInfiniteLoopInPropagateAllWithImplicitProducer() throws Exception {
+        AttributeSensor<String> mySensor = Sensors.newSensor(String.class, "mySensor");
+
+        EnricherSpec<?> spec = EnricherSpec.create(Propagator.class)
+                .configure(Propagator.PROPAGATING_ALL, true);
+
+        assertAddEnricherThrowsIllegalStateException(spec, "when publishing to own entity");
+        assertAttributeNotRepublished(app, mySensor);
+    }
+    
+    @Test
     public void testPropagatorAvoidsInfiniteLoopInPropagateAll() throws Exception {
         AttributeSensor<String> mySensor = Sensors.newSensor(String.class, "mySensor");
 
@@ -325,7 +349,7 @@ public class SensorPropagatingEnricherTest extends BrooklynAppUnitTestSupport {
     public void testPropagatorFailsWithEmptyConfig() throws Exception {
         EnricherSpec<?> spec = EnricherSpec.create(Propagator.class);
 
-        assertAddEnricherThrowsIllegalStateException(spec, "missing config");
+        assertAddEnricherThrowsIllegalStateException(spec, "must have");
     }
 
     protected void assertAttributeNotRepublished(Entity entity, AttributeSensor<String> sensor) {
