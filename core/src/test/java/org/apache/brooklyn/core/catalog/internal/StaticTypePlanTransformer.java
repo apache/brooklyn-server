@@ -39,7 +39,8 @@ import org.apache.brooklyn.util.text.Identifiers;
  * <pre> {@code
  *  brooklyn.catalog:
  *    id: test.inputs
- *    version: 0.0.1
+ *    version: "0.0.1"
+ *    itemType: entity
  *    item: <specId>
  * } </pre>
  * <p>

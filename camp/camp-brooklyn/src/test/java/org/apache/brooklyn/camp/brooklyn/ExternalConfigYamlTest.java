@@ -132,8 +132,8 @@ public class ExternalConfigYamlTest extends AbstractYamlTest {
         String yaml = Joiner.on("\n").join(
                 "brooklyn.catalog:",
                 "    id: $brooklyn:external(\"myprovider\", \"myCatalogId\")",
-                "    itemType: $brooklyn:external(\"myprovider\", \"myCatalogItemType\")",
                 "    version: $brooklyn:external(\"myprovider\", \"myCatalogVersion\")",
+                "    itemType: $brooklyn:external(\"myprovider\", \"myCatalogItemType\")",
                 "    description: $brooklyn:external(\"myprovider\", \"myCatalogDescription\")",
                 "    displayName: $brooklyn:external(\"myprovider\", \"myCatalogDisplayName\")",
                 "    iconUrl: $brooklyn:external(\"myprovider\", \"myCatalogIconUrl\")",
@@ -141,8 +141,7 @@ public class ExternalConfigYamlTest extends AbstractYamlTest {
                 "    - $brooklyn:external(\"myprovider\", \"myCatalogLibraryUrl\")",
                 "",
                 "    item:",
-                "      services:",
-                "      - type: brooklyn.entity.database.mysql.MySqlNode");
+                "      type: brooklyn.entity.database.mysql.MySqlNode");
 
         catalog.addItems(yaml);
 
@@ -163,8 +162,8 @@ public class ExternalConfigYamlTest extends AbstractYamlTest {
         String yaml = Joiner.on("\n").join(
                 "brooklyn.catalog:",
                 "    id: myid",
-                "    itemType: template",
                 "    version: 1.2",
+                "    itemType: template",
                 "    description: myDescription",
                 "    displayName: myDisplayName",
                 "    iconUrl: classpath:///myIconUrl.png",
@@ -174,8 +173,7 @@ public class ExternalConfigYamlTest extends AbstractYamlTest {
                 "      url: $brooklyn:external(\"myprovider\", \"myCatalogLibraryUrl\")",
                 "",
                 "    item:",
-                "      services:",
-                "      - type: brooklyn.entity.database.mysql.MySqlNode");
+                "      type: brooklyn.entity.database.mysql.MySqlNode");
 
         catalog.addItems(yaml);
 
@@ -193,8 +191,8 @@ public class ExternalConfigYamlTest extends AbstractYamlTest {
         String yaml = Joiner.on("\n").join(
                 "brooklyn.catalog:",
                 "  id: osgi.test",
-                "  itemType: template",
                 "  version: 1.3",
+                "  itemType: template",
                 "  description: CentOS 6.6 With GUI - 1.3",
                 "  displayName: CentOS 6.6",
                 "  iconUrl: classpath:///centos.png",
@@ -202,8 +200,7 @@ public class ExternalConfigYamlTest extends AbstractYamlTest {
                 "  - " + LIBRARY_URL,
                 "",
                 "  item:",
-                "    services:",
-                "    - type: brooklyn.entity.database.mysql.MySqlNode");
+                "    type: brooklyn.entity.database.mysql.MySqlNode");
 
         catalog.addItems(yaml);
 

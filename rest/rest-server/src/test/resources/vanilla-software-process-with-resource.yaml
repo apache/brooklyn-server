@@ -22,7 +22,10 @@
 
 brooklyn.catalog:
   id: vanilla-software-resource-test
-  version: 1.0
+  version: "1.0"
+  itemType: tempalte
+  libraries:
+  - classpath://brooklyn/osgi/brooklyn-test-osgi-entities.jar
   item:
     services:
     - type: org.apache.brooklyn.entity.stock.BasicApplication
@@ -34,6 +37,3 @@ brooklyn.catalog:
           # Contained in library jar.
           runtimeFiles:
             classpath://org/apache/brooklyn/test/osgi/resources/message.txt: message.txt
-
-  libraries:
-  - classpath://brooklyn/osgi/brooklyn-test-osgi-entities.jar

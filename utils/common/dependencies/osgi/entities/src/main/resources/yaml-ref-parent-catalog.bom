@@ -18,6 +18,7 @@
 
 brooklyn.catalog:
   version: 0.1.2
+  itemType: entity
   displayName: I Haz Catalog
   libraries:
     # References a bundle which doesn't contain SimpleEntity on purpose

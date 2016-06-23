@@ -37,8 +37,9 @@ public class CatalogYamlEntityNameTest extends AbstractYamlTest {
         addCatalogItems(
             "brooklyn.catalog:",
             "  id: " + symbolicName,
-            "  name: nameInItemMetadata",
             "  version: " + TEST_VERSION,
+            "  itemType: entity",
+            "  name: nameInItemMetadata",
             "  item:",
             "    type: "+ BasicEntity.class.getName());
 
@@ -95,8 +96,9 @@ public class CatalogYamlEntityNameTest extends AbstractYamlTest {
         addCatalogItems(
             "brooklyn.catalog:",
             "  id: " + symbolicName,
-            "  name: nameInItemMetadata",
             "  version: " + TEST_VERSION,
+            "  itemType: entity",
+            "  name: nameInItemMetadata",
             "  item:",
             "    type: "+ BasicEntity.class.getName(),
             "    brooklyn.config:",
@@ -176,8 +178,9 @@ public class CatalogYamlEntityNameTest extends AbstractYamlTest {
         addCatalogItems(
             "brooklyn.catalog:",
             "  id: " + symbolicName,
-            "  name: nameInItemMetadata",
             "  version: " + TEST_VERSION,
+            "  itemType: entity",
+            "  name: nameInItemMetadata",
             "  item:",
             "    type: "+ BasicEntity.class.getName());
 

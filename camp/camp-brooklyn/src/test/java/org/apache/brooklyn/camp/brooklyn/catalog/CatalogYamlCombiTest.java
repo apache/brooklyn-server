@@ -46,17 +46,14 @@ public class CatalogYamlCombiTest extends AbstractYamlTest {
             "brooklyn.catalog:",
             "  version: "+TEST_VERSION,
             "  items:",
-            
-            "  - itemType: entity",
+            "  - id: A",
+            "    itemType: entity",
             "    item:",
-            // TODO inclusion of the above information gives a better error message when no transformers
-//            "  - item:",
-            
-            "      id: A",
             "      type: "+BasicEntity.class.getName(),
             "      brooklyn.config: { a: 1, b: 0 }",
-            "  - item:",
-            "      id: B",
+            "  - id: B",
+            "    itemType: entity",
+            "    item:",
             "      type: A",
             "      brooklyn.config: { b: 1 }");
 
@@ -92,22 +89,24 @@ public class CatalogYamlCombiTest extends AbstractYamlTest {
         addCatalogItems(
             "brooklyn.catalog:",
             "  version: "+TEST_VERSION,
-            "  id: Z",
+            "  itemType: location",
             "  items:",
-            "  - item: ",
+            "  - id: Z",
+            "    item: ",
             "      type: localhost",
             "      brooklyn.config: { z: 9 }");
         addCatalogItems(
             "brooklyn.catalog:",
             "  version: "+TEST_VERSION,
             "  items:",
-            "  - item_type: policy", 
+            "  - id: A",
+            "    itemType: policy", 
             "    item:",
-            "      id: A",
             "      type: "+ServiceRestarter.class.getName(),
             "      brooklyn.config: { a: 99 }",
-            "  - item:",
-            "      id: B",
+            "  - id: B",
+            "    itemType: entity",
+            "    item:",
             "      type: "+BasicStartable.class.getName(),
             "      location: Z",
             "      brooklyn.policies:",

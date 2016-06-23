@@ -18,11 +18,11 @@
 #
 brooklyn.catalog:
   id: org.apache.brooklyn.windows.7zip
-  version: 1.0
+  version: "1.0"
+  itemType: template
   description: A Windows Server, with 7Zip installed
   displayName: 7Zip
   iconUrl: http://www.7-zip.org/7ziplogo.png
-  itemType: template
 
   item:
     services:

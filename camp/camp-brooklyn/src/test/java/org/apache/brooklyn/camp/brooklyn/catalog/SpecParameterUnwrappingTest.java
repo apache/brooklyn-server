@@ -20,6 +20,7 @@ package org.apache.brooklyn.camp.brooklyn.catalog;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.fail;
 
 import java.util.Iterator;
 import java.util.List;
@@ -29,8 +30,10 @@ import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
+import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.SpecParameter;
+import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -84,13 +87,15 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
 
     @Test(dataProvider = "brooklynTypes")
     public void testParameters(Class<? extends BrooklynObject> testClass) {
-        addCatalogItems("brooklyn.catalog:",
-                        "  id: " + SYMBOLIC_NAME,
-                        "  version: " + TEST_VERSION,
-                        "  item:",
-                        "    type: " + testClass.getName(),
-                        "    brooklyn.parameters:",
-                        "    - simple");
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  id: " + SYMBOLIC_NAME,
+                "  version: " + TEST_VERSION,
+                "  itemType: " + inferItemType(testClass),
+                "  item:",
+                "    type: " + testClass.getName(),
+                "    brooklyn.parameters:",
+                "    - simple");
 
         ConfigKey<String> SIMPLE_CONFIG = ConfigKeys.newStringConfigKey("simple");
         SpecParameter<String> SIMPLE_PARAM = new BasicSpecParameter<>("simple", true, SIMPLE_CONFIG);
@@ -105,6 +110,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
             "brooklyn.catalog:",
             "  id: " + SYMBOLIC_NAME,
             "  version: " + TEST_VERSION,
+            "  itemType: " + inferItemType(testClass),
             "  item:",
             "    type: "+ testClass.getName());
 
@@ -119,6 +125,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
                 "brooklyn.catalog:",
                 "  id: " + SYMBOLIC_NAME,
                 "  version: " + TEST_VERSION,
+                "  itemType: entity",
                 "  item:",
                 "    services:",
                 "    - type: " + ConfigEntityForTest.class.getName(),
@@ -142,6 +149,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         addCatalogItems(
                 "brooklyn.catalog:",
                 "  version: " + TEST_VERSION,
+                "  itemType: " + inferItemType(type),
                 "  items:",
                 "  - id: paramItem",
                 "    item:",
@@ -165,6 +173,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         addCatalogItems(
                 "brooklyn.catalog:",
                 "  version: " + TEST_VERSION,
+                "  itemType: " + inferItemType(type),
                 "  items:",
                 "  - id: paramItem",
                 "    item:",
@@ -192,13 +201,13 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
                 "brooklyn.catalog:",
                 "  id: " + SYMBOLIC_NAME,
                 "  version: " + TEST_VERSION,
-                "  items:",
-                "  - item:",
-                "      type: " + ConfigEntityForTest.class.getName(),
-                "      brooklyn.children:",
-                "      - type: " + ConfigEntityForTest.class.getName(),
-                "        brooklyn.parameters:",
-                "        - simple");
+                "  itemType: entity",
+                "  item:",
+                "    type: " + ConfigEntityForTest.class.getName(),
+                "    brooklyn.children:",
+                "    - type: " + ConfigEntityForTest.class.getName(),
+                "      brooklyn.parameters:",
+                "      - simple");
 
         CatalogItem<?, ?> item = catalog.getCatalogItem(SYMBOLIC_NAME, TEST_VERSION);
         @SuppressWarnings({ "rawtypes", "unchecked"})
@@ -213,12 +222,12 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         addCatalogItems(
                 "brooklyn.catalog:",
                 "  version: " + TEST_VERSION,
-                "  items:",
-                "  - id: " + SYMBOLIC_NAME,
-                "    item:",
-                "      type: " + BasicApplication.class.getName(),
-                "      brooklyn.parameters:",
-                "      - simple");
+                "  id: " + SYMBOLIC_NAME,
+                "  itemType: entity",
+                "  item:",
+                "    type: " + BasicApplication.class.getName(),
+                "    brooklyn.parameters:",
+                "    - simple");
 
         EntitySpec<? extends Application> spec = createAppSpec(
                 "services:",
@@ -234,13 +243,13 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
     public void testAppSpecInheritsCatalogRootParameters() {
         addCatalogItems(
                 "brooklyn.catalog:",
+                "  id: " + SYMBOLIC_NAME,
                 "  version: " + TEST_VERSION,
-                "  items:",
-                "  - id: " + SYMBOLIC_NAME,
-                "    item:",
-                "      type: " + BasicApplication.class.getName(),
-                "      brooklyn.parameters:",
-                "      - simple");
+                "  itemType: entity",
+                "  item:",
+                "    type: " + BasicApplication.class.getName(),
+                "    brooklyn.parameters:",
+                "    - simple");
 
         EntitySpec<? extends Application> spec = createAppSpec(
                 "services:",
@@ -255,14 +264,14 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
     public void testAppSpecInheritsCatalogRootParametersWithServices() {
         addCatalogItems(
                 "brooklyn.catalog:",
+                "  id: " + SYMBOLIC_NAME,
                 "  version: " + TEST_VERSION,
-                "  items:",
-                "  - id: " + SYMBOLIC_NAME,
-                "    item:",
-                "      brooklyn.parameters:",
-                "      - simple",
-                "      services:",
-                "      - type: " + BasicApplication.class.getName());
+                "  itemType: entity",
+                "  item:",
+                "    brooklyn.parameters:",
+                "    - simple",
+                "    services:",
+                "    - type: " + BasicApplication.class.getName());
 
         EntitySpec<? extends Application> spec = createAppSpec(
                 "services:",
@@ -288,6 +297,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
                 "      services:",
                 "      - type: basic-app",
                 "  - id: basic-app",
+                "    itemType: entity",
                 "    item:",
                 "      type: " + ConfigAppForTest.class.getName());
         EntitySpec<? extends Application> spec = createAppSpec(
@@ -305,6 +315,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
                 "brooklyn.catalog:",
                 "  id: " + SYMBOLIC_NAME,
                 "  version: " + TEST_VERSION,
+                "  itemType: entity",
                 "  item:",
                 "    type: " + BasicApplication.class.getName(),
                 "    brooklyn.parameters:",
@@ -376,4 +387,15 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         return EntityManagementUtils.createEntitySpecForApplication(mgmt(), joinLines(lines));
     }
 
+    private String inferItemType(Class<? extends BrooklynObject> testClass) {
+        if (Entity.class.isAssignableFrom(testClass)) {
+            return "entity";
+        } else if (Policy.class.isAssignableFrom(testClass)) {
+            return "policy";
+        } else if (Location.class.isAssignableFrom(testClass)) {
+            return "location";
+        } else {
+            throw new IllegalArgumentException("Class" + testClass + " not an entity, policy or location");
+        }
+    }
 }

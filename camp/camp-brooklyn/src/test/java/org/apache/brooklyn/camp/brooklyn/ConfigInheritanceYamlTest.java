@@ -122,8 +122,8 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
         addCatalogItems(
                 "brooklyn.catalog:",
                 "  id: localhost-stub",
-                "  name: Localhost (stubbed-SSH)",
                 "  itemType: location",
+                "  name: Localhost (stubbed-SSH)",
                 "  item:",
                 "    type: localhost",
                 "    brooklyn.config:",

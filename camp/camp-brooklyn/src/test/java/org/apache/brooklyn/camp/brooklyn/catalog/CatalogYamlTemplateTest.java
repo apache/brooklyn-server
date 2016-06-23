@@ -91,7 +91,7 @@ public class CatalogYamlTemplateTest extends AbstractYamlTest {
         addCatalogItems(
                 "brooklyn.catalog:",
                 "  id: t1",
-                "  item_type: template",
+                "  itemType: template",
                 "  name: myT1",
                 "  item:",
                 "    services:",
@@ -99,7 +99,7 @@ public class CatalogYamlTemplateTest extends AbstractYamlTest {
         addCatalogItems(
                 "brooklyn.catalog:",
                 "  id: t2",
-                "  item_type: template",
+                "  itemType: template",
                 "  name: myT2",
                 "  item:",
                 "    services:",
@@ -128,7 +128,7 @@ public class CatalogYamlTemplateTest extends AbstractYamlTest {
         addCatalogItems(
                 "brooklyn.catalog:",
                 "  id: t1",
-                "  item_type: template",
+                "  itemType: template",
                 "  name: myT1",
                 "  item:",
                 "    services:",
@@ -136,7 +136,7 @@ public class CatalogYamlTemplateTest extends AbstractYamlTest {
         addCatalogItems(
                 "brooklyn.catalog:",
                 "  id: t2",
-                "  item_type: template",
+                "  itemType: template",
                 "  name: myT2",
                 "  item:",
                 "    services:",
@@ -164,7 +164,7 @@ public class CatalogYamlTemplateTest extends AbstractYamlTest {
         addCatalogItems(
                 "brooklyn.catalog:",
                 "  id: t1",
-                "  item_type: template",
+                "  itemType: template",
                 "  name: myT1",
                 "  item:",
                 "    services:",
@@ -172,7 +172,7 @@ public class CatalogYamlTemplateTest extends AbstractYamlTest {
         addCatalogItems(
                 "brooklyn.catalog:",
                 "  id: t2",
-                "  item_type: template",
+                "  itemType: template",
                 "  name: myT2",
                 "  item:",
                 "    services:",
@@ -232,7 +232,7 @@ public class CatalogYamlTemplateTest extends AbstractYamlTest {
               "      type: org.apache.brooklyn.entity.stock.BasicApplication",
               "      brooklyn.config: { foo: bar }",
               "  - id: app1r",
-              "    item_type: template",
+              "    itemType: template",
               "    item:",
               "      services:",
               "      - type: app1",
@@ -261,7 +261,7 @@ public class CatalogYamlTemplateTest extends AbstractYamlTest {
         addCatalogItems(
             "brooklyn.catalog:",
             "  id: t1",
-            "  item_type: template",
+            "  itemType: template",
             "  name: My Catalog App",
             "  description: My description",
             "  icon_url: classpath://path/to/myicon.jpg",
