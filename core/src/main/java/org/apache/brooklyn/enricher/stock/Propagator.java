@@ -100,7 +100,8 @@ public class Propagator extends AbstractEnricher implements SensorEventListener<
         Collection<Sensor<?>> propagating = resolveSensorCollection(getConfig(PROPAGATING));
         
         if (producer == null) {
-            throw new IllegalStateException("Propagator enricher "+this+" missing config '"+PRODUCER.getName());
+            LOG.debug("Defaulting to producer==self for {}, on entity {}", this, entity);
+            producer = entity;
         }
         if (propagating.isEmpty() && sensorMapping.isEmpty() && !propagatingAll) {
             throw new IllegalStateException("Propagator enricher "+this+" must have 'propagating' and/or 'sensorMapping', or 'propagatingAll' or 'propagatingAllBut' set");
