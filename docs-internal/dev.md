@@ -216,3 +216,16 @@ Instead of explicit parameters to `docker` you can use its environment variables
     export DOCKER_TLS_VERIFY=true
     export DOCKER_CERT_PATH=.certs
     docker ps -a
+
+
+### Building a Docker Image
+
+To manually test a docker image:
+
+    IMAGES_REPO=~/repos/cloudsoft/container-service-images
+    IMAGE_NAME=temp/ubuntu:14.04
+    
+    cd ${IMAGES_REPO}/ubuntu-14.04
+    docker build -t ${IMAGE_NAME} .
+
+    docker run -P -d -e "CLOUDSOFT_ROOT_PASSWORD=mypa55word" ${IMAGE_NAME}
