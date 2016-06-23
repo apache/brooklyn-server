@@ -1,5 +1,7 @@
 package io.cloudsoft.amp.containerservice.dockerlocation;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.util.List;
 
 import org.apache.brooklyn.api.location.MachineLocation;
@@ -13,6 +15,7 @@ import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.domain.Image;
+import org.jclouds.compute.domain.OsFamily;
 import org.jclouds.compute.domain.Template;
 import org.jclouds.docker.compute.options.DockerTemplateOptions;
 import org.slf4j.Logger;
@@ -49,7 +52,35 @@ public class DockerJcloudsLocation extends JcloudsLocation {
      * The regex for the image descriptions that support us injecting login credentials.
      */
     private static final List<String> IMAGE_DESCRIPTION_REGEXES_REQUIRING_INJECTED_LOGIN_CREDS = ImmutableList.of(
-            "cloudsoft/centos.*");
+            "cloudsoft/centos.*",
+            "cloudsoft/ubuntu.*");
+
+    private static final List<ImageMetadata> DEFAULT_IMAGES = ImmutableList.of(
+            new ImageMetadata(OsFamily.CENTOS, "7", "cloudsoft/centos:7"),
+            new ImageMetadata(OsFamily.UBUNTU, "14.04", "cloudsoft/ubuntu:14.04"),
+            new ImageMetadata(OsFamily.UBUNTU, "16.04", "cloudsoft/ubuntu:16.04"));
+
+    private static class ImageMetadata {
+        private final OsFamily osFamily;
+        private final String osVersion;
+        private final String imageDescription;
+        
+        public ImageMetadata(OsFamily osFamily, String osVersion, String imageDescription) {
+            this.osFamily = checkNotNull(osFamily, "osFamily");
+            this.osVersion = checkNotNull(osVersion, "osVersion");
+            this.imageDescription = checkNotNull(imageDescription, "imageDescription");
+        }
+        
+        public boolean matches(OsFamily osFamily, String osVersionRegex) {
+            if (osFamily != null && osFamily != this.osFamily) return false;
+            if (osVersionRegex != null && !osVersion.matches(osVersionRegex)) return false;
+            return true;
+        }
+        
+        public String getImageDescription() {
+            return imageDescription;
+        }
+    }
 
     @Override
     protected MachineLocation obtainOnce(ConfigBag setup) throws NoMachinesAvailableException {
@@ -60,9 +91,24 @@ public class DockerJcloudsLocation extends JcloudsLocation {
         String imageId = setup.get(JcloudsLocation.IMAGE_ID);
         String imageNameRegex = setup.get(JcloudsLocation.IMAGE_NAME_REGEX);
         String imageDescriptionRegex = setup.get(JcloudsLocation.IMAGE_DESCRIPTION_REGEX);
-        String defaultImageDescriptionRegex = getConfig(DEFAULT_IMAGE_DESCRIPTION_REGEX);
+        String defaultImageDescriptionRegex = setup.get(DEFAULT_IMAGE_DESCRIPTION_REGEX);
+        OsFamily osFamily = setup.get(OS_FAMILY);
+        String osVersionRegex = setup.get(OS_VERSION_REGEX);
+        
         if (Strings.isBlank(imageId) && Strings.isBlank(imageNameRegex) && Strings.isBlank(imageDescriptionRegex)) {
-            if (Strings.isNonBlank(defaultImageDescriptionRegex)) {
+            if (osFamily != null || osVersionRegex != null) {
+                for (ImageMetadata imageMetadata : DEFAULT_IMAGES) {
+                    if (imageMetadata.matches(osFamily, osVersionRegex)) {
+                        String imageDescription = imageMetadata.getImageDescription();
+                        LOG.debug("Setting default image regex to {}, for obtain call in {}; removing osFamily={} and osVersionRegex={}", 
+                                new Object[] {imageDescription, this, osFamily, osVersionRegex});
+                        setup.configure(JcloudsLocation.IMAGE_DESCRIPTION_REGEX, imageDescription);
+                        setup.configure(OS_FAMILY, null);
+                        setup.configure(OS_VERSION_REGEX, null);
+                        break;
+                    }
+                }
+            } else if (Strings.isNonBlank(defaultImageDescriptionRegex)) {
                 LOG.debug("Setting default image regex to {}, for obtain call in {}", defaultImageDescriptionRegex, this);
                 setup.configure(JcloudsLocation.IMAGE_DESCRIPTION_REGEX, defaultImageDescriptionRegex);
             }
