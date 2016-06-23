@@ -56,6 +56,9 @@ public class MachineAttributes {
     public static final AttributeSensor<Double> USED_MEMORY_DELTA_PER_SECOND_LAST = Sensors.newDoubleSensor("memory.used.delta", "Change in memory usage per second");
     public static final AttributeSensor<Double> USED_MEMORY_DELTA_PER_SECOND_IN_WINDOW = Sensors.newDoubleSensor("memory.used.windowed", "Average change in memory usage over 30s");
 
+    public static final AttributeSensor<Double> USED_MEMORY_PERCENT = Sensors.newDoubleSensor("memory.used.percent", "The percentage of memory used");
+    public static final AttributeSensor<Double> AVERAGE_USED_MEMORY_PERCENT = Sensors.newDoubleSensor("memory.used.percent.average", "Average percentage of memory used across the cluster");
+
     private static AtomicBoolean initialized = new AtomicBoolean(false);
 
     /**
@@ -74,6 +77,9 @@ public class MachineAttributes {
 
         RendererHints.register(CPU_USAGE, RendererHints.displayValue(MathFunctions.percent(2)));
         RendererHints.register(AVERAGE_CPU_USAGE, RendererHints.displayValue(MathFunctions.percent(2)));
+
+        RendererHints.register(USED_MEMORY_PERCENT, RendererHints.displayValue(MathFunctions.percent(2)));
+        RendererHints.register(AVERAGE_USED_MEMORY_PERCENT, RendererHints.displayValue(MathFunctions.percent(2)));
 
         RendererHints.register(FREE_MEMORY, RendererHints.displayValue(Functionals.chain(MathFunctions.times(1000L), ByteSizeStrings.metric())));
         RendererHints.register(TOTAL_MEMORY, RendererHints.displayValue(Functionals.chain(MathFunctions.times(1000L), ByteSizeStrings.metric())));

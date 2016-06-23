@@ -35,6 +35,8 @@ import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.enricher.stock.PercentageEnricher;
+import org.apache.brooklyn.enricher.stock.Transformer;
 import org.apache.brooklyn.enricher.stock.YamlRollingTimeWindowMeanEnricher;
 import org.apache.brooklyn.enricher.stock.YamlTimeWeightedDeltaEnricher;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
@@ -75,6 +77,12 @@ public class AddMachineMetrics implements EntityInitializer {
         entity.enrichers().add(EnricherSpec.create(YamlRollingTimeWindowMeanEnricher.class)
                 .configure(YamlRollingTimeWindowMeanEnricher.SOURCE_SENSOR, MachineAttributes.USED_MEMORY_DELTA_PER_SECOND_LAST)
                 .configure(YamlRollingTimeWindowMeanEnricher.TARGET_SENSOR, MachineAttributes.USED_MEMORY_DELTA_PER_SECOND_IN_WINDOW));
+
+        entity.enrichers().add(EnricherSpec.create(PercentageEnricher.class)
+                .configure(PercentageEnricher.SOURCE_CURRENT_SENSOR, MachineAttributes.USED_MEMORY)
+                .configure(PercentageEnricher.SOURCE_TOTAL_SENSOR, MachineAttributes.TOTAL_MEMORY)
+                .configure(PercentageEnricher.TARGET_SENSOR, MachineAttributes.USED_MEMORY_PERCENT));
+
     }
 
     public static SshFeed createMachineMetricsFeed(EntityLocal entity) {
