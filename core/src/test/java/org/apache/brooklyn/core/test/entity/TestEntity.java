@@ -100,6 +100,9 @@ public interface TestEntity extends Entity, Startable, EntityLocal, EntityIntern
     
     @Effector(description="returns the arg passed in")
     public Object identityEffector(@EffectorParam(name="arg", description="val to return") Object arg);
+
+    @Effector(description="an example effector with side effects, returns a strictly increasing sequence value")
+    public Integer sequenceEffector();
     
     @Effector(description="sleeps for the given duration")
     public void sleepEffector(@EffectorParam(name="duration") Duration duration);

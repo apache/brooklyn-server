@@ -242,6 +242,10 @@ public class BrooklynDslCommon {
         return new DslComponent(Scope.THIS, "").effector(effectorName, ImmutableMap.<String, Object>of());
     }
 
+    public static BrooklynDslDeferredSupplier<?> effector(String effectorName, String... args) {
+        return new DslComponent(Scope.THIS, "").effector(effectorName, args);
+    }
+
     /** Returns a {@link Sensor}, looking up the sensor on the context if available and using that,
      * or else defining an untyped (Object) sensor */
     @DslAccessible

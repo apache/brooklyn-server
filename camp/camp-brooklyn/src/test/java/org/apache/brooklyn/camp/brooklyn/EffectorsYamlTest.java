@@ -18,42 +18,161 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
+import com.google.common.collect.Iterables;
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.EntityAsserts;
-import org.apache.brooklyn.core.entity.trait.Startable;
-import org.apache.brooklyn.util.time.Duration;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+
+import static org.apache.brooklyn.core.entity.EntityPredicates.displayNameEqualTo;
+import static org.testng.Assert.assertEquals;
 
 @Test
 public class EffectorsYamlTest extends AbstractYamlTest {
     private static final Logger log = LoggerFactory.getLogger(EffectorsYamlTest.class);
 
     @Test
-    public void testWithAppEnricher() throws Exception {
-        Entity app = createAndStartApplication(loadYaml("test-app-with-effectors.yaml"));
-        waitForApplicationTasks(app);
-        Assert.assertEquals(app.getDisplayName(), "test-app-with-effectors");
+    public void testEffectorWithVoidReturnInvokedByGetConfig() throws Exception {
+        Entity app = createAndStartApplication(
+            "services:",
+            "- type: " + TestEntity.class.getName(),
+            "  id: entity1",
+            "  brooklyn.config:",
+            "    test.confName: $brooklyn:entity(\"entity1\").effector(\"myEffector\")"
+        );
+        TestEntity testEntity = (TestEntity)Iterables.getOnlyElement(app.getChildren());
 
-        Entities.dumpInfo(app);
-        Thread.sleep(Duration.THIRTY_SECONDS.toMilliseconds());
+        assertCallHistory(testEntity, "start");
 
-        Entity start1 = null, start2 = null;
-        Assert.assertEquals(app.getChildren().size(), 2);
-        for (Entity child : app.getChildren()) {
-            if (child.getDisplayName().equals("start1"))
-                start1 = child;
-            if (child.getDisplayName().equals("start2"))
-                start2 = child;
+        // invoke the effector
+        Assert.assertNull(testEntity.getConfig(TestEntity.CONF_NAME));
+
+        assertCallHistory(testEntity, "start", "myEffector");
+    }
+
+
+    @Test(enabled = false, description = "currently not possible to say '$brooklyn:entity(\"entity1\").effector:'")
+    public void testEffectorMultiLine() throws Exception {
+        Entity app = createAndStartApplication(
+            "services:",
+            "- type: " + TestEntity.class.getName(),
+            "  id: entity1",
+            "  brooklyn.config:",
+            "    test.confName: ",
+            "      $brooklyn:entity(\"entity1\").effector:",
+            "      - myEffector"
+        );
+        TestEntity testEntity = (TestEntity)Iterables.getOnlyElement(app.getChildren());
+
+        assertCallHistory(testEntity, "start");
+
+        Assert.assertNull(testEntity.getConfig(TestEntity.CONF_NAME));
+
+        assertCallHistory(testEntity, "start", "myEffector");
+    }
+
+    @Test
+    public void testEffectorWithReturn() throws Exception {
+        Entity app = createAndStartApplication(
+            "services:",
+            "- type: " + TestEntity.class.getName(),
+            "  id: entity1",
+            "  brooklyn.config:",
+            "    test.confName: ",
+            "      $brooklyn:entity(\"entity1\").effector(\"identityEffector\", \"hello\")"
+        );
+        TestEntity testEntity = (TestEntity)Iterables.getOnlyElement(app.getChildren());
+        Assert.assertEquals(testEntity.getConfig(TestEntity.CONF_NAME), "hello");
+        assertCallHistory(testEntity, "start", "identityEffector");
+    }
+
+    @Test
+    public void testOwnEffectorWithReturn() throws Exception {
+        Entity app = createAndStartApplication(
+            "services:",
+            "- type: " + TestEntity.class.getName(),
+            "  brooklyn.config:",
+            "    test.confName: ",
+            "      $brooklyn:effector(\"identityEffector\", \"my own effector\")"
+        );
+        TestEntity testEntity = (TestEntity)Iterables.getOnlyElement(app.getChildren());
+        Assert.assertEquals(testEntity.getConfig(TestEntity.CONF_NAME), "my own effector");
+        assertCallHistory(testEntity, "start", "identityEffector");
+    }
+
+    @Test
+    public void testEffectorCalledOncePerConfigKey() throws Exception {
+        Entity app = createAndStartApplication(
+            "services:",
+            "- type: " + TestEntity.class.getName(),
+            "  id: entity1",
+            "  brooklyn.config:",
+            "    test.confName: ",
+            "      $brooklyn:effector(\"sequenceEffector\")",
+            "    test.confObject: ",
+            "      $brooklyn:effector(\"sequenceEffector\")"
+        );
+        TestEntity testEntity = (TestEntity)Iterables.getOnlyElement(app.getChildren());
+
+        List<String> callHistory = testEntity.getCallHistory();
+        Assert.assertFalse(callHistory.contains("myEffector"), "history = " + callHistory);
+
+        final String firstGetConfig = testEntity.getConfig(TestEntity.CONF_NAME);
+        Assert.assertEquals(firstGetConfig, "1");
+        final String secondGetConfig = testEntity.getConfig(TestEntity.CONF_NAME);
+        Assert.assertEquals(secondGetConfig, "1");
+        Assert.assertEquals(testEntity.getConfig(TestEntity.CONF_OBJECT), Integer.valueOf(2));
+        assertCallHistory(testEntity, "start", "sequenceEffector", "sequenceEffector");
+    }
+
+    @Test(groups = "Integration")
+    public void testSshCommandSensorWithEffectorInEnv() throws Exception {
+        final Path tempFile = Files.createTempFile("testSshCommandSensorWithEffectorInEnv", ".txt");
+        getLogger().info("Temp file is {}", tempFile.toAbsolutePath());
+
+        try {
+            Entity app = createAndStartApplication(
+                "location: localhost:(name=localhost)",
+                "services:",
+                "- type: " + TestEntity.class.getName(),
+                "  id: testEnt1",
+                "  name: testEnt1",
+                "- type: " + VanillaSoftwareProcess.class.getName(),
+                "  id: vsp",
+                "  brooklyn.config:",
+                "    launch.command: echo ${MY_ENV_VAR} > " + tempFile.toAbsolutePath(),
+                "    checkRunning.command: true",
+                "    shell.env:",
+                "      MY_ENV_VAR:" ,
+                "        $brooklyn:entity(\"testEnt1\").effector(\"identityEffector\", \"from effector\")"
+            );
+            waitForApplicationTasks(app);
+
+            final TestEntity testEnt1 =
+                (TestEntity) Iterables.filter(app.getChildren(), displayNameEqualTo("testEnt1")).iterator().next();
+            assertCallHistory(testEnt1, "start", "identityEffector");
+            final String contents = new String(Files.readAllBytes(tempFile)).trim();
+            assertEquals(contents, "from effector", "file contents: " + contents);
+
+        } finally {
+            Files.delete(tempFile);
         }
-        Assert.assertNotNull(start1);
-        Assert.assertNotNull(start2);
-        EntityAsserts.assertAttributeEquals(start1, Startable.SERVICE_UP, false);
-        EntityAsserts.assertAttributeEquals(start2, Startable.SERVICE_UP, true);
+    }
+
+    public static void assertCallHistory(TestEntity testEntity, String... expectedCalls) {
+        List<String> callHistory = testEntity.getCallHistory();
+        Assert.assertEquals(callHistory.size(), expectedCalls.length, "history = " + callHistory);
+        int c = 0;
+        for (String expected : expectedCalls) {
+            Assert.assertEquals(callHistory.get(c++), expected, "history = " + callHistory);
+        }
     }
 
     @Override
