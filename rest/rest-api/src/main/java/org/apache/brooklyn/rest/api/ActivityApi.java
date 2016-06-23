@@ -20,6 +20,7 @@ package org.apache.brooklyn.rest.api;
 
 import io.swagger.annotations.Api;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.brooklyn.rest.domain.TaskSummary;
 
@@ -44,8 +45,7 @@ public interface ActivityApi {
             @ApiResponse(code = 404, message = "Could not find task")
     })
     public TaskSummary get(
-            @ApiParam(value = "Task ID", required = true) @PathParam("task") String taskId
-            );
+            @ApiParam(value = "Task ID", required = true) @PathParam("task") String taskId);
 
     @GET
     @Path("/{task}/children")
@@ -54,6 +54,17 @@ public interface ActivityApi {
             @ApiResponse(code = 404, message = "Could not find task")
     })
     public List<TaskSummary> children(
+            @ApiParam(value = "Task ID", required = true) @PathParam("task") String taskId);
+
+    @GET
+    @Path("/{task}/children/recurse")
+    @ApiOperation(
+            value = "Fetch all child tasks details as Map<String,TaskSummary> map key == Task ID",
+            response = Map.class)
+    @ApiResponses(value = {
+            @ApiResponse(code = 404, message = "Could not find task")
+    })
+    public Map<String,TaskSummary> getAllChildrenAsMap(
             @ApiParam(value = "Task ID", required = true) @PathParam("task") String taskId);
 
     @GET

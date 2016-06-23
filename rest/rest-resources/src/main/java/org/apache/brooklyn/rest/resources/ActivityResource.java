@@ -18,10 +18,9 @@
  */
 package org.apache.brooklyn.rest.resources;
 
-import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
-
+import com.google.common.collect.Collections2;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -33,8 +32,7 @@ import org.apache.brooklyn.rest.domain.TaskSummary;
 import org.apache.brooklyn.rest.transform.TaskTransformer;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 
-import com.google.common.collect.Collections2;
-import com.google.common.collect.Lists;
+import java.util.*;
 
 public class ActivityResource extends AbstractBrooklynRestResource implements ActivityApi {
 
@@ -50,13 +48,36 @@ public class ActivityResource extends AbstractBrooklynRestResource implements Ac
     }
 
     @Override
+    public Map<String, TaskSummary> getAllChildrenAsMap(final String taskId) {
+        final Task<?> parentTask = mgmt().getExecutionManager().getTask(taskId);
+        if (parentTask == null) {
+            throw WebResourceUtils.notFound("Cannot find task '%s'", taskId);
+        }
+        checkEntityEntitled(parentTask);
+        return getAllDescendantTasks(parentTask);
+    }
+
+    private LinkedHashMap<String, TaskSummary> getAllDescendantTasks(final Task<?> parentTask) {
+        final LinkedHashMap<String, TaskSummary> result = Maps.newLinkedHashMap();
+        if (!(parentTask instanceof HasTaskChildren)) {
+            return result;
+        }
+        for (final Task<?> childTask : ((HasTaskChildren) parentTask).getChildren()) {
+            result.put(childTask.getId(), TaskTransformer.fromTask(ui.getBaseUriBuilder()).apply(childTask));
+            result.putAll(getAllDescendantTasks(childTask));
+        }
+        return result;
+    }
+
+
+    @Override
     public List<TaskSummary> children(String taskId) {
         Task<?> t = mgmt().getExecutionManager().getTask(taskId);
         if (t == null) {
             throw WebResourceUtils.notFound("Cannot find task '%s'", taskId);
         }
         checkEntityEntitled(t);
-        
+
         if (!(t instanceof HasTaskChildren)) {
             return Collections.emptyList();
         }
@@ -72,14 +93,14 @@ public class ActivityResource extends AbstractBrooklynRestResource implements Ac
         }
         checkEntityEntitled(t);
         checkStreamEntitled(t, streamId);
-        
+
         WrappedStream stream = BrooklynTaskTags.stream(t, streamId);
         if (stream == null) {
             throw WebResourceUtils.notFound("Cannot find stream '%s' in task '%s'", streamId, taskId);
         }
         return stream.streamContents.get();
     }
-    
+
     protected void checkEntityEntitled(Task<?> task) {
         Entity entity = BrooklynTaskTags.getContextEntity(task);
         if (entity != null && !Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
@@ -87,7 +108,7 @@ public class ActivityResource extends AbstractBrooklynRestResource implements Ac
                     Entitlements.getEntitlementContext().user(), entity);
         }
     }
-    
+
     protected void checkStreamEntitled(Task<?> task, String streamId) {
         Entity entity = BrooklynTaskTags.getContextEntity(task);
         Entitlements.TaskAndItem<String> item = new Entitlements.TaskAndItem<String>(task, streamId);
