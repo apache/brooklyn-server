@@ -20,6 +20,7 @@ import static org.testng.Assert.assertEquals;
 import java.util.Date;
 
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 

@@ -29,9 +29,11 @@ import org.apache.brooklyn.core.effector.EffectorBody;
 import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.effector.Effectors.EffectorBuilder;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.ssh.SshCommandSensor;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
 import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.base.Preconditions;
@@ -81,7 +83,9 @@ public final class SshCommandEffector extends AddEffector {
             }
             
             // then set things from the entities defined shell environment, if applicable
-            env.putAll(Strings.toStringMap(entity().getConfig(BrooklynConfigKeys.SHELL_ENVIRONMENT), ""));
+            Map<String, Object> shellEnv = entity().getConfig(BrooklynConfigKeys.SHELL_ENVIRONMENT);
+            ShellEnvironmentSerializer envSerializer = new ShellEnvironmentSerializer(((EntityInternal)entity()).getManagementContext());
+            env.putAll(envSerializer.serialize(shellEnv));
             
             // if we wanted to resolve the surrounding environment in real time -- see above
 //            Map<String,Object> paramsResolved = (Map<String, Object>) Tasks.resolveDeepValue(effectorShellEnv, Map.class, entity().getExecutionContext());

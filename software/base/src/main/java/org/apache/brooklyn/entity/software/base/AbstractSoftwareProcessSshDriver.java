@@ -25,7 +25,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.brooklyn.api.entity.EntityLocal;
@@ -45,6 +44,7 @@ import org.apache.brooklyn.entity.software.base.lifecycle.ScriptHelper;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.internal.ssh.sshj.SshjTool;
+import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
@@ -56,7 +56,6 @@ import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -347,21 +346,8 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
      */
     public Map<String, String> getShellEnvironment() {
         Map<String, Object> env = entity.getConfig(SoftwareProcess.SHELL_ENVIRONMENT);
-        if (env == null) {
-            return null;
-        }
         ShellEnvironmentSerializer envSerializer = new ShellEnvironmentSerializer(((EntityInternal)entity).getManagementContext());
-        Map<String, String> serializedEnv = Maps.newHashMap();
-        for (Entry<String, Object> entry : env.entrySet()) {
-            String key = serializeShellEnv(envSerializer, entry.getKey());
-            String value = serializeShellEnv(envSerializer, entry.getValue());
-            serializedEnv.put(key, value);
-        }
-        return serializedEnv;
-    }
-
-    private String serializeShellEnv(ShellEnvironmentSerializer envSerializer, Object value) {
-        return StringUtils.defaultString(envSerializer.serialize(value));
+        return envSerializer.serialize(env);
     }
 
     /**

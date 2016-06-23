@@ -113,7 +113,7 @@ public class BrooklynConfigKeys {
             "Command to be run after the launch method being called on the driver");
 
     public static final MapConfigKey<Object> SHELL_ENVIRONMENT = new MapConfigKey.Builder<Object>(Object.class, "shell.env")
-            .description("Map of environment variables to pass to the runtime shell") 
+            .description("Map of environment variables to pass to the runtime shell. Non-string values are serialized to json before passed to the shell.") 
             .defaultValue(ImmutableMap.<String,Object>of())
             .typeInheritance(ConfigInheritance.DEEP_MERGE)
             .build();
