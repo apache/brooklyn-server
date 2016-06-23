@@ -35,7 +35,7 @@ public class ShellEnvironmentSerializer {
         try {
             String str = mapper.writeValueAsString(value);
             // Avoid dealing with unquoting and unescaping the serialized result is a string
-            if (isString(str)) {
+            if (isJsonString(str)) {
                 return value.toString();
             } else {
                 return str;
@@ -45,7 +45,7 @@ public class ShellEnvironmentSerializer {
         }
     }
 
-    protected boolean isString(String str) {
+    protected boolean isJsonString(String str) {
         return str.length() > 0 && str.charAt(0) == '"';
     }
 }
