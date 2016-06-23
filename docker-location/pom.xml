@@ -20,9 +20,8 @@
 
     <dependencies>
         <!--
-            Including only as a test dependency to make AMP build easier - expect AMP to include
-            the very latest jclouds-docker. So if this version is not kept up-to-date then it
-            won't impact AMP.
+            Expect AMP to exclude this, and to choose its own jclouds-docker version.
+            So if this version is not kept up-to-date then it won't impact AMP.
         -->
         <dependency>
             <groupId>${jclouds.docker.groupId}.labs</groupId>
@@ -35,7 +34,6 @@
                     <artifactId>jsr311-api</artifactId>
                 </exclusion>
             </exclusions>
-            <scope>test</scope>
         </dependency>
     
         <dependency>
