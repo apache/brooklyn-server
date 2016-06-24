@@ -359,7 +359,7 @@ public class BrooklynDslCommon {
                 try {
                     bean = (T) TypeCoercions.coerce(fields, type);
                 } catch (ClassCoercionException ex) {
-                    bean = Reflections.invokeConstructorWithArgs(type).get();
+                    bean = Reflections.invokeConstructorFromArgs(type).get();
                     BeanUtils.populate(bean, fields);
                 }
                 if (bean instanceof Configurable && config.size() > 0) {

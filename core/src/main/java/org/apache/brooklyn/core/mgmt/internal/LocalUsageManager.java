@@ -50,6 +50,7 @@ import org.apache.brooklyn.core.mgmt.usage.UsageListener;
 import org.apache.brooklyn.core.mgmt.usage.UsageManager;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -57,7 +58,6 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
-import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -142,7 +142,7 @@ public class LocalUsageManager implements UsageManager {
             @Override public UsageListener apply(String input) {
                 // TODO Want to use classLoader = mgmt.getCatalog().getRootClassLoader();
                 ClassLoader classLoader = LocalUsageManager.class.getClassLoader();
-                Optional<Object> result = Reflections.invokeConstructorWithArgs(classLoader, input);
+                Maybe<Object> result = Reflections.invokeConstructorFromArgs(classLoader, input);
                 if (result.isPresent()) {
                     return (UsageListener) result.get();
                 } else {

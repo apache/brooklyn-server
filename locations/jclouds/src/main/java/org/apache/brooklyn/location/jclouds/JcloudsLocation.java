@@ -58,7 +58,6 @@ import org.apache.brooklyn.api.location.NoMachinesAvailableException;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.mgmt.AccessController;
 import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.BrooklynVersion;
@@ -107,8 +106,6 @@ import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.TaskInternal;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.ssh.SshTasks;
-import org.apache.brooklyn.util.core.task.system.ProcessTaskFactory;
-import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -400,7 +397,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     protected CloudMachineNamer getCloudMachineNamer(ConfigBag config) {
         String namerClass = config.get(LocationConfigKeys.CLOUD_MACHINE_NAMER_CLASS);
         if (Strings.isNonBlank(namerClass)) {
-            Optional<CloudMachineNamer> cloudNamer = Reflections.invokeConstructorWithArgs(getManagementContext().getCatalogClassLoader(), namerClass);
+            Maybe<CloudMachineNamer> cloudNamer = Reflections.invokeConstructorFromArgs(getManagementContext().getCatalogClassLoader(), CloudMachineNamer.class, namerClass);
             if (cloudNamer.isPresent()) {
                 return cloudNamer.get();
             } else {
@@ -425,11 +422,11 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         if (customizer != null) result.add(customizer);
         if (customizers != null) result.addAll(customizers);
         if (Strings.isNonBlank(customizerType)) {
-            Optional<JcloudsLocationCustomizer> customizerByType = Reflections.invokeConstructorWithArgs(catalogClassLoader, customizerType, setup);
+            Maybe<JcloudsLocationCustomizer> customizerByType = Reflections.invokeConstructorFromArgs(catalogClassLoader, JcloudsLocationCustomizer.class, customizerType, setup);
             if (customizerByType.isPresent()) {
                 result.add(customizerByType.get());
             } else {
-                customizerByType = Reflections.invokeConstructorWithArgs(catalogClassLoader, customizerType);
+                customizerByType = Reflections.invokeConstructorFromArgs(catalogClassLoader, JcloudsLocationCustomizer.class, customizerType);
                 if (customizerByType.isPresent()) {
                     result.add(customizerByType.get());
                 } else {
@@ -438,11 +435,11 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             }
         }
         if (Strings.isNonBlank(customizersSupplierType)) {
-            Optional<Supplier<Collection<JcloudsLocationCustomizer>>> supplier = Reflections.invokeConstructorWithArgs(catalogClassLoader, customizersSupplierType, setup);
+            Maybe<Supplier<Collection<JcloudsLocationCustomizer>>> supplier = Reflections.<Supplier<Collection<JcloudsLocationCustomizer>>>invokeConstructorFromArgsUntyped(catalogClassLoader, customizersSupplierType, setup);
             if (supplier.isPresent()) {
                 result.addAll(supplier.get().get());
             } else {
-                supplier = Reflections.invokeConstructorWithArgs(catalogClassLoader, customizersSupplierType);
+                supplier = Reflections.<Supplier<Collection<JcloudsLocationCustomizer>>>invokeConstructorFromArgsUntyped(catalogClassLoader, customizersSupplierType);
                 if (supplier.isPresent()) {
                     result.addAll(supplier.get().get());
                 } else {
@@ -1566,7 +1563,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         Object rawVal = config.getStringKey(JcloudsLocationConfig.IMAGE_CHOOSER.getName());
         if (rawVal instanceof String && Strings.isNonBlank((String)rawVal)) {
             // Configured with a string: it could be a class that we need to instantiate
-            Optional<?> instance = Reflections.invokeConstructorWithArgs(getManagementContext().getCatalogClassLoader(), (String)rawVal);
+            Maybe<?> instance = Reflections.invokeConstructorFromArgs(getManagementContext().getCatalogClassLoader(), (String)rawVal);
             if (!instance.isPresent()) {
                 throw new IllegalStateException("Failed to create ImageChooser "+rawVal+" for location "+this);
             } else if (!(instance.get() instanceof Function)) {

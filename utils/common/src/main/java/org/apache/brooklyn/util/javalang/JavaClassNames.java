@@ -79,13 +79,21 @@ public class JavaClassNames {
         
         String result = ct.getSimpleName();
         if (Strings.isBlank(result) || result.length()<=4) {
-            if (ct.isPrimitive()) {
-                // TODO unbox
-            } else {
-                result = ct.getName();
-            }
+            result = ct.getName();
         }
         return result+Strings.repeat("[]", arrayCount);
+    }
+    
+    /** as {@link #simpleClassName(Class)} but if something is an inner class it drops everything before the $ */
+    public static String verySimpleClassName(Class<?> t) {
+        t = componentType(t);
+        String result = t.getSimpleName();
+        result = result.substring(result.lastIndexOf('.')+1);
+        result = result.substring(result.lastIndexOf('$')+1);
+        if (Strings.isBlank(result)) {
+            result = t.getName();
+        }
+        return result;
     }
     
     /** as {@link #simpleClassName(Class)} but taking the type of the object if it is not already a class

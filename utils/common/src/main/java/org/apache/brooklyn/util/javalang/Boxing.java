@@ -23,7 +23,11 @@ import java.lang.reflect.Array;
 import org.apache.brooklyn.util.guava.Maybe;
 
 import com.google.common.collect.ImmutableBiMap;
+import com.google.common.primitives.Primitives;
 
+/** Conveniences for working with primitives and their boxed (wrapper) types.
+ * NB: there is redundancy with {@link Primitives}
+ */
 public class Boxing {
 
     public static boolean unboxSafely(Boolean ref, boolean valueIfNull) {
@@ -56,6 +60,17 @@ public class Boxing {
         }
         return Maybe.absent("Not a primitive: "+typeName);
     }
+
+    /** returns name of primitive corresponding to the given (boxed or unboxed) type */
+    public static Maybe<String> getPrimitiveName(Class<?> type) {
+        if (type!=null) {
+            if (PRIMITIVE_TO_BOXED.containsKey(type)) return Maybe.of(type.getName());
+            if (PRIMITIVE_TO_BOXED.containsValue(type)) {
+                return Maybe.of(PRIMITIVE_TO_BOXED.inverse().get(type).getName());
+            }
+        }
+        return Maybe.absent("Not a primitive or boxed primitive: "+type);
+    }
     
     public static Class<?> boxedType(Class<?> type) {
         if (PRIMITIVE_TO_BOXED.containsKey(type))
@@ -63,6 +78,20 @@ public class Boxing {
         return type;
     }
 
+    public static boolean isPrimitiveOrBoxedObject(Object o) {
+        if (o==null) return false;
+        return isPrimitiveOrBoxedClass(o.getClass());
+    }
+    public static boolean isPrimitiveOrBoxedClass(Class<?> t) {
+        // TODO maybe better to switch to using Primitives, eg:
+        // return Primitives.allPrimitiveTypes().contains(type) || Primitives.allWrapperTypes().contains(type);
+        
+        if (t==null) return false;
+        if (t.isPrimitive()) return true;
+        if (PRIMITIVE_TO_BOXED.containsValue(t)) return true;
+        return false;
+    }
+    
     /** sets the given element in an array to the indicated value;
      * if the type is a primitive type, the appropriate primitive method is used
      * <p>

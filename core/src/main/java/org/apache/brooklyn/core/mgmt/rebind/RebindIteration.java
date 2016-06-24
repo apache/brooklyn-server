@@ -101,7 +101,6 @@ import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableMap;
@@ -1118,7 +1117,7 @@ public abstract class RebindIteration {
         protected <T> T invokeConstructor(Reflections reflections, Class<T> clazz, Object[]... possibleArgs) {
             for (Object[] args : possibleArgs) {
                 try {
-                    Optional<T> v = Reflections.invokeConstructorWithArgs(clazz, args, true);
+                    Maybe<T> v = Reflections.invokeConstructorFromArgs(clazz, args, true);
                     if (v.isPresent()) {
                         return v.get();
                     }

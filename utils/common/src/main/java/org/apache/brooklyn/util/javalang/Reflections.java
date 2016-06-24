@@ -47,18 +47,20 @@ import javax.annotation.Nullable;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 /**
- * Reflection utilities ("borrowed" from cloudsoft monterey).
+ * Reflection utilities
  * 
  * @author aled
  */
@@ -88,7 +90,7 @@ public class Reflections {
     private final Map<String, String> classRenameMap = MutableMap.of();
     
     public Reflections(ClassLoader classLoader) {
-        this.classLoader = checkNotNull(classLoader);
+        this.classLoader = classLoader!=null ? classLoader : getClass().getClassLoader();
     }
     
     /** supply a map of known renames, of the form "old-class -> new-class" */ 
@@ -99,9 +101,9 @@ public class Reflections {
 
     public Object loadInstance(String classname, Object...argValues) throws ReflectionNotFoundException, ReflectionAccessException {
         Class<?> clazz = loadClass(classname);
-        Optional<?> v = null;
+        Maybe<?> v = null;
         try {
-            v = invokeConstructorWithArgs(clazz, argValues);
+            v = invokeConstructorFromArgs(clazz, argValues);
             if (v.isPresent()) return v.get();
         } catch (Exception e) {
             throw new IllegalStateException("Error invoking constructor for "+clazz+Arrays.toString(argValues) + ": " + Exceptions.collapseText(e));
@@ -221,41 +223,80 @@ public class Reflections {
         }
     }
 
-    /** Invokes a suitable constructor, supporting varargs and primitives */
+    /** @deprecated since 0.10.0 use {@link #invokeConstructorFromArgs(Class, Object...)} or one of the variants;
+     * this allows null field values */ @Deprecated
     public static <T> Optional<T> invokeConstructorWithArgs(ClassLoader classLoader, String className, Object...argsArray) {
+        return Reflections.<T>invokeConstructorFromArgsUntyped(classLoader, className, argsArray).toOptional();
+    }
+    /** @deprecated since 0.10.0 use {@link #invokeConstructorFromArgs(Class, Object...)} or one of the variants */ @Deprecated
+    public static <T> Optional<T> invokeConstructorWithArgs(ClassLoader classLoader, Class<T> clazz, Object[] argsArray, boolean setAccessible) {
+        return invokeConstructorFromArgs(classLoader, clazz, argsArray, setAccessible).toOptional();
+    }
+    /** @deprecated since 0.10.0 use {@link #invokeConstructorFromArgs(Class, Object...)} or one of the variants */ @Deprecated
+    public static <T> Optional<T> invokeConstructorWithArgs(Class<? extends T> clazz, Object...argsArray) {
+        return invokeConstructorFromArgs(clazz, argsArray).toOptional();
+    }
+    /** @deprecated since 0.10.0 use {@link #invokeConstructorFromArgs(Class, Object...)} or one of the variants */ @Deprecated
+    public static <T> Optional<T> invokeConstructorWithArgs(Class<? extends T> clazz, Object[] argsArray, boolean setAccessible) {
+        return invokeConstructorFromArgs(clazz, argsArray, setAccessible).toOptional();
+    }
+    /** @deprecated since 0.10.0 use {@link #invokeConstructorFromArgs(Class, Object...)} or one of the variants */ @Deprecated
+    public static <T> Optional<T> invokeConstructorWithArgs(Reflections reflections, Class<? extends T> clazz, Object[] argsArray, boolean setAccessible) {
+        return invokeConstructorFromArgs(reflections, clazz, argsArray, setAccessible).toOptional();
+    }
+    
+    /** Finds and invokes a suitable constructor, supporting varargs and primitives, boxing and looking at compatible supertypes in the constructor's signature */
+    public static <T> Maybe<T> invokeConstructorFromArgs(Class<? extends T> clazz, Object...argsArray) {
+        return invokeConstructorFromArgs(clazz, argsArray, false);
+    }
+
+    /** As {@link #invokeConstructorFromArgs(Class, Object...)} but allowing more configurable input */
+    public static Maybe<Object> invokeConstructorFromArgs(ClassLoader classLoader, String className, Object...argsArray) {
+        return invokeConstructorFromArgs(classLoader, null, className, argsArray);
+    }
+    
+    /** As {@link #invokeConstructorFromArgs(Class, Object...)} but allowing more configurable input */
+    @SuppressWarnings("unchecked")
+    public static <T> Maybe<T> invokeConstructorFromArgs(ClassLoader classLoader, Class<T> optionalSupertype, String className, Object...argsArray) {
+        Reflections reflections = new Reflections(classLoader);
+        Class<?> clazz = reflections.loadClass(className);
+        if (optionalSupertype!=null && !optionalSupertype.isAssignableFrom(clazz)) {
+            return Maybe.absent("The type requested '"+className+"' is not assignable to "+optionalSupertype);
+        }
+        return invokeConstructorFromArgs(reflections, (Class<T>)clazz, argsArray, false);
+    }
+
+    /** As {@link #invokeConstructorFromArgs(Class, Object...)} but allowing more configurable input */
+    public static <T> Maybe<T> invokeConstructorFromArgsUntyped(ClassLoader classLoader, String className, Object...argsArray) {
         Reflections reflections = new Reflections(classLoader);
         @SuppressWarnings("unchecked")
-        Class<T> clazz = (Class<T>) reflections.loadClass(className);
-        return invokeConstructorWithArgs(reflections, clazz, argsArray, false);
+        Class<T> clazz = (Class<T>)reflections.loadClass(className);
+        return invokeConstructorFromArgs(reflections, clazz, argsArray, false);
     }
 
-    /** Invokes a suitable constructor, supporting varargs and primitives */
-    public static <T> Optional<T> invokeConstructorWithArgs(ClassLoader classLoader, Class<T> clazz, Object[] argsArray, boolean setAccessible) {
+    /** As {@link #invokeConstructorFromArgs(Class, Object...)} but allowing more configurable input; 
+     * in particular setAccessible allows private constructors to be used (not the default) */
+    public static <T> Maybe<T> invokeConstructorFromArgs(ClassLoader classLoader, Class<T> clazz, Object[] argsArray, boolean setAccessible) {
         Reflections reflections = new Reflections(classLoader);
-        return invokeConstructorWithArgs(reflections, clazz, argsArray, setAccessible);
+        return invokeConstructorFromArgs(reflections, clazz, argsArray, setAccessible);
     }
 
-    /** Invokes a suitable constructor, supporting varargs and primitives */
-    public static <T> Optional<T> invokeConstructorWithArgs(Class<T> clazz, Object...argsArray) {
-        return invokeConstructorWithArgs(clazz, argsArray, false);
+    /** As {@link #invokeConstructorFromArgs(Class, Object...)} but allowing more configurable input;
+     * in particular setAccessible allows private constructors to be used (not the default) */
+    public static <T> Maybe<T> invokeConstructorFromArgs(Class<? extends T> clazz, Object[] argsArray, boolean setAccessible) {
+        Reflections reflections = new Reflections(clazz.getClassLoader());
+        return invokeConstructorFromArgs(reflections, clazz, argsArray, setAccessible);
     }
 
-    /** Invokes a suitable constructor, supporting varargs and primitives */
-    public static <T> Optional<T> invokeConstructorWithArgs(Class<T> clazz, Object[] argsArray, boolean setAccessible) {
-        ClassLoader cl = clazz.getClassLoader();
-        // if bootstrap class loader
-        if (cl == null) {
-            // The classloader isn't actually used so anything non-null will work
-            cl = ClassLoader.getSystemClassLoader();
-        }
-        Reflections reflections = new Reflections(cl);
-        return invokeConstructorWithArgs(reflections, clazz, argsArray, setAccessible);
+    /** As {@link #invokeConstructorFromArgs(Class, Object...)} but will use private constructors (with setAccessible = true) */
+    public static <T> Maybe<T> invokeConstructorFromArgsIncludingPrivate(Class<? extends T> clazz, Object ...argsArray) {
+        return Reflections.invokeConstructorFromArgs(new Reflections(clazz.getClassLoader()), clazz, argsArray, true);
     }
-
-    /** Invokes a suitable constructor, supporting varargs and primitives, additionally supporting setAccessible */
+    /** As {@link #invokeConstructorFromArgs(Class, Object...)} but allowing more configurable input;
+     * in particular setAccessible allows private constructors to be used (not the default) */
     @SuppressWarnings("unchecked")
-    public static <T> Optional<T> invokeConstructorWithArgs(Reflections reflections, Class<T> clazz, Object[] argsArray, boolean setAccessible) {
-        for (Constructor<?> constructor : clazz.getConstructors()) {
+    public static <T> Maybe<T> invokeConstructorFromArgs(Reflections reflections, Class<? extends T> clazz, Object[] argsArray, boolean setAccessible) {
+        for (Constructor<?> constructor : MutableList.<Constructor<?>>of().appendAll(Arrays.asList(clazz.getConstructors())).appendAll(Arrays.asList(clazz.getDeclaredConstructors()))) {
             Class<?>[] parameterTypes = constructor.getParameterTypes();
             if (constructor.isVarArgs()) {
                 if (typesMatchUpTo(argsArray, parameterTypes, parameterTypes.length-1)) {
@@ -277,16 +318,16 @@ public class Reflections {
                         System.arraycopy(argsArray, 0, newArgsArray, 0, parameterTypes.length-1);
                         newArgsArray[parameterTypes.length-1] = varargs;
                         if (setAccessible) constructor.setAccessible(true);
-                        return (Optional<T>) Optional.of(reflections.loadInstance(constructor, newArgsArray));
+                        return Maybe.of((T)reflections.loadInstance(constructor, newArgsArray));
                     }
                 }
             }
             if (typesMatch(argsArray, parameterTypes)) {
                 if (setAccessible) constructor.setAccessible(true);
-                return (Optional<T>) Optional.of(reflections.loadInstance(constructor, argsArray));
+                return Maybe.of((T) reflections.loadInstance(constructor, argsArray));
             }
         }
-        return Optional.absent();
+        return Maybe.absent("Constructor not found");
     }
     
     
@@ -560,25 +601,86 @@ public class Reflections {
         throw toThrowIfFails;
     }
     
+    /** Finds the field with the given name declared on the given class or any superclass,
+     * using {@link Class#getDeclaredField(String)}.
+     * <p> 
+     * If the field name contains a '.' the field is interpreted as having
+     * <code>DeclaringClassCanonicalName.FieldName</code> format,
+     * allowing a way to set a field unambiguously if some are masked.
+     * <p>
+     * @throws NoSuchFieldException if not found
+     */
     public static Field findField(Class<?> clazz, String name) throws NoSuchFieldException {
+        return findFieldMaybe(clazz, name).orThrowUnwrapped();
+    }
+    public static Maybe<Field> findFieldMaybe(Class<?> clazz, String originalName) {
+        String name = originalName;
         if (clazz == null || name == null) {
             throw new NullPointerException("Must not be null: clazz="+clazz+"; name="+name);
         }
         Class<?> clazzToInspect = clazz;
         NoSuchFieldException toThrowIfFails = null;
+
+        String clazzRequired = null;
+        if (name.indexOf('.')>=0) {
+            int lastDotIndex = name.lastIndexOf('.');
+            clazzRequired = name.substring(0, lastDotIndex);
+            name = name.substring(lastDotIndex+1);
+        }
         
         while (clazzToInspect != null) {
             try {
-                return clazzToInspect.getDeclaredField(name);
+                if (clazzRequired==null || clazzRequired.equals(clazzToInspect.getCanonicalName())) {
+                    return Maybe.of(clazzToInspect.getDeclaredField(name));
+                }
             } catch (NoSuchFieldException e) {
                 if (toThrowIfFails == null) toThrowIfFails = e;
-                clazzToInspect = clazzToInspect.getSuperclass();
             }
+            clazzToInspect = clazzToInspect.getSuperclass();
         }
-        throw toThrowIfFails;
+        if (toThrowIfFails==null) return Maybe.absent("Field '"+originalName+"' not found");
+        return Maybe.absent(toThrowIfFails);
     }
     
+    public static Maybe<Object> getFieldValueMaybe(Object instance, String fieldName) {
+        try {
+            if (instance==null) return null;
+            Field f = findField(instance.getClass(), fieldName);
+            return getFieldValueMaybe(instance, f);
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            return Maybe.absent(e);
+        }
+    }
+
+    public static Maybe<Object> getFieldValueMaybe(Object instance, Field field) {
+        try {
+            if (instance==null) return null;
+            if (field==null) return null;
+            field.setAccessible(true);
+            return Maybe.of(field.get(instance));
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            return Maybe.absent(e);
+        }
+    }
+
+    /** Lists all public fields declared on the class or any ancestor, with those HIGHEST in the hierarchy first */
     public static List<Field> findPublicFieldsOrderedBySuper(Class<?> clazz) {
+        return findFields(clazz, new Predicate<Field>() {
+            @Override public boolean apply(Field input) {
+                return Modifier.isPublic(input.getModifiers());
+            }}, FieldOrderings.SUB_BEST_FIELD_LAST_THEN_DEFAULT);
+    }
+
+    /** Lists all fields declared on the class, with those lowest in the hierarchy first,
+     *  filtered and ordered as requested. 
+     *  <p>
+     *  See {@link ReflectionPredicates} and {@link FieldOrderings} for conveniences.
+     *  <p>
+     *  Default is no filter and {@link FieldOrderings#SUB_BEST_FIELD_LAST_THEN_ALPHABETICAL}
+     *  */
+    public static List<Field> findFields(final Class<?> clazz, Predicate<Field> filter, Comparator<Field> fieldOrdering) {
         checkNotNull(clazz, "clazz");
         MutableList.Builder<Field> result = MutableList.<Field>builder();
         Stack<Class<?>> tovisit = new Stack<Class<?>>();
@@ -593,19 +695,12 @@ public class Reflections {
             if (nextclazz.getSuperclass() != null) tovisit.add(nextclazz.getSuperclass());
             tovisit.addAll(Arrays.asList(nextclazz.getInterfaces()));
             
-            result.addAll(Iterables.filter(Arrays.asList(nextclazz.getDeclaredFields()), new Predicate<Field>() {
-                @Override public boolean apply(Field input) {
-                    return Modifier.isPublic(input.getModifiers());
-                }}));
-            
+            result.addAll(Iterables.filter(Arrays.asList(nextclazz.getDeclaredFields()), 
+                filter!=null ? filter : Predicates.<Field>alwaysTrue()));
         }
         
         List<Field> resultList = result.build();
-        Collections.sort(resultList, new Comparator<Field>() {
-            @Override public int compare(Field f1, Field f2) {
-                Field fsubbest = inferSubbestField(f1, f2);
-                return (fsubbest == null) ? 0 : (fsubbest == f1 ? 1 : -1);
-            }});
+        Collections.sort(resultList, fieldOrdering != null ? fieldOrdering : FieldOrderings.SUB_BEST_FIELD_LAST_THEN_ALPHABETICAL);
         
         return resultList;
     }
@@ -645,18 +740,25 @@ public class Reflections {
     }
     
     /**
-     * Gets the field that is in the sub-class; or null if one field does not come from a sub-class of the other field's class
+     * If the classes of the fields satisfy {@link #inferSubbest(Class, Class)}
+     * return the field in the lower (sub-best) class, otherwise null.
      */
     public static Field inferSubbestField(Field f1, Field f2) {
         Class<?> c1 = f1.getDeclaringClass();
         Class<?> c2 = f2.getDeclaringClass();
         boolean isSuper1 = c1.isAssignableFrom(c2);
         boolean isSuper2 = c2.isAssignableFrom(c1);
-        return (isSuper1) ? (isSuper2 ? null : f2) : (isSuper2 ? f1 : null);
+        return (isSuper1) ? (isSuper2 ? 
+            /* same field */ null : 
+            /* f1 from super */ f2) : 
+            (isSuper2 ? 
+                /* f2 from super of f1 */ f1 : 
+                /* fields are from different hierarchies */ null);
     }
     
     /**
-     * Gets the method that is in the sub-class; or null if one method does not come from a sub-class of the other method's class
+     * If the classes of the methods satisfy {@link #inferSubbest(Class, Class)}
+     * return the field in the lower (sub-best) class, otherwise null.
      */
     public static Method inferSubbestMethod(Method m1, Method m2) {
         Class<?> c1 = m1.getDeclaringClass();
@@ -667,7 +769,8 @@ public class Reflections {
     }
     
     /**
-     * Gets the class that is in the sub-class; or null if neither is a sub-class of the other.
+     * If one class is a subclass of the other, return that (the lower in the type hierarchy);
+     * otherwise return null (if they are the same or neither is a subclass of the other).
      */
     public static Class<?> inferSubbest(Class<?> c1, Class<?> c2) {
         boolean isSuper1 = c1.isAssignableFrom(c2);
@@ -684,14 +787,25 @@ public class Reflections {
         return (T)candidate;
     }
 
+    /** @deprecated since 0.10.0 use {@link #invokeMethodFromArgs(Object, String, List)};
+     * this allows null return values */ @Deprecated
+    public static Optional<Object> invokeMethodWithArgs(Object clazzOrInstance, String method, List<Object> args) throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
+        return invokeMethodWithArgs(clazzOrInstance, method, args, false);
+    }
+    /** @deprecated since 0.10.0 use {@link #invokeMethodFromArgs(Object, String, List)} */ @Deprecated
+    public static Optional<Object> invokeMethodWithArgs(Object clazzOrInstance, String method, List<Object> args, boolean setAccessible) throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
+        return invokeMethodFromArgs(clazzOrInstance, method, args, setAccessible).toOptional();
+    }
+    
     /** invokes the given method on the given clazz or instance, doing reasonably good matching on args etc 
      * @throws InvocationTargetException 
      * @throws IllegalAccessException 
      * @throws IllegalArgumentException */
-    public static Optional<Object> invokeMethodWithArgs(Object clazzOrInstance, String method, List<Object> args) throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
-        return invokeMethodWithArgs(clazzOrInstance, method, args, false);
+    public static Maybe<Object> invokeMethodFromArgs(Object clazzOrInstance, String method, List<Object> args) throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
+        return invokeMethodFromArgs(clazzOrInstance, method, args, false);
     }
-    public static Optional<Object> invokeMethodWithArgs(Object clazzOrInstance, String method, List<Object> args, boolean setAccessible) throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
+    /** as {@link #invokeMethodFromArgs(Object, String, List)} but giving control over whether to set it accessible */
+    public static Maybe<Object> invokeMethodFromArgs(Object clazzOrInstance, String method, List<Object> args, boolean setAccessible) throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
         Preconditions.checkNotNull(clazzOrInstance, "clazz or instance");
         Preconditions.checkNotNull(method, "method");
         Preconditions.checkNotNull(args, "args to "+method);
@@ -731,18 +845,18 @@ public class Reflections {
                             System.arraycopy(argsArray, 0, newArgsArray, 0, parameterTypes.length-1);
                             newArgsArray[parameterTypes.length-1] = varargs;
                             if (setAccessible) m.setAccessible(true);
-                            return Optional.of(m.invoke(instance, newArgsArray));
+                            return Maybe.of(m.invoke(instance, newArgsArray));
                         }
                     }
                 }
                 if (typesMatch(argsArray, parameterTypes)) {
                     if (setAccessible) m.setAccessible(true);
-                    return Optional.of(m.invoke(instance, argsArray));
+                    return Maybe.of(m.invoke(instance, argsArray));
                 }
             }
         }
         
-        return Optional.absent();
+        return Maybe.absent("Method not found matching given args");
     }
 
     /** true iff all args match the corresponding types */
@@ -802,13 +916,18 @@ public class Reflections {
         return hasNoNonObjectFields(clazz.getSuperclass());
     }
 
-    /** Takes a map of old-class-names to renames classes, and returns the mapped name if matched, or absent */
+    /** @deprecated since 0.10.0 use {@link #findMappedNameMaybe(Map, String)} */ @Deprecated
     public static Optional<String> tryFindMappedName(Map<String, String> renames, String name) {
-        if (renames==null) return Optional.absent();
+        return findMappedNameMaybe(renames, name).toOptional();
+    }
+    
+    /** Takes a map of old-class-names to renames classes, and returns the mapped name if matched, or absent */
+    public static Maybe<String> findMappedNameMaybe(Map<String, String> renames, String name) {
+        if (renames==null) return Maybe.absent("no renames supplied");
         
         String mappedName = renames.get(name);
         if (mappedName != null) {
-            return Optional.of(mappedName);
+            return Maybe.of(mappedName);
         }
         
         // look for inner classes by mapping outer class
@@ -816,20 +935,20 @@ public class Reflections {
             String outerClassName = name.substring(0, name.indexOf('$'));
             mappedName = renames.get(outerClassName);
             if (mappedName != null) {
-                return Optional.of(mappedName + name.substring(name.indexOf('$')));
+                return Maybe.of(mappedName + name.substring(name.indexOf('$')));
             }
         }
         
-        return Optional.absent();
+        return Maybe.absent("mapped name not present");
     }
 
     public static String findMappedNameAndLog(Map<String, String> renames, String name) {
-        Optional<String> rename = Reflections.tryFindMappedName(renames, name);
+        Maybe<String> rename = Reflections.findMappedNameMaybe(renames, name);
         if (rename.isPresent()) {
             LOG.debug("Mapping class '"+name+"' to '"+rename.get()+"'");
             return rename.get();
         }
         return name;
     }
-    
+
 }

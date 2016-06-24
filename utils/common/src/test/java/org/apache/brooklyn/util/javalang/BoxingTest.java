@@ -35,4 +35,9 @@ public class BoxingTest {
         Assert.assertEquals(bt, Integer.class);
     }
 
+    @Test
+    public static void getPrimitive() {
+        Assert.assertEquals(Boxing.getPrimitiveName(Integer.class).get(), "int");
+    }
+    
 }

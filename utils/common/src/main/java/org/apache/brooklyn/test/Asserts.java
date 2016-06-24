@@ -1161,8 +1161,12 @@ public class Asserts {
     /** Throws a {@link ShouldHaveFailedPreviouslyAssertionError} exception, 
      * to more easily distinguish this failure from other fails.
      * In particular, use one of the <code>expectedFailure</code> methods
-     * in the surrounding <code>catch</code> block and this error will pass through it. */
-    public static void shouldHaveFailedPreviously() {
+     * in the surrounding <code>catch</code> block and this error will pass through it.
+     * <p>
+     * This method throws, never returning normally, but declares a return type 
+     * so you can pretend to throw the result,
+     * for instance if your calling code otherwise warns about needing to return something. */
+    public static RuntimeException shouldHaveFailedPreviously() {
         throw new ShouldHaveFailedPreviouslyAssertionError();
     }
     /** As {@link #shouldHaveFailedPreviously()} but allowing detail,

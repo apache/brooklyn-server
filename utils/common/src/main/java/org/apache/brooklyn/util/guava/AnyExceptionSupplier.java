@@ -44,10 +44,10 @@ public class AnyExceptionSupplier<T extends Throwable> implements Supplier<T> {
     public T get() {
         String msg = message==null ? null : message.get();
         Maybe<T> result = Maybe.absent();
-        if (result.isAbsent() && msg==null && cause==null) result = Reflections.invokeConstructorWithArgs(type);
-        if (result.isAbsent() && cause==null) result = Reflections.invokeConstructorWithArgs(type, msg);
-        if (result.isAbsent() && msg==null) result = Reflections.invokeConstructorWithArgs(type, cause);
-        if (result.isAbsent()) result = Reflections.invokeConstructorWithArgs(type, msg, cause);
+        if (result.isAbsent() && msg==null && cause==null) result = Reflections.invokeConstructorFromArgs(type);
+        if (result.isAbsent() && cause==null) result = Reflections.invokeConstructorFromArgs(type, msg);
+        if (result.isAbsent() && msg==null) result = Reflections.invokeConstructorFromArgs(type, cause);
+        if (result.isAbsent()) result = Reflections.invokeConstructorFromArgs(type, msg, cause);
         if (result.isAbsent()) {
             throw new IllegalStateException("Cannot create desired "+type+" (missing constructor)",
                 new IllegalStateException(message==null ? null : message.get(), cause));
