@@ -16,26 +16,26 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.util.core.flags;
+package org.apache.brooklyn.util.javalang.coerce;
 
-/**
- * Thrown to indicate that {@link TypeCoercions} could not cast an object from one
- * class to another.
- */
-public class ClassCoercionException extends ClassCastException {
-    private static final long serialVersionUID = -4616045237993172497L;
+import com.google.common.base.Function;
 
-    public ClassCoercionException() {
-        super();
+public class CoerceFunctionals {
+
+    private CoerceFunctionals() {}
+    
+    public static class CoerceFunction<T> implements Function<Object, T> { 
+        private final TypeCoercer coercer;
+        private final Class<T> type;
+
+        public CoerceFunction(TypeCoercer coercer, Class<T> type) {
+            this.coercer = coercer;
+            this.type = type;
+        }
+        @Override
+        public T apply(Object input) {
+            return coercer.coerce(input, type);
+        }
     }
-
-    /**
-     * Constructs a <code>ClassCoercionException</code> with the specified
-     * detail message.
-     *
-     * @param s the detail message.
-     */
-    public ClassCoercionException(String s) {
-        super(s);
-    }
+    
 }
