@@ -18,8 +18,20 @@
  */
 package org.apache.brooklyn.util.yorml;
 
-public class YormlInternals {
+import org.apache.brooklyn.util.text.Strings;
 
-    public enum YormlContinuation { RESTART, CONTINUE_CHANGED, CONTINUE_UNCHANGED, FINISHED }
+public class YormlContextForRead extends YormlContext {
+
+    public YormlContextForRead(String jsonPath, String expectedType) {
+        super(jsonPath, expectedType);
+    }
     
+    String origin;
+    int offset;
+    int length;
+    
+    @Override
+    public String toString() {
+        return "reading"+(expectedType!=null ? " "+expectedType : "")+" at "+(Strings.isNonBlank(jsonPath) ? jsonPath : "root");
+    }
 }

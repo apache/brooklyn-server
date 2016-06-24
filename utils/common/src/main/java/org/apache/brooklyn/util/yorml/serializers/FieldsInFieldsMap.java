@@ -1,8 +1,25 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.brooklyn.util.yorml.serializers;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.util.collections.MutableList;
@@ -11,6 +28,8 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.yorml.YormlContextForRead;
+import org.apache.brooklyn.util.yorml.YormlContextForWrite;
 import org.apache.brooklyn.util.yorml.YormlInternals.YormlContinuation;
 
 public class FieldsInFieldsMap extends YormlSerializerComposition {
@@ -25,7 +44,7 @@ public class FieldsInFieldsMap extends YormlSerializerComposition {
             Map<String,Object> fields = getFromYamlMap("fields", Map.class);
             if (fields==null) return YormlContinuation.CONTINUE_UNCHANGED;
             
-            for (Object f: ((Map<?,?>)fields).keySet()) {
+            for (Object f: MutableList.copyOf( ((Map<?,?>)fields).keySet() )) {
                 Object v = ((Map<?,?>)fields).get(f);
                 try {
                     Field ff = Reflections.findField(getJavaObject().getClass(), Strings.toString(f));
@@ -34,8 +53,13 @@ public class FieldsInFieldsMap extends YormlSerializerComposition {
                     } else if (Modifier.isStatic(ff.getModifiers())) {
                         // as above
                     } else {
+                        String fieldType = config.getTypeRegistry().getTypeNameOfClass(ff.getType());
+                        YormlContextForRead subcontext = new YormlContextForRead(context.getJsonPath()+"/"+f, fieldType);
+                        subcontext.setYamlObject(v);
+                        Object v2 = converter.read(subcontext);
+                        
                         ff.setAccessible(true);
-                        ff.set(getJavaObject(), v);
+                        ff.set(getJavaObject(), v2);
                         ((Map<?,?>)fields).remove(Strings.toString(f));
                         if (((Map<?,?>)fields).isEmpty()) {
                             ((Map<?,?>)context.getYamlObject()).remove("fields");
@@ -58,9 +82,16 @@ public class FieldsInFieldsMap extends YormlSerializerComposition {
                 Maybe<Object> v = Reflections.getFieldValueMaybe(getJavaObject(), f);
                 if (v.isPresent()) {
                     fib.fieldsToWriteFromJava.remove(f);
-                    if (v.get()!=null) {
-                        // TODO assert null checks
-                        fields.put(f, v.get());
+                    if (v.get()==null) {
+                        // silently drop null fields
+                    } else {
+                        Field ff = Reflections.findFieldMaybe(getJavaObject().getClass(), f).get();
+                        String fieldType = config.getTypeRegistry().getTypeNameOfClass(ff.getType());
+                        YormlContextForWrite subcontext = new YormlContextForWrite(context.getJsonPath()+"/"+f, fieldType);
+                        subcontext.setJavaObject(v.get());
+                        
+                        Object v2 = converter.write(subcontext);
+                        fields.put(f, v2);
                     }
                 }
             }
@@ -70,32 +101,6 @@ public class FieldsInFieldsMap extends YormlSerializerComposition {
             setInYamlMap("fields", fields);
             return YormlContinuation.RESTART;
         }
-    }
-
-    /** Indicates that something has handled the type 
-     * (on read, creating the java object, and on write, setting the `type` field in the yaml object)
-     * and made a determination of what fields need to be handled */
-    public static class FieldsInBlackboard {
-        private static String KEY = "FIELDS_IN_BLACKBOARD";
-        
-        public static boolean isPresent(Map<Object,Object> blackboard) {
-            return blackboard.containsKey(KEY);
-        }
-        public static FieldsInBlackboard peek(Map<Object,Object> blackboard) {
-            return (FieldsInBlackboard) blackboard.get(KEY);
-        }
-        public static FieldsInBlackboard getOrCreate(Map<Object,Object> blackboard) {
-            if (!isPresent(blackboard)) { blackboard.put(KEY, new FieldsInBlackboard()); }
-            return peek(blackboard);
-        }
-        public static FieldsInBlackboard create(Map<Object,Object> blackboard) {
-            if (isPresent(blackboard)) { throw new IllegalStateException("Already present"); }
-            blackboard.put(KEY, new FieldsInBlackboard());
-            return peek(blackboard);
-        }
-        
-        List<String> fieldsToWriteFromJava;
-        // TODO if fields are *required* ?
     }
     
 }

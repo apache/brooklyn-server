@@ -1,3 +1,21 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.brooklyn.util.yorml.serializers;
 
 import java.lang.reflect.Field;
@@ -10,8 +28,8 @@ import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.javalang.FieldOrderings;
 import org.apache.brooklyn.util.javalang.ReflectionPredicates;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yorml.YormlInternals.YormlContinuation;
-import org.apache.brooklyn.util.yorml.serializers.FieldsInFieldsMap.FieldsInBlackboard;
 
 public class InstantiateType extends YormlSerializerComposition {
 
@@ -21,15 +39,37 @@ public class InstantiateType extends YormlSerializerComposition {
         public YormlContinuation read() {
             if (hasJavaObject()) return YormlContinuation.CONTINUE_UNCHANGED;
             
-            // TODO check is primitive?
+            Class<?> expectedJavaType = getExpectedTypeJava();
+            
+            String type = null;
+            if ((getYamlObject() instanceof String) || Boxing.isPrimitiveOrBoxedObject(getYamlObject())) {
+                // default handling of primitives:
+                // if type is expected, try to coerce
+                if (expectedJavaType!=null) {
+                    Maybe<?> result = config.getCoercer().tryCoerce(getYamlObject(), expectedJavaType);
+                    if (result.isPresent()) {
+                        context.setJavaObject(result.get());
+                        return YormlContinuation.RESTART;
+                    }
+                    ReadingTypeOnBlackboard.get(blackboard).addNote("Cannot interpret '"+getYamlObject()+"' as "+expectedJavaType.getCanonicalName());
+                    return YormlContinuation.CONTINUE_UNCHANGED;
+                }
+                // if type not expected, treat as a type
+                type = Strings.toString(getYamlObject());
+            }
+            
             // TODO if map and list?
             
-            String type = getFromYamlMap("type", String.class);
+            if (type==null) type = getFromYamlMap("type", String.class);
             if (type==null) return YormlContinuation.CONTINUE_UNCHANGED;
             
             Object result = config.getTypeRegistry().newInstance((String)type);
-            context.setJavaObject(result);
+            if (result==null) {
+                ReadingTypeOnBlackboard.get(blackboard).addNote("Unknown type '"+type+"'");
+                return YormlContinuation.CONTINUE_UNCHANGED;
+            }
             
+            context.setJavaObject(result);
             return YormlContinuation.RESTART;
         }
 
@@ -42,9 +82,9 @@ public class InstantiateType extends YormlSerializerComposition {
             fib.fieldsToWriteFromJava = MutableList.of();
             
             Object jo = getJavaObject();
-            if (Boxing.isPrimitiveOrBoxedObject(jo)) {
-                context.setJavaObject(jo);
-                return YormlContinuation.RESTART;
+            if (Boxing.isPrimitiveOrBoxedObject(jo) || jo instanceof CharSequence) {
+                context.setYamlObject(jo);
+                return YormlContinuation.FINISHED;
             }
 
             // TODO map+list -- here, or in separate serializers?
@@ -55,7 +95,7 @@ public class InstantiateType extends YormlSerializerComposition {
             // TODO look up registry type
             // TODO support osgi
             
-            map.put("type", "java:"+getJavaObject().getClass().getName());
+            map.put("type", config.getTypeRegistry().getTypeName(getJavaObject()) );
             
             List<Field> fields = Reflections.findFields(getJavaObject().getClass(), 
                 null,

@@ -18,8 +18,10 @@
  */
 package org.apache.brooklyn.util.yorml;
 
-public class YormlInternals {
+public class YormlContextForWrite extends YormlContext {
 
-    public enum YormlContinuation { RESTART, CONTINUE_CHANGED, CONTINUE_UNCHANGED, FINISHED }
+    public YormlContextForWrite(String jsonPath, String expectedType) {
+        super(jsonPath, expectedType);
+    }
     
 }
