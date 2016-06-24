@@ -28,22 +28,23 @@ import org.apache.brooklyn.util.yorml.YormlRequirement;
 /** Indicates that something has handled the type 
  * (on read, creating the java object, and on write, setting the `type` field in the yaml object)
  * and made a determination of what fields need to be handled */
-public class FieldsInBlackboard implements YormlRequirement {
-    private static String KEY = "FIELDS_IN_BLACKBOARD";
+public class JavaFieldsOnBlackboard implements YormlRequirement {
+    
+    private static String KEY = JavaFieldsOnBlackboard.class.getName();
     
     public static boolean isPresent(Map<Object,Object> blackboard) {
         return blackboard.containsKey(KEY);
     }
-    public static FieldsInBlackboard peek(Map<Object,Object> blackboard) {
-        return (FieldsInBlackboard) blackboard.get(KEY);
+    public static JavaFieldsOnBlackboard peek(Map<Object,Object> blackboard) {
+        return (JavaFieldsOnBlackboard) blackboard.get(KEY);
     }
-    public static FieldsInBlackboard getOrCreate(Map<Object,Object> blackboard) {
-        if (!isPresent(blackboard)) { blackboard.put(KEY, new FieldsInBlackboard()); }
+    public static JavaFieldsOnBlackboard getOrCreate(Map<Object,Object> blackboard) {
+        if (!isPresent(blackboard)) { blackboard.put(KEY, new JavaFieldsOnBlackboard()); }
         return peek(blackboard);
     }
-    public static FieldsInBlackboard create(Map<Object,Object> blackboard) {
+    public static JavaFieldsOnBlackboard create(Map<Object,Object> blackboard) {
         if (isPresent(blackboard)) { throw new IllegalStateException("Already present"); }
-        blackboard.put(KEY, new FieldsInBlackboard());
+        blackboard.put(KEY, new JavaFieldsOnBlackboard());
         return peek(blackboard);
     }
     

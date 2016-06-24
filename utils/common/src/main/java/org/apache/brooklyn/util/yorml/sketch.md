@@ -19,7 +19,7 @@
 
 # YORML: The YAML Object Relational Mapping Language
 
-## Movitvation
+## Motivation
 
 We want a JSON/YAML schema which allows us to do bi-directional serialization to Java with docgen.
 That is:
@@ -454,6 +454,14 @@ So the general process is:
 * first r/w the type, and on write note the fields to write
 * adjust the data structure until no further adjustments are made
 * check that everything that needed to be done was done
+
+### TODO
+
+* explicit-field reads fields at root
+* explicit-field aliases
+* defining serializers?
+* complex syntax, type as key, etc
+* maps and lists
 
 
 ## Real World Use Cases

@@ -21,7 +21,7 @@ package org.apache.brooklyn.util.yorml;
 import java.util.List;
 
 import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.yorml.serializers.FieldsInFieldsMap;
+import org.apache.brooklyn.util.yorml.serializers.FieldsInMapUnderFields;
 import org.apache.brooklyn.util.yorml.serializers.InstantiateType;
 
 
@@ -33,7 +33,7 @@ public class Yorml {
     
     public static Yorml newInstance(YormlTypeRegistry typeRegistry) {
         return newInstance(typeRegistry, MutableList.<YormlSerializer>of(
-            new FieldsInFieldsMap(),
+            new FieldsInMapUnderFields(),
             new InstantiateType() ));
     }
     
@@ -49,8 +49,8 @@ public class Yorml {
     public Object read(String yaml) {
         return read(yaml, null);
     }
-    public Object read(String yaml, String type) {
-        return readFromYamlObject(new org.yaml.snakeyaml.Yaml().load(yaml), type);
+    public Object read(String yaml, String expectedType) {
+        return readFromYamlObject(new org.yaml.snakeyaml.Yaml().load(yaml), expectedType);
     }
     public Object readFromYamlObject(Object yamlObject, String type) {
         YormlContextForRead context = new YormlContextForRead("", type);
@@ -60,7 +60,10 @@ public class Yorml {
     }
 
     public Object write(Object java) {
-        YormlContextForWrite context = new YormlContextForWrite("", null);
+        return write(java, null);
+    }
+    public Object write(Object java, String expectedType) {
+        YormlContextForWrite context = new YormlContextForWrite("", expectedType);
         context.setJavaObject(java);
         new YormlConverter(config).write(context);
         return context.getYamlObject();

@@ -35,16 +35,18 @@ public class YormlBasicTests {
     static class Shape {
         String name;
         String color;
-        int size;
         
         @Override
         public boolean equals(Object xo) {
             if (xo==null || !Objects.equal(getClass(), xo.getClass())) return false;
             Shape x = (Shape) xo;
-            return Objects.equal(name, x.name) && Objects.equal(color, x.color) && Objects.equal(size, x.size);
+            return Objects.equal(name, x.name) && Objects.equal(color, x.color);
         }
+
+        public Shape name(String name) { this.name = name; return this; }
+        public Shape color(String color) { this.color = color; return this; }
     }
-    
+        
     // very basic tests illustrating read/write
     
     @Test
@@ -80,13 +82,13 @@ public class YormlBasicTests {
         MockYormlTypeRegistry tr = new MockYormlTypeRegistry();
         Yorml y = Yorml.newInstance(tr);
         
-        Shape s = new Shape();
+        Shape s = new ShapeWithSize();
         s.color = "red";
         Object resultO = y.write(s);
         
         Assert.assertNotNull(resultO);
         String out = Jsonya.newInstance().add(resultO).toString();
-        String expected = Jsonya.newInstance().add("type", "java"+":"+Shape.class.getName())
+        String expected = Jsonya.newInstance().add("type", "java"+":"+ShapeWithSize.class.getName())
                 .at("fields").add("color", "red", "size", 0).root().toString();
         Assert.assertEquals(out, expected);
     }
@@ -94,24 +96,88 @@ public class YormlBasicTests {
     // now using the fixture
     
     @Test
-    public void testSimpleFieldInFieldsWithTestCase() {
-        Shape s = new Shape();
-        s.color = "red";
-
-        YormlTestFixture.newInstance().writing(s).
+    public void testFieldInFieldsUsingTestFixture() {
+        YormlTestFixture.newInstance().writing( new Shape().color("red") ).
         reading(
             Jsonya.newInstance().add("type", "java"+":"+Shape.class.getName())
-            .at("fields").add("color", "red", "size", 0).root().toString()
-        ).doReadWriteAssertingJsonMatch();
+            .at("fields").add("color", "red").root().toString() ).
+        doReadWriteAssertingJsonMatch();
     }
     
     @Test
-    public void testStringOnItsOwn() {
+    public void testStringPrimitiveOnItsOwn() {
         YormlTestFixture.newInstance().
         write("hello").assertResult("hello").
-        read("hello", "string").assertResult("hello");
+        read("hello", "string").
+        assertResult("hello");
     }
 
+    @Test
+    public void testRegisteredType() {
+        YormlTestFixture.newInstance().
+        addType("shape", Shape.class).
+        writing(new Shape()).
+        reading( "{ type: shape }" ).
+        doReadWriteAssertingJsonMatch();
+    }
+
+    @Test
+    public void testExpectedType() {
+        YormlTestFixture.newInstance().
+        addType("shape", Shape.class).
+        writing(new Shape().color("red"), "shape").
+        reading( "{ fields: { color: red } }", "shape" ).
+        doReadWriteAssertingJsonMatch();
+    }
+
+    @Test
+    public void testExtraFieldError() {
+        // TODO see failures
+        // TODO extra blackboard item of fields to handle
+        // TODO instantiate expected type if none explicit
+        try {
+            YormlTestFixture.newInstance().
+            addType("shape", Shape.class).
+            read( "{ type: shape, fields: { size: 4 } }", "shape" );
+            Asserts.shouldHaveFailedPreviously("should complain about fields still existing");
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "size");
+        }
+    }
+
+    static class ShapeWithSize extends Shape {
+        int size;
+        
+        @Override
+        public boolean equals(Object xo) {
+            return super.equals(xo) && Objects.equal(size, ((ShapeWithSize)xo).size);
+        }
+
+        public ShapeWithSize size(int size) { this.size = size; return this; }
+        public ShapeWithSize name(String name) { return (ShapeWithSize)super.name(name); }
+        public ShapeWithSize color(String color) { return (ShapeWithSize)super.color(color); }
+    }
+
+    @Test
+    public void testFieldInExtendedClassInFields() {
+        YormlTestFixture.newInstance().writing( new ShapeWithSize().size(4).color("red") ).
+        reading(
+            Jsonya.newInstance().add("type", "java"+":"+ShapeWithSize.class.getName())
+            .at("fields").add("color", "red", "size", 4).root().toString() ).
+        doReadWriteAssertingJsonMatch();
+    }
+
+    @Test
+    public void testFieldInExtendedClassInFieldsDefault() {
+        // note we get 0 written
+        YormlTestFixture.newInstance().writing( new ShapeWithSize().color("red") ).
+        reading(
+            Jsonya.newInstance().add("type", "java"+":"+ShapeWithSize.class.getName())
+            .at("fields").add("color", "red", "size", 0).root().toString() ).
+        doReadWriteAssertingJsonMatch();
+    }
+
+    
     @Test
     public void testFailOnUnknownType() {
         try {
@@ -122,7 +188,7 @@ public class YormlBasicTests {
         }
     }
 
-    public static class ShapePair {
+    static class ShapePair {
         String pairName;
         Shape shape1;
         Shape shape2;
@@ -137,25 +203,72 @@ public class YormlBasicTests {
     @Test
     public void testWriteComplexFieldInFields() {
         ShapePair pair = new ShapePair();
-        pair.shape1 = new Shape();
-        pair.shape1.color = "red";
-        pair.shape2 = new Shape();
-        pair.shape2.color = "blue";
-        pair.shape2.size = 8;
+        pair.pairName = "red and blue";
+        pair.shape1 = new Shape().color("red");
+        pair.shape2 = new ShapeWithSize().size(8).color("blue");
 
         YormlTestFixture.newInstance().
         addType("shape", Shape.class).
+        addType("shape-with-size", ShapeWithSize.class).
         addType("shape-pair", ShapePair.class).
         writing(pair).
         reading(
             Jsonya.newInstance().add("type", "shape-pair")
-                .at("fields", "shape1").add("type", "shape")
-                    .at("fields").add("color", "red", "size", 0)
+                .at("fields").add("pairName", pair.pairName)
+                    .at("shape1")
+                        // .add("type", "shape")  // default is suppressed
+                        .at("fields").add("color", pair.shape1.color)
                 .root()
-                .at("fields", "shape2").add("type", "shape")
-                    .at("fields").add("color", "blue", "size", 8)
+                .at("fields", "shape2")
+                    .add("type", "shape-with-size")
+                    .at("fields").add("color", pair.shape2.color, "size", ((ShapeWithSize)pair.shape2).size)
                 .root().toString()
         ).doReadWriteAssertingJsonMatch();
     }
+
+    static class ShapeWithWeirdFields extends ShapeWithSize {
+        static int aStatic = 1;
+        transient int aTransient = 11;
+        
+        /** masks name in parent */
+        String name;
+        ShapeWithWeirdFields realName(String name) { this.name = name; return this; }
+    }
+    
+    @Test
+    public void testStaticNotWrittenButExtendedItemsAre() {
+        ShapeWithWeirdFields shape = new ShapeWithWeirdFields();
+        shape.size(4).name("weird-shape");
+        shape.realName("normal-trust-me");
+        ShapeWithWeirdFields.aStatic = 2;
+        shape.aTransient = 12;
+        
+        YormlTestFixture.newInstance().
+        addType("shape-weird", ShapeWithWeirdFields.class).
+        writing(shape).reading("{ \"type\": \"shape-weird\", "
+            + "\"fields\": { \"name\": \"normal-trust-me\", "
+            + "\""+Shape.class.getCanonicalName()+"."+"name\": \"weird-shape\", "
+            + "\"size\": 4 "
+            + "} }").
+        doReadWriteAssertingJsonMatch();
+    }
+
+    @Test
+    public void testStaticNotRead() {
+        ShapeWithWeirdFields.aStatic = 3;
+        try {
+            YormlTestFixture.newInstance().
+            addType("shape-weird", ShapeWithWeirdFields.class).
+            read("{ \"type\": \"shape-weird\", "
+                + "\"fields\": { \"aStatic\": 4 "
+                + "} }", null);
+            Assert.assertEquals(3, ShapeWithWeirdFields.aStatic);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "aStatic");
+        }
+        Assert.assertEquals(3, ShapeWithWeirdFields.aStatic);
+    }
+
 
 }

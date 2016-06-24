@@ -1,6 +1,25 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.brooklyn.util.yorml.tests;
 
 import org.apache.brooklyn.util.collections.Jsonya;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yorml.Yorml;
 import org.testng.Assert;
 
@@ -12,6 +31,7 @@ public class YormlTestFixture {
     Yorml y = Yorml.newInstance(tr);
     
     Object writeObject;
+    String writeObjectExpectedType;
     Object lastWriteResult;
     String readObject;
     String readObjectExpectedType;
@@ -19,22 +39,28 @@ public class YormlTestFixture {
     Object lastResult;
 
     public YormlTestFixture writing(Object objectToWrite) {
+        return writing(objectToWrite, null);
+    }
+    public YormlTestFixture writing(Object objectToWrite, String expectedType) {
         writeObject = objectToWrite;
+        writeObjectExpectedType = expectedType;
         return this;
+    }
+    public YormlTestFixture reading(String stringToRead) {
+        return reading(stringToRead, null);
     }
     public YormlTestFixture reading(String stringToRead, String expectedType) {
         readObject = stringToRead;
         readObjectExpectedType = expectedType;
         return this;
     }
-    public YormlTestFixture reading(String stringToRead) {
-        readObject = stringToRead;
-        return this;
-    }
 
     public YormlTestFixture write(Object objectToWrite) {
-        writing(objectToWrite);
-        lastWriteResult = y.write(objectToWrite);
+        return write(objectToWrite, null);
+    }
+    public YormlTestFixture write(Object objectToWrite, String expectedType) {
+        writing(objectToWrite, expectedType);
+        lastWriteResult = y.write(objectToWrite, expectedType);
         lastResult = lastWriteResult;
         return this;
     }
@@ -51,10 +77,16 @@ public class YormlTestFixture {
     }
     public YormlTestFixture doReadWriteAssertingJsonMatch() {
         read(readObject, readObjectExpectedType);
-        write(writeObject);
-        Assert.assertEquals(Jsonya.newInstance().add(lastWriteResult).toString(), readObject, "Write output matches read input.");
-        Assert.assertEquals(lastReadResult, writeObject, "Read output matches write input.");
+        write(writeObject, writeObjectExpectedType);
+        assertEqualsIgnoringQuotes(Jsonya.newInstance().add(lastWriteResult).toString(), readObject, "Write output should read input");
+        assertEqualsIgnoringQuotes(lastReadResult, writeObject, "Read output should match write input");
         return this;
+    }
+    
+    static void assertEqualsIgnoringQuotes(Object s1, Object s2, String message) {
+        if (s1 instanceof String) s1 = Strings.replaceAllNonRegex((String)s1, "\"", "");
+        if (s2 instanceof String) s2 = Strings.replaceAllNonRegex((String)s2, "\"", "");
+        Assert.assertEquals(s1, s2, message);
     }
     
     public YormlTestFixture addType(String name, Class<?> type) {

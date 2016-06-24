@@ -60,14 +60,26 @@ public class InstantiateType extends YormlSerializerComposition {
             
             // TODO if map and list?
             
-            if (type==null) type = getFromYamlMap("type", String.class);
-            if (type==null) return YormlContinuation.CONTINUE_UNCHANGED;
+            YamlKeysOnBlackboard.create(blackboard).yamlKeysToReadToJava = MutableMap.copyOf(getYamlMap());
             
-            Object result = config.getTypeRegistry().newInstance((String)type);
+            if (type==null) type = peekFromYamlKeysOnBlackboard("type", String.class).orNull();
+            Object result = null;
+            if (type==null && expectedJavaType!=null) {
+                Maybe<Object> resultM = Reflections.invokeConstructorFromArgsIncludingPrivate(expectedJavaType);
+                if (resultM.isPresent()) result = resultM.get();
+                else ReadingTypeOnBlackboard.get(blackboard).addNote("Expected type is not no-arg instantiable: '"+expectedJavaType+"' ("+
+                    ((Maybe.Absent<?>)resultM).getException()+")");
+            }
+            if (type==null && result==null) return YormlContinuation.CONTINUE_UNCHANGED;
+            
+            if (result==null) {
+                result = config.getTypeRegistry().newInstance((String)type);
+            }
             if (result==null) {
                 ReadingTypeOnBlackboard.get(blackboard).addNote("Unknown type '"+type+"'");
                 return YormlContinuation.CONTINUE_UNCHANGED;
             }
+            removeFromYamlKeysOnBlackboard("type");
             
             context.setJavaObject(result);
             return YormlContinuation.RESTART;
@@ -76,9 +88,9 @@ public class InstantiateType extends YormlSerializerComposition {
         public YormlContinuation write() {
             if (hasYamlObject()) return YormlContinuation.CONTINUE_UNCHANGED;
             if (!hasJavaObject()) return YormlContinuation.CONTINUE_UNCHANGED;
-            if (FieldsInBlackboard.isPresent(blackboard)) return YormlContinuation.CONTINUE_UNCHANGED;
+            if (JavaFieldsOnBlackboard.isPresent(blackboard)) return YormlContinuation.CONTINUE_UNCHANGED;
             
-            FieldsInBlackboard fib = FieldsInBlackboard.create(blackboard);
+            JavaFieldsOnBlackboard fib = JavaFieldsOnBlackboard.create(blackboard);
             fib.fieldsToWriteFromJava = MutableList.of();
             
             Object jo = getJavaObject();
@@ -95,7 +107,11 @@ public class InstantiateType extends YormlSerializerComposition {
             // TODO look up registry type
             // TODO support osgi
             
-            map.put("type", config.getTypeRegistry().getTypeName(getJavaObject()) );
+            if (getJavaObject().getClass().equals(getExpectedTypeJava())) {
+                // skip explicitly writing the type
+            } else {
+                map.put("type", config.getTypeRegistry().getTypeName(getJavaObject()) );
+            }
             
             List<Field> fields = Reflections.findFields(getJavaObject().getClass(), 
                 null,
@@ -103,7 +119,7 @@ public class InstantiateType extends YormlSerializerComposition {
             Field lastF = null;
             for (Field f: fields) {
                 Maybe<Object> v = Reflections.getFieldValueMaybe(getJavaObject(), f);
-                if (ReflectionPredicates.IS_FIELD_NON_TRANSIENT.apply(f) && v.isPresentAndNonNull()) {
+                if (ReflectionPredicates.IS_FIELD_NON_TRANSIENT.apply(f) && ReflectionPredicates.IS_FIELD_NON_STATIC.apply(f) && v.isPresentAndNonNull()) {
                     String name = f.getName();
                     if (lastF!=null && lastF.getName().equals(f.getName())) {
                         // if field is shadowed use FQN

@@ -39,6 +39,7 @@ public class IfFunctionsTest {
         checkTF(IfFunctions.ifEquals(false).value("F").ifEquals(true).value("T").defaultValue("?"), "?");
     }
     
+    @SuppressWarnings({ "unchecked", "rawtypes" })
     @Test
     public void testPredicateAndSupplier() {
         // we cannot use checkTF here as an IntelliJ issues causes the project to fail to launch as IntelliJ does not

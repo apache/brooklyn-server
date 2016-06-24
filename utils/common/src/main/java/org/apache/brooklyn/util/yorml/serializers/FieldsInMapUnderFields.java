@@ -32,37 +32,40 @@ import org.apache.brooklyn.util.yorml.YormlContextForRead;
 import org.apache.brooklyn.util.yorml.YormlContextForWrite;
 import org.apache.brooklyn.util.yorml.YormlInternals.YormlContinuation;
 
-public class FieldsInFieldsMap extends YormlSerializerComposition {
+public class FieldsInMapUnderFields extends YormlSerializerComposition {
 
-    public FieldsInFieldsMap() { super(Worker.class); }
+    public FieldsInMapUnderFields() { super(Worker.class); }
     
     public static class Worker extends YormlSerializerWorker {
         public YormlContinuation read() {
             if (!hasJavaObject()) return YormlContinuation.CONTINUE_UNCHANGED;
             
             @SuppressWarnings("unchecked")
-            Map<String,Object> fields = getFromYamlMap("fields", Map.class);
+            Map<String,Object> fields = peekFromYamlKeysOnBlackboard("fields", Map.class).orNull();
             if (fields==null) return YormlContinuation.CONTINUE_UNCHANGED;
             
             for (Object f: MutableList.copyOf( ((Map<?,?>)fields).keySet() )) {
                 Object v = ((Map<?,?>)fields).get(f);
                 try {
-                    Field ff = Reflections.findField(getJavaObject().getClass(), Strings.toString(f));
-                    if (ff==null) {
-                        // just skip (could throw, but leave it in case something else recognises)
-                    } else if (Modifier.isStatic(ff.getModifiers())) {
-                        // as above
+                    Maybe<Field> ffm = Reflections.findFieldMaybe(getJavaObject().getClass(), Strings.toString(f));
+                    if (ffm.isAbsentOrNull()) {
+                        // just skip (could throw, but leave it in case something else recognises it?)
                     } else {
-                        String fieldType = config.getTypeRegistry().getTypeNameOfClass(ff.getType());
-                        YormlContextForRead subcontext = new YormlContextForRead(context.getJsonPath()+"/"+f, fieldType);
-                        subcontext.setYamlObject(v);
-                        Object v2 = converter.read(subcontext);
-                        
-                        ff.setAccessible(true);
-                        ff.set(getJavaObject(), v2);
-                        ((Map<?,?>)fields).remove(Strings.toString(f));
-                        if (((Map<?,?>)fields).isEmpty()) {
-                            ((Map<?,?>)context.getYamlObject()).remove("fields");
+                        Field ff = ffm.get();
+                        if (Modifier.isStatic(ff.getModifiers())) {
+                            // as above
+                        } else {
+                            String fieldType = config.getTypeRegistry().getTypeNameOfClass(ff.getType());
+                            YormlContextForRead subcontext = new YormlContextForRead(context.getJsonPath()+"/"+f, fieldType);
+                            subcontext.setYamlObject(v);
+                            Object v2 = converter.read(subcontext);
+                            
+                            ff.setAccessible(true);
+                            ff.set(getJavaObject(), v2);
+                            ((Map<?,?>)fields).remove(Strings.toString(f));
+                            if (((Map<?,?>)fields).isEmpty()) {
+                                removeFromYamlKeysOnBlackboard("fields");
+                            }
                         }
                     }
                 } catch (Exception e) { throw Exceptions.propagate(e); }
@@ -73,7 +76,7 @@ public class FieldsInFieldsMap extends YormlSerializerComposition {
         public YormlContinuation write() {
             if (!isYamlMap()) return YormlContinuation.CONTINUE_UNCHANGED;
             if (getFromYamlMap("fields", Map.class)!=null) return YormlContinuation.CONTINUE_UNCHANGED;
-            FieldsInBlackboard fib = FieldsInBlackboard.peek(blackboard);
+            JavaFieldsOnBlackboard fib = JavaFieldsOnBlackboard.peek(blackboard);
             if (fib==null || fib.fieldsToWriteFromJava.isEmpty()) return YormlContinuation.CONTINUE_UNCHANGED;
             
             Map<String,Object> fields = MutableMap.of();

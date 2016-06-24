@@ -21,7 +21,14 @@ package org.apache.brooklyn.util.yorml;
 import java.util.Map;
 
 import org.apache.brooklyn.util.yorml.YormlInternals.YormlContinuation;
+import org.apache.brooklyn.util.yorml.serializers.YormlSerializerComposition;
 
+/** Describes a serializer which can be used by {@link YormlConverter}.
+ * <p>
+ * Instances of this class should be thread-safe for use with simultaneous conversions. 
+ * Often implementations will extend {@link YormlSerializerComposition} and which stores
+ * per-conversion data in a per-method-invocation object. 
+ */
 public interface YormlSerializer {
 
     /**

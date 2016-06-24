@@ -21,13 +21,14 @@ package org.apache.brooklyn.util.yorml.serializers;
 import java.util.Map;
 
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yorml.YormlConfig;
 import org.apache.brooklyn.util.yorml.YormlContext;
+import org.apache.brooklyn.util.yorml.YormlContextForRead;
 import org.apache.brooklyn.util.yorml.YormlContextForWrite;
 import org.apache.brooklyn.util.yorml.YormlConverter;
 import org.apache.brooklyn.util.yorml.YormlInternals.YormlContinuation;
-import org.apache.brooklyn.util.yorml.YormlContextForRead;
 import org.apache.brooklyn.util.yorml.YormlSerializer;
 
 public class YormlSerializerComposition implements YormlSerializer {
@@ -81,7 +82,9 @@ public class YormlSerializerComposition implements YormlSerializer {
         @SuppressWarnings("unchecked")
         public Map<Object,Object> getYamlMap() { return (Map<Object,Object>)context.getYamlObject(); }
         /** Returns the value of the given key if present in the map and of the given type. 
-         * If the YAML is not a map, or the key is not present, or the type is different, this returns null. */
+         * If the YAML is not a map, or the key is not present, or the type is different, this returns null.
+         * <p>
+         * See also {@link #peekFromYamlKeysOnBlackboard(String, Class)} which most read serializers should use. */
         @SuppressWarnings("unchecked")
         public <T> T getFromYamlMap(String key, Class<T> type) {
             if (!isYamlMap()) return null;
@@ -93,7 +96,21 @@ public class YormlSerializerComposition implements YormlSerializer {
         protected void setInYamlMap(String key, Object value) {
             ((Map<Object,Object>)getYamlMap()).put(key, value);
         }
-        
+        @SuppressWarnings("unchecked")
+        protected <T> Maybe<T> peekFromYamlKeysOnBlackboard(String key, Class<T> expectedType) {
+            YamlKeysOnBlackboard ykb = YamlKeysOnBlackboard.peek(blackboard);
+            if (ykb==null || ykb.yamlKeysToReadToJava==null || !ykb.yamlKeysToReadToJava.containsKey(key)) {
+                return Maybe.absent();
+            }
+            Object v = ykb.yamlKeysToReadToJava.get(key);
+            if (expectedType!=null && !expectedType.isInstance(v)) return Maybe.absent();
+            return Maybe.of((T)v);
+        }
+        protected void removeFromYamlKeysOnBlackboard(String key) {
+            YamlKeysOnBlackboard ykb = YamlKeysOnBlackboard.peek(blackboard);
+            ykb.yamlKeysToReadToJava.remove(key);
+        }
+
         public abstract YormlContinuation read();
         public abstract YormlContinuation write();
     }
