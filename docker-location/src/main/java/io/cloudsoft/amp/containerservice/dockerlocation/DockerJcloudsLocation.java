@@ -4,6 +4,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.List;
 
+import javax.annotation.Nullable;
+
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
 import org.apache.brooklyn.config.ConfigKey;
@@ -71,7 +73,7 @@ public class DockerJcloudsLocation extends JcloudsLocation {
             this.imageDescription = checkNotNull(imageDescription, "imageDescription");
         }
         
-        public boolean matches(OsFamily osFamily, String osVersionRegex) {
+        public boolean matches(@Nullable OsFamily osFamily, @Nullable String osVersionRegex) {
             if (osFamily != null && osFamily != this.osFamily) return false;
             if (osVersionRegex != null && !osVersion.matches(osVersionRegex)) return false;
             return true;
