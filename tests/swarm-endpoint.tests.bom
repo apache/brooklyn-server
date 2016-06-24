@@ -219,7 +219,8 @@ brooklyn.catalog:
           brooklyn.config:
             provisioning.properties:
               # cloudsoft/ubuntu:14.04
-              imageId: sha256:64fab039ab48f81535d71c183b7422812d492f7ea0dbca145888d707c336bbff
+              osFamily: ubuntu
+              osVersionRegex: 14.04
             initialSize: 3
             install.version: 2.1.4
             riak.networking.optimize: false
