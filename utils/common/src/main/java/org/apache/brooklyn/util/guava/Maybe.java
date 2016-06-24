@@ -202,6 +202,23 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
         if (isPresent()) return get();
         return null;
     }
+
+    /** As {@link #get()} but if the Maybe wraps an exception 
+     * (and where {@link #get()} throws a {@link RuntimeException} indicating the caller,
+     * caused by the exception in original processing)
+     * this throws the original unwrapped exception
+     * (masking the caller's location)
+     * <p>
+     * As this masks the caller's exception, use with care, typically in a location
+     * near the original execution, otherwise it can get confusing.
+     * For instance <code>someCallReturningMaybe().orThrowUnwrapped()</code> is a nice idiom,
+     * but <code>someMaybeVarReturnedEarlier.orThrowUnwrapped()</code> is usually a bad idea.
+     * <p>
+     * The benefit of this is simpler stack traces and preservation of original exception type.
+     */
+    public T orThrowUnwrapped() {
+        return get();
+    }
     
     public Set<T> asSet() {
         if (isPresent()) return ImmutableSet.of(get());
@@ -272,8 +289,32 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
         public T get() {
             throw getException();
         }
+        public T orThrowUnwrapped() {
+            throw getException();
+        }
         public RuntimeException getException() {
             return exception.get();
+        }
+        public Supplier<? extends RuntimeException> getExceptionSupplier() {
+            return exception;
+        }
+        public static <T> Maybe<T> changeExceptionSupplier(Maybe<T> original, final Class<? extends RuntimeException> type) {
+            return changeExceptionSupplier(original, new Function<AnyExceptionSupplier<?>,Supplier<? extends RuntimeException>>() {
+                @SuppressWarnings("unchecked")
+                @Override
+                public Supplier<? extends RuntimeException> apply(AnyExceptionSupplier<?> input) {
+                    if (type.isInstance(input)) return (Supplier<? extends RuntimeException>) input;
+                    return new AnyExceptionSupplier<RuntimeException>(type, input.getMessageSupplier(), input.getCause());
+                }
+            });
+        }
+        public static <T> Maybe<T> changeExceptionSupplier(Maybe<T> original, Function<AnyExceptionSupplier<?>,Supplier<? extends RuntimeException>> transform) {
+            if (original.isPresent()) return original;
+            
+            final Supplier<? extends RuntimeException> supplier = ((Maybe.Absent<?>)original).getExceptionSupplier();
+            if (!(supplier instanceof AnyExceptionSupplier)) return original;
+            
+            return Maybe.absent(transform.apply((AnyExceptionSupplier<?>)supplier));
         }
     }
 

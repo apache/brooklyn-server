@@ -18,35 +18,23 @@
  */
 package org.apache.brooklyn.util.guava;
 
-import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.Exceptions.CollapseTextSupplier;
 
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 
-public class IllegalStateExceptionSupplier implements Supplier<RuntimeException> {
+public class IllegalStateExceptionSupplier extends AnyExceptionSupplier<RuntimeException> {
 
     public static final IllegalStateExceptionSupplier EMPTY_EXCEPTION = new IllegalStateExceptionSupplier();
-    
-    protected final Supplier<String> message;
-    protected final Throwable cause;
     
     public IllegalStateExceptionSupplier() { this((Supplier<String>)null, null); }
     public IllegalStateExceptionSupplier(String message) { this(message, null); }
     public IllegalStateExceptionSupplier(Throwable cause) { this(new CollapseTextSupplier(cause), cause); }
     public IllegalStateExceptionSupplier(String message, Throwable cause) { this(Suppliers.ofInstance(message), cause); } 
-    public IllegalStateExceptionSupplier(Supplier<String> message, Throwable cause) { 
-        this.message = message;
-        this.cause = cause;
+    public IllegalStateExceptionSupplier(Supplier<String> message, Throwable cause) {
+        super(IllegalStateException.class, message, cause);
     }
 
-    private static class CollapseTextSupplier implements Supplier<String> {
-        final Throwable cause;
-        CollapseTextSupplier(Throwable cause) { this.cause = cause; }
-        @Override
-        public String get() {
-            return Exceptions.collapseText(cause);
-        }
-    }
     @Override
     public RuntimeException get() {
         return new IllegalStateException(message==null ? null : message.get(), cause);
