@@ -66,7 +66,7 @@ public class Jsonya {
     /** creates a {@link Navigator} backed by a newly created map;
      * the map can be accessed by {@link Navigator#getMap()} */
     public static Navigator<MutableMap<Object,Object>> newInstance() {
-        return new Navigator<MutableMap<Object,Object>>(new MutableMap<Object,Object>(), MutableMap.class);
+        return new Navigator<MutableMap<Object,Object>>(MutableMap.class);
     }
     /** convenience for {@link Navigator#at(Object, Object...)} on a {@link #newInstance()} */
     public static Navigator<MutableMap<Object,Object>> at(Object ...pathSegments) {
@@ -113,7 +113,7 @@ public class Jsonya {
     @SuppressWarnings({"rawtypes","unchecked"})
     public static class Navigator<T extends Map<?,?>> {
 
-        protected final Object root;
+        protected Object root;
         protected final Class<? extends Map> mapType;
         protected Object focus;
         protected Stack<Object> focusStack = new Stack<Object>();
@@ -124,6 +124,19 @@ public class Jsonya {
             this.root = Preconditions.checkNotNull(backingStore);
             this.focus = backingStore;
             this.mapType = mapType;
+        }
+
+        public Navigator(Class<? extends Map> mapType) {
+            this.root = null;
+            this.focus = null;
+            this.mapType = mapType;
+            this.creationInPreviousFocus = new Function<Object, Void>() {
+                @Override
+                public Void apply(Object o) {
+                    root = o;
+                    return null;
+                }
+            }; 
         }
         
         // -------------- access and configuration
@@ -227,15 +240,20 @@ public class Jsonya {
             return this;
         }
         
-        /** returns the navigator moved to focus at the indicated key sequence in the given map */
+        /** returns the navigator moved to focus at the indicated key sequence in the given map, creating the path needed */
         public Navigator<T> at(Object pathSegment, Object ...furtherPathSegments) {
-            down(pathSegment);
+            down(pathSegment, false);
             return atArray(furtherPathSegments);
         }
         public Navigator<T> atArray(Object[] furtherPathSegments) {
             for (Object p: furtherPathSegments)
-                down(p);
+                down(p, false);
             return this;
+        }
+        /** returns the navigator moved to focus at the indicated key sequence in the given map, failing if not available */
+        public Navigator<T> atExisting(Object pathSegment, Object ...furtherPathSegments) {
+            down(pathSegment, true);
+            return atArray(furtherPathSegments);
         }
         
         /** ensures the given focus is a map, creating if needed (and creating inside the list if it is in a list) */
@@ -297,17 +315,17 @@ public class Jsonya {
         }
 
         /** utility for {@link #at(Object, Object...)}, taking one argument at a time */
-        protected Navigator<T> down(final Object pathSegment) {
+        protected Navigator<T> down(final Object pathSegment, boolean requireExisting) {
             if (focus instanceof List) {
-                return downList(pathSegment);
+                return downList(pathSegment, requireExisting);
             }
             if ((focus instanceof Map) || focus==null) {
-                return downMap(pathSegment);
+                return downMap(pathSegment, requireExisting);
             }
             throw new IllegalStateException("focus here is "+focus+"; cannot descend to '"+pathSegment+"'");
         }
 
-        protected Navigator<T> downMap(Object pathSegmentO) {
+        protected Navigator<T> downMap(Object pathSegmentO, boolean requireExisting) {
             final Object pathSegment = translateKey(pathSegmentO);
             final Map givenParentMap = (Map)focus;
             if (givenParentMap!=null) {
@@ -315,6 +333,9 @@ public class Jsonya {
                 focus = givenParentMap.get(pathSegment);
             }
             if (focus==null) {
+                if (requireExisting) {
+                    throw new IllegalStateException("No key '"+pathSegmentO+"' found to descend");
+                }
                 final Function<Object, Void> previousCreation = creationInPreviousFocus;
                 creationInPreviousFocus = new Function<Object, Void>() {
                     public Void apply(Object input) {
@@ -332,7 +353,7 @@ public class Jsonya {
             return this;
         }
 
-        protected Navigator<T> downList(final Object pathSegment) {
+        protected Navigator<T> downList(final Object pathSegment, boolean requireExisting) {
             if (!(pathSegment instanceof Integer))
                 throw new IllegalStateException("focus here is a list ("+focus+"); cannot descend to '"+pathSegment+"'");
             final List givenParentList = (List)focus;
@@ -340,6 +361,10 @@ public class Jsonya {
             creationInPreviousFocus = null;
             focus = givenParentList.get((Integer)pathSegment);
             if (focus==null) {
+                if (requireExisting) {
+                    throw new IllegalStateException("No index '"+pathSegment+"' found to descend");
+                }
+
                 // don't need to worry about creation here; we don't create list entries simply by navigating
                 // TODO a nicer architecture would create a new object with focus for each traversal
                 // in that case we could create, filling other positions with null; but is there a need?
@@ -370,7 +395,9 @@ public class Jsonya {
         }
         
         /** adds the given items to the focus, whether a list or a map,
-         * creating the focus as a map if it doesn't already exist.
+         * creating the focus if it doesn't already exist.
+         * if there is just one argument being added and the focus doesn't exist, that item is set as the focus.
+         * if there are more than one argument the focus is made as a map (and an even number of arguments is required).  
          * to add items to a list which might not exist, precede by a call to {@link #list()}.
          * <p>
          * when adding items to a list, iterable and array arguments are flattened because 
@@ -387,7 +414,19 @@ public class Jsonya {
          * auto-conversion to a list may be added in a future version
          * */
         public Navigator<T> add(Object o1, Object ...others) {
-            if (focus==null) map();
+            if (focus==null) {
+                if (others.length>0) {
+                    // default to map, but only if multiple args given
+                    map();
+                } else {
+                    // if single arg and no focus, focus becomes the arg, and no need to add
+                    focus = o1;
+                    if (creationInPreviousFocus!=null) {
+                        creationInPreviousFocus.apply(o1);
+                    }
+                    return this;
+                }
+            }
             addInternal(focus, focus, o1, others);
             return this;
         }
@@ -404,12 +443,12 @@ public class Jsonya {
                 Map target = (Map)currentFocus;
                 Map source;
                 if (others.length==0) {
-                    // add as a map
                     if (o1==null)
                         // ignore if null
                         return ;
-                    if (!(o1 instanceof Map))
+                    if (!(o1 instanceof Map)) {
                         throw new IllegalStateException("cannot add: focus here is "+currentFocus+" (in "+initialFocus+"); expected a collection, or a map (with a map being added, not "+o1+")");
+                    }
                     source = (Map)translate(o1);
                 } else {
                     // build a source map from the arguments as key-value pairs
@@ -487,6 +526,7 @@ public class Jsonya {
             for (Object entry: (Collection<?>)focus) {
                 if (!first) sb.append(",");
                 else first = false;
+                sb.append( " " );
                 sb.append( render(entry) );
             }
             sb.append(" ]");

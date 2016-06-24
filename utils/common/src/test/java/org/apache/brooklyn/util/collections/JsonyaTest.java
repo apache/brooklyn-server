@@ -22,9 +22,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.brooklyn.util.collections.Jsonya;
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.Jsonya.Navigator;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -110,9 +108,14 @@ public class JsonyaTest {
         Assert.assertEquals( n.root().at("europe").getFocusMap().size(), 3 );
     }
     
-    @Test(expectedExceptions=Exception.class)
+    @Test
     public void testJsonyaDeepSimpleFailure() {
-        Jsonya.of(europeMap()).at("euroope").add("spain");
+        try {
+            Jsonya.of(europeMap()).atExisting("euroope");
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            Asserts.expectedFailureContainsIgnoreCase(e, "euroope", "no", "found");
+        }
     }
 
     @Test
@@ -190,4 +193,121 @@ public class JsonyaTest {
         Assert.assertFalse(m.getFocusMap().containsKey("edinburgh"));
     }
 
+    @Test
+    public void testAddMapAddsReference() {
+        MutableMap<Object, Object> map = MutableMap.<Object,Object>of("a", 1, "b", 2); 
+        Navigator<MutableMap<Object, Object>> j = Jsonya.newInstance().add("root", map);
+        Assert.assertEquals( j.toString(), "{ \"root\": { \"a\": 1, \"b\": 2 } }");
+        map.put("b", 1);
+        Assert.assertEquals( j.toString(), "{ \"root\": { \"a\": 1, \"b\": 1 } }");
+    }
+
+    @Test
+    public void testAddListAddsReference() {
+        MutableList<Object> list = MutableList.<Object>of("a", "b"); 
+        Navigator<MutableMap<Object, Object>> j = Jsonya.newInstance().add("root", list);
+        Assert.assertEquals( j.toString(), "{ \"root\": [ \"a\", \"b\" ] }");
+        list.append("c");
+        Assert.assertEquals( j.toString(), "{ \"root\": [ \"a\", \"b\", \"c\" ] }");
+    }
+
+    @Test
+    public void testAddListToExistingAddsCopy() {
+        MutableList<Object> list = MutableList.<Object>of("a", "b"); 
+        Navigator<MutableMap<Object, Object>> j = Jsonya.newInstance().at("root").list().add(list).root();
+        Assert.assertEquals( j.toString(), "{ \"root\": [ \"a\", \"b\" ] }");
+        list.append("c");
+        Assert.assertEquals( j.toString(), "{ \"root\": [ \"a\", \"b\" ] }");
+    }
+
+    @Test
+    public void testAddMapToExistingAddsCopy() {
+        MutableMap<Object, Object> map = MutableMap.<Object,Object>of("a", 1, "b", 2); 
+        Navigator<MutableMap<Object, Object>> j = Jsonya.newInstance().at("root").map().add(map).root();
+        Assert.assertEquals( j.toString(), "{ \"root\": { \"a\": 1, \"b\": 2 } }");
+        map.put("b", 1);
+        Assert.assertEquals( j.toString(), "{ \"root\": { \"a\": 1, \"b\": 2 } }");
+    }
+
+    @Test
+    public void testAddMapToExistingRootAddsCopy() {
+        MutableMap<Object, Object> map = MutableMap.<Object,Object>of("a", 1, "b", 2); 
+        Navigator<MutableMap<Object, Object>> j = Jsonya.newInstance().map().add(map);
+        Assert.assertEquals( j.toString(), "{ \"a\": 1, \"b\": 2 }");
+        map.put("b", 1);
+        Assert.assertEquals( j.toString(), "{ \"a\": 1, \"b\": 2 }");
+    }
+
+    @Test
+    public void testAddListToExistingRootAddsCopy() {
+        MutableList<Object> list = MutableList.<Object>of("a", "b"); 
+        Navigator<MutableMap<Object, Object>> j = Jsonya.newInstance().list().add(list);
+        Assert.assertEquals( j.toString(), "[ \"a\", \"b\" ]");
+        list.append("c");
+        Assert.assertEquals( j.toString(), "[ \"a\", \"b\" ]");
+    }
+
+    @Test
+    public void testAddMapAtRootAddsReference() {
+        MutableMap<Object, Object> map = MutableMap.<Object,Object>of("a", 1, "b", 2); 
+        Navigator<MutableMap<Object, Object>> j = Jsonya.newInstance().add(map);
+        Assert.assertEquals( j.toString(), "{ \"a\": 1, \"b\": 2 }");
+        map.put("b", 1);
+        Assert.assertEquals( j.toString(), "{ \"a\": 1, \"b\": 1 }");
+    }
+
+    @Test
+    public void testAddListAtRootAddsReference() {
+        MutableList<Object> list = MutableList.<Object>of("a", "b"); 
+        Navigator<MutableMap<Object, Object>> j = Jsonya.newInstance().add(list);
+        Assert.assertEquals( j.toString(), "[ \"a\", \"b\" ]");
+        list.append("c");
+        Assert.assertEquals( j.toString(), "[ \"a\", \"b\", \"c\" ]");
+    }
+
+    @Test
+    public void testAddStringToList() {
+        Navigator<MutableMap<Object, Object>> j = Jsonya.newInstance().at("root").list().add("a", "b").root();
+        Assert.assertEquals( j.toString(), "{ \"root\": [ \"a\", \"b\" ] }");
+    }
+
+    @Test
+    public void testAddStringToListAtRoot() {
+        Navigator<MutableMap<Object, Object>> j = Jsonya.newInstance().list().add("a", "b").root();
+        Assert.assertEquals( j.toString(), "[ \"a\", \"b\" ]" );
+        Assert.assertEquals( j.get(), MutableList.of("a", "b") );
+    }
+
+    @Test
+    public void testAddStringToRoot() {
+        Navigator<MutableMap<Object, Object>> j = Jsonya.newInstance().add("a");
+        Assert.assertEquals( j.toString(), "\"a\"");
+        Assert.assertEquals( j.get(), "a");
+    }
+
+    @Test
+    public void testAddStringsAtRootDefaultsToMap() {
+        Navigator<MutableMap<Object, Object>> j = Jsonya.newInstance().add("a", 1);
+        Assert.assertEquals( j.toString(), "{ \"a\": 1 }");
+    }
+
+    @Test
+    public void testAddOddStringsAtRootIsError() {
+        try {
+            Jsonya.newInstance().add("a", 1, "b");
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            Asserts.expectedFailureContainsIgnoreCase(e, "odd");
+        }
+    }
+
+    @Test
+    public void testAddStringAtKey() {
+        Navigator<MutableMap<Object, Object>> j = Jsonya.newInstance().at("root").add("value").root();
+        Assert.assertEquals( j.get(), MutableMap.of("root", "value"));
+    }
+    public void testAddStringAtKeySequence() {
+        Navigator<MutableMap<Object, Object>> j = Jsonya.newInstance().at("1", "2").add("value");
+        Assert.assertEquals( j.get(), MutableMap.of("1", MutableMap.of("2", "value")));
+    }
 }
