@@ -45,29 +45,54 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
 
     private static final long serialVersionUID = -6372099069863179019L;
 
+    /** Returns an absent indicator. No message is available and access does not include any reference to this creation.
+     * Therefore it is fast and simple, but hard to work with if someone might {@link #get()} it and want a useful exception.
+     * See also {@link #absentNoTrace(String)} to include a message with very low overhead,
+     * or {@link #absentWithTrace(String)} or {@link #absent(Throwable)} for more control over the exception thrown. 
+     */
     public static <T> Maybe<T> absent() {
-        return new Absent<T>();
+        return new Maybe.Absent<T>();
     }
 
-    /** Creates an absent whose get throws an {@link IllegalStateException} with the indicated message.
-     * Both stack traces (the cause and the callers) are provided, which can be quite handy. */
+    /** Convenience for {@link #absentWithTrace(String)}. */
     public static <T> Maybe<T> absent(final String message) {
+        return absent(new IllegalStateException(message));
+    }
+
+    /** Creates an absent whose {@link #get()} throws an {@link IllegalStateException} with the indicated message.
+     * Both stack traces (the cause and the callers) are provided, which can be quite handy,
+     * but comparatively expensive as the cause stack trace has to generated when this method is invoked,
+     * even if it is never accessed. See also {@link #absentNoTrace(String)} and {@link #absent(Throwable)}. */
+    public static <T> Maybe<T> absentWithTrace(final String message) {
+        return absent(new IllegalStateException(message));
+    }
+
+    /** Creates an absent whose get throws an {@link IllegalStateException} with the indicated message,
+     * but not a stack trace for the calling location. As stack traces can be comparatively expensive
+     * this is useful for efficiency, but it can make debugging harder as the origin of the absence is not kept,
+     * in contrast to {@link #absentWithTrace(String)} and {@link #absent(Throwable)}. */
+    public static <T> Maybe<T> absentNoTrace(final String message) {
         return absent(new IllegalStateExceptionSupplier(message));
     }
 
-    /** Creates an absent whose get throws an {@link IllegalStateException} with the indicated cause.
-     * Both stack traces (the cause and the callers) are provided, which can be quite handy. */
+    /** As {@link #absentWithTrace(String)} but using the provided exception instead of this location
+     * as the cause, and a string based on this cause as the message on the {@link IllegalStateException}
+     * thrown if a user does a {@link #get()}. 
+     * Useful if an {@link Exception} has already been generated (and no overhead)
+     * or if you want to supply a specific cause as in <code>absent(new MyException(...))</code>
+     * (but there is the Exception creation overhead there). */
     public static <T> Maybe<T> absent(final Throwable cause) {
         return absent(new IllegalStateExceptionSupplier(cause));
     }
     
-    /** Creates an absent whose get throws an {@link IllegalStateException} with the indicated message and underlying cause.
-     * Both stack traces (the cause and the callers) are provided, which can be quite handy. */
+    /** As {@link #absent(Throwable)} but using the given message as the message on the {@link IllegalStateException}
+     * thrown if a user does a {@link #get()}. */
     public static <T> Maybe<T> absent(final String message, final Throwable cause) {
         return absent(new IllegalStateExceptionSupplier(message, cause));
     }
     
-    /** Creates an absent whose get throws an {@link RuntimeException} generated on demand from the given supplier */
+    /** Creates an absent whose {@link #get()} throws a {@link RuntimeException} 
+     * generated on demand from the given supplier */
     public static <T> Maybe<T> absent(final Supplier<? extends RuntimeException> exceptionSupplier) {
         return new Absent<T>(Preconditions.checkNotNull(exceptionSupplier));
     }
@@ -107,6 +132,12 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
     // note: Optional throws if null is supplied; we might want to do the same here
     public static <T> Maybe<T> of(@Nullable T value) {
         return ofAllowingNull(value);
+    }
+    
+    /** Converts the given {@link Maybe} to {@link Optional}, failing if this {@link Maybe} contains null. */
+    public Optional<T> toOptional() {
+        if (isPresent()) return Optional.of(get());
+        return Optional.absent();
     }
 
     /** Creates a new Maybe object using {@link #ofDisallowingNull(Object)} semantics. 
