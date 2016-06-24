@@ -1,10 +1,7 @@
-package org.apache.brooklyn.util.yorml;
 
-public class Sketch {
+# YORML: The YAML Object Relational Mapping Language
 
-/*
-
-// MOTIVATION
+## Movitvation
 
 We want a JSON/YAML schema which allows us to do bi-directional serialization to Java with docgen.
 That is:
@@ -17,6 +14,7 @@ The focus on ease-of-reading and ease-of-writing differentiates this from other 
 serialization processes.  For instance we want to be able to support the following polymorphic
 expressions:
 
+```
 shapes:
 - type: square     # standard, explicit type and fields, but hard to read
   size: 12
@@ -28,6 +26,7 @@ shapes:
 - red_square   # string on its own can be interpreted in many ways but often it's the type
 # and optionally (deferred)
 - red square: { size: 12 }   # multi-word string could be parsed in many ways (a la css border)
+```
 
 Because in most contexts we have some sense of what we are expecting, we can get very efficient
 readable representations.
@@ -35,6 +34,7 @@ readable representations.
 Of course you shouldn't use all of these to express the same type; but depending on the subject 
 matter some syntaxes may be more natural than others.  Consider allowing writing:
 
+```
   effectors:   # field in parent, expects list of types 'Effector' 
     say_hi:    # map converts to list treating key as name of effector, expecting type 'Effector' as value
       type: ssh     # type alias 'ssh' when type 'Effector` is needed matches SshEffector type
@@ -45,6 +45,7 @@ matter some syntaxes may be more natural than others.  Consider allowing writing
         default: hello 
       command: |                          # and now the command, which SshEffector expects
         echo ${hello_word} ${name:-world}
+```
 
 The important thing here is not using all of them at the same time (as we did for shape), 
 but being *able* to support an author picking the subset that is right for a given situation, 
@@ -52,57 +53,69 @@ in a way that they can be parsed, they can be generated, and the expected/suppor
 can be documented automatically.
    
 
-// INRODUCTORY EXAMPLES
+## Introductory Examples
 
-* defining types
+
+### Defining types
 
 When defining a type, an `id` (how it is known) and an instantiable `type` (parent type) must be supplied.
 These are kept in a type registry and can be used when defining other types or instances.
 
-# should be supplied
+```
 - id: shape
-  # no-arg constructor
   type: java:org.acme.Shape  # where `class Shape { String name; String color; }`
+```
+
+The `java:` prefix is an optional shorthand to allow a Java type to be accessed.
+For now this assumes a no-arg constructor.
 
 You can also define types with default field values set, and of course you can refer to types 
 that have been defined:
 
+```
 - id: red-square
   type: shape
   fields:
     # any fields here read/written by direct access by default, or fail if not matched
     name: square
     color: red
+```
 
 There are many syntaxes for defining instances, described below.  Most of these can
 be used when defining new types.
 
-* defining instances
+
+### Defining instances
 
 You define an instance by referencing a type, and optionally specifying fields:
 
-  type: red-square
+    type: red-square
 
 Or
 
-- type: shape
-  fields:
-    name: square
-    color: red
+    - type: shape
+      fields:
+        name: square
+        color: red
+
+TODO - integrate with registry
 
 
-* overwriting fields
+### Overwriting fields
 
 You could do this:
 
+```
 - id: pink-square
   type: red-square
   fields:
     # map of fields is merged with that of parent
     color: pink
+```
 
 Although this would be more sensible:
 
+```
 - id: square
   type: shape
   fields:
@@ -111,11 +124,15 @@ Although this would be more sensible:
   type: square
   fields:
     color: pink
+```
+
+TODO - just take what the parent has set and proceed
 
 
-* allowing fields at root 
-  (note: automatically the case in some situations)
+### Allowing fields at root
 
+If we define something like this:
+ 
 - id: ez-square
   type: square
   serialization:
@@ -123,17 +140,26 @@ Although this would be more sensible:
     field-name: color
   - type: no-others
 
-then (instance)
+Then we could skip the `fields` item altogether:
 
+```
 - type: ez-square
   color: blue
+```
 
+TODO explicit-field
+TODO no-others
+
+
+## Intermission: On serializers and implementation (can skip)
+ 
 Serialization takes a list of serializer types.  These are applied in order, both for serialization 
 and deserialization, and re-run from the beginning if any are applied.
 
 `explicit-field` says to look at the root as well as in the 'fields' block.  It has one required
 parameter, field-name, and several optional ones:
 
+```
   - type: explicit-field
     field-name: color
     key-name: color      # this is used in yaml
@@ -144,6 +170,7 @@ parameter, field-name, and several optional ones:
     serialization:       # optional additional serialization instructions
     - if-string:         # (defined below)
         set-key: field-name
+```
 
 `no-others` says that any unrecognised fields in YAML will force an error prior to the default
 deserialization steps (which attempt to write named config and then fields directly, before failing),
@@ -154,12 +181,12 @@ As a convenience if an entry in the list is a string S, the entry is taken as
 
 Thus the following would also be allowed:
 
-  serialization:
-  - color
-  - type: no-others
+    serialization:
+    - color
+    - type: no-others
 
 
-// ADVANCED
+### On overloading (really can skip!)
 
 At the heart of this YAML serialization is the idea of heavily overloading to permit the most
 natural way of writing in different situations. We go a bit overboard in 'serialization' to illustrate
@@ -170,8 +197,8 @@ interpreted as follows:
 * if V is not a map then a map is created as { field-name: K, type: V }
 Thus you could also write:
 
-  serialization:
-    color: { alias: colour, description: "The color of the shape", constraint: required } 
+    serialization:
+      color: { alias: colour, description: "The color of the shape", constraint: required } 
 
 (Note that some serialization types, such as 'no-others', cannot be expressed in this way,
 because `field-name` is not supported on that type. This syntax is intended for the common 
@@ -184,13 +211,14 @@ does not define a type, the following rules apply:
   if the value is a map (or it can be interpreted as such with an if-string on the type)
 Thus we can write:
 
-  serialization:
-  - field-name: color
-    alias: colour
-  - no-others:
+    serialization:
+    - field-name: color
+      alias: colour
+    - no-others:
 
 Note: this has some surprising side-effects in occasional edge cases; consider:
 
+```
   # BAD: this would try to load a serialization type 'field-name' 
   serialization:
   - field-name: color
@@ -213,6 +241,7 @@ Note: this has some surprising side-effects in occasional edge cases; consider:
   - explicit-field: { field-name: color }
   # or 
   - explicit-field: color
+```
 
 It does the right thing in most cases, and it serves to illustrate the flexibility of this
 approach. In most cases it's probably a bad idea to do this much overloading!  However the
@@ -222,40 +251,48 @@ easy-to-write.
 
 Of course if you have any doubt, simply use the long-winded syntax and avoid any convenience syntax:
 
+```
   serialization:
   - type: explicit-field
     field-name: color
     alias: colour
+```
+
+## Further Behaviours
+
+### Name Mangling and Aliases
+
+We apply a default conversion for fields: 
+wherever pattern is lower-upper-lower (java) <-> lower-dash-lower-lower (yaml).
+These are handled as a default set of aliases.
+
+    fields:
+      # corresponds to field shapeColor 
+      shape-color: red
 
 
-// OTHER BEHAVIORS
-
-* name mangling pattern, default conversion for fields:
-  wherever pattern is lower-upper-lower (java) <-> lower-dash-lower-lower (yaml)
-
-  fields:
-    # corresponds to field shapeColor 
-    shape-color: red
-
-* primitive types
+### Primitive types
 
 All Java primitive types are known, with their boxed and unboxed names,
 and the key `value` can be used to set a value. This is normally not necessary
 as where a primitive is expected routines will attempt coercion, but in some
 cases it is desired.  So for instance a red square could be defined as:
 
+```
 - type: shape
   name:
     type: string
     value: red
+```
 
-* config/data keys
+
+### Config/data keys
 
 Some java types define static ConfigKey fields and a `configure(key, value)` or `configure(ConfigBag)`
 method. These are detected and applied as one of the default strategies (below).
 
 
-* accepting lists with generics
+### Accepting lists, including generics
 
 Where the java object is a list, this can correspond to YAML in many ways.
 New serializations we introduce include `convert-map-to-map-list` (which allows
@@ -278,6 +315,7 @@ any apply the serialization is then continued from the beginning.
 As a complex example, the `serialization` list we described above has the following formal
 schema:
 
+```
 - field-name: serialization
   field-type: list<serialization>
   serialization:
@@ -318,13 +356,14 @@ schema:
   - type: apply-defaults-in-list
     default:
       type: explicit-field
+```
 
-
-* accepting maps with generics
+### Accepting maps, including generics
 
 In some cases the underlying type will be a java Map.  The lowest level way of representing a map is
 as a list of maps specifying the key and value of each entry, as follows:
 
+```
 - key:
     type: string
     value: key1
@@ -334,17 +373,18 @@ as a list of maps specifying the key and value of each entry, as follows:
     type: string
     value: key2
   value: a string
+```
 
 You can also use a more concise map syntax if keys are strings:
 
-  key1: { type: red-square }
-  key2: "a string"
+    key1: { type: red-square }
+    key2: "a string"
 
 If we have information about the generic types -- supplied e.g. with a type of `map<K,V>` --
 then coercion will be applied in either of the above syntaxes.
 
 
-* where the accepted type is unknown
+### Where the accepted type is unknown
 
 In some instances an expected type may be explicitly `java.lang.Object`, or it may be
 unknown (eg due to generics).  In these cases if no serialization rules are specified,
@@ -354,7 +394,7 @@ as *types*.  This last is to prevent errors.  It is usually recommended to ensur
 either an expected type will be known or serialization rules are supplied (or both).   
 
 
-* default serialization
+### Default serialization
 
 It is possible to set some serializations to be defaults run before or after a supplied list.
 The default is to run the following after (but this is suppressed if `no-others` is supplied,
@@ -370,7 +410,8 @@ in which case you may want to use some before the `no-others` directive):
     non-transient fields
   * `fields-in-fields-map` applies all the keys in a `fields` block as fields in the object
 
-// TODO
+
+## Even more further behaviours (not part of MVP)
 
 * type overloading, if string, if number, if map, if list...  inferring type, or setting diff fields
 * super-types and abstract types (underlying java of `supertypes` must be assignable from underying java of `type`)
@@ -381,41 +422,27 @@ in which case you may want to use some before the `no-others` directive):
 * include/exclude if null/empty/default
 
 
-// IMPLEMENTATION SKETCH
+## Implementation Notes
+
+We have a `Converter` which runs through `Serializer`s,
+where each supports `read`, `write`, and `document`.
+
+A blackboard is used to share information including suppressing serializers.
+Serializers do nothing if their preconditions aren't met,
+and serializers can (and typically do) restart the serialization cycle if they change data.
+
+So the general process is:
+
+* first r/w the type, and on write note the fields to write
+* adjust the data structure until no further adjustments are made
+* check that everything that needed to be done was done
 
 
-## Yorma.java
+## Real World Use Cases
 
-typeRegistry
-converter
+### An Init.d-style entity/effector language 
 
-read
-  yamlObject
-  yormaContext(jsonPath,expectedType)
-  yamlContext(origin,offset,length)
-returns object of type expectedType
-makes shallow copy of the object, then goes through serializers modifying it or creating/setting result, 
-until result is done 
-
-write
-  object
-  yormaContext(jsonPath,expectedType)
-returns jsonable object (map, list, primitive)   
-
-document(type)
-generates human-readable schema for a type
-
-## Serializer.java
-
-read/write
-    as above, but also taking YormaConversion and with a ConfigBag blackboard
-
-
-
-
-  
-// TO ALLOW
-
+```
 - id: print-all
   type: initdish-effector
   steps:
@@ -440,8 +467,4 @@ read/write
     - type: write-list-field
       field: effectors
 - type: effector
-
-
- */
-    
-}
+```

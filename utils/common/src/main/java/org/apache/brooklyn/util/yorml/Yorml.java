@@ -14,7 +14,7 @@ public class Yorml {
     private Yorml() {}
     
     public static Yorml newInstance(YormlTypeRegistry typeRegistry) {
-        return newInstance(typeRegistry, MutableList.of(
+        return newInstance(typeRegistry, MutableList.<YormlSerializer>of(
             new FieldsInFieldsMap(),
             new InstantiateType() ));
     }

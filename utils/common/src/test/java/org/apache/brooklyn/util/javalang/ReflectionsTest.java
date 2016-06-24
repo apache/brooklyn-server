@@ -26,7 +26,7 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
 
-import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -149,6 +149,114 @@ public class ReflectionsTest {
         Assert.assertEquals(Reflections.getAllInterfaces(A.class), ImmutableList.of(I.class));
         Assert.assertEquals(Reflections.getAllInterfaces(B.class), ImmutableList.of(L.class, I.class));
         Assert.assertEquals(Reflections.getAllInterfaces(C.class), ImmutableList.of(M.class, K.class, I.class, J.class, L.class));
+    }
+
+    public static class FF1 {
+        int y;
+        public int x;
+        public FF1(int x, int y) { this.x = x; this.y = y; }
+    }
+    public static class FF2 extends FF1 {
+        public int z;
+        int x;
+        public FF2(int x, int y, int x2, int z) { super(x, y); this.x = x2; this.z = z; }
+    }
+    
+    @Test
+    public void testFindPublicFields() throws Exception {
+        List<Field> fields = Reflections.findPublicFieldsOrderedBySuper(FF2.class);
+        if (fields.size() != 2) Assert.fail("Wrong number of fields: "+fields);
+        int i=0;
+        Assert.assertEquals(fields.get(i++).getName(), "x");
+        Assert.assertEquals(fields.get(i++).getName(), "z");
+    }
+    
+    @Test
+    public void testFindAllFields() throws Exception {
+        List<Field> fields = Reflections.findFields(FF2.class, null, null);
+        // defaults to SUB_BEST_FIELD_LAST_THEN_ALPHA
+        if (fields.size() != 4) Assert.fail("Wrong number of fields: "+fields);
+        int i=0;
+        Assert.assertEquals(fields.get(i++).getName(), "x");
+        Assert.assertEquals(fields.get(i++).getName(), "y");
+        Assert.assertEquals(fields.get(i++).getName(), "x");
+        Assert.assertEquals(fields.get(i++).getName(), "z");
+    }
+
+    @Test
+    public void testFindAllFieldsSubBestFirstThenAlpha() throws Exception {
+        List<Field> fields = Reflections.findFields(FF2.class, null, FieldOrderings.SUB_BEST_FIELD_FIRST_THEN_ALPHABETICAL);
+        if (fields.size() != 4) Assert.fail("Wrong number of fields: "+fields);
+        int i=0;
+        Assert.assertEquals(fields.get(i++).getName(), "x");
+        Assert.assertEquals(fields.get(i++).getName(), "z");
+        Assert.assertEquals(fields.get(i++).getName(), "x");
+        Assert.assertEquals(fields.get(i++).getName(), "y");
+    }
+
+    @Test
+    public void testFindAllFieldsSubBestLastThenAlpha() throws Exception {
+        List<Field> fields = Reflections.findFields(FF2.class, null, FieldOrderings.SUB_BEST_FIELD_LAST_THEN_ALPHABETICAL);
+        if (fields.size() != 4) Assert.fail("Wrong number of fields: "+fields);
+        int i=0;
+        Assert.assertEquals(fields.get(i++).getName(), "x");
+        Assert.assertEquals(fields.get(i++).getName(), "y");
+        Assert.assertEquals(fields.get(i++).getName(), "x");
+        Assert.assertEquals(fields.get(i++).getName(), "z");
+    }
+
+    @Test
+    public void testFindAllFieldsAlphaSubBestFirst() throws Exception {
+        List<Field> fields = Reflections.findFields(FF2.class, null, FieldOrderings.ALPHABETICAL_FIELD_THEN_SUB_BEST_FIRST);
+        if (fields.size() != 4) Assert.fail("Wrong number of fields: "+fields);
+        int i=0;
+        Assert.assertEquals(fields.get(i).getName(), "x");
+        Assert.assertEquals(fields.get(i++).getDeclaringClass(), FF2.class);
+        Assert.assertEquals(fields.get(i).getName(), "x");
+        Assert.assertEquals(fields.get(i++).getDeclaringClass(), FF1.class);
+        Assert.assertEquals(fields.get(i++).getName(), "y");
+        Assert.assertEquals(fields.get(i++).getName(), "z");
+    }
+
+    @Test
+    public void testFindAllFieldsNotAlpha() throws Exception {
+        // ?? - does this test depend on the JVM?  it preserves the default order of fields
+        List<Field> fields = Reflections.findFields(FF2.class, null, FieldOrderings.SUB_BEST_FIELD_LAST_THEN_DEFAULT);
+        if (fields.size() != 4) Assert.fail("Wrong number of fields: "+fields);
+        int i=0;
+        // can't say more about order than this
+        Assert.assertEquals(MutableSet.of(fields.get(i++).getName(), fields.get(i++).getName()), 
+            MutableSet.of("x", "y"));
+        Assert.assertEquals(MutableSet.of(fields.get(i++).getName(), fields.get(i++).getName()), 
+            MutableSet.of("x", "z"));
+    }
+
+    @Test
+    public void testFindField() throws Exception {
+        FF2 f2 = new FF2(1,2,3,4);
+        Field fz = Reflections.findField(FF2.class, "z");
+        Assert.assertEquals(fz.get(f2), 4);
+        Field fx2 = Reflections.findField(FF2.class, "x");
+        Assert.assertEquals(fx2.get(f2), 3);
+        Field fy = Reflections.findField(FF2.class, "y");
+        Assert.assertEquals(fy.get(f2), 2);
+        Field fx1 = Reflections.findField(FF1.class, "x");
+        Assert.assertEquals(fx1.get(f2), 1);
+        
+        Field fxC2 = Reflections.findField(FF2.class, FF2.class.getCanonicalName()+"."+"x");
+        Assert.assertEquals(fxC2.get(f2), 3);
+        Field fxC1 = Reflections.findField(FF2.class, FF1.class.getCanonicalName()+"."+"x");
+        Assert.assertEquals(fxC1.get(f2), 1);
+    }
+
+    @Test
+    public void testGetFieldValue() {
+        FF2 f2 = new FF2(1,2,3,4);
+        Assert.assertEquals(Reflections.getFieldValueMaybe(f2, "x").get(), 3);
+        Assert.assertEquals(Reflections.getFieldValueMaybe(f2, "y").get(), 2);
+        
+        Assert.assertEquals(Reflections.getFieldValueMaybe(f2, FF2.class.getCanonicalName()+"."+"x").get(), 3);
+        Assert.assertEquals(Reflections.getFieldValueMaybe(f2, FF1.class.getCanonicalName()+"."+"x").get(), 1);
     }
 
 }

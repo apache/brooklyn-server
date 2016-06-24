@@ -54,17 +54,8 @@ public class YormlBasicTests {
         Assert.assertNotNull(resultO);
         String out = Jsonya.newInstance().add(resultO).toString();
         String expected = Jsonya.newInstance().add("type", "java"+":"+Shape.class.getPackage().getName()+"."+YormlBasicTests.class.getSimpleName()+"$"+"Shape")
-                .at("fields").add("color", "red").root().toString();
+                .at("fields").add("color", "red", "size", 0).root().toString();
         Assert.assertEquals(out, expected);
     }
-/*
-[{ "type": "java:org.apache.brooklyn.util.yorml.tests.YormlBasicTests$Shape", "fields": { "color": "red" } }] but found 
-[{ "type": "java:org.apache.brooklyn.util.yorml.tests.YormlBasicTests.Shape", "fields": { "color": "red" } }]
-
-java.lang.AssertionError: expected 
-[{ "type": "java:org.apache.brooklyn.util.yorml.tests.YormlBasicTests$Shape", "fields": { "color": "red" } }] 
-[{ "type": "java:class org.apache.brooklyn.util.yorml.tests.YormlBasicTests$Shape", "fields": { "color": "red" } }]
-
- */
 
 }

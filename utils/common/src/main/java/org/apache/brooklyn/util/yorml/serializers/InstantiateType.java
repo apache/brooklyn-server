@@ -1,49 +1,80 @@
 package org.apache.brooklyn.util.yorml.serializers;
 
-import java.util.Map;
+import java.lang.reflect.Field;
+import java.util.List;
 
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.yorml.YormlConfig;
-import org.apache.brooklyn.util.yorml.YormlContext;
-import org.apache.brooklyn.util.yorml.YormlException;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Boxing;
+import org.apache.brooklyn.util.javalang.FieldOrderings;
+import org.apache.brooklyn.util.javalang.ReflectionPredicates;
+import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.yorml.YormlInternals.YormlContinuation;
-import org.apache.brooklyn.util.yorml.YormlReadContext;
-import org.apache.brooklyn.util.yorml.YormlSerializer;
+import org.apache.brooklyn.util.yorml.serializers.FieldsInFieldsMap.FieldsInBlackboard;
 
-public class InstantiateType implements YormlSerializer {
+public class InstantiateType extends YormlSerializerComposition {
 
-    @Override
-    public YormlContinuation read(YormlReadContext context, YormlConfig config, Map<Object,Object> blackboard) {
-        if (context.getJavaObject()!=null) return YormlContinuation.CONTINUE_UNCHANGED;
-        if (!(context.getYamlObject() instanceof Map)) return YormlContinuation.CONTINUE_UNCHANGED;
-        Object type = ((Map<?,?>)context.getYamlObject()).get("type");
-        if (type==null) return YormlContinuation.CONTINUE_UNCHANGED;
-        if (!(type instanceof String)) throw new YormlException("type must be a string");
-        
-        Object result = config.getTypeRegistry().newInstance((String)type);
-        if (result==null) return YormlContinuation.CONTINUE_UNCHANGED;
-        
-        context.setJavaObject(result);
-        return YormlContinuation.RESTART;
-    }
-
-    @Override
-    public YormlContinuation write(YormlContext context, YormlConfig config, Map<Object,Object> blackboard) {
-        if (context.getYamlObject()==null) {
-            MutableMap<Object, Object> map = MutableMap.of();
-            context.setYamlObject(map);
-            // TODO primitives. map+list. type registry plain types. osgi.
-            map.put("type", "java:"+context.getJavaObject().getClass().getName());
-            // TODO put fields remaining in TODO on blackboard, then check
+    public InstantiateType() { super(Worker.class); }
+    
+    public static class Worker extends YormlSerializerWorker {
+        public YormlContinuation read() {
+            if (hasJavaObject()) return YormlContinuation.CONTINUE_UNCHANGED;
+            
+            // TODO check is primitive?
+            // TODO if map and list?
+            
+            String type = getFromYamlMap("type", String.class);
+            if (type==null) return YormlContinuation.CONTINUE_UNCHANGED;
+            
+            Object result = config.getTypeRegistry().newInstance((String)type);
+            context.setJavaObject(result);
+            
             return YormlContinuation.RESTART;
         }
-        return YormlContinuation.CONTINUE_UNCHANGED;
-    }
 
-    @Override
-    public String document(String type, YormlConfig config) {
-        // TODO Auto-generated method stub
-        return null;
-    }
+        public YormlContinuation write() {
+            if (hasYamlObject()) return YormlContinuation.CONTINUE_UNCHANGED;
+            if (!hasJavaObject()) return YormlContinuation.CONTINUE_UNCHANGED;
+            if (FieldsInBlackboard.isPresent(blackboard)) return YormlContinuation.CONTINUE_UNCHANGED;
+            
+            FieldsInBlackboard fib = FieldsInBlackboard.create(blackboard);
+            fib.fieldsToWriteFromJava = MutableList.of();
+            
+            Object jo = getJavaObject();
+            if (Boxing.isPrimitiveOrBoxedObject(jo)) {
+                context.setJavaObject(jo);
+                return YormlContinuation.RESTART;
+            }
 
+            // TODO map+list -- here, or in separate serializers?
+            
+            MutableMap<Object, Object> map = MutableMap.of();
+            context.setYamlObject(map);
+            
+            // TODO look up registry type
+            // TODO support osgi
+            
+            map.put("type", "java:"+getJavaObject().getClass().getName());
+            
+            List<Field> fields = Reflections.findFields(getJavaObject().getClass(), 
+                null,
+                FieldOrderings.ALPHABETICAL_FIELD_THEN_SUB_BEST_FIRST);
+            Field lastF = null;
+            for (Field f: fields) {
+                Maybe<Object> v = Reflections.getFieldValueMaybe(getJavaObject(), f);
+                if (ReflectionPredicates.IS_FIELD_NON_TRANSIENT.apply(f) && v.isPresentAndNonNull()) {
+                    String name = f.getName();
+                    if (lastF!=null && lastF.getName().equals(f.getName())) {
+                        // if field is shadowed use FQN
+                        name = f.getDeclaringClass().getCanonicalName()+"."+name;
+                    }
+                    fib.fieldsToWriteFromJava.add(name);
+                }
+                lastF = f;
+            }
+            
+            return YormlContinuation.RESTART;
+        }
+    }
 }
