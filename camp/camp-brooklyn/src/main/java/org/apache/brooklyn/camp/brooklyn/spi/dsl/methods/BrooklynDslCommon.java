@@ -242,7 +242,7 @@ public class BrooklynDslCommon {
         return new DslComponent(Scope.THIS, "").effector(effectorName, ImmutableMap.<String, Object>of());
     }
 
-    public static BrooklynDslDeferredSupplier<?> effector(String effectorName, String... args) {
+    public static BrooklynDslDeferredSupplier<?> effector(String effectorName, Object... args) {
         return new DslComponent(Scope.THIS, "").effector(effectorName, args);
     }
 

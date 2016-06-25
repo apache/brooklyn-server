@@ -18,7 +18,14 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
-import com.google.common.collect.Iterables;
+import static com.google.common.collect.Iterables.filter;
+import static org.apache.brooklyn.core.entity.EntityPredicates.displayNameEqualTo;
+import static org.testng.Assert.assertEquals;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
@@ -27,12 +34,7 @@ import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.List;
-
-import static org.apache.brooklyn.core.entity.EntityPredicates.displayNameEqualTo;
-import static org.testng.Assert.assertEquals;
+import com.google.common.collect.Iterables;
 
 @Test
 public class EffectorsYamlTest extends AbstractYamlTest {
@@ -79,7 +81,7 @@ public class EffectorsYamlTest extends AbstractYamlTest {
     }
 
     @Test
-    public void testEffectorWithReturn() throws Exception {
+    public void testEntityEffectorWithReturn() throws Exception {
         Entity app = createAndStartApplication(
             "services:",
             "- type: " + TestEntity.class.getName(),
@@ -105,6 +107,26 @@ public class EffectorsYamlTest extends AbstractYamlTest {
         TestEntity testEntity = (TestEntity)Iterables.getOnlyElement(app.getChildren());
         Assert.assertEquals(testEntity.getConfig(TestEntity.CONF_NAME), "my own effector");
         assertCallHistory(testEntity, "start", "identityEffector");
+    }
+
+    @Test
+    public void testEffectorOnOtherEntityWithReturn() throws Exception {
+        Entity app = createAndStartApplication(
+            "services:",
+            "- type: " + TestEntity.class.getName(),
+            "  id: entityOne",
+            "  name: entityOne",
+            "- type: " + TestEntity.class.getName(),
+            "  id: entityTwo",
+            "  name: entityTwo",
+            "  brooklyn.config:",
+            "    test.confName: ",
+            "      $brooklyn:entity(\"entityOne\").effector(\"identityEffector\", \"entityOne effector\")"
+        );
+        TestEntity entityOne = (TestEntity) filter(app.getChildren(), displayNameEqualTo("entityOne")).iterator().next();
+        TestEntity entityTwo = (TestEntity) filter(app.getChildren(), displayNameEqualTo("entityTwo")).iterator().next();
+        Assert.assertEquals(entityTwo.getConfig(TestEntity.CONF_NAME), "entityOne effector");
+        assertCallHistory(entityOne, "start", "identityEffector");
     }
 
     @Test

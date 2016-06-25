@@ -20,6 +20,7 @@ package org.apache.brooklyn.camp.brooklyn.spi.dsl.methods;
 
 import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -31,6 +32,8 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.mgmt.TaskAdaptable;
+import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampConstants;
@@ -46,6 +49,7 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.EntityManagerInternal;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
@@ -60,6 +64,7 @@ import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Converter;
+import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -68,6 +73,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Callables;
 
 public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements DslFunctionSource {
@@ -523,7 +529,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
     public BrooklynDslDeferredSupplier<?> effector(final String effectorName, final Map<String, ?> args) {
         return new ExecuteEffector(this, effectorName, args);
     }
-    public BrooklynDslDeferredSupplier<?> effector(final String effectorName, String... args) {
+    public BrooklynDslDeferredSupplier<?> effector(final String effectorName, Object... args) {
         return new ExecuteEffector(this, effectorName, ImmutableList.copyOf(args));
     }
     protected static class ExecuteEffector extends BrooklynDslDeferredSupplier<Object> implements HasSideEffects {
@@ -531,7 +537,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         private final DslComponent component;
         private final String effectorName;
         private final Map<String, ?> args;
-        private final List<String> argList;
+        private final List<? extends Object> argList;
         private Task<?> cachedTask;
         public ExecuteEffector(DslComponent component, String effectorName, Map<String, ?> args) {
             this.component = Preconditions.checkNotNull(component);
@@ -539,12 +545,13 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             this.args = args;
             this.argList = null;
         }
-        public ExecuteEffector(DslComponent component, String effectorName, List<String> args) {
+        public ExecuteEffector(DslComponent component, String effectorName, List<? extends Object> args) {
             this.component = Preconditions.checkNotNull(component);
             this.effectorName = effectorName;
             this.argList = args;
             this.args = null;
         }
+
         @SuppressWarnings("unchecked")
         @Override
         public Task<Object> newTask() {
@@ -556,9 +563,36 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             if (null == cachedTask) {
                 cachedTask = null == argList
                     ? Entities.invokeEffector(targetEntity, targetEntity, targetEffector.get(), args)
-                    : Entities.invokeEffectorWithArgs(targetEntity, targetEntity, targetEffector.get(), argList.toArray());
+                    : invokeWithDeferredArgs(targetEntity, targetEffector.get(), argList);
+//                    : Entities.invokeEffectorWithArgs(targetEntity, targetEntity, targetEffector.get(), argList.toArray());
             }
             return (Task<Object>) cachedTask;
+        }
+
+        public static Task<Object> invokeWithDeferredArgs(final Entity targetEntity, final Effector<?> targetEffector, final List<? extends Object> args) {
+            List<TaskAdaptable<Object>> taskArgs = Lists.newArrayList();
+            for (Object arg: args) {
+                if (arg instanceof TaskAdaptable) taskArgs.add((TaskAdaptable<Object>)arg);
+                else if (arg instanceof TaskFactory) taskArgs.add( ((TaskFactory<TaskAdaptable<Object>>)arg).newTask() );
+            }
+
+            return DependentConfiguration.transformMultiple(
+                MutableMap.<String,String>of("displayName", "invoking '"+targetEffector.getName()+"' with "+taskArgs.size()+" task"+(taskArgs.size()!=1?"s":"")), 
+                    new Function<List<Object>, Object>() {
+                @Override public Object apply(List<Object> input) {
+                    Iterator<?> tri = input.iterator();
+                    Object[] vv = new Object[args.size()];
+                    int i=0;
+                    for (Object arg : args) {
+                        if (arg instanceof TaskAdaptable || arg instanceof TaskFactory) vv[i] = tri.next();
+                        else if (arg instanceof DeferredSupplier) vv[i] = ((DeferredSupplier<?>) arg).get();
+                        else vv[i] = arg;
+                        i++;
+                    }
+
+                    return Entities.invokeEffectorWithArgs(targetEntity, targetEntity, targetEffector, vv);
+                }},
+                taskArgs);
         }
 
         @Override
