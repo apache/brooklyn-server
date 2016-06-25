@@ -28,10 +28,8 @@ import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.util.text.StringPredicates;
 
 @Test
 public class IdentityYamlTest extends AbstractYamlTest {
@@ -41,37 +39,39 @@ public class IdentityYamlTest extends AbstractYamlTest {
     private static final ConfigKey<String> TEST_ENTITY_TWO_ID = ConfigKeys.newStringConfigKey("testentitytwo.id");
 
     protected Iterable<? extends Entity> setupAndCheckTestEntityInBasicYamlWith() throws Exception {
-        Entity app = createAndStartApplication(loadYaml("test-entity-identity.yaml"));
+        Entity app = createAndStartApplication(
+                "services:",
+                "  - type: " + TestEntity.class.getName(),
+                "    id: testentityone",
+                "    name: \"Test Entity One\"",
+                "    brooklyn.config:",
+                "      testentityone.id: $brooklyn:entityId()",
+                "      testentitytwo.id: $brooklyn:entity(\"testentitytwo\").entityId()",
+                "  - type: " + TestEntity.class.getName(),
+                "    id: testentitytwo",
+                "    name: \"Test Entity Two\"");
         waitForApplicationTasks(app);
-
-        Assert.assertEquals(app.getDisplayName(), "test-entity-identity");
-
-        log.info("App started:");
-        Entities.dumpInfo(app);
-
-        Assert.assertEquals(Iterables.size(app.getChildren()), 2, "Expected app to have child entity");
-        Iterable<? extends Entity> testEntities = Iterables.filter(app.getChildren(), TestEntity.class);
-        Assert.assertEquals(Iterables.size(testEntities), 2, "Expected app to have two test entities");
-
-        return testEntities;
+        return Iterables.filter(app.getChildren(), TestEntity.class);
     }
 
     @Test
     public void testYamlParsing() throws Exception {
-        setupAndCheckTestEntityInBasicYamlWith();
+        Iterable<? extends Entity> testEntities = setupAndCheckTestEntityInBasicYamlWith();
+
+        Assert.assertEquals(Iterables.size(testEntities), 2, "Should be two entities");
     }
 
     @Test
     public void testBrooklynIdentityFunction() throws Exception {
         Iterable<? extends Entity> testEntities = setupAndCheckTestEntityInBasicYamlWith();
-        Entity testEntityOne = Iterables.find(testEntities, EntityPredicates.displayNameSatisfies(StringPredicates.containsLiteral("One")));
-        Entity testEntityTwo = Iterables.find(testEntities, EntityPredicates.displayNameSatisfies(StringPredicates.containsLiteral("Two")));
+        Entity entityOne = Iterables.find(testEntities, EntityPredicates.displayNameEqualTo("Test Entity One"));
+        Entity entityTwo = Iterables.find(testEntities, EntityPredicates.displayNameEqualTo("Test Entity Two"));
 
-        Assert.assertNotNull(testEntityOne, "Test entity one should be present");
-        Assert.assertNotNull(testEntityTwo, "Test entity two should be present");
+        Assert.assertNotNull(entityOne, "Test entity one should be present");
+        Assert.assertNotNull(entityTwo, "Test entity two should be present");
 
-        Assert.assertEquals(testEntityOne.config().get(TEST_ENTITY_ONE_ID), testEntityOne.getId(), "Entity one IDs should match");
-        Assert.assertEquals(testEntityOne.config().get(TEST_ENTITY_TWO_ID), testEntityTwo.getId(), "Entity two IDs should match");
+        Assert.assertEquals(entityOne.config().get(TEST_ENTITY_ONE_ID), entityOne.getId(), "Entity one IDs should match");
+        Assert.assertEquals(entityOne.config().get(TEST_ENTITY_TWO_ID), entityTwo.getId(), "Entity two IDs should match");
     }
 
     @Override

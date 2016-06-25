@@ -41,6 +41,8 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 
+import com.google.common.base.CaseFormat;
+import com.google.common.base.Converter;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
@@ -186,13 +188,13 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
 
     // DSL words which return things
 
-    public BrooklynDslDeferredSupplier<?> identity() {
-        return new Identity(this);
+    public BrooklynDslDeferredSupplier<?> entityId() {
+        return new EntityId(this);
     }
-    protected static class Identity extends BrooklynDslDeferredSupplier<Object> {
-        private static final long serialVersionUID = -1L;
+    protected static class EntityId extends BrooklynDslDeferredSupplier<Object> {
         private final DslComponent component;
-        public Identity(DslComponent component) {
+
+        public EntityId(DslComponent component) {
             this.component = Preconditions.checkNotNull(component);
         }
 
@@ -210,12 +212,12 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
         public boolean equals(Object obj) {
             if (this == obj) return true;
             if (obj == null || getClass() != obj.getClass()) return false;
-            Identity that = Identity.class.cast(obj);
+            EntityId that = EntityId.class.cast(obj);
             return Objects.equal(this.component, that.component);
         }
         @Override
         public String toString() {
-            return (component.scope==Scope.THIS ? "" : component.toString()+".") + "identity()";
+            return (component.scope==Scope.THIS ? "" : component.toString()+".") + "entityId()";
         }
     }
 
@@ -358,40 +360,40 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
     }
 
     public static enum Scope {
-        GLOBAL ("global"),
-        CHILD ("child"),
-        PARENT ("parent"),
-        SIBLING ("sibling"),
-        DESCENDANT ("descendant"),
-        ANCESTOR("ancestor"),
-        ROOT("root"),
-        SCOPE_ROOT("scopeRoot"),
-        THIS ("this");
-        
-        public static final Set<Scope> VALUES = ImmutableSet.of(GLOBAL, CHILD, PARENT, SIBLING, DESCENDANT, ANCESTOR, ROOT, SCOPE_ROOT, THIS);
-        
-        private final String name;
-        
-        private Scope(String name) {
-            this.name = name;
-        }
-        
+        GLOBAL,
+        CHILD,
+        PARENT,
+        SIBLING,
+        DESCENDANT,
+        ANCESTOR,
+        ROOT,
+        SCOPE_ROOT,
+        THIS;
+
+        private static Converter<String, String> converter = CaseFormat.LOWER_CAMEL.converterTo(CaseFormat.UPPER_UNDERSCORE);
+
         public static Scope fromString(String name) {
-            return tryFromString(name).get();
+            Maybe<Scope> parsed = tryFromString(name);
+            return parsed.get();
         }
-        
+
         public static Maybe<Scope> tryFromString(String name) {
-            for (Scope scope : VALUES)
-                if (scope.name.toLowerCase().equals(name.toLowerCase()))
-                    return Maybe.of(scope);
-            return Maybe.absent(new IllegalArgumentException(name + " is not a valid scope"));
+            try {
+                Scope scope = valueOf(converter.convert(name));
+                return Maybe.of(scope);
+            } catch (Exception cause) {
+                return Maybe.absent(cause);
+            }
         }
-        
+
         public static boolean isValid(String name) {
-            for (Scope scope : VALUES)
-                if (scope.name.toLowerCase().equals(name.toLowerCase()))
-                    return true;
-            return false;
+            Maybe<Scope> check = tryFromString(name);
+            return check.isPresentAndNonNull();
+        }
+
+        @Override
+        public String toString() {
+            return converter.reverse().convert(name());
         }
     }
 

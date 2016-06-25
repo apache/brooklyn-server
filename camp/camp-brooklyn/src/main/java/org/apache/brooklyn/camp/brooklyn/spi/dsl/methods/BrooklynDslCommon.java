@@ -112,8 +112,8 @@ public class BrooklynDslCommon {
         return new DslComponent(Scope.THIS, "").attributeWhenReady(sensorName);
     }
 
-    public static BrooklynDslDeferredSupplier<?> identity() {
-        return new DslComponent(Scope.THIS, "").identity();
+    public static BrooklynDslDeferredSupplier<?> entityId() {
+        return new DslComponent(Scope.THIS, "").entityId();
     }
 
     /** Returns a {@link Sensor}, looking up the sensor on the context if available and using that,
