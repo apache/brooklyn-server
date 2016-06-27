@@ -181,9 +181,10 @@ parameter, field-name, and several optional ones:
   - type: explicit-field
     field-name: color
     key-name: color      # this is used in yaml
-    aliases: [ colour ]  # accepted in yaml as a synonym for key-name; `alias` also accepted
+    aliases: [ colour ]  # things to accept in yaml as synonyms for key-name; `alias` also accepted
+    disable-default-aliases: boolean # if true, means only exact matches on key-name and aliases are accepted, otherwise a set of mangles are applied
     field-type: string   # inferred from java field, but you can constrain further to yaml types
-    constraint: required # currently just supports 'required', or blank for none, but reserved for future use
+    constraint: required # currently just supports 'required' (and 'null' not allowed) or blank for none (default), but reserved for future use
     description: The color of the shape   # text (markdown) 
     serialization:       # optional additional serialization instructions
     - if-string:         # (defined below)
@@ -254,7 +255,7 @@ Note: this has some surprising side-effects in occasional edge cases; consider:
   # BAD: this would define a field `explicitField`, then fail because that field-name is in use
   serialization:
     explicit-field: { field-name: color }
-  # GOOD options (in addition to those in previous section, but assuming you wanted to say the type explciitly)
+  # GOOD options (in addition to those in previous section, but assuming you wanted to say the type explicitly)
   serialization:
   - explicit-field: { field-name: color }
   # or 
@@ -452,7 +453,14 @@ and serializers can (and typically do) restart the serialization cycle if they c
 So the general process is:
 
 * first r/w the type, and on write note the fields to write
-* adjust the data structure until no further adjustments are made
+* adjust the data until a pass of serializers completes with all CONTINUE or any FINISHED (and nothing requesting a rerun);
+  on read from yaml to java, this is:
+  * unpacking any complex structure in the YAML data object
+  * reading the fields, removing from a list in the blackboard and writing to the object
+  and on write from java :
+  * creating any complex structure for the YAML data object
+  * writing the fields (which might be a map on blackboard, maybe referring to the YAML map, maybe referring to an object within it)
+    ?? but if something is primitive-or-map depending on fields? add CONTINUE_UNCHANGED_BUT_RERUN_IF_CHANGED?
 * check that everything that needed to be done was done
 
 ### TODO
@@ -462,6 +470,7 @@ So the general process is:
 * defining serializers?
 * complex syntax, type as key, etc
 * maps and lists
+* best-serialization vs first-serialization
 
 
 ## Real World Use Cases

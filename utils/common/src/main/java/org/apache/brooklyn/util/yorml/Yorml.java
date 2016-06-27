@@ -27,9 +27,13 @@ import org.apache.brooklyn.util.yorml.serializers.InstantiateType;
 
 public class Yorml {
 
-    YormlConfig config;
+    final YormlConfig config;
     
-    private Yorml() {}
+    private Yorml(YormlConfig config) { this.config = config; }
+    
+    public static Yorml newInstance(YormlConfig config) {
+        return new Yorml(config);
+    }
     
     public static Yorml newInstance(YormlTypeRegistry typeRegistry) {
         return newInstance(typeRegistry, MutableList.<YormlSerializer>of(
@@ -38,12 +42,11 @@ public class Yorml {
     }
     
     public static Yorml newInstance(YormlTypeRegistry typeRegistry, List<YormlSerializer> serializers) {
-        Yorml result = new Yorml();
-        result.config = new YormlConfig();
-        result.config.typeRegistry = typeRegistry;
-        result.config.serializersPost.addAll(serializers);
+        YormlConfig config = new YormlConfig();
+        config.typeRegistry = typeRegistry;
+        config.serializersPost.addAll(serializers);
         
-        return result;
+        return new Yorml(config);
     }
     
     public Object read(String yaml) {

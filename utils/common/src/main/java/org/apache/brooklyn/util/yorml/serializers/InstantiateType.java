@@ -29,6 +29,7 @@ import org.apache.brooklyn.util.javalang.FieldOrderings;
 import org.apache.brooklyn.util.javalang.ReflectionPredicates;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.yorml.Yorml;
 import org.apache.brooklyn.util.yorml.YormlInternals.YormlContinuation;
 
 public class InstantiateType extends YormlSerializerComposition {
@@ -73,7 +74,7 @@ public class InstantiateType extends YormlSerializerComposition {
             if (type==null && result==null) return YormlContinuation.CONTINUE_UNCHANGED;
             
             if (result==null) {
-                result = config.getTypeRegistry().newInstance((String)type);
+                result = config.getTypeRegistry().newInstance((String)type, Yorml.newInstance(config));
             }
             if (result==null) {
                 ReadingTypeOnBlackboard.get(blackboard).addNote("Unknown type '"+type+"'");

@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.yorml.tests;
 
+import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -25,44 +26,105 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.yaml.Yamls;
+import org.apache.brooklyn.util.yorml.Yorml;
+import org.apache.brooklyn.util.yorml.YormlSerializer;
 import org.apache.brooklyn.util.yorml.YormlTypeRegistry;
+
+import com.google.common.collect.Iterables;
 
 public class MockYormlTypeRegistry implements YormlTypeRegistry {
 
-    Map<String,Class<?>> types = MutableMap.of();
+    static class MockRegisteredType {
+        final String id;
+        final String parentType;
+        
+        final Class<?> javaType;
+        final List<YormlSerializer> serializers;
+        final Object yamlDefinition;
+        
+        public MockRegisteredType(String id, String parentType, Class<?> javaType, List<YormlSerializer> serializers, Object yamlDefinition) {
+            super();
+            this.id = id;
+            this.parentType = parentType;
+            this.javaType = javaType;
+            this.serializers = serializers;
+            this.yamlDefinition = yamlDefinition;
+        }
+    }
+    
+    Map<String,MockRegisteredType> types = MutableMap.of();
     
     @Override
-    public Object newInstance(String typeName) {
-        Class<?> type = getJavaType(typeName);
+    public Object newInstance(String typeName, Yorml yorml) {
+        MockRegisteredType type = types.get(typeName);
         if (type==null) {
             return null;
         }
         try {
-            return type.newInstance();
+            if (type.yamlDefinition!=null) {
+                String parentTypeName = type.parentType;
+                if (type.parentType==null && type.javaType!=null) parentTypeName = getDefaultTypeNameOfClass(type.javaType);
+                return yorml.readFromYamlObject(type.yamlDefinition, parentTypeName);
+            }
+            Class<?> javaType = getJavaType(type, null); 
+            if (javaType==null) {
+                throw new IllegalStateException("Incomplete hierarchy for `"+typeName+"`");
+            }
+            return javaType.newInstance();
         } catch (Exception e) {
             throw Exceptions.propagate(e);
         }
     }
     
     @Override
-    public java.lang.Class<?> getJavaType(String typeName) {
-        Class<?> type = types.get(typeName);
-        if (type==null) type = Boxing.getPrimitiveType(typeName).orNull();
-        if (type==null && "string".equals(typeName)) type = String.class;
-        if (type==null && typeName.startsWith("java:")) {
+    public Class<?> getJavaType(String typeName) {
+        return getJavaType(types.get(typeName), typeName);
+    }
+    
+    protected Class<?> getJavaType(MockRegisteredType registeredType, String typeName) {
+        Class<?> result = null;
+            
+        if (result==null && registeredType!=null) result = registeredType.javaType;
+        if (result==null && registeredType!=null) result = getJavaType(registeredType.parentType);
+        
+        if (result==null) result = Boxing.getPrimitiveType(typeName).orNull();
+        if (result==null) result = Boxing.getPrimitiveType(typeName).orNull();
+        if (result==null && "string".equals(typeName)) result = String.class;
+        if (result==null && typeName.startsWith("java:")) {
             typeName = Strings.removeFromStart(typeName, "java:");
             try {
                 // TODO use injected loader?
-                type = Class.forName(typeName);
+                result = Class.forName(typeName);
             } catch (ClassNotFoundException e) {
                 // ignore, this isn't a java type
             }
         }
-        return type;
+        return result;
     }
     
-    public void put(String typeName, Class<?> type) {
-        types.put(typeName, type);
+    /** simplest type def -- an alias for a java class */
+    public void put(String typeName, Class<?> javaType) {
+        put(typeName, javaType, null);
+    }
+    public void put(String typeName, Class<?> javaType, List<YormlSerializer> serializers) {
+        types.put(typeName, new MockRegisteredType(typeName, "java:"+javaType.getName(), javaType, null, null));
+    }
+    
+    /** takes a simplified yaml definition supporting a map with a key `type` and optionally other keys */
+    public void put(String typeName, String yamlDefinition) {
+        put(typeName, yamlDefinition, null);
+    }
+    public void put(String typeName, String yamlDefinition, List<YormlSerializer> serializers) {
+        Object yamlObject = Iterables.getOnlyElement( Yamls.parseAll(yamlDefinition) );
+        if (!(yamlObject instanceof Map)) throw new IllegalArgumentException("Mock only supports map definitions");
+        Object type = ((Map<?,?>)yamlObject).get("type");
+        if (!(type instanceof String)) throw new IllegalArgumentException("Mock requires key `type` with string value");
+        ((Map<?,?>)yamlObject).remove("type");
+        if (((Map<?,?>)yamlObject).isEmpty()) yamlObject = null;
+        Class<?> javaType = getJavaType((String)type);
+        if (javaType==null) throw new IllegalArgumentException("Mock cannot resolve parent type `"+type+"` in definition of `"+typeName+"`");
+        types.put(typeName, new MockRegisteredType(typeName, (String)type, javaType, serializers, yamlObject));
     }
 
     @Override
@@ -72,9 +134,13 @@ public class MockYormlTypeRegistry implements YormlTypeRegistry {
 
     @Override
     public <T> String getTypeNameOfClass(Class<T> type) {
-        for (Map.Entry<String,Class<?>> t: types.entrySet()) {
-            if (t.getValue().equals(type)) return t.getKey();
+        for (Map.Entry<String,MockRegisteredType> t: types.entrySet()) {
+            if (type.equals(t.getValue().javaType) && t.getValue().yamlDefinition==null) return t.getKey();
         }
+        return getDefaultTypeNameOfClass(type);
+    }
+    
+    protected <T> String getDefaultTypeNameOfClass(Class<T> type) {
         Maybe<String> primitive = Boxing.getPrimitiveName(type);
         if (primitive.isPresent()) return primitive.get();
         if (String.class.equals(type)) return "string";

@@ -20,7 +20,7 @@ package org.apache.brooklyn.util.yorml;
 
 public interface YormlTypeRegistry {
 
-    Object newInstance(String type);
+    Object newInstance(String type, Yorml yorml);
     
     Class<?> getJavaType(String typeName);
     

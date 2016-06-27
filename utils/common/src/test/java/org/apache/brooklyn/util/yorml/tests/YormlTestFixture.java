@@ -18,9 +18,12 @@
  */
 package org.apache.brooklyn.util.yorml.tests;
 
+import java.util.List;
+
 import org.apache.brooklyn.util.collections.Jsonya;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yorml.Yorml;
+import org.apache.brooklyn.util.yorml.YormlSerializer;
 import org.testng.Assert;
 
 public class YormlTestFixture {
@@ -89,8 +92,8 @@ public class YormlTestFixture {
         Assert.assertEquals(s1, s2, message);
     }
     
-    public YormlTestFixture addType(String name, Class<?> type) {
-        tr.put(name, type);
-        return this;
-    }
+    public YormlTestFixture addType(String name, Class<?> type) { tr.put(name, type); return this; }
+    public YormlTestFixture addType(String name, Class<?> type, List<YormlSerializer> serializers) { tr.put(name, type, serializers); return this; }
+    public YormlTestFixture addType(String name, String yamlDefinition) { tr.put(name, yamlDefinition); return this; }
+    public YormlTestFixture addType(String name, String yamlDefinition, List<YormlSerializer> serializers) { tr.put(name, yamlDefinition, serializers); return this; }
 }
