@@ -18,4 +18,4 @@
  */
 package org.apache.brooklyn.util.yorml;
 
-public enum YormlContinuation { RESTART, CONTINUE_CHANGED, CONTINUE_UNCHANGED, FINISHED }
+public enum YormlContinuation { RESTART, CONTINUE_THEN_RERUN, CONTINUE_UNCHANGED, FINISHED }

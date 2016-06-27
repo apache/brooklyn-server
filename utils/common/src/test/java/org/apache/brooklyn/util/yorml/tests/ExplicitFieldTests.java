@@ -133,5 +133,8 @@ serializers can come from:
     /*
      * TODO
      * aliases
+     * defaultValue
+     * if missing required
+     * type hierarchy chains
      */
 }

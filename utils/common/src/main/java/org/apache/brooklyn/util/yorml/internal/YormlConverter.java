@@ -73,6 +73,7 @@ public class YormlConverter {
         }
         
         int i=0;
+        boolean rerunNeeded = false;
         while (i<Iterables.size(serializers.getSerializers())) {
             YormlSerializer s = Iterables.get(serializers.getSerializers(), i);
             YormlContinuation next;
@@ -85,7 +86,15 @@ public class YormlConverter {
             }
             if (next == YormlContinuation.FINISHED) break;
             else if (next == YormlContinuation.RESTART) i=0;
-            else i++;
+            else {
+                i++;
+                if (next == YormlContinuation.CONTINUE_THEN_RERUN) rerunNeeded = true;
+            }
+            
+            if (i>=Iterables.size(serializers.getSerializers()) && rerunNeeded) {
+                rerunNeeded = false;
+                i=0;
+            }
         }
         checkCompletion(context, blackboard);
     }

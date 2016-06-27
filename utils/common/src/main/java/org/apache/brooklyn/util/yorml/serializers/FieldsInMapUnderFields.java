@@ -76,8 +76,8 @@ public class FieldsInMapUnderFields extends YormlSerializerComposition {
                 if (((Map<?,?>)fields).isEmpty()) {
                     removeFromYamlKeysOnBlackboard("fields");
                 }
-                // no reason to restart?
-                return YormlContinuation.CONTINUE_CHANGED;
+                // restart (there is normally nothing after this so could equally continue with rerun)
+                return YormlContinuation.RESTART;
             }
             
             return YormlContinuation.CONTINUE_UNCHANGED;
@@ -112,6 +112,7 @@ public class FieldsInMapUnderFields extends YormlSerializerComposition {
             if (fields.isEmpty()) return YormlContinuation.CONTINUE_UNCHANGED;
             
             setInYamlMap("fields", fields);
+            // restart in case a serializer moves the `fields` map somewhere else
             return YormlContinuation.RESTART;
         }
     }

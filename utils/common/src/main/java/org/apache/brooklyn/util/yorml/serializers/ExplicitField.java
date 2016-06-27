@@ -19,15 +19,22 @@
 package org.apache.brooklyn.util.yorml.serializers;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
+import java.util.Map;
 
-import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
-import org.apache.brooklyn.util.yorml.YormlContextForRead;
 import org.apache.brooklyn.util.yorml.YormlContextForWrite;
 import org.apache.brooklyn.util.yorml.YormlContinuation;
 
+import com.google.common.base.Objects;
+
+/* On read, after InstantiateType populates the `fields` key in YamlKeysOnBlackboard,
+ * look for any field(s) matching known aliases and rename them there as the fieldName,
+ * so FieldsInMapUnderFields will then set it in the java object correctly.
+ * <p>
+ * On write, after FieldsInMapUnderFields sets the `fields` map,
+ * look for the field name, and rewrite under the preferred alias at the root. */
 public class ExplicitField extends YormlSerializerComposition {
 
     protected YormlSerializerWorker newWorker() {
@@ -38,73 +45,124 @@ public class ExplicitField extends YormlSerializerComposition {
     protected String fieldType;
     
     protected String keyName;
-    public String getKeyName() { if (keyName!=null) return keyName; return fieldName; }
+    public String getPreferredKeyName() { 
+        if (keyName!=null) return keyName;
+        // TODO mangle
+        return fieldName; 
+    }
+    public Iterable<String> getKeyNameAndAliases() {
+        // TODO make transient
+        MutableSet<String> keyNameAndAliases = MutableSet.of();
+        keyNameAndAliases.addIfNotNull(keyName);
+        keyNameAndAliases.addIfNotNull(fieldName);
+        return keyNameAndAliases; 
+    }
+    
+    Boolean required;
+    Maybe<Object> defaultValue;
     
     public class Worker extends YormlSerializerWorker {
+        
+        // TODO not used
+        Map<String,Object> getFieldsFromYamlsKeyOnBlackboard() {
+            @SuppressWarnings("unchecked")
+            Map<String,Object> fields = peekFromYamlKeysOnBlackboard("fields", Map.class).orNull();
+            if (fields==null) {
+                // should have been created by InstantiateType
+                throw new IllegalStateException("fields should be set as a yaml key on the blackboard");
+            }
+            return fields;
+        }
+        
         public YormlContinuation read() {
             if (!hasJavaObject()) return YormlContinuation.CONTINUE_UNCHANGED;
-            
-            String keyName = getKeyName();
-            Maybe<Object> value = peekFromYamlKeysOnBlackboard(keyName, Object.class);
-            if (value.isAbsent()) return YormlContinuation.CONTINUE_UNCHANGED;
-            
-            Maybe<Field> ffm = Reflections.findFieldMaybe(getJavaObject().getClass(), fieldName);
-            if (ffm.isAbsentOrNull()) {
-                throw new IllegalStateException("Expected field `"+fieldName+"` in "+getJavaObject());
-            }
-            
-            Field ff = ffm.get();
-            if (Modifier.isStatic(ff.getModifiers())) {
-                throw new IllegalStateException("Cannot set static `"+fieldName+"` in "+getJavaObject());
-            }
+            @SuppressWarnings("unchecked")
+            Map<String,Object> fields = peekFromYamlKeysOnBlackboard("fields", Map.class).orNull();
+            /*
+             * if fields is null either we are too early (not yet set by instantiate-type)
+             * or too late (already read in to java), so we bail and this yaml key cannot be handled
+             */
+            if (fields==null) return YormlContinuation.CONTINUE_UNCHANGED;
 
-            String fieldType = ExplicitField.this.fieldType;
-            if (fieldType==null) fieldType = config.getTypeRegistry().getTypeNameOfClass(ff.getType());
-
-            YormlContextForRead subcontext = new YormlContextForRead(context.getJsonPath()+"/"+keyName, fieldType);
-            subcontext.setYamlObject(value.get());
-            Object v2 = converter.read(subcontext);
-
-            ff.setAccessible(true);
-            try {
-                ff.set(getJavaObject(), v2);
-            } catch (Exception e) {
-                // TODO do we need to say where?
-                Exceptions.propagate(e);
+            if (ExplicitFieldsBlackboard.get(blackboard).isFieldDone(fieldName)) return YormlContinuation.CONTINUE_UNCHANGED;
+            ExplicitFieldsBlackboard.get(blackboard).setRequiredIfUnset(fieldName, required);
+            
+            int keysMatched = 0;
+            boolean rerunNeeded = false;
+            for (String alias: getKeyNameAndAliases()) {
+                Maybe<Object> value = peekFromYamlKeysOnBlackboard(alias, Object.class);
+                boolean fieldAlreadyHandled = fields.containsKey(fieldName);
+                if (value.isAbsent() && !fieldAlreadyHandled) {
+                    // should we take this as the default
+                    if (ExplicitFieldsBlackboard.get(blackboard).shouldUseDefaultFrom(fieldName, ExplicitField.this)) {
+                        // this was determined as the serializer to use for defaults on a previous pass
+                        value = defaultValue==null ? Maybe.absentNoTrace("no default value") : defaultValue;;
+                    }
+                    if (value.isAbsent()) {
+                        // use this as default on subsequent run if appropriate
+                        if (!ExplicitFieldsBlackboard.get(blackboard).hasDefault(fieldName) && defaultValue!=null && defaultValue.isPresent()) {
+                            ExplicitFieldsBlackboard.get(blackboard).setUseDefaultFrom(fieldName, ExplicitField.this);
+                            rerunNeeded = true;
+                        }
+                        continue;
+                    }
+                }
+                if (value.isPresent() && fieldAlreadyHandled) {
+                    // already present
+                    // TODO throw if different
+                    continue;
+                }
+                // value present, field not yet handled
+                ExplicitFieldsBlackboard.get(blackboard).setFieldDone(fieldName);
+                removeFromYamlKeysOnBlackboard(alias);
+                fields.put(fieldName, value.get());
+                keysMatched++;
             }
-            removeFromYamlKeysOnBlackboard(keyName);
-                        
-            return YormlContinuation.CONTINUE_CHANGED;
+            return keysMatched > 0 || rerunNeeded ? YormlContinuation.CONTINUE_THEN_RERUN : YormlContinuation.CONTINUE_UNCHANGED;
         }
 
         public YormlContinuation write() {
-            if (!isYamlMap()) return YormlContinuation.CONTINUE_UNCHANGED;
-            JavaFieldsOnBlackboard fib = JavaFieldsOnBlackboard.peek(blackboard);
-            if (fib==null || fib.fieldsToWriteFromJava.isEmpty()) return YormlContinuation.CONTINUE_UNCHANGED;
-
-            Maybe<Object> v = Reflections.getFieldValueMaybe(getJavaObject(), fieldName);
-            if (v.isAbsent()) {
-                return YormlContinuation.CONTINUE_UNCHANGED;
+            if (ExplicitFieldsBlackboard.get(blackboard).isFieldDone(fieldName)) return YormlContinuation.CONTINUE_UNCHANGED;
+            
+            // first pass determines what is required and what the default is 
+            // (could run this on other passes so not completely efficient)
+            ExplicitFieldsBlackboard.get(blackboard).setRequiredIfUnset(fieldName, required);
+            if (ExplicitFieldsBlackboard.get(blackboard).getDefault(fieldName).isAbsent() && defaultValue!=null && defaultValue.isPresent()) {
+                ExplicitFieldsBlackboard.get(blackboard).setUseDefaultFrom(fieldName, ExplicitField.this, defaultValue.get());
+                return YormlContinuation.CONTINUE_THEN_RERUN;
             }
             
-            fib.fieldsToWriteFromJava.remove(fieldName);
-            if (v.get()==null) {
-                // silently drop 
-                return YormlContinuation.CONTINUE_CHANGED;
-            } else {
-                Field ff = Reflections.findFieldMaybe(getJavaObject().getClass(), fieldName).get();
-                
-                String fieldType = ExplicitField.this.fieldType;
-                if (fieldType==null) fieldType = config.getTypeRegistry().getTypeNameOfClass(ff.getType());
-                
-                YormlContextForWrite subcontext = new YormlContextForWrite(context.getJsonPath()+"/"+getKeyName(), fieldType);
-                subcontext.setJavaObject(v.get());
+            if (!isYamlMap()) return YormlContinuation.CONTINUE_UNCHANGED;
 
-                Object v2 = converter.write(subcontext);
-                setInYamlMap(getKeyName(), v2);
-                // no reason to restart?
-                return YormlContinuation.CONTINUE_CHANGED;
+            @SuppressWarnings("unchecked")
+            Map<String,Object> fields = peekFromYamlKeysOnBlackboard("fields", Map.class).orNull();
+            if (fields==null) return YormlContinuation.CONTINUE_UNCHANGED;
+            
+            Maybe<Object> dv = ExplicitFieldsBlackboard.get(blackboard).getDefault(fieldName);
+            
+            if (!fields.containsKey(fieldName)) {
+                // field not present, so null (or not known)
+                if ((dv.isPresent() && dv.isNull()) || (!ExplicitFieldsBlackboard.get(blackboard).isRequired(fieldName) && dv.isAbsent())) {
+                    // if default is null, or if not required and no default, we can suppress
+                    ExplicitFieldsBlackboard.get(blackboard).setFieldDone(fieldName);
+                    return YormlContinuation.CONTINUE_UNCHANGED;
+                }
+                // default is non-null or field is required, so write the explicit null
+                fields.put(getPreferredKeyName(), null);
+                ExplicitFieldsBlackboard.get(blackboard).setFieldDone(fieldName);
+                return YormlContinuation.CONTINUE_THEN_RERUN;
             }
+            
+            Object value = fields.remove(fieldName);
+            ExplicitFieldsBlackboard.get(blackboard).setFieldDone(fieldName);
+            
+            // field present
+            if (dv.isPresent() && Objects.equal(dv.get(), value)) {
+                // suppress if it equals the default
+                return YormlContinuation.CONTINUE_UNCHANGED;
+            }
+            fields.put(getPreferredKeyName(), value);
+            return YormlContinuation.CONTINUE_THEN_RERUN;
         }
     }
     

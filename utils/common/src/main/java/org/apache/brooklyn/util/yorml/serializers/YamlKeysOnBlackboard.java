@@ -44,7 +44,7 @@ public class YamlKeysOnBlackboard implements YormlRequirement {
         blackboard.put(KEY, new YamlKeysOnBlackboard());
         return peek(blackboard);
     }
-    
+
     Map<Object,Object> yamlKeysToReadToJava;
 
     @Override

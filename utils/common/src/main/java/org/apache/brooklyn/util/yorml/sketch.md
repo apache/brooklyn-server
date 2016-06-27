@@ -505,7 +505,14 @@ A blackboard is used to share information including suppressing serializers.
 Serializers do nothing if their preconditions aren't met,
 and serializers can (and typically do) restart the serialization cycle if they change data.
 
-So the general process is:
+So the general process is a set of phases, on read:
+
+* preparing
+* handling-type
+* handling-fields
+* check-completion
+
+TODO above better than below?
 
 * first r/w the type, and on write note the fields to write
 * adjust the data until a pass of serializers completes with all CONTINUE or any FINISHED (and nothing requesting a rerun);
