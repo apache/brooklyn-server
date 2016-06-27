@@ -50,7 +50,7 @@ public class YamlKeysOnBlackboard implements YormlRequirement {
     @Override
     public void checkCompletion(YormlContext context) {
         if (!yamlKeysToReadToJava.isEmpty()) {
-            // TODO limit to depth 2 ?
+            // TODO limit toString to depth 2 ?
             throw new YormlException("Incomplete read of YAML keys: "+yamlKeysToReadToJava, context);
         }
     }

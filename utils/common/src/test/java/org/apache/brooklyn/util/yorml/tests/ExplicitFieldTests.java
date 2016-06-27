@@ -130,4 +130,8 @@ serializers can come from:
         assertResult( SIMPLE_IN_WITH_TYPE );
     }
 
+    /*
+     * TODO
+     * aliases
+     */
 }

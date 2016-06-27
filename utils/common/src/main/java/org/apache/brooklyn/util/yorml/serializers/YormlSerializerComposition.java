@@ -23,12 +23,12 @@ import java.util.Map;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
-import org.apache.brooklyn.util.yorml.YormlConfig;
 import org.apache.brooklyn.util.yorml.YormlContext;
 import org.apache.brooklyn.util.yorml.YormlContextForRead;
 import org.apache.brooklyn.util.yorml.YormlContextForWrite;
-import org.apache.brooklyn.util.yorml.YormlConverter;
-import org.apache.brooklyn.util.yorml.YormlInternals.YormlContinuation;
+import org.apache.brooklyn.util.yorml.YormlContinuation;
+import org.apache.brooklyn.util.yorml.internal.YormlConfig;
+import org.apache.brooklyn.util.yorml.internal.YormlConverter;
 import org.apache.brooklyn.util.yorml.YormlSerializer;
 
 public abstract class YormlSerializerComposition implements YormlSerializer {

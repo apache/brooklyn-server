@@ -20,7 +20,7 @@ package org.apache.brooklyn.util.yorml;
 
 import java.util.Map;
 
-import org.apache.brooklyn.util.yorml.YormlInternals.YormlContinuation;
+import org.apache.brooklyn.util.yorml.internal.YormlConverter;
 import org.apache.brooklyn.util.yorml.serializers.YormlSerializerComposition;
 
 /** Describes a serializer which can be used by {@link YormlConverter}.

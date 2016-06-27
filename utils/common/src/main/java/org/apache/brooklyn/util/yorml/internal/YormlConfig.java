@@ -16,10 +16,29 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.util.yorml;
+package org.apache.brooklyn.util.yorml.internal;
 
-public class YormlInternals {
+import java.util.List;
 
-    public enum YormlContinuation { RESTART, CONTINUE_CHANGED, CONTINUE_UNCHANGED, FINISHED }
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.javalang.coerce.TypeCoercer;
+import org.apache.brooklyn.util.javalang.coerce.TypeCoercerExtensible;
+import org.apache.brooklyn.util.yorml.YormlSerializer;
+import org.apache.brooklyn.util.yorml.YormlTypeRegistry;
+
+public class YormlConfig {
+
+    public YormlTypeRegistry typeRegistry;
+    public TypeCoercer coercer = TypeCoercerExtensible.newDefault();
+    
+    public List<YormlSerializer> serializersPost = MutableList.of();
+    
+    public YormlTypeRegistry getTypeRegistry() {
+        return typeRegistry;
+    }
+
+    public TypeCoercer getCoercer() {
+        return coercer;
+    }
     
 }

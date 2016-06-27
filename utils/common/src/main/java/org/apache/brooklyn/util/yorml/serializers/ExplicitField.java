@@ -20,14 +20,13 @@ package org.apache.brooklyn.util.yorml.serializers;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.util.Map;
 
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.yorml.YormlContextForRead;
 import org.apache.brooklyn.util.yorml.YormlContextForWrite;
-import org.apache.brooklyn.util.yorml.YormlInternals.YormlContinuation;
+import org.apache.brooklyn.util.yorml.YormlContinuation;
 
 public class ExplicitField extends YormlSerializerComposition {
 
@@ -80,7 +79,6 @@ public class ExplicitField extends YormlSerializerComposition {
 
         public YormlContinuation write() {
             if (!isYamlMap()) return YormlContinuation.CONTINUE_UNCHANGED;
-            if (getFromYamlMap("fields", Map.class)!=null) return YormlContinuation.CONTINUE_UNCHANGED;
             JavaFieldsOnBlackboard fib = JavaFieldsOnBlackboard.peek(blackboard);
             if (fib==null || fib.fieldsToWriteFromJava.isEmpty()) return YormlContinuation.CONTINUE_UNCHANGED;
 

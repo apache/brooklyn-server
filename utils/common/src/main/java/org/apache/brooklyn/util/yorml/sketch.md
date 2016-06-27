@@ -25,7 +25,7 @@ We want a JSON/YAML schema which allows us to do bi-directional serialization to
 That is:
 * It is easy for a user to write the YAML which generates the objects they care about
 * It is easy for a user to read the YAML generated from data objects
-* The syntax of the YAML can be documented automatically from the schema
+* The syntax of the YAML can be documented automatically from the schema (including code-point-completion)
 * JSON can also be read or written (we restrict to the subset of YAML which is isomorphic to JSON)
 
 The focus on ease-of-reading and ease-of-writing differentiates this from other JSON/YAML
@@ -74,100 +74,150 @@ can be documented automatically.
 ## Introductory Examples
 
 
-### Defining types
+### Defining types and instances
 
-When defining a type, an `id` (how it is known) and an instantiable `type` (parent type) must be supplied.
+You define a type by giving an `id` (how it is known) and an instance definition specifying the parent `type`. 
 These are kept in a type registry and can be used when defining other types or instances.
+A "type definition" looks like:
 
 ```
 - id: shape
-  type: java:org.acme.Shape  # where `class Shape { String name; String color; }`
+  definition:
+    type: java:org.acme.Shape  # where `class Shape { String name; String color; }`
 ```
 
 The `java:` prefix is an optional shorthand to allow a Java type to be accessed.
 For now this assumes a no-arg constructor.
 
-You can also define types with default field values set, and of course you can refer to types 
-that have been defined:
+You can then specify an instance to be created by giving an "instance definition",
+referring to a defined `type` and optionally `fields`:
+
+```
+- type: shape
+  fields:  # optionally
+    name: square
+    color: red
+``` 
+
+Type definitions can also refer to types already defined types and can give an instance definition:
 
 ```
 - id: red-square
-  type: shape
-  fields:
-    # any fields here read/written by direct access by default, or fail if not matched
-    name: square
-    color: red
+  definition:
+    type: shape
+    fields:
+      # any fields here read/written by direct access by default, or fail if not matched
+      name: square
+      color: red
 ```
 
-There are many syntaxes for defining instances, described below.  Most of these can
-be used when defining new types.
+The power of YORML is the extensible support for other syntaxes available, described below.
+These lead to succinct and easy-to-use definitions, both for people to write and for people to read
+even when machine-generated.  The approach also supports documentation and code-point completion.
 
 
-### Defining instances
+### Instance definitions
 
-You define an instance by referencing a type, and optionally specifying fields:
+You define an instance to be created by referencing a type in the registry, and optionally specifying fields:
 
     type: red-square
 
 Or
 
-    - type: shape
+    type: shape
+    fields:
+      name: square
+      color: red
+
+
+### Type definitions
+
+You define a new type in the registry by giving an `id` and the instance `definition`:
+
+    id: red-square
+    definition:
+      type: shape
       fields:
         name: square
         color: red
 
-TODO - integrate with registry
+Where you just want to define a Java class, a shorthand permits providing `type` instead of the `definition`: 
+
+    id: shape
+    type: java:org.acme.Shape
 
 
 ### Overwriting fields
 
-You could do this:
+Fields can be overwritten, e.g. to get a pink square:
+
+    type: red-square
+    fields:
+      # map of fields is merged with that of parent
+      color: pink
+
+You can do this in type definitions, so you could do this:
 
 ```
 - id: pink-square
   type: red-square
-  fields:
-    # map of fields is merged with that of parent
-    color: pink
+  definition:
+    fields:
+      # map of fields is merged with that of parent
+      color: pink
 ```
 
 Although this would be more sensible:
 
 ```
 - id: square
-  type: shape
-  fields:
-    name: square
+  definition:
+    type: shape
+    fields:
+      name: square
 - id: pink-square
-  type: square
-  fields:
-    color: pink
+  definition:
+    type: square
+    fields:
+      color: pink
 ```
-
-TODO - just take what the parent has set and proceed
 
 
 ### Allowing fields at root
 
-If we define something like this:
+Type definitions also support specifying additional "serializers", the workers which provide
+alternate syntaxes. One common one is the `explicit-field` serializer, allowing fields at
+the root of an instance definition.  With this type defined:
  
 - id: ez-square
   type: square
   serialization:
   - type: explicit-field
     field-name: color
-  - type: no-others
 
-Then we could skip the `fields` item altogether:
+You could skip the `fields` item altogether and write:
 
 ```
-- type: ez-square
-  color: blue
+type: ez-square
+color: pink
 ```
 
-TODO explicit-field
-TODO no-others
+These are inherited, so we'd probably prefer to have these type definitions:
 
+```
+- id: shape
+  definition:
+    type: java:org.acme.Shape  # where `class Shape { String name; String color; }`
+  serialization:
+  - type: explicit-field
+    field-name: name
+  - type: explicit-field
+    field-name: color
+- id: square
+  definition:
+    type: shape
+    name: square
+```
 
 ## Intermission: On serializers and implementation (can skip)
  
@@ -175,7 +225,7 @@ Serialization takes a list of serializer types.  These are applied in order, bot
 and deserialization, and re-run from the beginning if any are applied.
 
 `explicit-field` says to look at the root as well as in the 'fields' block.  It has one required
-parameter, field-name, and several optional ones:
+parameter, field-name, and several optional ones, so a sample usage might look like:
 
 ```
   - type: explicit-field
@@ -186,23 +236,12 @@ parameter, field-name, and several optional ones:
     field-type: string   # inferred from java field, but you can constrain further to yaml types
     constraint: required # currently just supports 'required' (and 'null' not allowed) or blank for none (default), but reserved for future use
     description: The color of the shape   # text (markdown) 
-    serialization:       # optional additional serialization instructions
+    serialization:       # optional additional serialization instructions for this field
     - if-string:         # (defined below)
         set-key: field-name
 ```
 
-`no-others` says that any unrecognised fields in YAML will force an error prior to the default
-deserialization steps (which attempt to write named config and then fields directly, before failing),
-and on serialization it will ignore any unnamed fields.
-
-As a convenience if an entry in the list is a string S, the entry is taken as 
-`{ type: explicit-field, field-name: S }`.
-
-Thus the following would also be allowed:
-
-    serialization:
-    - color
-    - type: no-others
+XXX
 
 
 ### On overloading (really can skip!)
@@ -210,49 +249,65 @@ Thus the following would also be allowed:
 At the heart of this YAML serialization is the idea of heavily overloading to permit the most
 natural way of writing in different situations. We go a bit overboard in 'serialization' to illustrate
 below the different strategies. (Feel free to ignore, if you're comfortable with the simple examples.)
-If the `serialization` field (which expects a list) is given a map, each <K,V> pair in that map is 
-interpreted as follows:
-* if V is a map then K is set in that map as 'field-name' (error if field-name is already set)
-* if V is not a map then a map is created as { field-name: K, type: V }
-Thus you could also write:
+
+First, if the `serialization` field (which expects a list) is given a map, 
+the `convert-map-to-list` serializer converts each <K,V> pair in that map to a list entry as follows:
+
+* if V is a non-empty map, then the corresponding list entry is the map V with `{ .key: K }` added
+* otherwise, the corresponding list entry is `{ .key: K, .value: V }`
+ 
+Next, each entry in the list is interpreted as a `serialization` instance, 
+and the serializations defined for that type specify:
+
+* If the key `.value` is present and `type` is not defined, that key is renamed to `type` (ignored if `type` is already present)
+* If it is a map of size exactly one, it is converted to a map as done with `convert-map-to-list` above
+* If the key `.key` is present and `type` is not defined, that key is renamed to `type` (ignored if `type` is already present)
+* If the item is a primitive V, it is converted to `{ .value: V }`
+* If it is a map with no `type` defined, `type: explicit-field` is added
+
+This allows the serialization rules defined on the specific type to kick in to handle `.key` or `.value` entries
+introduced but not removed. In the case of `explicit-field` (the default type, as shown in the rules above), 
+this will rename either such key `.value` to `field-name` (and give an error if `field-name` is already present). 
+
+Thus we can write:
 
     serialization:
+      # explicit fields
       color: { alias: colour, description: "The color of the shape", constraint: required } 
+      name
 
-(Note that some serialization types, such as 'no-others', cannot be expressed in this way,
-because `field-name` is not supported on that type. This syntax is intended for the common 
-case when all fields are settable and we are defining top-level fields.)
-
-Finally if the serialization is given a list, and any entry in the list is a map which
-does not define a type, the following rules apply:
-* If the entry is a map of size larger than one, the type defaults to explicit-field.  
-* If the entry is a map of size one the key is taken as the type and merged with the value
-  if the value is a map (or it can be interpreted as such with an if-string on the type)
-Thus we can write:
+Or
 
     serialization:
     - field-name: color
       alias: colour
-    - no-others:
+    - name
 
-Note: this has some surprising side-effects in occasional edge cases; consider:
+This can have some surprising side-effects in occasional edge cases; consider:
 
 ```
-  # BAD: this would try to load a serialization type 'field-name' 
+  # BAD: this would try to load a type called 'color' 
   serialization:
-  - field-name: color
+  - color: {}
   # GOOD options
   serialization:
   - color
   # or
   serialization:
-    color:
+    color: {}
   # or
+  serialization:
+    color: explicit-field
+
+  # BAD: this would try to load a type called 'field-name' 
+  serialization:
+  - field-name: color
+  # GOOD options are those in the previous block or to add another field
   serialization:
   - field-name: color
     alias: colour  
 
-  # BAD: this would define a field `explicitField`, then fail because that field-name is in use
+  # BAD: this ultimately takes "explicit-field" as the "field-name", giving a conflict
   serialization:
     explicit-field: { field-name: color }
   # GOOD options (in addition to those in previous section, but assuming you wanted to say the type explicitly)
@@ -262,11 +317,11 @@ Note: this has some surprising side-effects in occasional edge cases; consider:
   - explicit-field: color
 ```
 
-It does the right thing in most cases, and it serves to illustrate the flexibility of this
-approach. In most cases it's probably a bad idea to do this much overloading!  However the
-descriptions here will normally be taken from java annotations and not written by hand,
-so emphasis is on making it easy-to-read (which overloading does nicely) rather than 
-easy-to-write.
+It does the right thing in most cases, and it serves to illustrate the flexibility of this approach. 
+Of course in most cases it's probably a bad idea to do this much overloading!
+However the descriptions here will normally be taken from java annotations and not written by hand,
+so emphasis is on making type definitions easy-to-read (which overloading does nicely), and 
+instance definitions both easy-to-read and -write, rather than type definitions easy-to-write.
 
 Of course if you have any doubt, simply use the long-winded syntax and avoid any convenience syntax:
 
@@ -274,8 +329,8 @@ Of course if you have any doubt, simply use the long-winded syntax and avoid any
   serialization:
   - type: explicit-field
     field-name: color
-    alias: colour
 ```
+
 
 ## Further Behaviours
 
@@ -356,10 +411,10 @@ schema:
   # (and same for shorthand `k: x`; however if just `k` is supplied it
   # takes a default type `explicit-field`)
   - type: convert-map-to-map-list
-      key-for-key: field-name
-      key-for-string-value: type   # note, only applies if x non-blank
-      default:
-        type: explicit-field       # note: needed to prevent collision with `convert-single-key-in-list` 
+    key-for-key: field-name
+    key-for-string-value: type   # note, only applies if x non-blank
+    default:
+      type: explicit-field       # note: needed to prevent collision with `convert-single-key-in-list` 
 
   # if yaml is a list containing all maps swith a single key, treat the key specially
   # transforms `- x: k` or `- x: { field-name: k }` to `- { type: x, field-name: k }`
@@ -459,18 +514,61 @@ So the general process is:
   * reading the fields, removing from a list in the blackboard and writing to the object
   and on write from java :
   * creating any complex structure for the YAML data object
-  * writing the fields (which might be a map on blackboard, maybe referring to the YAML map, maybe referring to an object within it)
-    ?? but if something is primitive-or-map depending on fields? add CONTINUE_UNCHANGED_BUT_RERUN_IF_CHANGED?
+  * writing the fields (which might be a map on blackboard, maybe referring to the YAML map, maybe referring to an object within it),
+    but if something is primitive-or-map depending on fields? add CONTINUE_UNCHANGED_BUT_RERUN_IF_CHANGED?
 * check that everything that needed to be done was done
+
+
+### Text Above WIP
+
+Another serializer, `restrict-fields`, throws an error if there is an attempt
+to set -- or a need to write -- any fields not whitelisted.
+So if we wanted to prevent the `name: square` from being overwritable, 
+we could have defined `square` as follows:
+
+```
+- id: square
+  definition:
+    type: shape
+    name: square
+  serialization:
+  - type: restrict-fields
+    fields: [ name ]
+``` 
+
+As a convenience if an entry in the list is a string S, the entry is taken as 
+`{ type: explicit-field, field-name: S }`.
+
+Thus the following would also be allowed:
+
+```
+- id: square
+  serialization:
+  - color
+  - type: restrict-fields
+    fields: color
+  definition:
+    type: shape
+    fields:
+      name: square
+```
+
 
 ### TODO
 
-* explicit-field reads fields at root
 * explicit-field aliases
-* defining serializers?
+* no-others / suppression (including fixing this doc)
 * complex syntax, type as key, etc
-* maps and lists
+* maps and lists, with generics
+
+* defining serializers and linking to brooklyn
+
+* infinite loop detection: in serialize loop
+* handle references, solve infinite loop detection in self-referential writes, with `.reference: ../../OBJ`
 * best-serialization vs first-serialization
+
+* documentation
+* yaml segment information and code-point completion
 
 
 ## Real World Use Cases
@@ -503,3 +601,4 @@ So the general process is:
       field: effectors
 - type: effector
 ```
+

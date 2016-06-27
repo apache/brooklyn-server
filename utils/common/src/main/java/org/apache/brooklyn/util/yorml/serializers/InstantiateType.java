@@ -30,7 +30,8 @@ import org.apache.brooklyn.util.javalang.ReflectionPredicates;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yorml.Yorml;
-import org.apache.brooklyn.util.yorml.YormlInternals.YormlContinuation;
+import org.apache.brooklyn.util.yorml.YormlContinuation;
+import org.apache.brooklyn.util.yorml.internal.SerializersOnBlackboard;
 
 public class InstantiateType extends YormlSerializerComposition {
 
@@ -42,12 +43,12 @@ public class InstantiateType extends YormlSerializerComposition {
         public YormlContinuation read() {
             if (hasJavaObject()) return YormlContinuation.CONTINUE_UNCHANGED;
             
-            Class<?> expectedJavaType = getExpectedTypeJava();
             
             String type = null;
             if ((getYamlObject() instanceof String) || Boxing.isPrimitiveOrBoxedObject(getYamlObject())) {
                 // default handling of primitives:
                 // if type is expected, try to coerce
+                Class<?> expectedJavaType = getExpectedTypeJava();
                 if (expectedJavaType!=null) {
                     Maybe<?> result = config.getCoercer().tryCoerce(getYamlObject(), expectedJavaType);
                     if (result.isPresent()) {
@@ -66,23 +67,18 @@ public class InstantiateType extends YormlSerializerComposition {
             YamlKeysOnBlackboard.create(blackboard).yamlKeysToReadToJava = MutableMap.copyOf(getYamlMap());
             
             if (type==null) type = peekFromYamlKeysOnBlackboard("type", String.class).orNull();
-            Object result = null;
-            if (type==null && expectedJavaType!=null) {
-                Maybe<Object> resultM = Reflections.invokeConstructorFromArgsIncludingPrivate(expectedJavaType);
-                if (resultM.isPresent()) result = resultM.get();
-                else ReadingTypeOnBlackboard.get(blackboard).addNote("Expected type is not no-arg instantiable: '"+expectedJavaType+"' ("+
-                    ((Maybe.Absent<?>)resultM).getException()+")");
-            }
-            if (type==null && result==null) return YormlContinuation.CONTINUE_UNCHANGED;
+            if (type==null) type = context.getExpectedType();
+            if (type==null) return YormlContinuation.CONTINUE_UNCHANGED;
             
-            if (result==null) {
-                result = config.getTypeRegistry().newInstanceMaybe((String)type, Yorml.newInstance(config)).orNull();
-            }
+            Object result = config.getTypeRegistry().newInstanceMaybe((String)type, Yorml.newInstance(config)).orNull();
             if (result==null) {
                 ReadingTypeOnBlackboard.get(blackboard).addNote("Unknown type '"+type+"'");
                 return YormlContinuation.CONTINUE_UNCHANGED;
             }
             removeFromYamlKeysOnBlackboard("type");
+            if (!type.equals(context.getExpectedType())) {
+                SerializersOnBlackboard.get(blackboard).addInstantiatedTypeSerializers(config.getTypeRegistry().getAllSerializers(type));
+            }
             
             context.setJavaObject(result);
             return YormlContinuation.RESTART;
@@ -113,7 +109,9 @@ public class InstantiateType extends YormlSerializerComposition {
             if (getJavaObject().getClass().equals(getExpectedTypeJava())) {
                 // skip explicitly writing the type
             } else {
-                map.put("type", config.getTypeRegistry().getTypeName(getJavaObject()) );
+                String typeName = config.getTypeRegistry().getTypeName(getJavaObject());
+                map.put("type", typeName);
+                SerializersOnBlackboard.get(blackboard).addInstantiatedTypeSerializers(config.getTypeRegistry().getAllSerializers(typeName));
             }
             
             List<Field> fields = Reflections.findFields(getJavaObject().getClass(), 

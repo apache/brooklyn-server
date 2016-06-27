@@ -21,6 +21,8 @@ package org.apache.brooklyn.util.yorml;
 import java.util.List;
 
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.yorml.internal.YormlConfig;
+import org.apache.brooklyn.util.yorml.internal.YormlConverter;
 import org.apache.brooklyn.util.yorml.serializers.FieldsInMapUnderFields;
 import org.apache.brooklyn.util.yorml.serializers.InstantiateType;
 

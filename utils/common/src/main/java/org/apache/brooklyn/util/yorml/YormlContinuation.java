@@ -18,25 +18,4 @@
  */
 package org.apache.brooklyn.util.yorml;
 
-import java.util.List;
-
-import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.javalang.coerce.TypeCoercer;
-import org.apache.brooklyn.util.javalang.coerce.TypeCoercerExtensible;
-
-public class YormlConfig {
-
-    YormlTypeRegistry typeRegistry;
-    TypeCoercer coercer = TypeCoercerExtensible.newDefault();
-    
-    List<YormlSerializer> serializersPost = MutableList.of();
-    
-    public YormlTypeRegistry getTypeRegistry() {
-        return typeRegistry;
-    }
-
-    public TypeCoercer getCoercer() {
-        return coercer;
-    }
-    
-}
+public enum YormlContinuation { RESTART, CONTINUE_CHANGED, CONTINUE_UNCHANGED, FINISHED }
