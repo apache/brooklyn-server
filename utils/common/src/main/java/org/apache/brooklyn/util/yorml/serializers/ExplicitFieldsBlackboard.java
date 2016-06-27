@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.yorml.serializers;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -45,11 +46,47 @@ public class ExplicitFieldsBlackboard implements YormlRequirement {
         return (ExplicitFieldsBlackboard) v;
     }
     
+    private final Map<String,String> keyNames = MutableMap.of();
+    private final Map<String,Set<String>> aliases = MutableMap.of();
     private final Set<String> fieldsDone = MutableSet.of();
     private final Map<String,Boolean> fieldsRequired = MutableMap.of();
     private final Map<String,YormlSerializer> defaultValueForFieldComesFromSerializer = MutableMap.of();
     private final Map<String,Object> defaultValueOfField = MutableMap.of();
     
+    public String getKeyName(String fieldName) {
+        return Maybe.ofDisallowingNull(keyNames.get(fieldName)).orNull();
+    }
+    public void setKeyNameIfUnset(String fieldName, String keyName) {
+        if (keyName==null) return;
+        if (keyNames.get(fieldName)!=null) return;
+        keyNames.put(fieldName, keyName);
+    }
+    public void addAlias(String fieldName, String alias) {
+        addAliases(fieldName, MutableList.of(alias));
+    }
+    public void addAliases(String fieldName, List<String> aliases) {
+        Set<String> aa = this.aliases.get(fieldName);
+        if (aa==null) {
+            aa = MutableSet.of();
+            this.aliases.put(fieldName, aa);
+        }
+        if (aliases==null) return;
+        for (String alias: aliases) aa.add(alias);
+    }
+    public Collection<? extends String> getAliases(String fieldName) {
+        Set<String> aa = this.aliases.get(fieldName);
+        if (aa==null) return MutableSet.of();
+        return aa;
+    }
+
+    public boolean isRequired(String fieldName) {
+        return Maybe.ofDisallowingNull(fieldsRequired.get(fieldName)).or(false);
+    }
+    public void setRequiredIfUnset(String fieldName, Boolean required) {
+        if (required==null) return;
+        if (fieldsRequired.get(fieldName)!=null) return;
+        fieldsRequired.put(fieldName, required);
+    }
     @Override
     public void checkCompletion(YormlContext context) {
         List<String> incompleteRequiredFields = MutableList.of();
@@ -62,21 +99,12 @@ public class ExplicitFieldsBlackboard implements YormlRequirement {
             throw new YormlException("Missing one or more explicitly required fields: "+Strings.join(incompleteRequiredFields, ", "), context);
         }
     }
-    public boolean isRequired(String fieldName) {
-        return Maybe.ofDisallowingNull(fieldsRequired.get(fieldName)).or(false);
-    }
 
     public boolean isFieldDone(String fieldName) {
         return fieldsDone.contains(fieldName);
     }
     public void setFieldDone(String fieldName) {
         fieldsDone.add(fieldName);
-    }
-
-    public void setRequiredIfUnset(String fieldName, Boolean required) {
-        if (required==null) return;
-        if (fieldsRequired.get(fieldName)!=null) return;
-        fieldsRequired.put(fieldName, required);
     }
 
     public void setUseDefaultFrom(String fieldName, YormlSerializer explicitField, Object defaultValue) {
@@ -90,4 +118,5 @@ public class ExplicitFieldsBlackboard implements YormlRequirement {
         if (!defaultValueOfField.containsKey(fieldName)) return Maybe.absent("no default");
         return Maybe.of(defaultValueOfField.get(fieldName));
     }
+    
 }

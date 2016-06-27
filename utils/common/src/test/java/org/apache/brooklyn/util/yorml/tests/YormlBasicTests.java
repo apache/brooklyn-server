@@ -47,6 +47,10 @@ public class YormlBasicTests {
             Shape x = (Shape) xo;
             return Objects.equal(name, x.name) && Objects.equal(color, x.color);
         }
+        @Override
+        public String toString() {
+            return Objects.toStringHelper(this).add("name", name).add("color", color).omitNullValues().toString();
+        }
 
         public Shape name(String name) { this.name = name; return this; }
         public Shape color(String color) { this.color = color; return this; }
@@ -167,6 +171,11 @@ public class YormlBasicTests {
         public ShapeWithSize size(int size) { this.size = size; return this; }
         public ShapeWithSize name(String name) { return (ShapeWithSize)super.name(name); }
         public ShapeWithSize color(String color) { return (ShapeWithSize)super.color(color); }
+        
+        @Override
+        public String toString() {
+            return Objects.toStringHelper(this).add("name", name).add("color", color).add("size", size).omitNullValues().toString();
+        }
     }
 
     @Test

@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.util.yorml;
 
+import java.util.Collection;
+import java.util.Set;
+
 import org.apache.brooklyn.util.guava.Maybe;
 
 public interface YormlTypeRegistry {
@@ -32,6 +35,6 @@ public interface YormlTypeRegistry {
     String getTypeName(Object obj);
     <T> String getTypeNameOfClass(Class<T> type);
 
-    Iterable<YormlSerializer> getAllSerializers(String expectedType);
+    void collectSerializers(String typeName, Collection<YormlSerializer> serializers, Set<String> typesVisited);
     
 }

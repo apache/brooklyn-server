@@ -18,11 +18,14 @@
  */
 package org.apache.brooklyn.util.yorml.tests;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.javalang.Reflections;
@@ -39,17 +42,19 @@ public class MockYormlTypeRegistry implements YormlTypeRegistry {
     static class MockRegisteredType {
         final String id;
         final String parentType;
+        final Set<String> interfaceTypes;
         
         final Class<?> javaType;
         final List<YormlSerializer> serializers;
         final Object yamlDefinition;
         
-        public MockRegisteredType(String id, String parentType, Class<?> javaType, List<YormlSerializer> serializers, Object yamlDefinition) {
+        public MockRegisteredType(String id, String parentType, Class<?> javaType, Collection<String> interfaceTypes, List<YormlSerializer> serializers, Object yamlDefinition) {
             super();
             this.id = id;
             this.parentType = parentType;
             this.javaType = javaType;
-            this.serializers = serializers;
+            this.interfaceTypes = MutableSet.copyOf(interfaceTypes);
+            this.serializers = MutableList.copyOf(serializers);
             this.yamlDefinition = yamlDefinition;
         }
     }
@@ -107,24 +112,28 @@ public class MockYormlTypeRegistry implements YormlTypeRegistry {
         put(typeName, javaType, null);
     }
     public void put(String typeName, Class<?> javaType, List<YormlSerializer> serializers) {
-        types.put(typeName, new MockRegisteredType(typeName, "java:"+javaType.getName(), javaType, serializers, null));
+        types.put(typeName, new MockRegisteredType(typeName, "java:"+javaType.getName(), javaType, MutableSet.<String>of(), serializers, null));
     }
     
     /** takes a simplified yaml definition supporting a map with a key `type` and optionally other keys */
     public void put(String typeName, String yamlDefinition) {
         put(typeName, yamlDefinition, null);
     }
+    @SuppressWarnings("unchecked")
     public void put(String typeName, String yamlDefinition, List<YormlSerializer> serializers) {
         Object yamlObject = Iterables.getOnlyElement( Yamls.parseAll(yamlDefinition) );
         if (!(yamlObject instanceof Map)) throw new IllegalArgumentException("Mock only supports map definitions");
-        Object type = ((Map<?,?>)yamlObject).get("type");
+        
+        Object type = ((Map<?,?>)yamlObject).remove("type");
         if (!(type instanceof String)) throw new IllegalArgumentException("Mock requires key `type` with string value");
-        ((Map<?,?>)yamlObject).remove("type");
-        if (((Map<?,?>)yamlObject).isEmpty()) yamlObject = null;
+        
         Class<?> javaType = getJavaType((String)type);
         if (javaType==null) throw new IllegalArgumentException("Mock cannot resolve parent type `"+type+"` in definition of `"+typeName+"`");
         
-        types.put(typeName, new MockRegisteredType(typeName, (String)type, javaType, serializers, yamlObject));
+        Object interfaceTypes = ((Map<?,?>)yamlObject).remove("interfaceTypes");
+        if (((Map<?,?>)yamlObject).isEmpty()) yamlObject = null;
+        
+        types.put(typeName, new MockRegisteredType(typeName, (String)type, javaType, (Collection<String>)interfaceTypes, serializers, yamlObject));
     }
 
     @Override
@@ -150,9 +159,18 @@ public class MockYormlTypeRegistry implements YormlTypeRegistry {
     }
     
     @Override
-    public Iterable<YormlSerializer> getAllSerializers(String typeName) {
+    public void collectSerializers(String typeName, Collection<YormlSerializer> serializers, Set<String> typesVisited) {
+        if (typeName==null || !typesVisited.add(typeName)) return;
         MockRegisteredType rt = types.get(typeName);
-        if (rt==null || rt.serializers==null) return MutableList.of();
-        return rt.serializers;
+        if (rt==null || rt.serializers==null) return;
+        serializers.addAll(rt.serializers);
+        if (rt.parentType!=null) {
+            collectSerializers(rt.parentType, serializers, typesVisited);
+        }
+        if (rt.interfaceTypes!=null) {
+            for (String interfaceType: rt.interfaceTypes) {
+                collectSerializers(interfaceType, serializers, typesVisited);
+            }
+        }
     }
 }

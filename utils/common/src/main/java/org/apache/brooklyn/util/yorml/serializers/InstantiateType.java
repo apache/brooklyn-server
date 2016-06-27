@@ -20,9 +20,11 @@ package org.apache.brooklyn.util.yorml.serializers;
 
 import java.lang.reflect.Field;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.javalang.FieldOrderings;
@@ -31,6 +33,7 @@ import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yorml.Yorml;
 import org.apache.brooklyn.util.yorml.YormlContext;
+import org.apache.brooklyn.util.yorml.YormlSerializer;
 import org.apache.brooklyn.util.yorml.internal.SerializersOnBlackboard;
 
 public class InstantiateType extends YormlSerializerComposition {
@@ -93,7 +96,9 @@ public class InstantiateType extends YormlSerializerComposition {
                     return;
                 }
                 if (!type.equals(context.getExpectedType())) {
-                    SerializersOnBlackboard.get(blackboard).addInstantiatedTypeSerializers(config.getTypeRegistry().getAllSerializers(type));
+                    Set<YormlSerializer> serializers = MutableSet.of();
+                    config.typeRegistry.collectSerializers(type, serializers, MutableSet.<String>of());
+                    SerializersOnBlackboard.get(blackboard).addInstantiatedTypeSerializers(serializers);
                 }
                 context.phaseInsert(YormlContext.StandardPhases.MANIPULATING, YormlContext.StandardPhases.HANDLING_FIELDS);
             }
@@ -135,7 +140,9 @@ public class InstantiateType extends YormlSerializerComposition {
                 String typeName = config.getTypeRegistry().getTypeName(getJavaObject());
                 map.put("type", typeName);
                 if (!primitive) {
-                    SerializersOnBlackboard.get(blackboard).addInstantiatedTypeSerializers(config.getTypeRegistry().getAllSerializers(typeName));
+                    Set<YormlSerializer> serializers = MutableSet.of();
+                    config.typeRegistry.collectSerializers(typeName, serializers, MutableSet.<String>of());
+                    SerializersOnBlackboard.get(blackboard).addInstantiatedTypeSerializers(serializers);
                 }
             }
 

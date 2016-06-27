@@ -18,76 +18,21 @@
  */
 package org.apache.brooklyn.util.yorml.tests;
 
+import java.util.List;
+import java.util.Set;
+
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.yorml.YormlSerializer;
 import org.apache.brooklyn.util.yorml.serializers.ExplicitField;
 import org.apache.brooklyn.util.yorml.tests.YormlBasicTests.Shape;
+import org.apache.brooklyn.util.yorml.tests.YormlBasicTests.ShapeWithSize;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 /** Tests that explicit fields can be set at the outer level in yaml. */
 public class ExplicitFieldTests {
-
-    /*
-
-serializers can come from:
-     * default pre (any?)
-     * declared type
-     * calling context
-     * expected type
-     * default post - fields in fields and instantiate type
-
-
-- id: java-shape-defaulting-square
-  type: java:Shape
-  serializers:
-  - type: explicit-field
-    field-name: name
-    aliases: [ shape-name ]
-    default: square   # alternative to above
-  definition:  # body, yaml, item, content
-    ...
-
-- id: shape
-  type: java:Shape
-  serializers:
-  - type: explicit-field
-    field-name: name
-    aliases: [ shape-name ]
-  - type: explicit-field
-    field-name: color
-    aliases: [ shape-color ]
-- id: yaml-shape-defaulting-square
-  type: shape
-  serializers:
-  - type: explicit-field
-    field-name: name
-    default: square
-    # ensure if shape-name set it overrides 'square'
-- id: red-square
-  type: square
-  fields:
-    shape-color: red
-  # read red-square, but writes { type: shape, name: square, color: red }
-  # except in context expecting shape it writes { name: square, color: red }
-  #   and in context expecting square it writes { color: red }
-
- 
-# sub-type serializers go first, also before expected-type serializers
-# but...
-# 1) if we read something with shape-name do we do a setField("name", "square") ?
-#    NO: defaults request RERUN_IF_CHANGED if there are fields to read present, only apply when no fields to read present
-# 2) if java fields contains 'name: square' do we write it?
-#    NO: defaults write to a defaults map if not present
-#    and field writers don't write if a defaults map contains the default value
-# so on write explicit-fields will
-# * populate a key in the DEFAULTS map if not present
-# and on init
-# * keep a list of mangles/aliases
-# and on read
-# * look up all mangles/aliases once the type is known
-# * error if there are multiple mangles/aliases with different values
-# (inefficient for that to run multiple times but we'll live with that)
-     */
 
     public static YormlSerializer explicitFieldSerializer(String yaml) {
         return (YormlSerializer) YormlTestFixture.newInstance().read("{ fields: "+yaml+" }", "java:"+ExplicitField.class.getName()).lastReadResult;
@@ -130,10 +75,13 @@ serializers can come from:
         assertResult( SIMPLE_IN_WITH_TYPE );
     }
 
-    protected static YormlTestFixture commonExplicitFieldFixtureKeyNameAliasAndDefault() {
+    protected static YormlTestFixture commonExplicitFieldFixtureKeyNameAlias() {
+        return commonExplicitFieldFixtureKeyNameAlias("");
+    }
+    protected static YormlTestFixture commonExplicitFieldFixtureKeyNameAlias(String extra) {
         return YormlTestFixture.newInstance().
             addType("shape", Shape.class, MutableList.of(
-                explicitFieldSerializer("{ fieldName: name, keyName: shape-name, alias: my-name, defaultValue: { type: string, value: bob } }")));
+                explicitFieldSerializer("{ fieldName: name, keyName: shape-name, alias: my-name"+extra+" }")));
     }
 
     static String COMMON_IN_KEY_NAME = "{ shape-name: diamond, fields: { color: black } }";
@@ -141,10 +89,12 @@ serializers can come from:
     static Shape COMMON_OUT = new Shape().name("diamond").color("black");
     static String COMMON_IN_DEFAULT = "{ fields: { color: black } }";
     static Shape COMMON_OUT_DEFAULT = new Shape().name("bob").color("black");
+    static String COMMON_IN_NO_NAME = "{ fields: { color: black } }";
+    static Shape COMMON_OUT_NO_NAME = new Shape().color("black");
 
     @Test
     public void testCommonKeyName() {
-        commonExplicitFieldFixtureKeyNameAliasAndDefault().
+        commonExplicitFieldFixtureKeyNameAlias().
         reading( COMMON_IN_KEY_NAME, "shape" ).
         writing( COMMON_OUT, "shape" ).
         doReadWriteAssertingJsonMatch();
@@ -152,35 +102,138 @@ serializers can come from:
 
     @Test
     public void testCommonAlias() {
-        commonExplicitFieldFixtureKeyNameAliasAndDefault().
+        commonExplicitFieldFixtureKeyNameAlias().
         read( COMMON_IN_ALIAS, "shape" ).assertResult(COMMON_OUT).
         write( COMMON_OUT, "shape" ).assertResult(COMMON_IN_KEY_NAME);
     }
 
     @Test
     public void testCommonDefault() {
-        commonExplicitFieldFixtureKeyNameAliasAndDefault().
+        commonExplicitFieldFixtureKeyNameAlias(", defaultValue: { type: string, value: bob }").
         reading( COMMON_IN_DEFAULT, "shape" ).
         writing( COMMON_OUT_DEFAULT, "shape" ).
         doReadWriteAssertingJsonMatch();
     }
 
-    protected static YormlTestFixture noKeyNameExplicitFieldFixture() {
-        return YormlTestFixture.newInstance().
-            addType("shape", Shape.class, MutableList.of(
-                explicitFieldSerializer("{ fieldName: name, keyName: shape-name, aliases: [ my-name ], defaultValue: bob }")));
+    @Test
+    public void testNameNotRequired() {
+        commonExplicitFieldFixtureKeyNameAlias().
+        reading( COMMON_IN_NO_NAME, "shape" ).
+        writing( COMMON_OUT_NO_NAME, "shape" ).
+        doReadWriteAssertingJsonMatch();
     }
 
+    @Test
+    public void testNameRequired() {
+        try {
+            YormlTestFixture x = commonExplicitFieldFixtureKeyNameAlias(", required: true")
+            .read( COMMON_IN_NO_NAME, "shape" );
+            Asserts.shouldHaveFailedPreviously("Returned "+x.lastReadResult+" when should have thrown");
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "name", "required");
+        }
+    }
+
+    @Test
+    public void testAliasConflictNiceError() {
+        try {
+            YormlTestFixture x = commonExplicitFieldFixtureKeyNameAlias().read( 
+                "{ my-name: name-from-alias, shape-name: name-from-key }", "shape" );
+            Asserts.shouldHaveFailedPreviously("Returned "+x.lastReadResult+" when should have thrown");
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "name-from-alias", "my-name", "name-from-key");
+        }
+    }
+
+    protected static YormlTestFixture extended0ExplicitFieldFixture(List<? extends YormlSerializer> extras) {
+        return commonExplicitFieldFixtureKeyNameAlias(", defaultValue: { type: string, value: bob }").
+            addType("shape-with-size", "{ type: \"java:"+ShapeWithSize.class.getName()+"\", interfaceTypes: [ shape ] }", 
+                MutableList.copyOf(extras).append(explicitFieldSerializer("{ fieldName: size, alias: shape-size }")) );
+    }
+    
+    protected static YormlTestFixture extended1ExplicitFieldFixture() {
+        return extended0ExplicitFieldFixture( MutableList.of(
+                explicitFieldSerializer("{ fieldName: name, keyName: shape-w-size-name }")) ); 
+    }
+    
+    @Test
+    public void testExplicitFieldSerializersAreCollected() {
+        YormlTestFixture ytc = extended1ExplicitFieldFixture();
+        Set<YormlSerializer> serializers = MutableSet.of();
+        ytc.tr.collectSerializers("shape-with-size", serializers, MutableSet.<String>of());
+        Assert.assertEquals(serializers.size(), 3, "Wrong serializers: "+serializers);
+    }
+    
+    String EXTENDED_IN_1 = "{ type: shape-with-size, shape-w-size-name: diamond, size: 2, fields: { color: black } }";
+    Object EXTENDED_OUT_1 = new ShapeWithSize().size(2).name("diamond").color("black");
+
+    @Test
+    public void testExtendedKeyNameIsUsed() {
+        extended1ExplicitFieldFixture().
+        reading( EXTENDED_IN_1, null ).
+        writing( EXTENDED_OUT_1, "shape").
+        doReadWriteAssertingJsonMatch();
+    }
+
+    @Test
+    public void testInheritedAliasIsUsed() {
+        String json = "{ type: shape-with-size, my-name: diamond, size: 2, fields: { color: black } }";
+        extended1ExplicitFieldFixture().
+        read( json, null ).assertResult( EXTENDED_OUT_1 ).
+        write( EXTENDED_OUT_1, "shape-w-size" ).assertResult(EXTENDED_IN_1);
+    }
+
+    String EXTENDED_IN_ORIGINAL_KEYNAME = "{ type: shape-with-size, shape-name: diamond, size: 2, fields: { color: black } }";
+    
+    @Test
+    public void testOverriddenKeyNameNotUsed() {
+        try {
+            YormlTestFixture x  = extended1ExplicitFieldFixture().read(EXTENDED_IN_ORIGINAL_KEYNAME, null);
+            Asserts.shouldHaveFailedPreviously("Returned "+x.lastReadResult+" when should have thrown");
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "shape-name", "diamond");
+        }
+    }
+
+    String EXTENDED_TYPEDEF_NEW_ALIAS = "{ fieldName: name, alias: new-name }";
+    
+    @Test
+    public void testInheritedKeyNameIsUsed() {
+        extended0ExplicitFieldFixture( MutableList.of(
+            explicitFieldSerializer(EXTENDED_TYPEDEF_NEW_ALIAS)) )
+            .read(EXTENDED_IN_ORIGINAL_KEYNAME, null).assertResult(EXTENDED_OUT_1)
+            .write(EXTENDED_OUT_1).assertResult(EXTENDED_IN_ORIGINAL_KEYNAME);
+    }
+
+    @Test
+    public void testOverriddenAliasIsRecognised() {
+        String json = "{ type: shape-with-size, new-name: diamond, size: 2, fields: { color: black } }";
+        extended0ExplicitFieldFixture( MutableList.of(
+            explicitFieldSerializer(EXTENDED_TYPEDEF_NEW_ALIAS)) )
+            .read( json, null ).assertResult( EXTENDED_OUT_1 )
+            .write( EXTENDED_OUT_1, "shape-w-size" ).assertResult(EXTENDED_IN_ORIGINAL_KEYNAME);
+    }
+    
+    String EXTENDED_TYPEDEF_NEW_DEFAULT = "{ fieldName: name, defaultValue: { type: string, value: bob } }";
+    Object EXTENDED_OUT_NEW_DEFAULT = new ShapeWithSize().size(2).name("bob").color("black");
+    
+    @Test
+    public void testInheritedKeyNameIsUsedWithNewDefault() {
+        String json = "{ size: 2, fields: { color: black } }";
+        extended0ExplicitFieldFixture( MutableList.of(
+            explicitFieldSerializer(EXTENDED_TYPEDEF_NEW_DEFAULT)) )
+            .write(EXTENDED_OUT_NEW_DEFAULT, "shape-with-size").assertResult(json)
+            .read(json, "shape-with-size").assertResult(EXTENDED_OUT_NEW_DEFAULT);
+    }
+    
+
     // TODO
-    // aliases-inherited
-    // aliases-exclude-name
+    // aliases-exclude-name true/false
     // no-mangle
     /*
      * TODO sketch for phases
      * TODO tests for:
-     * aliases
      * aliases inherited
-     * setting a defaultValue, including null
      * if missing required required
      * 
      * then FIX

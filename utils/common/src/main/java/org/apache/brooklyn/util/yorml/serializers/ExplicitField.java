@@ -47,29 +47,30 @@ public class ExplicitField extends YormlSerializerComposition {
     protected String alias;
     protected List<String> aliases;
     
-    public String getPreferredKeyName() { 
-        if (keyName!=null) return keyName;
-        // TODO mangle
-        return fieldName; 
-    }
-    public Iterable<String> getKeyNameAndAliases() {
-        // TODO use transient cache
-        MutableSet<String> keyNameAndAliases = MutableSet.of();
-        keyNameAndAliases.addIfNotNull(keyName);
-        keyNameAndAliases.addIfNotNull(fieldName);
-        keyNameAndAliases.addIfNotNull(alias);
-        keyNameAndAliases.putAll(aliases);
-        return keyNameAndAliases; 
-    }
+    transient MutableSet<String> keyNameAndAliases;
     
     Boolean required;
-    // TODO would be nice to support maybe here, only one reference, but it makes it hard to set
+    // TODO would be nice to support maybe here, not hard here, but it makes it hard to set from yaml
     Object defaultValue;
     
     public class Worker extends YormlSerializerWorker {
         
         String PREPARING_EXPLICIT_FIELDS = "preparing-explicit-fields";
         
+        protected String getPreferredKeyName() { 
+            String result = ExplicitFieldsBlackboard.get(blackboard).getKeyName(fieldName);
+            if (result!=null) return result;
+            return fieldName; 
+        }
+        
+        protected Iterable<String> getKeyNameAndAliases() {
+            MutableSet<String> keyNameAndAliases = MutableSet.of();
+            keyNameAndAliases.addIfNotNull(ExplicitFieldsBlackboard.get(blackboard).getKeyName(fieldName));
+            keyNameAndAliases.addIfNotNull(fieldName);
+            keyNameAndAliases.addAll(ExplicitFieldsBlackboard.get(blackboard).getAliases(fieldName));
+            return keyNameAndAliases; 
+        }
+
         protected boolean readyForMainEvent() {
             if (!context.seenPhase(YormlContext.StandardPhases.HANDLING_TYPE)) return false;
             if (!context.seenPhase(PREPARING_EXPLICIT_FIELDS)) {
@@ -82,6 +83,9 @@ public class ExplicitField extends YormlSerializerComposition {
             }
             if (context.isPhase(PREPARING_EXPLICIT_FIELDS)) {
                 // do the pre-main pass to determine what is required for explicit fields and what the default is 
+                ExplicitFieldsBlackboard.get(blackboard).setKeyNameIfUnset(fieldName, keyName);
+                ExplicitFieldsBlackboard.get(blackboard).addAlias(fieldName, alias);
+                ExplicitFieldsBlackboard.get(blackboard).addAliases(fieldName, aliases);
                 ExplicitFieldsBlackboard.get(blackboard).setRequiredIfUnset(fieldName, required);
                 if (ExplicitFieldsBlackboard.get(blackboard).getDefault(fieldName).isAbsent() && defaultValue!=null) {
                     ExplicitFieldsBlackboard.get(blackboard).setUseDefaultFrom(fieldName, ExplicitField.this, defaultValue);
@@ -114,7 +118,9 @@ public class ExplicitField extends YormlSerializerComposition {
                 boolean fieldAlreadyKnown = fields.containsKey(fieldName);
                 if (value.isPresent() && fieldAlreadyKnown) {
                     // already present
-                    // TODO throw if different
+                    if (!Objects.equal(value.get(), fields.get(fieldName))) {
+                        throw new IllegalStateException("Cannot set '"+fieldName+"' to '"+value.get()+"' supplied in '"+alias+"' because this conflicts with '"+fields.get(fieldName)+"' already set");
+                    }
                     continue;
                 }
                 // value present, field not yet handled
@@ -162,6 +168,7 @@ public class ExplicitField extends YormlSerializerComposition {
                 valueToSet = Maybe.of(fields.remove(fieldName));
                 if (dv.isPresent() && Objects.equal(dv.get(), valueToSet.get())) {
                     // suppress if it equals the default
+                    ExplicitFieldsBlackboard.get(blackboard).setFieldDone(fieldName);
                     valueToSet = Maybe.absent();
                 }
             }

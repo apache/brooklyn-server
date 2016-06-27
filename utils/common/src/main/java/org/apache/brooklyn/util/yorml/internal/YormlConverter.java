@@ -21,6 +21,7 @@ package org.apache.brooklyn.util.yorml.internal;
 import java.util.Map;
 
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.yorml.YormlContext;
 import org.apache.brooklyn.util.yorml.YormlContextForRead;
 import org.apache.brooklyn.util.yorml.YormlContextForWrite;
@@ -66,13 +67,12 @@ public class YormlConverter {
         // find the serializers known so far; store on blackboard so they could be edited
         SerializersOnBlackboard serializers = SerializersOnBlackboard.create(blackboard);
         if (context.getExpectedType()!=null) {
-            Iterables.addAll(serializers.expectedTypeSerializers, config.typeRegistry.getAllSerializers(context.getExpectedType()));
+            config.typeRegistry.collectSerializers(context.getExpectedType(), serializers.expectedTypeSerializers, MutableSet.<String>of());
         }
         serializers.postSerializers.addAll(config.serializersPost);
         
         if (context instanceof YormlContextForRead) {
-            // read needs instantiated so that these errors display first
-            // TODO can skip now that we have phases?
+            // read needs instantiated so that these errors display before manipulating errors and others
             ReadingTypeOnBlackboard.get(blackboard);
         }
         
