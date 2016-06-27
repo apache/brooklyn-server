@@ -26,10 +26,9 @@ import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yorml.YormlContext;
 import org.apache.brooklyn.util.yorml.YormlContextForRead;
 import org.apache.brooklyn.util.yorml.YormlContextForWrite;
-import org.apache.brooklyn.util.yorml.YormlContinuation;
+import org.apache.brooklyn.util.yorml.YormlSerializer;
 import org.apache.brooklyn.util.yorml.internal.YormlConfig;
 import org.apache.brooklyn.util.yorml.internal.YormlConverter;
-import org.apache.brooklyn.util.yorml.YormlSerializer;
 
 public abstract class YormlSerializerComposition implements YormlSerializer {
 
@@ -82,12 +81,13 @@ public abstract class YormlSerializerComposition implements YormlSerializer {
          * <p>
          * See also {@link #peekFromYamlKeysOnBlackboard(String, Class)} which most read serializers should use. */
         @SuppressWarnings("unchecked")
-        public <T> T getFromYamlMap(String key, Class<T> type) {
-            if (!isYamlMap()) return null;
+        public <T> Maybe<T> getFromYamlMap(String key, Class<T> type) {
+            if (!isYamlMap()) return Maybe.absent("not a yaml map");
+            if (!getYamlMap().containsKey(key)) return Maybe.absent("key `"+key+"` not in yaml map");
             Object v = getYamlMap().get(key);
-            if (v==null) return null;
-            if (!type.isInstance(v)) return null;
-            return (T) v;
+            if (v==null) return Maybe.ofAllowingNull(null);
+            if (!type.isInstance(v)) return Maybe.absent("value of key `"+key+"` is not a "+type);
+            return Maybe.of((T) v);
         }
         protected void setInYamlMap(String key, Object value) {
             ((Map<Object,Object>)getYamlMap()).put(key, value);
@@ -107,28 +107,28 @@ public abstract class YormlSerializerComposition implements YormlSerializer {
             ykb.yamlKeysToReadToJava.remove(key);
         }
 
-        public abstract YormlContinuation read();
-        public abstract YormlContinuation write();
+        public abstract void read();
+        public abstract void write();
     }
     
     @Override
-    public YormlContinuation read(YormlContextForRead context, YormlConverter converter, Map<Object,Object> blackboard) {
+    public void read(YormlContextForRead context, YormlConverter converter, Map<Object,Object> blackboard) {
         YormlSerializerWorker worker;
         try {
             worker = newWorker();
         } catch (Exception e) { throw Exceptions.propagate(e); }
         worker.initRead(context, converter, blackboard);
-        return worker.read();
+        worker.read();
     }
 
     @Override
-    public YormlContinuation write(YormlContextForWrite context, YormlConverter converter, Map<Object,Object> blackboard) {
+    public void write(YormlContextForWrite context, YormlConverter converter, Map<Object,Object> blackboard) {
         YormlSerializerWorker worker;
         try {
             worker = newWorker();
         } catch (Exception e) { throw Exceptions.propagate(e); }
         worker.initWrite(context, converter, blackboard);
-        return worker.write();
+        worker.write();
     }
 
     @Override

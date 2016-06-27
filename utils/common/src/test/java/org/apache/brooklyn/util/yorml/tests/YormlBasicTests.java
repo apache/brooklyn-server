@@ -20,7 +20,10 @@ package org.apache.brooklyn.util.yorml.tests;
 
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.Jsonya;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.yorml.Yorml;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -32,6 +35,8 @@ import com.google.common.base.Objects;
  */
 public class YormlBasicTests {
 
+    private static final Logger log = LoggerFactory.getLogger(YormlBasicTests.class);
+    
     static class Shape {
         String name;
         String color;
@@ -105,11 +110,17 @@ public class YormlBasicTests {
     }
     
     @Test
-    public void testStringPrimitiveOnItsOwn() {
+    public void testStringPrimitiveWhereTypeKnown() {
         YormlTestFixture.newInstance().
-        write("hello").assertResult("hello").
-        read("hello", "string").
-        assertResult("hello");
+        write("hello", "string").assertResult("hello").
+        read("hello", "string").assertResult("hello");
+    }
+
+    @Test
+    public void testStringPrimitiveWhereTypeUnknown() {
+        YormlTestFixture.newInstance().
+        write("hello").assertResult("{ type: string, value: hello }").
+        read("{ type: string, value: hello }", null).assertResult("hello");
     }
 
     @Test
@@ -184,7 +195,12 @@ public class YormlBasicTests {
             YormlTestFixture ytc = YormlTestFixture.newInstance().read("{ type: shape }", null);
             Asserts.shouldHaveFailedPreviously("Got "+ytc.lastReadResult+" when we should have failed due to unknown type shape");
         } catch (Exception e) {
-            Asserts.expectedFailureContainsIgnoreCase(e, "shape", "unknown type");
+            try {
+                Asserts.expectedFailureContainsIgnoreCase(e, "shape", "unknown type");
+            } catch (Throwable e2) {
+                log.warn("Failure detail: "+e, e);
+                throw Exceptions.propagate(e2);
+            }
         }
     }
 

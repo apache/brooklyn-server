@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.collections;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
@@ -213,7 +214,7 @@ public class MutableSet<V> extends LinkedHashSet<V> {
         if (setToAdd!=null) addAll(setToAdd);
         return this;
     }
-    
+
     public boolean removeIfNotNull(V item) {
         if (item==null) return false;
         return remove(item);

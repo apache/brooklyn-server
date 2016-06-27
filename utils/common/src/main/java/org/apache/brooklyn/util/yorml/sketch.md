@@ -471,18 +471,9 @@ either an expected type will be known or serialization rules are supplied (or bo
 ### Default serialization
 
 It is possible to set some serializations to be defaults run before or after a supplied list.
-The default is to run the following after (but this is suppressed if `no-others` is supplied,
-in which case you may want to use some before the `no-others` directive):
-
-  * `expected-type-serializers` runs through the serializers defined on the expected type
-    (so e.g. a shape might define a default size, then a reference to shape would always have that)
- * `instantiate-type` on read, converts a map to the declared type (this can be used explicitly
-    to give information on which fields should be used as parameters in constructors,
-    or possibly to reference a static factory method)
-  * `all-config` reads/writes all declared config keys if there is a `configure(...)` method
-  * `all-matching-fields` reads any key corresponding to a field into an object, or writes all remaining
-    non-transient fields
-  * `fields-in-fields-map` applies all the keys in a `fields` block as fields in the object
+This is useful if for instance you want certain different default behaviours across the board.
+Note that if interfacing with the existing defaults you wil need to understand that process
+in detail; see implementation notes below. 
 
 
 ## Even more further behaviours (not part of MVP)
@@ -498,67 +489,30 @@ in which case you may want to use some before the `no-others` directive):
 
 ## Implementation Notes
 
-We have a `Converter` which runs through `Serializer`s,
-where each supports `read`, `write`, and `document`.
+We have a `Converter` which runs through phases, running through all `Serializer` instances on each phase.
+Each `Serializer` exposes methods to `read`, `write`, and `document`, and the appropriate method is invoked
+depending on what the `Converter` is doing.
 
-A blackboard is used to share information including suppressing serializers.
-Serializers do nothing if their preconditions aren't met,
-and serializers can (and typically do) restart the serialization cycle if they change data.
+A `Serializer` can detect the phase and bail out if it isn't appropriate;
+or they can end the current phase, and/or insert one or more phases to follow the current phase.
+In addition, they use a shared blackboard to store local information and communicate state.
+These are the mechanisms by which serializers do the right things in the right order,
+whilst allowing them to be extended.
 
-So the general process is a set of phases, on read:
+The general phases are:
 
-* preparing
-* handling-type
-* handling-fields
-* check-completion
+* `manipulating` (any custom serializers operate in this phase) 
+* `handling-type` (default to instantaiate the java type, on read, or set the `type` field, on write), 
+  which if successful inserts:
+  * when reading:
+    * `manipulating` (custom serializers again, now with the object created, fields known, and other serializers loaded)
+    * `handling-fields` (write the fields to the java object)
+  * and when writing: 
+    * `handling-fields` (collect the fields to write from the java object)
+    * `manipulating` (custom serializers again, now with the type set and other serializers loaded)
 
-TODO above better than below?
-
-* first r/w the type, and on write note the fields to write
-* adjust the data until a pass of serializers completes with all CONTINUE or any FINISHED (and nothing requesting a rerun);
-  on read from yaml to java, this is:
-  * unpacking any complex structure in the YAML data object
-  * reading the fields, removing from a list in the blackboard and writing to the object
-  and on write from java :
-  * creating any complex structure for the YAML data object
-  * writing the fields (which might be a map on blackboard, maybe referring to the YAML map, maybe referring to an object within it),
-    but if something is primitive-or-map depending on fields? add CONTINUE_UNCHANGED_BUT_RERUN_IF_CHANGED?
-* check that everything that needed to be done was done
-
-
-### Text Above WIP
-
-Another serializer, `restrict-fields`, throws an error if there is an attempt
-to set -- or a need to write -- any fields not whitelisted.
-So if we wanted to prevent the `name: square` from being overwritable, 
-we could have defined `square` as follows:
-
-```
-- id: square
-  definition:
-    type: shape
-    name: square
-  serialization:
-  - type: restrict-fields
-    fields: [ name ]
-``` 
-
-As a convenience if an entry in the list is a string S, the entry is taken as 
-`{ type: explicit-field, field-name: S }`.
-
-Thus the following would also be allowed:
-
-```
-- id: square
-  serialization:
-  - color
-  - type: restrict-fields
-    fields: color
-  definition:
-    type: shape
-    fields:
-      name: square
-```
+Afterwards, a completion check runs across all blackboard items to enable the most appropriate error 
+to be shown.
 
 
 ### TODO

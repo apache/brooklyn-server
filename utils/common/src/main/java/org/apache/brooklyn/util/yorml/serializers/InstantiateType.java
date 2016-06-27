@@ -30,7 +30,7 @@ import org.apache.brooklyn.util.javalang.ReflectionPredicates;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yorml.Yorml;
-import org.apache.brooklyn.util.yorml.YormlContinuation;
+import org.apache.brooklyn.util.yorml.YormlContext;
 import org.apache.brooklyn.util.yorml.internal.SerializersOnBlackboard;
 
 public class InstantiateType extends YormlSerializerComposition {
@@ -40,9 +40,9 @@ public class InstantiateType extends YormlSerializerComposition {
     }
     
     public static class Worker extends YormlSerializerWorker {
-        public YormlContinuation read() {
-            if (hasJavaObject()) return YormlContinuation.CONTINUE_UNCHANGED;
-            
+        public void read() {
+            if (!context.isPhase(YormlContext.StandardPhases.HANDLING_TYPE)) return;
+            if (hasJavaObject()) return;
             
             String type = null;
             if ((getYamlObject() instanceof String) || Boxing.isPrimitiveOrBoxedObject(getYamlObject())) {
@@ -53,10 +53,11 @@ public class InstantiateType extends YormlSerializerComposition {
                     Maybe<?> result = config.getCoercer().tryCoerce(getYamlObject(), expectedJavaType);
                     if (result.isPresent()) {
                         context.setJavaObject(result.get());
-                        return YormlContinuation.RESTART;
+                        context.phaseAdvance();
+                        return;
                     }
                     ReadingTypeOnBlackboard.get(blackboard).addNote("Cannot interpret '"+getYamlObject()+"' as "+expectedJavaType.getCanonicalName());
-                    return YormlContinuation.CONTINUE_UNCHANGED;
+                    return;
                 }
                 // if type not expected, treat as a type
                 type = Strings.toString(getYamlObject());
@@ -64,38 +65,60 @@ public class InstantiateType extends YormlSerializerComposition {
             
             // TODO if map and list?
             
+            if (!isYamlMap()) return;
+            
             YamlKeysOnBlackboard.create(blackboard).yamlKeysToReadToJava = MutableMap.copyOf(getYamlMap());
             
             if (type==null) type = peekFromYamlKeysOnBlackboard("type", String.class).orNull();
             if (type==null) type = context.getExpectedType();
-            if (type==null) return YormlContinuation.CONTINUE_UNCHANGED;
+            if (type==null) return;
+
+            Class<?> javaType = config.getTypeRegistry().getJavaType(type);
+            boolean primitive = javaType!=null && (Boxing.isPrimitiveOrBoxedClass(javaType) || CharSequence.class.isAssignableFrom(javaType));
             
-            Object result = config.getTypeRegistry().newInstanceMaybe((String)type, Yorml.newInstance(config)).orNull();
-            if (result==null) {
-                ReadingTypeOnBlackboard.get(blackboard).addNote("Unknown type '"+type+"'");
-                return YormlContinuation.CONTINUE_UNCHANGED;
+            Object result;
+            if (primitive) {
+                if (!getYamlMap().containsKey("value")) {
+                    ReadingTypeOnBlackboard.get(blackboard).addNote("Primitive '"+type+"' does not declare a 'value'");
+                    return;
+                    
+                }
+                result = config.getCoercer().coerce(getYamlMap().get("value"), javaType);
+                removeFromYamlKeysOnBlackboard("value");
+                
+            } else {
+                result = config.getTypeRegistry().newInstanceMaybe((String)type, Yorml.newInstance(config)).orNull();
+                if (result==null) {
+                    ReadingTypeOnBlackboard.get(blackboard).addNote("Unknown type '"+type+"'");
+                    return;
+                }
+                if (!type.equals(context.getExpectedType())) {
+                    SerializersOnBlackboard.get(blackboard).addInstantiatedTypeSerializers(config.getTypeRegistry().getAllSerializers(type));
+                }
+                context.phaseInsert(YormlContext.StandardPhases.MANIPULATING, YormlContext.StandardPhases.HANDLING_FIELDS);
             }
+            
             removeFromYamlKeysOnBlackboard("type");
-            if (!type.equals(context.getExpectedType())) {
-                SerializersOnBlackboard.get(blackboard).addInstantiatedTypeSerializers(config.getTypeRegistry().getAllSerializers(type));
-            }
             
             context.setJavaObject(result);
-            return YormlContinuation.RESTART;
+            context.phaseAdvance();
         }
 
-        public YormlContinuation write() {
-            if (hasYamlObject()) return YormlContinuation.CONTINUE_UNCHANGED;
-            if (!hasJavaObject()) return YormlContinuation.CONTINUE_UNCHANGED;
-            if (JavaFieldsOnBlackboard.isPresent(blackboard)) return YormlContinuation.CONTINUE_UNCHANGED;
+        public void write() {
+            if (!context.isPhase(YormlContext.StandardPhases.HANDLING_TYPE)) return;
+            if (hasYamlObject()) return;
+            if (!hasJavaObject()) return;
+            if (JavaFieldsOnBlackboard.isPresent(blackboard)) return;
             
             JavaFieldsOnBlackboard fib = JavaFieldsOnBlackboard.create(blackboard);
             fib.fieldsToWriteFromJava = MutableList.of();
             
             Object jo = getJavaObject();
-            if (Boxing.isPrimitiveOrBoxedObject(jo) || jo instanceof CharSequence) {
+            boolean primitive = Boxing.isPrimitiveOrBoxedObject(jo) || jo instanceof CharSequence; 
+            if (primitive && getJavaObject().getClass().equals(Boxing.boxedType(getExpectedTypeJava()))) {
                 context.setYamlObject(jo);
-                return YormlContinuation.FINISHED;
+                context.phaseAdvance();
+                return;
             }
 
             // TODO map+list -- here, or in separate serializers?
@@ -111,27 +134,37 @@ public class InstantiateType extends YormlSerializerComposition {
             } else {
                 String typeName = config.getTypeRegistry().getTypeName(getJavaObject());
                 map.put("type", typeName);
-                SerializersOnBlackboard.get(blackboard).addInstantiatedTypeSerializers(config.getTypeRegistry().getAllSerializers(typeName));
-            }
-            
-            List<Field> fields = Reflections.findFields(getJavaObject().getClass(), 
-                null,
-                FieldOrderings.ALPHABETICAL_FIELD_THEN_SUB_BEST_FIRST);
-            Field lastF = null;
-            for (Field f: fields) {
-                Maybe<Object> v = Reflections.getFieldValueMaybe(getJavaObject(), f);
-                if (ReflectionPredicates.IS_FIELD_NON_TRANSIENT.apply(f) && ReflectionPredicates.IS_FIELD_NON_STATIC.apply(f) && v.isPresentAndNonNull()) {
-                    String name = f.getName();
-                    if (lastF!=null && lastF.getName().equals(f.getName())) {
-                        // if field is shadowed use FQN
-                        name = f.getDeclaringClass().getCanonicalName()+"."+name;
-                    }
-                    fib.fieldsToWriteFromJava.add(name);
+                if (!primitive) {
+                    SerializersOnBlackboard.get(blackboard).addInstantiatedTypeSerializers(config.getTypeRegistry().getAllSerializers(typeName));
                 }
-                lastF = f;
             }
-            
-            return YormlContinuation.RESTART;
+
+            if (primitive) {
+                map.put("value", jo);
+                context.phaseInsert(YormlContext.StandardPhases.MANIPULATING);
+                
+            } else {
+                List<Field> fields = Reflections.findFields(getJavaObject().getClass(), 
+                    null,
+                    FieldOrderings.ALPHABETICAL_FIELD_THEN_SUB_BEST_FIRST);
+                Field lastF = null;
+                for (Field f: fields) {
+                    Maybe<Object> v = Reflections.getFieldValueMaybe(getJavaObject(), f);
+                    if (ReflectionPredicates.IS_FIELD_NON_TRANSIENT.apply(f) && ReflectionPredicates.IS_FIELD_NON_STATIC.apply(f) && v.isPresentAndNonNull()) {
+                        String name = f.getName();
+                        if (lastF!=null && lastF.getName().equals(f.getName())) {
+                            // if field is shadowed use FQN
+                            name = f.getDeclaringClass().getCanonicalName()+"."+name;
+                        }
+                        fib.fieldsToWriteFromJava.add(name);
+                    }
+                    lastF = f;
+                }
+                context.phaseInsert(YormlContext.StandardPhases.HANDLING_FIELDS, YormlContext.StandardPhases.MANIPULATING);
+            }
+
+            context.phaseAdvance();
+            return;
         }
     }
 }

@@ -24,15 +24,18 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.yorml.YormlContext;
 import org.apache.brooklyn.util.yorml.YormlContextForRead;
 import org.apache.brooklyn.util.yorml.YormlContextForWrite;
-import org.apache.brooklyn.util.yorml.YormlContinuation;
 import org.apache.brooklyn.util.yorml.YormlRequirement;
 import org.apache.brooklyn.util.yorml.YormlSerializer;
 import org.apache.brooklyn.util.yorml.serializers.ReadingTypeOnBlackboard;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Iterables;
 
 public class YormlConverter {
 
+    private static final Logger log = LoggerFactory.getLogger(YormlConverter.class);
+    
     private final YormlConfig config;
     
     public YormlConverter(YormlConfig config) {
@@ -69,33 +72,25 @@ public class YormlConverter {
         
         if (context instanceof YormlContextForRead) {
             // read needs instantiated so that these errors display first
+            // TODO can skip now that we have phases?
             ReadingTypeOnBlackboard.get(blackboard);
         }
         
-        int i=0;
-        boolean rerunNeeded = false;
-        while (i<Iterables.size(serializers.getSerializers())) {
-            YormlSerializer s = Iterables.get(serializers.getSerializers(), i);
-            YormlContinuation next;
-            if (context instanceof YormlContextForRead) {
-                next = s.read((YormlContextForRead)context, this, blackboard);
-            } else {
-                System.out.println("write "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+i+" "+s+" starting");
-                next = s.write((YormlContextForWrite)context, this, blackboard);
-                System.out.println("write "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+i+" "+s+" ended: "+context.getYamlObject());
-            }
-            if (next == YormlContinuation.FINISHED) break;
-            else if (next == YormlContinuation.RESTART) i=0;
-            else {
-                i++;
-                if (next == YormlContinuation.CONTINUE_THEN_RERUN) rerunNeeded = true;
-            }
-            
-            if (i>=Iterables.size(serializers.getSerializers()) && rerunNeeded) {
-                rerunNeeded = false;
-                i=0;
+        while (context.phaseAdvance()) {
+            while (context.phaseStepAdvance()<Iterables.size(serializers.getSerializers())) {
+                YormlSerializer s = Iterables.get(serializers.getSerializers(), context.phaseCurrentStep());
+                if (context instanceof YormlContextForRead) {
+                    s.read((YormlContextForRead)context, this, blackboard);
+                } else {
+                    if (log.isDebugEnabled())
+                        log.debug("write "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" starting ("+context.phaseCurrent()+"."+context.phaseCurrentStep()+") ");
+                    s.write((YormlContextForWrite)context, this, blackboard);
+                    if (log.isDebugEnabled())
+                        log.debug("write "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" ended: "+context.getYamlObject());
+                }
             }
         }
+        
         checkCompletion(context, blackboard);
     }
 

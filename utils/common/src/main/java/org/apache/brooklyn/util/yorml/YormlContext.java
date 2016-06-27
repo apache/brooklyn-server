@@ -18,12 +18,34 @@
  */
 package org.apache.brooklyn.util.yorml;
 
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
+
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableSet;
+
+import com.google.common.base.Objects;
+
 public abstract class YormlContext {
 
     final String jsonPath;
     final String expectedType;
     Object javaObject;
     Object yamlObject;
+    
+    
+    String phaseCurrent = null;
+    int phaseCurrentStep = -1;
+    Set<String> phasesFollowing = MutableSet.of(StandardPhases.MANIPULATING, StandardPhases.HANDLING_TYPE, StandardPhases.HANDLING_FIELDS);
+    List<String> phasesPreceding = MutableList.of();
+    
+    public static interface StandardPhases {
+        String MANIPULATING = "manipulating";
+        String HANDLING_TYPE = "handling-type";
+        String HANDLING_FIELDS = "handling-fields";
+    }
     
     public YormlContext(String jsonPath, String expectedType) {
         this.jsonPath = jsonPath;
@@ -47,6 +69,37 @@ public abstract class YormlContext {
     }
     public void setYamlObject(Object yamlObject) {
         this.yamlObject = yamlObject;
+    }
+    
+    public boolean isPhase(String phase) { return Objects.equal(phase, phaseCurrent); }
+    public boolean seenPhase(String phase) { return phasesPreceding.contains(phase); }
+    public boolean willDoPhase(String phase) { return phasesFollowing.contains(phase); }
+    public String phaseCurrent() { return phaseCurrent; }
+    public int phaseCurrentStep() { return phaseCurrentStep; }
+    public int phaseStepAdvance() { 
+        if (phaseCurrentStep() < Integer.MAX_VALUE) phaseCurrentStep++;
+        return phaseCurrentStep();
+    }
+    public boolean phaseAdvance() {
+        if (phaseCurrent!=null) phasesPreceding.add(phaseCurrent);
+        Iterator<String> fi = phasesFollowing.iterator();
+        if (!fi.hasNext()) {
+            phaseCurrent = null;
+            phaseCurrentStep = Integer.MAX_VALUE;
+            return false;
+        }
+        phaseCurrent = fi.next();
+        phasesFollowing = MutableSet.copyOf(fi);
+        phaseCurrentStep = -1;
+        return true;
+    }
+    public void phaseRestart() { phaseCurrentStep = -1; }
+    public void phaseInsert(String nextPhase, String ...otherNextPhases) { 
+        phasesFollowing = MutableSet.of(nextPhase).putAll(Arrays.asList(otherNextPhases)).putAll(phasesFollowing); 
+    }
+    public void phasesFinished() {
+        if (phaseCurrent!=null) phasesPreceding.add(phaseCurrent);
+        phasesFollowing = MutableSet.of(); phaseAdvance(); 
     }
     
 }

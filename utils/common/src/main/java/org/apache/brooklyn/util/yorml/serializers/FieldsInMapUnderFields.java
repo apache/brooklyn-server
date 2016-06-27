@@ -28,9 +28,9 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.yorml.YormlContext;
 import org.apache.brooklyn.util.yorml.YormlContextForRead;
 import org.apache.brooklyn.util.yorml.YormlContextForWrite;
-import org.apache.brooklyn.util.yorml.YormlContinuation;
 
 public class FieldsInMapUnderFields extends YormlSerializerComposition {
 
@@ -39,12 +39,13 @@ public class FieldsInMapUnderFields extends YormlSerializerComposition {
     }
     
     public static class Worker extends YormlSerializerWorker {
-        public YormlContinuation read() {
-            if (!hasJavaObject()) return YormlContinuation.CONTINUE_UNCHANGED;
+        public void read() {
+            if (!context.isPhase(YormlContext.StandardPhases.HANDLING_FIELDS)) return;
+            if (!hasJavaObject()) return;
             
             @SuppressWarnings("unchecked")
             Map<String,Object> fields = peekFromYamlKeysOnBlackboard("fields", Map.class).orNull();
-            if (fields==null) return YormlContinuation.CONTINUE_UNCHANGED;
+            if (fields==null) return;
             
             boolean changed = false;
             for (Object f: MutableList.copyOf( ((Map<?,?>)fields).keySet() )) {
@@ -77,17 +78,16 @@ public class FieldsInMapUnderFields extends YormlSerializerComposition {
                     removeFromYamlKeysOnBlackboard("fields");
                 }
                 // restart (there is normally nothing after this so could equally continue with rerun)
-                return YormlContinuation.RESTART;
+                context.phaseRestart();
             }
-            
-            return YormlContinuation.CONTINUE_UNCHANGED;
         }
 
-        public YormlContinuation write() {
-            if (!isYamlMap()) return YormlContinuation.CONTINUE_UNCHANGED;
-            if (getFromYamlMap("fields", Map.class)!=null) return YormlContinuation.CONTINUE_UNCHANGED;
+        public void write() {
+            if (!context.isPhase(YormlContext.StandardPhases.HANDLING_FIELDS)) return;
+            if (!isYamlMap()) return;
+            if (getFromYamlMap("fields", Map.class).isPresent()) return;
             JavaFieldsOnBlackboard fib = JavaFieldsOnBlackboard.peek(blackboard);
-            if (fib==null || fib.fieldsToWriteFromJava.isEmpty()) return YormlContinuation.CONTINUE_UNCHANGED;
+            if (fib==null || fib.fieldsToWriteFromJava.isEmpty()) return;
             
             Map<String,Object> fields = MutableMap.of();
             
@@ -109,11 +109,11 @@ public class FieldsInMapUnderFields extends YormlSerializerComposition {
                 }
             }
             
-            if (fields.isEmpty()) return YormlContinuation.CONTINUE_UNCHANGED;
-            
-            setInYamlMap("fields", fields);
-            // restart in case a serializer moves the `fields` map somewhere else
-            return YormlContinuation.RESTART;
+            if (!fields.isEmpty()) {
+                setInYamlMap("fields", fields);
+                // restart in case a serializer moves the `fields` map somewhere else
+                context.phaseRestart();
+            }
         }
     }
     

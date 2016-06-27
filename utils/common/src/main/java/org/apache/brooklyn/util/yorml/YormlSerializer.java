@@ -37,7 +37,7 @@ public interface YormlSerializer {
      * returning true if it did anything (and so should restart the cycle).
      * implementations must NOT return true indefinitely if passed the same instances!
      */ 
-    public YormlContinuation read(YormlContextForRead context, YormlConverter converter, Map<Object,Object> blackboard);
+    public void read(YormlContextForRead context, YormlConverter converter, Map<Object,Object> blackboard);
 
     /**
      * modifies java object and/or yaml object and/or blackboard as appropriate,
@@ -45,7 +45,7 @@ public interface YormlSerializer {
      * returning true if it did anything (and so should restart the cycle).
      * implementations must NOT return true indefinitely if passed the same instances!
      */   
-    public YormlContinuation write(YormlContextForWrite context, YormlConverter converter, Map<Object,Object> blackboard);
+    public void write(YormlContextForWrite context, YormlConverter converter, Map<Object,Object> blackboard);
 
     /**
      * generates human-readable schema for a type using this schema.

@@ -130,11 +130,62 @@ serializers can come from:
         assertResult( SIMPLE_IN_WITH_TYPE );
     }
 
+    protected static YormlTestFixture commonExplicitFieldFixtureKeyNameAliasAndDefault() {
+        return YormlTestFixture.newInstance().
+            addType("shape", Shape.class, MutableList.of(
+                explicitFieldSerializer("{ fieldName: name, keyName: shape-name, alias: my-name, defaultValue: { type: string, value: bob } }")));
+    }
+
+    static String COMMON_IN_KEY_NAME = "{ shape-name: diamond, fields: { color: black } }";
+    static String COMMON_IN_ALIAS = "{ my-name: diamond, fields: { color: black } }";
+    static Shape COMMON_OUT = new Shape().name("diamond").color("black");
+    static String COMMON_IN_DEFAULT = "{ fields: { color: black } }";
+    static Shape COMMON_OUT_DEFAULT = new Shape().name("bob").color("black");
+
+    @Test
+    public void testCommonKeyName() {
+        commonExplicitFieldFixtureKeyNameAliasAndDefault().
+        reading( COMMON_IN_KEY_NAME, "shape" ).
+        writing( COMMON_OUT, "shape" ).
+        doReadWriteAssertingJsonMatch();
+    }
+
+    @Test
+    public void testCommonAlias() {
+        commonExplicitFieldFixtureKeyNameAliasAndDefault().
+        read( COMMON_IN_ALIAS, "shape" ).assertResult(COMMON_OUT).
+        write( COMMON_OUT, "shape" ).assertResult(COMMON_IN_KEY_NAME);
+    }
+
+    @Test
+    public void testCommonDefault() {
+        commonExplicitFieldFixtureKeyNameAliasAndDefault().
+        reading( COMMON_IN_DEFAULT, "shape" ).
+        writing( COMMON_OUT_DEFAULT, "shape" ).
+        doReadWriteAssertingJsonMatch();
+    }
+
+    protected static YormlTestFixture noKeyNameExplicitFieldFixture() {
+        return YormlTestFixture.newInstance().
+            addType("shape", Shape.class, MutableList.of(
+                explicitFieldSerializer("{ fieldName: name, keyName: shape-name, aliases: [ my-name ], defaultValue: bob }")));
+    }
+
+    // TODO
+    // aliases-inherited
+    // aliases-exclude-name
+    // no-mangle
     /*
-     * TODO
+     * TODO sketch for phases
+     * TODO tests for:
      * aliases
-     * defaultValue
-     * if missing required
-     * type hierarchy chains
+     * aliases inherited
+     * setting a defaultValue, including null
+     * if missing required required
+     * 
+     * then FIX
+     * type: my-serializer as singleton map in list
+     * using serializers declared on ancestor above immediate
      */
+    
 }
