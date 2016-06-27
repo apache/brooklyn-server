@@ -119,6 +119,30 @@ brooklyn.catalog:
             assertOut:
               contains: "ping statistics ---\n4 packets transmitted, 0 received"
 
+  - id: test-swarm-etcd-tls
+    item:
+      type: ssh-test
+      name: "TEST Swarm Etcd uses swarm"
+      brooklyn.parameters:
+        - name: ca.url
+          description: URL of the CA server
+      brooklyn.config:
+        shell.env:
+          DISCOVERY_URL: $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.authority")
+          CERT_PATH: 
+            $brooklyn:formatString:
+            - "%s/.certs"
+            - $brooklyn:entity("swarm-manager").attributeWhenReady("install.dir")
+        command: |
+          set -e
+          URL=${DISCOVERY_URL#etcd://}
+          ! curl https://${URL}/version --fail
+          ! curl http://${URL}/version --fail
+          curl --cacert "${CERT_PATH}/ca.pem" \
+            --cert "${CERT_PATH}/cert.pem" \
+            --key "${CERT_PATH}/key.pem" \
+            --fail \
+            https://${URL}/version
 
 ## swarm tests to scale up by one
   - id: test-swarm-scale-up
@@ -241,3 +265,8 @@ brooklyn.catalog:
             brooklyn.config:
               targetId: swarm-client
               start.latch: $brooklyn:entity("swarm-client").attributeWhenReady("service.isUp")
+
+          - type: test-swarm-etcd-tls
+            name: "TEST-8 Test Swarm Etcd TLS"
+            brooklyn.config:
+              targetId: swarm-manager
