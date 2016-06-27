@@ -18,8 +18,10 @@
  */
 package org.apache.brooklyn.util.yorml.serializers;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -57,11 +59,16 @@ public class ExplicitField extends YormlSerializerComposition {
     /** by default when multiple explicit-field serializers are supplied for the same {@link #fieldName}, all aliases are accepted;
      * set this false to restrict to those in the first such serializer */
     Boolean aliasesInherited;
-    /** by default the {@link #fieldName} is recognised as an alias;
-     * set false to allow only explicit {@link #keyName} and {@link #aliases} */
-    Boolean aliasesExcludeFieldName;
-    /** by default fields can be left null; set true to require a value to be supplied (or a default set) */
-    Boolean required;
+    /** by default aliases are taken case-insensitive, with mangling supported,
+     * and including the {@link #fieldName} as an alias;
+     * set false to disallow all these, recognising only the explicitly noted 
+     * {@link #keyName} and {@link #aliases} as keys (but still defaulting to {@link #fieldName} if {@link #keyName} is absent) */
+    Boolean aliasesStrict;
+    
+    public static enum FieldConstraint { REQUIRED } 
+    /** by default fields can be left null; set {@link FieldConstraint#REQUIRED} to require a value to be supplied (or a default set);
+     * other constraints may be introduded, and API may change, but keyword `required` will be coercible to this */
+    FieldConstraint constraint;
     
     /** a default value to use when reading (and to use to determine whether to omit the field when writing) */
     // TODO would be nice to support maybe here, not hard here, but it makes it hard to set from yaml
@@ -80,8 +87,8 @@ public class ExplicitField extends YormlSerializerComposition {
         
         protected Iterable<String> getKeyNameAndAliases() {
             MutableSet<String> keyNameAndAliases = MutableSet.of();
-            keyNameAndAliases.addIfNotNull(ExplicitFieldsBlackboard.get(blackboard).getKeyName(fieldName));
-            if (!ExplicitFieldsBlackboard.get(blackboard).isAliasesExcludingFieldName(fieldName)) {
+            keyNameAndAliases.addIfNotNull(getPreferredKeyName());
+            if (!ExplicitFieldsBlackboard.get(blackboard).isAliasesStrict(fieldName)) {
                 keyNameAndAliases.addIfNotNull(fieldName);
             }
             keyNameAndAliases.addAll(ExplicitFieldsBlackboard.get(blackboard).getAliases(fieldName));
@@ -104,8 +111,8 @@ public class ExplicitField extends YormlSerializerComposition {
                 ExplicitFieldsBlackboard.get(blackboard).addAliasIfNotDisinherited(fieldName, alias);
                 ExplicitFieldsBlackboard.get(blackboard).addAliasesIfNotDisinherited(fieldName, aliases);
                 ExplicitFieldsBlackboard.get(blackboard).setAliasesInheritedIfUnset(fieldName, aliasesInherited);
-                ExplicitFieldsBlackboard.get(blackboard).setAliasesExcludeFieldNameIfUnset(fieldName, aliasesExcludeFieldName);
-                ExplicitFieldsBlackboard.get(blackboard).setRequiredIfUnset(fieldName, required);
+                ExplicitFieldsBlackboard.get(blackboard).setAliasesStrictIfUnset(fieldName, aliasesStrict);
+                ExplicitFieldsBlackboard.get(blackboard).setConstraintIfUnset(fieldName, constraint);
                 if (ExplicitFieldsBlackboard.get(blackboard).getDefault(fieldName).isAbsent() && defaultValue!=null) {
                     ExplicitFieldsBlackboard.get(blackboard).setUseDefaultFrom(fieldName, ExplicitField.this, defaultValue);
                 }
@@ -131,21 +138,25 @@ public class ExplicitField extends YormlSerializerComposition {
             if (fields==null) return;
 
             int keysMatched = 0;
-            for (String alias: getKeyNameAndAliases()) {
-                Maybe<Object> value = peekFromYamlKeysOnBlackboard(alias, Object.class);
-                if (value.isAbsent()) continue;
-                boolean fieldAlreadyKnown = fields.containsKey(fieldName);
-                if (value.isPresent() && fieldAlreadyKnown) {
-                    // already present
-                    if (!Objects.equal(value.get(), fields.get(fieldName))) {
-                        throw new IllegalStateException("Cannot set '"+fieldName+"' to '"+value.get()+"' supplied in '"+alias+"' because this conflicts with '"+fields.get(fieldName)+"' already set");
+            for (String aliasO: getKeyNameAndAliases()) {
+                Set<String> aliasMangles = ExplicitFieldsBlackboard.get(blackboard).isAliasesStrict(fieldName) ?
+                    Collections.singleton(aliasO) : findAllKeyManglesYamlKeys(aliasO);
+                for (String alias: aliasMangles) {
+                    Maybe<Object> value = peekFromYamlKeysOnBlackboard(alias, Object.class);
+                    if (value.isAbsent()) continue;
+                    boolean fieldAlreadyKnown = fields.containsKey(fieldName);
+                    if (value.isPresent() && fieldAlreadyKnown) {
+                        // already present
+                        if (!Objects.equal(value.get(), fields.get(fieldName))) {
+                            throw new IllegalStateException("Cannot set '"+fieldName+"' to '"+value.get()+"' supplied in '"+alias+"' because this conflicts with '"+fields.get(fieldName)+"' already set");
+                        }
+                        continue;
                     }
-                    continue;
+                    // value present, field not yet handled
+                    removeFromYamlKeysOnBlackboard(alias);
+                    fields.put(fieldName, value.get());
+                    keysMatched++;
                 }
-                // value present, field not yet handled
-                removeFromYamlKeysOnBlackboard(alias);
-                fields.put(fieldName, value.get());
-                keysMatched++;
             }
             if (keysMatched==0) {
                 // set a default if there is one
@@ -174,8 +185,9 @@ public class ExplicitField extends YormlSerializerComposition {
             Maybe<Object> valueToSet;
             
             if (!fields.containsKey(fieldName)) {
-                // field not present, so null (or not known)
-                if ((dv.isPresent() && dv.isNull()) || (!ExplicitFieldsBlackboard.get(blackboard).isRequired(fieldName) && dv.isAbsent())) {
+                // field not present, so omit (if field is not required and no default, or if default value is present and null) 
+                // else write an explicit null
+                if ((dv.isPresent() && dv.isNull()) || (ExplicitFieldsBlackboard.get(blackboard).getConstraint(fieldName).orNull()!=FieldConstraint.REQUIRED && dv.isAbsent())) {
                     // if default is null, or if not required and no default, we can suppress
                     ExplicitFieldsBlackboard.get(blackboard).setFieldDone(fieldName);
                     return;

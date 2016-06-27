@@ -19,7 +19,9 @@
 package org.apache.brooklyn.util.yorml.serializers;
 
 import java.util.Map;
+import java.util.Set;
 
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
@@ -105,6 +107,18 @@ public abstract class YormlSerializerComposition implements YormlSerializer {
         protected void removeFromYamlKeysOnBlackboard(String key) {
             YamlKeysOnBlackboard ykb = YamlKeysOnBlackboard.peek(blackboard);
             ykb.yamlKeysToReadToJava.remove(key);
+        }
+        /** looks for all keys in {@link YamlKeysOnBlackboard} which can be mangled/ignore-case 
+         * to match the given key */
+        protected Set<String> findAllKeyManglesYamlKeys(String targetKey) {
+            Set<String> result = MutableSet.of();
+            YamlKeysOnBlackboard ykb = YamlKeysOnBlackboard.peek(blackboard);
+            for (Object k: ykb.yamlKeysToReadToJava.keySet()) {
+                if (k instanceof String && YamlKeysOnBlackboard.mangleable(targetKey, (String)k)) {
+                    result.add((String)k);
+                }
+            }
+            return result;
         }
 
         public abstract void read();

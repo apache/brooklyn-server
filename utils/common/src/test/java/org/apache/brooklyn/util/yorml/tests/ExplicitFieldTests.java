@@ -126,7 +126,7 @@ public class ExplicitFieldTests {
     @Test
     public void testNameRequired() {
         try {
-            YormlTestFixture x = commonExplicitFieldFixtureKeyNameAlias(", required: true")
+            YormlTestFixture x = commonExplicitFieldFixtureKeyNameAlias(", constraint: required")
             .read( COMMON_IN_NO_NAME, "shape" );
             Asserts.shouldHaveFailedPreviously("Returned "+x.lastReadResult+" when should have thrown");
         } catch (Exception e) {
@@ -250,11 +250,11 @@ public class ExplicitFieldTests {
     }
 
     @Test
-    public void testFieldNameAsAliasExcluded() {
+    public void testFieldNameAsAliasExcludedWhenStrict() {
         String json = "{ type: shape-with-size, name: diamond, size: 2, fields: { color: black } }";
         try {
             YormlTestFixture x  = extended0ExplicitFieldFixture( MutableList.of(
-                explicitFieldSerializer("{ fieldName: name, keyName: shape-w-size-name, aliasesExcludeFieldName: true }")) )
+                explicitFieldSerializer("{ fieldName: name, keyName: shape-w-size-name, aliasesStrict: true }")) )
                 .read( json, null );
             Asserts.shouldHaveFailedPreviously("Returned "+x.lastReadResult+" when should have thrown");
         } catch (Exception e) {
@@ -262,10 +262,26 @@ public class ExplicitFieldTests {
         }
     }
 
-    /*
-     * TODO 
-     * mangle/no-mangle
-     * maps/etc
-     */
+    String EXTENDED_IN_1_MANGLED = "{ type: shape-with-size, shapeWSize_Name: diamond, size: 2, fields: { color: black } }";
     
+    @Test
+    public void testFieldNameMangled() {
+        extended0ExplicitFieldFixture( MutableList.of(
+            explicitFieldSerializer("{ fieldName: name, keyName: shape-w-size-name }")) )
+            .read( EXTENDED_IN_1_MANGLED, null ).assertResult( EXTENDED_OUT_1 )
+            .write( EXTENDED_OUT_1 ).assertResult( EXTENDED_IN_1 );
+    }
+
+    @Test
+    public void testFieldNameManglesExcludedWhenStrict() {
+        try {
+            YormlTestFixture x  = extended0ExplicitFieldFixture( MutableList.of(
+                explicitFieldSerializer("{ fieldName: name, keyName: shape-w-size-name, aliasesStrict: true }")) )
+                .read( EXTENDED_IN_1_MANGLED, null );
+            Asserts.shouldHaveFailedPreviously("Returned "+x.lastReadResult+" when should have thrown");
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "shapeWSize_Name", "diamond");
+        }
+    }
+
 }

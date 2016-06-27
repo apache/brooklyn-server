@@ -20,9 +20,12 @@ package org.apache.brooklyn.util.yorml.serializers;
 
 import java.util.Map;
 
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yorml.YormlContext;
 import org.apache.brooklyn.util.yorml.YormlException;
 import org.apache.brooklyn.util.yorml.YormlRequirement;
+
+import com.google.common.annotations.Beta;
 
 /** Keys from a YAML map that still need to be handled */
 public class YamlKeysOnBlackboard implements YormlRequirement {
@@ -53,5 +56,18 @@ public class YamlKeysOnBlackboard implements YormlRequirement {
             // TODO limit toString to depth 2 ?
             throw new YormlException("Incomplete read of YAML keys: "+yamlKeysToReadToJava, context);
         }
+    }
+    
+    /** true iff k1 and k2 are case-insensitively equal after removing all - and _.
+     * Note that the definition of mangling may change.
+     * TODO it should be stricter so that "ab" and "a-b" don't match but "aB" and "a-b" and "a_b" do */
+    @Beta
+    public static boolean mangleable(String k1, String k2) {
+        if (k1==null || k2==null) return k1==k2;
+        k1 = Strings.replaceAllNonRegex(k1, "-", "");
+        k1 = Strings.replaceAllNonRegex(k1, "_", "");
+        k2 = Strings.replaceAllNonRegex(k2, "-", "");
+        k2 = Strings.replaceAllNonRegex(k2, "_", "");
+        return k1.toLowerCase().equals(k2.toLowerCase());
     }
 }

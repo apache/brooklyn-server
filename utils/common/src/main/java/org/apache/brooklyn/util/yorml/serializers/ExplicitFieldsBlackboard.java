@@ -32,6 +32,7 @@ import org.apache.brooklyn.util.yorml.YormlContext;
 import org.apache.brooklyn.util.yorml.YormlException;
 import org.apache.brooklyn.util.yorml.YormlRequirement;
 import org.apache.brooklyn.util.yorml.YormlSerializer;
+import org.apache.brooklyn.util.yorml.serializers.ExplicitField.FieldConstraint;
 
 public class ExplicitFieldsBlackboard implements YormlRequirement {
 
@@ -48,10 +49,10 @@ public class ExplicitFieldsBlackboard implements YormlRequirement {
     
     private final Map<String,String> keyNames = MutableMap.of();
     private final Map<String,Boolean> aliasesInheriteds = MutableMap.of();
-    private final Map<String,Boolean> aliasesExcludesFieldName = MutableMap.of();
+    private final Map<String,Boolean> aliasesStricts = MutableMap.of();
     private final Map<String,Set<String>> aliases = MutableMap.of();
     private final Set<String> fieldsDone = MutableSet.of();
-    private final Map<String,Boolean> fieldsRequired = MutableMap.of();
+    private final Map<String,FieldConstraint> fieldsConstraints = MutableMap.of();
     private final Map<String,YormlSerializer> defaultValueForFieldComesFromSerializer = MutableMap.of();
     private final Map<String,Object> defaultValueOfField = MutableMap.of();
     
@@ -68,13 +69,13 @@ public class ExplicitFieldsBlackboard implements YormlRequirement {
         if (aliasesInheriteds.get(fieldName)!=null) return;
         aliasesInheriteds.put(fieldName, aliasesInherited);
     }
-    public boolean isAliasesExcludingFieldName(String fieldName) {
-        return Boolean.TRUE.equals(aliasesExcludesFieldName.get(fieldName));
+    public boolean isAliasesStrict(String fieldName) {
+        return Boolean.TRUE.equals(aliasesStricts.get(fieldName));
     }
-    public void setAliasesExcludeFieldNameIfUnset(String fieldName, Boolean aliasesExcludeFieldName) {
-        if (aliasesExcludeFieldName==null) return;
-        if (aliasesExcludesFieldName.get(fieldName)!=null) return;
-        aliasesExcludesFieldName.put(fieldName, aliasesExcludeFieldName);
+    public void setAliasesStrictIfUnset(String fieldName, Boolean aliasesStrict) {
+        if (aliasesStrict==null) return;
+        if (aliasesStricts.get(fieldName)!=null) return;
+        aliasesStricts.put(fieldName, aliasesStrict);
     }
     public void addAliasIfNotDisinherited(String fieldName, String alias) {
         addAliasesIfNotDisinherited(fieldName, MutableList.of(alias));
@@ -98,20 +99,21 @@ public class ExplicitFieldsBlackboard implements YormlRequirement {
         return aa;
     }
 
-    public boolean isRequired(String fieldName) {
-        return Maybe.ofDisallowingNull(fieldsRequired.get(fieldName)).or(false);
+    public Maybe<FieldConstraint> getConstraint(String fieldName) {
+        return Maybe.ofDisallowingNull(fieldsConstraints.get(fieldName));
     }
-    public void setRequiredIfUnset(String fieldName, Boolean required) {
-        if (required==null) return;
-        if (fieldsRequired.get(fieldName)!=null) return;
-        fieldsRequired.put(fieldName, required);
+    public void setConstraintIfUnset(String fieldName, FieldConstraint constraint) {
+        if (constraint==null) return;
+        if (fieldsConstraints.get(fieldName)!=null) return;
+        fieldsConstraints.put(fieldName, constraint);
     }
     @Override
     public void checkCompletion(YormlContext context) {
         List<String> incompleteRequiredFields = MutableList.of();
-        for (Map.Entry<String,Boolean> fieldRequired: fieldsRequired.entrySet()) {
-            if (fieldRequired.getValue() && !fieldsDone.contains(fieldRequired.getKey())) {
-                incompleteRequiredFields.add(fieldRequired.getKey());
+        for (Map.Entry<String,FieldConstraint> fieldConstraint: fieldsConstraints.entrySet()) {
+            FieldConstraint v = fieldConstraint.getValue();
+            if (v!=null && FieldConstraint.REQUIRED==v && !fieldsDone.contains(fieldConstraint.getKey())) {
+                incompleteRequiredFields.add(fieldConstraint.getKey());
             }
         }
         if (!incompleteRequiredFields.isEmpty()) {

@@ -230,18 +230,18 @@ parameter, field-name, and several optional ones, so a sample usage might look l
 ```
   - type: explicit-field
     field-name: color
-    key-name: color      # this is used in yaml
-    aliases: [ colour ]  # things to accept in yaml as synonyms for key-name; `alias` also accepted
-    disable-default-aliases: boolean # if true, means only exact matches on key-name and aliases are accepted, otherwise a set of mangles are applied
-    field-type: string   # inferred from java field, but you can constrain further to yaml types
-    constraint: required # currently just supports 'required' (and 'null' not allowed) or blank for none (default), but reserved for future use
+    key-name: color           # this is used in yaml
+    aliases: [ colour ]       # things to accept in yaml as synonyms for key-name; `alias` also accepted
+    aliases-strict: false     # if true, means only exact matches on key-name and aliases are accepted, otherwise a set of mangles are applied
+    aliases-inherited: true   # if false, means only take aliases from the first explicit-field serializer for this field-name, otherwise any can be used 
+    # TODO items below here are still WIP/planned
+    field-type: string        # inferred from java field, but you can constrain further to yaml types
+    constraint: required      # currently just supports 'required' (and 'null' not allowed) or blank for none (default), but reserved for future use
     description: The color of the shape   # text (markdown) 
-    serialization:       # optional additional serialization instructions for this field
-    - if-string:         # (defined below)
+    serialization:            # optional additional serialization instructions for this field
+    - if-string:              # (defined below)
         set-key: field-name
 ```
-
-XXX
 
 
 ### On overloading (really can skip!)
@@ -478,6 +478,7 @@ in detail; see implementation notes below.
 
 ## Even more further behaviours (not part of MVP)
 
+* preventing fields from being set
 * type overloading, if string, if number, if map, if list...  inferring type, or setting diff fields
 * super-types and abstract types (underlying java of `supertypes` must be assignable from underying java of `type`)
 * merging ... deep? field-based?
@@ -517,10 +518,9 @@ to be shown.
 
 ### TODO
 
-* explicit-field aliases
-* no-others / suppression (including fixing this doc)
-* complex syntax, type as key, etc
+* Config/data keys
 * maps and lists, with generics
+* complex syntax, type as key, etc
 
 * defining serializers and linking to brooklyn
 
