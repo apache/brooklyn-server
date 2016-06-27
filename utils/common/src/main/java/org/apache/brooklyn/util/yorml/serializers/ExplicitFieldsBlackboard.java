@@ -47,6 +47,8 @@ public class ExplicitFieldsBlackboard implements YormlRequirement {
     }
     
     private final Map<String,String> keyNames = MutableMap.of();
+    private final Map<String,Boolean> aliasesInheriteds = MutableMap.of();
+    private final Map<String,Boolean> aliasesExcludesFieldName = MutableMap.of();
     private final Map<String,Set<String>> aliases = MutableMap.of();
     private final Set<String> fieldsDone = MutableSet.of();
     private final Map<String,Boolean> fieldsRequired = MutableMap.of();
@@ -61,10 +63,27 @@ public class ExplicitFieldsBlackboard implements YormlRequirement {
         if (keyNames.get(fieldName)!=null) return;
         keyNames.put(fieldName, keyName);
     }
-    public void addAlias(String fieldName, String alias) {
-        addAliases(fieldName, MutableList.of(alias));
+    public void setAliasesInheritedIfUnset(String fieldName, Boolean aliasesInherited) {
+        if (aliasesInherited==null) return;
+        if (aliasesInheriteds.get(fieldName)!=null) return;
+        aliasesInheriteds.put(fieldName, aliasesInherited);
     }
-    public void addAliases(String fieldName, List<String> aliases) {
+    public boolean isAliasesExcludingFieldName(String fieldName) {
+        return Boolean.TRUE.equals(aliasesExcludesFieldName.get(fieldName));
+    }
+    public void setAliasesExcludeFieldNameIfUnset(String fieldName, Boolean aliasesExcludeFieldName) {
+        if (aliasesExcludeFieldName==null) return;
+        if (aliasesExcludesFieldName.get(fieldName)!=null) return;
+        aliasesExcludesFieldName.put(fieldName, aliasesExcludeFieldName);
+    }
+    public void addAliasIfNotDisinherited(String fieldName, String alias) {
+        addAliasesIfNotDisinherited(fieldName, MutableList.of(alias));
+    }
+    public void addAliasesIfNotDisinherited(String fieldName, List<String> aliases) {
+        if (Boolean.FALSE.equals(aliasesInheriteds.get(fieldName))) {
+            // no longer heritable
+            return;
+        }
         Set<String> aa = this.aliases.get(fieldName);
         if (aa==null) {
             aa = MutableSet.of();

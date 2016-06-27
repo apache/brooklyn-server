@@ -40,17 +40,32 @@ public class ExplicitField extends YormlSerializerComposition {
         return new Worker();
     }
     
+    /** field in java class to read/write */ 
     protected String fieldName;
-    protected String fieldType;
     
+    // not used at present, but would simplify expressing default values
+    // TODO we could also conceivably infer the expected field type better
+//    protected String fieldType;
+    
+    /** key to write at root in yaml */
     protected String keyName;
+    /** convenience if supplying a single item in {@link #aliases} */
     protected String alias;
+    /** aliases to recognise at root in yaml when reading, in addition to {@link #keyName} and normally {@link #fieldName} */
     protected List<String> aliases;
     
-    transient MutableSet<String> keyNameAndAliases;
-    
+    /** by default when multiple explicit-field serializers are supplied for the same {@link #fieldName}, all aliases are accepted;
+     * set this false to restrict to those in the first such serializer */
+    Boolean aliasesInherited;
+    /** by default the {@link #fieldName} is recognised as an alias;
+     * set false to allow only explicit {@link #keyName} and {@link #aliases} */
+    Boolean aliasesExcludeFieldName;
+    /** by default fields can be left null; set true to require a value to be supplied (or a default set) */
     Boolean required;
+    
+    /** a default value to use when reading (and to use to determine whether to omit the field when writing) */
     // TODO would be nice to support maybe here, not hard here, but it makes it hard to set from yaml
+    // also keyword `default` as alias
     Object defaultValue;
     
     public class Worker extends YormlSerializerWorker {
@@ -66,7 +81,9 @@ public class ExplicitField extends YormlSerializerComposition {
         protected Iterable<String> getKeyNameAndAliases() {
             MutableSet<String> keyNameAndAliases = MutableSet.of();
             keyNameAndAliases.addIfNotNull(ExplicitFieldsBlackboard.get(blackboard).getKeyName(fieldName));
-            keyNameAndAliases.addIfNotNull(fieldName);
+            if (!ExplicitFieldsBlackboard.get(blackboard).isAliasesExcludingFieldName(fieldName)) {
+                keyNameAndAliases.addIfNotNull(fieldName);
+            }
             keyNameAndAliases.addAll(ExplicitFieldsBlackboard.get(blackboard).getAliases(fieldName));
             return keyNameAndAliases; 
         }
@@ -84,8 +101,10 @@ public class ExplicitField extends YormlSerializerComposition {
             if (context.isPhase(PREPARING_EXPLICIT_FIELDS)) {
                 // do the pre-main pass to determine what is required for explicit fields and what the default is 
                 ExplicitFieldsBlackboard.get(blackboard).setKeyNameIfUnset(fieldName, keyName);
-                ExplicitFieldsBlackboard.get(blackboard).addAlias(fieldName, alias);
-                ExplicitFieldsBlackboard.get(blackboard).addAliases(fieldName, aliases);
+                ExplicitFieldsBlackboard.get(blackboard).addAliasIfNotDisinherited(fieldName, alias);
+                ExplicitFieldsBlackboard.get(blackboard).addAliasesIfNotDisinherited(fieldName, aliases);
+                ExplicitFieldsBlackboard.get(blackboard).setAliasesInheritedIfUnset(fieldName, aliasesInherited);
+                ExplicitFieldsBlackboard.get(blackboard).setAliasesExcludeFieldNameIfUnset(fieldName, aliasesExcludeFieldName);
                 ExplicitFieldsBlackboard.get(blackboard).setRequiredIfUnset(fieldName, required);
                 if (ExplicitFieldsBlackboard.get(blackboard).getDefault(fieldName).isAbsent() && defaultValue!=null) {
                     ExplicitFieldsBlackboard.get(blackboard).setUseDefaultFrom(fieldName, ExplicitField.this, defaultValue);

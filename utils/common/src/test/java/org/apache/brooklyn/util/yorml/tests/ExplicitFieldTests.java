@@ -226,19 +226,46 @@ public class ExplicitFieldTests {
             .read(json, "shape-with-size").assertResult(EXTENDED_OUT_NEW_DEFAULT);
     }
     
+    @Test
+    public void testInheritedAliasIsNotUsedIfRestricted() {
+        // same as testInheritedAliasIsUsed -- except fails because we say aliases-inherited: false
+        String json = "{ type: shape-with-size, my-name: diamond, size: 2, fields: { color: black } }";
+        try {
+            YormlTestFixture x  = extended0ExplicitFieldFixture( MutableList.of(
+                explicitFieldSerializer("{ fieldName: name, keyName: shape-w-size-name, aliasesInherited: false }")) )
+                .read( json, null );
+            Asserts.shouldHaveFailedPreviously("Returned "+x.lastReadResult+" when should have thrown");
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "my-name", "diamond");
+        }
+    }
 
-    // TODO
-    // aliases-exclude-name true/false
-    // no-mangle
+    @Test
+    public void testFieldNameAsAlias() {
+        String json = "{ type: shape-with-size, name: diamond, size: 2, fields: { color: black } }";
+        extended0ExplicitFieldFixture( MutableList.of(
+            explicitFieldSerializer("{ fieldName: name, keyName: shape-w-size-name }")) )
+            .read( json, null ).assertResult( EXTENDED_OUT_1 )
+            .write( EXTENDED_OUT_1 ).assertResult( EXTENDED_IN_1 );
+    }
+
+    @Test
+    public void testFieldNameAsAliasExcluded() {
+        String json = "{ type: shape-with-size, name: diamond, size: 2, fields: { color: black } }";
+        try {
+            YormlTestFixture x  = extended0ExplicitFieldFixture( MutableList.of(
+                explicitFieldSerializer("{ fieldName: name, keyName: shape-w-size-name, aliasesExcludeFieldName: true }")) )
+                .read( json, null );
+            Asserts.shouldHaveFailedPreviously("Returned "+x.lastReadResult+" when should have thrown");
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "name", "diamond");
+        }
+    }
+
     /*
-     * TODO sketch for phases
-     * TODO tests for:
-     * aliases inherited
-     * if missing required required
-     * 
-     * then FIX
-     * type: my-serializer as singleton map in list
-     * using serializers declared on ancestor above immediate
+     * TODO 
+     * mangle/no-mangle
+     * maps/etc
      */
     
 }
