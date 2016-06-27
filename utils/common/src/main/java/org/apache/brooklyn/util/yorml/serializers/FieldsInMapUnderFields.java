@@ -34,7 +34,9 @@ import org.apache.brooklyn.util.yorml.YormlInternals.YormlContinuation;
 
 public class FieldsInMapUnderFields extends YormlSerializerComposition {
 
-    public FieldsInMapUnderFields() { super(Worker.class); }
+    protected YormlSerializerWorker newWorker() {
+        return new Worker();
+    }
     
     public static class Worker extends YormlSerializerWorker {
         public YormlContinuation read() {
@@ -44,6 +46,7 @@ public class FieldsInMapUnderFields extends YormlSerializerComposition {
             Map<String,Object> fields = peekFromYamlKeysOnBlackboard("fields", Map.class).orNull();
             if (fields==null) return YormlContinuation.CONTINUE_UNCHANGED;
             
+            boolean changed = false;
             for (Object f: MutableList.copyOf( ((Map<?,?>)fields).keySet() )) {
                 Object v = ((Map<?,?>)fields).get(f);
                 try {
@@ -63,14 +66,21 @@ public class FieldsInMapUnderFields extends YormlSerializerComposition {
                             ff.setAccessible(true);
                             ff.set(getJavaObject(), v2);
                             ((Map<?,?>)fields).remove(Strings.toString(f));
-                            if (((Map<?,?>)fields).isEmpty()) {
-                                removeFromYamlKeysOnBlackboard("fields");
-                            }
+                            changed = true;
                         }
                     }
                 } catch (Exception e) { throw Exceptions.propagate(e); }
             }
-            return YormlContinuation.CONTINUE_CHANGED;
+            
+            if (changed) {
+                if (((Map<?,?>)fields).isEmpty()) {
+                    removeFromYamlKeysOnBlackboard("fields");
+                }
+                // no reason to restart?
+                return YormlContinuation.CONTINUE_CHANGED;
+            }
+            
+            return YormlContinuation.CONTINUE_UNCHANGED;
         }
 
         public YormlContinuation write() {

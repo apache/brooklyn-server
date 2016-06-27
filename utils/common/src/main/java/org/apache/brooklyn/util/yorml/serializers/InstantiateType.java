@@ -34,7 +34,9 @@ import org.apache.brooklyn.util.yorml.YormlInternals.YormlContinuation;
 
 public class InstantiateType extends YormlSerializerComposition {
 
-    public InstantiateType() { super(Worker.class); }
+    protected YormlSerializerWorker newWorker() {
+        return new Worker();
+    }
     
     public static class Worker extends YormlSerializerWorker {
         public YormlContinuation read() {
@@ -74,7 +76,7 @@ public class InstantiateType extends YormlSerializerComposition {
             if (type==null && result==null) return YormlContinuation.CONTINUE_UNCHANGED;
             
             if (result==null) {
-                result = config.getTypeRegistry().newInstance((String)type, Yorml.newInstance(config));
+                result = config.getTypeRegistry().newInstanceMaybe((String)type, Yorml.newInstance(config)).orNull();
             }
             if (result==null) {
                 ReadingTypeOnBlackboard.get(blackboard).addNote("Unknown type '"+type+"'");

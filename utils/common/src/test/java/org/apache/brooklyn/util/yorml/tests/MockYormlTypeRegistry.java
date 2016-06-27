@@ -21,10 +21,11 @@ package org.apache.brooklyn.util.yorml.tests;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
+import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yaml.Yamls;
 import org.apache.brooklyn.util.yorml.Yorml;
@@ -57,24 +58,22 @@ public class MockYormlTypeRegistry implements YormlTypeRegistry {
     
     @Override
     public Object newInstance(String typeName, Yorml yorml) {
+        return newInstanceMaybe(typeName, yorml).get();
+    }
+    @Override
+    public Maybe<Object> newInstanceMaybe(String typeName, Yorml yorml) {
         MockRegisteredType type = types.get(typeName);
-        if (type==null) {
-            return null;
+        if (type!=null && type.yamlDefinition!=null) {
+            String parentTypeName = type.parentType;
+            if (type.parentType==null && type.javaType!=null) parentTypeName = getDefaultTypeNameOfClass(type.javaType);
+            return Maybe.of(yorml.readFromYamlObject(type.yamlDefinition, parentTypeName));
         }
-        try {
-            if (type.yamlDefinition!=null) {
-                String parentTypeName = type.parentType;
-                if (type.parentType==null && type.javaType!=null) parentTypeName = getDefaultTypeNameOfClass(type.javaType);
-                return yorml.readFromYamlObject(type.yamlDefinition, parentTypeName);
-            }
-            Class<?> javaType = getJavaType(type, null); 
-            if (javaType==null) {
-                throw new IllegalStateException("Incomplete hierarchy for `"+typeName+"`");
-            }
-            return javaType.newInstance();
-        } catch (Exception e) {
-            throw Exceptions.propagate(e);
+        Class<?> javaType = getJavaType(type, typeName); 
+        if (javaType==null) {
+            if (type==null) return Maybe.absent("Unknown type `"+typeName+"`");
+            throw new IllegalStateException("Incomplete hierarchy for `"+typeName+"`");
         }
+        return Reflections.invokeConstructorFromArgsIncludingPrivate(javaType);
     }
     
     @Override
@@ -108,7 +107,7 @@ public class MockYormlTypeRegistry implements YormlTypeRegistry {
         put(typeName, javaType, null);
     }
     public void put(String typeName, Class<?> javaType, List<YormlSerializer> serializers) {
-        types.put(typeName, new MockRegisteredType(typeName, "java:"+javaType.getName(), javaType, null, null));
+        types.put(typeName, new MockRegisteredType(typeName, "java:"+javaType.getName(), javaType, serializers, null));
     }
     
     /** takes a simplified yaml definition supporting a map with a key `type` and optionally other keys */
@@ -124,6 +123,7 @@ public class MockYormlTypeRegistry implements YormlTypeRegistry {
         if (((Map<?,?>)yamlObject).isEmpty()) yamlObject = null;
         Class<?> javaType = getJavaType((String)type);
         if (javaType==null) throw new IllegalArgumentException("Mock cannot resolve parent type `"+type+"` in definition of `"+typeName+"`");
+        
         types.put(typeName, new MockRegisteredType(typeName, (String)type, javaType, serializers, yamlObject));
     }
 
@@ -147,5 +147,12 @@ public class MockYormlTypeRegistry implements YormlTypeRegistry {
         // TODO map and list?
         
         return "java:"+type.getName();
+    }
+    
+    @Override
+    public Iterable<YormlSerializer> getAllSerializers(String typeName) {
+        MockRegisteredType rt = types.get(typeName);
+        if (rt==null || rt.serializers==null) return MutableList.of();
+        return rt.serializers;
     }
 }

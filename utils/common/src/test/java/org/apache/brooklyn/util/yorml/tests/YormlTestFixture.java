@@ -19,6 +19,7 @@
 package org.apache.brooklyn.util.yorml.tests;
 
 import java.util.List;
+import java.util.Map;
 
 import org.apache.brooklyn.util.collections.Jsonya;
 import org.apache.brooklyn.util.text.Strings;
@@ -75,7 +76,15 @@ public class YormlTestFixture {
     }
     
     public YormlTestFixture assertResult(Object expectation) {
-        Assert.assertEquals(lastResult, expectation);
+        if (expectation instanceof String) {
+            if (lastResult instanceof Map || lastResult instanceof List) {
+                assertEqualsIgnoringQuotes(Jsonya.newInstance().add(lastResult).toString(), expectation, "Result as JSON string does not match expectation");
+            } else if (!(lastResult instanceof String)) {
+                assertEqualsIgnoringQuotes(Strings.toString(lastResult), expectation, "Result toString does not match expectation");
+            }
+        } else {
+            Assert.assertEquals(lastResult, expectation);
+        }
         return this;
     }
     public YormlTestFixture doReadWriteAssertingJsonMatch() {

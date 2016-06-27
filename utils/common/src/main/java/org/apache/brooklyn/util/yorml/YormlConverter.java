@@ -40,7 +40,7 @@ public class YormlConverter {
      * until result is done
      */ 
     public Object read(YormlContextForRead context) {
-        List<YormlSerializer> serializers = MutableList.<YormlSerializer>of().appendAll(config.serializersPost);
+        List<YormlSerializer> serializers = getSerializers(context);
         int i=0;
         Map<Object,Object> blackboard = MutableMap.of();
         ReadingTypeOnBlackboard.get(blackboard);
@@ -56,6 +56,15 @@ public class YormlConverter {
         return context.getJavaObject();
     }
 
+    private List<YormlSerializer> getSerializers(YormlContext context) {
+        MutableList<YormlSerializer> serializers = MutableList.<YormlSerializer>of();
+        if (context.getExpectedType()!=null) {
+            serializers.appendAll(config.typeRegistry.getAllSerializers(context.getExpectedType()));
+        }
+        serializers.appendAll(config.serializersPost);
+        return serializers;
+    }
+
     protected void checkCompletion(YormlContext context, Map<Object, Object> blackboard) {
         for (Object bo: blackboard.values()) {
             if (bo instanceof YormlRequirement) {
@@ -68,12 +77,14 @@ public class YormlConverter {
      * returns jsonable object (map, list, primitive) 
      */   
     public Object write(YormlContextForWrite context) {
-        List<YormlSerializer> serializers = MutableList.<YormlSerializer>of().appendAll(config.serializersPost);
+        List<YormlSerializer> serializers = getSerializers(context);
         int i=0;
         Map<Object,Object> blackboard = MutableMap.of();
         while (i<serializers.size()) {
             YormlSerializer s = serializers.get(i);
+            System.out.println("write "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+i+" "+s+" starting");
             YormlContinuation next = s.write(context, this, blackboard);
+            System.out.println("write "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+i+" "+s+" ended: "+context.getYamlObject());
             if (next == YormlContinuation.FINISHED) break;
             else if (next == YormlContinuation.RESTART) i=0;
             else i++;

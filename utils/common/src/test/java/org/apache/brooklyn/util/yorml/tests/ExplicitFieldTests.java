@@ -20,6 +20,7 @@ package org.apache.brooklyn.util.yorml.tests;
 
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.yorml.YormlSerializer;
+import org.apache.brooklyn.util.yorml.serializers.ExplicitField;
 import org.apache.brooklyn.util.yorml.tests.YormlBasicTests.Shape;
 import org.testng.annotations.Test;
 
@@ -89,28 +90,44 @@ serializers can come from:
      */
 
     public static YormlSerializer explicitFieldSerializer(String yaml) {
-//      return YormlTestFixture.newInstance().read(yaml, "java:"+ExplicitField.class);
-      return null;
-  }
+        return (YormlSerializer) YormlTestFixture.newInstance().read("{ fields: "+yaml+" }", "java:"+ExplicitField.class.getName()).lastReadResult;
+    }
 
     protected static YormlTestFixture simpleExplicitFieldFixture() {
         return YormlTestFixture.newInstance().
-            addType("shape", Shape.class, MutableList.of(explicitFieldSerializer("field-name: name, aliases: [ shape-name ]")));
+            addType("shape", Shape.class, MutableList.of(explicitFieldSerializer("{ fieldName: name }")));
     }
-    static String SIMPLE_IN = "{ type: shape, name: diamond, fields: { color: black } }";
+    
+    static String SIMPLE_IN_WITHOUT_TYPE = "{ name: diamond, fields: { color: black } }";
     static Shape SIMPLE_OUT = new Shape().name("diamond").color("black");
+    
     
     @Test
     public void testReadExplicitField() {
         simpleExplicitFieldFixture().
-        read( SIMPLE_IN, null ).
-        assertResult( SIMPLE_OUT);
+        read( SIMPLE_IN_WITHOUT_TYPE, "shape" ).
+        assertResult( SIMPLE_OUT );
     }
     @Test
     public void testWriteExplicitField() {
         simpleExplicitFieldFixture().
+        write( SIMPLE_OUT, "shape" ).
+        assertResult( SIMPLE_IN_WITHOUT_TYPE );
+    }
+
+    static String SIMPLE_IN_WITH_TYPE = "{ type: shape, name: diamond, fields: { color: black } }";
+
+    @Test
+    public void testReadExplicitFieldNoExpectedType() {
+        simpleExplicitFieldFixture().
+        read( SIMPLE_IN_WITH_TYPE, null ).
+        assertResult( SIMPLE_OUT);
+    }
+    @Test
+    public void testWriteExplicitFieldNoExpectedType() {
+        simpleExplicitFieldFixture().
         write( SIMPLE_OUT, null ).
-        assertResult( SIMPLE_IN );
+        assertResult( SIMPLE_IN_WITH_TYPE );
     }
 
 }

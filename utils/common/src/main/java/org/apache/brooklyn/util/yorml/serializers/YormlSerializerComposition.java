@@ -31,13 +31,9 @@ import org.apache.brooklyn.util.yorml.YormlConverter;
 import org.apache.brooklyn.util.yorml.YormlInternals.YormlContinuation;
 import org.apache.brooklyn.util.yorml.YormlSerializer;
 
-public class YormlSerializerComposition implements YormlSerializer {
+public abstract class YormlSerializerComposition implements YormlSerializer {
 
-    protected final Class<? extends YormlSerializerWorker> workerType;
-
-    public YormlSerializerComposition(Class<? extends YormlSerializerWorker> workerType) {
-        this.workerType = workerType;
-    }
+    protected abstract YormlSerializerWorker newWorker();
     
     public abstract static class YormlSerializerWorker {
 
@@ -119,7 +115,7 @@ public class YormlSerializerComposition implements YormlSerializer {
     public YormlContinuation read(YormlContextForRead context, YormlConverter converter, Map<Object,Object> blackboard) {
         YormlSerializerWorker worker;
         try {
-            worker = workerType.newInstance();
+            worker = newWorker();
         } catch (Exception e) { throw Exceptions.propagate(e); }
         worker.initRead(context, converter, blackboard);
         return worker.read();
@@ -129,7 +125,7 @@ public class YormlSerializerComposition implements YormlSerializer {
     public YormlContinuation write(YormlContextForWrite context, YormlConverter converter, Map<Object,Object> blackboard) {
         YormlSerializerWorker worker;
         try {
-            worker = workerType.newInstance();
+            worker = newWorker();
         } catch (Exception e) { throw Exceptions.propagate(e); }
         worker.initWrite(context, converter, blackboard);
         return worker.write();

@@ -18,13 +18,20 @@
  */
 package org.apache.brooklyn.util.yorml;
 
+import org.apache.brooklyn.util.guava.Maybe;
+
 public interface YormlTypeRegistry {
 
+    /** Absent if unknown type; throws if type is ill-defined or incomplete. */
+    Maybe<Object> newInstanceMaybe(String type, Yorml yorml);
+    
     Object newInstance(String type, Yorml yorml);
     
     Class<?> getJavaType(String typeName);
     
     String getTypeName(Object obj);
     <T> String getTypeNameOfClass(Class<T> type);
+
+    Iterable<YormlSerializer> getAllSerializers(String expectedType);
     
 }
