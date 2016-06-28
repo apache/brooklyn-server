@@ -158,11 +158,11 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
                         waitForConfigKey(BrooklynConfigKeys.INSTALL_LATCH);
                         install();
                     }});
-                }
 
-                DynamicTasks.queue("post-install-command", new Runnable() { public void run() {
-                    runPostInstallCommand();
-                }});
+                    DynamicTasks.queue("post-install-command", new Runnable() { public void run() {
+                        runPostInstallCommand();
+                    }});
+                }
             }});
 
             DynamicTasks.queue("customize", new Runnable() { public void run() {
