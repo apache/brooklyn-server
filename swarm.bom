@@ -210,25 +210,46 @@ brooklyn.catalog:
                 brooklyn.config:
                   launch.latch: $brooklyn:entity("swarm-manager").attributeWhenReady("service.isUp")
 
+
+  - id: docker-engine-with-discovery
+    name: Docker Engine with TLS and discovery
+    description: |
+      A docker-engine customised with TLS and Discovery endpoint
+    itemType: entity
+    item:
+      type: docker-engine-tls
+      brooklyn.config:
+        docker.discovery.tlsoptions:
+          $brooklyn:formatString:
+          - >-
+            --cluster-store-opt "kv.cacertfile=%1$s/.certs/ca.pem"
+            --cluster-store-opt "kv.certfile=%1$s/.certs/cert.pem"
+            --cluster-store-opt "kv.keyfile=%1$s/.certs/key.pem"
+          - $brooklyn:attributeWhenReady("install.dir")
+        docker.discovery.advertise:
+          $brooklyn:formatString:
+          - >-
+            --cluster-advertise %s
+            --cluster-store %s
+          - $brooklyn:attributeWhenReady("docker.endpoint")
+          - $brooklyn:config("docker.discovery.url")
+        docker.additionaloptions.docker-engine-with-discovery:
+          $brooklyn:formatString:
+          - "%s %s %s"
+          - $brooklyn:config("docker.additionaloptions.docker-engine-tls")
+          - $brooklyn:config("docker.discovery.tlsoptions")
+          - $brooklyn:config("docker.discovery.advertise")
+        docker.additionaloptions: $brooklyn:config("docker.additionaloptions.docker-engine-with-discovery")
+
   - id: docker-swarm-node
     name: "Docker Swarm Node"
     description:  |
       A Docker Swarm member node
     itemType: entity
     item:
-      type: docker-engine-tls
+      type: docker-engine-with-discovery
 
       brooklyn.config:
-        docker.discovery.tlsoptions:
-          $brooklyn:formatString:
-          - "--cluster-store-opt \"kv.cacertfile=%1$s/.certs/ca.pem\"  --cluster-store-opt \"kv.certfile=%1$s/.certs/cert.pem\"  --cluster-store-opt \"kv.keyfile=%1$s/.certs/key.pem\""
-          - $brooklyn:attributeWhenReady("install.dir")
-        docker.additionaloptions:
-          $brooklyn:formatString:
-          - "%s %s"
-          - $brooklyn:config("docker.tlsoptions")
-          - $brooklyn:config("docker.discovery.tlsoptions")
-
         shell.env:
           SWARM_DISCOVERY_URL: $brooklyn:config("swarm.discovery.url")
 
@@ -256,7 +277,7 @@ brooklyn.catalog:
     description:  The Swarm manager engine for running Docker containers
     itemType: entity
     item:
-      type: docker-engine-tls
+      type: docker-engine-with-discovery
 
       brooklyn.parameters:
         - name: swarm.port
@@ -280,16 +301,6 @@ brooklyn.catalog:
           default: 0.0.0.0
 
       brooklyn.config:
-        docker.discovery.tlsoptions:
-          $brooklyn:formatString:
-          - "--cluster-store-opt \"kv.cacertfile=%1$s/.certs/ca.pem\"  --cluster-store-opt \"kv.certfile=%1$s/.certs/cert.pem\"  --cluster-store-opt \"kv.keyfile=%1$s/.certs/key.pem\""
-          - $brooklyn:attributeWhenReady("install.dir")
-        docker.additionaloptions:
-          $brooklyn:formatString:
-          - "%s %s"
-          - $brooklyn:config("docker.tlsoptions")
-          - $brooklyn:config("docker.discovery.tlsoptions")
-
         shell.env:
           SWARM_DISCOVERY_URL: $brooklyn:config("swarm.discovery.url")
           # parent() has a parameter for swarm.defaultnetwork with a default value
