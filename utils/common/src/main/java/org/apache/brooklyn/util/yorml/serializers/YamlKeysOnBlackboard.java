@@ -20,12 +20,10 @@ package org.apache.brooklyn.util.yorml.serializers;
 
 import java.util.Map;
 
-import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.yorml.YormlContext;
 import org.apache.brooklyn.util.yorml.YormlException;
 import org.apache.brooklyn.util.yorml.YormlRequirement;
-
-import com.google.common.annotations.Beta;
 
 /** Keys from a YAML map that still need to be handled */
 public class YamlKeysOnBlackboard implements YormlRequirement {
@@ -38,8 +36,12 @@ public class YamlKeysOnBlackboard implements YormlRequirement {
     public static YamlKeysOnBlackboard peek(Map<Object,Object> blackboard) {
         return (YamlKeysOnBlackboard) blackboard.get(KEY);
     }
-    public static YamlKeysOnBlackboard getOrCreate(Map<Object,Object> blackboard) {
-        if (!isPresent(blackboard)) { blackboard.put(KEY, new YamlKeysOnBlackboard()); }
+    public static YamlKeysOnBlackboard getOrCreate(Map<Object,Object> blackboard, Map<Object,Object> keys) {
+        if (!isPresent(blackboard)) { 
+            YamlKeysOnBlackboard ykb = new YamlKeysOnBlackboard();
+            blackboard.put(KEY, ykb);
+            ykb.yamlKeysToReadToJava = MutableMap.copyOf(keys);
+        }
         return peek(blackboard);
     }
     public static YamlKeysOnBlackboard create(Map<Object,Object> blackboard) {
@@ -58,16 +60,4 @@ public class YamlKeysOnBlackboard implements YormlRequirement {
         }
     }
     
-    /** true iff k1 and k2 are case-insensitively equal after removing all - and _.
-     * Note that the definition of mangling may change.
-     * TODO it should be stricter so that "ab" and "a-b" don't match but "aB" and "a-b" and "a_b" do */
-    @Beta
-    public static boolean mangleable(String k1, String k2) {
-        if (k1==null || k2==null) return k1==k2;
-        k1 = Strings.replaceAllNonRegex(k1, "-", "");
-        k1 = Strings.replaceAllNonRegex(k1, "_", "");
-        k2 = Strings.replaceAllNonRegex(k2, "-", "");
-        k2 = Strings.replaceAllNonRegex(k2, "_", "");
-        return k1.toLowerCase().equals(k2.toLowerCase());
-    }
 }

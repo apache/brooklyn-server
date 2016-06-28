@@ -126,6 +126,12 @@ public class YormlBasicTests {
         write("hello").assertResult("{ type: string, value: hello }").
         read("{ type: string, value: hello }", null).assertResult("hello");
     }
+    @Test
+    public void testIntPrimitiveWhereTypeUnknown() {
+        YormlTestFixture.newInstance().
+        write(42).assertResult("{ type: int, value: 42 }").
+        read("{ type: int, value: 42 }", null).assertResult(42);
+    }
 
     @Test
     public void testRegisteredType() {

@@ -31,6 +31,7 @@ import org.apache.brooklyn.util.yorml.YormlContextForWrite;
 import org.apache.brooklyn.util.yorml.YormlSerializer;
 import org.apache.brooklyn.util.yorml.internal.YormlConfig;
 import org.apache.brooklyn.util.yorml.internal.YormlConverter;
+import org.apache.brooklyn.util.yorml.internal.YormlUtils;
 
 public abstract class YormlSerializerComposition implements YormlSerializer {
 
@@ -104,9 +105,11 @@ public abstract class YormlSerializerComposition implements YormlSerializer {
             if (expectedType!=null && !expectedType.isInstance(v)) return Maybe.absent();
             return Maybe.of((T)v);
         }
-        protected void removeFromYamlKeysOnBlackboard(String key) {
+        protected void removeFromYamlKeysOnBlackboard(String ...keys) {
             YamlKeysOnBlackboard ykb = YamlKeysOnBlackboard.peek(blackboard);
-            ykb.yamlKeysToReadToJava.remove(key);
+            for (String key: keys) {
+                ykb.yamlKeysToReadToJava.remove(key);
+            }
         }
         /** looks for all keys in {@link YamlKeysOnBlackboard} which can be mangled/ignore-case 
          * to match the given key */
@@ -114,7 +117,7 @@ public abstract class YormlSerializerComposition implements YormlSerializer {
             Set<String> result = MutableSet.of();
             YamlKeysOnBlackboard ykb = YamlKeysOnBlackboard.peek(blackboard);
             for (Object k: ykb.yamlKeysToReadToJava.keySet()) {
-                if (k instanceof String && YamlKeysOnBlackboard.mangleable(targetKey, (String)k)) {
+                if (k instanceof String && YormlUtils.mangleable(targetKey, (String)k)) {
                     result.add((String)k);
                 }
             }

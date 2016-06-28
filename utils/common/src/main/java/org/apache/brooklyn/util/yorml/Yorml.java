@@ -24,7 +24,9 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.yorml.internal.YormlConfig;
 import org.apache.brooklyn.util.yorml.internal.YormlConverter;
 import org.apache.brooklyn.util.yorml.serializers.FieldsInMapUnderFields;
-import org.apache.brooklyn.util.yorml.serializers.InstantiateType;
+import org.apache.brooklyn.util.yorml.serializers.InstantiateTypeFromRegistry;
+import org.apache.brooklyn.util.yorml.serializers.InstantiateTypeList;
+import org.apache.brooklyn.util.yorml.serializers.InstantiateTypePrimitive;
 
 
 public class Yorml {
@@ -40,15 +42,21 @@ public class Yorml {
     public static Yorml newInstance(YormlTypeRegistry typeRegistry) {
         return newInstance(typeRegistry, MutableList.<YormlSerializer>of(
             new FieldsInMapUnderFields(),
-            new InstantiateType() ));
+            new InstantiateTypePrimitive(),
+            new InstantiateTypeList(),
+            new InstantiateTypeFromRegistry() ));
     }
     
-    public static Yorml newInstance(YormlTypeRegistry typeRegistry, List<YormlSerializer> serializers) {
+    private static Yorml newInstance(YormlTypeRegistry typeRegistry, List<YormlSerializer> serializers) {
         YormlConfig config = new YormlConfig();
         config.typeRegistry = typeRegistry;
         config.serializersPost.addAll(serializers);
         
         return new Yorml(config);
+    }
+    
+    public YormlConfig getConfig() {
+        return config;
     }
     
     public Object read(String yaml) {

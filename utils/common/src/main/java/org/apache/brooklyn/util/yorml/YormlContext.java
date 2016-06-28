@@ -45,6 +45,8 @@ public abstract class YormlContext {
         String MANIPULATING = "manipulating";
         String HANDLING_TYPE = "handling-type";
         String HANDLING_FIELDS = "handling-fields";
+        String MANIPULATING_FROM_LIST = "manipulating-from-list";
+        String MANIPULATING_TO_LIST = "manipulating-to-list";
     }
     
     public YormlContext(String jsonPath, String expectedType) {

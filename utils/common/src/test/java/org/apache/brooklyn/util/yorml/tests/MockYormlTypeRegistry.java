@@ -34,6 +34,7 @@ import org.apache.brooklyn.util.yaml.Yamls;
 import org.apache.brooklyn.util.yorml.Yorml;
 import org.apache.brooklyn.util.yorml.YormlSerializer;
 import org.apache.brooklyn.util.yorml.YormlTypeRegistry;
+import org.apache.brooklyn.util.yorml.internal.YormlUtils;
 
 import com.google.common.collect.Iterables;
 
@@ -92,9 +93,11 @@ public class MockYormlTypeRegistry implements YormlTypeRegistry {
         if (result==null && registeredType!=null) result = registeredType.javaType;
         if (result==null && registeredType!=null) result = getJavaType(registeredType.parentType);
         
-        if (result==null) result = Boxing.getPrimitiveType(typeName).orNull();
-        if (result==null) result = Boxing.getPrimitiveType(typeName).orNull();
-        if (result==null && "string".equals(typeName)) result = String.class;
+        if (result==null && typeName==null) return null;
+        
+        if (result==null) result = Boxing.boxedType(Boxing.getPrimitiveType(typeName).orNull());
+        if (result==null && YormlUtils.TYPE_STRING.equals(typeName)) result = String.class;
+        
         if (result==null && typeName.startsWith("java:")) {
             typeName = Strings.removeFromStart(typeName, "java:");
             try {

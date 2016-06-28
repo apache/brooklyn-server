@@ -518,8 +518,8 @@ to be shown.
 
 ### TODO
 
-* Config/data keys
 * maps and lists, with generics
+* Config/data keys
 * complex syntax, type as key, etc
 
 * defining serializers and linking to brooklyn
