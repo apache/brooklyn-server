@@ -1,0 +1,5 @@
+brooklyn.catalog:
+  items:
+  - classpath://docker/ca.bom
+  - classpath://docker/docker.bom
+  - classpath://docker/swarm.bom

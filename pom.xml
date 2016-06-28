@@ -84,6 +84,7 @@
 
     <modules>
         <module>docker-location</module>
+        <module>catalog</module>
     </modules>
 
     <build>
