@@ -69,6 +69,9 @@ brooklyn.catalog:
             k1: v1
             k2: v2
             some weird key: multi space var
+          docker.run.additionaloptions: >-
+            --label "additional=option"
+            
           my.server.port: 1234
 
       - type: test-case
@@ -111,6 +114,24 @@ brooklyn.catalog:
               ACTUAL=$(docker inspect --format "{{ .Config.Env }}"  ${CONTAINER_ID})
               echo "ACTUAL=$ACTUAL"
               [ "${ACTUAL}" = "[k1=v1 k2=v2 some weird key=multi space var]" ]
+        - type: ssh-test
+          name: TEST default restart policy applied
+          brooklyn.config:
+            env:
+              CONTAINER_ID: $brooklyn:entity("docker-vm-entity-run-options").attributeWhenReady("container.id")
+            command: |
+              ACTUAL=$(docker inspect --format "{{ .HostConfig.RestartPolicy.Name }}" ${CONTAINER_ID})
+              echo "ACTUAL=$ACTUAL"
+              [ "${ACTUAL}" = "unless-stopped" ]
+        - type: ssh-test
+          name: TEST Additional Options
+          brooklyn.config:
+            env:
+              CONTAINER_ID: $brooklyn:entity("docker-vm-entity-run-options").attributeWhenReady("container.id")
+            command: |
+              ACTUAL=$(docker inspect --format "{{ .Config.Labels.additional }}" ${CONTAINER_ID})
+              echo "ACTUAL=$ACTUAL"
+              [ "${ACTUAL}" = "option" ]
         - type: test-reachable
           brooklyn.config:
             endpoint:
@@ -185,6 +206,7 @@ brooklyn.catalog:
             timeout: $brooklyn:config("timeout.initialStartup")
   - id: docker-vm-container-tests
     item:
+      name: Docker VM Wrapper tests
       type: org.apache.brooklyn.entity.stock.BasicApplication
       brooklyn.children:
       - type: docker-vm-container-happy-test
@@ -193,7 +215,7 @@ brooklyn.catalog:
       #- type: docker-vm-container-exits-test
 
   - id: docker-preinstall-tests
-    name: Preinstalled image tests
+    name: Preinstalled Image Tests
     description: Tests of pre-installed Docker image
     itemType: entity
     item:
@@ -255,12 +277,6 @@ brooklyn.catalog:
       - type: docker-engine-and-container-test
         name: Test Docker with Container
         targetId: docker-engine-with-centos
-
-      - type: docker-preinstall-tests
-        name: Preinstalled Image Tests
-        
-      - type: docker-vm-container-tests
-        name: Docker VM Wrapper tests
 
   - id: docker-engine-tls-tests
     name: Docker Engine Tests with TLS

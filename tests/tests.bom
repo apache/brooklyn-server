@@ -22,3 +22,6 @@ brooklyn.catalog:
           - type: docker-engine-tests
           - type: docker-engine-tls-tests
           - type: docker-swarm-tests
+          - type: docker-preinstall-tests
+          - type: docker-vm-container-tests
+

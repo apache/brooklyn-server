@@ -403,6 +403,14 @@ brooklyn.catalog:
 #          type: java.util.Map
 #          description: |
 #            Map of environment variables to pass to the container
+#        - name: docker.restart
+#          label: Restart policy
+#          description: |
+#            Restart policy on the container. One of no, on-failure[:max-retries], always, unless-stopped\
+#        - name: docker.run.additionaloptions
+#          label: Run command additional options
+#          description: |
+#            Additional options to pass to the "docker run" command
 
       brooklyn.config:
         defaultDisplayName:
@@ -414,11 +422,15 @@ brooklyn.catalog:
         docker.run.arguments: 
         docker.run.volumes: 
         docker.run.env:
+        docker.restart:
+        docker.run.additionaloptions:
         shell.env:
           DOCKER_IMAGE: $brooklyn:config("docker.image")
           DOCKER_RUN_ARGUMENTS: $brooklyn:config("docker.run.arguments")
           DOCKER_RUN_VOLUMES: $brooklyn:config("docker.run.volumes")
           DOCKER_RUN_ENV: $brooklyn:config("docker.run.env")
+          DOCKER_RESTART: $brooklyn:config("docker.restart")
+          DOCKER_RUN_ADDITIONAL_OPTIONS: $brooklyn:config("docker.run.additionaloptions")
 
         pre.install.command: |
           sudo yum -y install epel-release
@@ -443,6 +455,8 @@ brooklyn.catalog:
           DOCKER="docker run -d --cidfile \"${PID_FILE}\" --net=host"
           [ "${DOCKER_RUN_VOLUMES}" ] && DOCKER="${DOCKER} $( parse_docker_volumes )"
           [ "${DOCKER_RUN_ENV}" ] && DOCKER="${DOCKER} $( parse_docker_env )"
+          DOCKER="${DOCKER} --restart=${DOCKER_RESTART:-unless-stopped}"
+          [ "${DOCKER_RUN_ADDITIONAL_OPTIONS}" ] && DOCKER="${DOCKER} ${DOCKER_RUN_ADDITIONAL_OPTIONS}"
           DOCKER="${DOCKER} \"${DOCKER_IMAGE}\""
           [ "${DOCKER_RUN_ARGUMENTS}" ] && DOCKER="${DOCKER} ${DOCKER_RUN_ARGUMENTS}"
           echo "${DOCKER}"

@@ -184,6 +184,43 @@ brooklyn.catalog:
               docker rm -f TEST_7_2_LOAD_1
               docker rm -f TEST_7_2_LOAD_2
 
+  - id: test-swarm-restart
+    name: Restart Swarm member (node/manager)
+    item:
+      type: test-case
+      brooklyn.children:
+      - type: ssh-cmd-restart
+      - type: assert-failed
+      - type: assert-up
+  - id: test-swarm-node-restart
+    name: Restart all Swarm nodes
+    item:
+      type: test-case
+      brooklyn.children:
+      - type: loop-test-case
+        brooklyn.config:
+          targetId: docker-swarm-nodes
+          test.spec:
+            $brooklyn:entitySpec:
+              type: test-swarm-restart
+              name: Restart Swarm node
+      - type: test-swarm-restart
+        name: Restart Swarm Manager
+        brooklyn.config:
+          targetId: swarm-manager
+      - type: ssh-test
+        name: Assert Healthy Swarm
+        brooklyn.config:
+          targetId: swarm-client
+          command:
+            $brooklyn:formatString:
+              - |
+                NODE_CNT=$(docker info | grep "Nodes:")
+                echo "${NODE_CNT}"
+                [ "${NODE_CNT}" = "Nodes: %d" ]
+              - $brooklyn:entity("docker-swarm-nodes").attributeWhenReady("group.members.count")
+
+
   - id: docker-swarm-tests
     name: Docker Swarm Tests
     description: |
@@ -270,3 +307,6 @@ brooklyn.catalog:
             name: "TEST-8 Test Swarm Etcd TLS"
             brooklyn.config:
               targetId: swarm-manager
+
+          - type: test-swarm-node-restart
+            name: "TEST-9 Test Swarm node restart"

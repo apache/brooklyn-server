@@ -304,6 +304,7 @@ brooklyn.catalog:
         post.launch.command: |
           docker run -d --name swarm-${HOST_NAME} \
             -v ${INSTALL_DIR}/.certs:/certs:ro \
+            --restart unless-stopped \
             swarm join --addr=${DOCKER_ENDPOINT} \
               --discovery-opt kv.cacertfile="/certs/ca.pem" \
               --discovery-opt kv.certfile="/certs/cert.pem" \
@@ -359,6 +360,7 @@ brooklyn.catalog:
           echo "[CLOCKER] Launch Swarm manager"
           docker run -d -p ${SWARM_PORT}:${SWARM_PORT} \
             -v ${INSTALL_DIR}/.certs:/certs:ro --name manager-${HOST_NAME} \
+            --restart unless-stopped \
             swarm manage --tlsverify --tlscacert=/certs/ca.pem --tlscert=/certs/cert.pem --tlskey=/certs/key.pem \
               --host=0.0.0.0:${SWARM_PORT} \
               --discovery-opt kv.cacertfile="/certs/ca.pem" \
