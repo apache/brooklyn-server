@@ -23,9 +23,13 @@ import static org.testng.Assert.assertTrue;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -259,4 +263,41 @@ public class ReflectionsTest {
         Assert.assertEquals(Reflections.getFieldValueMaybe(f2, FF1.class.getCanonicalName()+"."+"x").get(), 1);
     }
 
+    @SuppressWarnings("rawtypes")
+    static class MM1 {
+        public void foo(List l) {}
+        @SuppressWarnings("unused")
+        private void bar(List l) {}
+    }
+
+    @SuppressWarnings("rawtypes")
+    static class MM2 extends MM1 {
+        public void foo(ArrayList l) {}
+    }
+
+    @Test
+    public void testFindMethods() {
+        Asserts.assertSize(Reflections.findMethodsCompatible(MM2.class, "foo", ArrayList.class), 2);
+        Asserts.assertSize(Reflections.findMethodsCompatible(MM2.class, "foo", List.class), 1);
+        Asserts.assertSize(Reflections.findMethodsCompatible(MM2.class, "foo", Object.class), 0);
+        Asserts.assertSize(Reflections.findMethodsCompatible(MM2.class, "foo", Map.class), 0);
+        Asserts.assertSize(Reflections.findMethodsCompatible(MM2.class, "bar", List.class), 1);
+        Asserts.assertSize(Reflections.findMethodsCompatible(MM1.class, "bar", ArrayList.class), 1);
+    }
+
+    @Test
+    public void testFindMethod() {
+        Asserts.assertTrue(Reflections.findMethodMaybe(MM2.class, "foo", ArrayList.class).isPresent());
+        Asserts.assertTrue(Reflections.findMethodMaybe(MM2.class, "foo", List.class).isPresent());
+        Asserts.assertTrue(Reflections.findMethodMaybe(MM2.class, "foo", Object.class).isAbsent());
+        Asserts.assertTrue(Reflections.findMethodMaybe(MM2.class, "bar", List.class).isPresent());
+        Asserts.assertTrue(Reflections.findMethodMaybe(MM2.class, "bar", ArrayList.class).isAbsent());
+    }
+    
+    @Test
+    public void testHasSerializableMethods() {
+        Asserts.assertFalse(Reflections.hasSpecialSerializationMethods(MM2.class));
+        Asserts.assertTrue(Reflections.hasSpecialSerializationMethods(LinkedHashMap.class));
+    }
+    
 }

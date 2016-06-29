@@ -73,6 +73,11 @@ public class InstantiateTypeFromRegistry extends YormlSerializerComposition {
             if (!hasJavaObject()) return;
             if (JavaFieldsOnBlackboard.isPresent(blackboard)) return;
             
+            if (Reflections.hasSpecialSerializationMethods(getJavaObject().getClass())) {
+                warn("Cannot write "+getJavaObject().getClass()+" using default strategy as it has custom serializaton methods");
+                return;
+            }
+            
             // common primitives and maps/lists will have been handled
             // TODO support osgi
             

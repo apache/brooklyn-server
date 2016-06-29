@@ -60,9 +60,7 @@ public class FieldsInMapUnderFields extends YormlSerializerComposition {
                             // as above
                         } else {
                             String fieldType = config.getTypeRegistry().getTypeNameOfClass(ff.getType());
-                            YormlContextForRead subcontext = new YormlContextForRead(context.getJsonPath()+"/"+f, fieldType);
-                            subcontext.setYamlObject(v);
-                            Object v2 = converter.read(subcontext);
+                            Object v2 = converter.read( new YormlContextForRead(v, context.getJsonPath()+"/"+f, fieldType) );
                             
                             ff.setAccessible(true);
                             ff.set(getJavaObject(), v2);
@@ -100,10 +98,7 @@ public class FieldsInMapUnderFields extends YormlSerializerComposition {
                     } else {
                         Field ff = Reflections.findFieldMaybe(getJavaObject().getClass(), f).get();
                         String fieldType = config.getTypeRegistry().getTypeNameOfClass(ff.getType());
-                        YormlContextForWrite subcontext = new YormlContextForWrite(context.getJsonPath()+"/"+f, fieldType);
-                        subcontext.setJavaObject(v.get());
-                        
-                        Object v2 = converter.write(subcontext);
+                        Object v2 = converter.write(new YormlContextForWrite(v.get(), context.getJsonPath()+"/"+f, fieldType) );
                         fields.put(f, v2);
                     }
                 }

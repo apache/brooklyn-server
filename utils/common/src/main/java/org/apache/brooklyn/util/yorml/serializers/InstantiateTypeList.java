@@ -30,6 +30,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.yorml.Yorml;
 import org.apache.brooklyn.util.yorml.YormlContext;
 import org.apache.brooklyn.util.yorml.YormlContextForRead;
@@ -66,13 +67,13 @@ public class InstantiateTypeList extends YormlSerializerComposition {
     private static final String SET = YormlUtils.TYPE_SET;
     
     @SuppressWarnings("rawtypes")
-    Map<String,Class<? extends Collection>> basicCollectionTypes = MutableMap.<String,Class<? extends Collection>>of(
+    Map<String,Class<? extends Collection>> typeAliases = MutableMap.<String,Class<? extends Collection>>of(
         LIST, MutableList.class,
         SET, MutableSet.class
     );
     
     @SuppressWarnings("rawtypes")
-    Map<Class<? extends Collection>, String> typesMappedToBasic = MutableMap.<Class<? extends Collection>,String>of(
+    Map<Class<? extends Collection>, String> typesAliased = MutableMap.<Class<? extends Collection>,String>of(
         MutableList.class, LIST,
         ArrayList.class, LIST,
         List.class, LIST,
@@ -82,7 +83,7 @@ public class InstantiateTypeList extends YormlSerializerComposition {
     );
     
     @SuppressWarnings("rawtypes")
-    Set<Class<? extends Collection>> typesAllowedAsCollections = MutableSet.<Class<? extends Collection>>of(
+    Set<Class<? extends Collection>> typesAllowed = MutableSet.<Class<? extends Collection>>of(
         // TODO does anything fit this category? we serialize as a json list, including the type, and use xxx.add(...) to read in
     );
     
@@ -110,8 +111,10 @@ public class InstantiateTypeList extends YormlSerializerComposition {
                 } else {
                     // but we have a collection
                     // spawn manipulate-convert-from-list phase
-                    context.phaseInsert(YormlContext.StandardPhases.MANIPULATING_FROM_LIST, YormlContext.StandardPhases.HANDLING_TYPE);
-                    context.phaseAdvance();
+                    if (!context.seenPhase(YormlContext.StandardPhases.MANIPULATING_FROM_LIST)) {
+                        context.phaseInsert(YormlContext.StandardPhases.MANIPULATING_FROM_LIST, YormlContext.StandardPhases.HANDLING_TYPE);
+                        context.phaseAdvance();
+                    }
                     return;
                 }
             } else if (!(yo instanceof Iterable)) {
@@ -144,8 +147,10 @@ public class InstantiateTypeList extends YormlSerializerComposition {
                 }
                 if (expectedJavaType!=null) {
                     // collection definitely expected but not received
-                    context.phaseInsert(YormlContext.StandardPhases.MANIPULATING_TO_LIST, YormlContext.StandardPhases.HANDLING_TYPE);
-                    context.phaseAdvance();
+                    if (!context.seenPhase(YormlContext.StandardPhases.MANIPULATING_TO_LIST)) {
+                        context.phaseInsert(YormlContext.StandardPhases.MANIPULATING_TO_LIST, YormlContext.StandardPhases.HANDLING_TYPE);
+                        context.phaseAdvance();
+                    }
                     return;
                 }
                 // otherwise standard InstantiateType will do it
@@ -186,7 +191,7 @@ public class InstantiateTypeList extends YormlSerializerComposition {
                     genericSubType = Iterables.getOnlyElement(gp.subTypes);
                 }
                 if (expectedJavaType==null) {
-                    expectedJavaType = basicCollectionTypes.get(gp.baseType);
+                    expectedJavaType = typeAliases.get(gp.baseType);
                 }
             }
             return true;
@@ -200,7 +205,7 @@ public class InstantiateTypeList extends YormlSerializerComposition {
                     return null;
                 }
                 
-                Class<?> locallyWantedType = basicCollectionTypes.get(gp.baseType);
+                Class<?> locallyWantedType = typeAliases.get(gp.baseType);
                 
                 if (locallyWantedType==null) {
                     // rely on type registry
@@ -232,7 +237,7 @@ public class InstantiateTypeList extends YormlSerializerComposition {
             Class<?> concreteJavaType = null;
             if (javaType==null || javaType.isInterface() || Modifier.isAbstract(javaType.getModifiers())) {
                 // take first from default types that matches
-                for (Class<?> candidate : basicCollectionTypes.values()) {
+                for (Class<?> candidate : typeAliases.values()) {
                     if (javaType==null || javaType.isAssignableFrom(candidate)) {
                         concreteJavaType = candidate;
                         break;
@@ -267,9 +272,7 @@ public class InstantiateTypeList extends YormlSerializerComposition {
             int index = 0;
             
             for (Object yi: yo) {
-                YormlContextForRead subcontext = new YormlContextForRead(context.getJsonPath()+"["+index+"]", genericSubType);
-                subcontext.setYamlObject(yi);
-                jo.add(converter.read(subcontext));
+                jo.add(converter.read( new YormlContextForRead(yi, context.getJsonPath()+"["+index+"]", genericSubType) ));
 
                 index++;
             }
@@ -277,7 +280,6 @@ public class InstantiateTypeList extends YormlSerializerComposition {
 
         public void write() {
             if (!canDoWrite()) return;
-            if (!(getJavaObject() instanceof Iterable)) return;
             
             boolean isPureJson = YormlUtils.JsonMarker.isPureJson(getJavaObject());
             
@@ -287,7 +289,10 @@ public class InstantiateTypeList extends YormlSerializerComposition {
                     warn("Cannot write "+getJavaObject()+" as pure JSON");
                     return;
                 }
-                storeWriteObjectAndAdvance(getJavaObject());
+                @SuppressWarnings("unchecked")
+                Collection<Object> l = Reflections.invokeConstructorFromArgsIncludingPrivate(typesAliased.keySet().iterator().next()).get();
+                Iterables.addAll(l, (Iterable<?>)getJavaObject());
+                storeWriteObjectAndAdvance(l);
                 return;                    
             }
             
@@ -305,16 +310,17 @@ public class InstantiateTypeList extends YormlSerializerComposition {
                 genericSubType = Iterables.getOnlyElement(gp.subTypes);
             }
             if (expectedJavaType==null) {
-                expectedJavaType = basicCollectionTypes.get(gp.baseType);
+                expectedJavaType = typeAliases.get(gp.baseType);
             }
 
-            String actualTypeName = typesMappedToBasic.get(getJavaObject().getClass());
+            String actualTypeName = typesAliased.get(getJavaObject().getClass());
             boolean isBasicCollectionType = (actualTypeName!=null);
             if (actualTypeName==null) actualTypeName = config.getTypeRegistry().getTypeName(getJavaObject());
             if (actualTypeName==null) return;
-            boolean isAllowedCollectionType = isBasicCollectionType || typesAllowedAsCollections.contains(getJavaObject().getClass());
+            boolean isAllowedCollectionType = isBasicCollectionType || typesAllowed.contains(getJavaObject().getClass());
+            if (!isAllowedCollectionType) return;
             
-            Class<?> reconstructedJavaType = basicCollectionTypes.get(actualTypeName);
+            Class<?> reconstructedJavaType = typeAliases.get(actualTypeName);
             if (reconstructedJavaType==null) reconstructedJavaType = getJavaObject().getClass();
             
             Object result;
@@ -323,7 +329,7 @@ public class InstantiateTypeList extends YormlSerializerComposition {
             boolean writeWithoutTypeInformation = Objects.equal(reconstructedJavaType, expectedJavaType);
             if (!writeWithoutTypeInformation) {
                 @SuppressWarnings("rawtypes")
-                Class<? extends Collection> defaultCollectionType = basicCollectionTypes.isEmpty() ? null : basicCollectionTypes.values().iterator().next();
+                Class<? extends Collection> defaultCollectionType = typeAliases.isEmpty() ? null : typeAliases.values().iterator().next();
                 if (Objects.equal(reconstructedJavaType, defaultCollectionType)) {
                     // actual type is the default - typically can omit saying the type
                     if (context.getExpectedType()==null) writeWithoutTypeInformation = true;
@@ -358,10 +364,7 @@ public class InstantiateTypeList extends YormlSerializerComposition {
 
             int index = 0;
             for (Object ji: (Iterable<?>)getJavaObject()) {
-                YormlContextForWrite subcontext = new YormlContextForWrite(context.getJsonPath()+"["+index+"]", genericSubType);
-                subcontext.setJavaObject(ji);
-                list.add(converter.write(subcontext));
-
+                list.add(converter.write( new YormlContextForWrite(ji, context.getJsonPath()+"["+index+"]", genericSubType) ));
                 index++;
             }
             

@@ -70,6 +70,7 @@ public class YormlUtils {
                     if (!(oi.getKey() instanceof String)) return false;
                     if (!isPureJson(oi.getValue())) return false;
                 }
+                return true;
             }
             return false;
         } 

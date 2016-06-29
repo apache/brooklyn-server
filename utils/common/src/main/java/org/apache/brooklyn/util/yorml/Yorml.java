@@ -26,6 +26,7 @@ import org.apache.brooklyn.util.yorml.internal.YormlConverter;
 import org.apache.brooklyn.util.yorml.serializers.FieldsInMapUnderFields;
 import org.apache.brooklyn.util.yorml.serializers.InstantiateTypeFromRegistry;
 import org.apache.brooklyn.util.yorml.serializers.InstantiateTypeList;
+import org.apache.brooklyn.util.yorml.serializers.InstantiateTypeMap;
 import org.apache.brooklyn.util.yorml.serializers.InstantiateTypePrimitive;
 
 
@@ -44,6 +45,7 @@ public class Yorml {
             new FieldsInMapUnderFields(),
             new InstantiateTypePrimitive(),
             new InstantiateTypeList(),
+            new InstantiateTypeMap(),
             new InstantiateTypeFromRegistry() ));
     }
     
@@ -66,20 +68,14 @@ public class Yorml {
         return readFromYamlObject(new org.yaml.snakeyaml.Yaml().load(yaml), expectedType);
     }
     public Object readFromYamlObject(Object yamlObject, String type) {
-        YormlContextForRead context = new YormlContextForRead("", type);
-        context.setYamlObject(yamlObject);
-        new YormlConverter(config).read(context);
-        return context.getJavaObject();
+        return new YormlConverter(config).read( new YormlContextForRead(yamlObject, "", type) );
     }
 
     public Object write(Object java) {
         return write(java, null);
     }
     public Object write(Object java, String expectedType) {
-        YormlContextForWrite context = new YormlContextForWrite("", expectedType);
-        context.setJavaObject(java);
-        new YormlConverter(config).write(context);
-        return context.getYamlObject();
+        return new YormlConverter(config).write( new YormlContextForWrite(java, "", expectedType) );
     }
     
 //    public <T> T read(String yaml, Class<T> type) {

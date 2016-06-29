@@ -18,18 +18,20 @@
  */
 package org.apache.brooklyn.util.yorml.serializers;
 
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
-import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yorml.YormlContext;
+import org.apache.brooklyn.util.yorml.YormlContextForRead;
+import org.apache.brooklyn.util.yorml.YormlContextForWrite;
 import org.apache.brooklyn.util.yorml.YormlException;
 import org.apache.brooklyn.util.yorml.YormlRequirement;
 
 public class ReadingTypeOnBlackboard implements YormlRequirement {
 
-    List<String> errorNotes = MutableList.of();
+    Set<String> errorNotes = MutableSet.of();
 
     public static final String KEY = ReadingTypeOnBlackboard.class.getCanonicalName();
         
@@ -44,7 +46,8 @@ public class ReadingTypeOnBlackboard implements YormlRequirement {
     
     @Override
     public void checkCompletion(YormlContext context) {
-        if (context.getJavaObject()!=null) return;
+        if (context instanceof YormlContextForRead && context.getJavaObject()!=null) return;
+        if (context instanceof YormlContextForWrite && context.getYamlObject()!=null) return;
         if (errorNotes.isEmpty()) throw new YormlException("No means to identify type to instantiate", context);
         throw new YormlException(Strings.join(errorNotes, "; "), context);
     }

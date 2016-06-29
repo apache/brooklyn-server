@@ -19,11 +19,15 @@
 package org.apache.brooklyn.util.yorml.tests;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.yorml.tests.YormlBasicTests.Shape;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 /** Tests that explicit fields can be set at the outer level in yaml. */
@@ -31,27 +35,23 @@ public class MapListTests {
 
     YormlTestFixture y = YormlTestFixture.newInstance();
     
-//    String MAP1_JSON = "{ a: 1, b: bbb }";
-//    Map<String,Object> MAP1_OBJ = MutableMap.<String,Object>of("a", 1, "b", "bbb");
-//    
-//    @Test public void testReadMap() { y.read(MAP1_JSON, "json").assertResult(MAP1_OBJ); }
-//    @Test public void testWriteMap() { y.write(MAP1_OBJ, "json").assertResult(MAP1_JSON); }
-//    
-//    String MAP1_JSON_EXPLICIT_TYPE = "{ type: json, value: "+MAP1_JSON+" }";
-//    @Test public void testReadMapNoTypeExpected() { y.read(MAP1_JSON_EXPLICIT_TYPE, null).assertResult(MAP1_OBJ); }
-//    @Test public void testWriteMapNoTypeExpected() { y.write(MAP1_OBJ, null).assertResult(MAP1_JSON_EXPLICIT_TYPE); }
-//
-//    String MAP1_JSON_OBJECT_OBJECT = "[ { key: { type: string, value: a }, value: { type: int, value: 1 }, "+
-//        "{ key: { type: string, value: b }, value: { type: string, value: bbb } ]";
-//    @Test public void testReadMapVerbose() { y.read(MAP1_JSON_OBJECT_OBJECT, "map<object,object>").assertResult(MAP1_OBJ); }
-//    @Test public void testWriteMapVerbose() { y.write(MAP1_OBJ, "map<object,object>").assertResult(MAP1_JSON_OBJECT_OBJECT); }
-//
-//    String MAP1_JSON_STRING_OBJECT = "{ a: { type: int, value: 1 }, b: { type: string, value: bbb } ]";
-//    @Test public void testReadMapVerboseStringKey() { y.read(MAP1_JSON_STRING_OBJECT, "map<string,object>").assertResult(MAP1_OBJ); }
-//    @Test public void testWriteMapVerboseStringKey() { y.write(MAP1_OBJ, "map<string,object>").assertResult(MAP1_JSON_STRING_OBJECT); }
-//    @Test public void testReadMapVerboseJsonKey() { y.read(MAP1_JSON_STRING_OBJECT, "map<json,object>").assertResult(MAP1_OBJ); }
-//    @Test public void testWriteMapVerboseJsonKey() { y.write(MAP1_OBJ, "map<json,object>").assertResult(MAP1_JSON_STRING_OBJECT); }
+    String MAP1_JSON = "{ a: 1, b: bbb }";
+    Map<String,Object> MAP1_OBJ = MutableMap.<String,Object>of("a", 1, "b", "bbb");
+    
+    @Test public void testReadMap() { y.read(MAP1_JSON, "json").assertResult(MAP1_OBJ); }
+    @Test public void testWriteMap() { y.write(MAP1_OBJ, "json").assertResult(MAP1_JSON); }
+    
+    String MAP1_JSON_EXPLICIT_TYPE = "{ type: \"map<string,json>\", value: "+MAP1_JSON+" }";
+    @Test public void testReadMapNoTypeExpected() { y.read(MAP1_JSON_EXPLICIT_TYPE, null).assertResult(MAP1_OBJ); }
+    @Test public void testWriteMapNoTypeExpected() { y.write(MAP1_OBJ, null).assertResult(MAP1_JSON_EXPLICIT_TYPE); }
 
+    String MAP1_JSON_OBJECT_OBJECT = "[ { key: { type: string, value: a }, value: { type: int, value: 1 } }, "+
+        "{ key: { type: string, value: b }, value: { type: string, value: bbb } } ]";
+    @Test public void testReadMapVerbose() { y.read(MAP1_JSON_OBJECT_OBJECT, "map<object,object>").assertResult(MAP1_OBJ); }
+
+    String MAP1_JSON_STRING_OBJECT = "{ a: { type: int, value: 1 }, b: { type: string, value: bbb } }";
+    @Test public void testReadMapVerboseStringKey() { y.read(MAP1_JSON_STRING_OBJECT, "map<string,object>").assertResult(MAP1_OBJ); }
+    @Test public void testReadMapVerboseJsonKey() { y.read(MAP1_JSON_STRING_OBJECT, "map<json,object>").assertResult(MAP1_OBJ); }
     
     String LIST1_JSON = "[ a, 1, b ]";
     List<Object> LIST1_OBJ = MutableList.<Object>of("a", 1, "b");
@@ -91,9 +91,28 @@ public class MapListTests {
     @Test public void testReadSet() { y.read(SET1_JSON, "set<json>").assertResult(SET1_OBJ); }
     @Test public void testWriteSetJson() { y.write(SET1_OBJ, "json").assertResult(LIST1_JSON); }
     
+    @Test public void testReadWithShape() {
+        y.tr.put("shape", Shape.class);
+        Shape shape = new Shape().name("my-shape");
+        
+        Map<String,Object> m1 = MutableMap.<String,Object>of("k1", shape);
+        String MAP_W_SHAPE = "{ k1: { type: shape, fields: { name: my-shape } } }";
+        y.read(MAP_W_SHAPE, "map").assertResult(m1); 
+        y.write(m1, "map").assertResult(MAP_W_SHAPE); 
+        y.write(m1, null).assertResult("{ type: map, value: " + MAP_W_SHAPE + " }");
+        
+        Map<Object,Object> m2 = MutableMap.<Object,Object>of(shape, "v1", "k2", 2);
+        Map<Object,Object> m3 = MutableMap.<Object,Object>of(shape, "v1", "k2", 2);
+        Assert.assertEquals(m2, m3);
+        String MAP_W_SHAPE_KEY_JSON = "[ { key: { type: shape, fields: { name: my-shape } }, value: v1 }, { k2: 2 } ]";
+        String MAP_W_SHAPE_KEY_NON_GENERIC = "[ { key: { type: shape, fields: { name: my-shape } }, value: { type: string, value: v1 } }, { k2: { type: int, value: 2 } } ]";
+        y.read(MAP_W_SHAPE_KEY_JSON, "map<?,json>").assertResult(m2);
+        y.write(m2, "map<?,json>").assertResult(MAP_W_SHAPE_KEY_JSON);
+        y.write(m2, "map").assertResult(MAP_W_SHAPE_KEY_NON_GENERIC);
+    }
     
     // TODO
-    // map tests
+    // enums
     // passing generics from fields
     //   poor man: if field is compatible to mutable list or mutable set then make list<..> or set<..>
     //   rich man: registry can handle generics

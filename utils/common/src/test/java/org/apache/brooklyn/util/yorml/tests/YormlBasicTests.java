@@ -51,6 +51,8 @@ public class YormlBasicTests {
         public String toString() {
             return Objects.toStringHelper(this).add("name", name).add("color", color).omitNullValues().toString();
         }
+        @Override
+        public int hashCode() { return Objects.hashCode(name, color); }
 
         public Shape name(String name) { this.name = name; return this; }
         public Shape color(String color) { this.color = color; return this; }

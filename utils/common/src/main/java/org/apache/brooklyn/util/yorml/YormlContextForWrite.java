@@ -20,8 +20,9 @@ package org.apache.brooklyn.util.yorml;
 
 public class YormlContextForWrite extends YormlContext {
 
-    public YormlContextForWrite(String jsonPath, String expectedType) {
+    public YormlContextForWrite(Object javaObject, String jsonPath, String expectedType) {
         super(jsonPath, expectedType);
+        setJavaObject(javaObject);
     }
     
 }

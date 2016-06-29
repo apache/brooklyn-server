@@ -66,6 +66,7 @@ public abstract class YormlContext {
     public void setJavaObject(Object javaObject) {
         this.javaObject = javaObject;
     }
+    
     public Object getYamlObject() {
         return yamlObject;
     }

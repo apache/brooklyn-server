@@ -22,8 +22,9 @@ import org.apache.brooklyn.util.text.Strings;
 
 public class YormlContextForRead extends YormlContext {
 
-    public YormlContextForRead(String jsonPath, String expectedType) {
+    public YormlContextForRead(Object yamlObject, String jsonPath, String expectedType) {
         super(jsonPath, expectedType);
+        setYamlObject(yamlObject);
     }
     
     String origin;
