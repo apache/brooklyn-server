@@ -18,8 +18,6 @@
  */
 package org.apache.brooklyn.enricher.stock;
 
-import static org.testng.Assert.assertEquals;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
@@ -27,15 +25,15 @@ import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
-import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
-import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.entity.TestEntity;
 
 public class PercentageEnricherTest extends BrooklynAppUnitTestSupport {
 
@@ -69,7 +67,7 @@ public class PercentageEnricherTest extends BrooklynAppUnitTestSupport {
 
         app.sensors().set(currentSensor, 50d);
         app.sensors().set(totalSensor, 100d);
-        EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, 50d);
+        EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, 0.5d);
     }
 
     @Test
@@ -123,7 +121,7 @@ public class PercentageEnricherTest extends BrooklynAppUnitTestSupport {
 
         app.sensors().set(currentSensor, 50d);
         app.sensors().set(totalSensor, 25d);
-        EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, null);
+        EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, 2.0d);
     }
 
     @Test
@@ -132,7 +130,7 @@ public class PercentageEnricherTest extends BrooklynAppUnitTestSupport {
 
         app.sensors().set(currentSensor, 50d);
         app.sensors().set(totalSensor, 50d);
-        EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, 100d);
+        EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, 1.0d);
     }
 
     @Test
@@ -168,37 +166,80 @@ public class PercentageEnricherTest extends BrooklynAppUnitTestSupport {
 
         app.sensors().set(currentSensor, Double.MAX_VALUE);
         app.sensors().set(totalSensor, Double.MAX_VALUE);
-        EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, 100d);
+        EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, 1.0d);
     }
 
-    //SETUP TESTS
-    @Test(expectedExceptions = IllegalArgumentException.class)
+
+    @Test(expectedExceptions = NullPointerException.class)
     public void totalNoCurrentSensor() {
         app.enrichers().add(EnricherSpec.create(PercentageEnricher.class)
                 .configure(PercentageEnricher.SOURCE_TOTAL_SENSOR, totalSensor)
                 .configure(PercentageEnricher.TARGET_SENSOR, targetSensor));
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expectedExceptions = NullPointerException.class)
     public void totalNoTotalSensor() {
         app.enrichers().add(EnricherSpec.create(PercentageEnricher.class)
                 .configure(PercentageEnricher.SOURCE_CURRENT_SENSOR, currentSensor)
                 .configure(PercentageEnricher.TARGET_SENSOR, targetSensor));
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test(expectedExceptions = NullPointerException.class)
     public void totalNoTargetSensor() {
         app.enrichers().add(EnricherSpec.create(PercentageEnricher.class)
                 .configure(PercentageEnricher.SOURCE_CURRENT_SENSOR, currentSensor)
                 .configure(PercentageEnricher.SOURCE_TOTAL_SENSOR, totalSensor));
     }
 
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testTotalCycleNoProducer() {
+        app.enrichers().add(EnricherSpec.create(PercentageEnricher.class)
+                .configure(PercentageEnricher.SOURCE_CURRENT_SENSOR, currentSensor)
+                .configure(PercentageEnricher.SOURCE_TOTAL_SENSOR, totalSensor)
+                .configure(PercentageEnricher.TARGET_SENSOR, totalSensor));
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class)
+    public void testCurrentCycleNoProducer() {
+        app.enrichers().add(EnricherSpec.create(PercentageEnricher.class)
+                .configure(PercentageEnricher.SOURCE_CURRENT_SENSOR, currentSensor)
+                .configure(PercentageEnricher.SOURCE_TOTAL_SENSOR, totalSensor)
+                .configure(PercentageEnricher.TARGET_SENSOR, currentSensor));
+    }
+
+    @Test
+    public void testNoCycleDifferentProducerTotal() {
+        Entity producer = app.addChild(EntitySpec.create(TestEntity.class));
+
+        app.enrichers().add(EnricherSpec.create(PercentageEnricher.class)
+                .configure(PercentageEnricher.SOURCE_CURRENT_SENSOR, currentSensor)
+                .configure(PercentageEnricher.SOURCE_TOTAL_SENSOR, totalSensor)
+                .configure(PercentageEnricher.TARGET_SENSOR, totalSensor)
+                .configure(PercentageEnricher.PRODUCER, producer));
+
+        producer.sensors().set(currentSensor, 25d);
+        producer.sensors().set(totalSensor, 50d);
+        EntityAsserts.assertAttributeEqualsEventually(app, totalSensor, 0.5d);
+    }
+
+    @Test
+    public void testNoCycleDifferentProducerCurrent() {
+        Entity producer = app.addChild(EntitySpec.create(TestEntity.class));
+
+        app.enrichers().add(EnricherSpec.create(PercentageEnricher.class)
+                .configure(PercentageEnricher.SOURCE_CURRENT_SENSOR, currentSensor)
+                .configure(PercentageEnricher.SOURCE_TOTAL_SENSOR, totalSensor)
+                .configure(PercentageEnricher.TARGET_SENSOR, currentSensor)
+                .configure(PercentageEnricher.PRODUCER, producer));
+
+        producer.sensors().set(currentSensor, 25d);
+        producer.sensors().set(totalSensor, 50d);
+        EntityAsserts.assertAttributeEqualsEventually(app, currentSensor, 0.5d);
+    }
+
     @Test
     public void testDifferentProducer() {
-        EntitySpec<TestApplication> appSpec = EntitySpec.create(TestApplication.class)
-                .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, shouldSkipOnBoxBaseDirResolution());
-
-        TestApplication producer = mgmt.getEntityManager().createEntity(appSpec);
+        Entity producer = app.addChild(EntitySpec.create(TestEntity.class));
 
         app.enrichers().add(EnricherSpec.create(PercentageEnricher.class)
                 .configure(PercentageEnricher.SOURCE_CURRENT_SENSOR, currentSensor)
@@ -209,7 +250,7 @@ public class PercentageEnricherTest extends BrooklynAppUnitTestSupport {
 
         producer.sensors().set(currentSensor, 25d);
         producer.sensors().set(totalSensor, 50d);
-        EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, 50d);
+        EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, 0.5d);
         EntityAsserts.assertAttributeEqualsEventually(producer, targetSensor, null);
     }
 
@@ -226,7 +267,7 @@ public class PercentageEnricherTest extends BrooklynAppUnitTestSupport {
 
         app.sensors().set(currentSensor, 25l);
         app.sensors().set(totalSensor, 50l);
-        EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, 50d);
+        EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, 0.5d);
     }
 
     @Test
@@ -242,7 +283,7 @@ public class PercentageEnricherTest extends BrooklynAppUnitTestSupport {
 
         app.sensors().set(currentSensor, 25);
         app.sensors().set(totalSensor, 50);
-        EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, 50d);
+        EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, 0.5d);
     }
 
     @Test
@@ -258,7 +299,7 @@ public class PercentageEnricherTest extends BrooklynAppUnitTestSupport {
 
         app.sensors().set(currentSensor, 25f);
         app.sensors().set(totalSensor, 50f);
-        EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, 50d);
+        EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, 0.5d);
     }
 
     @Test
@@ -267,9 +308,20 @@ public class PercentageEnricherTest extends BrooklynAppUnitTestSupport {
 
         app.sensors().set(currentSensor, 50d);
         app.sensors().set(totalSensor, 100d);
-        EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, 50d);
+        EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, 0.5d);
         app.sensors().set(totalSensor, 0d);
-        EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, 50d);
+        EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, 0.5d);
+    }
+
+    @Test
+    public void validThenNull() {
+        addEnricher();
+
+        app.sensors().set(currentSensor, 50d);
+        app.sensors().set(totalSensor, 100d);
+        EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, 0.5d);
+        app.sensors().set(totalSensor, null);
+        EntityAsserts.assertAttributeEqualsEventually(app, targetSensor, 0.5d);
     }
 
 }

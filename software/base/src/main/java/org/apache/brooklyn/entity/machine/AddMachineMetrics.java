@@ -81,7 +81,8 @@ public class AddMachineMetrics implements EntityInitializer {
         entity.enrichers().add(EnricherSpec.create(PercentageEnricher.class)
                 .configure(PercentageEnricher.SOURCE_CURRENT_SENSOR, MachineAttributes.USED_MEMORY)
                 .configure(PercentageEnricher.SOURCE_TOTAL_SENSOR, MachineAttributes.TOTAL_MEMORY)
-                .configure(PercentageEnricher.TARGET_SENSOR, MachineAttributes.USED_MEMORY_PERCENT));
+                .configure(PercentageEnricher.TARGET_SENSOR, MachineAttributes.USED_MEMORY_PERCENT)
+                .configure(PercentageEnricher.SUPPRESS_DUPLICATES, true));
 
     }
 

@@ -21,6 +21,7 @@ package org.apache.brooklyn.enricher.stock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Preconditions;
 import com.google.common.reflect.TypeToken;
 
 import org.apache.brooklyn.api.entity.Entity;
@@ -30,22 +31,38 @@ import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.config.render.RendererHints;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
+import org.apache.brooklyn.util.math.MathFunctions;
 
+/**
+ * Enricher that is configured with two numerical sensors; a current and a total.
+ * The Enricher subscribes to events from these sensors, and will emit the ratio
+ * of current to total as a target sensor.
+ */
 public class PercentageEnricher extends AbstractEnricher implements SensorEventListener<Number> {
 
     private static final Logger LOG = LoggerFactory.getLogger(PercentageEnricher.class);
 
-    public static final ConfigKey<AttributeSensor<? extends Number>> SOURCE_CURRENT_SENSOR = ConfigKeys.newConfigKey(new TypeToken<AttributeSensor<? extends Number>>() {
-    }, "enricher.sourceCurrentSensor");
+    @SuppressWarnings("serial")
+    public static final ConfigKey<AttributeSensor<? extends Number>> SOURCE_CURRENT_SENSOR = ConfigKeys.newConfigKey(
+            new TypeToken<AttributeSensor<? extends Number>>() {},
+            "enricher.sourceCurrentSensor",
+            "The sensor from which to take the current value");
 
-    public static final ConfigKey<AttributeSensor<? extends Number>> SOURCE_TOTAL_SENSOR = ConfigKeys.newConfigKey(new TypeToken<AttributeSensor<? extends Number>>() {
-    }, "enricher.sourceTotalSensor");
+    @SuppressWarnings("serial")
+    public static final ConfigKey<AttributeSensor<? extends Number>> SOURCE_TOTAL_SENSOR = ConfigKeys.newConfigKey(
+            new TypeToken<AttributeSensor<? extends Number>>() {},
+            "enricher.sourceTotalSensor",
+            "The sensor from which to take the total value");
 
-    public static final ConfigKey<AttributeSensor<Double>> TARGET_SENSOR = ConfigKeys.newConfigKey(new TypeToken<AttributeSensor<Double>>() {
-    }, "enricher.targetSensor");
+    @SuppressWarnings("serial")
+    public static final ConfigKey<AttributeSensor<Double>> TARGET_SENSOR = ConfigKeys.newConfigKey(
+            new TypeToken<AttributeSensor<Double>>() {},
+            "enricher.targetSensor",
+            "The sensor on which to emit the ratio");
 
     public static final ConfigKey<Entity> PRODUCER = ConfigKeys.newConfigKey(Entity.class, "enricher.producer");
 
@@ -59,68 +76,41 @@ public class PercentageEnricher extends AbstractEnricher implements SensorEventL
     public void setEntity(EntityLocal entity) {
         super.setEntity(entity);
 
-        this.sourceCurrentSensor = getConfig(SOURCE_CURRENT_SENSOR);
-        this.sourceTotalSensor = getConfig(SOURCE_TOTAL_SENSOR);
-        this.targetSensor = getConfig(TARGET_SENSOR);
-        this.producer = getConfig(PRODUCER) == null ? entity : getConfig(PRODUCER);
+        sourceCurrentSensor = Preconditions.checkNotNull(getConfig(SOURCE_CURRENT_SENSOR), "Can't add Enricher %s to entity %s as it has no %s", JavaClassNames.simpleClassName(this), entity, SOURCE_CURRENT_SENSOR.getName());
+        sourceTotalSensor = Preconditions.checkNotNull(getConfig(SOURCE_TOTAL_SENSOR), "Can't add Enricher %s to entity %s as it has no %s", JavaClassNames.simpleClassName(this), entity, SOURCE_TOTAL_SENSOR.getName());
+        targetSensor = Preconditions.checkNotNull(getConfig(TARGET_SENSOR), "Can't add Enricher %s to entity %s as it has no %s", JavaClassNames.simpleClassName(this), entity, TARGET_SENSOR.getName());
+        producer = getConfig(PRODUCER) == null ? entity : getConfig(PRODUCER);
 
-        if (sourceCurrentSensor == null) {
-            throw new IllegalArgumentException("Enricher " + JavaClassNames.simpleClassName(this) + " has no " + SOURCE_CURRENT_SENSOR.getName());
+        if (targetSensor.equals(sourceCurrentSensor) && entity.equals(producer)) {
+            throw new IllegalArgumentException("Can't add Enricher " + JavaClassNames.simpleClassName(this) + " to entity "+entity+" as cycle detected with " + SOURCE_CURRENT_SENSOR.getName());
         }
-        if (sourceTotalSensor == null) {
-            throw new IllegalArgumentException("Enricher " + JavaClassNames.simpleClassName(this) + " has no " + SOURCE_TOTAL_SENSOR.getName());
-        }
-        if (targetSensor == null) {
-            throw new IllegalArgumentException("Enricher " + JavaClassNames.simpleClassName(this) + " has no " + TARGET_SENSOR.getName());
-        }
-
-        if (targetSensor.equals(sourceCurrentSensor)) {
-            throw new IllegalArgumentException("Enricher " + JavaClassNames.simpleClassName(this) + " detect cycle with " + SOURCE_CURRENT_SENSOR.getName());
-        }
-        if (targetSensor.equals(sourceTotalSensor)) {
-            throw new IllegalArgumentException("Enricher " + JavaClassNames.simpleClassName(this) + " detect cycle with " + SOURCE_TOTAL_SENSOR.getName());
+        if (targetSensor.equals(sourceTotalSensor) && entity.equals(producer)) {
+            throw new IllegalArgumentException("Can't add Enricher " + JavaClassNames.simpleClassName(this) + " to entity "+entity+" as cycle detected with " + SOURCE_TOTAL_SENSOR.getName());
         }
 
         subscriptions().subscribe(MutableMap.of("notifyOfInitialValue", true), producer, sourceCurrentSensor, this);
         subscriptions().subscribe(MutableMap.of("notifyOfInitialValue", true), producer, sourceTotalSensor, this);
-
+        RendererHints.register(targetSensor, RendererHints.displayValue(MathFunctions.percent(2)));
     }
 
     @Override
     public void onEvent(SensorEvent<Number> event) {
-        Number current = producer.sensors().get(sourceCurrentSensor);
-        Number total = producer.sensors().get(sourceTotalSensor);
-        Double result = null;
-
-        if (current == null) {
-            LOG.debug("Current is null, returning");
-            return;
-        }
-
-        if (total == null || total.equals(0)) {
-            LOG.debug("total {" + total + "} is null or zero, returning");
-            return;
-        }
-
+        Number current = Preconditions.checkNotNull(producer.sensors().get(sourceCurrentSensor), "Can't calculate Enricher %s value for entity %s as current from producer %s is null", JavaClassNames.simpleClassName(this), entity, producer);
+        Number total = Preconditions.checkNotNull(producer.sensors().get(sourceTotalSensor),     "Can't calculate Enricher %s value for entity %s as total from producer %s is null", JavaClassNames.simpleClassName(this), entity, producer);
         Double currentDouble = current.doubleValue();
         Double totalDouble = total.doubleValue();
 
-        if (currentDouble > totalDouble) {
-            LOG.debug("Current is greater than total, returning");
+        if (totalDouble.compareTo(0d) == 0) {
+            LOG.debug("Can't calculate Enricher ({}) value for entity ({}) as total from producer ({}) is zero", new Object[]{JavaClassNames.simpleClassName(this), entity, producer});
             return;
         }
 
         if (currentDouble < 0 || totalDouble < 0) {
-            LOG.debug("Current {"+currentDouble+"}  or total {"+totalDouble+"} is negative, returning");
+            LOG.debug("Can't calculate Enricher ({}) value for entity ({}) as Current ({})  or total ({}) value from producer ({}) is negative, returning", new Object[]{JavaClassNames.simpleClassName(this), entity, currentDouble, totalDouble, producer});
             return;
         }
 
-        if (current.equals(0)) {
-            LOG.debug("current is zero, setting percent to zero");
-            result = 0d;
-        } else {
-            result = currentDouble / totalDouble;
-        }
+        Double result = currentDouble / totalDouble;
 
         emit(targetSensor, result);
     }
