@@ -95,6 +95,16 @@ public abstract class InstantiateTypeWorkerAbstract extends YormlSerializerWorke
         context.phaseAdvance();
     }
     
+    protected Maybe<?> tryCoerceAndNoteError(Object value, Class<?> expectedJavaType) {
+        if (expectedJavaType==null) return Maybe.of(value);
+        Maybe<?> coerced = config.getCoercer().tryCoerce(value, expectedJavaType);
+        if (coerced.isAbsent()) {
+            // type present but not coercible - error
+            ReadingTypeOnBlackboard.get(blackboard).addNote("Cannot interpret '"+value+"' as primitive "+expectedJavaType);
+        }
+        return coerced;
+    }
+
     protected void storeWriteObjectAndAdvance(Object jo) {
         context.setYamlObject(jo);
         context.phaseAdvance();

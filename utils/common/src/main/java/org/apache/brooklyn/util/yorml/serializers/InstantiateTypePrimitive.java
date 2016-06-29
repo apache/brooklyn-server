@@ -63,7 +63,7 @@ public class InstantiateTypePrimitive extends YormlSerializerComposition {
                 if (expectedJavaType==null) expectedJavaType = getSpecialKnownTypeName(typeName);
                 if (!isJsonPrimitiveType(expectedJavaType) && !isJsonMarkerType(typeName)) return;
                 
-                value = readingValueFromTypeValueMap(expectedJavaType);
+                value = readingValueFromTypeValueMap();
                 if (value.isAbsent()) return;
                 if (tryCoerceAndNoteError(value.get(), expectedJavaType).isAbsent()) return;
                 
@@ -71,16 +71,6 @@ public class InstantiateTypePrimitive extends YormlSerializerComposition {
             }
             
             storeReadObjectAndAdvance(value.get(), false);
-        }
-
-        protected Maybe<?> tryCoerceAndNoteError(Object value, Class<?> expectedJavaType) {
-            if (expectedJavaType==null) return Maybe.of(value);
-            Maybe<?> coerced = config.getCoercer().tryCoerce(value, expectedJavaType);
-            if (coerced.isAbsent()) {
-                // type present but not coercible - error
-                ReadingTypeOnBlackboard.get(blackboard).addNote("Cannot interpret '"+value+"' as primitive "+expectedJavaType);
-            }
-            return coerced;
         }
 
         public void write() {

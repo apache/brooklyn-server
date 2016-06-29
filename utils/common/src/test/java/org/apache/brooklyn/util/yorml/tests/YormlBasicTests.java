@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.util.yorml.tests;
 
+import java.math.RoundingMode;
+
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.Jsonya;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -133,6 +135,23 @@ public class YormlBasicTests {
         YormlTestFixture.newInstance().
         write(42).assertResult("{ type: int, value: 42 }").
         read("{ type: int, value: 42 }", null).assertResult(42);
+    }
+    @Test
+    public void testEnumWhereTypeKnown() {
+        YormlTestFixture.newInstance().
+        addType("rounding-mode", RoundingMode.class).
+        write(RoundingMode.HALF_EVEN, "rounding-mode").assertResult(RoundingMode.HALF_EVEN.name()).
+        read(RoundingMode.HALF_EVEN.name(), "rounding-mode").assertResult(RoundingMode.HALF_EVEN).
+        read("half-even", "rounding-mode").assertResult(RoundingMode.HALF_EVEN);
+    }
+
+    @Test
+    public void testEnumWhereTypeUnknown() {
+        String json = "{ type: rounding-mode, value: "+RoundingMode.HALF_EVEN.name()+" }";
+        YormlTestFixture.newInstance().
+        addType("rounding-mode", RoundingMode.class).
+        write(RoundingMode.HALF_EVEN).assertResult(json).
+        read(json, null).assertResult(RoundingMode.HALF_EVEN);
     }
 
     @Test

@@ -24,6 +24,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.yorml.internal.YormlConfig;
 import org.apache.brooklyn.util.yorml.internal.YormlConverter;
 import org.apache.brooklyn.util.yorml.serializers.FieldsInMapUnderFields;
+import org.apache.brooklyn.util.yorml.serializers.InstantiateTypeEnum;
 import org.apache.brooklyn.util.yorml.serializers.InstantiateTypeFromRegistry;
 import org.apache.brooklyn.util.yorml.serializers.InstantiateTypeList;
 import org.apache.brooklyn.util.yorml.serializers.InstantiateTypeMap;
@@ -44,6 +45,7 @@ public class Yorml {
         return newInstance(typeRegistry, MutableList.<YormlSerializer>of(
             new FieldsInMapUnderFields(),
             new InstantiateTypePrimitive(),
+            new InstantiateTypeEnum(),
             new InstantiateTypeList(),
             new InstantiateTypeMap(),
             new InstantiateTypeFromRegistry() ));

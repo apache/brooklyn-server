@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.yorml.tests;
 
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -111,11 +112,23 @@ public class MapListTests {
         y.write(m2, "map").assertResult(MAP_W_SHAPE_KEY_NON_GENERIC);
     }
     
+    @Test public void testReadWithEnum() {
+        y.tr.put("rounding-mode", RoundingMode.class);
+        
+        Map<String,Object> m1 = MutableMap.<String,Object>of("k1", RoundingMode.UP);
+        String MAP_W_RM = "{ k1: { type: rounding-mode, value: UP } }";
+        y.read(MAP_W_RM, "map").assertResult(m1); 
+        y.write(m1, "map").assertResult(MAP_W_RM); 
+        y.write(m1, null).assertResult("{ type: map, value: " + MAP_W_RM + " }");
+        
+        String MAP_W_RM_TYPE_KNOWN = "{ k1: UP }";
+        y.read(MAP_W_RM_TYPE_KNOWN, "map<?,rounding-mode>").assertResult(m1); 
+        y.write(m1, "map<?,rounding-mode>").assertResult(MAP_W_RM_TYPE_KNOWN); 
+    }
+    
     // TODO
-    // enums
     // passing generics from fields
     //   poor man: if field is compatible to mutable list or mutable set then make list<..> or set<..>
     //   rich man: registry can handle generics
-    // maps w generics
 
 }

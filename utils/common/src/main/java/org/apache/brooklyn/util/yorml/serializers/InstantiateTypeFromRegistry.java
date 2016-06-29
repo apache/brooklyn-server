@@ -22,6 +22,7 @@ import java.lang.reflect.Field;
 import java.util.List;
 
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.FieldOrderings;
 import org.apache.brooklyn.util.javalang.ReflectionPredicates;
@@ -53,14 +54,18 @@ public class InstantiateTypeFromRegistry extends YormlSerializerComposition {
             
             if (type==null) return;
 
-            Object result = config.getTypeRegistry().newInstanceMaybe((String)type, Yorml.newInstance(config)).orNull();
-            if (result==null) {
-                warn("Unknown type '"+type+"'");
+            Maybe<Object> resultM = config.getTypeRegistry().newInstanceMaybe((String)type, Yorml.newInstance(config));
+            if (resultM.isAbsent()) {
+                Class<?> jt = config.getTypeRegistry().getJavaType((String)type);
+                String message = jt==null ? "Unknown type '"+type+"'" : "Unable to instantiate type '"+type+"' ("+jt+")";
+                RuntimeException exc = ((Maybe.Absent<?>)resultM).getException();
+                if (exc!=null) message+=": "+Exceptions.collapseText(exc);
+                warn(message);
                 return;
             }
             
             addSerializers(type);
-            storeReadObjectAndAdvance(result, true);
+            storeReadObjectAndAdvance(resultM.get(), true);
             
             if (isYamlMap()) {
                 removeFromYamlKeysOnBlackboard("type");
