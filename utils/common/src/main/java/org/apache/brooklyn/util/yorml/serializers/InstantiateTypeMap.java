@@ -130,10 +130,14 @@ public class InstantiateTypeMap extends YormlSerializerComposition {
 
             // create actualType, then populate from value
             Map<?,?> jo = null;
-            if (typeAliases.get(actualBaseTypeName)!=null) {
-                jo = (Map<?,?>) Reflections.invokeConstructorFromArgsIncludingPrivate(typeAliases.get(actualBaseTypeName)).get();
+            if (typeAliases.get(alias)!=null) {
+                jo = (Map<?,?>) Reflections.invokeConstructorFromArgsIncludingPrivate(typeAliases.get(alias)).get();
             } else {
-                jo = (Map<?, ?>) config.getTypeRegistry().newInstance(actualBaseTypeName, Yorml.newInstance(config));
+                try {
+                    jo = (Map<?, ?>) config.getTypeRegistry().newInstance(actualBaseTypeName, Yorml.newInstance(config));
+                } catch (Exception e) {
+                    throw new IllegalStateException("Cannot instantiate "+actualBaseTypeName, e);
+                }
             }
             @SuppressWarnings("unchecked")
             Map<Object, Object> jom = (Map<Object,Object>)jo;

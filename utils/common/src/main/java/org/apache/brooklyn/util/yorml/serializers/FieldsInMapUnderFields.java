@@ -31,6 +31,7 @@ import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yorml.YormlContext;
 import org.apache.brooklyn.util.yorml.YormlContextForRead;
 import org.apache.brooklyn.util.yorml.YormlContextForWrite;
+import org.apache.brooklyn.util.yorml.internal.YormlUtils;
 
 public class FieldsInMapUnderFields extends YormlSerializerComposition {
 
@@ -59,7 +60,7 @@ public class FieldsInMapUnderFields extends YormlSerializerComposition {
                         if (Modifier.isStatic(ff.getModifiers())) {
                             // as above
                         } else {
-                            String fieldType = config.getTypeRegistry().getTypeNameOfClass(ff.getType());
+                            String fieldType = YormlUtils.getFieldTypeName(ff, config);
                             Object v2 = converter.read( new YormlContextForRead(v, context.getJsonPath()+"/"+f, fieldType) );
                             
                             ff.setAccessible(true);
@@ -97,7 +98,7 @@ public class FieldsInMapUnderFields extends YormlSerializerComposition {
                         // silently drop null fields
                     } else {
                         Field ff = Reflections.findFieldMaybe(getJavaObject().getClass(), f).get();
-                        String fieldType = config.getTypeRegistry().getTypeNameOfClass(ff.getType());
+                        String fieldType = YormlUtils.getFieldTypeName(ff, config);
                         Object v2 = converter.write(new YormlContextForWrite(v.get(), context.getJsonPath()+"/"+f, fieldType) );
                         fields.put(f, v2);
                     }

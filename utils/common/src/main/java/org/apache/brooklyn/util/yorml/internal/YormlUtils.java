@@ -19,6 +19,8 @@
 package org.apache.brooklyn.util.yorml.internal;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;
 
@@ -161,5 +163,41 @@ public class YormlUtils {
     @SuppressWarnings("unchecked")
     public static List<String> getAllNonTransientNonStaticFieldNamesUntyped(Class<?> type, Object optionalInstanceToRequireNonNullFieldValue) {
         return getAllNonTransientNonStaticFieldNames((Class<Object>)type, optionalInstanceToRequireNonNullFieldValue);
+    }
+
+    /**
+     * Provides poor man's generics -- we decorate when looking at a field,
+     * and strip when looking up in the registry.
+     * <p>
+     * It's not that bad as fields are the *only* place in java where generic information is available.
+     * <p>
+     * However we don't do them recursively at all (so eg a List<List<String>> becomes a List<List>).
+     * TODO That wouldn't be hard to fix.
+     */
+    public static String getFieldTypeName(Field ff, YormlConfig config) {
+        String baseTypeName = config.getTypeRegistry().getTypeNameOfClass(ff.getType());
+        String typeName = baseTypeName;
+        Type type = ff.getGenericType();
+        if (type instanceof ParameterizedType) {
+            ParameterizedType pt = (ParameterizedType)type;
+            if (pt.getActualTypeArguments().length>0) {
+                typeName += "<";
+                for (int i=0; i<pt.getActualTypeArguments().length; i++) {
+                    if (i>0) typeName += ",";
+                    Type ft = pt.getActualTypeArguments()[i];
+                    Class<?> fc = null;
+                    if (fc==null && ft instanceof ParameterizedType) ft = ((ParameterizedType)ft).getRawType();
+                    if (fc==null && ft instanceof Class) fc = (Class<?>)ft;
+                    String rfc = config.getTypeRegistry().getTypeNameOfClass(fc);
+                    if (rfc==null) {
+                        // cannot resolve generics
+                        return baseTypeName;
+                    }
+                    typeName += rfc;
+                }
+                typeName += ">";
+            }
+        }
+        return typeName;
     }
 }

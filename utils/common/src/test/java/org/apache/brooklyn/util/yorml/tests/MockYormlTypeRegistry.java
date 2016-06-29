@@ -84,6 +84,9 @@ public class MockYormlTypeRegistry implements YormlTypeRegistry {
     
     @Override
     public Class<?> getJavaType(String typeName) {
+        if (typeName==null) return null;
+        // string generics here
+        if (typeName.indexOf('<')>0) typeName = typeName.substring(0, typeName.indexOf('<'));
         return getJavaType(types.get(typeName), typeName);
     }
     
@@ -146,6 +149,7 @@ public class MockYormlTypeRegistry implements YormlTypeRegistry {
 
     @Override
     public <T> String getTypeNameOfClass(Class<T> type) {
+        if (type==null) return null;
         for (Map.Entry<String,MockRegisteredType> t: types.entrySet()) {
             if (type.equals(t.getValue().javaType) && t.getValue().yamlDefinition==null) return t.getKey();
         }
@@ -156,8 +160,7 @@ public class MockYormlTypeRegistry implements YormlTypeRegistry {
         Maybe<String> primitive = Boxing.getPrimitiveName(type);
         if (primitive.isPresent()) return primitive.get();
         if (String.class.equals(type)) return "string";
-        // TODO map and list?
-        
+        // map and list handled by those serializers
         return "java:"+type.getName();
     }
     

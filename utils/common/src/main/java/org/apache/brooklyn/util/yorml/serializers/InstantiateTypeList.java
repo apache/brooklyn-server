@@ -225,13 +225,13 @@ public class InstantiateTypeList extends YormlSerializerComposition {
                 }
             
                 // and set the subtype 
-                if (gp.subTypeCount()!=1) return null;
-                
-                String subType = Iterables.getOnlyElement(gp.subTypes);
-                if (genericSubType!=null && !genericSubType.equals(subType)) {
-                    log.debug("Got different generic subtype, expected "+context.getExpectedType()+" but declared "+explicitTypeName+"; preferring declared");
+                if (gp.subTypeCount()==1) {
+                    String subType = Iterables.getOnlyElement(gp.subTypes);
+                    if (genericSubType!=null && !genericSubType.equals(subType)) {
+                        log.debug("Got different generic subtype, expected "+context.getExpectedType()+" but declared "+explicitTypeName+"; preferring declared");
+                    }
+                    genericSubType = subType;
                 }
-                genericSubType = subType;
             }
             
             Class<?> concreteJavaType = null;
@@ -309,9 +309,13 @@ public class InstantiateTypeList extends YormlSerializerComposition {
                 }
                 genericSubType = Iterables.getOnlyElement(gp.subTypes);
             }
-            if (expectedJavaType==null) {
-                expectedJavaType = typeAliases.get(gp.baseType);
+            Class<?> newExpectedType = typeAliases.get(gp.baseType);
+            if (newExpectedType!=null && (expectedJavaType==null || expectedJavaType.isAssignableFrom(newExpectedType))) {
+                expectedJavaType = newExpectedType;
             }
+            String expectedJavaTypeName = typesAliased.get(expectedJavaType);
+            if (expectedJavaTypeName!=null) expectedJavaType = typeAliases.get(expectedJavaTypeName);
+            else expectedJavaTypeName = config.getTypeRegistry().getTypeNameOfClass(expectedJavaType);
 
             String actualTypeName = typesAliased.get(getJavaObject().getClass());
             boolean isBasicCollectionType = (actualTypeName!=null);
