@@ -49,7 +49,7 @@ public class MockYormlTypeRegistry implements YormlTypeRegistry {
         final List<YormlSerializer> serializers;
         final Object yamlDefinition;
         
-        public MockRegisteredType(String id, String parentType, Class<?> javaType, Collection<String> interfaceTypes, List<YormlSerializer> serializers, Object yamlDefinition) {
+        public MockRegisteredType(String id, String parentType, Class<?> javaType, Collection<String> interfaceTypes, List<? extends YormlSerializer> serializers, Object yamlDefinition) {
             super();
             this.id = id;
             this.parentType = parentType;
@@ -114,7 +114,7 @@ public class MockYormlTypeRegistry implements YormlTypeRegistry {
     public void put(String typeName, Class<?> javaType) {
         put(typeName, javaType, null);
     }
-    public void put(String typeName, Class<?> javaType, List<YormlSerializer> serializers) {
+    public void put(String typeName, Class<?> javaType, List<? extends YormlSerializer> serializers) {
         types.put(typeName, new MockRegisteredType(typeName, "java:"+javaType.getName(), javaType, MutableSet.<String>of(), serializers, null));
     }
     
@@ -123,7 +123,7 @@ public class MockYormlTypeRegistry implements YormlTypeRegistry {
         put(typeName, yamlDefinition, null);
     }
     @SuppressWarnings("unchecked")
-    public void put(String typeName, String yamlDefinition, List<YormlSerializer> serializers) {
+    public void put(String typeName, String yamlDefinition, List<? extends YormlSerializer> serializers) {
         Object yamlObject = Iterables.getOnlyElement( Yamls.parseAll(yamlDefinition) );
         if (!(yamlObject instanceof Map)) throw new IllegalArgumentException("Mock only supports map definitions");
         

@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.yorml.YormlContext;
@@ -128,15 +129,16 @@ public class ExplicitField extends YormlSerializerComposition {
             if (!readyForMainEvent()) return; 
             if (!hasJavaObject()) return;
             if (!isYamlMap()) return;
+            if (!hasYamlKeysOnBlackboard()) return;
+            
             @SuppressWarnings("unchecked")
             Map<String,Object> fields = peekFromYamlKeysOnBlackboard("fields", Map.class).orNull();
+            if (fields==null) {
+                // create the fields if needed; FieldsInFieldsMap will remove (even if empty)
+                fields = MutableMap.of();
+                YamlKeysOnBlackboard.getOrCreate(blackboard, null).yamlKeysToReadToJava.put("fields", fields);
+            }
             
-            /*
-             * if fields is null either we are too early (not yet set by instantiate-type)
-             * or too late (already read in to java), so we bail -- this yaml key cannot be handled at this time
-             */
-            if (fields==null) return;
-
             int keysMatched = 0;
             for (String aliasO: getKeyNameAndAliases()) {
                 Set<String> aliasMangles = ExplicitFieldsBlackboard.get(blackboard).isAliasesStrict(fieldName) ?
@@ -179,6 +181,10 @@ public class ExplicitField extends YormlSerializerComposition {
 
             @SuppressWarnings("unchecked")
             Map<String,Object> fields = getFromYamlMap("fields", Map.class).orNull();
+            /*
+             * if fields is null either we are too early (not yet set by instantiate-type)
+             * or too late (already read in to java), so we bail -- this yaml key cannot be handled at this time
+             */
             if (fields==null) return;
             
             Maybe<Object> dv = ExplicitFieldsBlackboard.get(blackboard).getDefault(fieldName);
@@ -212,7 +218,8 @@ public class ExplicitField extends YormlSerializerComposition {
                 }
                 // and move the `fields` object to the end
                 getYamlMap().remove("fields");
-                getYamlMap().put("fields", fields);
+                if (!fields.isEmpty())
+                    getYamlMap().put("fields", fields);
                 // rerun this phase again, as we've changed it
                 context.phaseInsert(StandardPhases.MANIPULATING);
             }

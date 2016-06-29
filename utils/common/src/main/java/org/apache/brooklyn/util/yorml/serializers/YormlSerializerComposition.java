@@ -105,6 +105,11 @@ public abstract class YormlSerializerComposition implements YormlSerializer {
             if (expectedType!=null && !expectedType.isInstance(v)) return Maybe.absent();
             return Maybe.of((T)v);
         }
+        protected boolean hasYamlKeysOnBlackboard() {
+            YamlKeysOnBlackboard ykb = YamlKeysOnBlackboard.peek(blackboard);
+            if (ykb==null || ykb.yamlKeysToReadToJava==null || ykb.yamlKeysToReadToJava.isEmpty()) return false;
+            return true;
+        }
         protected void removeFromYamlKeysOnBlackboard(String ...keys) {
             YamlKeysOnBlackboard ykb = YamlKeysOnBlackboard.peek(blackboard);
             for (String key: keys) {

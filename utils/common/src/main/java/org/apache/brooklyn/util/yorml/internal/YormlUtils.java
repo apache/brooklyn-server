@@ -18,11 +18,15 @@
  */
 package org.apache.brooklyn.util.yorml.internal;
 
+import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.javalang.Boxing;
+import org.apache.brooklyn.util.javalang.FieldOrderings;
+import org.apache.brooklyn.util.javalang.ReflectionPredicates;
+import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.annotations.Beta;
@@ -129,5 +133,33 @@ public class YormlUtils {
 
         public boolean isGeneric() { return isGeneric; }
         public int subTypeCount() { return subTypes.size(); }
+    }
+
+    public static <T> List<String> getAllNonTransientNonStaticFieldNames(Class<T> type, T optionalInstanceToRequireNonNullFieldValue) {
+        List<String> result = MutableList.of();
+        List<Field> fields = Reflections.findFields(type, 
+            null,
+            FieldOrderings.ALPHABETICAL_FIELD_THEN_SUB_BEST_FIRST);
+        Field lastF = null;
+        for (Field f: fields) {
+            if (ReflectionPredicates.IS_FIELD_NON_TRANSIENT.apply(f) && ReflectionPredicates.IS_FIELD_NON_STATIC.apply(f)) {
+                if (optionalInstanceToRequireNonNullFieldValue==null || 
+                        Reflections.getFieldValueMaybe(optionalInstanceToRequireNonNullFieldValue, f).isPresentAndNonNull()) {
+                    String name = f.getName();
+                    if (lastF!=null && lastF.getName().equals(f.getName())) {
+                        // if field is shadowed use FQN
+                        name = f.getDeclaringClass().getCanonicalName()+"."+name;
+                    }
+                    result.add(name);
+                }
+            }
+            lastF = f;
+        }
+        return result;
+    }
+
+    @SuppressWarnings("unchecked")
+    public static List<String> getAllNonTransientNonStaticFieldNamesUntyped(Class<?> type, Object optionalInstanceToRequireNonNullFieldValue) {
+        return getAllNonTransientNonStaticFieldNames((Class<Object>)type, optionalInstanceToRequireNonNullFieldValue);
     }
 }

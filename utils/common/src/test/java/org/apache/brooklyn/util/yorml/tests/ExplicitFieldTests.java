@@ -25,6 +25,7 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.yorml.YormlSerializer;
+import org.apache.brooklyn.util.yorml.serializers.AllFieldsExplicit;
 import org.apache.brooklyn.util.yorml.serializers.ExplicitField;
 import org.apache.brooklyn.util.yorml.tests.YormlBasicTests.Shape;
 import org.apache.brooklyn.util.yorml.tests.YormlBasicTests.ShapeWithSize;
@@ -46,6 +47,8 @@ public class ExplicitFieldTests {
     static String SIMPLE_IN_WITHOUT_TYPE = "{ name: diamond, fields: { color: black } }";
     static Shape SIMPLE_OUT = new Shape().name("diamond").color("black");
     
+    static String SIMPLE_IN_NAME_ONLY_WITHOUT_TYPE = "{ name: diamond }";
+    static Shape SIMPLE_OUT_NAME_ONLY = new Shape().name("diamond");
     
     @Test
     public void testReadExplicitField() {
@@ -58,6 +61,19 @@ public class ExplicitFieldTests {
         simpleExplicitFieldFixture().
         write( SIMPLE_OUT, "shape" ).
         assertResult( SIMPLE_IN_WITHOUT_TYPE );
+    }
+    
+    @Test
+    public void testReadExplicitFieldNameOnly() {
+        simpleExplicitFieldFixture().
+        read( SIMPLE_IN_NAME_ONLY_WITHOUT_TYPE, "shape" ).
+        assertResult( SIMPLE_OUT_NAME_ONLY );
+    }
+    @Test
+    public void testWriteExplicitFieldNameOnly() {
+        simpleExplicitFieldFixture().
+        write( SIMPLE_OUT_NAME_ONLY, "shape" ).
+        assertResult( SIMPLE_IN_NAME_ONLY_WITHOUT_TYPE );
     }
 
     static String SIMPLE_IN_WITH_TYPE = "{ type: shape, name: diamond, fields: { color: black } }";
@@ -284,4 +300,13 @@ public class ExplicitFieldTests {
         }
     }
 
+    static String SIMPLE_IN_ALL_FIELDS_EXPLICIT = "{ color: black, name: diamond }";
+    @Test public void testAllFieldsExplicit() {
+        YormlTestFixture y = YormlTestFixture.newInstance().
+            addType("shape", Shape.class, MutableList.of(new AllFieldsExplicit()));
+        
+        y.read( SIMPLE_IN_ALL_FIELDS_EXPLICIT, "shape" ).assertResult( SIMPLE_OUT ).
+        write( SIMPLE_OUT, "shape" ).assertResult( SIMPLE_IN_ALL_FIELDS_EXPLICIT );
+    }
+    
 }

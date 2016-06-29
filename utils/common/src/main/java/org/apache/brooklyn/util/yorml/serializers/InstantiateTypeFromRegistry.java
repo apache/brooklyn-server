@@ -18,18 +18,14 @@
  */
 package org.apache.brooklyn.util.yorml.serializers;
 
-import java.lang.reflect.Field;
-import java.util.List;
-
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.javalang.FieldOrderings;
-import org.apache.brooklyn.util.javalang.ReflectionPredicates;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yorml.Yorml;
 import org.apache.brooklyn.util.yorml.YormlContext;
+import org.apache.brooklyn.util.yorml.internal.YormlUtils;
 
 public class InstantiateTypeFromRegistry extends YormlSerializerComposition {
 
@@ -92,22 +88,7 @@ public class InstantiateTypeFromRegistry extends YormlSerializerComposition {
                 
             // collect fields
             JavaFieldsOnBlackboard fib = JavaFieldsOnBlackboard.peek(blackboard);
-            List<Field> fields = Reflections.findFields(getJavaObject().getClass(), 
-                null,
-                FieldOrderings.ALPHABETICAL_FIELD_THEN_SUB_BEST_FIRST);
-            Field lastF = null;
-            for (Field f: fields) {
-                Maybe<Object> v = Reflections.getFieldValueMaybe(getJavaObject(), f);
-                if (ReflectionPredicates.IS_FIELD_NON_TRANSIENT.apply(f) && ReflectionPredicates.IS_FIELD_NON_STATIC.apply(f) && v.isPresentAndNonNull()) {
-                    String name = f.getName();
-                    if (lastF!=null && lastF.getName().equals(f.getName())) {
-                        // if field is shadowed use FQN
-                        name = f.getDeclaringClass().getCanonicalName()+"."+name;
-                    }
-                    fib.fieldsToWriteFromJava.add(name);
-                }
-                lastF = f;
-            }
+            fib.fieldsToWriteFromJava.addAll(YormlUtils.getAllNonTransientNonStaticFieldNamesUntyped(getJavaObject().getClass(), getJavaObject()));
                 
             context.phaseInsert(YormlContext.StandardPhases.HANDLING_FIELDS, YormlContext.StandardPhases.MANIPULATING);
             storeWriteObjectAndAdvance(map);

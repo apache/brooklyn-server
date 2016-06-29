@@ -80,13 +80,17 @@ public class YormlConverter {
             while (context.phaseStepAdvance()<Iterables.size(serializers.getSerializers())) {
                 YormlSerializer s = Iterables.get(serializers.getSerializers(), context.phaseCurrentStep());
                 if (context instanceof YormlContextForRead) {
+System.out.println("read "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" starting ("+context.phaseCurrent()+"."+context.phaseCurrentStep()+") ");
                     s.read((YormlContextForRead)context, this, blackboard);
+System.out.println("read "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" ended: "+context.getYamlObject());
                 } else {
                     if (log.isDebugEnabled())
                         log.debug("write "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" starting ("+context.phaseCurrent()+"."+context.phaseCurrentStep()+") ");
+System.out.println("write "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" starting ("+context.phaseCurrent()+"."+context.phaseCurrentStep()+") ");
                     s.write((YormlContextForWrite)context, this, blackboard);
                     if (log.isDebugEnabled())
                         log.debug("write "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" ended: "+context.getYamlObject());
+System.out.println("write "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" ended: "+context.getYamlObject());
                 }
             }
         }

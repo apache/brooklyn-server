@@ -21,12 +21,14 @@ package org.apache.brooklyn.util.yorml.tests;
 import java.math.RoundingMode;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.yorml.serializers.AllFieldsExplicit;
 import org.apache.brooklyn.util.yorml.tests.YormlBasicTests.Shape;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -124,6 +126,44 @@ public class MapListTests {
         String MAP_W_RM_TYPE_KNOWN = "{ k1: UP }";
         y.read(MAP_W_RM_TYPE_KNOWN, "map<?,rounding-mode>").assertResult(m1); 
         y.write(m1, "map<?,rounding-mode>").assertResult(MAP_W_RM_TYPE_KNOWN); 
+    }
+
+    static class TestingGenericsOnFields {
+        List<RoundingMode> list;
+        Map<RoundingMode,RoundingMode> map;
+        Set<RoundingMode> set;
+        
+        @Override
+        public boolean equals(Object obj) {
+            if (!(obj instanceof TestingGenericsOnFields)) return false;
+            TestingGenericsOnFields gf = (TestingGenericsOnFields)obj;
+            return Objects.equals(list, gf.list) && Objects.equals(map, gf.map) && Objects.equals(set, gf.set);
+        }
+        @Override
+        public int hashCode() {
+            return Objects.hash(list, map, set);
+        }
+    }
+    
+    @Test public void testGenericListMapSet() {
+        y.tr.put("gf", TestingGenericsOnFields.class, MutableList.of(new AllFieldsExplicit()));
+        
+        TestingGenericsOnFields gf;
+        
+        gf = new TestingGenericsOnFields();
+        gf.list = MutableList.of(RoundingMode.UP);
+        y.read("{ list: [ UP ] }", "gf").assertResult(gf); 
+        y.write(gf, "gf").assertResult(gf);
+        
+        gf = new TestingGenericsOnFields();
+        gf.map = MutableMap.of(RoundingMode.UP, RoundingMode.DOWN);
+        y.read("{ map: { UP: DOWN } }", "gf").assertResult(gf);
+        y.write(gf, "gf").assertResult(gf); 
+
+        gf = new TestingGenericsOnFields();
+        gf.set = MutableSet.of(RoundingMode.UP);
+        y.read("{ set: [ UP ] }", "gf").assertResult(gf); 
+        y.write(gf, "gf").assertResult(gf); 
     }
     
     // TODO

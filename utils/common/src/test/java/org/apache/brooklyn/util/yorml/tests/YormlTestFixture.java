@@ -103,7 +103,7 @@ public class YormlTestFixture {
     }
     
     public YormlTestFixture addType(String name, Class<?> type) { tr.put(name, type); return this; }
-    public YormlTestFixture addType(String name, Class<?> type, List<YormlSerializer> serializers) { tr.put(name, type, serializers); return this; }
+    public YormlTestFixture addType(String name, Class<?> type, List<? extends YormlSerializer> serializers) { tr.put(name, type, serializers); return this; }
     public YormlTestFixture addType(String name, String yamlDefinition) { tr.put(name, yamlDefinition); return this; }
-    public YormlTestFixture addType(String name, String yamlDefinition, List<YormlSerializer> serializers) { tr.put(name, yamlDefinition, serializers); return this; }
+    public YormlTestFixture addType(String name, String yamlDefinition, List<? extends YormlSerializer> serializers) { tr.put(name, yamlDefinition, serializers); return this; }
 }

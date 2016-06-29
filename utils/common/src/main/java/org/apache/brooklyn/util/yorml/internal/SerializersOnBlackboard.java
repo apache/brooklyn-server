@@ -52,7 +52,7 @@ public class SerializersOnBlackboard {
     List<YormlSerializer> expectedTypeSerializers = MutableList.of();
     List<YormlSerializer> postSerializers = MutableList.of();
 
-    public void addInstantiatedTypeSerializers(Iterable<YormlSerializer> instantiatedTypeSerializers) {
+    public void addInstantiatedTypeSerializers(Iterable<? extends YormlSerializer> instantiatedTypeSerializers) {
         Iterables.addAll(this.instantiatedTypeSerializers, instantiatedTypeSerializers);
     }
     
