@@ -583,6 +583,41 @@ public class Reflections {
         return result;
     }
 
+    /** Returns any method exactly matching the given signature, including privates and on parent classes. */
+    public static Maybe<Method> findMethodMaybe(Class<?> clazz, String name, Class<?>... parameterTypes) {
+        if (clazz == null || name == null) return Maybe.absentNoTrace("class or name is null");
+        Iterable<Method> result = findMethods(false, clazz, name, parameterTypes);
+        if (!result.iterator().hasNext()) return Maybe.absentNoTrace("no methods matching "+clazz.getName()+"."+name+"("+Arrays.asList(parameterTypes)+")");
+        return Maybe.of(result.iterator().next());
+    }
+    /** Returns all methods compatible with the given argument types, including privates and on parent classes and where the method takes a supertype. */
+    public static Iterable<Method> findMethodsCompatible(Class<?> clazz, String name, Class<?>... parameterTypes) {
+        return findMethods(true, clazz, name, parameterTypes);
+    }
+    private static Iterable<Method> findMethods(boolean allowCovariantParameterClasses, Class<?> clazz, String name, Class<?>... parameterTypes) {
+        if (clazz == null || name == null) {
+            return Collections.emptySet();
+        }
+        List<Method> result = MutableList.of();
+        Class<?> clazzToInspect = clazz;
+        
+        while (clazzToInspect != null) {
+            methods: for (Method m: clazzToInspect.getDeclaredMethods()) {
+                if (!name.equals(m.getName())) continue methods;
+                if (m.getParameterTypes().length!=parameterTypes.length) continue methods;
+                parameters: for (int i=0; i<parameterTypes.length; i++) {
+                    if (m.getParameterTypes()[i].equals(parameterTypes[i])) continue parameters;
+                    if (allowCovariantParameterClasses && m.getParameterTypes()[i].isAssignableFrom(parameterTypes[i])) continue;
+                    continue methods;
+                }
+                result.add(m);
+            }
+            clazzToInspect = clazzToInspect.getSuperclass();
+        }
+        return result;
+    }
+    
+    /** @deprecated since 0.10.0 use {@link #findMethodMaybe(Class, String, Class...)} or {@link #findMethodsCompatible(Class, String, Class...)} */ @Deprecated
     public static Method findMethod(Class<?> clazz, String name, Class<?>... parameterTypes) throws NoSuchMethodException {
         if (clazz == null || name == null) {
             throw new NullPointerException("Must not be null: clazz="+clazz+"; name="+name);
@@ -949,6 +984,12 @@ public class Reflections {
             return rename.get();
         }
         return name;
+    }
+
+    public static boolean hasSpecialSerializationMethods(Class<? extends Object> type) {
+        if (type==null) return false;
+        if (findMethodMaybe(type, "writeObject", java.io.ObjectOutputStream.class).isPresent()) return true;
+        return hasSpecialSerializationMethods(type.getSuperclass());
     }
 
 }

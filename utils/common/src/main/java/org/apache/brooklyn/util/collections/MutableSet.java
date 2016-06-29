@@ -55,7 +55,7 @@ public class MutableSet<V> extends LinkedHashSet<V> {
         return result;
     }
     
-    public static <V> MutableSet<V> of(V v1, V v2, V v3, V ...vMore) {
+    public static <V> MutableSet<V> of(V v1, V v2, V v3, @SuppressWarnings("unchecked") V ...vMore) {
         MutableSet<V> result = new MutableSet<V>();
         result.add(v1);
         result.add(v2);
@@ -128,7 +128,7 @@ public class MutableSet<V> extends LinkedHashSet<V> {
             return this;
         }
 
-        public Builder<V> add(V v1, V v2, V ...values) {
+        public Builder<V> add(V v1, V v2, @SuppressWarnings("unchecked") V ...values) {
             result.add(v1);
             result.add(v2);
             for (V value: values) result.add(value);
