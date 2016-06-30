@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.test.framework;
 
-import static org.apache.brooklyn.core.entity.trait.Startable.SERVICE_UP;
 import static org.apache.brooklyn.test.framework.BaseTest.TIMEOUT;
 import static org.apache.brooklyn.test.framework.TargetableTestComponent.TARGET_ENTITY;
 import static org.apache.brooklyn.test.framework.TestFrameworkAssertions.CONTAINS;
@@ -30,6 +29,8 @@ import static org.apache.brooklyn.test.framework.TestSshCommand.COMMAND;
 import static org.apache.brooklyn.test.framework.TestSshCommand.DOWNLOAD_URL;
 import static org.apache.brooklyn.test.framework.TestSshCommand.SHELL_ENVIRONMENT;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.apache.brooklyn.core.entity.EntityAsserts.assertEntityFailed;
+import static org.apache.brooklyn.core.entity.EntityAsserts.assertEntityHealthy;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -40,8 +41,6 @@ import java.util.Map;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
-import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
-import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
@@ -131,7 +130,7 @@ public class TestSshCommandTest extends BrooklynAppUnitTestSupport {
 
         app.start(ImmutableList.<Location>of());
 
-        assertServiceHealthy(test);
+        assertEntityHealthy(test);
         assertThat(RecordingSshTool.getLastExecCmd().commands).isEqualTo(ImmutableList.of("uptime"));
     }
 
@@ -151,7 +150,7 @@ public class TestSshCommandTest extends BrooklynAppUnitTestSupport {
             Asserts.expectedFailureContains(t, "exit code equals 0");
         }
 
-        assertServiceFailed(test);
+        assertEntityFailed(test);
         assertThat(RecordingSshTool.getLastExecCmd().commands).isEqualTo(ImmutableList.of(cmd));
     }
 
@@ -168,7 +167,7 @@ public class TestSshCommandTest extends BrooklynAppUnitTestSupport {
 
         app.start(ImmutableList.<Location>of());
 
-        assertServiceHealthy(test);
+        assertEntityHealthy(test);
     }
 
     @Test
@@ -188,7 +187,7 @@ public class TestSshCommandTest extends BrooklynAppUnitTestSupport {
             Asserts.expectedFailureContains(t, "stdout contains mystdout");
         }
 
-        assertServiceFailed(test);
+        assertEntityFailed(test);
     }
 
     @Test
@@ -208,7 +207,7 @@ public class TestSshCommandTest extends BrooklynAppUnitTestSupport {
             Asserts.expectedFailureContains(t, "stderr contains mystderr");
         }
 
-        assertServiceFailed(test);
+        assertEntityFailed(test);
     }
 
     @Test
@@ -229,7 +228,7 @@ public class TestSshCommandTest extends BrooklynAppUnitTestSupport {
             Asserts.expectedFailureContains(e, "exit code equals 1", "exit code equals 255");
         }
 
-        assertServiceFailed(test);
+        assertEntityFailed(test);
     }
 
     @Test
@@ -247,7 +246,7 @@ public class TestSshCommandTest extends BrooklynAppUnitTestSupport {
 
             app.start(ImmutableList.<Location>of());
 
-            assertServiceHealthy(test);
+            assertEntityHealthy(test);
             assertThat(RecordingSshTool.getLastExecCmd().commands.toString()).contains("TestSshCommandTest-script");
 
         } finally {
@@ -270,7 +269,7 @@ public class TestSshCommandTest extends BrooklynAppUnitTestSupport {
             Asserts.expectedFailureContains(e, "No instances of class "+SshMachineLocation.class.getName()+" available");
         }
 
-        assertServiceFailed(test);
+        assertEntityFailed(test);
     }
     
     @Test
@@ -295,7 +294,7 @@ public class TestSshCommandTest extends BrooklynAppUnitTestSupport {
             Asserts.assertTrue(elapsed.isShorterThan(longTimeout.subtract(Duration.millis(20))), "elapsed="+elapsed);
         }
 
-        assertServiceFailed(test);
+        assertEntityFailed(test);
     }
     
     @Test
@@ -309,7 +308,7 @@ public class TestSshCommandTest extends BrooklynAppUnitTestSupport {
 
         app.start(ImmutableList.<Location>of());
 
-        assertServiceHealthy(test);
+        assertEntityHealthy(test);
         
         ExecCmd cmdExecuted = RecordingSshTool.getLastExecCmd();
         assertThat(cmdExecuted.commands).isEqualTo(ImmutableList.of("mycmd"));
@@ -326,20 +325,6 @@ public class TestSshCommandTest extends BrooklynAppUnitTestSupport {
         }
     }
     
-    private void assertServiceFailed(TestSshCommand test) {
-        assertThat(test.sensors().get(SERVICE_UP)).isFalse()
-            .withFailMessage("Service should be down");
-        assertThat(ServiceStateLogic.getExpectedState(test)).isEqualTo(Lifecycle.ON_FIRE)
-            .withFailMessage("Service should be marked on fire");
-    }
-
-    private void assertServiceHealthy(TestSshCommand test) {
-        assertThat(test.sensors().get(SERVICE_UP)).isTrue()
-            .withFailMessage("Service should be up");
-        assertThat(ServiceStateLogic.getExpectedState(test)).isEqualTo(Lifecycle.RUNNING)
-            .withFailMessage("Service should be marked running");
-    }
-
     private List<Map<String, ?>> makeAssertions(Map<String, ?> map) {
         return ImmutableList.<Map<String, ?>>of(map);
     }
