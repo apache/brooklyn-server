@@ -19,6 +19,7 @@
 package org.apache.brooklyn.util.yorml.tests;
 
 import java.math.RoundingMode;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -87,6 +88,11 @@ public class MapListTests {
     @Test public void testReadListJsonTypeInBody() { y.read(LIST1_JSON_LIST_JSON_TYPE, null).assertResult(LIST1_OBJ); }
     @Test public void testReadListJsonTypeDeclaredAndInBody() { y.read(LIST1_JSON_LIST_JSON_TYPE, "list<json>").assertResult(LIST1_OBJ); }
 
+    @Test public void testArraysAsList() { 
+        y.reading("[ a, b ]", "list<json>").writing(Arrays.asList("a", "b"), "list<json>")
+        .doReadWriteAssertingJsonMatch();
+    }
+    
     Set<Object> SET1_OBJ = MutableSet.<Object>of("a", 1, "b");
     String SET1_JSON = "{ type: set<json>, value: [ a, 1, b ] }";
     @Test public void testWriteSet() { y.write(SET1_OBJ, "set<json>").assertResult(LIST1_JSON); }

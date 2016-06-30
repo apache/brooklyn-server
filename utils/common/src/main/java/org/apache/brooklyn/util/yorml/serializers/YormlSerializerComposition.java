@@ -24,6 +24,7 @@ import java.util.Set;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yorml.YormlContext;
 import org.apache.brooklyn.util.yorml.YormlContextForRead;
@@ -127,6 +128,13 @@ public abstract class YormlSerializerComposition implements YormlSerializer {
                 }
             }
             return result;
+        }
+        
+        protected boolean isJsonPrimitiveObject(Object o) {
+            if (o==null) return true;
+            if (o instanceof String) return true;
+            if (Boxing.isPrimitiveOrBoxedObject(o)) return true;
+            return false;
         }
 
         public abstract void read();

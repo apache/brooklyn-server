@@ -20,6 +20,7 @@ package org.apache.brooklyn.util.yorml.serializers;
 
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -81,10 +82,15 @@ public class InstantiateTypeList extends YormlSerializerComposition {
         LinkedHashSet.class, SET,
         Set.class, SET
     );
-    
+    Map<String, String> typesAliasedByName = MutableMap.<String,String>of(
+        Arrays.class.getCanonicalName()+"$ArrayList", LIST  //Arrays.ArrayList is changed to default 
+    );
+
+    // any other types we allow?  (expect this to be populated by trial and error)
     @SuppressWarnings("rawtypes")
     Set<Class<? extends Collection>> typesAllowed = MutableSet.<Class<? extends Collection>>of(
-        // TODO does anything fit this category? we serialize as a json list, including the type, and use xxx.add(...) to read in
+    );
+    Set<String> typesAllowedByName = MutableSet.<String>of(
     );
     
     protected YormlSerializerWorker newWorker() {
@@ -290,7 +296,7 @@ public class InstantiateTypeList extends YormlSerializerComposition {
                     return;
                 }
                 @SuppressWarnings("unchecked")
-                Collection<Object> l = Reflections.invokeConstructorFromArgsIncludingPrivate(typesAliased.keySet().iterator().next()).get();
+                Collection<Object> l = Reflections.invokeConstructorFromArgsIncludingPrivate(typeAliases.values().iterator().next()).get();
                 Iterables.addAll(l, (Iterable<?>)getJavaObject());
                 storeWriteObjectAndAdvance(l);
                 return;                    
@@ -314,14 +320,20 @@ public class InstantiateTypeList extends YormlSerializerComposition {
                 expectedJavaType = newExpectedType;
             }
             String expectedJavaTypeName = typesAliased.get(expectedJavaType);
+            if (expectedJavaTypeName==null && expectedJavaType!=null) expectedJavaTypeName = typesAliasedByName.get(expectedJavaType.getName());
+            
             if (expectedJavaTypeName!=null) expectedJavaType = typeAliases.get(expectedJavaTypeName);
             else expectedJavaTypeName = config.getTypeRegistry().getTypeNameOfClass(expectedJavaType);
 
             String actualTypeName = typesAliased.get(getJavaObject().getClass());
+            if (actualTypeName==null) actualTypeName = typesAliasedByName.get(getJavaObject().getClass().getName());
+
             boolean isBasicCollectionType = (actualTypeName!=null);
             if (actualTypeName==null) actualTypeName = config.getTypeRegistry().getTypeName(getJavaObject());
             if (actualTypeName==null) return;
-            boolean isAllowedCollectionType = isBasicCollectionType || typesAllowed.contains(getJavaObject().getClass());
+            boolean isAllowedCollectionType = isBasicCollectionType || 
+                typesAllowed.contains(getJavaObject().getClass()) ||
+                typesAllowedByName.contains(getJavaObject().getClass().getName());
             if (!isAllowedCollectionType) return;
             
             Class<?> reconstructedJavaType = typeAliases.get(actualTypeName);

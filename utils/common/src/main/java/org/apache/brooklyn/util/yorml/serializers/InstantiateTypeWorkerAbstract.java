@@ -35,12 +35,6 @@ import org.apache.brooklyn.util.yorml.serializers.YormlSerializerComposition.Yor
 
 public abstract class InstantiateTypeWorkerAbstract extends YormlSerializerWorker {
     
-    protected boolean isJsonPrimitiveObject(Object o) {
-        if (o==null) return true;
-        if (o instanceof String) return true;
-        if (Boxing.isPrimitiveOrBoxedObject(o)) return true;
-        return false;
-    }
     protected boolean isJsonPrimitiveType(Class<?> type) {
         if (type==null) return false;
         if (String.class.isAssignableFrom(type)) return true;

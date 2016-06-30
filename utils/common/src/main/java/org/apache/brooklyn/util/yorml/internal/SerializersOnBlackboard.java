@@ -60,4 +60,10 @@ public class SerializersOnBlackboard {
         return Iterables.concat(preSerializers, instantiatedTypeSerializers, expectedTypeSerializers, postSerializers); 
     }
     
+    public static boolean isAddedByTypeInstantiation(Map<Object, Object> blackboard, YormlSerializer serializer) {
+        SerializersOnBlackboard sb = get(blackboard);
+        if (sb!=null && sb.instantiatedTypeSerializers.contains(serializer)) return true;
+        return false;
+    }
+    
 }

@@ -265,6 +265,10 @@ and the serializations defined for that type specify:
 * If the item is a primitive V, it is converted to `{ .value: V }`
 * If it is a map with no `type` defined, `type: explicit-field` is added
 
+
+
+
+
 This allows the serialization rules defined on the specific type to kick in to handle `.key` or `.value` entries
 introduced but not removed. In the case of `explicit-field` (the default type, as shown in the rules above), 
 this will rename either such key `.value` to `field-name` (and give an error if `field-name` is already present). 
@@ -502,9 +506,11 @@ whilst allowing them to be extended.
 
 The general phases are:
 
-* `manipulating` (any custom serializers operate in this phase) 
-* `handling-type` (default to instantaiate the java type, on read, or set the `type` field, on write), 
-  which if successful inserts:
+* `manipulating` (custom serializers, operating directly on the input YAML map) 
+* `handling-type` (default to instantaiate the java type, on read, or set the `type` field, on write),
+  on read, sets the Java object and sets YamlKeysOnBlackboard which are subsequently used for manipulation;
+  on write, sets the YAML object and sets JavaFieldsOnBlackboard (and sets ReadingTypeOnBlackboard with errors);
+  inserting new phases:
   * when reading:
     * `manipulating` (custom serializers again, now with the object created, fields known, and other serializers loaded)
     * `handling-fields` (write the fields to the java object)
@@ -529,6 +535,7 @@ to be shown.
 
 * documentation
 * yaml segment information and code-point completion
+
 
 
 ## Real World Use Cases
@@ -562,3 +569,49 @@ to be shown.
 - type: effector
 ```
 
+
+
+
+First, if the `serialization` field (which expects a list) is given a map, 
+the `convert-map-to-list` serializer converts each <K,V> pair in that map to a list entry as follows:
+
+* if V is a non-empty map, then the corresponding list entry is the map V with `{ field-name: K }` added
+* otherwise, the corresponding list entry is `{ field-name: K, type: V }`
+  convert-map-to-list: { key-for-key: field-name
+            key-for-primitive-value: type,  || key-for-any-value: ... || key-for-list-value: || key-for-map-value
+              || merge-with-map-value
+            apply-to-singleton-maps: true
+            defaults: { type: explicit-field }
+  # explicit-field sets key-for-list-value as aliases
+# on serializer
+  convert-singleton-map: { key-for-key: type
+            key-for-primitive-value: type,  || key-for-any-value: ... || key-for-list-value: || key-for-map-value
+              || merge-with-map-value
+            defaults: { type: explicit-field }
+
+Next, each entry in the list is interpreted as a `serialization` instance, 
+and the serializations defined for that type specify:
+
+* If the key `.key` is present and `type` is not defined, that key is renamed to `type` (ignored if `type` is already present)
+  rename-key: { from: .key, to: type, fail-if-present: true }
+  rename-default-key: type  (as above but .value)
+  rename-default-value: to
+  # above two serializers have special rules to need their own 
+
+* If the item is a primitive V, it is converted to `{ .value: V }`
+  primitive-to-kv-pair
+  primitive-to-kv-pair: { key: .value || value: foo } 
+
+* If it is a map with no `type` defined, `type: explicit-field` is added
+  defaults: { type: explicit-field }
+  # serializer declares convert-singleton-map ( merge-with-map-value )  
+
+NOTES
+
+convert-map-to-list (default-key, default-value)
+
+* if V is a non-empty map, then the corresponding list entry is the map V with `{ <default-key>: K }` added
+* otherwise, the corresponding list entry is `{ <default-key>: K, <default-value>: V }`
+
+
+OLD

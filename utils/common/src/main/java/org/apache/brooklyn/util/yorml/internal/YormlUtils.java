@@ -32,6 +32,7 @@ import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.annotations.Beta;
+import com.google.common.base.Objects;
 
 public class YormlUtils {
 
@@ -200,4 +201,35 @@ public class YormlUtils {
         }
         return typeName;
     }
+
+    /** add the given defaults to the target, ignoring any where the key is already present; returns number added */
+    public static int addDefaults(Map<String, ? extends Object> defaults, Map<? super String, Object> target) {
+        int i=0;
+        if (defaults!=null) for (String key: defaults.keySet()) {
+            if (!target.containsKey(key)) {
+                target.put(key, defaults.get(key));
+                i++;
+            }
+        }
+        return i;
+    }
+
+
+    /** removes the given defaults from the target, where the key and value match,
+     * ignoring any where the key is already present; returns number removed */
+    public static int removeDefaults(Map<String, ? extends Object> defaults, Map<? super String, ? extends Object> target) {
+        int i=0;
+        if (defaults!=null && target!=null) for (String key: defaults.keySet()) {
+            if (target.containsKey(key)) {
+                Object v = target.get(key);
+                Object dv = defaults.get(key);
+                if (Objects.equal(v, dv)) {
+                    target.remove(key);
+                    i++;
+                }
+            }
+        }
+        return i;
+    }
+    
 }

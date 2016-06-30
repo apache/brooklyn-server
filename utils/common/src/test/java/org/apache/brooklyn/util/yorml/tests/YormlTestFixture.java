@@ -91,7 +91,7 @@ public class YormlTestFixture {
     public YormlTestFixture doReadWriteAssertingJsonMatch() {
         read(readObject, readObjectExpectedType);
         write(writeObject, writeObjectExpectedType);
-        assertEqualsIgnoringQuotes(Jsonya.newInstance().add(lastWriteResult).toString(), readObject, "Write output should read input");
+        assertEqualsIgnoringQuotes(Jsonya.newInstance().add(lastWriteResult).toString(), readObject, "Write output should match read input");
         assertEqualsIgnoringQuotes(lastReadResult, writeObject, "Read output should match write input");
         return this;
     }
