@@ -18,10 +18,8 @@
  */
 package org.apache.brooklyn.test.framework;
 
-import java.util.concurrent.ExecutionException;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
@@ -30,6 +28,10 @@ import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.repeat.Repeater;
+import org.apache.brooklyn.util.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Class that can resolve the target for a test component
@@ -62,22 +64,39 @@ public abstract class TargetableTestComponentImpl extends AbstractEntity impleme
         return target;
     }
 
-    private static Entity getTargetById(ExecutionContext executionContext, Entity entity) {
-        String targetId = entity.getConfig(TARGET_ID);
-
+    private static Entity getTargetById(final ExecutionContext executionContext, final Entity entity) {
+        final String targetId = entity.getConfig(TARGET_ID);
+        Duration resolutionTimeout = entity.getConfig(TARGET_RESOLUTION_TIMEOUT);
+        
         if(targetId == null){
             return null;
         }
 
-        final Task<Entity> targetLookup = new DslComponent(targetId).newTask();
-        Entity target = null;
+        final AtomicReference<Entity> result = new AtomicReference<>();
+        final DslComponent dslComponent = new DslComponent(targetId);
+        Callable<Boolean> resolver = new Callable<Boolean>() {
+            @Override public Boolean call() throws Exception {
+                Task<Entity> task = dslComponent.newTask();
+                result.set(Tasks.resolveValue(task, Entity.class, executionContext, "Finding entity " + targetId));
+                return true;
+            }
+        };
         try {
-            target = Tasks.resolveValue(targetLookup, Entity.class, executionContext, "Finding entity " + targetId);
-            LOG.debug("Found target by id {}", targetId);
-        } catch (final ExecutionException | InterruptedException e) {
+            if (resolutionTimeout == null || resolutionTimeout.toMilliseconds() <= 0) {
+                resolver.call();
+            } else {
+                Repeater.create("find entity "+targetId)
+                        .backoffTo(resolutionTimeout.multiply(0.1))
+                        .limitTimeTo(resolutionTimeout)
+                        .rethrowException()
+                        .until(resolver)
+                        .runRequiringTrue();
+            }
+            LOG.debug("Found target {} by id {}", result.get(), targetId);
+            return result.get();
+        } catch (Exception e) {
             LOG.error("Error finding target {}", targetId);
-            Exceptions.propagate(e);
+            throw Exceptions.propagate(e);
         }
-        return target;
     }
 }

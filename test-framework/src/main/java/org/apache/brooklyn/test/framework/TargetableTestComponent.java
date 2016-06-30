@@ -20,9 +20,11 @@ package org.apache.brooklyn.test.framework;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.ImplementedBy;
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
+import org.apache.brooklyn.util.time.Duration;
 
 /**
  * Entity that can target another entity for the purpouse of testing
@@ -41,6 +43,15 @@ public interface TargetableTestComponent extends Entity, Startable {
      * Id of the target entity to test (optional, use either this or target).
      */
     AttributeSensorAndConfigKey<String, String> TARGET_ID = ConfigKeys.newStringSensorAndConfigKey("targetId", "Id of the entity under test");
+
+    /**
+     * The duration to wait for an entity with the given targetId to exist, before throwing an exception.
+     */
+    ConfigKey<Duration> TARGET_RESOLUTION_TIMEOUT = ConfigKeys.newConfigKey(
+            Duration.class, 
+            "targetResolutionTimeout", 
+            "Time to wait for targetId to exist (defaults to zero, i.e. must exist immediately)",
+            Duration.ZERO);
 
     /**
      * Get the target of the test.
