@@ -233,6 +233,13 @@ brooklyn.catalog:
         - type: cluster
           id: docker-swarm-nodes
           name: "docker-swarm-nodes"
+          brooklyn.parameters:
+          - name: swarm.recovery.quarantineFailedEntities
+            label: Quarantine
+            description: |
+              Quarantine failed entities instead of destroying them
+            type: boolean
+            default: true
           brooklyn.policies:
             - type: org.apache.brooklyn.policy.autoscaling.AutoScalerPolicy
               brooklyn.config:
@@ -245,6 +252,7 @@ brooklyn.catalog:
                 autoscaler.resizeUpStabilizationDelay: 30s
                 autoscaler.resizeDownIterationMax: 0 # Disable scaling down
                 autoscaler.resizeDownStabilizationDelay: forever
+            - type: org.apache.brooklyn.policy.ha.ServiceReplacer
           brooklyn.enrichers:
             - type: org.apache.brooklyn.enricher.stock.Aggregator
               brooklyn.config:
@@ -257,11 +265,36 @@ brooklyn.catalog:
                 transformation: average
           brooklyn.config:
             cluster.initial.size: $brooklyn:config("swarm.initial.size")
+            dynamiccluster.quarantineFailedEntities: $brooklyn:config("swarm.recovery.quarantineFailedEntities")
             dynamiccluster.memberspec:
               $brooklyn:entitySpec:
                 type: docker-swarm-node
                 id: swarm-node
                 name: "swarm-node"
+                # TODO implement parameters merge behaviour and remove defaults from brooklyn.config below
+                # brooklyn.parameters.inheritance.type: prepend/append/overwrite/hide?
+                # brooklyn.parameters:
+                # - name: swarm.recovery.stabilizationDelay
+                #   label: Stabilization Delay
+                #   description: |
+                #     Time period for which the service must be consistently in the same state to trigger an action
+                #   # A restart shouldn't trigger failure
+                #   default: 5m
+                # - name: swarm.recovery.failOnRecurringFailuresInThisDuration
+                #   label: Fail Duration
+                #   description: |
+                #     Reports entity as failed if it fails two or more times in this time window
+                #   default: 15m
+                brooklyn.policies:
+                  - type: org.apache.brooklyn.policy.ha.ServiceRestarter
+                    brooklyn.config:
+                      failOnRecurringFailuresInThisDuration: $brooklyn:config("swarm.recovery.failOnRecurringFailuresInThisDuration")
+                brooklyn.enrichers:
+                  - type: org.apache.brooklyn.policy.ha.ServiceFailureDetector
+                    brooklyn.config:
+                      serviceOnFire.stabilizationDelay: $brooklyn:config("swarm.recovery.stabilizationDelay")
+                      entityFailed.stabilizationDelay: $brooklyn:config("swarm.recovery.stabilizationDelay")
+                      entityRecovered.stabilizationDelay: $brooklyn:config("swarm.recovery.stabilizationDelay")
                 brooklyn.config:
                   launch.latch: $brooklyn:entity("swarm-manager").attributeWhenReady("service.isUp")
 
