@@ -117,6 +117,7 @@ public class TestSshCommandImpl extends TargetableTestComponentImpl implements T
         return Strings.maxlenWithEllipsis(text, A_LINE);
     }
 
+    @SuppressWarnings("serial")
     private static class MarkerException extends Exception {
         public MarkerException(Throwable cause) {
             super(cause);
@@ -125,9 +126,10 @@ public class TestSshCommandImpl extends TargetableTestComponentImpl implements T
 
     public void execute() {
         try {
+            checkConfig();
             final SshMachineLocation machineLocation =
                     Machines.findUniqueMachineLocation(resolveTarget().getLocations(), SshMachineLocation.class).get();
-            final Duration timeout = config().get(TIMEOUT);
+            final Duration timeout = getRequiredConfig(TIMEOUT);
 
             ReferenceWithError<Boolean> result = Repeater.create("Running ssh-command tests")
                     .limitTimeTo(timeout)
@@ -170,27 +172,32 @@ public class TestSshCommandImpl extends TargetableTestComponentImpl implements T
         String downloadUrl = getConfig(DOWNLOAD_URL);
         String command = getConfig(COMMAND);
 
-        String downloadName = DOWNLOAD_URL.getName();
-        String commandName = COMMAND.getName();
-
         Map<String, Object> env = getConfig(SHELL_ENVIRONMENT);
         if (env == null) env = ImmutableMap.of();
         
-        if (!(isNonBlank(downloadUrl) ^ isNonBlank(command))) {
-            throw illegal("Must specify exactly one of", downloadName, "and", commandName);
-        }
-
         if (isNonBlank(downloadUrl)) {
             String scriptDir = getConfig(SCRIPT_DIR);
             String scriptPath = calculateDestPath(downloadUrl, scriptDir);
             result = executeDownloadedScript(machineLocation, downloadUrl, scriptPath, env);
-        }
-
-        if (isNonBlank(command)) {
+        } else if (isNonBlank(command)) {
             result = executeShellCommand(machineLocation, command, env);
+        } else {
+            // should have been caught by checkConfig() earlier; maybe someone reconfigured it on-the-fly?!
+            throw illegal("Must specify exactly one of", DOWNLOAD_URL.getName(), "and", COMMAND.getName());
         }
 
         return result;
+    }
+    
+    protected void checkConfig() {
+        String downloadUrl = getConfig(DOWNLOAD_URL);
+        String command = getConfig(COMMAND);
+
+        if (!(isNonBlank(downloadUrl) ^ isNonBlank(command))) {
+            String downloadName = DOWNLOAD_URL.getName();
+            String commandName = COMMAND.getName();
+            throw illegal("Must specify exactly one of", downloadName, "and", commandName);
+        }
     }
 
     protected void handle(Result result) {

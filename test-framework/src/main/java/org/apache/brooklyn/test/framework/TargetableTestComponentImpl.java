@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.test.framework;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -25,6 +27,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent;
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -98,5 +101,9 @@ public abstract class TargetableTestComponentImpl extends AbstractEntity impleme
             LOG.error("Error finding target {}", targetId);
             throw Exceptions.propagate(e);
         }
+    }
+    
+    protected <T> T getRequiredConfig(ConfigKey<T> key) {
+        return checkNotNull(config().get(key), "config %s must not be null", key);
     }
 }

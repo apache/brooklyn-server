@@ -19,14 +19,13 @@
 package org.apache.brooklyn.test.framework;
 
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
-
-import com.google.common.collect.ImmutableList;
 
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.util.time.Duration;
+
+import com.google.common.collect.ImmutableList;
 
 /**
  * A base interface for all tests.
@@ -40,10 +39,10 @@ public interface BaseTest extends TargetableTestComponent, Startable {
         ImmutableList.<Map<String, Object>>of());
 
     /**
-     * THe duration to wait for an assertion to succeed or fail before throwing an exception.
+     * The duration to wait for an assertion to succeed or fail before throwing an exception.
      */
     ConfigKey<Duration> TIMEOUT = ConfigKeys.newConfigKey(Duration.class, "timeout", "Time to wait on result",
-        new Duration(1L, TimeUnit.SECONDS));
+        Duration.seconds(1));
 
 
 }
