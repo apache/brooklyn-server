@@ -94,6 +94,16 @@ public class BrooklynFeatureEnablementTest {
     @Test
     public void testCanSetDefaultWhichIsIgnoredIfBrooklynProps() throws Exception {
         String featureProperty = "brooklyn.experimental.feature.testCanSetDefaultWhichIsIgnoredIfBrooklynProps";
+        BrooklynFeatureEnablement.setDefault(featureProperty, true);
+        BrooklynProperties props = BrooklynProperties.Factory.newEmpty();
+        props.put(featureProperty, false);
+        BrooklynFeatureEnablement.init(props);
+        assertFalse(BrooklynFeatureEnablement.isEnabled(featureProperty));
+    }
+    
+    @Test
+    public void testSetDefaultAfterBrooklynPropsDoesNotChangeValue() throws Exception {
+        String featureProperty = "brooklyn.experimental.feature.testSetDefaultAfterBrooklynPropsDoesNotChangeValue";
         BrooklynProperties props = BrooklynProperties.Factory.newEmpty();
         props.put(featureProperty, false);
         BrooklynFeatureEnablement.init(props);
@@ -102,14 +112,23 @@ public class BrooklynFeatureEnablementTest {
     }
     
     @Test
+    public void testSetDefaultAfterCheckingIfEnabledChangesValue() throws Exception {
+        String featureProperty = "brooklyn.experimental.feature.testSetDefaultAfterCheckingIfEnabledChangesValue";
+        assertFalse(BrooklynFeatureEnablement.isEnabled(featureProperty));
+
+        BrooklynFeatureEnablement.setDefault(featureProperty, true);
+        assertTrue(BrooklynFeatureEnablement.isEnabled(featureProperty));
+    }
+    
+    @Test
     public void testPrefersSysPropOverBrooklynProps() throws Exception {
         String featureProperty = "brooklyn.experimental.feature.testPrefersSysPropOverBrooklynProps";
-        BrooklynProperties props = BrooklynProperties.Factory.newEmpty();
-        props.put(featureProperty, false);
         System.setProperty(featureProperty, "true");
         try {
-            BrooklynFeatureEnablement.init(props);
             BrooklynFeatureEnablement.setDefault(featureProperty, true);
+            BrooklynProperties props = BrooklynProperties.Factory.newEmpty();
+            props.put(featureProperty, false);
+            BrooklynFeatureEnablement.init(props);
             assertTrue(BrooklynFeatureEnablement.isEnabled(featureProperty));
         } finally {
             System.clearProperty(featureProperty);
