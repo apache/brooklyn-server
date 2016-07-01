@@ -32,10 +32,6 @@ public interface ChefConfig {
 
     public static final ConfigKey<String> CHEF_COOKBOOK_PRIMARY_NAME = ConfigKeys.newStringConfigKey("brooklyn.chef.cookbook.primary.name",
         "Namespace to use for passing data to Chef and for finding effectors");
-    
-    @Deprecated /** @deprecatd since 0.7.0 use #CHEF_COOKBOOK_URLS */
-    @SetFromFlag("cookbooks")
-    public static final MapConfigKey<String> CHEF_COOKBOOKS = new MapConfigKey<String>(String.class, "brooklyn.chef.cookbooksUrls");
 
     @SetFromFlag("cookbook_urls")
     public static final MapConfigKey<String> CHEF_COOKBOOK_URLS = new MapConfigKey<String>(String.class, "brooklyn.chef.cookbooksUrls");

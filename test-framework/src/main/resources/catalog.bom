@@ -42,6 +42,3 @@ brooklyn.catalog:
     - id: org.apache.brooklyn.test.framework.LoopOverGroupMembersTestCase
       item:
         type: org.apache.brooklyn.test.framework.LoopOverGroupMembersTestCase
-    - id: org.apache.brooklyn.test.framework.TargetableTestComponent
-      item:
-        type: org.apache.brooklyn.test.framework.TargetableTestComponent

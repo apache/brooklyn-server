@@ -38,7 +38,7 @@ limitations under the License.
             <cm:property name="ignoreCatalogErrors" value="true" />
             <cm:property name="ignorePersistenceErrors" value="true" />
             <cm:property name="highAvailabilityMode" value="DISABLED" />
-            <cm:property name="persistMode" value="DISABLED" />
+            <cm:property name="persistMode" value="AUTO" />
             <cm:property name="persistenceDir" value="" />
             <cm:property name="persistenceLocation" value="" />
             <cm:property name="persistPeriod" value="1s" />
