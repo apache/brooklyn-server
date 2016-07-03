@@ -26,6 +26,11 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
@@ -56,17 +61,11 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.yaml.Yamls;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-
 /** package-private; as {@link RegisteredType} becomes standard hopefully we can remove this */
 class CampInternalUtils {
 
     static EntitySpec<? extends Application> createWrapperApp(AssemblyTemplate template, BrooklynClassLoadingContext loader) {
-        BrooklynComponentTemplateResolver resolver = BrooklynComponentTemplateResolver.Factory.newInstance(
-            loader, buildWrapperAppTemplate(template));
+        BrooklynComponentTemplateResolver resolver = BrooklynComponentTemplateResolver.Factory.newInstance(loader, buildWrapperAppTemplate(template));
         EntitySpec<Application> wrapperSpec = resolver.resolveSpec(ImmutableSet.<String>of());
         resetSpecIfTemplateHasNoExplicitParameters(template, wrapperSpec);
         // caller always sets WRAPPER_APP config; should we do it here?
@@ -171,7 +170,7 @@ class CampInternalUtils {
         }
 
         String type = (String) checkNotNull(Yamls.getMultinameAttribute(itemMap, "location_type", "locationType", "type"), "location type");
-        Map<String, Object> brooklynConfig = (Map<String, Object>) itemMap.get("brooklyn.config");
+        Map<String, Object> brooklynConfig = (Map<String, Object>) itemMap.get(BrooklynCampReservedKeys.BROOKLYN_CONFIG);
         if (brooklynConfig==null) brooklynConfig = MutableMap.of();
         LocationSpec<?> locationSpec = resolveLocationSpec(type, brooklynConfig, loader);
         List<?> explicitParams = (List<?>) itemMap.get(BrooklynCampReservedKeys.BROOKLYN_PARAMETERS);
@@ -181,9 +180,9 @@ class CampInternalUtils {
 
     private static void initParameters(List<?> explicitParams, AbstractBrooklynObjectSpec<?, ?> spec, BrooklynClassLoadingContext loader) {
         if (explicitParams != null) {
-            spec.parameters(BasicSpecParameter.fromConfigList(explicitParams, loader));
+            BasicSpecParameter.addParameters(spec, BasicSpecParameter.fromConfigList(explicitParams, loader), loader);
         } else {
-            spec.parameters(BasicSpecParameter.fromSpec(loader.getManagementContext(), spec));
+            BasicSpecParameter.addParameters(spec, ImmutableList.<SpecParameter<?>>of(), loader);
         }
     }
 

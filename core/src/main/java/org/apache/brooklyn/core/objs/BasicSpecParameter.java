@@ -26,6 +26,16 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.annotations.Beta;
+import com.google.common.base.Function;
+import com.google.common.base.Objects;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.reflect.TypeToken;
+
 import org.apache.brooklyn.api.catalog.CatalogConfig;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -47,16 +57,6 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.time.Duration;
-
-import com.google.common.annotations.Beta;
-import com.google.common.base.Function;
-import com.google.common.base.Objects;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
-import com.google.common.collect.FluentIterable;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.reflect.TypeToken;
 
 public class BasicSpecParameter<T> implements SpecParameter<T>{
     private static final long serialVersionUID = -4728186276307619778L;
@@ -130,9 +130,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
         if (getClass() != obj.getClass())
             return false;
         BasicSpecParameter<?> other = (BasicSpecParameter<?>) obj;
-        return Objects.equal(label,  other.label) &&
-                pinned == other.pinned &&
-                Objects.equal(configKey, other.configKey);
+        return Objects.equal(configKey, other.configKey);
     }
 
     @Override
@@ -384,5 +382,19 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
         }
     }
 
+    /**
+     * Adds the given list of {@link SpecParameter parameters} to the provided
+     * {@link AbstractBrooklynObjectSpec spec} or generates a list from the
+     * spec if the provided list is empty.
+     *
+     * @see EntitySpec#parameters(List)
+     */
+    public static void addParameters(AbstractBrooklynObjectSpec<?, ?> spec, List<? extends SpecParameter<?>> explicitParams, BrooklynClassLoadingContext loader) {
+        if (explicitParams.size() > 0) {
+            spec.parametersAdd(explicitParams);
+        } else {
+            spec.parametersAdd(BasicSpecParameter.fromSpec(loader.getManagementContext(), spec));
+        }
+    }
 
 }

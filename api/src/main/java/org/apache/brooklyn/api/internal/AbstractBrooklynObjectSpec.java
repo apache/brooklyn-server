@@ -27,6 +27,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.annotations.Beta;
+import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
+
 import org.apache.brooklyn.api.mgmt.EntityManager;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.BrooklynObject;
@@ -35,18 +45,9 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.Beta;
-import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
-
-/** Defines a spec for creating a {@link BrooklynObject}.
+/**
+ * Defines a spec for creating a {@link BrooklynObject}.
  * <p>
  * In addition to the contract defined by the code,
  * subclasses should provide a public static <code>create(Class)</code>
@@ -54,7 +55,8 @@ import com.google.common.collect.Maps;
  * <p>
  * The spec is then passed to type-specific methods,
  * e.g. {@link EntityManager#createEntity(org.apache.brooklyn.api.entity.EntitySpec)}
- * to create a managed instance of the target type. */
+ * to create a managed instance of the target type.
+ */
 public abstract class AbstractBrooklynObjectSpec<T,SpecT extends AbstractBrooklynObjectSpec<T,SpecT>> implements Serializable {
 
     private static final long serialVersionUID = 3010955277740333030L;
@@ -134,7 +136,7 @@ public abstract class AbstractBrooklynObjectSpec<T,SpecT extends AbstractBrookly
         Iterables.addAll(this.tags, tagsToReplace);
         return self();
     }
-    
+
     // TODO which semantics are correct? replace has been the behaviour;
     // add breaks tests and adds unwanted parameters,
     // but replacing will cause some desired parameters to be lost.
@@ -153,17 +155,16 @@ public abstract class AbstractBrooklynObjectSpec<T,SpecT extends AbstractBrookly
     @Beta
     public SpecT parametersAdd(List<? extends SpecParameter<?>> parameters) {
         // parameters follows immutable pattern, unlike the other fields
-        Builder<SpecParameter<?>> result = ImmutableList.<SpecParameter<?>>builder();
-        if (this.parameters!=null)
-            result.addAll(this.parameters);
-        result.addAll( checkNotNull(parameters, "parameters") );
-        this.parameters = result.build();
+        Set<SpecParameter<?>> params = MutableSet.<SpecParameter<?>>copyOf(this.parameters);
+        params.removeAll(parameters);
+        params.addAll(parameters);
+        this.parameters = ImmutableList.copyOf(params);
         return self();
     }
     /** replaces parameters with the given */
     @Beta
     public SpecT parametersReplace(List<? extends SpecParameter<?>> parameters) {
-        this.parameters = ImmutableList.copyOf( checkNotNull(parameters, "parameters") );
+        this.parameters = ImmutableList.copyOf(checkNotNull(parameters, "parameters"));
         return self();
     }
 
@@ -302,12 +303,12 @@ public abstract class AbstractBrooklynObjectSpec<T,SpecT extends AbstractBrookly
     }
 
     public <V> SpecT removeConfig(ConfigKey<V> key) {
-        config.remove( checkNotNull(key, "key") );
+        config.remove(checkNotNull(key, "key"));
         return self();
     }
 
     public <V> SpecT removeFlag(String key) {
-        flags.remove( checkNotNull(key, "key") );
+        flags.remove(checkNotNull(key, "key"));
         return self();
     }
 
@@ -323,7 +324,7 @@ public abstract class AbstractBrooklynObjectSpec<T,SpecT extends AbstractBrookly
     public Map<String, ?> getFlags() {
         return Collections.unmodifiableMap(flags);
     }
-    
+
     /**
      * @return Read-only configuration values
      */
