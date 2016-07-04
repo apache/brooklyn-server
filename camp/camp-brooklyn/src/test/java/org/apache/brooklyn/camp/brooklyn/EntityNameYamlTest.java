@@ -70,7 +70,7 @@ public class EntityNameYamlTest extends AbstractYamlTest {
 
     protected void deployAndAssertDisplayName(String yaml, String expectedName) throws Exception {
         Entity app = createAndStartApplication(yaml);
-        Entity entity = Iterables.getOnlyElement(Entities.descendants(app, Predicates.instanceOf(TestEntity.class)));
+        Entity entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, TestEntity.class));
         assertEquals(entity.getDisplayName(), expectedName);
     }
 

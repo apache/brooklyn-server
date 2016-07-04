@@ -120,12 +120,10 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
                 case SCOPE_ROOT:
                     return Entities.catalogItemScopeRoot(entity);
                 case DESCENDANT:
-                    entitiesToSearch = Entities.descendants(entity);
-                    entitiesToSearch = Iterables.filter(entitiesToSearch, notSelfPredicate);
+                    entitiesToSearch = Entities.descendantsWithoutSelf(entity);
                     break;
                 case ANCESTOR:
-                    entitiesToSearch = Entities.ancestors(entity);
-                    entitiesToSearch = Iterables.filter(entitiesToSearch, notSelfPredicate);
+                    entitiesToSearch = Entities.ancestorsWithoutSelf(entity);
                     break;
                 case SIBLING:
                     entitiesToSearch = entity.getParent().getChildren();

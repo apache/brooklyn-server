@@ -239,7 +239,7 @@ public class ByonLocationsYamlTest extends AbstractYamlTest {
                 "    requiredOpenLoginPorts: [22, 1024]");
 
         Entity app = createStartWaitAndLogApplication(yaml);
-        DoNothingSoftwareProcess entity = (DoNothingSoftwareProcess) Iterables.find(Entities.descendants(app), Predicates.instanceOf(DoNothingSoftwareProcess.class));
+        DoNothingSoftwareProcess entity = (DoNothingSoftwareProcess) Iterables.find(Entities.descendantsAndSelf(app), Predicates.instanceOf(DoNothingSoftwareProcess.class));
         FixedListMachineProvisioningLocation<MachineLocation> loc = (FixedListMachineProvisioningLocation<MachineLocation>) Iterables.get(app.getLocations(), 0);
         
         // Machine should have been given the inbound-ports

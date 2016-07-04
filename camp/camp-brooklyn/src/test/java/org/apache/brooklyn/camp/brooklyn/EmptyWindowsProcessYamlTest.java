@@ -45,7 +45,7 @@ public class EmptyWindowsProcessYamlTest extends AbstractYamlTest {
                 "    onbox.base.dir.skipResolution: true");
         waitForApplicationTasks(app);
 
-        EmptyWindowsProcess entity = Iterables.getOnlyElement(Entities.descendants(app, EmptyWindowsProcess.class));
+        EmptyWindowsProcess entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, EmptyWindowsProcess.class));
         EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, true);
         EntityAsserts.assertAttributeEqualsContinually(entity, Attributes.SERVICE_UP, true);
         

@@ -297,17 +297,17 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
         cluster.start(ImmutableList.of(loc));
 
         cluster.resize(4);
-        assertEquals(Iterables.size(Entities.descendants(cluster, TestEntity.class)), 4);
+        assertEquals(Iterables.size(Entities.descendantsAndSelf(cluster, TestEntity.class)), 4);
         
         // check delta of 2 and delta of 1, because >1 is handled differently to =1
         cluster.resize(2);
-        assertEquals(Iterables.size(Entities.descendants(cluster, TestEntity.class)), 2);
+        assertEquals(Iterables.size(Entities.descendantsAndSelf(cluster, TestEntity.class)), 2);
         cluster.resize(1);
-        assertEquals(Iterables.size(Entities.descendants(cluster, TestEntity.class)), 1);
+        assertEquals(Iterables.size(Entities.descendantsAndSelf(cluster, TestEntity.class)), 1);
         cluster.resize(1);
-        assertEquals(Iterables.size(Entities.descendants(cluster, TestEntity.class)), 1);
+        assertEquals(Iterables.size(Entities.descendantsAndSelf(cluster, TestEntity.class)), 1);
         cluster.resize(0);
-        assertEquals(Iterables.size(Entities.descendants(cluster, TestEntity.class)), 0);
+        assertEquals(Iterables.size(Entities.descendantsAndSelf(cluster, TestEntity.class)), 0);
     }
 
     

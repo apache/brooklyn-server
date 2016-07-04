@@ -661,6 +661,17 @@ public class Entities {
     }
 
     /**
+     * Returns the entity's children, its children's children, and so on.
+     *
+     * @see #descendants(Entity, Predicate, boolean)
+     */
+    public static Iterable<Entity> descendantsWithoutSelf(Entity root) {
+        Set<Entity> result = Sets.newLinkedHashSet();
+        descendantsWithoutSelf(root, result);
+        return result;
+    }
+
+    /**
      * Return all descendants of given entity of the given type, potentially including the given root.
      *
      * @see #descendants(Entity)
@@ -707,12 +718,17 @@ public class Entities {
         return result;
     }
 
-    private static Iterable<Entity> descendantsWithoutSelf(Entity root) {
+    /** Returns the entity's parent, its parent's parent, and so on. */
+    public static Iterable<Entity> ancestorsWithoutSelf(Entity root) {
         Set<Entity> result = Sets.newLinkedHashSet();
-        descendantsWithoutSelf(root, result);
+        Entity parent = (root != null) ? root.getParent() : null;
+        while (parent != null) {
+            result.add(parent);
+            parent = parent.getParent();
+        }
         return result;
     }
-    
+
     /**
      * Side-effects {@code result} to return descendants (not including {@code root}).
      */
@@ -726,20 +742,6 @@ public class Entities {
             tovisit.addAll(e.getChildren());
         }
     }
-
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
     
     /**
      * @deprecated since 0.10.0; see {@link #descendantsAndSelf(Entity, Predicate)}
