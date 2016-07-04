@@ -94,21 +94,21 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
     }
 
     @Test
-    public void testAddCatalogItemTopLevelItemSyntax() throws Exception {
+    public void testAddCatalogItemLegacySyntax() throws Exception {
         assertEquals(countCatalogLocations(), 0);
 
         String symbolicName = "my.catalog.location.id.load";
-        addCatalogLocationTopLevelItemSyntax(symbolicName, LOCALHOST_LOCATION_TYPE, null);
+        addCatalogLocationLegacySyntax(symbolicName, LOCALHOST_LOCATION_TYPE, null);
         assertAdded(symbolicName, LOCALHOST_LOCATION_TYPE);
         removeAndAssert(symbolicName);
     }
 
     @Test
-    public void testAddCatalogItemOsgiTopLevelItemSyntax() throws Exception {
+    public void testAddCatalogItemOsgiLegacySyntax() throws Exception {
         assertEquals(countCatalogLocations(), 0);
 
         String symbolicName = "my.catalog.location.id.load";
-        addCatalogLocationTopLevelItemSyntax(symbolicName, SIMPLE_LOCATION_TYPE, getOsgiLibraries());
+        addCatalogLocationLegacySyntax(symbolicName, SIMPLE_LOCATION_TYPE, getOsgiLibraries());
         assertAdded(symbolicName, SIMPLE_LOCATION_TYPE);
         assertOsgi(symbolicName);
         removeAndAssert(symbolicName);
@@ -164,18 +164,18 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
     }
 
     @Test
-    public void testLaunchApplicationReferencingLocationClassTopLevelItemSyntax() throws Exception {
+    public void testLaunchApplicationReferencingLocationClassLegacySyntax() throws Exception {
         String symbolicName = "my.catalog.location.id.launch";
-        addCatalogLocationTopLevelItemSyntax(symbolicName, LOCALHOST_LOCATION_TYPE, null);
+        addCatalogLocationLegacySyntax(symbolicName, LOCALHOST_LOCATION_TYPE, null);
         runLaunchApplicationReferencingLocation(symbolicName, LOCALHOST_LOCATION_TYPE);
 
         deleteCatalogEntity(symbolicName);
     }
 
     @Test
-    public void testLaunchApplicationReferencingLocationSpecTopLevelSyntax() throws Exception {
+    public void testLaunchApplicationReferencingLocationSpecLegacySyntax() throws Exception {
         String symbolicName = "my.catalog.location.id.launch";
-        addCatalogLocationTopLevelItemSyntax(symbolicName, LOCALHOST_LOCATION_SPEC, null);
+        addCatalogLocationLegacySyntax(symbolicName, LOCALHOST_LOCATION_SPEC, null);
         runLaunchApplicationReferencingLocation(symbolicName, LOCALHOST_LOCATION_TYPE);
 
         deleteCatalogEntity(symbolicName);
@@ -384,15 +384,15 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
         ImmutableList.Builder<String> yaml = ImmutableList.<String>builder().add(
                 "brooklyn.catalog:",
                 "  id: " + symbolicName,
+                "  version: " + TEST_VERSION,
+                "  itemType: location",
                 "  name: My Catalog Location",
-                "  description: My description",
-                "  version: " + TEST_VERSION);
+                "  description: My description");
         if (libraries!=null && libraries.size() > 0) {
             yaml.add("  libraries:")
                 .addAll(Lists.transform(libraries, StringFunctions.prepend("  - url: ")));
         }
         yaml.add(
-                "  item.type: location",
                 "  item:",
                 "    type: " + locationType,
                 "    brooklyn.config:",
@@ -403,7 +403,7 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
         addCatalogItems(yaml.build());
     }
 
-    private void addCatalogLocationTopLevelItemSyntax(String symbolicName, String locationType, List<String> libraries) {
+    private void addCatalogLocationLegacySyntax(String symbolicName, String locationType, List<String> libraries) {
         ImmutableList.Builder<String> yaml = ImmutableList.<String>builder().add(
                 "brooklyn.catalog:",
                 "  id: " + symbolicName,

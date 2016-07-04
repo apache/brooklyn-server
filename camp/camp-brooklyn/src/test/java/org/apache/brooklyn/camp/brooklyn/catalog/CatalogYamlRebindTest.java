@@ -134,6 +134,7 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
                 "brooklyn.catalog:",
                 "  id: " + appSymbolicName,
                 "  version: %s",
+                "  itemType: entity",
                 "  item:",
                 "    type: "+ BasicEntity.class.getName(),
                 "    brooklyn.enrichers:",
@@ -147,7 +148,7 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
                 "brooklyn.catalog:",
                 "  id: " + locSymbolicName,
                 "  version: %s",
-                "  item.type: location",
+                "  itemType: location",
                 "  item:",
                 "    type: localhost");
         

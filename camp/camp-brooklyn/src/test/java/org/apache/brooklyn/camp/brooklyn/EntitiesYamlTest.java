@@ -516,9 +516,10 @@ public class EntitiesYamlTest extends AbstractYamlTest {
     public void testScopeReferences() throws Exception {
         addCatalogItems(
                 "brooklyn.catalog:",
+                "  itemType: entity",
                 "  items:",
-                "  -  id: ref_child",
-                "     item:",
+                "  - id: ref_child",
+                "    item:",
                 "      type: " + ReferencingYamlTestEntity.class.getName(),
                 "      test.reference.root: $brooklyn:root()",
                 "      test.reference.scope_root: $brooklyn:scopeRoot()",
@@ -527,8 +528,8 @@ public class EntitiesYamlTest extends AbstractYamlTest {
                 "        test.reference.root: $brooklyn:root()",
                 "        test.reference.scope_root: $brooklyn:scopeRoot()",
 
-                "  -  id: ref_parent",
-                "     item:",
+                "  - id: ref_parent",
+                "    item:",
                 "      type: " + ReferencingYamlTestEntity.class.getName(),
                 "      test.reference.root: $brooklyn:root()",
                 "      test.reference.scope_root: $brooklyn:scopeRoot()",
@@ -538,6 +539,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
                 "        test.reference.scope_root: $brooklyn:scopeRoot()",
                 "        brooklyn.children:",
                 "        - type: ref_child");
+        
         Entity app = createAndStartApplication(
                 "brooklyn.config:",
                 "  test.reference.root: $brooklyn:root()",

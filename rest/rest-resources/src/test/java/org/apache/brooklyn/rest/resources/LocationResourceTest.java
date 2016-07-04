@@ -99,12 +99,12 @@ public class LocationResourceTest extends BrooklynRestResourceTest {
                 "brooklyn.catalog:",
                 "  symbolicName: "+locationName,
                 "  version: " + locationVersion,
-                "",
-                "brooklyn.locations:",
-                "- type: "+"aws-ec2:us-east-1",
-                "  brooklyn.config:",
-                "    identity: bob",
-                "    credential: CR3dential"));
+                "  itemType: location",
+                "  item:",
+                "    type: "+"aws-ec2:us-east-1",
+                "    brooklyn.config:",
+                "      identity: bob",
+                "      credential: CR3dential"));
 
         
         Response response = client().path("/catalog")

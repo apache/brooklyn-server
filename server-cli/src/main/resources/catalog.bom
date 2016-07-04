@@ -3,12 +3,13 @@
 # and templates to get started using Brooklyn
 
 brooklyn.catalog:
-  version: 0.10.0-SNAPSHOT  # BROOKLYN_VERSION
+  version: "0.10.0-SNAPSHOT"  # BROOKLYN_VERSION
   items:
 
   # load everything in the classpath with a @Catalog annotation
 
   - id: server
+    itemType: entity
     description: |
       Provision a server, with customizable provisioning.properties and credentials installed, 
       but no other special software process or scripts executed.
@@ -17,6 +18,7 @@ brooklyn.catalog:
       name: Server
 
   - id: vanilla-bash-server
+    itemType: entity
     description: |
       Provision a server, with customizable provisioning.properties and credentials installed, 
       but no other special software process or scripts executed.
@@ -27,6 +29,7 @@ brooklyn.catalog:
       name: Server with Launch Script (bash)
 
   - id: load-balancer
+    itemType: entity
     description: |
       Create a load balancer which will point at members in the group entity
       referred to by the config key "serverPool". 
@@ -37,6 +40,7 @@ brooklyn.catalog:
       name: Load Balancer (nginx)
 
   - id: cluster
+    itemType: entity
     description: |
       Create a cluster of entities, resizable, with starting size "initialSize",
       and using a spec supplied in the "memberSpec" key.

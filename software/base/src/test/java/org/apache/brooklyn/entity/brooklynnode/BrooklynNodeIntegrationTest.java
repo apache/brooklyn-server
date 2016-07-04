@@ -260,9 +260,9 @@ services:
                 "brooklyn.catalog:",
                 "  id: BrooklynNodeIntegrationTest.mycatalog",
                 "  version: 1.0",
+                "  itemType: entity",
                 "  item:",
-                "    services:",
-                "    - type: org.apache.brooklyn.entity.stock.BasicApplication");
+                "    type: org.apache.brooklyn.entity.stock.BasicApplication");
 
         EntitySpec<BrooklynNode> spec = newBrooklynNodeSpecForTest()
                 .configure(BrooklynNode.BROOKLYN_CATALOG_INITIAL_BOM_REMOTE_PATH, pseudoBrooklynCatalogFile.getAbsolutePath())

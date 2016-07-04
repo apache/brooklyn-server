@@ -181,8 +181,8 @@ public class ConfigLocationInheritanceYamlTest extends AbstractYamlTest {
         addCatalogItems(
                 "brooklyn.catalog:",
                 "  id: jclouds-config-test-with-conf",
-                "  name: stubbed-jclouds-gce",
                 "  itemType: location",
+                "  name: stubbed-jclouds-gce",
                 "  item:",
                 "    type: jclouds-config-test:"+CLOUD_PROVIDER+":"+CLOUD_REGION,
                 "    brooklyn.config:",
@@ -257,8 +257,8 @@ public class ConfigLocationInheritanceYamlTest extends AbstractYamlTest {
         addCatalogItems(
                 "brooklyn.catalog:",
                 "  id: jclouds-config-test-with-tempateOptions-mapVal",
-                "  name: stubbed-jclouds-gce",
                 "  itemType: location",
+                "  name: stubbed-jclouds-gce",
                 "  item:",
                 "    type: jclouds-config-test:"+CLOUD_PROVIDER+":"+CLOUD_REGION,
                 "    brooklyn.config:",
@@ -326,8 +326,8 @@ public class ConfigLocationInheritanceYamlTest extends AbstractYamlTest {
         addCatalogItems(
                 "brooklyn.catalog:",
                 "  id: extending-jclouds-config-test-with-conf",
-                "  name: jclouds-config-test-with-conf",
                 "  itemType: location",
+                "  name: jclouds-config-test-with-conf",
                 "  item:",
                 "    type: jclouds-config-test:"+CLOUD_PROVIDER+":"+CLOUD_REGION,
                 "    brooklyn.config:",

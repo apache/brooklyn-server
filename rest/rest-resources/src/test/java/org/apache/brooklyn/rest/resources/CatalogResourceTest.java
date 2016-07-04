@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.rest.resources;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -81,18 +82,18 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
 
         String symbolicName = "my.catalog.entity.id";
         String bundleUrl = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
-        String yaml =
-                "brooklyn.catalog:\n"+
-                "  id: " + symbolicName + "\n"+
-                "  name: My Catalog App\n"+
-                "  description: My description\n"+
-                "  icon_url: classpath:/org/apache/brooklyn/test/osgi/entities/icon.gif\n"+
-                "  version: " + TEST_VERSION + "\n"+
-                "  libraries:\n"+
-                "  - url: " + bundleUrl + "\n"+
-                "\n"+
-                "services:\n"+
-                "- type: org.apache.brooklyn.core.test.entity.TestEntity\n";
+        String yaml = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  id: " + symbolicName,
+                "  version: " + TEST_VERSION,
+                "  itemType: entity",
+                "  name: My Catalog App",
+                "  description: My description",
+                "  icon_url: classpath:/org/apache/brooklyn/test/osgi/entities/icon.gif",
+                "  libraries:",
+                "  - url: " + bundleUrl,
+                "  item:",
+                "    type: org.apache.brooklyn.core.test.entity.TestEntity");
 
         Response response = client().path("/catalog")
                 .post(yaml);
@@ -139,7 +140,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
     }
 
     @Test
-    // osgi may fail in IDE, typically works on CLI though
+    // osgi may fail in IDE, typically works on mvn CLI though
     public void testRegisterOsgiPolicyTopLevelSyntax() {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
 
@@ -147,17 +148,17 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         String policyType = "org.apache.brooklyn.test.osgi.entities.SimplePolicy";
         String bundleUrl = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
 
-        String yaml =
-                "brooklyn.catalog:\n"+
-                "  id: " + symbolicName + "\n"+
-                "  name: My Catalog App\n"+
-                "  description: My description\n"+
-                "  version: " + TEST_VERSION + "\n" +
-                "  libraries:\n"+
-                "  - url: " + bundleUrl + "\n"+
-                "\n"+
-                "brooklyn.policies:\n"+
-                "- type: " + policyType;
+        String yaml = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  id: " + symbolicName,
+                "  version: " + TEST_VERSION,
+                "  itemType: policy",
+                "  name: My Catalog App",
+                "  description: My description",
+                "  libraries:",
+                "  - url: " + bundleUrl,
+                "  item:",
+                "    type: " + policyType);
 
         CatalogPolicySummary entityItem = Iterables.getOnlyElement( client().path("/catalog")
                 .post(yaml, new GenericType<Map<String,CatalogPolicySummary>>() {}).values() );
@@ -248,21 +249,21 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
     }
 
     private void addTestCatalogItemAsEntity(String catalogItemId) {
-        addTestCatalogItem(catalogItemId, null, TEST_VERSION, "org.apache.brooklyn.rest.resources.DummyIconEntity");
+        addTestCatalogItem(catalogItemId, "entity", TEST_VERSION, "org.apache.brooklyn.rest.resources.DummyIconEntity");
     }
 
     private void addTestCatalogItem(String catalogItemId, String itemType, String version, String service) {
-        String yaml =
-                "brooklyn.catalog:\n"+
-                "  id: " + catalogItemId + "\n"+
-                "  name: My Catalog App\n"+
-                (itemType!=null ? "  item_type: "+itemType+"\n" : "")+
-                "  description: My description\n"+
-                "  icon_url: classpath:///bridge-small.png\n"+
-                "  version: " + version + "\n"+
-                "\n"+
-                "services:\n"+
-                "- type: " + service + "\n";
+        String yaml = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  id: " + catalogItemId,
+                "  version: " + TEST_VERSION,
+                "  itemType: " + checkNotNull(itemType),
+                "  name: My Catalog App",
+                "  description: My description",
+                "  icon_url: classpath:///bridge-small.png",
+                "  version: " + version,
+                "  item:",
+                "    type: " + service);
 
         client().path("/catalog").post(yaml);
     }
@@ -314,12 +315,12 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         String yaml = Joiner.on("\n").join(
                 "brooklyn.catalog:",
                 "  id: " + symbolicName,
+                "  version: " + TEST_VERSION,
+                "  itemType: location",
                 "  name: My Catalog Location",
                 "  description: My description",
-                "  version: " + TEST_VERSION,
-                "",
-                "brooklyn.locations:",
-                "- type: " + locationType);
+                "  item:",
+                "    type: " + locationType);
 
         // Create location item
         Map<String, CatalogLocationSummary> items = client().path("/catalog")
@@ -362,17 +363,15 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
     @Test
     public void testDeleteCustomEntityFromCatalog() {
         String symbolicName = "my.catalog.app.id.to.subsequently.delete";
-        String yaml =
-                "name: "+symbolicName+"\n"+
-                // FIXME name above should be unnecessary when brooklyn.catalog below is working
-                "brooklyn.catalog:\n"+
-                "  id: " + symbolicName + "\n"+
-                "  name: My Catalog App To Be Deleted\n"+
-                "  description: My description\n"+
-                "  version: " + TEST_VERSION + "\n"+
-                "\n"+
-                "services:\n"+
-                "- type: org.apache.brooklyn.core.test.entity.TestEntity\n";
+        String yaml = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  id: " + symbolicName,
+                "  version: " + TEST_VERSION,
+                "  itemType: entity",
+                "  name: My Catalog App To Be Deleted",
+                "  description: My description",
+                "  item:",
+                "    type: org.apache.brooklyn.core.test.entity.TestEntity");
 
         client().path("/catalog")
                 .post(yaml);
@@ -474,35 +473,35 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
 
     @Test
     public void testAddUnreachableItem() {
-        addInvalidCatalogItem("http://0.0.0.0/can-not-connect");
+        addAddCatalogItemWithInvalidBundleUrl("http://0.0.0.0/can-not-connect");
     }
 
     @Test
     public void testAddInvalidItem() {
         //equivalent to HTTP response 200 text/html
-        addInvalidCatalogItem("classpath://not-a-jar-file.txt");
+        addAddCatalogItemWithInvalidBundleUrl("classpath://not-a-jar-file.txt");
     }
 
     @Test
     public void testAddMissingItem() {
         //equivalent to HTTP response 404 text/html
-        addInvalidCatalogItem("classpath://missing-jar-file.txt");
+        addAddCatalogItemWithInvalidBundleUrl("classpath://missing-jar-file.txt");
     }
 
-    private void addInvalidCatalogItem(String bundleUrl) {
+    private void addAddCatalogItemWithInvalidBundleUrl(String bundleUrl) {
         String symbolicName = "my.catalog.entity.id";
-        String yaml =
-                "brooklyn.catalog:\n"+
-                "  id: " + symbolicName + "\n"+
-                "  name: My Catalog App\n"+
-                "  description: My description\n"+
-                "  icon_url: classpath:/org/apache/brooklyn/test/osgi/entities/icon.gif\n"+
-                "  version: " + TEST_VERSION + "\n"+
-                "  libraries:\n"+
-                "  - url: " + bundleUrl + "\n"+
-                "\n"+
-                "services:\n"+
-                "- type: org.apache.brooklyn.core.test.entity.TestEntity\n";
+        String yaml = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  id: " + symbolicName,
+                "  version: " + TEST_VERSION,
+                "  itemType: entity",
+                "  name: My Catalog App",
+                "  description: My description",
+                "  icon_url: classpath:/org/apache/brooklyn/test/osgi/entities/icon.gif",
+                "  libraries:",
+                "  - url: " + bundleUrl,
+                "  item:",
+                "    type: org.apache.brooklyn.core.test.entity.TestEntity");
 
         Response response = client().path("/catalog")
                 .post(yaml);

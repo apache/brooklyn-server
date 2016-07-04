@@ -17,7 +17,7 @@
 
 
 brooklyn.catalog:
-    version: 0.10.0-SNAPSHOT # BROOKLYN_VERSION
+    version: "0.10.0-SNAPSHOT" # BROOKLYN_VERSION
     items:
     - id: server-template
       itemType: template

@@ -16,7 +16,8 @@
 # under the License.
 
 brooklyn.catalog:
-    version: 0.10.0-SNAPSHOT # BROOKLYN_VERSION
+    version: "0.10.0-SNAPSHOT" # BROOKLYN_VERSION
+    itemType: policy
     items:
     - id: org.apache.brooklyn.policy.ha.ConnectionFailureDetector
       itemType: policy

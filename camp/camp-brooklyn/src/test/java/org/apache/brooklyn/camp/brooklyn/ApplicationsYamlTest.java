@@ -152,10 +152,11 @@ public class ApplicationsYamlTest extends AbstractYamlTest {
                 "brooklyn.catalog:",
                 "  id: simple",
                 "  version: " + TEST_VERSION,
+                "  itemType: entity",
                 "  displayName: catalogLevel",
                 "  item:",
-                "    services:",
-                "    - type: " + BasicApplication.class.getName());
+                "    type: " + BasicApplication.class.getName());
+        
         Entity app = createAndStartApplication(
                 "name: topLevel",
                 "services:",
@@ -169,12 +170,13 @@ public class ApplicationsYamlTest extends AbstractYamlTest {
                 "brooklyn.catalog:",
                 "  id: simple",
                 "  version: " + TEST_VERSION,
+                "  itemType: entity",
                 "  displayName: catalogLevel",
                 "  item:",
-                "    services:",
-                "    - type: " + BasicApplication.class.getName(),
-                "      defaultDisplayName: defaultServiceName",
-                "      displayName: explicitServiceName");
+                "    type: " + BasicApplication.class.getName(),
+                "    defaultDisplayName: defaultServiceName",
+                "    displayName: explicitServiceName");
+        
         Entity app = createAndStartApplication(
                 "name: topLevel",
                 "services:",
@@ -188,10 +190,11 @@ public class ApplicationsYamlTest extends AbstractYamlTest {
                 "brooklyn.catalog:",
                 "  id: simple",
                 "  version: " + TEST_VERSION,
+                "  itemType: entity",
                 "  displayName: catalogLevel",
                 "  item:",
-                "    services:",
-                "    - type: " + BasicApplication.class.getName());
+                "    type: " + BasicApplication.class.getName());
+        
         Entity app = createAndStartApplication(
                 "services:",
                 "- type: simple:" + TEST_VERSION,
@@ -205,10 +208,11 @@ public class ApplicationsYamlTest extends AbstractYamlTest {
                 "brooklyn.catalog:",
                 "  id: simple",
                 "  version: " + TEST_VERSION,
+                "  itemType: entity",
                 "  displayName: catalogLevel",
                 "  item:",
-                "    services:",
-                "    - type: " + BasicApplication.class.getName());
+                "    type: " + BasicApplication.class.getName());
+        
         Entity app = createAndStartApplication(
                 "services:",
                 "- type: simple:" + TEST_VERSION);
@@ -221,11 +225,12 @@ public class ApplicationsYamlTest extends AbstractYamlTest {
                 "brooklyn.catalog:",
                 "  id: simple",
                 "  version: " + TEST_VERSION,
+                "  itemType: entity",
                 "  displayName: catalogLevel",
                 "  item:",
-                "    services:",
-                "    - type: " + BasicApplication.class.getName(),
-                "      name: catalogServiceLevel");
+                "    type: " + BasicApplication.class.getName(),
+                "    name: catalogServiceLevel");
+        
         Entity app = createAndStartApplication(
                 "services:",
                 "- type: simple:" + TEST_VERSION);
@@ -238,8 +243,10 @@ public class ApplicationsYamlTest extends AbstractYamlTest {
                 "brooklyn.catalog:",
                 "  id: simple",
                 "  version: " + TEST_VERSION,
+                "  itemType: entity",
                 "  item:",
                 "    type: " + BasicEntity.class.getName());
+
         Entity app = createAndStartApplication(
                 "services:",
                 "- type: simple:" + TEST_VERSION);
@@ -258,6 +265,7 @@ public class ApplicationsYamlTest extends AbstractYamlTest {
         String yaml = Joiner.on("\n").join(
                 "brooklyn.catalog:",
                 "  version: 0.1.2",
+                "  itemType: entity",
                 "  items:",
                 "  - id: app1",
                 "    name: My App 1",
@@ -291,6 +299,7 @@ public class ApplicationsYamlTest extends AbstractYamlTest {
         String yaml1 = Joiner.on("\n").join(
                 "brooklyn.catalog:",
                 "  version: 0.1.2",
+                "  itemType: entity",
                 "  name: My name in top-level metadata",
                 "  items:",
                 "  - id: app1",
@@ -302,6 +311,7 @@ public class ApplicationsYamlTest extends AbstractYamlTest {
         String yaml2 = Joiner.on("\n").join(
                 "brooklyn.catalog:",
                 "  version: 0.1.2",
+                "  itemType: entity",
                 "  name: My name in top-level metadata",
                 "  items:",
                 "  - id: app2",
@@ -312,6 +322,7 @@ public class ApplicationsYamlTest extends AbstractYamlTest {
         String yaml3 = Joiner.on("\n").join(
                 "brooklyn.catalog:",
                 "  version: 0.1.2",
+                "  itemType: entity",
                 "  items:",
                 "  - id: app3a",
                 "    name: My name in item 3a metadata",
@@ -343,6 +354,7 @@ public class ApplicationsYamlTest extends AbstractYamlTest {
         String yaml = Joiner.on("\n").join(
                 "brooklyn.catalog:",
                 "  version: 0.1.2",
+                "  itemType: entity",
                 "  name: My name in top-level",
                 "  items:",
                 "  - id: app1",
@@ -360,6 +372,7 @@ public class ApplicationsYamlTest extends AbstractYamlTest {
         String yaml = Joiner.on("\n").join(
                 "brooklyn.catalog:",
                 "  version: 0.1.2",
+                "  itemType: entity",
                 "  items:",
                 "  - id: app1",
                 "    name: My name in item metadata",
@@ -377,6 +390,7 @@ public class ApplicationsYamlTest extends AbstractYamlTest {
         String yaml = Joiner.on("\n").join(
                 "brooklyn.catalog:",
                 "  version: 0.1.2",
+                "  itemType: entity",
                 "  items:",
                 "  - id: app1",
                 "    item:",

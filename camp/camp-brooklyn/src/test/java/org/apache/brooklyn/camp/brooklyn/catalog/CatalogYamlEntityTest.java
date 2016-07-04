@@ -26,6 +26,7 @@ import static org.testng.Assert.fail;
 import java.io.InputStream;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.entity.Entity;
@@ -51,6 +52,8 @@ import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
 
@@ -70,6 +73,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
             "brooklyn.catalog:",
             "  id: " + symbolicName,
             "  version: " + TEST_VERSION,
+            "  itemType: entity",
             "  item:",
             "    type: "+ BasicEntity.class.getName());
 
@@ -91,18 +95,19 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         deleteCatalogEntity(symbolicName);
     }
 
+    // Legacy / backwards compatibility: should always specify itemType
     @Test
-    public void testAddCatalogItemTypeAsString() throws Exception {
+    public void testAddCatalogItemAsStringWithoutItemType() throws Exception {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
 
         String symbolicName = "my.catalog.app.id.load";
         addCatalogItems(
             "brooklyn.catalog:",
             "  id: " + symbolicName,
+            "  version: " + TEST_VERSION,
             "  name: My Catalog App",
             "  description: My description",
             "  icon_url: classpath://path/to/myicon.jpg",
-            "  version: " + TEST_VERSION,
             "  libraries:",
             "  - url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
             "  item: " + SIMPLE_ENTITY_TYPE);
@@ -121,11 +126,11 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         addCatalogItems(
             "brooklyn.catalog:",
             "  id: " + symbolicName,
+            "  version: " + TEST_VERSION,
+            "  itemType: entity",
             "  name: My Catalog App",
             "  description: My description",
             "  icon_url: classpath://path/to/myicon.jpg",
-            "  version: " + TEST_VERSION,
-            "  item_type: entity",
             "  libraries:",
             "  - url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
             "  item: " + SIMPLE_ENTITY_TYPE);
@@ -137,7 +142,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
     }
 
     @Test
-    public void testAddCatalogItemTopLevelSyntax() throws Exception {
+    public void testAddCatalogItemLegacySyntax() throws Exception {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
 
         String symbolicName = "my.catalog.app.id.load";
@@ -160,14 +165,16 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         deleteCatalogEntity(symbolicName);
     }
 
+    // Legacy / backwards compatibility: should use id
     @Test
-    public void testAddCatalogItemWithoutVersion() throws Exception {
+    public void testAddCatalogItemUsingNameInsteadOfIdWithoutVersion() throws Exception {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
 
         String id = "unversioned.app";
         addCatalogItems(
             "brooklyn.catalog:",
             "  name: " + id,
+            "  itemType: entity",
             "  libraries:",
             "  - " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
             "  item:",
@@ -177,14 +184,16 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         mgmt().getCatalog().deleteCatalogItem(id, "0.0.0.SNAPSHOT");
     }
 
+    // Legacy / backwards compatibility: should use id
     @Test
-    public void testAddCatalogItemWithInlinedVersion() throws Exception {
+    public void testAddCatalogItemUsingNameInsteadOfIdWithInlinedVersion() throws Exception {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
 
         String id = "inline_version.app";
         addCatalogItems(
             "brooklyn.catalog:",
             "  name: " + id+":"+TEST_VERSION,
+            "  itemType: entity",
             "  libraries:",
             "  - " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
             "services:",
@@ -225,7 +234,9 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
 
         String referencedSymbolicName = "my.catalog.app.id.referenced";
         String referrerSymbolicName = "my.catalog.app.id.referring";
-        addCatalogOSGiEntities(referencedSymbolicName, SIMPLE_ENTITY_TYPE, referrerSymbolicName, ver(referencedSymbolicName));
+        addCatalogOSGiEntities(ImmutableMap.of(
+                referencedSymbolicName, SIMPLE_ENTITY_TYPE, 
+                referrerSymbolicName, ver(referencedSymbolicName)));
 
         RegisteredType referrer = mgmt().getTypeRegistry().get(referrerSymbolicName, TEST_VERSION);
         String planYaml = RegisteredTypes.getImplementationDataStringForSpec(referrer);
@@ -377,23 +388,23 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
             "brooklyn.catalog:",
             "  id: " + firstItemId,
             "  version: " + TEST_VERSION,
+            "  itemType: entity",
             "  libraries:",
             "  - url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
-            "",
-            "services:",
-            "- type: " + SIMPLE_ENTITY_TYPE);
+            "  item:",
+            "    type: " + SIMPLE_ENTITY_TYPE);
         deleteCatalogEntity(firstItemId);
 
         addCatalogItems(
             "brooklyn.catalog:",
             "  id: " + secondItemId,
             "  version: " + TEST_VERSION,
+            "  itemType: entity",
             "  libraries:",
             "  - name: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_NAME,
             "    version: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_VERSION,
-            "",
-            "services:",
-            "- type: " + SIMPLE_ENTITY_TYPE);
+            "  item:",
+            "    type: " + SIMPLE_ENTITY_TYPE);
 
         deleteCatalogEntity(secondItemId);
     }
@@ -407,12 +418,12 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
                 "brooklyn.catalog:",
                 "  id: my.catalog.app.id.non_existing.ref",
                 "  version: " + TEST_VERSION,
+                "  itemType: entity",
                 "  libraries:",
                 "  - name: " + nonExistentId,
                 "    version: " + nonExistentVersion,
-                "",
-                "services:",
-                "- type: " + SIMPLE_ENTITY_TYPE);
+                "  item:",
+                "    type: " + SIMPLE_ENTITY_TYPE);
             fail();
         } catch (IllegalStateException e) {
             Assert.assertEquals(e.getMessage(), "Bundle from null failed to install: Bundle CatalogBundleDto{symbolicName=" + nonExistentId + ", version=" + nonExistentVersion + ", url=null} not previously registered, but URL is empty.");
@@ -426,11 +437,11 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
                 "brooklyn.catalog:",
                 "  id: my.catalog.app.id.non_existing.ref",
                 "  version: " + TEST_VERSION,
+                "  itemType: entity",
                 "  libraries:",
                 "  - name: io.brooklyn.brooklyn-test-osgi-entities",
-                "",
-                "services:",
-                "- type: " + SIMPLE_ENTITY_TYPE);
+                "  item:",
+                "    type: " + SIMPLE_ENTITY_TYPE);
             fail();
         } catch (NullPointerException e) {
             Assert.assertEquals(e.getMessage(), "both name and version are required");
@@ -440,11 +451,11 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
                 "brooklyn.catalog:",
                 "  id: my.catalog.app.id.non_existing.ref",
                 "  version: " + TEST_VERSION,
+                "  itemType: entity",
                 "  libraries:",
                 "  - version: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_VERSION,
-                "",
-                "services:",
-                "- type: " + SIMPLE_ENTITY_TYPE);
+                "  item:",
+                "    type: " + SIMPLE_ENTITY_TYPE);
             fail();
         } catch (NullPointerException e) {
             Assert.assertEquals(e.getMessage(), "both name and version are required");
@@ -460,13 +471,13 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
             "brooklyn.catalog:",
             "  id: " + itemId,
             "  version: " + TEST_VERSION,
+            "  itemType: entity",
             "  libraries:",
             "  - name: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_NAME,
             "    version: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_VERSION,
             "    url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
-            "",
-            "services:",
-            "- type: " + SIMPLE_ENTITY_TYPE);
+            "  item:",
+            "    type: " + SIMPLE_ENTITY_TYPE);
         deleteCatalogEntity(itemId);
     }
 
@@ -486,13 +497,14 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
                 "brooklyn.catalog:",
                 "  id: " + firstItemId,
                 "  version: " + TEST_VERSION,
+                "  itemType: entity",
                 "  libraries:",
                 "  - name: " + nonExistentId,
                 "    version: " + nonExistentVersion,
                 "    url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
                 "",
-                "services:",
-                "- type: " + SIMPLE_ENTITY_TYPE);
+                "  item:",
+                "    type: " + SIMPLE_ENTITY_TYPE);
             fail();
         } catch (IllegalStateException e) {
             assertEquals(e.getMessage(), "Bundle from " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL + " failed to install: " +
@@ -567,18 +579,18 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
             "brooklyn.catalog:",
             "  id: " + symbolicName,
             "  version: " + TEST_VERSION,
-            "",
-            "services:",
-            "- type: org.apache.brooklyn.entity.stock.BasicEntity");
+            "  itemType: entity",
+            "  item:",
+            "    type: org.apache.brooklyn.entity.stock.BasicEntity");
 
         try {
             addCatalogItems(
                     "brooklyn.catalog:",
                     "  id: " + symbolicName,
                     "  version: " + TEST_VERSION + "-update",
-                    "",
-                    "services:",
-                    "- type: " + symbolicName);
+                    "  itemType: entity",
+                    "  item:",
+                    "    type: " + symbolicName);
             fail("Catalog addition expected to fail due to non-existent java type " + symbolicName);
         } catch (IllegalStateException e) {
             assertTrue(e.toString().contains("recursive"), "Unexpected error message: "+e);
@@ -592,9 +604,9 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
             "brooklyn.catalog:",
             "  id: " + symbolicName,
             "  version: " + TEST_VERSION,
-            "",
-            "services:",
-            "- type: org.apache.brooklyn.entity.stock.BasicEntity");
+            "  itemType: entity",
+            "  item:",
+            "    type: org.apache.brooklyn.entity.stock.BasicEntity");
 
         String versionedId = CatalogUtils.getVersionedId(symbolicName, TEST_VERSION);
         try {
@@ -602,9 +614,9 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
                 "brooklyn.catalog:",
                 "  id: " + symbolicName,
                 "  version: " + TEST_VERSION + "-update",
-                "",
-                "services:",
-                "- type: " + versionedId);
+                "  itemType: entity",
+                "  item:",
+                "    type: " + versionedId);
             fail("Catalog addition expected to fail due to non-existent java type " + versionedId);
         } catch (IllegalStateException e) {
             assertTrue(e.toString().contains("recursive"), "Unexpected error message: "+e);
@@ -620,26 +632,26 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
                 "brooklyn.catalog:",
                 "  id: " + symbolicName + ".caller",
                 "  version: " + TEST_VERSION + "pre",
-                "",
-                "services:",
-                "- type: "+BasicEntity.class.getName());
+                "  itemType: entity",
+                "  item:",
+                "    type: "+BasicEntity.class.getName());
 
         addCatalogItems(
                 "brooklyn.catalog:",
                 "  id: " + symbolicName + ".callee",
                 "  version: " + TEST_VERSION,
-                "",
-                "services:",
-                "- type: " + symbolicName + ".caller");
+                "  itemType: entity",
+                "  item:",
+                "    type: " + symbolicName + ".caller");
 
         try {
             addCatalogItems(
                     "brooklyn.catalog:",
                     "  id: " + symbolicName + ".caller",
                     "  version: " + TEST_VERSION,
-                    "",
-                    "services:",
-                    "- type: " + symbolicName + ".callee");
+                    "  itemType: entity",
+                    "  item:",
+                    "    type: " + symbolicName + ".callee");
             fail();
         } catch (IllegalStateException e) {
             assertTrue(e.toString().contains("recursive"), "Unexpected error message: "+e);
@@ -655,30 +667,31 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
                 "brooklyn.catalog:",
                 "  id: " + symbolicName + ".caller",
                 "  version: " + TEST_VERSION + "pre",
-                "",
-                "services:",
-                "- type: org.apache.brooklyn.entity.stock.BasicEntity");
+                "  itemType: entity",
+                "  item:",
+                "    type: org.apache.brooklyn.entity.stock.BasicEntity");
 
         addCatalogItems(
                 "brooklyn.catalog:",
                 "  id: " + symbolicName + ".callee",
                 "  version: " + TEST_VERSION,
-                "",
-                "services:",
-                "- type: " + symbolicName + ".caller");
+                "  itemType: entity",
+                "  item:",
+                "    type: " + symbolicName + ".caller");
 
         try {
+            // TODO Only passes if include "services:" and if itemType=entity, rather than "template"!
+            // Being a child is important, triggers the case where: we allow retrying with other transformers.
             addCatalogItems(
                     "brooklyn.catalog:",
                     "  id: " + symbolicName + ".caller",
                     "  version: " + TEST_VERSION,
-                    "",
-                    "services:",
-                    "- type: org.apache.brooklyn.entity.stock.BasicEntity",
-                    // Being a child is important, triggers the case where
-                    // we allow retrying with other transformers.
-                    "  brooklyn.children:",
-                    "  - type: " + symbolicName + ".callee");
+                    "  itemType: entity",
+                    "  item:",
+                    "    services:",
+                    "    - type: org.apache.brooklyn.entity.stock.BasicEntity",
+                    "      brooklyn.children:",
+                    "      - type: " + symbolicName + ".callee");
             fail();
         } catch (IllegalStateException e) {
             assertTrue(e.toString().contains("recursive"), "Unexpected error message: "+e);
@@ -692,9 +705,9 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
                 "brooklyn.catalog:",
                 "  id: " + symbolicName,
                 "  version: " + TEST_VERSION,
-                "",
-                "services:",
-                "- type: org.apache.brooklyn.entity.stock.BasicEntity");
+                "  itemType: entity",
+                "  item:",
+                "    type: org.apache.brooklyn.entity.stock.BasicEntity");
 
         createAndStartApplication(
                 "services:",
@@ -714,9 +727,9 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
                     "brooklyn.catalog:",
                     "  id: " + SIMPLE_ENTITY_TYPE,
                     "  version: " + TEST_VERSION + "-update",
-                    "",
-                    "services:",
-                    "- type: " + SIMPLE_ENTITY_TYPE);
+                    "  itemType: entity",
+                    "  item:",
+                    "    type: " + SIMPLE_ENTITY_TYPE);
             fail("Catalog addition expected to fail due to non-existent java type " + SIMPLE_ENTITY_TYPE);
         } catch (IllegalStateException e) {
             assertTrue(e.toString().contains("recursive"), "Unexpected error message: "+e);
@@ -816,29 +829,30 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
                 "brooklyn.catalog:",
                 "  id: " + id,
                 "  version: " + TEST_VERSION,
+                "  itemType: entity",
                 "  item:",
+                "    type: " + BasicApplication.class.getName(),
                 "    brooklyn.parameters:",
                 "    - name: test.myconf",
                 "      type:  string",
                 "      default: myval",
-                "    services:",
-                "    - type: " + BasicApplication.class.getName(),
+                "    brooklyn.config:",
+                "      myconf2: $brooklyn:config(\"test.myconf\")",
+                "      myconf2.from.root: $brooklyn:root().config(\"test.myconf\")",
+                "    brooklyn.children:",
+                "    - type: "+BasicEntity.class.getName(),
                 "      brooklyn.config:",
-                "        myconf2: $brooklyn:config(\"test.myconf\")",
-                "        myconf2.from.root: $brooklyn:root().config(\"test.myconf\")",
-                "      brooklyn.children:",
-                "      - type: "+BasicEntity.class.getName(),
-                "        brooklyn.config:",
-                "          myconf3: $brooklyn:config(\"test.myconf\")",
-                "          myconf3.from.root: $brooklyn:root().config(\"test.myconf\")");
+                "        myconf3: $brooklyn:config(\"test.myconf\")",
+                "        myconf3.from.root: $brooklyn:root().config(\"test.myconf\")");
 
         RegisteredType catalogItem = mgmt().getTypeRegistry().get(id, version);
         assertEquals(catalogItem.getVersion(), version);
         
-        String yaml = "name: simple-app-yaml\n" +
-                "location: localhost\n" +
-                "services: \n" +
-                "  - type: "+id+":"+version;
+        String yaml = Joiner.on("\n").join(
+                "name: simple-app-yaml",
+                "location: localhost",
+                "services:",
+                "  - type: "+id+":"+version);
         Entity app = createAndStartApplication(yaml);
         Entity child = Iterables.getOnlyElement(app.getChildren());
         ConfigKey<?> configKey = app.getEntityType().getConfigKey("test.myconf");
@@ -880,10 +894,11 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         addCatalogItems(
             "brooklyn.catalog:",
             "  id: " + symbolicName,
+            "  version: " + TEST_VERSION,
+            "  itemType: entity",
             "  name: My Catalog App",
             "  description: My description",
             "  icon_url: classpath://path/to/myicon.jpg",
-            "  version: " + TEST_VERSION,
             "  libraries:",
             "  - url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL +
             (extraLib ? "\n"+"  - url: "+OsgiStandaloneTest.BROOKLYN_OSGI_TEST_A_0_1_0_URL : ""),
@@ -891,7 +906,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
             "    type: " + serviceType);
     }
 
-    private void addCatalogOSGiEntities(String ...namesAndTypes) {
+    private void addCatalogOSGiEntities(Map<String, String> idAndTypes) {
         List<String> lines = MutableList.of(
             "brooklyn.catalog:",
             "  name: My Catalog App",
@@ -902,23 +917,25 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
             "  - url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
             "  items:");
         
-        for (int i=0; i<namesAndTypes.length; i+=2) {
+        for (Map.Entry<String, String> entry : idAndTypes.entrySet()) {
             lines.addAll(MutableList.of(
-            "  - id: " + namesAndTypes[i],
+            "  - id: " + entry.getKey(),
             "    item:",
-            "      type: " + namesAndTypes[i+1]));
+            "      type: " + entry.getValue()));
         }
             
         addCatalogItems(lines);
     }
+    
     private void addCatalogChildOSGiEntityWithServicesBlock(String symbolicName, String serviceType) {
         addCatalogItems(
             "brooklyn.catalog:",
             "  id: " + symbolicName,
+            "  version: " + TEST_VERSION,
+            "  itemType: entity",
             "  name: My Catalog App",
             "  description: My description",
             "  icon_url: classpath://path/to/myicon.jpg",
-            "  version: " + TEST_VERSION,
             "  libraries:",
             "  - url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
             "  item:",
@@ -927,10 +944,12 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
             "      brooklyn.children:",
             "      - type: " + serviceType);
     }
+    
     private void addCatalogChildOSGiEntity(String symbolicName, String serviceType) {
         addCatalogItems(
             "brooklyn.catalog:",
             "  id: " + symbolicName,
+            "  itemType: entity",
             "  name: My Catalog App",
             "  description: My description",
             "  icon_url: classpath://path/to/myicon.jpg",

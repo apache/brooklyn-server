@@ -105,8 +105,9 @@ public class ReferencedYamlTest extends AbstractYamlTest {
             "brooklyn.catalog:",
             "  id: yaml.reference",
             "  version: " + TEST_VERSION,
-            "services:",
-            "- type: classpath://yaml-ref-entity.yaml");
+            "  itemType: entity",
+            "  item:",
+            "    type: classpath://yaml-ref-entity.yaml");
         
         String entityName = "YAML -> catalog item -> yaml url";
         Entity app = createAndStartApplication(
@@ -125,10 +126,11 @@ public class ReferencedYamlTest extends AbstractYamlTest {
             "brooklyn.catalog:",
             "  id: yaml.reference",
             "  version: " + TEST_VERSION,
+            "  itemType: entity",
             "  libraries:",
             "  - url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
-            "services:",
-            "- type: classpath://yaml-ref-osgi-entity.yaml");
+            "  item:",
+            "    type: classpath://yaml-ref-osgi-entity.yaml");
         
         String entityName = "YAML -> catalog item -> yaml url (osgi)";
         Entity app = createAndStartApplication(
@@ -145,8 +147,9 @@ public class ReferencedYamlTest extends AbstractYamlTest {
             "brooklyn.catalog:",
             "  id: yaml.basic",
             "  version: " + TEST_VERSION,
-            "services:",
-            "- type: org.apache.brooklyn.entity.stock.BasicEntity");
+            "  itemType: entity",
+            "  item:",
+            "    type: org.apache.brooklyn.entity.stock.BasicEntity");
         
         String entityName = "YAML -> yaml url -> catalog item";
         Entity app = createAndStartApplication(
@@ -161,6 +164,7 @@ public class ReferencedYamlTest extends AbstractYamlTest {
     public void testYamlUrlReferencingCallerCatalogItem() throws Exception {
         addCatalogItems(
             "brooklyn.catalog:",
+            "  itemType: entity",
             "  items:",
             "  - id: yaml.standalone",
             "    version: " + TEST_VERSION,
@@ -195,11 +199,11 @@ public class ReferencedYamlTest extends AbstractYamlTest {
             "brooklyn.catalog:",
             "  id: " + parentCatalogId,
             "  version: " + TEST_VERSION,
+            "  itemType: entity",
             "  libraries:",
             "  - url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
-            "",
-            "services:",
-            "- type: classpath://yaml-ref-bundle-without-libraries.yaml");
+            "  item:",
+            "    type: classpath://yaml-ref-bundle-without-libraries.yaml");
 
         Entity app = createAndStartApplication(
             "services:",
@@ -245,6 +249,7 @@ public class ReferencedYamlTest extends AbstractYamlTest {
             "  - " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
             "  items:",
             "  - id: yaml.nested.catalog.simple",
+            "    itemType: entity",
             "    item:",
             "      type: " + OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY,
             "  - include: classpath://yaml-ref-back-catalog.bom");
@@ -272,6 +277,7 @@ public class ReferencedYamlTest extends AbstractYamlTest {
             "  - include: classpath://yaml-ref-parent-catalog.bom",
             "    items:",
             "    - id: yaml.nested.catalog.nested",
+            "      itemType: entity",
             "      item:",
             "        type: " + OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY);
 
