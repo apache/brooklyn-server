@@ -54,7 +54,7 @@ public class ChefSoloDriver extends AbstractSoftwareProcessSshDriver implements 
         // TODO flag to force reinstallation
         DynamicTasks.queue(
                 ChefSoloTasks.installChef(getInstallDir(), false), 
-                ChefSoloTasks.installCookbooks(getInstallDir(), getRequiredConfig(CHEF_COOKBOOKS), false));
+                ChefSoloTasks.installCookbooks(getInstallDir(), getRequiredConfig(CHEF_COOKBOOK_URLS), false));
     }
 
     @Override

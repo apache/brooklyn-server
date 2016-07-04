@@ -126,12 +126,13 @@
         <bundle dependency="true">mvn:org.bouncycastle/bcpkix-jdk15on/${bouncycastle.version}</bundle>
         <bundle dependency="true">mvn:commons-codec/commons-codec/${commons-codec.version}</bundle>
         <bundle dependency="true">mvn:org.apache.commons/commons-lang3/${commons-lang3.version}</bundle>
+        <bundle dependency="true">mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.xpp3/${xpp3.servicemix.version}</bundle> <!-- from com.thoughtworks.xstream/xstream -->
+        <bundle dependency="true">mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.kxml2/${kxml2.servicemix.version}</bundle>
 
         <!-- TODO: don't use wrap -->
         <bundle dependency="true">wrap:mvn:com.google.http-client/google-http-client/1.18.0-rc</bundle> <!-- from geoip -->
         <bundle dependency="true">wrap:mvn:com.maxmind.geoip2/geoip2/${maxmind.version}</bundle> <!-- from geoip2 -->
         <bundle dependency="true">wrap:mvn:com.maxmind.db/maxmind-db/${maxmind-db.version}</bundle>
-        <bundle dependency="true">wrap:mvn:xpp3/xpp3_min/1.1.4c</bundle> <!-- from com.thoughtworks.xstream/xstream -->
 
         <bundle dependency="true">mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.reflections/${reflections.bundle.version}</bundle>
     </feature>
