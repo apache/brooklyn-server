@@ -112,6 +112,10 @@ public class BrooklynDslCommon {
         return new DslComponent(Scope.THIS, "").attributeWhenReady(sensorName);
     }
 
+    public static BrooklynDslDeferredSupplier<?> entityId() {
+        return new DslComponent(Scope.THIS, "").entityId();
+    }
+
     /** Returns a {@link Sensor}, looking up the sensor on the context if available and using that,
      * or else defining an untyped (Object) sensor */
     public static BrooklynDslDeferredSupplier<Sensor<?>> sensor(String sensorName) {
