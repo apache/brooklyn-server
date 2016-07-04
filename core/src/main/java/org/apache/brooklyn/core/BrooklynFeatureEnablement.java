@@ -28,15 +28,22 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Objects;
 import com.google.common.collect.Maps;
 
 /**
  * For enabling/disabling experimental features.
- * They can be enabled via java system properties, or by explicitly calling {@link #setEnablement(String, boolean)}.
+ * Feature enablement can be set in a number of ways, with the following precedence (most important first):
+ * <ol>
+ *   <li>Explicit call to {@link #setEnablement(String, boolean)} (or to {@link #enable(String)} or {@link #disable(String)})).
+ *   <li>Java system properties
+ *   <li>Brooklyn properties (passed using {@link #init(BrooklynProperties)})
+ *   <li>Defaults set explicitly by calling {@link #setDefault(String, boolean)}
+ *   <li>Hard-coded defaults
+ * </ol>
  * <p>
- * For example, start brooklyn with {@code -Dbrooklyn.experimental.feature.policyPersistence=true}
- * 
- * @author aled
+ * For example, start Brooklyn with {@code -Dbrooklyn.executionManager.renameThreads=true}
  */
 @Beta
 public class BrooklynFeatureEnablement {
@@ -103,8 +110,22 @@ public class BrooklynFeatureEnablement {
     public static final String FEATURE_SSH_ASYNC_EXEC = FEATURE_PROPERTY_PREFIX+".ssh.asyncExec";
 
     public static final String FEATURE_VALIDATE_LOCATION_SSH_KEYS = "brooklyn.validate.locationSshKeys";
-    
+
+    /**
+     * Values explicitly set by Java calls.
+     */
     private static final Map<String, Boolean> FEATURE_ENABLEMENTS = Maps.newLinkedHashMap();
+
+    /**
+     * Values set from brooklyn.properties
+     */
+    private static final Map<String, Boolean> FEATURE_ENABLEMENTS_PROPERTIES = Maps.newLinkedHashMap();
+
+    /**
+     * Defaults (e.g. set by the static block's call to {@link #setDefaults()}, or by downstream projects
+     * calling {@link #setDefault(String, boolean)}).
+     */
+    private static final Map<String, Boolean> FEATURE_ENABLEMENT_DEFAULTS = Maps.newLinkedHashMap();
 
     private static final Object MUTEX = new Object();
 
@@ -131,45 +152,53 @@ public class BrooklynFeatureEnablement {
         setDefaults();
     }
     
+    public static boolean isEnabled(String property) {
+        synchronized (MUTEX) {
+            if (FEATURE_ENABLEMENTS.containsKey(property)) {
+                return FEATURE_ENABLEMENTS.get(property);
+            } else if (System.getProperty(property) != null) {
+                String rawVal = System.getProperty(property);
+                return Boolean.parseBoolean(rawVal);
+            } else if (FEATURE_ENABLEMENTS_PROPERTIES.containsKey(property)) {
+                return FEATURE_ENABLEMENTS_PROPERTIES.get(property);
+            } else if (FEATURE_ENABLEMENT_DEFAULTS.containsKey(property)) {
+                return FEATURE_ENABLEMENT_DEFAULTS.get(property);
+            } else {
+                return false;
+            }
+        }
+    }
+
     /**
      * Initialises the feature-enablement from brooklyn properties. For each
      * property, prefer a system-property if present; otherwise use the value 
      * from brooklyn properties.
      */
     public static void init(BrooklynProperties props) {
-        boolean changed = false;
-        for (Map.Entry<String, Object> entry : props.asMapWithStringKeys().entrySet()) {
-            String property = entry.getKey();
-            if (property.startsWith(FEATURE_PROPERTY_PREFIX)) {
-                if (!FEATURE_ENABLEMENTS.containsKey(property)) {
-                    Object rawVal = System.getProperty(property);
-                    if (rawVal == null) {
-                        rawVal = entry.getValue();
-                    }
-                    boolean val = Boolean.parseBoolean(""+rawVal);
-                    FEATURE_ENABLEMENTS.put(property, val);
+        boolean found = false;
+        synchronized (MUTEX) {
+            for (Map.Entry<String, Object> entry : props.asMapWithStringKeys().entrySet()) {
+                String property = entry.getKey();
+                if (property.startsWith(FEATURE_PROPERTY_PREFIX)) {
+                    found = true;
+                    Boolean oldVal = isEnabled(property);
+                    boolean val = Boolean.parseBoolean(""+entry.getValue());
+                    FEATURE_ENABLEMENTS_PROPERTIES.put(property, val);
+                    Boolean newVal = isEnabled(property);
                     
-                    changed = true;
-                    LOG.debug("Init feature enablement of "+property+" set to "+val);
+                    if (Objects.equal(oldVal, newVal)) {
+                        LOG.debug("Enablement of "+property+" set to "+val+" from brooklyn properties (no-op as continues to resolve to "+oldVal+")");
+                    } else {
+                        LOG.debug("Enablement of "+property+" set to "+val+" from brooklyn properties (resolved value previously "+oldVal+")");
+                    }
                 }
             }
-        }
-        if (!changed) {
-            LOG.debug("Init feature enablement did nothing, as no settings in brooklyn properties");
+            if (!found) {
+                LOG.debug("Init feature enablement did nothing, as no settings in brooklyn properties");
+            }
         }
     }
     
-    public static boolean isEnabled(String property) {
-        synchronized (MUTEX) {
-            if (!FEATURE_ENABLEMENTS.containsKey(property)) {
-                String rawVal = System.getProperty(property);
-                boolean val = Boolean.parseBoolean(rawVal);
-                FEATURE_ENABLEMENTS.put(property, val);
-            }
-            return FEATURE_ENABLEMENTS.get(property);
-        }
-    }
-
     public static boolean enable(String property) {
         return setEnablement(property, true);
     }
@@ -182,27 +211,38 @@ public class BrooklynFeatureEnablement {
         synchronized (MUTEX) {
             boolean oldVal = isEnabled(property);
             FEATURE_ENABLEMENTS.put(property, val);
+            
+            if (val == oldVal) {
+                LOG.debug("Enablement of "+property+" set to explicit "+val+" (no-op as resolved to same value previously)");
+            } else {
+                LOG.debug("Enablement of "+property+" set to explicit "+val+" (previously resolved to "+oldVal+")");
+            }
             return oldVal;
         }
     }
     
     public static void setDefault(String property, boolean val) {
         synchronized (MUTEX) {
-            if (!FEATURE_ENABLEMENTS.containsKey(property)) {
-                String rawVal = System.getProperty(property);
-                if (rawVal == null) {
-                    FEATURE_ENABLEMENTS.put(property, val);
-                    LOG.debug("Default enablement of "+property+" set to "+val);
+            Boolean oldDefaultVal = FEATURE_ENABLEMENT_DEFAULTS.get(property);
+            FEATURE_ENABLEMENT_DEFAULTS.put(property, val);
+            if (oldDefaultVal != null) {
+                if (oldDefaultVal.equals(val)) {
+                    LOG.debug("Default enablement of "+property+" set to "+val+" (no-op as same as previous default value)");
                 } else {
-                    LOG.debug("Not setting default enablement of "+property+" to "+val+", because system property is "+rawVal);
+                    LOG.debug("Default enablement of "+property+" set to "+val+" (overwriting previous default of "+oldDefaultVal+")");
                 }
+            } else {
+                LOG.debug("Default enablement of "+property+" set to "+val);
             }
         }
     }
-    
+
+    @VisibleForTesting
     static void clearCache() {
         synchronized (MUTEX) {
             FEATURE_ENABLEMENTS.clear();
+            FEATURE_ENABLEMENTS_PROPERTIES.clear();
+            FEATURE_ENABLEMENT_DEFAULTS.clear();
             setDefaults();
         }
     }
