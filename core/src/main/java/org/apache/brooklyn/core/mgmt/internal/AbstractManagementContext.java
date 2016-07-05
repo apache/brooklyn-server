@@ -73,6 +73,7 @@ import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
@@ -99,7 +100,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
         Class<?> clazz;
         try{
             //todo: which classloader should we use?
-            clazz = LocalManagementContext.class.getClassLoader().loadClass(clazzName);
+            clazz = new ClassLoaderUtils(AbstractManagementContext.class).loadClass(clazzName);
         }catch(ClassNotFoundException e){
             throw new IllegalStateException(format("Could not load class [%s]",clazzName),e);
         }

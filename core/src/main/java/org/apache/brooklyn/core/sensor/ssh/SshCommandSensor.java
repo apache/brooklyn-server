@@ -105,7 +105,7 @@ public final class SshCommandSensor<T> extends AddSensor<T> {
                 .onSuccess(Functions.compose(new Function<String, T>() {
                         @Override
                         public T apply(String input) {
-                            return TypeCoercions.coerce(Strings.trimEnd(input), getType(type));
+                            return TypeCoercions.coerce(Strings.trimEnd(input), getType(entity, type));
                         }}, SshValueFunctions.stdout()));
 
         SshFeed.builder()

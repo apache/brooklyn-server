@@ -21,7 +21,6 @@ package org.apache.brooklyn.core.mgmt.entitlement;
 import java.util.Arrays;
 import java.util.List;
 
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Entity;
@@ -35,8 +34,8 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
-import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.DeserializingClassRenamesProvider;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.Reflections;
@@ -455,10 +454,7 @@ public class Entitlements {
         }
         if (Strings.isNonBlank(type)) {
             try {
-                ClassLoader cl = mgmt != null
-                        ? mgmt.getCatalogClassLoader()
-                        : Entitlements.class.getClassLoader();
-                Class<?> clazz = cl.loadClass(DeserializingClassRenamesProvider.findMappedName(type));
+                Class<?> clazz = new ClassLoaderUtils(Entitlements.class, mgmt).loadClass(DeserializingClassRenamesProvider.findMappedName(type));
                 return (EntitlementManager) instantiate(clazz, ImmutableList.of(
                         new Object[] {mgmt, brooklynProperties},
                         new Object[] {mgmt},

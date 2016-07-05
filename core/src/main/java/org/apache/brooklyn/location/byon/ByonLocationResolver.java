@@ -35,6 +35,7 @@ import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.location.AbstractLocationResolver;
 import org.apache.brooklyn.core.mgmt.internal.LocalLocationManager;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.net.UserAndHostAndPort;
@@ -212,7 +213,8 @@ public class ByonLocationResolver extends AbstractLocationResolver {
     private Class<? extends MachineLocation> getLocationClass(String osFamily) {
         try {
             if (osFamily != null) {
-                return Class.forName(OS_TO_MACHINE_LOCATION_TYPE.get(osFamily.toLowerCase(Locale.ENGLISH))).asSubclass(MachineLocation.class);
+                String className = OS_TO_MACHINE_LOCATION_TYPE.get(osFamily.toLowerCase(Locale.ENGLISH));
+                return new ClassLoaderUtils(this, managementContext).loadClass(className).asSubclass(MachineLocation.class);
             }
         } catch (ClassNotFoundException ex) {}
         return null;

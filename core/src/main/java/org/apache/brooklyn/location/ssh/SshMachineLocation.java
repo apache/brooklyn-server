@@ -72,6 +72,7 @@ import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolv
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.LocalLocationManager;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.crypto.SecureKeys;
@@ -688,7 +689,7 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
                 }
             }
             if (sshToolClass==null) sshToolClass = SshjTool.class.getName();
-            SshTool ssh = (SshTool) Class.forName(sshToolClass).getConstructor(Map.class).newInstance(args.getAllConfig());
+            SshTool ssh = (SshTool) new ClassLoaderUtils(this, getManagementContext()).loadClass(sshToolClass).getConstructor(Map.class).newInstance(args.getAllConfig());
 
             if (LOG.isTraceEnabled()) LOG.trace("using ssh-tool {} (of type {}); props ", ssh, sshToolClass);
 

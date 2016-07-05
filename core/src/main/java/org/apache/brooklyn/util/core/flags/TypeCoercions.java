@@ -18,9 +18,6 @@
  */
 package org.apache.brooklyn.util.core.flags;
 
-import groovy.lang.Closure;
-import groovy.time.TimeDuration;
-
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -56,6 +53,7 @@ import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.collections.QuorumCheck;
 import org.apache.brooklyn.util.collections.QuorumCheck.QuorumChecks;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -88,6 +86,9 @@ import com.google.common.collect.Table;
 import com.google.common.net.HostAndPort;
 import com.google.common.primitives.Primitives;
 import com.google.common.reflect.TypeToken;
+
+import groovy.lang.Closure;
+import groovy.time.TimeDuration;
 
 @SuppressWarnings("rawtypes")
 public class TypeCoercions {
@@ -773,7 +774,7 @@ public class TypeCoercions {
             @Override
             public Class apply(final String input) {
                 try {
-                    return Class.forName(input);
+                    return new ClassLoaderUtils(this.getClass()).loadClass(input);
                 } catch (ClassNotFoundException e) {
                     throw Exceptions.propagate(e);
                 }

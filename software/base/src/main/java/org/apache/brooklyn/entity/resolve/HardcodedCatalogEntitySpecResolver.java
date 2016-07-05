@@ -24,12 +24,14 @@ import java.util.Set;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.resolve.entity.AbstractEntitySpecResolver;
 import org.apache.brooklyn.entity.brooklynnode.BrooklynNode;
 import org.apache.brooklyn.entity.group.DynamicCluster;
 import org.apache.brooklyn.entity.group.DynamicRegionsFabric;
 import org.apache.brooklyn.entity.java.VanillaJavaApp;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Converter;
@@ -38,14 +40,17 @@ import com.google.common.collect.ImmutableMap;
 public class HardcodedCatalogEntitySpecResolver extends AbstractEntitySpecResolver {
     private static final String RESOLVER_NAME = "catalog";
 
-    private static final Map<String, String> CATALOG_TYPES = ImmutableMap.<String, String>builder()
-            .put("cluster", DynamicCluster.class.getName())
-            .put("fabric", DynamicRegionsFabric.class.getName())
-            .put("vanilla", VanillaSoftwareProcess.class.getName())
-            .put("software-process", VanillaSoftwareProcess.class.getName())
-            .put("java-app", VanillaJavaApp.class.getName())
-            .put("brooklyn-node", BrooklynNode.class.getName())
-            .put("web-app-cluster","org.apache.brooklyn.entity.webapp.ControlledDynamicWebAppCluster")
+    private static final Map<String, Class<? extends Entity>> CATALOG_CLASS_TYPES = ImmutableMap.<String, Class<? extends Entity>>builder()
+            .put("cluster", DynamicCluster.class)
+            .put("fabric", DynamicRegionsFabric.class)
+            .put("vanilla", VanillaSoftwareProcess.class)
+            .put("software-process", VanillaSoftwareProcess.class)
+            .put("java-app", VanillaJavaApp.class)
+            .put("brooklyn-node", BrooklynNode.class)
+            .build();
+
+    private static final Map<String, String> CATALOG_STRING_TYPES = ImmutableMap.<String, String>builder()
+            .put("web-app-cluster","org.apache.brooklyn.software-webapp:" + BrooklynVersion.get() + ":org.apache.brooklyn.entity.webapp.ControlledDynamicWebAppCluster")
             .build();
 
     // Allow catalog-type or CatalogType as service type string
@@ -58,39 +63,47 @@ public class HardcodedCatalogEntitySpecResolver extends AbstractEntitySpecResolv
     @Override
     protected boolean canResolve(String type, BrooklynClassLoadingContext loader) {
         String localType = getLocalType(type);
-        String specType = getImplementation(localType);
-        return specType != null;
+        return getImplementation(CATALOG_CLASS_TYPES, localType) != null ||
+                getImplementation(CATALOG_STRING_TYPES, localType) != null;
     }
 
     @Override
     public EntitySpec<?> resolve(String type, BrooklynClassLoadingContext loader, Set<String> encounteredTypes) {
         String localType = getLocalType(type);
-        String specType = getImplementation(localType);
-        if (specType != null) {
-            return buildSpec(specType);
-        } else {
-            return null;
+        Class<? extends Entity> specClassType = getImplementation(CATALOG_CLASS_TYPES, localType);
+        if (specClassType != null) {
+            return buildSpec(specClassType);
         }
+        String specStringType = getImplementation(CATALOG_STRING_TYPES, localType);
+        if (specStringType != null) {
+            return buildSpec(specStringType);
+        }
+        return null;
     }
 
-    private String getImplementation(String type) {
-        String specType = CATALOG_TYPES.get(type);
+    private <T> T getImplementation(Map<String, T> types, String type) {
+        T specType = types.get(type);
         if (specType != null) {
             return specType;
         } else {
-            return CATALOG_TYPES.get(FMT.convert(type));
+            return types.get(FMT.convert(type));
         }
     }
 
-    private EntitySpec<?> buildSpec(String specType) {
+    private EntitySpec<?> buildSpec(String specTypName) {
         // TODO is this hardcoded list deprecated? If so log a warning.
         try {
-            @SuppressWarnings("unchecked")
-            Class<Entity> specClass = (Class<Entity>)mgmt.getCatalogClassLoader().loadClass(specType);
-            return EntitySpec.create(specClass);
+            Class<?> specType = new ClassLoaderUtils(this.getClass()).loadClass(specTypName);
+            return buildSpec(specType);
         } catch (ClassNotFoundException e) {
-            throw new IllegalStateException("Unable to load hardcoded catalog type " + specType, e);
+            throw new IllegalStateException("Unable to load hardcoded catalog type " + specTypName, e);
         }
+    }
+
+    protected EntitySpec<?> buildSpec(Class<?> specType) {
+        @SuppressWarnings("unchecked")
+        Class<Entity> specClass = (Class<Entity>)specType;
+        return EntitySpec.create(specClass);
     }
 
 }

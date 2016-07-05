@@ -26,12 +26,14 @@ import java.util.Map;
 import org.apache.brooklyn.api.entity.drivers.DriverDependentEntity;
 import org.apache.brooklyn.api.entity.drivers.EntityDriver;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.core.BrooklynVersion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.location.paas.PaasLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.text.Strings;
@@ -193,7 +195,8 @@ public class ReflectiveEntityDriverFactory {
             String driverInterfaceName = driverInterface.getName();
             // TODO: use a proper registry later on
             try {
-                if (!Class.forName("org.apache.brooklyn.location.winrm.WinRmMachineLocation").isInstance(location)) return null;
+                Class<?> winRmLocationClass = new ClassLoaderUtils(this, entity).loadClass("org.apache.brooklyn.software-winrm", BrooklynVersion.get(), "org.apache.brooklyn.location.winrm.WinRmMachineLocation");
+                if (!winRmLocationClass.isInstance(location)) return null;
             } catch (ClassNotFoundException ex) {
                 return null;
             }

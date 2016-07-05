@@ -45,6 +45,7 @@ import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.DeserializingClassRenamesProvider;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.ClassCoercionException;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
@@ -129,9 +130,10 @@ public class BrooklynDslCommon {
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public static Sensor<?> sensor(String clazzName, String sensorName) {
         try {
-            // TODO Should use catalog's classloader, rather than Class.forName; how to get that? Should we return a future?!
+            // TODO Should use catalog's classloader, rather than ClassLoaderUtils; how to get that? Should we return a future?!
+            //      Should have the catalog's loader at this point in a thread local
             String mappedClazzName = DeserializingClassRenamesProvider.findMappedName(clazzName);
-            Class<?> clazz = Class.forName(mappedClazzName);
+            Class<?> clazz = new ClassLoaderUtils(BrooklynDslCommon.class).loadClass(mappedClazzName);
             
             Sensor<?> sensor;
             if (Entity.class.isAssignableFrom(clazz)) {
@@ -170,9 +172,9 @@ public class BrooklynDslCommon {
         Map<String,Object> objectFields = (Map<String, Object>) config.getStringKeyMaybe("object.fields").or(MutableMap.of());
         Map<String,Object> brooklynConfig = (Map<String, Object>) config.getStringKeyMaybe(BrooklynCampReservedKeys.BROOKLYN_CONFIG).or(MutableMap.of());
         try {
-            // TODO Should use catalog's classloader, rather than Class.forName; how to get that? Should we return a future?!
+            // TODO Should use catalog's classloader, rather than ClassLoaderUtils; how to get that? Should we return a future?!
             String mappedTypeName = DeserializingClassRenamesProvider.findMappedName(typeName);
-            Class<?> type = Class.forName(mappedTypeName);
+            Class<?> type = new ClassLoaderUtils(BrooklynDslCommon.class).loadClass(mappedTypeName);
             
             if (!Reflections.hasNoArgConstructor(type)) {
                 throw new IllegalStateException(String.format("Cannot construct %s bean: No public no-arg constructor available", type));

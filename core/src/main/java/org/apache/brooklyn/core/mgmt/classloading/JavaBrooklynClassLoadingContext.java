@@ -29,6 +29,7 @@ import java.util.Enumeration;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.mgmt.persist.DeserializingClassRenamesProvider;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
@@ -81,9 +82,24 @@ public class JavaBrooklynClassLoadingContext extends AbstractBrooklynClassLoadin
         if (mgmt!=null) return mgmt.getCatalogClassLoader();
         return JavaBrooklynClassLoadingContext.class.getClassLoader();
     }
-    
+
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public Maybe<Class<?>> tryLoadClass(String className) {
+        Maybe<Class<?>> cls = tryLoadClass0(className);
+        if (cls.isPresent()) {
+            return cls;
+        }
+        try {
+            return (Maybe) Maybe.of(new ClassLoaderUtils(this, mgmt).loadClass(className));
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            // return original error
+            return cls;
+        }
+    }
+
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    private Maybe<Class<?>> tryLoadClass0(String className) {
         try {
             className = DeserializingClassRenamesProvider.findMappedName(className);
             return (Maybe) Maybe.of(getClassLoader().loadClass(className));
