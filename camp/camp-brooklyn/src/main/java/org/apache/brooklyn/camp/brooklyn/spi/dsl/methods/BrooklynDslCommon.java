@@ -67,6 +67,9 @@ public class BrooklynDslCommon {
 
     // Access specific entities
 
+    public static DslComponent self() {
+        return new DslComponent(Scope.THIS, null);
+    }
     public static DslComponent entity(String id) {
         return new DslComponent(Scope.GLOBAL, id);
     }

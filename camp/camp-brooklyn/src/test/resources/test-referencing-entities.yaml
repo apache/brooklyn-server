@@ -114,7 +114,7 @@ services:
       brooklyn.config:
         test.reference.root: $brooklyn:root()
         test.reference.scope_root: $brooklyn:scopeRoot()
-        test.reference.app: $brooklyn:parent().parent().descendant("app1")
+        test.reference.app: $brooklyn:parent().parent().self()
         test.reference.entity1: $brooklyn:component("e1")
         test.reference.entity2: $brooklyn:component("e2")
         test.reference.child1: $brooklyn:component("c1")

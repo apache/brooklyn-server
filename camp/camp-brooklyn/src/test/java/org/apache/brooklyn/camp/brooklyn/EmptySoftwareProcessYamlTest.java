@@ -116,7 +116,7 @@ public class EmptySoftwareProcessYamlTest extends AbstractYamlTest {
                 "    "+BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION.getName()+": true");
         waitForApplicationTasks(app);
 
-        EmptySoftwareProcess entity = Iterables.getOnlyElement(Entities.descendants(app, EmptySoftwareProcess.class));
+        EmptySoftwareProcess entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, EmptySoftwareProcess.class));
         EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, true);
         EntityAsserts.assertAttributeEqualsContinually(entity, Attributes.SERVICE_UP, true);
     }

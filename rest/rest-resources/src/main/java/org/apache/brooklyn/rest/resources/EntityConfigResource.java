@@ -178,7 +178,7 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
             ConfigKey ck = findConfig(entity, configName);
             ((EntityInternal) entity).config().set(ck, TypeCoercions.coerce(newValue, ck.getTypeToken()));
             if (Boolean.TRUE.equals(recurse)) {
-                for (Entity e2 : Entities.descendants(entity, Predicates.alwaysTrue(), false)) {
+                for (Entity e2 : Entities.descendantsWithoutSelf(entity)) {
                     ((EntityInternal) e2).config().set(ck, newValue);
                 }
             }
@@ -198,7 +198,7 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
         LOG.debug("REST setting config " + configName + " on " + entity + " to " + newValue);
         ((EntityInternal) entity).config().set(ck, TypeCoercions.coerce(newValue, ck.getTypeToken()));
         if (Boolean.TRUE.equals(recurse)) {
-            for (Entity e2 : Entities.descendants(entity, Predicates.alwaysTrue(), false)) {
+            for (Entity e2 : Entities.descendantsWithoutSelf(entity)) {
                 ((EntityInternal) e2).config().set(ck, newValue);
             }
         }

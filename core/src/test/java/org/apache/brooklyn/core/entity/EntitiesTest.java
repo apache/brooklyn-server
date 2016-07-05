@@ -38,6 +38,7 @@ import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -47,21 +48,60 @@ public class EntitiesTest extends BrooklynAppUnitTestSupport {
     
     private SimulatedLocation loc;
     private TestEntity entity;
+    private TestEntity entity2;
     
     @BeforeMethod(alwaysRun=true)
     @Override
     public void setUp() throws Exception {
         super.setUp();
         loc = app.getManagementContext().getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class));
-        entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        entity = app.addChild(EntitySpec.create(TestEntity.class));
+        entity2 = app.addChild(EntitySpec.create(TestEntity.class));
         app.start(ImmutableList.of(loc));
     }
     
     @Test
+    @SuppressWarnings("deprecation")
     public void testDescendants() throws Exception {
-        Assert.assertEquals(Iterables.size(Entities.descendants(app)), 2);
-        Assert.assertEquals(Iterables.getOnlyElement(Entities.descendants(app, TestEntity.class)), entity);
+        Asserts.assertEqualsIgnoringOrder(Entities.descendantsAndSelf(app), ImmutableList.of(app, entity, entity2));
+        Asserts.assertEqualsIgnoringOrder(Entities.descendants(app), ImmutableList.of(app, entity, entity2));
+        
+        Asserts.assertEqualsIgnoringOrder(Entities.descendantsAndSelf(entity), ImmutableList.of(entity));
+        Asserts.assertEqualsIgnoringOrder(Entities.descendants(entity), ImmutableList.of(entity));
     }
+    
+    @Test
+    @SuppressWarnings("deprecation")
+    public void testDescendantsFilteredByType() throws Exception {
+        Asserts.assertEqualsIgnoringOrder(Entities.descendantsAndSelf(app, TestEntity.class), ImmutableList.of(entity, entity2));
+        Asserts.assertEqualsIgnoringOrder(Entities.descendants(app, TestEntity.class), ImmutableList.of(entity, entity2));
+    }
+    
+    @Test
+    @SuppressWarnings("deprecation")
+    public void testDescendantsFilteredByPredicate() throws Exception {
+        Asserts.assertEqualsIgnoringOrder(Entities.descendantsAndSelf(app, Predicates.instanceOf(TestEntity.class)), ImmutableList.of(entity, entity2));
+        Asserts.assertEqualsIgnoringOrder(Entities.descendants(app, Predicates.instanceOf(TestEntity.class)), ImmutableList.of(entity, entity2));
+    }
+    
+    @Test
+    public void testDescendantsWithExplicitIncludeSelf() throws Exception {
+        Asserts.assertEqualsIgnoringOrder(Entities.descendants(app, Predicates.alwaysTrue(), true), ImmutableList.of(app, entity, entity2));
+        Asserts.assertEqualsIgnoringOrder(Entities.descendants(app, Predicates.alwaysTrue(), false), ImmutableList.of(entity, entity2));
+        
+        Asserts.assertEqualsIgnoringOrder(Entities.descendants(entity, Predicates.alwaysTrue(), true), ImmutableList.of(entity));
+        Asserts.assertEqualsIgnoringOrder(Entities.descendants(entity, Predicates.alwaysTrue(), false), ImmutableList.of());
+    }
+    
+    @Test
+    public void testAncestors() throws Exception {
+        Asserts.assertEqualsIgnoringOrder(Entities.ancestorsAndSelf(app), ImmutableList.of(app));
+        Asserts.assertEqualsIgnoringOrder(Entities.ancestors(app), ImmutableList.of(app));
+
+        Asserts.assertEqualsIgnoringOrder(Entities.ancestorsAndSelf(entity), ImmutableList.of(entity, app));
+        Asserts.assertEqualsIgnoringOrder(Entities.ancestors(entity), ImmutableList.of(entity, app));
+    }
+    
     
     @Test
     public void testAttributeSupplier() throws Exception {
