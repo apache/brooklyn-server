@@ -19,8 +19,9 @@ services:
     id: swarm
     name: "swarm"
     brooklyn.config:
-      swarm.initial.size: 2
-      swarm.max.size: 4
+      swarm.manager.size: 3
+      swarm.initial.size: 3
+      swarm.max.size: 5
       swarm.discovery.url: etcd://10.10.10.123:2380/
       docker.discovery.url: etcd://10.10.10.123:2380/
       ca.cert.url: http://10.10.10.101:8080/default/ca.pem

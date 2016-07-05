@@ -15,9 +15,10 @@ services:
     id: swarm
     name: "swarm"
     brooklyn.config:
-      swarm.initial.size: 2
+      swarm.initial.size: 3
       swarm.max.size: 5
-      etcd.initial.size: 1
+      swarm.manager.size: 3
+      etcd.initial.size: 3
       swarm.port: 4000
       swarm.defaultnetwork: "swarm"
       swarm.scaling.cpu.limit: 0.95

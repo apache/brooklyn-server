@@ -372,10 +372,10 @@ brooklyn.catalog:
           EOF
 
       brooklyn.initializers:
-      - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
-        brooklyn.config:
-          name: CSR
-          command: cat ${DOCKER_CERT_PATH}/csr.pem
+        - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
+          brooklyn.config:
+            name: CSR
+            command: cat ${DOCKER_CERT_PATH}/csr.pem
 
 
   - id: docker-engine-container

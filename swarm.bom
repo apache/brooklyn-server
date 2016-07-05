@@ -41,6 +41,12 @@ brooklyn.catalog:
             Size of the swarm cluster when created initially
           type: integer
           default: 1
+        - name: swarm.manager.size
+          label: Swarm Manager Size
+          description: |
+            Number of swarm managers
+          type: integer
+          default: 1
         - name: swarm.max.size
           label: Maximum Swarm Size
           description: |
@@ -73,7 +79,7 @@ brooklyn.catalog:
           id: ca-server
           name: "ca-server"
           brooklyn.config:
-            common.name: ca
+            common.name: "Clocker"
         - type: etcd-cluster
           id: etcd-cluster
           name: "etcd-cluster"
@@ -228,16 +234,23 @@ brooklyn.catalog:
             will automatically be added. The default is 0.95 or 95%
           type: double
           default: 0.95
-        # TODO Move next two parameters to the swarm-node level
+        - name: swarm.recovery.quarantineFailedEntities
+          label: Quarantine
+          description: |
+            Quarantine failed entities instead of destroying them
+          type: boolean
+          default: true
         - name: swarm.recovery.stabilizationDelay
           label: Stabilization Delay
           description: |
             Time period for which the service must be consistently in the same state to trigger an action
           # A restart shouldn't trigger failure
+          type: org.apache.brooklyn.util.time.Duration
           default: 3m
         - name: swarm.recovery.failOnRecurringFailuresInThisDuration
           label: Fail Duration
           description: |
+          type: org.apache.brooklyn.util.time.Duration
             Reports entity as failed if it fails two or more times in this time window
           default: 10m
 
@@ -257,9 +270,35 @@ brooklyn.catalog:
               - $brooklyn:entity("swarm-manager").attributeWhenReady("swarm.port")
 
       brooklyn.children:
-        - type: docker-swarm-manager
-          id: swarm-manager
-          name: "swarm-manager"
+        - type: cluster
+          id: docker-swarm-managers
+          name: "docker-swarm-managers"
+          brooklyn.policies:
+            - type: org.apache.brooklyn.policy.ha.ServiceReplacer
+          brooklyn.enrichers:
+            - type: org.apache.brooklyn.enricher.stock.Aggregator
+              brooklyn.config:
+                uniqueTag: swarm-endpoint-aggregator
+                enricher.sourceSensor: $brooklyn:sensor("swarm.url")
+                enricher.targetSensor: $brooklyn:sensor("swarm.url.list")
+                enricher.aggregating.fromMembers: true
+            - type: org.apache.brooklyn.enricher.stock.Joiner
+              brooklyn.config:
+                uniqueTag: swarm-endpoint-joiner
+                enricher.sourceSensor: $brooklyn:sensor("swarm.url.list")
+                enricher.targetSensor: $brooklyn:sensor("swarm.url")
+                enricher.joiner.quote: false
+                enricher.joiner.minimum: 1
+                enricher.joiner.maximum: 1
+          brooklyn.config:
+            cluster.initial.size: $brooklyn:config("swarm.manager.size")
+            dynamiccluster.quarantineFailedEntities:
+              $brooklyn:entity("swarm-cluster").config("swarm.recovery.quarantineFailedEntities")
+            dynamiccluster.memberspec:
+              $brooklyn:entitySpec:
+                type: docker-swarm-manager
+                id: swarm-manager
+                name: "swarm-manager"
         - type: cluster
           id: docker-swarm-nodes
           name: "docker-swarm-nodes"
@@ -295,7 +334,16 @@ brooklyn.catalog:
                 transformation: average
           brooklyn.config:
             cluster.initial.size: $brooklyn:config("swarm.initial.size")
-            dynamiccluster.quarantineFailedEntities: $brooklyn:config("swarm.recovery.quarantineFailedEntities")
+            dynamiccluster.quarantineFailedEntities:
+              $brooklyn:config("swarm.recovery.quarantineFailedEntities")
+            dynamiccluster.firstmemberspec:
+              $brooklyn:entitySpec:
+                type: docker-swarm-node
+                id: swarm-node
+                name: "swarm-node"
+                brooklyn.config:
+                  launch.latch: $brooklyn:entity("docker-swarm-managers").attributeWhenReady("service.isUp")
+                  swarm.defaultnetwork.create: true
             dynamiccluster.memberspec:
               $brooklyn:entitySpec:
                 type: docker-swarm-node
@@ -312,8 +360,7 @@ brooklyn.catalog:
                       entityFailed.stabilizationDelay: $brooklyn:entity("swarm-cluster").config("swarm.recovery.stabilizationDelay")
                       entityRecovered.stabilizationDelay: $brooklyn:entity("swarm-cluster").config("swarm.recovery.stabilizationDelay")
                 brooklyn.config:
-                  launch.latch: $brooklyn:entity("swarm-manager").attributeWhenReady("service.isUp")
-
+                  launch.latch: $brooklyn:entity("docker-swarm-managers").attributeWhenReady("service.isUp")
 
   - id: docker-engine-with-discovery
     name: Docker Engine with TLS and discovery
@@ -357,17 +404,27 @@ brooklyn.catalog:
         shell.env:
           SWARM_DISCOVERY_URL: $brooklyn:config("swarm.discovery.url")
           HOST_ADDRESS: $brooklyn:attributeWhenReady("host.address")
+          SWARM_DEFAULT_NETWORK: $brooklyn:parent().config("swarm.defaultnetwork")
+          CREATE_NETWORK: $brooklyn:config("swarm.defaultnetwork.create")
 
         post.launch.command: |
-          docker run -d --name swarm-${HOST_NAME} \
+          echo "[CLOCKER] Join Swarm"
+          docker run -d \
+            --name swarm-${HOST_NAME} \
             -v ${INSTALL_DIR}/.certs:/certs:ro \
             --restart unless-stopped \
-            swarm join --addr=${DOCKER_ENDPOINT_PUBLIC} \
+            swarm join \
+              --addr=${DOCKER_ENDPOINT_PUBLIC} \
               --discovery-opt kv.cacertfile="/certs/ca.pem" \
               --discovery-opt kv.certfile="/certs/cert.pem" \
               --discovery-opt kv.keyfile="/certs/key.pem" \
               ${SWARM_DISCOVERY_URL}
 
+          if [[ "${CREATE_NETWORK}" ]] ; then
+            echo "[CLOCKER] Setup default ${SWARM_DEFAULT_NETWORK} overlay network"
+            docker network ls | grep "overlay.*${SWARM_DEFAULT_NETWORK}" ||
+              docker network create --driver=overlay "${SWARM_DEFAULT_NETWORK}"
+          fi
 
         checkRunning.command: |
           sudo service docker status &&
@@ -406,28 +463,71 @@ brooklyn.catalog:
           type: string
           default: 0.0.0.0
 
+      brooklyn.policies:
+        - type: org.apache.brooklyn.policy.ha.ServiceRestarter
+          brooklyn.config:
+            failOnRecurringFailuresInThisDuration:
+              $brooklyn:parent().config("swarm.recovery.failOnRecurringFailuresInThisDuration")
+
+      brooklyn.enrichers:
+        - type: org.apache.brooklyn.policy.ha.ServiceFailureDetector
+          brooklyn.config:
+            serviceOnFire.stabilizationDelay:
+              $brooklyn:parent().config("swarm.recovery.stabilizationDelay")
+            entityFailed.stabilizationDelay:
+              $brooklyn:parent().config("swarm.recovery.stabilizationDelay")
+            entityRecovered.stabilizationDelay:
+              $brooklyn:parent().config("swarm.recovery.stabilizationDelay")
+        - type: org.apache.brooklyn.enricher.stock.Transformer
+          brooklyn.config:
+            uniqueTag: swarm-url-publisher
+            enricher.triggerSensors:
+            - host.address
+            - swarm.port
+            enricher.targetSensor: $brooklyn:sensor("swarm.url")
+            enricher.targetValue:
+              $brooklyn:formatString:
+              - "tcp://%s:%d"
+              - $brooklyn:attributeWhenReady("host.address")
+              - $brooklyn:attributeWhenReady("swarm.port")
+
+      brooklyn.initializers:
+        - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
+          brooklyn.config:
+            name: swarm.version
+            command: |
+              docker info | grep "^Server Version" | sed -e "s/^Server Version: //"
+        - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
+          brooklyn.config:
+            name: swarm.role
+            command: |
+              docker info | grep "^Role" | sed -e "s/^Role: //"
+
       brooklyn.config:
         shell.env:
           SWARM_DISCOVERY_URL: $brooklyn:config("swarm.discovery.url")
-          # parent() has a parameter for swarm.defaultnetwork with a default value
-          SWARM_DEFAULT_NETWORK: $brooklyn:parent().config("swarm.defaultnetwork")
           SWARM_PORT: $brooklyn:attributeWhenReady("swarm.port")
+          SWARM_URL: $brooklyn:attributeWhenReady("swarm.url")
 
         post.launch.command: |
           echo "[CLOCKER] Launch Swarm manager"
-          docker run -d -p ${SWARM_PORT}:${SWARM_PORT} \
-            -v ${INSTALL_DIR}/.certs:/certs:ro --name manager-${HOST_NAME} \
+          docker run -d \
+            -p ${SWARM_PORT}:${SWARM_PORT} \
+            -v ${INSTALL_DIR}/.certs:/certs:ro \
+            --name manager-${HOST_NAME} \
             --restart unless-stopped \
-            swarm manage --tlsverify --tlscacert=/certs/ca.pem --tlscert=/certs/cert.pem --tlskey=/certs/key.pem \
+            swarm manage \
+              --tlsverify \
+              --tlscacert=/certs/ca.pem \
+              --tlscert=/certs/cert.pem \
+              --tlskey=/certs/key.pem \
               --host=0.0.0.0:${SWARM_PORT} \
+              --replication \
+              --advertise ${SWARM_URL} \
               --discovery-opt kv.cacertfile="/certs/ca.pem" \
               --discovery-opt kv.certfile="/certs/cert.pem" \
               --discovery-opt kv.keyfile="/certs/key.pem" \
               ${SWARM_DISCOVERY_URL}
-
-          echo "[CLOCKER] Setup default ${SWARM_DEFAULT_NETWORK} overlay network"
-          docker network ls | grep "overlay.*${SWARM_DEFAULT_NETWORK}" ||
-            docker network create --driver=overlay "${SWARM_DEFAULT_NETWORK}"
 
         checkRunning.command: |
           sudo service docker status &&
