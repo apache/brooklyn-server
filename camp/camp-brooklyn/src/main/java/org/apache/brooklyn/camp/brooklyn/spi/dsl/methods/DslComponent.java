@@ -560,46 +560,45 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             if (targetEffector.isAbsentOrNull()) {
                 throw new IllegalArgumentException("Effector " + effectorName + " not found on entity: " + targetEntity);
             }
-            if (null == cachedTask) {
-                cachedTask = null == argList
-                    ? Entities.invokeEffector(targetEntity, targetEntity, targetEffector.get(), args)
-                    : invokeWithDeferredArgs(targetEntity, targetEffector.get(), argList);
-//                    : Entities.invokeEffectorWithArgs(targetEntity, targetEntity, targetEffector.get(), argList.toArray());
+            if (cachedTask == null) {
+                if (argList == null) {
+                    cachedTask = Entities.invokeEffector(targetEntity, targetEntity, targetEffector.get(), args);
+                } else {
+                    cachedTask = invokeWithDeferredArgs(targetEntity, targetEffector.get(), argList);
+                }
             }
             return (Task<Object>) cachedTask;
         }
-
-        public static Task<Object> invokeWithDeferredArgs(final Entity targetEntity, final Effector<?> targetEffector, final List<? extends Object> args) {
+        private Task<Object> invokeWithDeferredArgs(final Entity targetEntity, final Effector<?> targetEffector, final List<? extends Object> args) {
             List<TaskAdaptable<Object>> taskArgs = Lists.newArrayList();
-            for (Object arg: args) {
-                if (arg instanceof TaskAdaptable) taskArgs.add((TaskAdaptable<Object>)arg);
-                else if (arg instanceof TaskFactory) taskArgs.add( ((TaskFactory<TaskAdaptable<Object>>)arg).newTask() );
+            for (Object arg : args) {
+                if (arg instanceof TaskAdaptable) taskArgs.add((TaskAdaptable<Object>) arg);
+                else if (arg instanceof TaskFactory) taskArgs.add(((TaskFactory<TaskAdaptable<Object>>) arg).newTask());
             }
 
             return DependentConfiguration.transformMultiple(
-                MutableMap.<String,String>of("displayName", "invoking '"+targetEffector.getName()+"' with "+taskArgs.size()+" task"+(taskArgs.size()!=1?"s":"")), 
+                MutableMap.of("displayName", "invoking '"+targetEffector.getName()+"' with "+taskArgs.size()+" task"+(taskArgs.size()!=1?"s":"")), 
                     new Function<List<Object>, Object>() {
-                @Override public Object apply(List<Object> input) {
-                    Iterator<?> tri = input.iterator();
-                    Object[] vv = new Object[args.size()];
-                    int i=0;
-                    for (Object arg : args) {
-                        if (arg instanceof TaskAdaptable || arg instanceof TaskFactory) vv[i] = tri.next();
-                        else if (arg instanceof DeferredSupplier) vv[i] = ((DeferredSupplier<?>) arg).get();
-                        else vv[i] = arg;
-                        i++;
-                    }
-
-                    return Entities.invokeEffectorWithArgs(targetEntity, targetEntity, targetEffector, vv);
-                }},
-                taskArgs);
+                        @Override
+                        public Object apply(List<Object> input) {
+                            Iterator<?> tri = input.iterator();
+                            Object[] vv = new Object[args.size()];
+                            int i=0;
+                            for (Object arg : args) {
+                                if (arg instanceof TaskAdaptable || arg instanceof TaskFactory) vv[i] = tri.next();
+                                else if (arg instanceof DeferredSupplier) vv[i] = ((DeferredSupplier<?>) arg).get();
+                                else vv[i] = arg;
+                                i++;
+                            }
+                            return Entities.invokeEffectorWithArgs(targetEntity, targetEntity, targetEffector, vv);
+                        }
+                    },
+                    taskArgs);
         }
-
         @Override
         public int hashCode() {
             return Objects.hashCode(component, effectorName);
         }
-
         @Override
         public boolean equals(Object obj) {
             if (this == obj) return true;
