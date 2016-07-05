@@ -86,6 +86,7 @@ brooklyn.catalog:
             shell.env:
               CA_REQUEST_ROOT_URL: $brooklyn:config("ca.request.root.url")
               HOST_ADDRESS: $brooklyn:attributeWhenReady("host.address")
+              SUBNET_ADDRESS: $brooklyn:attributeWhenReady("host.subnet.address")
               INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
             pre.install.command: |
               set -e
@@ -95,24 +96,33 @@ brooklyn.catalog:
               }
 
               function generate_conf () {
-                local IP=$1
-                local CNF=$2
+                local CNF=$1
+                shift 1
+                local ix=0
                 cat > ${CNF} <<-EOF
-                  [ req ]
-                  req_extensions=v3_req
-                  distinguished_name=req_distinguished_name
+              [ req ]
+              req_extensions=v3_req
+              distinguished_name=req_distinguished_name
 
-                  [ req_distinguished_name ]
-                  commonName                      = Common Name (eg, your name or your server\'s hostname)
-                  commonName_max                  = 64
+              [ req_distinguished_name ]
+              commonName                      = Common Name (eg, your name or your server\'s hostname)
+              commonName_max                  = 64
 
-                  [ v3_req ]
-                  subjectAltName=IP:${IP}
+              [ v3_req ]
+              subjectAltName = @alt_names
+
+              [ alt_names ]
               EOF
+
+              while [ $# -gt 0 ] ; do
+                ix=$(( $ix + 1 ))
+                echo "IP.${ix} = $1" >> ${CNF}
+                shift 1
+              done
               }
 
               function generate_csr () {
-                echo $(hostname) | openssl req -config $1 -new -key $2 -days 1825 -out $3
+                openssl req -config $1 -new -key $2 -days 1825 -subj "/CN=$(hostname)" -out $3
               }
 
               function failwith() {
@@ -133,7 +143,7 @@ brooklyn.catalog:
               mkdir -p ${INSTALL_DIR}/certs
               getcert ${CA_REQUEST_ROOT_URL}/cacert/ca.pem ${INSTALL_DIR}/certs/ca.pem
               generate_key ${INSTALL_DIR}/certs/key.pem
-              generate_conf ${HOST_ADDRESS} ${INSTALL_DIR}/certs/csr.cnf
+              generate_conf ${INSTALL_DIR}/certs/csr.cnf ${HOST_ADDRESS} ${SUBNET_ADDRESS}
               generate_csr ${INSTALL_DIR}/certs/csr.cnf ${INSTALL_DIR}/certs/key.pem ${INSTALL_DIR}/certs/csr.pem
 
               curl -X POST --data-binary @${INSTALL_DIR}/certs/csr.pem  ${CA_REQUEST_ROOT_URL}/sign > ${INSTALL_DIR}/certs/cert.pem

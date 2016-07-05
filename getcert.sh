@@ -11,15 +11,5 @@ set -e
 mkdir -p ${CERT_DIR}
 curl -L ${CA}/cacert/ca.pem --output ${CERT_DIR}/ca.pem
 openssl genrsa -out ${CERT_DIR}/key.pem 2048
-openssl req  -new -key ${CERT_DIR}/key.pem -days 1825 -out ${CERT_DIR}/csr.pem <<-EOF
-.
-.
-.
-.
-.
-*
-.
-.
-.
-EOF
+openssl req  -new -key ${CERT_DIR}/key.pem -days 1825 -out ${CERT_DIR}/csr.pem -subj "/CN=$(hostname)"
 curl -X POST --data-binary @${CERT_DIR}/csr.pem ${CA}/sign > ${CERT_DIR}/cert.pem

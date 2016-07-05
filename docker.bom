@@ -248,6 +248,7 @@ brooklyn.catalog:
           NODE_CERT_URL: $brooklyn:config("node.cert.url")
           PRIV_KEY_URL: $brooklyn:config("private.key.url")
           HOST_ADDRESS: $brooklyn:attributeWhenReady("host.address")
+          SUBNET_ADDRESS: $brooklyn:attributeWhenReady("host.subnet.address")
           INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
           TLS_OPTIONS: $brooklyn:config("docker.tlsoptions")
           DOCKER_ENDPOINT: $brooklyn:attributeWhenReady("docker.endpoint")
@@ -258,29 +259,39 @@ brooklyn.catalog:
         customize.command: |
           set -e # need all commands to execute successfully
           cat > functions.sh <<-'EOC'
+          #!/usr/bin/env bash
+
           function generate_key () {
             openssl genrsa -out $1 2048
           }
 
           function generate_conf () {
-            local IP=$1
-            local CNF=$2
+            local CNF=$1
+            shift 1
+            local ix=0
             cat > ${CNF} <<-EOF
-              [ req ]
-              req_extensions=v3_req
-              distinguished_name=req_distinguished_name
+          [ req ]
+          req_extensions=v3_req
+          distinguished_name=req_distinguished_name
 
-              [ req_distinguished_name ]
-              commonName                      = Common Name (eg, your name or your server\'s hostname)
-              commonName_max                  = 64
+          [ req_distinguished_name ]
+          commonName                      = Common Name (eg, your name or your server\'s hostname)
+          commonName_max                  = 64
 
-              [ v3_req ]
-              subjectAltName=IP:${IP}
+          [ v3_req ]
+          subjectAltName = @alt_names
+
+          [ alt_names ]
           EOF
-          }
 
+          while [ $# -gt 0 ] ; do
+            ix=$(( $ix + 1 ))
+            echo "IP.${ix} = $1" >> ${CNF}
+            shift 1
+          done
+          }
           function generate_csr () {
-            echo $(hostname) | openssl req -config $1 -new -key $2 -days 1825 -out $3
+            openssl req -config $1 -new -key $2 -days 1825 -subj "/CN=$(hostname)" -out $3
           }
 
           function failwith() {
@@ -309,7 +320,7 @@ brooklyn.catalog:
             getcert ${CA_REQUEST_ROOT_URL}/cacert/ca.pem ${DOCKER_CERT_PATH}/ca.pem
 
             generate_key ${DOCKER_CERT_PATH}/key.pem
-            generate_conf ${HOST_ADDRESS} ${DOCKER_CERT_PATH}/csr.cnf
+            generate_conf ${DOCKER_CERT_PATH}/csr.cnf ${HOST_ADDRESS} ${SUBNET_ADDRESS}
             generate_csr ${DOCKER_CERT_PATH}/csr.cnf ${DOCKER_CERT_PATH}/key.pem ${DOCKER_CERT_PATH}/csr.pem
 
             echo "[CLOCKER] Requesting certificate from ${CA_REQUEST_ROOT_URL}"
