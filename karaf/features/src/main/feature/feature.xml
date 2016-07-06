@@ -332,6 +332,10 @@
         <bundle dependency="true">mvn:com.google.guava/guava/${guava.version}</bundle>
     </feature>
 
+    <feature name="brooklyn-test-framework" version="${project.version}" description="Brooklyn Test Framework" >
+        <bundle>mvn:org.apache.brooklyn/brooklyn-test-framework/${project.version}</bundle>
+    </feature>
+
     <!-- Don't load all bundles out of the box in the long run. Let users cherry pick what they need. -->
     <feature name="brooklyn-software-all" version="${project.version}" description="Brooklyn All Software Entities">
         <feature>brooklyn-software-base</feature>
@@ -345,6 +349,7 @@
         <feature>brooklyn-software-messaging</feature>
         <feature>brooklyn-software-nosql</feature>
         <feature>brooklyn-software-monitoring</feature>
+        <feature>brooklyn-test-framework</feature>
     </feature>
 
     <feature name="brooklyn-osgi-launcher" version="${project.version}" description="Brooklyn init">
