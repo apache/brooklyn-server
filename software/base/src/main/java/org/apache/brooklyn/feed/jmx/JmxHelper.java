@@ -20,7 +20,6 @@ package org.apache.brooklyn.feed.jmx;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
-import groovy.time.TimeDuration;
 
 import java.io.IOException;
 import java.security.KeyStore;
@@ -63,6 +62,7 @@ import javax.net.ssl.TrustManager;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.entity.java.JmxSupport;
 import org.apache.brooklyn.entity.java.UsesJmx;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.crypto.SecureKeys;
 import org.apache.brooklyn.util.crypto.SslTrustUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -79,6 +79,8 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+
+import groovy.time.TimeDuration;
 
 public class JmxHelper {
 
@@ -272,7 +274,7 @@ public class JmxHelper {
         JMXServiceURL serviceUrl = new JMXServiceURL(url);
         Map env = getConnectionEnvVars();
         try {
-            connector = JMXConnectorFactory.connect(serviceUrl, env);
+            connector = newConnector(serviceUrl, env);
         } catch (NullPointerException npe) {
             //some software -- eg WSO2 -- will throw an NPE exception if the JMX connection can't be created, instead of an IOException.
             //this is a break of contract with the JMXConnectorFactory.connect method, so this code verifies if the NPE is
@@ -300,9 +302,25 @@ public class JmxHelper {
         }
     }
 
+    /**
+     * Handles loading the {@link JMXConnector} in OSGi, where we need to supply the classloader.
+     */
+    public static JMXConnector newConnector(JMXServiceURL url, Map<String, ?> env) throws IOException {
+        Map<String, Object> envCopy = MutableMap.copyOf(env);
+        String protocol = url.getProtocol();
+        if ("jmxmp".equalsIgnoreCase(protocol)) {
+            envCopy.put(JMXConnectorFactory.PROTOCOL_PROVIDER_CLASS_LOADER, javax.management.remote.jmxmp.JMXMPConnector.class.getClassLoader());
+            envCopy.put(JMXConnectorFactory.DEFAULT_CLASS_LOADER, javax.management.remote.jmxmp.JMXMPConnector.class.getClassLoader());
+        } else if ("rmi".equalsIgnoreCase(protocol)) {
+            envCopy.put(JMXConnectorFactory.PROTOCOL_PROVIDER_CLASS_LOADER, javax.management.remote.rmi.RMIConnector.class.getClassLoader());
+            envCopy.put(JMXConnectorFactory.DEFAULT_CLASS_LOADER, javax.management.remote.rmi.RMIConnector.class.getClassLoader());
+        }
+        return JMXConnectorFactory.connect(url, envCopy);
+    }
+    
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public Map getConnectionEnvVars() {
-        Map env = new LinkedHashMap();
+        Map<String, Object> env = new LinkedHashMap();
         
         if (groovyTruth(user) && groovyTruth(password)) {
             String[] creds = new String[] {user, password};
