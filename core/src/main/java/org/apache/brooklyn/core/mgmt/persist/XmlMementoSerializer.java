@@ -60,6 +60,7 @@ import org.apache.brooklyn.core.mgmt.rebind.dto.BasicLocationMemento;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BasicPolicyMemento;
 import org.apache.brooklyn.core.mgmt.rebind.dto.MutableBrooklynMemento;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.xstream.XmlSerializer;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
@@ -94,10 +95,23 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
         this(classLoader, DeserializingClassRenamesProvider.loadDeserializingClassRenames());
     }
     
+    private static class CustomClassLoader extends ClassLoader {
+        private ClassLoaderUtils loader;
+        private CustomClassLoader(ClassLoader cl) {
+            loader = new ClassLoaderUtils(cl);
+        }
+
+        @Override
+        protected Class<?> findClass(String name) throws ClassNotFoundException {
+            return loader.loadClass(name);
+        }
+        
+    }
+    
     public XmlMementoSerializer(ClassLoader classLoader, Map<String, String> deserializingClassRenames) {
         super(deserializingClassRenames);
         this.classLoader = checkNotNull(classLoader, "classLoader");
-        xstream.setClassLoader(this.classLoader);
+        xstream.setClassLoader(new CustomClassLoader(this.classLoader));
         
         // old (deprecated in 070? or earlier) single-file persistence uses this keyword; TODO remove soon in 080 ?
         xstream.alias("brooklyn", MutableBrooklynMemento.class);

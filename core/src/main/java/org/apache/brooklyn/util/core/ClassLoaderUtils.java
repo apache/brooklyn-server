@@ -57,7 +57,7 @@ public class ClassLoaderUtils {
 
     // Class.forName gets the class loader from the calling class.
     // We don't have access to the same reflection API so need to pass it explicitly.
-    private final Class<?> callingClass;
+    private final ClassLoader classLoader;
     private final Entity entity;
     private final ManagementContext mgmt;
 
@@ -69,19 +69,25 @@ public class ClassLoaderUtils {
     }
 
     public ClassLoaderUtils(Class<?> callingClass) {
-        this.callingClass = callingClass;
+        this.classLoader = callingClass.getClassLoader();
+        this.entity = null;
+        this.mgmt = null;
+    }
+
+    public ClassLoaderUtils(ClassLoader cl) {
+        this.classLoader = cl;
         this.entity = null;
         this.mgmt = null;
     }
 
     public ClassLoaderUtils(Class<?> callingClass, Entity entity) {
-        this.callingClass = callingClass;
+        this.classLoader = callingClass.getClassLoader();
         this.entity = entity;
         this.mgmt = ((EntityInternal)entity).getManagementContext();
     }
 
     public ClassLoaderUtils(Class<?> callingClass, @Nullable ManagementContext mgmt) {
-        this.callingClass = callingClass;
+        this.classLoader = callingClass.getClassLoader();
         this.entity = null;
         this.mgmt = mgmt;
     }
@@ -132,8 +138,8 @@ public class ClassLoaderUtils {
         }
 
         try {
-            // Used instead of callingClass.getClassLoader() as it could be null (only for bootstrap classes)
-            return Class.forName(name, true, callingClass.getClassLoader());
+            // Used instead of callingClass.getClassLoader().loadClass(...) as it could be null (only for bootstrap classes)
+            return Class.forName(name, true, classLoader);
         } catch (ClassNotFoundException e) {
         }
 
@@ -171,7 +177,7 @@ public class ClassLoaderUtils {
             }
             return SystemFrameworkLoader.get().loadClassFromBundle(className, bundle.get());
         } else {
-            return Class.forName(className);
+            return Class.forName(className, true, classLoader);
         }
     }
 

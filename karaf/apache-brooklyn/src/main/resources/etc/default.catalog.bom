@@ -7,7 +7,7 @@ brooklyn.catalog:
   items:
   - brooklyn.libraries:
     - name: org.apache.brooklyn.karaf-init
-      version: 0.10.0.SNAPSHOT # BROOKLYN_VERSION
+      version: "0.10.0.SNAPSHOT" # BROOKLYN_VERSION
     include: classpath://catalog-classes.bom
 
   - id: server
