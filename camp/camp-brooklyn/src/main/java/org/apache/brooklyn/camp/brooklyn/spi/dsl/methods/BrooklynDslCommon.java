@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.dsl.methods;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
@@ -39,7 +41,9 @@ import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
 import org.apache.brooklyn.core.config.external.ExternalConfigSupplier;
+import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.EntityDynamicType;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.internal.ExternalConfigSupplierRegistry;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.DeserializingClassRenamesProvider;
@@ -57,6 +61,8 @@ import org.apache.brooklyn.util.javalang.coerce.ClassCoercionException;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.commons.beanutils.BeanUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
@@ -65,6 +71,8 @@ import com.google.common.collect.Lists;
 
 /** static import functions which can be used in `$brooklyn:xxx` contexts */
 public class BrooklynDslCommon {
+
+    private static final Logger LOG = LoggerFactory.getLogger(BrooklynDslCommon.class);
 
     // Access specific entities
 
@@ -162,8 +170,9 @@ public class BrooklynDslCommon {
 
     /**
      * Return an instance of the specified class with its fields set according
-     * to the {@link Map} or a {@link BrooklynDslDeferredSupplier} if the arguments are not
-     * yet fully resolved.
+     * to the {@link Map}. Or a {@link BrooklynDslDeferredSupplier} if either the arguments are 
+     * not yet fully resolved, or the class cannot be loaded yet (e.g. needs the catalog's OSGi 
+     * bundles).
      */
     @SuppressWarnings("unchecked")
     public static Object object(Map<String, Object> arguments) {
@@ -171,22 +180,24 @@ public class BrooklynDslCommon {
         String typeName = BrooklynYamlTypeInstantiator.InstantiatorFromKey.extractTypeName("object", config).orNull();
         Map<String,Object> objectFields = (Map<String, Object>) config.getStringKeyMaybe("object.fields").or(MutableMap.of());
         Map<String,Object> brooklynConfig = (Map<String, Object>) config.getStringKeyMaybe(BrooklynCampReservedKeys.BROOKLYN_CONFIG).or(MutableMap.of());
+        
+        String mappedTypeName = DeserializingClassRenamesProvider.findMappedName(typeName);
+        Class<?> type;
         try {
-            // TODO Should use catalog's classloader, rather than ClassLoaderUtils; how to get that? Should we return a future?!
-            String mappedTypeName = DeserializingClassRenamesProvider.findMappedName(typeName);
-            Class<?> type = new ClassLoaderUtils(BrooklynDslCommon.class).loadClass(mappedTypeName);
-            
-            if (!Reflections.hasNoArgConstructor(type)) {
-                throw new IllegalStateException(String.format("Cannot construct %s bean: No public no-arg constructor available", type));
-            }
-            if ((objectFields.isEmpty() || DslUtils.resolved(objectFields.values())) &&
-                    (brooklynConfig.isEmpty() || DslUtils.resolved(brooklynConfig.values()))) {
-                return DslObject.create(type, objectFields, brooklynConfig);
-            } else {
-                return new DslObject(type, objectFields, brooklynConfig);
-            }
+            type = new ClassLoaderUtils(BrooklynDslCommon.class).loadClass(mappedTypeName);
         } catch (ClassNotFoundException e) {
-            throw Exceptions.propagate(e);
+            LOG.debug("Cannot load class " + typeName + " for DLS object; assuming it is in OSGi bundle; will defer its loading");
+            return new DslObject(mappedTypeName, objectFields, brooklynConfig);
+        }
+
+        if (!Reflections.hasNoArgConstructor(type)) {
+            throw new IllegalStateException(String.format("Cannot construct %s bean: No public no-arg constructor available", type));
+        }
+        if ((objectFields.isEmpty() || DslUtils.resolved(objectFields.values())) &&
+                (brooklynConfig.isEmpty() || DslUtils.resolved(brooklynConfig.values()))) {
+            return DslObject.create(type, objectFields, brooklynConfig);
+        } else {
+            return new DslObject(type, objectFields, brooklynConfig);
         }
     }
 
@@ -316,11 +327,18 @@ public class BrooklynDslCommon {
 
         private static final long serialVersionUID = 8878388748085419L;
 
+        private String typeName;
         private Class<?> type;
         private Map<String,Object> fields, config;
 
+        public DslObject(String typeName, Map<String,Object> fields,  Map<String,Object> config) {
+            this.typeName = checkNotNull(typeName, "typeName");
+            this.fields = MutableMap.copyOf(fields);
+            this.config = MutableMap.copyOf(config);
+        }
+        
         public DslObject(Class<?> type, Map<String,Object> fields,  Map<String,Object> config) {
-            this.type = type;
+            this.type = checkNotNull(type, "type");
             this.fields = MutableMap.copyOf(fields);
             this.config = MutableMap.copyOf(config);
         }
@@ -328,6 +346,14 @@ public class BrooklynDslCommon {
         @SuppressWarnings("unchecked")
         @Override
         public Task<Object> newTask() {
+            if (type == null) {
+                EntityInternal entity = entity();
+                try {
+                    type = new ClassLoaderUtils(BrooklynDslCommon.class, entity).loadClass(typeName);
+                } catch (ClassNotFoundException e) {
+                    throw Exceptions.propagate(e);
+                }
+            }
             List<TaskAdaptable<Object>> tasks = Lists.newLinkedList();
             for (Object value : Iterables.concat(fields.values(), config.values())) {
                 if (value instanceof TaskAdaptable) {
@@ -336,6 +362,7 @@ public class BrooklynDslCommon {
                     tasks.add(((TaskFactory<TaskAdaptable<Object>>) value).newTask());
                 }
             }
+            
             Map<String,?> flags = MutableMap.<String,String>of("displayName", "building '"+type+"' with "+tasks.size()+" task"+(tasks.size()!=1?"s":""));
             return DependentConfiguration.transformMultiple(flags, new Function<List<Object>, Object>() {
                         @Override
@@ -399,7 +426,7 @@ public class BrooklynDslCommon {
 
         @Override
         public String toString() {
-            return "$brooklyn:object(\""+type.getName()+"\")";
+            return "$brooklyn:object(\""+(type != null ? type.getName() : typeName)+"\")";
         }
     }
 
