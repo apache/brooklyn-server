@@ -18,8 +18,39 @@
  */
 package org.apache.brooklyn.test.osgi.entities;
 
-import org.apache.brooklyn.core.entity.AbstractEntity;
+public class SimpleObject {
+    
+    private String val;
+    
+    public SimpleObject() {
+    }
 
-public class SimpleEntityImpl extends AbstractEntity implements SimpleEntity {
+    public SimpleObject(String val) {
+        this.val = val;
+    }
 
+    public String getVal() {
+        return val;
+    }
+    
+    public void setVal(String val) {
+        this.val = val;
+    }
+    
+    @Override
+    public boolean equals(Object obj) {
+        if (!(obj instanceof SimpleObject)) return false;
+        String oVal = ((SimpleObject)obj).val;
+        return (val == null) ? oVal == null : val.equals(oVal);
+    }
+    
+    @Override
+    public int hashCode() {
+        return (val == null) ? 0 : val.hashCode();
+    }
+    
+    @Override
+    public String toString() {
+        return "SimpleObject["+val+"]";
+    }
 }

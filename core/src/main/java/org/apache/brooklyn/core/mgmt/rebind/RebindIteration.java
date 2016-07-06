@@ -976,9 +976,9 @@ public abstract class RebindIteration {
                         return new LoadedClass<T>((Class<? extends T>) catalogClass.get(), catalogItemId);
                     }
                 }
-                throw new IllegalStateException("No catalogItemId specified for "+contextSuchAsId+" and can't load class from either classpath or catalog items");
+                throw new IllegalStateException("No catalogItemId specified for "+contextSuchAsId+" and can't load class (" + jType + ") from either classpath or catalog items");
             } else {
-                throw new IllegalStateException("No catalogItemId specified for "+contextSuchAsId+" and can't load class from classpath");
+                throw new IllegalStateException("No catalogItemId specified for "+contextSuchAsId+" and can't load class (" + jType + ") from classpath");
             }
         }
 

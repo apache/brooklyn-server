@@ -19,13 +19,20 @@
 package org.apache.brooklyn.test.osgi.entities;
 
 
+import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.ImplementedBy;
-import org.apache.brooklyn.api.catalog.Catalog;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.sensor.Sensors;
 
 
 @Catalog(name="A Simple Entity", description="Simple entity for test purposes")
 @ImplementedBy(SimpleEntityImpl.class)
 public interface SimpleEntity extends Entity {
+    
+    ConfigKey<Object> SIMPLE_CONFIG = ConfigKeys.newConfigKey(Object.class, "simple.config");
 
+    AttributeSensor<Object> SIMPLE_SENSOR = Sensors.newSensor(Object.class, "simple.sensor");
 }

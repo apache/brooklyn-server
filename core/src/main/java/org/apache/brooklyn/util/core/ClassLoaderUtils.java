@@ -15,6 +15,8 @@
  */
 package org.apache.brooklyn.util.core;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -41,6 +43,7 @@ import org.osgi.framework.launch.Framework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Predicate;
 
 public class ClassLoaderUtils {
@@ -69,27 +72,33 @@ public class ClassLoaderUtils {
     }
 
     public ClassLoaderUtils(Class<?> callingClass) {
-        this.classLoader = callingClass.getClassLoader();
+        this.classLoader = checkNotNull(callingClass, "callingClass").getClassLoader();
         this.entity = null;
         this.mgmt = null;
     }
 
     public ClassLoaderUtils(ClassLoader cl) {
-        this.classLoader = cl;
+        this.classLoader = checkNotNull(cl, "classLoader");
         this.entity = null;
         this.mgmt = null;
     }
 
+    public ClassLoaderUtils(ClassLoader cl, @Nullable ManagementContext mgmt) {
+        this.classLoader = checkNotNull(cl, "classLoader");
+        this.entity = null;
+        this.mgmt = checkNotNull(mgmt, "mgmt");
+    }
+
     public ClassLoaderUtils(Class<?> callingClass, Entity entity) {
-        this.classLoader = callingClass.getClassLoader();
-        this.entity = entity;
+        this.classLoader = checkNotNull(callingClass, "callingClass").getClassLoader();
+        this.entity = checkNotNull(entity, "entity");
         this.mgmt = ((EntityInternal)entity).getManagementContext();
     }
 
     public ClassLoaderUtils(Class<?> callingClass, @Nullable ManagementContext mgmt) {
-        this.classLoader = callingClass.getClassLoader();
+        this.classLoader = checkNotNull(callingClass, "callingClass").getClassLoader();
         this.entity = null;
-        this.mgmt = mgmt;
+        this.mgmt = checkNotNull(mgmt, "mgmt");
     }
 
     public Class<?> loadClass(String name) throws ClassNotFoundException {
@@ -139,7 +148,9 @@ public class ClassLoaderUtils {
 
         try {
             // Used instead of callingClass.getClassLoader().loadClass(...) as it could be null (only for bootstrap classes)
-            return Class.forName(name, true, classLoader);
+            // Note that Class.forName(name, false, classLoader) doesn't seem to like us returning a 
+            // class with a different name from that intended (e.g. stripping off an OSGi prefix).
+            return classLoader.loadClass(name);
         } catch (ClassNotFoundException e) {
         }
 
@@ -181,6 +192,12 @@ public class ClassLoaderUtils {
         }
     }
 
+    @Beta
+    public boolean isBundleWhiteListed(Bundle bundle) {
+        WhiteListBundlePredicate p = createBundleMatchingPredicate();
+        return p.apply(bundle);
+    }
+
     protected Framework getFramework() {
         if (mgmt != null) {
             Maybe<OsgiManager> osgiManager = ((ManagementContextInternal)mgmt).getOsgiManager();
@@ -206,11 +223,11 @@ public class ClassLoaderUtils {
 
 
     private static class WhiteListBundlePredicate implements Predicate<Bundle> {
-        private Pattern symbolicName;
-        private Pattern version;
+        private final Pattern symbolicName;
+        private final Pattern version;
 
         private WhiteListBundlePredicate(String symbolicName, String version) {
-            this.symbolicName = Pattern.compile(symbolicName);
+            this.symbolicName = Pattern.compile(checkNotNull(symbolicName, "symbolicName"));
             this.version = version != null ? Pattern.compile(version) : null;
         }
 
@@ -219,7 +236,6 @@ public class ClassLoaderUtils {
             return symbolicName.matcher(input.getSymbolicName()).matches() &&
                     (version == null || version.matcher(input.getVersion().toString()).matches());
         }
-    
     }
 
     private Class<?> tryLoadFromBundleWhiteList(String name) {
@@ -253,5 +269,4 @@ public class ClassLoaderUtils {
         }
         return new WhiteListBundlePredicate(symbolicName, version);
     }
-
 }

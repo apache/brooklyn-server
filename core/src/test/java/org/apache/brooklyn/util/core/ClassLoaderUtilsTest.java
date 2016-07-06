@@ -19,6 +19,8 @@
 package org.apache.brooklyn.util.core;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -130,6 +132,16 @@ public class ClassLoaderUtilsTest {
         assertEquals(clu.loadClass(classname), clazz);
         assertEquals(clu.loadClass(bundle.getSymbolicName() + ":" + classname), clazz);
         assertEquals(clu.loadClass(bundle.getSymbolicName() + ":" + bundle.getVersion() + ":" + classname), clazz);
+    }
+    
+    @Test
+    public void testIsBundleWhiteListed() throws Exception {
+        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        ClassLoaderUtils clu = new ClassLoaderUtils(getClass(), mgmt);
+        
+        assertTrue(clu.isBundleWhiteListed(getBundle(mgmt, "org.apache.brooklyn.core")));
+        assertTrue(clu.isBundleWhiteListed(getBundle(mgmt, "org.apache.brooklyn.api")));
+        assertFalse(clu.isBundleWhiteListed(getBundle(mgmt, "com.google.guava")));
     }
     
     private Bundle installBundle(ManagementContext mgmt, String bundleUrl) throws Exception {

@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.test.osgi.entities;
 
-
 import org.apache.brooklyn.core.entity.AbstractApplication;
 import org.apache.brooklyn.core.entity.StartableApplication;
 
