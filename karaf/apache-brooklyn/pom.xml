@@ -90,6 +90,15 @@
 
     <plugins>
       <plugin>
+          <groupId>org.apache.rat</groupId>
+          <artifactId>apache-rat-plugin</artifactId>
+          <configuration>
+              <excludes combine.children="append">
+                  <exclude>**/*.bom</exclude>
+              </excludes>
+          </configuration>
+      </plugin>
+      <plugin>
         <groupId>org.apache.karaf.tooling</groupId>
         <artifactId>karaf-maven-plugin</artifactId>
         <version>${karaf.version}</version>

@@ -868,6 +868,30 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         mgmt().getCatalog().deleteCatalogItem(id, version);
     }
 
+    @Test
+    public void testCreateOsgiSpecFromRegistry() throws Exception {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
+
+        String symbolicName = "my.catalog.app.id.registry.spec";
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  id: " + symbolicName,
+            "  name: My Catalog App",
+            "  description: My description",
+            "  icon_url: classpath://path/to/myicon.jpg",
+            "  version: " + TEST_VERSION,
+            "  libraries:",
+            "  - url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
+            "  item: " + SIMPLE_ENTITY_TYPE);
+
+        BrooklynTypeRegistry registry = mgmt().getTypeRegistry();
+        RegisteredType item = registry.get(symbolicName, TEST_VERSION);
+        AbstractBrooklynObjectSpec<?, ?> spec = registry.createSpec(item, null, null);
+        assertEquals(spec.getCatalogItemId(), ver(symbolicName));
+
+        deleteCatalogEntity(symbolicName);
+    }
+
     private void registerAndLaunchAndAssertSimpleEntity(String symbolicName, String serviceType) throws Exception {
         addCatalogOSGiEntity(symbolicName, serviceType);
         String yaml = "name: simple-app-yaml\n" +

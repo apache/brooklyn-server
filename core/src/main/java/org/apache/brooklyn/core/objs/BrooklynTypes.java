@@ -30,6 +30,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.enricher.EnricherDynamicType;
 import org.apache.brooklyn.core.entity.EntityDynamicType;
 import org.apache.brooklyn.core.policy.PolicyDynamicType;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 
 import com.google.common.collect.Maps;
@@ -110,7 +111,7 @@ public class BrooklynTypes {
     @SuppressWarnings("unchecked")
     public static Map<String, ConfigKey<?>> getDefinedConfigKeys(String brooklynTypeName) {
         try {
-            return getDefinedConfigKeys((Class<? extends BrooklynObject>) Class.forName(brooklynTypeName));
+            return getDefinedConfigKeys((Class<? extends BrooklynObject>) new ClassLoaderUtils(BrooklynTypes.class).loadClass(brooklynTypeName));
         } catch (ClassNotFoundException e) {
             throw Exceptions.propagate(e);
         }
@@ -123,7 +124,7 @@ public class BrooklynTypes {
     @SuppressWarnings("unchecked")
     public static Map<String, Sensor<?>> getDefinedSensors(String entityTypeName) {
         try {
-            return getDefinedSensors((Class<? extends Entity>) Class.forName(entityTypeName));
+            return getDefinedSensors((Class<? extends Entity>) new ClassLoaderUtils(BrooklynTypes.class).loadClass(entityTypeName));
         } catch (ClassNotFoundException e) {
             throw Exceptions.propagate(e);
         }

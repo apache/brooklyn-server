@@ -24,13 +24,14 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import javax.servlet.http.HttpSession;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.text.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class DelegatingSecurityProvider implements SecurityProvider {
 
@@ -85,15 +86,16 @@ public class DelegatingSecurityProvider implements SecurityProvider {
         log.info("REST using security provider " + className);
 
         try {
+            ClassLoaderUtils clu = new ClassLoaderUtils(this, mgmt);
             Class<? extends SecurityProvider> clazz;
             try {
-                clazz = (Class<? extends SecurityProvider>) Class.forName(className);
+                clazz = (Class<? extends SecurityProvider>) clu.loadClass(className);
             } catch (Exception e) {
                 String oldPackage = "brooklyn.web.console.security.";
                 if (className.startsWith(oldPackage)) {
                     className = Strings.removeFromStart(className, oldPackage);
                     className = DelegatingSecurityProvider.class.getPackage().getName() + "." + className;
-                    clazz = (Class<? extends SecurityProvider>) Class.forName(className);
+                    clazz = (Class<? extends SecurityProvider>) clu.loadClass(className);
                     log.warn("Deprecated package " + oldPackage + " detected; please update security provider to point to " + className);
                 } else throw e;
             }

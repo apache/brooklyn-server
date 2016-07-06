@@ -37,6 +37,7 @@ import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.camp.CampPlatform;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampConstants;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampReservedKeys;
@@ -47,6 +48,7 @@ import org.apache.brooklyn.camp.spi.pdp.DeploymentPlan;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog.BrooklynLoaderTracker;
 import org.apache.brooklyn.core.objs.BasicSpecParameter;
+import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.entity.stock.BasicApplicationImpl;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -208,7 +210,8 @@ class CampInternalUtils {
         PolicySpec<? extends Policy> spec;
         RegisteredType item = loader.getManagementContext().getTypeRegistry().get(versionedId);
         if (item != null && !encounteredCatalogTypes.contains(item.getSymbolicName())) {
-            return loader.getManagementContext().getTypeRegistry().createSpec(item, null, PolicySpec.class);
+            RegisteredTypeLoadingContext context = RegisteredTypeLoadingContexts.alreadyEncountered(encounteredCatalogTypes);
+            return loader.getManagementContext().getTypeRegistry().createSpec(item, context, PolicySpec.class);
         } else {
             // TODO-type-registry pass the loader in to the above, and allow it to load with the loader
             spec = PolicySpec.create(loader.loadClass(versionedId, Policy.class));
