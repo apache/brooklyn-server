@@ -30,7 +30,6 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
@@ -367,6 +366,45 @@ public class ConfigBag {
         }
     }
 
+    /** gets a {@link Maybe}-wrapped value from a key, inferring the type of that key (e.g. {@link ConfigKey} or {@link String}) */
+    @Beta
+    private Maybe<Object> getRawObjKeyMaybe(Object key) {
+        if (key instanceof HasConfigKey<?>) key = ((HasConfigKey<?>)key).getConfigKey();
+        if (key instanceof ConfigKey<?>) key = ((ConfigKey<?>)key).getName();
+        if (key instanceof String) {
+            return this.getRawStringKeyMaybe((String)key, true);
+        } else {
+            logInvalidKey(key);
+            return Maybe.absent();
+        }
+    }
+
+    /** Puts into this bag the raw value for the given key in the given bag, if it was present. */
+    @Beta
+    public <T> ConfigBag copyKey(ConfigBag source, ConfigKey<T> key) {
+        return copyKeyAs(source, key, key);
+    }
+
+    /** Puts into this bag the raw value for the given key in the given bag, if it was present. */
+    @Beta
+    public <T> ConfigBag copyKeys(ConfigBag source, ConfigKey<T> ...keys) {
+        for (ConfigKey<T> key : keys) {
+            copyKey(source, key);
+        }
+        return this;
+    }
+
+    /** As {@link #copyKey(ConfigBag, ConfigKey)} but allowing a different key name to be used when writing here. */
+    @Beta
+    @SuppressWarnings("unchecked")
+    public <T> ConfigBag copyKeyAs(ConfigBag source, ConfigKey<T> sourceKey, ConfigKey<T> targetKey) {
+        Maybe<Object> sourceValue = source.getRawObjKeyMaybe(sourceKey);
+        if (sourceValue.isPresent()) {
+            put(targetKey, (T) sourceValue.get());
+        }
+        return this;
+    }
+
     /** like get, but without marking it as used */
     public <T> T peek(ConfigKey<T> key) {
         return get(key, false);
@@ -468,12 +506,20 @@ public class ConfigBag {
     protected Object getStringKey(String key, boolean markUsed) {
         return getStringKeyMaybe(key, markUsed).orNull();
     }
-    protected synchronized Maybe<Object> getStringKeyMaybe(String key, boolean markUsed) {
+
+    private synchronized Maybe<Object> getRawStringKeyMaybe(String key, boolean markUsed) {
         if (config.containsKey(key)) {
             if (markUsed) markUsed(key);
             return Maybe.of(config.get(key));
         }
         return Maybe.absent();
+    }
+
+    /**
+     * @return Unresolved configuration value. May be overridden to provide resolution - @see {@link ResolvingConfigBag#getStringKeyMaybe(String, boolean)}
+     */
+    protected synchronized Maybe<Object> getStringKeyMaybe(String key, boolean markUsed) {
+        return getRawStringKeyMaybe(key, markUsed);
     }
 
     /** indicates that a string key in the config map has been accessed */

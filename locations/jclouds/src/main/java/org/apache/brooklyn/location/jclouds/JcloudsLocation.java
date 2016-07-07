@@ -566,7 +566,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     @Override
     public MachineManagementMixins.MachineMetadata getMachineMetadata(MachineLocation l) {
         if (l instanceof JcloudsSshMachineLocation) {
-            return getMachineMetadata( ((JcloudsSshMachineLocation)l).node );
+            return getMachineMetadata(getComputeService().getNodeMetadata(((JcloudsSshMachineLocation) l).getJcloudsId()));
         }
         return null;
     }
@@ -810,8 +810,8 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 userCredentials = LoginCredentials.fromCredentials(node.getCredentials());
             }
             // store the credentials, in case they have changed
-            setup.putIfNotNull(JcloudsLocationConfig.PASSWORD, userCredentials.getOptionalPassword().orNull());
-            setup.putIfNotNull(JcloudsLocationConfig.PRIVATE_KEY_DATA, userCredentials.getOptionalPrivateKey().orNull());
+            putIfPresentButDifferent(setup, JcloudsLocationConfig.PASSWORD, userCredentials.getOptionalPassword().orNull());
+            putIfPresentButDifferent(setup, JcloudsLocationConfig.PRIVATE_KEY_DATA, userCredentials.getOptionalPrivateKey().orNull());
 
             // Wait for the VM to be reachable over SSH
             if (waitForSshable && !windows) {
@@ -819,10 +819,13 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             } else {
                 LOG.debug("Skipping ssh check for {} ({}) due to config waitForSshable=false", node, setup.getDescription());
             }
+
+            // Do not store the credentials on the node as this may leak the credentials if they
+            // are obtained from an external supplier
+            node = NodeMetadataBuilder.fromNodeMetadata(node).credentials(null).build();
+
             usableTimestamp = Duration.of(provisioningStopwatch);
 
-//            JcloudsSshMachineLocation jcloudsSshMachineLocation = null;
-//            WinRmMachineLocation winRmMachineLocation = null;
             // Create a JcloudsSshMachineLocation, and register it
             if (windows) {
                 machineLocation = registerWinRmMachineLocation(computeService, node, userCredentials, sshHostAndPortOverride, setup);
@@ -1147,6 +1150,21 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     }
 
     // ------------- suspend and resume ------------------------------------
+
+    private void putIfPresentButDifferent(ConfigBag setup, ConfigKey<String> key, String expectedValue) {
+        if (expectedValue==null) return;
+        String currentValue = setup.get(key);
+        if (Objects.equal(currentValue, expectedValue)) {
+            // no need to write -- and good reason not to --
+            // the currentValue may come from an external supplier,
+            // so we prefer to keep the secret in that supplier
+            return;
+        }
+        // either current value is null, or
+        // current value is different (possibly password coming from a one-time source)
+        // in either case prefer the expected value
+        setup.put(key, expectedValue);
+    }
 
     /**
      * Suspends the given location.
@@ -2372,7 +2390,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         if (userCredentials == null)
             userCredentials = node.getCredentials();
 
-        String vmHostname = getPublicHostname(node, sshHostAndPort, setup);
+        String vmHostname = getPublicHostname(node, sshHostAndPort, userCredentials, setup);
 
         JcloudsSshMachineLocation machine = createJcloudsSshMachineLocation(computeService, node, template, vmHostname, sshHostAndPort, userCredentials, setup);
         registerJcloudsMachineLocation(node.getId(), machine);
@@ -2439,8 +2457,12 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     // FIXME remove "config" -- inserted directly, above
                     .configure("config", sshConfig)
                     .configure("user", userCredentials.getUser())
-                    .configure(SshMachineLocation.PASSWORD, userCredentials.getOptionalPassword().orNull())
-                    .configure(SshMachineLocation.PRIVATE_KEY_DATA, userCredentials.getOptionalPrivateKey().orNull())
+                    .configure(SshMachineLocation.PASSWORD.getName(), sshConfig.get(SshMachineLocation.PASSWORD.getName()) != null ?
+                            sshConfig.get(SshMachineLocation.PASSWORD.getName()) :
+                            userCredentials.getOptionalPassword().orNull())
+                    .configure(SshMachineLocation.PRIVATE_KEY_DATA.getName(), sshConfig.get(SshMachineLocation.PRIVATE_KEY_DATA.getName()) != null ?
+                            sshConfig.get(SshMachineLocation.PRIVATE_KEY_DATA.getName()) :
+                            userCredentials.getOptionalPrivateKey().orNull())
                     .configure("jcloudsParent", this)
                     .configure("node", node)
                     .configure("template", template.orNull())
@@ -2463,8 +2485,12 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     // FIXME remove "config" -- inserted directly, above
                     .put("config", sshConfig)
                     .put("user", userCredentials.getUser())
-                    .putIfNotNull(SshMachineLocation.PASSWORD.getName(), userCredentials.getOptionalPassword().orNull())
-                    .putIfNotNull(SshMachineLocation.PRIVATE_KEY_DATA.getName(), userCredentials.getOptionalPrivateKey().orNull())
+                    .putIfNotNull(SshMachineLocation.PASSWORD.getName(), sshConfig.get(SshMachineLocation.PASSWORD.getName()) != null ?
+                            SshMachineLocation.PASSWORD.getName() :
+                            userCredentials.getOptionalPassword().orNull())
+                    .putIfNotNull(SshMachineLocation.PRIVATE_KEY_DATA.getName(), sshConfig.get(SshMachineLocation.PRIVATE_KEY_DATA.getName()) != null ?
+                            SshMachineLocation.PRIVATE_KEY_DATA.getName() :
+                            userCredentials.getOptionalPrivateKey().orNull())
                     .put("callerContext", setup.get(CALLER_CONTEXT))
                     .putIfNotNull(CLOUD_AVAILABILITY_ZONE_ID.getName(), nodeAvailabilityZone)
                     .putIfNotNull(CLOUD_REGION_ID.getName(), nodeRegion)
@@ -2506,7 +2532,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     .configure(WinRmMachineLocation.WINRM_CONFIG_PORT, sshHostAndPort.isPresent() ? sshHostAndPort.get().getPort() : node.getLoginPort())
                     .configure("user", getUser(setup))
                     .configure(WinRmMachineLocation.USER, setup.get(USER))
-                    .configure(WinRmMachineLocation.PASSWORD, setup.get(PASSWORD))
+                    .configure(ConfigBag.newInstance().copyKeyAs(setup, PASSWORD, WinRmMachineLocation.PASSWORD).getAllConfigRaw())
                     .configure("node", node)
                     .configureIfNotNull(CLOUD_AVAILABILITY_ZONE_ID, nodeAvailabilityZone)
                     .configureIfNotNull(CLOUD_REGION_ID, nodeRegion)

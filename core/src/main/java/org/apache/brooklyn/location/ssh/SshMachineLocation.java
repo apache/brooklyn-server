@@ -631,20 +631,20 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
                 // default value of host, overridden if SSH_HOST is supplied
                 .configure(SshTool.PROP_HOST, address.getHostName());
 
-            for (Map.Entry<String,Object> entry: config().getBag().getAllConfig().entrySet()) {
+            for (Map.Entry<ConfigKey<?>, ?> entry: config().getBag().getAllConfigAsConfigKeyMap().entrySet()) {
                 boolean include = false;
-                String key = entry.getKey();
-                if (key.startsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)) {
-                    key = Strings.removeFromStart(key, SshTool.BROOKLYN_CONFIG_KEY_PREFIX);
+                String keyName = entry.getKey().getName();
+                if (keyName.startsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)) {
+                    keyName = Strings.removeFromStart(keyName, SshTool.BROOKLYN_CONFIG_KEY_PREFIX);
                     include = true;
                 }
                 
-                if (key.startsWith(SSH_TOOL_CLASS_PROPERTIES_PREFIX)) {
-                    key = Strings.removeFromStart(key, SSH_TOOL_CLASS_PROPERTIES_PREFIX);
+                if (keyName.startsWith(SSH_TOOL_CLASS_PROPERTIES_PREFIX)) {
+                    keyName = Strings.removeFromStart(keyName, SSH_TOOL_CLASS_PROPERTIES_PREFIX);
                     include = true;
                 }
                 
-                if (ALL_SSH_CONFIG_KEY_NAMES.contains(entry.getKey())) {
+                if (ALL_SSH_CONFIG_KEY_NAMES.contains(keyName)) {
                     // key should be included, and does not need to be changed
 
                     // TODO make this config-setting mechanism more universal
@@ -656,7 +656,7 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
                 }
                 
                 if (include) {
-                    args.putStringKey(key, entry.getValue());
+                    args.putStringKey(keyName, config().get(entry.getKey()));
                 }
             }
 

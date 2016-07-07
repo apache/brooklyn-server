@@ -71,22 +71,22 @@ implements MachineProvisioningLocation<MachineLocation>, CloudLocationConfig
         ConfigBag sshConfig = new ConfigBag();
         
         if (setup.containsKey(PASSWORD)) {
-            sshConfig.put(SshTool.PROP_PASSWORD, setup.get(PASSWORD));
+            sshConfig.copyKeyAs(setup, PASSWORD, SshTool.PROP_PASSWORD);
         } else if (alt.containsKey(PASSWORD)) {
-            sshConfig.put(SshTool.PROP_PASSWORD, alt.get(PASSWORD));
+            sshConfig.copyKeyAs(alt, PASSWORD, SshTool.PROP_PASSWORD);
         }
         
         if (setup.containsKey(PRIVATE_KEY_DATA)) {
-            sshConfig.put(SshTool.PROP_PRIVATE_KEY_DATA, setup.get(PRIVATE_KEY_DATA));
+            sshConfig.copyKeyAs(setup, PRIVATE_KEY_DATA, SshTool.PROP_PRIVATE_KEY_DATA);
         } else if (setup.containsKey(PRIVATE_KEY_FILE)) {
-            sshConfig.put(SshTool.PROP_PRIVATE_KEY_FILE, setup.get(PRIVATE_KEY_FILE));
+            sshConfig.copyKeyAs(setup, PRIVATE_KEY_FILE, SshTool.PROP_PRIVATE_KEY_FILE);
         } else if (alt.containsKey(PRIVATE_KEY_DATA)) {
-            sshConfig.put(SshTool.PROP_PRIVATE_KEY_DATA, alt.get(PRIVATE_KEY_DATA));
+            sshConfig.copyKeyAs(setup, PRIVATE_KEY_DATA, SshTool.PROP_PRIVATE_KEY_DATA);
         }
         
         if (setup.containsKey(PRIVATE_KEY_PASSPHRASE)) {
             // NB: not supported in jclouds (but it is by our ssh tool)
-            sshConfig.put(SshTool.PROP_PRIVATE_KEY_PASSPHRASE, setup.get(PRIVATE_KEY_PASSPHRASE));
+            sshConfig.copyKeyAs(setup, PRIVATE_KEY_PASSPHRASE, SshTool.PROP_PRIVATE_KEY_PASSPHRASE);
         }
 
         // TODO extract other SshTool properties ?
