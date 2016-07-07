@@ -129,17 +129,17 @@ public abstract class BrooklynYamlTypeInstantiator {
         public <T> T newInstance(@Nullable Class<T> supertype) {
             Class<? extends T> type = getType(supertype);
             Map<String, ?> cfg = getConfigMap();
-            Optional<? extends T> result = Reflections.invokeConstructorWithArgs(type, cfg);
+            Maybe<? extends T> result = Reflections.invokeConstructorFromArgs(type, cfg);
             if (result.isPresent()) 
                 return result.get();
             
             ConfigBag cfgBag = ConfigBag.newInstance(cfg);
-            result = Reflections.invokeConstructorWithArgs(type, cfgBag);
+            result = Reflections.invokeConstructorFromArgs(type, cfgBag);
             if (result.isPresent()) 
                 return result.get();
             
             if (cfg.isEmpty()) {
-                result = Reflections.invokeConstructorWithArgs(type);
+                result = Reflections.invokeConstructorFromArgs(type);
                 if (result.isPresent()) 
                     return result.get();
             }

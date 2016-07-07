@@ -28,9 +28,8 @@ import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
-
-import com.google.common.base.Optional;
 
 /**
  */
@@ -142,9 +141,9 @@ public class InternalFactory {
     
     protected <T> T constructOldStyle(Class<T> clazz, Map<String,?> flags) throws InstantiationException, IllegalAccessException, InvocationTargetException {
         FactoryConstructionTracker.setConstructing();
-        Optional<T> v;
+        Maybe<T> v;
         try {
-            v = Reflections.invokeConstructorWithArgs(clazz, new Object[] {MutableMap.copyOf(flags)}, true);
+            v = Reflections.invokeConstructorFromArgs(clazz, new Object[] {MutableMap.copyOf(flags)}, true);
         } finally {
             FactoryConstructionTracker.reset();
         }

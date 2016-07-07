@@ -27,11 +27,11 @@ import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.config.external.ExternalConfigSupplier;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.Maps;
 
 /**
@@ -102,9 +102,9 @@ public class BasicExternalConfigSupplierRegistry implements ExternalConfigSuppli
             Map<String, Object> config = ConfigUtils.filterForPrefixAndStrip(externalProviderProperties, key + ".");
 
             try {
-                Optional<ExternalConfigSupplier> configSupplier = Reflections.invokeConstructorWithArgs(classloader, providerClassname, mgmt, name, config);
+                Maybe<ExternalConfigSupplier> configSupplier = Reflections.invokeConstructorFromArgs(classloader, ExternalConfigSupplier.class, providerClassname, mgmt, name, config);
                 if (!configSupplier.isPresent()) {
-                    configSupplier = Reflections.invokeConstructorWithArgs(classloader, providerClassname, mgmt, name);
+                    configSupplier = Reflections.invokeConstructorFromArgs(classloader, ExternalConfigSupplier.class, providerClassname, mgmt, name);
                 }
                 if (!configSupplier.isPresent()) {
                     throw new IllegalStateException("No matching constructor found in "+providerClassname);

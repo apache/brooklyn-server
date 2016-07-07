@@ -16,28 +16,33 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.util.javalang;
+package org.apache.brooklyn.util.javalang.coerce;
 
-import org.apache.brooklyn.util.javalang.Boxing;
-import org.testng.Assert;
-import org.testng.annotations.Test;
+/**
+ * Thrown to indicate that {@link TypeCoercions} could not cast an object from one
+ * class to another.
+ */
+public class ClassCoercionException extends ClassCastException {
+    private static final long serialVersionUID = -4616045237993172497L;
 
-public class BoxingTest {
-
-    @Test
-    public static void testIntPrimitiveAndBoxed() {
-        Assert.assertEquals(Integer.TYPE.getName(), "int");
-        
-        Class<?> t = Boxing.getPrimitiveType("int").get();
-        Assert.assertEquals(t, Integer.TYPE);
-        
-        Class<?> bt = Boxing.boxedType(t);
-        Assert.assertEquals(bt, Integer.class);
+    private final Throwable cause;
+    
+    public ClassCoercionException() {
+        super();
+        cause = null;
+    }
+    public ClassCoercionException(String s) {
+        super(s);
+        cause = null;
+    }
+    public ClassCoercionException(String s, Throwable cause) {
+        super(s);
+        this.cause = cause;
     }
 
-    @Test
-    public static void getPrimitive() {
-        Assert.assertEquals(Boxing.getPrimitiveName(Integer.class).get(), "int");
+    @Override
+    public Throwable getCause() {
+        return cause;
     }
     
 }

@@ -38,6 +38,7 @@ import org.apache.brooklyn.core.mgmt.persist.DeserializingClassRenamesProvider;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
@@ -46,7 +47,6 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -470,7 +470,7 @@ public class Entitlements {
     private static Object instantiate(Class<?> clazz, List<Object[]> constructorArgOptions) {
         try {
             for (Object[] constructorArgOption : constructorArgOptions) {
-                Optional<?> result = Reflections.invokeConstructorWithArgs(clazz, constructorArgOption);
+                Maybe<?> result = Reflections.invokeConstructorFromArgs(clazz, constructorArgOption);
                 if (result.isPresent()) return result.get();
             }
         } catch (Exception e) { 

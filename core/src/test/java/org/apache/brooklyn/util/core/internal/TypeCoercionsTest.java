@@ -33,9 +33,10 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableSet;
-import org.apache.brooklyn.util.core.flags.ClassCoercionException;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.javalang.coerce.ClassCoercionException;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.codehaus.groovy.runtime.GStringImpl;
 import org.slf4j.Logger;
@@ -296,11 +297,11 @@ public class TypeCoercionsTest {
         Assert.assertEquals(s, ImmutableMap.of("a", "1", "b", "2"));
     }
 
-    @Test(expectedExceptions=IllegalArgumentException.class)
+    @Test(expectedExceptions=ClassCoercionException.class)
     public void testJsonStringWithoutBracesOrSpaceDisallowedAsMapCoercion() {
         // yaml requires spaces after the colon
-        Map<?,?> s = TypeCoercions.coerce("a:1,b:2", Map.class);
-        Assert.assertEquals(s, ImmutableMap.of("a", 1, "b", 2));
+        TypeCoercions.coerce("a:1,b:2", Map.class);
+        Asserts.shouldHaveFailedPreviously();
     }
     
     @Test
@@ -351,7 +352,7 @@ public class TypeCoercionsTest {
         assertEquals(TypeCoercions.coerce("1.0", Number.class), (Number) Double.valueOf(1.0));
     }
 
-    @Test(expectedExceptions = ClassCoercionException.class)
+    @Test(expectedExceptions = org.apache.brooklyn.util.javalang.coerce.ClassCoercionException.class)
     public void testInvalidCoercionThrowsClassCoercionException() {
         TypeCoercions.coerce(new Object(), TypeToken.of(Integer.class));
     }

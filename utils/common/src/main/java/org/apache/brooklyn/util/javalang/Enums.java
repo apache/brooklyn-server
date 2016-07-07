@@ -71,8 +71,10 @@ public class Enums {
         return new EnumFromStringFunction<T>(type);
     }
 
+    /** returns array of values in the given enum, or null if it is not an enum */
     @SuppressWarnings("unchecked")
-    private static <T extends Enum<?>> T[] values(Class<T> type) {
+    public static <T extends Enum<?>> T[] values(Class<T> type) {
+        if (type==null || !type.isEnum()) return null;
         try {
             return (T[]) type.getMethod("values").invoke(null);
         } catch (Exception e) {

@@ -39,6 +39,7 @@ import org.apache.brooklyn.util.text.Strings;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -365,6 +366,16 @@ public class Exceptions {
             return result + "; caused by "+causeResult;
         }
         return result;
+    }
+
+    public static class CollapseTextSupplier implements Supplier<String> {
+        final Throwable cause;
+        public CollapseTextSupplier(Throwable cause) { this.cause = cause; }
+        @Override
+        public String get() {
+            return Exceptions.collapseText(cause);
+        }
+        public Throwable getOriginal() { return cause; }
     }
 
     public static RuntimeException propagate(Collection<? extends Throwable> exceptions) {

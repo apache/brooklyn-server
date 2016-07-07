@@ -47,13 +47,13 @@ import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.core.flags.ClassCoercionException;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.javalang.coerce.ClassCoercionException;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.commons.beanutils.BeanUtils;
@@ -368,7 +368,7 @@ public class BrooklynDslCommon {
                 try {
                     bean = (T) TypeCoercions.coerce(fields, type);
                 } catch (ClassCoercionException ex) {
-                    bean = Reflections.invokeConstructorWithArgs(type).get();
+                    bean = Reflections.invokeConstructorFromArgs(type).get();
                     BeanUtils.populate(bean, fields);
                 }
                 if (bean instanceof Configurable && config.size() > 0) {

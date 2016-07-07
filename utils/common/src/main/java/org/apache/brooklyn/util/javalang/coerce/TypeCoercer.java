@@ -16,28 +16,16 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.util.javalang;
+package org.apache.brooklyn.util.javalang.coerce;
 
-import org.apache.brooklyn.util.javalang.Boxing;
-import org.testng.Assert;
-import org.testng.annotations.Test;
+import org.apache.brooklyn.util.guava.Maybe;
 
-public class BoxingTest {
+import com.google.common.reflect.TypeToken;
 
-    @Test
-    public static void testIntPrimitiveAndBoxed() {
-        Assert.assertEquals(Integer.TYPE.getName(), "int");
-        
-        Class<?> t = Boxing.getPrimitiveType("int").get();
-        Assert.assertEquals(t, Integer.TYPE);
-        
-        Class<?> bt = Boxing.boxedType(t);
-        Assert.assertEquals(bt, Integer.class);
-    }
+public interface TypeCoercer {
 
-    @Test
-    public static void getPrimitive() {
-        Assert.assertEquals(Boxing.getPrimitiveName(Integer.class).get(), "int");
-    }
+    <T> T coerce(Object input, Class<T> type);
+    <T> Maybe<T> tryCoerce(Object input, Class<T> type);
+    <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type);
     
 }

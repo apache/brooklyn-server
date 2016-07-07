@@ -712,6 +712,9 @@ public class Asserts {
     public static void assertFalse(boolean condition, String message) {
         if (condition) fail(message);
     }
+    public static void assertFalse(boolean condition) {
+        if (condition) fail();
+    }
 
     /**
      * Fails a test with the given message.
@@ -720,6 +723,7 @@ public class Asserts {
     public static AssertionError fail(String message) {
         throw new AssertionError(message);
     }
+    public static AssertionError fail() { throw new AssertionError(); }
 
     public static void assertEqualsIgnoringOrder(Iterable<?> actual, Iterable<?> expected) {
         assertEqualsIgnoringOrder(actual, expected, false, null);
@@ -1161,8 +1165,12 @@ public class Asserts {
     /** Throws a {@link ShouldHaveFailedPreviouslyAssertionError} exception, 
      * to more easily distinguish this failure from other fails.
      * In particular, use one of the <code>expectedFailure</code> methods
-     * in the surrounding <code>catch</code> block and this error will pass through it. */
-    public static void shouldHaveFailedPreviously() {
+     * in the surrounding <code>catch</code> block and this error will pass through it.
+     * <p>
+     * This method throws, never returning normally, but declares a return type 
+     * so you can pretend to throw the result,
+     * for instance if your calling code otherwise warns about needing to return something. */
+    public static RuntimeException shouldHaveFailedPreviously() {
         throw new ShouldHaveFailedPreviouslyAssertionError();
     }
     /** As {@link #shouldHaveFailedPreviously()} but allowing detail,
@@ -1341,6 +1349,11 @@ public class Asserts {
     /** As {@link #eventuallyOnNotify(Object, Predicate, Duration)} with the default duration of {@link #eventuallyOnNotify(Object, Supplier, Predicate)}. */
     public static <T> void eventuallyOnNotify(T object, Predicate<T> predicate) {
         eventuallyOnNotify(object, Suppliers.ofInstance(object), predicate, null);
+    }
+
+    public static void assertSize(Iterable<?> list, int expectedSize) {
+        if (list==null) fail("List is null");
+        if (Iterables.size(list)!=expectedSize) fail("List has wrong size "+Iterables.size(list)+" (expected "+expectedSize+"): "+list);
     }
 
 }

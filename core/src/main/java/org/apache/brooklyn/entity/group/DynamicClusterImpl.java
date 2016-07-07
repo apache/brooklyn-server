@@ -115,7 +115,7 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
             @Override
             public NodePlacementStrategy apply(final String input) {
                 ClassLoader classLoader = NodePlacementStrategy.class.getClassLoader();
-                Optional<NodePlacementStrategy> strategy = Reflections.<NodePlacementStrategy>invokeConstructorWithArgs(classLoader, input);
+                Maybe<NodePlacementStrategy> strategy = Reflections.invokeConstructorFromArgs(classLoader, NodePlacementStrategy.class, input);
                 if (strategy.isPresent()) {
                     return strategy.get();
                 } else {
@@ -127,7 +127,7 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
             @Override
             public ZoneFailureDetector apply(final String input) {
                 ClassLoader classLoader = ZoneFailureDetector.class.getClassLoader();
-                Optional<ZoneFailureDetector> detector = Reflections.<ZoneFailureDetector>invokeConstructorWithArgs(classLoader, input);
+                Maybe<ZoneFailureDetector> detector = Reflections.invokeConstructorFromArgs(classLoader, ZoneFailureDetector.class, input);
                 if (detector.isPresent()) {
                     return detector.get();
                 } else {

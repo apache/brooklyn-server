@@ -58,7 +58,8 @@ public class ReflectionsTest {
     
     @Test
     public void testConstructLangObject() {
-        Reflections.invokeConstructorWithArgs(java.util.Date.class);
+        // special test for this because the lang object might have classloader null
+        Assert.assertTrue(Reflections.invokeConstructorFromArgs(java.util.Date.class).get() instanceof java.util.Date);
     }
     
     public static interface MyInterface {
@@ -123,15 +124,15 @@ public class ReflectionsTest {
         Method m = CI1.class.getMethod("m1", String.class, int.class, int.class, int[].class);
         Assert.assertEquals(m.invoke(null, "hello", 1, 2, new int[] { 3, 4}), "hello10");
         
-        Assert.assertEquals(Reflections.invokeMethodWithArgs(CI1.class, "m1", Arrays.<Object>asList("hello", 3)).get(), "hello3");
-        Assert.assertEquals(Reflections.invokeMethodWithArgs(CI1.class, "m1", Arrays.<Object>asList("hello", 3, 4, 5)).get(), "hello12");
+        Assert.assertEquals(Reflections.invokeMethodFromArgs(CI1.class, "m1", Arrays.<Object>asList("hello", 3)).get(), "hello3");
+        Assert.assertEquals(Reflections.invokeMethodFromArgs(CI1.class, "m1", Arrays.<Object>asList("hello", 3, 4, 5)).get(), "hello12");
     }
     
     @Test
     public void testConstruction() throws Exception {
-        Assert.assertEquals(Reflections.invokeConstructorWithArgs(CI1.class, new Object[] {"hello", 3}).get().constructorArgs, ImmutableList.of("hello", 3));
-        Assert.assertEquals(Reflections.invokeConstructorWithArgs(CI1.class, new Object[] {"hello", 3, 4, 5}).get().constructorArgs, ImmutableList.of("hello", 3, 4, 5));
-        Assert.assertFalse(Reflections.invokeConstructorWithArgs(CI1.class, new Object[] {"wrong", "args"}).isPresent());
+        Assert.assertEquals(Reflections.invokeConstructorFromArgs(CI1.class, new Object[] {"hello", 3}).get().constructorArgs, ImmutableList.of("hello", 3));
+        Assert.assertEquals(Reflections.invokeConstructorFromArgs(CI1.class, new Object[] {"hello", 3, 4, 5}).get().constructorArgs, ImmutableList.of("hello", 3, 4, 5));
+        Assert.assertFalse(Reflections.invokeConstructorFromArgs(CI1.class, new Object[] {"wrong", "args"}).isPresent());
     }
 
     interface I { };
