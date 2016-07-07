@@ -43,11 +43,13 @@ import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister.Loo
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.api.policy.Policy;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.internal.CatalogItemBuilder;
 import org.apache.brooklyn.core.catalog.internal.CatalogItemDtoAbstract;
+import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
@@ -259,6 +261,12 @@ public class XmlMementoSerializerTest {
     @Test
     public void testImmutableMap() throws Exception {
         Map<?,?> obj = ImmutableMap.of("mykey", "myval");
+        assertSerializeAndDeserialize(obj);
+    }
+
+    @Test
+    public void testSensorWithTypeToken() throws Exception {
+        AttributeSensor<Map<String, Object>> obj = Attributes.SERVICE_NOT_UP_DIAGNOSTICS;
         assertSerializeAndDeserialize(obj);
     }
 

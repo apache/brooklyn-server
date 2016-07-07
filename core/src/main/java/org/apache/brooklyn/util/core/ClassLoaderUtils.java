@@ -101,12 +101,44 @@ public class ClassLoaderUtils {
         this.mgmt = checkNotNull(mgmt, "mgmt");
     }
 
+    /**
+     * Loads the given class, handle OSGi bundles. The class could be in one of the following formats:
+     * <ul>
+     *   <li>{@code <classname>}, such as {@code com.google.common.net.HostAndPort}
+     *   <li>{@code <bunde-symbolicName>:<classname>}, such as {@code com.google.guava:com.google.common.net.HostAndPort}
+     *   <li>{@code <bunde-symbolicName>:<bundle-version>:<classname>}, such as {@code com.google.guava:16.0.1:com.google.common.net.HostAndPort}
+     * </ul>
+     * 
+     * The classloading order is as follows:
+     * <ol>
+     *   <li>If the class explicitly states the bundle name and version, then load from that.
+     *   <li>Otherwise try to load from the catalog's classloader. This is so we respect any 
+     *       {@code libraries} supplied in the catalog metadata, and can thus handle updating 
+     *       catalog versions. It also means we can try our best to handle a catalog that
+     *       uses a different bundle version from something that ships with Brooklyn.
+     *   <li>The white-listed bundles (i.e. those that ship with Brooklyn). We prefer the 
+     *       version of the bundle that Brooklyn depends on, rather than taking the highest
+     *       version installed (e.g. Karaf has Guava 16.0.1 and 18.0; we want the former, which
+     *       Brooklyn uses).
+     *   <li>The classloader passed in. Normally this is a boring unhelpful classloader (e.g.
+     *       obtained from {@code callingClass.getClassLoader()}), so won't work. But it's up
+     *       to the caller if they pass in something more useful.
+     *   <li>The {@link ManagementContext#getCatalogClassLoader()}. Again, this is normally not helpful. 
+     *       We instead would prefer the specific catalog item's classloader (which we tried earlier).
+     *   <li>If we were given a bundle name without a version, then finally try just using the
+     *       most recent version of the bundle that is available in the OSGi container.
+     * </ol>
+     * 
+     * The list of "white-listed bundles" are controlled using the system property named
+     * {@link #WHITE_LIST_KEY}, defaulting to all {@code org.apache.brooklyn.*} bundles.
+     */
     public Class<?> loadClass(String name) throws ClassNotFoundException {
+        String symbolicName;
+        String version;
+        String className;
+
         if (looksLikeBundledClassName(name)) {
             String[] arr = name.split(CLASS_NAME_DELIMITER);
-            String symbolicName;
-            String version;
-            String className;
             if (arr.length > 3) {
                 throw new IllegalStateException("'" + name + "' doesn't look like a class name and contains too many colons to be parsed as bundle:version:class triple.");
             } else if (arr.length == 3) {
@@ -120,9 +152,17 @@ public class ClassLoaderUtils {
             } else {
                 throw new IllegalStateException("'" + name + "' contains a bundle:version:class delimiter, but only one of those specified");
             }
-            return loadClass(symbolicName, version, className);
+        } else {
+            symbolicName = null;
+            version = null;
+            className = name;
         }
 
+        if (symbolicName != null && version != null) {
+            // Very explicit; do as we're told!
+            return loadClass(symbolicName, version, className);
+        }
+        
         if (entity != null && mgmt != null) {
             String catalogItemId = entity.getCatalogItemId();
             if (catalogItemId != null) {
@@ -130,7 +170,7 @@ public class ClassLoaderUtils {
                 if (item != null) {
                     BrooklynClassLoadingContext loader = CatalogUtils.newClassLoadingContext(mgmt, item);
                     try {
-                        return loader.loadClass(name);
+                        return loader.loadClass(className);
                     } catch (IllegalStateException e) {
                         ClassNotFoundException cnfe = Exceptions.getFirstThrowableOfType(e, ClassNotFoundException.class);
                         NoClassDefFoundError ncdfe = Exceptions.getFirstThrowableOfType(e, NoClassDefFoundError.class);
@@ -146,11 +186,16 @@ public class ClassLoaderUtils {
             }
         }
 
+        Class<?> cls = tryLoadFromBundleWhiteList(name);
+        if (cls != null) {
+            return cls;
+        }
+        
         try {
             // Used instead of callingClass.getClassLoader().loadClass(...) as it could be null (only for bootstrap classes)
             // Note that Class.forName(name, false, classLoader) doesn't seem to like us returning a 
             // class with a different name from that intended (e.g. stripping off an OSGi prefix).
-            return classLoader.loadClass(name);
+            return classLoader.loadClass(className);
         } catch (ClassNotFoundException e) {
         }
 
@@ -161,9 +206,9 @@ public class ClassLoaderUtils {
             }
         }
 
-        Class<?> cls = tryLoadFromBundleWhiteList(name);
-        if (cls != null) {
-            return cls;
+        if (symbolicName != null) {
+            // Finally fall back to loading from any version of the bundle
+            return loadClass(symbolicName, version, className);
         } else {
             throw new ClassNotFoundException("Class " + name + " not found on the application class path, nor in the bundle white list.");
         }

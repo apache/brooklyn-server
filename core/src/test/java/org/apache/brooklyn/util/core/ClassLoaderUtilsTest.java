@@ -41,6 +41,8 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.collect.ImmutableList;
+
 public class ClassLoaderUtilsTest {
 
     private LocalManagementContext mgmt;
@@ -142,6 +144,24 @@ public class ClassLoaderUtilsTest {
         assertTrue(clu.isBundleWhiteListed(getBundle(mgmt, "org.apache.brooklyn.core")));
         assertTrue(clu.isBundleWhiteListed(getBundle(mgmt, "org.apache.brooklyn.api")));
         assertFalse(clu.isBundleWhiteListed(getBundle(mgmt, "com.google.guava")));
+    }
+    
+    /**
+     * When two guava versions installed, want us to load from the *brooklyn* version rather than 
+     * a newer version that happens to be in Karaf.
+     */
+    @Test(groups={"Integration"})
+    public void testLoadsFromRightGuavaVersion() throws Exception {
+        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        ClassLoaderUtils clu = new ClassLoaderUtils(getClass(), mgmt);
+        
+        String bundleUrl = "http://search.maven.org/remotecontent?filepath=com/google/guava/guava/18.0/guava-18.0.jar";
+        Bundle bundle = installBundle(mgmt, bundleUrl);
+        String bundleName = bundle.getSymbolicName();
+        
+        String classname = bundleName + ":" + ImmutableList.class.getName();
+        Class<?> clazz = clu.loadClass(classname);
+        assertEquals(clazz, ImmutableList.class);
     }
     
     private Bundle installBundle(ManagementContext mgmt, String bundleUrl) throws Exception {

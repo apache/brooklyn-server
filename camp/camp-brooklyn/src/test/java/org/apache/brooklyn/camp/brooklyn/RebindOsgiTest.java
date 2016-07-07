@@ -37,6 +37,7 @@ import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
+import org.apache.brooklyn.core.mgmt.osgi.OsgiVersionMoreEntityTest;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.util.core.osgi.Osgis;
@@ -321,6 +322,62 @@ public class RebindOsgiTest extends AbstractYamlRebindTest {
         assertEquals(entity2.getCatalogItemId(), appSymbolicName+":"+appVersion);
     }
     
+    /**
+     * Installs a newer version of the bundle than that used in the catalog. Then creates an
+     * app with that catalog item, and rebinds. Confirms that we use our explicit version, rather
+     * that the newer version available in the OSGi container.
+     */
+    @Test
+    public void testUsesCatalogBundleVersion() throws Exception {
+        String bundleV1Url = OsgiVersionMoreEntityTest.BROOKLYN_TEST_MORE_ENTITIES_V1_URL;
+        String bundleV2Url = OsgiVersionMoreEntityTest.BROOKLYN_TEST_MORE_ENTITIES_V2_URL;
+        String bundleEntityType = "org.apache.brooklyn.test.osgi.entities.more.MoreEntity";
+        String bundleObjectType = "org.apache.brooklyn.test.osgi.entities.more.MoreObject";
+        String v1Version = "0.1.0";
+
+        installBundle(mgmt(), bundleV2Url);
+        bundleUrlsToInstallOnRebind.add(bundleV2Url);
+        
+        String appSymbolicName = "my.catalog.app.id.load";
+        String appVersion = "0.1.0";
+        String appCatalogFormat = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  id: " + appSymbolicName,
+                "  version: " + appVersion,
+                "  itemType: entity",
+                "  libraries:",
+                "  - " + bundleV1Url,
+                "  item:",
+                "    type: " + bundleEntityType,
+                "    brooklyn.config:",
+                "      my.conf:",
+                "        $brooklyn:object:",
+                "          type: " + bundleObjectType,
+                "          object.fields:",
+                "            val: myEntityVal");
+        
+        Iterables.getOnlyElement(addCatalogItems(String.format(appCatalogFormat, appVersion)));
+        
+        String appBlueprintYaml = Joiner.on("\n").join(
+                "location: localhost\n",
+                "services:",
+                "- type: " + CatalogUtils.getVersionedId(appSymbolicName, appVersion));
+        origApp = (StartableApplication) createAndStartApplication(appBlueprintYaml);
+        Entity origEntity = Iterables.getOnlyElement(origApp.getChildren());
+        Object configVal = origEntity.config().get(ConfigKeys.newConfigKey(Object.class, "my.conf"));
+        assertBundleVersionOf(Entities.deproxy(origEntity), v1Version);
+        assertBundleVersionOf(configVal, v1Version);
+        
+        // Rebind
+        rebind();
+
+        // Ensure entity/config is loaded from the explicit catalog version
+        Entity newEntity = Iterables.getOnlyElement(newApp.getChildren());
+        Object newConfigVal = newEntity.config().get(ConfigKeys.newConfigKey(Object.class, "my.conf"));
+        assertBundleVersionOf(Entities.deproxy(newEntity), v1Version);
+        assertBundleVersionOf(newConfigVal, v1Version);
+    }
+    
     // TODO Does not do rebind; the config isn't there after rebind.
     // Need to reproduce that in a simpler use-case.
     @Test
@@ -394,5 +451,11 @@ public class RebindOsgiTest extends AbstractYamlRebindTest {
         OsgiManager osgiManager = ((ManagementContextInternal)mgmt).getOsgiManager().get();
         Framework framework = osgiManager.getFramework();
         return Osgis.install(framework, bundleUrl);
+    }
+    
+    protected void assertBundleVersionOf(Object obj, String expectedVersion) {
+        assertNotNull(obj);
+        Class<?> clazz = (obj instanceof Class) ? (Class<?>)obj : obj.getClass();
+        assertEquals(Osgis.getBundleOf(clazz).get().getVersion().toString(), expectedVersion);
     }
 }
