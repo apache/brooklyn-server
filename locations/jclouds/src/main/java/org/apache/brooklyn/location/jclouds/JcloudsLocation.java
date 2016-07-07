@@ -924,10 +924,10 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                         executeCommandThrowingOnError(
                                 (SshMachineLocation)machineLocation,
                                 "Generate hostname " + node.getName(),
-                                Arrays.asList("sudo hostname " + node.getName(),
-                                        "sudo sed -i \"s/HOSTNAME=.*/HOSTNAME=" + node.getName() + "/g\" /etc/sysconfig/network",
-                                        "sudo bash -c \"echo 127.0.0.1   `hostname` >> /etc/hosts\"")
-                        );
+                                ImmutableList.of(BashCommands.chainGroup(
+                                        String.format("echo '127.0.0.1 %s' | ( %s )", node.getName(), BashCommands.sudo("tee -a /etc/hosts")),
+                                        "{ " + BashCommands.sudo("sed -i \"s/HOSTNAME=.*/HOSTNAME=" + node.getName() + "/g\" /etc/sysconfig/network") + " || true ; }",
+                                        BashCommands.sudo("hostname " + node.getName()))));
                     }
                 }
 
