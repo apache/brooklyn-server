@@ -72,7 +72,8 @@ public class ClassLoaderUtils {
     }
 
     public ClassLoaderUtils(Class<?> callingClass) {
-        this.classLoader = checkNotNull(callingClass, "callingClass").getClassLoader();
+        checkNotNull(callingClass, "callingClass");
+        this.classLoader = (callingClass.getClassLoader() != null) ? callingClass.getClassLoader() : getClass().getClassLoader();
         this.entity = null;
         this.mgmt = null;
     }
@@ -90,13 +91,15 @@ public class ClassLoaderUtils {
     }
 
     public ClassLoaderUtils(Class<?> callingClass, Entity entity) {
-        this.classLoader = checkNotNull(callingClass, "callingClass").getClassLoader();
+        checkNotNull(callingClass, "callingClass");
+        this.classLoader = (callingClass.getClassLoader() != null) ? callingClass.getClassLoader() : getClass().getClassLoader();
         this.entity = checkNotNull(entity, "entity");
         this.mgmt = ((EntityInternal)entity).getManagementContext();
     }
 
     public ClassLoaderUtils(Class<?> callingClass, @Nullable ManagementContext mgmt) {
-        this.classLoader = checkNotNull(callingClass, "callingClass").getClassLoader();
+        checkNotNull(callingClass, "callingClass");
+        this.classLoader = (callingClass.getClassLoader() != null) ? callingClass.getClassLoader() : getClass().getClassLoader();
         this.entity = null;
         this.mgmt = checkNotNull(mgmt, "mgmt");
     }
@@ -180,7 +183,7 @@ public class ClassLoaderUtils {
             }
         }
 
-        Class<?> cls = tryLoadFromBundleWhiteList(name);
+        Class<?> cls = tryLoadFromBundleWhiteList(className);
         if (cls != null) {
             return cls;
         }

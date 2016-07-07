@@ -40,6 +40,7 @@ import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiVersionMoreEntityTest;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -62,8 +63,10 @@ import com.google.common.collect.Lists;
 
 public class RebindOsgiTest extends AbstractYamlRebindTest {
 
+    @SuppressWarnings("unused")
     private static final Logger LOG = LoggerFactory.getLogger(RebindOsgiTest.class);
 
+    private static final String OSGI_BUNDLE_PATH = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH;
     private static final String OSGI_BUNDLE_URL = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
     private static final String OSGI_BUNDLE_SYMBOLIC_NAME = "org.apache.brooklyn.test.resources.osgi.brooklyn-test-osgi-entities";
     private static final String OSGI_ENTITY_TYPE = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY;
@@ -155,6 +158,8 @@ public class RebindOsgiTest extends AbstractYamlRebindTest {
 
     @Test
     public void testValInEntityFromOtherBundle() throws Exception {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OSGI_BUNDLE_PATH);
+
         installBundle(mgmt(), OSGI_BUNDLE_URL);
         bundleUrlsToInstallOnRebind.add(OSGI_BUNDLE_URL);
         
@@ -180,6 +185,8 @@ public class RebindOsgiTest extends AbstractYamlRebindTest {
     
     @Test
     public void testEntityAndPolicyFromCatalogOsgi() throws Exception {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OSGI_BUNDLE_PATH);
+        
         String appSymbolicName = "my.catalog.app.id.load";
         String appVersion = "0.1.0";
         String appCatalogFormat = Joiner.on("\n").join(
@@ -228,6 +235,8 @@ public class RebindOsgiTest extends AbstractYamlRebindTest {
 
     @Test
     public void testJavaPojoFromCatalogOsgi() throws Exception {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OSGI_BUNDLE_PATH);
+        
         String appSymbolicName = "my.catalog.app.id.load";
         String appVersion = "0.1.0";
         String appCatalogFormat = Joiner.on("\n").join(
@@ -270,6 +279,8 @@ public class RebindOsgiTest extends AbstractYamlRebindTest {
     
     @Test
     public void testBrooklynObjectDslFromCatalogOsgi() throws Exception {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OSGI_BUNDLE_PATH);
+        
         String appSymbolicName = "my.catalog.app.id.load";
         String appVersion = "0.1.0";
         String appCatalogFormat = Joiner.on("\n").join(
@@ -329,6 +340,9 @@ public class RebindOsgiTest extends AbstractYamlRebindTest {
      */
     @Test
     public void testUsesCatalogBundleVersion() throws Exception {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiVersionMoreEntityTest.BROOKLYN_TEST_MORE_ENTITIES_V1_PATH);
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiVersionMoreEntityTest.BROOKLYN_TEST_MORE_ENTITIES_V2_PATH);
+        
         String bundleV1Url = OsgiVersionMoreEntityTest.BROOKLYN_TEST_MORE_ENTITIES_V1_URL;
         String bundleV2Url = OsgiVersionMoreEntityTest.BROOKLYN_TEST_MORE_ENTITIES_V2_URL;
         String bundleEntityType = "org.apache.brooklyn.test.osgi.entities.more.MoreEntity";
@@ -382,6 +396,8 @@ public class RebindOsgiTest extends AbstractYamlRebindTest {
     // Need to reproduce that in a simpler use-case.
     @Test
     public void testBrooklynObjectDslFromCatalogOsgiInPolicy() throws Exception {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OSGI_BUNDLE_PATH);
+        
         String appSymbolicName = "my.catalog.app.id.load";
         String appVersion = "0.1.0";
         String appCatalogFormat = Joiner.on("\n").join(
@@ -429,7 +445,7 @@ public class RebindOsgiTest extends AbstractYamlRebindTest {
     
     private Object newOsgiSimpleObject(String val) throws Exception {
         Class<?> osgiObjectClazz = getBundle(mgmt(), OSGI_BUNDLE_SYMBOLIC_NAME).loadClass(OSGI_OBJECT_TYPE);
-        return Reflections.invokeConstructorWithArgs(osgiObjectClazz, val).get();
+        return Reflections.invokeConstructorFromArgs(osgiObjectClazz, val).get();
     }
     
     private void assertOsgiSimpleObjectsEqual(Object val1, Object val2) throws Exception {
@@ -444,7 +460,7 @@ public class RebindOsgiTest extends AbstractYamlRebindTest {
 
     private String getOsgiSimpleObjectsVal(Object val) throws Exception {
         assertNotNull(val);
-        return (String) Reflections.invokeMethodWithArgs(val, "getVal", ImmutableList.of()).get();
+        return (String) Reflections.invokeMethodFromArgs(val, "getVal", ImmutableList.of()).get();
     }
     
     private Bundle installBundle(ManagementContext mgmt, String bundleUrl) throws Exception {

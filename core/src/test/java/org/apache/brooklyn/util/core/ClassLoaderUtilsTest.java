@@ -31,6 +31,7 @@ import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
@@ -77,9 +78,12 @@ public class ClassLoaderUtilsTest {
     
     @Test
     public void testLoadClassInOsgi() throws Exception {
+        String bundlePath = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH;
         String bundleUrl = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
         String classname = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY;
         
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), bundlePath);
+
         mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
         Bundle bundle = installBundle(mgmt, bundleUrl);
         
@@ -92,9 +96,12 @@ public class ClassLoaderUtilsTest {
     
     @Test
     public void testLoadClassInOsgiWhiteList() throws Exception {
+        String bundlePath = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH;
         String bundleUrl = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
         String classname = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY;
         
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), bundlePath);
+
         mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
         Bundle bundle = installBundle(mgmt, bundleUrl);
         

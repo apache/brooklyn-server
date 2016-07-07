@@ -411,7 +411,7 @@ public class XmlMementoSerializerTest {
         
         String classname = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_OBJECT;
         Class<?> osgiObjectClazz = bundle.loadClass(classname);
-        Object obj = Reflections.invokeConstructorWithArgs(osgiObjectClazz, "myval").get();
+        Object obj = Reflections.invokeConstructorFromArgs(osgiObjectClazz, "myval").get();
 
         assertSerializeAndDeserialize(obj);
 
