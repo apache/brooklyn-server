@@ -144,19 +144,26 @@ public class Entities {
             "access.cert",
             "access.key");
 
+    // Don't use `new Object()` - deserialization creates a different object from the constant.
+    // Instead, use this enum.
+    private enum ValueMarkers {
+        UNCHANGED,
+        REMOVE;
+    }
+    
     /**
      * Special object used by some setting methods to indicate that a value should be ignored.
      * <p>
      * See specific usages of this field to confirm where.
      */
-    public static final Object UNCHANGED = new Object();
+    public static final Object UNCHANGED = ValueMarkers.UNCHANGED;
 
     /**
      * Special object used by some setting methods to indicate that a value should be removed.
      * <p>
      * See specific usages of this field to confirm where.
      */
-    public static final Object REMOVE = new Object();
+    public static final Object REMOVE = ValueMarkers.REMOVE;
 
     /**
      * Invokes an {@link Effector} on multiple entities, with the named arguments from the parameters {@link Map}
