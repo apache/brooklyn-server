@@ -52,6 +52,7 @@ import com.google.common.reflect.TypeToken;
  * The customizer can be configured with a hard-coded hostname, or with a freemarker template
  * whose value (after substitutions) will be used for the hostname. 
  */
+// TODO basic hostname setting is done by JcloudsLocation, combine that code with this
 public class SetHostnameCustomizer extends BasicMachineLocationCustomizer {
 
     public static final Logger log = LoggerFactory.getLogger(SetHostnameCustomizer.class);

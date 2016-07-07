@@ -921,6 +921,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     } else {
                         customisationForLogging.add("configure hostname");
 
+                        // also see TODO in SetHostnameCustomizer - ideally we share code between here and there
                         executeCommandThrowingOnError(
                                 (SshMachineLocation)machineLocation,
                                 "Generate hostname " + node.getName(),
