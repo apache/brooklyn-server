@@ -44,14 +44,16 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Predicate;
 
 public class ClassLoaderUtils {
+    
+    private static final Logger log = LoggerFactory.getLogger(ClassLoaderUtils.class);
+
     /**
      * White list format should be 
      * <bundle symbolic name regex>[:<bundle version regex in dotted format (X.X.X.SNAPSHOT, instead of X.X.X-SNAPSHOT)>]
      */
+    static final String WHITE_LIST_KEY = "org.apache.brooklyn.classloader.fallback.bundles";
+    static final String CLASS_NAME_DELIMITER = ":";
     private static final String WHITE_LIST_DEFAULT = "org\\.apache\\.brooklyn\\..*:" + BrooklynVersion.get().replaceFirst("-", ".");
-    private static final String WHITE_LIST_KEY = "org.apache.brooklyn.classloader.fallback.bundles";
-    private static final String CLASS_NAME_DELIMITER = ":";
-    private static final Logger log = LoggerFactory.getLogger(ClassLoaderUtils.class);
 
     // Class.forName gets the class loader from the calling class.
     // We don't have access to the same reflection API so need to pass it explicitly.

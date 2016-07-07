@@ -102,6 +102,7 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
                 .forLive(useLiveManagementContext())
                 .emptyCatalog(useEmptyCatalog())
                 .properties(createBrooklynProperties())
+                .enableOsgi(useOsgi())
                 .buildStarted();
     }
 
@@ -117,6 +118,7 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
                 .forLive(useLiveManagementContext())
                 .emptyCatalog(useEmptyCatalog())
                 .properties(createBrooklynProperties())
+                .enableOsgi(useOsgi())
                 .buildUnstarted();
     }
 
@@ -174,6 +176,10 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
 
     protected boolean useEmptyCatalog() {
         return true;
+    }
+
+    protected boolean useOsgi() {
+        return false;
     }
 
     protected int getPersistPeriodMillis() {
