@@ -63,7 +63,7 @@ public class TypeCoercions {
     
     private TypeCoercions() {}
 
-    static TypeCoercerExtensible coercer;
+    private static final TypeCoercerExtensible coercer;
     static {
         coercer = TypeCoercerExtensible.newEmpty();
         BrooklynInitialization.initTypeCoercionStandardAdapters(); 
