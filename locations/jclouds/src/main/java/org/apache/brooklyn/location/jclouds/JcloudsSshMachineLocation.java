@@ -115,9 +115,15 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
      * intermediate stage, where we want to handle rebinding to old state that has "node"
      * and new state that should not. We therefore leave in the {@code @SetFromFlag} on node
      * so that we read it back, but we ensure the value is null when we write it out!
+     *
+     * Note that fields in locations behave differently from those in entities. Locations will
+     * update the persisted state with the latest values of fields and will skip transient
+     * properties. Entities don't read back the field values.
      * 
      * TODO We will rename these to get rid of the ugly underscore when the old node/template 
      * fields are deleted.
+     * TODO Should we change callers to pass all the bits of node & template we are interested
+     * in instead of the objects themselves so we don't have to clear them here?
      */
     private transient Optional<NodeMetadata> _node;
 
@@ -147,19 +153,15 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
             super.init();
             ComputeServiceContext context = jcloudsParent.getComputeService().getContext();
             runScriptFactory = context.utils().injector().getInstance(RunScriptOnNode.Factory.class);
-            if (node != null) {
-                setNode(node);
-            }
-            if (template != null) {
-                setTemplate(template);
-            }
         } else {
             // TODO Need to fix the rebind-detection, and not call init() on rebind.
             // This will all change when locations become entities.
+            // Note that the happy path for rebind will go through the above case!
             if (LOG.isDebugEnabled()) LOG.debug("Not doing init() of {} because parent not set; presuming rebinding", this);
         }
+        clearDeprecatedProperties();
     }
-    
+
     @Override
     public void rebind() {
         super.rebind();
@@ -172,15 +174,15 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
             LOG.warn("Location {} does not have parent; cannot retrieve jclouds compute-service or "
                     + "run-script factory; later operations may fail (continuing)", this);
         }
-        
+        clearDeprecatedProperties();
+    }
+
+    protected void clearDeprecatedProperties() {
         if (node != null) {
             setNode(node);
-            node = null;
         }
-
         if (template != null) {
             setTemplate(template);
-            template = null;
         }
     }
     
@@ -201,6 +203,7 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
 
     protected void setNode(NodeMetadata node) {
         this.node = null;
+        config().removeFromLocalBag("node");
         nodeId = node.getId();
         imageId = node.getImageId();
         privateAddresses = node.getPrivateAddresses();
@@ -210,6 +213,7 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
 
     protected void setTemplate(Template template) {
         this.template = null;
+        config().removeFromLocalBag("template");
         _template = Optional.of(template);
         _image = Optional.fromNullable(template.getImage());
     }

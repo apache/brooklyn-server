@@ -43,6 +43,7 @@ import org.testng.annotations.Test;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
@@ -150,6 +151,8 @@ public class RebindJcloudsLocationLiveTest extends AbstractJcloudsLiveTest {
         assertEquals(ImmutableSet.copyOf(loc2.getChildren()), ImmutableSet.of(machine2));
         
         String errmsg = "loc="+loc2.toVerboseString()+"; machine="+machine2.toVerboseString();
+        assertNull(machine2.config().getLocalBag().getAllConfig().get("node"), errmsg);
+        assertNull(machine2.config().getLocalBag().getAllConfig().get("template"), errmsg);
         assertEquals(machine2.getId(), "aKEcbxKN", errmsg);
         assertEquals(machine2.getJcloudsId(), "ap-southeast-1/i-56fd53f2", errmsg);
         assertEquals(machine2.getSshHostAndPort(), HostAndPort.fromParts("ec2-54-254-23-53.ap-southeast-1.compute.amazonaws.com", 22), errmsg);
@@ -165,6 +168,9 @@ public class RebindJcloudsLocationLiveTest extends AbstractJcloudsLiveTest {
         assertEquals(machine2.getOsDetails().getArch(), "x86_64", errmsg);
         assertEquals(machine2.getOsDetails().getVersion(), "6.5", errmsg);
         assertEquals(machine2.getOsDetails().is64bit(), true, errmsg);
+        
+        // Re-populates the @SetFromFlag fields from config
+        machine2.configure(ImmutableMap.of());
 
         // Force it to be persisted again. Expect to pesist without the NodeMetadata and Template.
         app2.getManagementContext().getRebindManager().getChangeListener().onChanged(loc2);
