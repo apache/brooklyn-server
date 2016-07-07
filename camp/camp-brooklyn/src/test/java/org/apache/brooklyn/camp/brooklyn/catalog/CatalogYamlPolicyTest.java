@@ -60,7 +60,7 @@ public class CatalogYamlPolicyTest extends AbstractYamlTest {
         assertEquals(countCatalogPolicies(), 0);
 
         String symbolicName = "my.catalog.policy.id.load";
-        addCatalogOsgiPolicyTopLevelSyntax(symbolicName, SIMPLE_POLICY_TYPE);
+        addCatalogOsgiPolicyLegacySyntax(symbolicName, SIMPLE_POLICY_TYPE);
 
         RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, TEST_VERSION);
         assertEquals(item.getSymbolicName(), symbolicName);
@@ -97,7 +97,7 @@ public class CatalogYamlPolicyTest extends AbstractYamlTest {
     @Test
     public void testLaunchApplicationReferencingPolicyTopLevelSyntax() throws Exception {
         String symbolicName = "my.catalog.policy.id.launch";
-        addCatalogOsgiPolicyTopLevelSyntax(symbolicName, SIMPLE_POLICY_TYPE);
+        addCatalogOsgiPolicyLegacySyntax(symbolicName, SIMPLE_POLICY_TYPE);
         Entity app = createAndStartApplication(
             "name: simple-app-yaml",
             "location: localhost",
@@ -128,17 +128,17 @@ public class CatalogYamlPolicyTest extends AbstractYamlTest {
         addCatalogItems(
             "brooklyn.catalog:",
             "  id: " + referrerSymbolicName,
+            "  version: " + TEST_VERSION,
+            "  itemType: entity",
             "  name: My Catalog App",
             "  description: My description",
             "  icon_url: classpath://path/to/myicon.jpg",
-            "  version: " + TEST_VERSION,
             "  libraries:",
             "  - url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
-            "",
-            "services:",
-            "- type: " + SIMPLE_ENTITY_TYPE,
-            "  brooklyn.policies:",
-            "  - type: " + ver(referencedSymbolicName));
+            "  item:",
+            "    type: " + SIMPLE_ENTITY_TYPE,
+            "    brooklyn.policies:",
+            "    - type: " + ver(referencedSymbolicName));
 
         String yaml = "name: simple-app-yaml\n" +
                       "location: localhost\n" +
@@ -160,10 +160,11 @@ public class CatalogYamlPolicyTest extends AbstractYamlTest {
         addCatalogItems(
             "brooklyn.catalog:",
             "  id: " + symbolicName,
+            "  version: " + TEST_VERSION,
+            "  itemType: policy",
             "  name: My Catalog Policy",
             "  description: My description",
             "  icon_url: classpath://path/to/myicon.jpg",
-            "  version: " + TEST_VERSION,
             "  libraries:",
             "  - url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
             "  item:",
@@ -173,7 +174,7 @@ public class CatalogYamlPolicyTest extends AbstractYamlTest {
             "      config2: config2");
     }
 
-    private void addCatalogOsgiPolicyTopLevelSyntax(String symbolicName, String policyType) {
+    private void addCatalogOsgiPolicyLegacySyntax(String symbolicName, String policyType) {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
 
         addCatalogItems(

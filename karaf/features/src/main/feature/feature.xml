@@ -126,12 +126,13 @@
         <bundle dependency="true">mvn:org.bouncycastle/bcpkix-jdk15on/${bouncycastle.version}</bundle>
         <bundle dependency="true">mvn:commons-codec/commons-codec/${commons-codec.version}</bundle>
         <bundle dependency="true">mvn:org.apache.commons/commons-lang3/${commons-lang3.version}</bundle>
+        <bundle dependency="true">mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.xpp3/${xpp3.servicemix.version}</bundle> <!-- from com.thoughtworks.xstream/xstream -->
+        <bundle dependency="true">mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.kxml2/${kxml2.servicemix.version}</bundle>
 
         <!-- TODO: don't use wrap -->
         <bundle dependency="true">wrap:mvn:com.google.http-client/google-http-client/1.18.0-rc</bundle> <!-- from geoip -->
         <bundle dependency="true">wrap:mvn:com.maxmind.geoip2/geoip2/${maxmind.version}</bundle> <!-- from geoip2 -->
         <bundle dependency="true">wrap:mvn:com.maxmind.db/maxmind-db/${maxmind-db.version}</bundle>
-        <bundle dependency="true">wrap:mvn:xpp3/xpp3_min/1.1.4c</bundle> <!-- from com.thoughtworks.xstream/xstream -->
 
         <bundle dependency="true">mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.reflections/${reflections.bundle.version}</bundle>
     </feature>
@@ -210,9 +211,9 @@
 
     <feature name="brooklyn-software-base"  version="${project.version}"  description="Brooklyn Software Base">
         <bundle>mvn:org.apache.brooklyn/brooklyn-software-base/${project.version}</bundle>
+        <bundle dependency="true">wrap:mvn:org.glassfish.external/opendmk_jmxremote_optional_jar/${opendmk_jmxremote_optional_jar.version}</bundle>
         <feature>brooklyn-software-winrm</feature>
         <feature>brooklyn-policy</feature>
-        <!-- python dependency required but not supported since karaf cannot handle its runtime bindings -->
     </feature>
 
     <feature name="brooklyn-jmxmp-agent" version="${project.version}" description="Brooklyn Secure JMXMP Agent">
@@ -331,9 +332,29 @@
         <bundle dependency="true">mvn:com.google.guava/guava/${guava.version}</bundle>
     </feature>
 
+    <feature name="brooklyn-test-framework" version="${project.version}" description="Brooklyn Test Framework" >
+        <bundle>mvn:org.apache.brooklyn/brooklyn-test-framework/${project.version}</bundle>
+    </feature>
+
+    <!-- Don't load all bundles out of the box in the long run. Let users cherry pick what they need. -->
+    <feature name="brooklyn-software-all" version="${project.version}" description="Brooklyn All Software Entities">
+        <feature>brooklyn-software-base</feature>
+        <feature>brooklyn-jmxmp-agent</feature>
+        <feature>brooklyn-jmxrmi-agent</feature>
+        <feature>brooklyn-software-network</feature>
+        <feature>brooklyn-software-cm</feature>
+        <feature>brooklyn-software-osgi</feature>
+        <feature>brooklyn-software-database</feature>
+        <feature>brooklyn-software-webapp</feature>
+        <feature>brooklyn-software-messaging</feature>
+        <feature>brooklyn-software-nosql</feature>
+        <feature>brooklyn-software-monitoring</feature>
+        <feature>brooklyn-test-framework</feature>
+    </feature>
+
     <feature name="brooklyn-osgi-launcher" version="${project.version}" description="Brooklyn init">
         <feature>brooklyn-core</feature>
-        <feature>brooklyn-software-base</feature>
+        <feature>brooklyn-software-all</feature>
         <feature>brooklyn-locations-jclouds</feature>
         <bundle>mvn:org.apache.brooklyn/brooklyn-launcher-common/${project.version}</bundle>
         <bundle start-level="90">mvn:org.apache.brooklyn/brooklyn-karaf-init/${project.version}</bundle>

@@ -465,6 +465,7 @@ public class CliTest {
                 "brooklyn.catalog:",
                 "  id: "+itemName,
                 "  version: "+itemVersion,
+                "  itemType: entity",
                 "  item:",
                 "    services:",
                 "    - type: org.apache.brooklyn.entity.stock.BasicApplication");

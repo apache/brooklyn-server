@@ -44,7 +44,7 @@ public class CreatePasswordSensorIntegrationTest extends AbstractYamlTest {
         final Entity app = createAndStartApplication(loadYaml("EmptySoftwareProcessWithPassword.yaml"));
 
         waitForApplicationTasks(app);
-        EmptySoftwareProcess entity = Iterables.getOnlyElement(Entities.descendants(app, EmptySoftwareProcess.class));
+        EmptySoftwareProcess entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, EmptySoftwareProcess.class));
 
         assertPasswordLength(entity, PASSWORD_1, 15);
 

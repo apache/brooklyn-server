@@ -166,7 +166,7 @@ public class ChefLifecycleEffectorTasks extends MachineLifecycleEffectorTasks im
         @SuppressWarnings("rawtypes")
         Map<String, String> cookbooks = (Map) 
             ConfigBag.newInstance( entity().getConfig(CHEF_COOKBOOK_URLS) )
-            .putIfAbsent( entity().getConfig(CHEF_COOKBOOKS) )
+            .putIfAbsent( entity().getConfig(CHEF_COOKBOOK_URLS) )
             .getAllConfig();
         if (cookbooks.isEmpty())
             log.warn("No cookbook_urls set for "+entity()+"; launch will likely fail subsequently");

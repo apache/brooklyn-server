@@ -36,7 +36,9 @@ import org.apache.brooklyn.core.internal.BrooklynInitialization;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
@@ -68,7 +70,7 @@ public class TypeCoercions {
     }
     
     public static void initStandardAdapters() {
-        new CommonAdaptorTypeCoercions(coercer).registerAllAdapters();
+        new BrooklynCommonAdaptorTypeCoercions(coercer).registerAllAdapters();
         registerDeprecatedBrooklynAdapters();
         registerBrooklynAdapters();
         registerGroovyAdapters();
@@ -251,5 +253,27 @@ public class TypeCoercions {
                 return c;
         }
         return null;
+    }
+    
+    public static class BrooklynCommonAdaptorTypeCoercions extends CommonAdaptorTypeCoercions {
+        
+        public BrooklynCommonAdaptorTypeCoercions(TypeCoercerExtensible coercer) { super(coercer); }
+
+        @SuppressWarnings("rawtypes")
+        @Override
+        public void registerClassForNameAdapters() {
+            registerAdapter(String.class, Class.class, new Function<String,Class>() {
+                @Override
+                public Class apply(final String input) {
+                    try {
+                        //return Class.forName(input);
+                        return new ClassLoaderUtils(this.getClass()).loadClass(input);
+                    } catch (ClassNotFoundException e) {
+                        throw Exceptions.propagate(e);
+                    }
+                }
+            });        
+        }
+        
     }
 }

@@ -79,7 +79,7 @@ public class LocationExternalConfigYamlTest extends AbstractYamlRebindTest {
         ImmutableList.Builder<String> yamlL = ImmutableList.<String>builder().add(
                 "brooklyn.catalog:",
                 "  id: l1",
-                "  item.type: location",
+                "  itemType: location",
                 "  item:",
                 "    type: localhost",
                 "    brooklyn.config:",

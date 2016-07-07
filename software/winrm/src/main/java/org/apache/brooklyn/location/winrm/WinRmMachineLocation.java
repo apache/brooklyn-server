@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.location.winrm;
 
+import static org.apache.brooklyn.core.config.ConfigKeys.newConfigKeyWithPrefix;
+import static org.apache.brooklyn.core.config.ConfigKeys.newStringConfigKey;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -29,7 +32,6 @@ import java.util.Set;
 
 import javax.annotation.Nullable;
 
-import com.google.common.annotations.Beta;
 import org.apache.brooklyn.api.location.MachineDetails;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.OsDetails;
@@ -42,6 +44,7 @@ import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
@@ -55,6 +58,7 @@ import org.apache.commons.codec.binary.Base64;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -65,9 +69,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.net.HostAndPort;
 import com.google.common.reflect.TypeToken;
-
-import static org.apache.brooklyn.core.config.ConfigKeys.newConfigKeyWithPrefix;
-import static org.apache.brooklyn.core.config.ConfigKeys.newStringConfigKey;
 
 public class WinRmMachineLocation extends AbstractLocation implements MachineLocation {
 
@@ -353,7 +354,7 @@ public class WinRmMachineLocation extends AbstractLocation implements MachineLoc
             // look up tool class
             String toolClass = args.get(WINRM_TOOL_CLASS);
             if (toolClass == null) toolClass = Winrm4jTool.class.getName();
-            WinRmTool tool = (WinRmTool) Class.forName(toolClass).getConstructor(Map.class).newInstance(args.getAllConfig());
+            WinRmTool tool = (WinRmTool) new ClassLoaderUtils(this, getManagementContext()).loadClass(toolClass).getConstructor(Map.class).newInstance(args.getAllConfig());
 
             if (LOG.isTraceEnabled()) LOG.trace("using ssh-tool {} (of type {}); props ", tool, toolClass);
 

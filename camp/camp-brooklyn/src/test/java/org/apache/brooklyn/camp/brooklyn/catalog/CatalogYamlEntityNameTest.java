@@ -37,22 +37,23 @@ public class CatalogYamlEntityNameTest extends AbstractYamlTest {
         addCatalogItems(
             "brooklyn.catalog:",
             "  id: " + symbolicName,
-            "  name: nameInItemMetadata",
             "  version: " + TEST_VERSION,
+            "  itemType: entity",
+            "  name: nameInItemMetadata",
             "  item:",
             "    type: "+ BasicEntity.class.getName());
 
         Entity app = createAndStartApplication(
                 "services:",
                 "- type: "+symbolicName);
-        BasicEntity entity = Iterables.getOnlyElement(Iterables.filter(Entities.descendants(app), BasicEntity.class));
+        BasicEntity entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, BasicEntity.class));
         assertEquals(entity.getDisplayName(), "nameInItemMetadata");
         
         Entity app2 = createAndStartApplication(
                 "services:",
                 "- type: "+symbolicName,
                 "  name: nameInEntity");
-        BasicEntity entity2 = Iterables.getOnlyElement(Iterables.filter(Entities.descendants(app2), BasicEntity.class));
+        BasicEntity entity2 = Iterables.getOnlyElement(Entities.descendantsAndSelf(app2, BasicEntity.class));
         assertEquals(entity2.getDisplayName(), "nameInEntity");
     }
     
@@ -78,14 +79,14 @@ public class CatalogYamlEntityNameTest extends AbstractYamlTest {
         Entity app = createAndStartApplication(
                 "services:",
                 "- type: "+symbolicName);
-        BasicEntity entity = Iterables.getOnlyElement(Iterables.filter(Entities.descendants(app), BasicEntity.class));
+        BasicEntity entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, BasicEntity.class));
         assertEquals(entity.getDisplayName(), "nameInItemMetadata");
         
         Entity app2 = createAndStartApplication(
                 "services:",
                 "- type: "+symbolicName,
                 "  name: nameInEntity");
-        BasicEntity entity2 = Iterables.getOnlyElement(Iterables.filter(Entities.descendants(app2), BasicEntity.class));
+        BasicEntity entity2 = Iterables.getOnlyElement(Entities.descendantsAndSelf(app2, BasicEntity.class));
         assertEquals(entity2.getDisplayName(), "nameInEntity");
     }
     
@@ -95,8 +96,9 @@ public class CatalogYamlEntityNameTest extends AbstractYamlTest {
         addCatalogItems(
             "brooklyn.catalog:",
             "  id: " + symbolicName,
-            "  name: nameInItemMetadata",
             "  version: " + TEST_VERSION,
+            "  itemType: entity",
+            "  name: nameInItemMetadata",
             "  item:",
             "    type: "+ BasicEntity.class.getName(),
             "    brooklyn.config:",
@@ -105,14 +107,14 @@ public class CatalogYamlEntityNameTest extends AbstractYamlTest {
         Entity app = createAndStartApplication(
                 "services:",
                 "- type: "+symbolicName);
-        BasicEntity entity = Iterables.getOnlyElement(Iterables.filter(Entities.descendants(app), BasicEntity.class));
+        BasicEntity entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, BasicEntity.class));
         assertEquals(entity.getDisplayName(), "defaultNameInItemEntity");
         
         Entity app2 = createAndStartApplication(
                 "services:",
                 "- type: "+symbolicName,
                 "  name: nameInEntity");
-        BasicEntity entity2 = Iterables.getOnlyElement(Iterables.filter(Entities.descendants(app2), BasicEntity.class));
+        BasicEntity entity2 = Iterables.getOnlyElement(Entities.descendantsAndSelf(app2, BasicEntity.class));
         assertEquals(entity2.getDisplayName(), "nameInEntity");
     }
     
@@ -139,7 +141,7 @@ public class CatalogYamlEntityNameTest extends AbstractYamlTest {
         Entity app = createAndStartApplication(
                 "services:",
                 "- type: "+symbolicName);
-        BasicEntity entity = Iterables.getOnlyElement(Iterables.filter(Entities.descendants(app), BasicEntity.class));
+        BasicEntity entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, BasicEntity.class));
         assertEquals(entity.getDisplayName(), "defaultNameInItemEntity");
     }
     
@@ -166,7 +168,7 @@ public class CatalogYamlEntityNameTest extends AbstractYamlTest {
         Entity app = createAndStartApplication(
                 "services:",
                 "- type: "+symbolicName);
-        BasicEntity entity = Iterables.getOnlyElement(Iterables.filter(Entities.descendants(app), BasicEntity.class));
+        BasicEntity entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, BasicEntity.class));
         assertEquals(entity.getDisplayName(), "defaultNameInSuperItemEntity");
     }
     
@@ -176,8 +178,9 @@ public class CatalogYamlEntityNameTest extends AbstractYamlTest {
         addCatalogItems(
             "brooklyn.catalog:",
             "  id: " + symbolicName,
-            "  name: nameInItemMetadata",
             "  version: " + TEST_VERSION,
+            "  itemType: entity",
+            "  name: nameInItemMetadata",
             "  item:",
             "    type: "+ BasicEntity.class.getName());
 
@@ -186,7 +189,7 @@ public class CatalogYamlEntityNameTest extends AbstractYamlTest {
                 "- type: "+symbolicName,
                 "  brooklyn.config:",
                 "    defaultDisplayName: defaultNameInEntity");
-        BasicEntity entity = Iterables.getOnlyElement(Iterables.filter(Entities.descendants(app), BasicEntity.class));
+        BasicEntity entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, BasicEntity.class));
         assertEquals(entity.getDisplayName(), "defaultNameInEntity");
     }
 }

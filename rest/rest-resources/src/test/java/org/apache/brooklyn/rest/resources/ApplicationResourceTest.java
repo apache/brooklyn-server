@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.rest.resources;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.find;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -78,6 +79,7 @@ import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
@@ -698,17 +700,21 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
     }
 
     private void addTestCatalogItem(String catalogItemId, String itemType, String version, String service) {
-        String yaml =
-                "brooklyn.catalog:\n"+
-                "  id: " + catalogItemId + "\n"+
-                "  name: My Catalog App\n"+
-                (itemType!=null ? "  item_type: "+itemType+"\n" : "")+
-                "  description: My description\n"+
-                "  icon_url: classpath:///redis-logo.png\n"+
-                "  version: " + version + "\n"+
-                "\n"+
-                "services:\n"+
-                "- type: " + service + "\n";
+        String yaml = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  id: " + catalogItemId,
+                "  version: " + version,
+                "  itemType: " + checkNotNull(itemType, "itemType"),
+                "  name: My Catalog App",
+                "  description: My description",
+                "  icon_url: classpath:///redis-logo.png",
+                "  item:",
+                (itemType.equals("template")
+                        ?
+                            "    services:\n" +
+                            "    - type: " + service
+                        :
+                            "    type: " + service));
 
         client().path("/catalog").post(yaml);
     }

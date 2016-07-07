@@ -19,6 +19,7 @@
 package org.apache.brooklyn.test.framework;
 
 import static org.apache.brooklyn.core.entity.trait.Startable.SERVICE_UP;
+import static org.apache.brooklyn.test.framework.BaseTest.TIMEOUT;
 import static org.apache.brooklyn.test.framework.TargetableTestComponent.TARGET_ENTITY;
 import static org.apache.brooklyn.test.framework.TestFrameworkAssertions.CONTAINS;
 import static org.apache.brooklyn.test.framework.TestFrameworkAssertions.EQUALS;
@@ -45,16 +46,17 @@ import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecCmd;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Identifiers;
+import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -211,11 +213,9 @@ public class TestSshCommandTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void shouldNotBeUpIfAssertionsFail() {
-        Map<String, Object> equalsOne = MutableMap.of();
-        equalsOne.put(EQUALS, 1);
+        Map<String, ?> equalsOne = ImmutableMap.of(EQUALS, 1);
 
-        Map<String, Object> equals255 = MutableMap.of();
-        equals255.put(EQUALS, 255);
+        Map<String, ?> equals255 = ImmutableMap.of(EQUALS, 255);
 
         TestSshCommand test = app.createAndManageChild(EntitySpec.create(TestSshCommand.class)
             .configure(TARGET_ENTITY, testEntity)
@@ -238,11 +238,7 @@ public class TestSshCommandTest extends BrooklynAppUnitTestSupport {
         Path testScript = createTempScript("script", "echo " + text);
 
         try {
-            Map<String, Object> equalsZero = MutableMap.of();
-            equalsZero.put(EQUALS, 0);
-
-            Map<String, Object> containsText = MutableMap.of();
-            containsText.put(CONTAINS, text);
+            Map<String, ?> equalsZero = ImmutableMap.of(EQUALS, 0);
 
             TestSshCommand test = app.createAndManageChild(EntitySpec.create(TestSshCommand.class)
                 .configure(TARGET_ENTITY, testEntity)
@@ -272,6 +268,31 @@ public class TestSshCommandTest extends BrooklynAppUnitTestSupport {
             Asserts.shouldHaveFailedPreviously();
         } catch (Exception e) {
             Asserts.expectedFailureContains(e, "No instances of class "+SshMachineLocation.class.getName()+" available");
+        }
+
+        assertServiceFailed(test);
+    }
+    
+    @Test
+    public void shouldFailFastIfNoCommand() throws Exception {
+        Duration longTimeout = Asserts.DEFAULT_LONG_TIMEOUT;
+        
+        Map<String, ?> equalsZero = ImmutableMap.of(EQUALS, 0);
+        
+        TestSshCommand test = app.createAndManageChild(EntitySpec.create(TestSshCommand.class)
+                .configure(TIMEOUT, longTimeout.multiply(2))
+                .configure(TARGET_ENTITY, testEntity)
+                .configure(ASSERT_STATUS, makeAssertions(equalsZero)));
+
+        Stopwatch stopwatch = Stopwatch.createStarted();
+        try {
+            app.start(ImmutableList.<Location>of());
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            // note: sleep(1000) can take a few millis less than 1000ms, according to a stopwatch.
+            Asserts.expectedFailureContains(e, "Must specify exactly one of download.url and command");
+            Duration elapsed = Duration.of(stopwatch);
+            Asserts.assertTrue(elapsed.isShorterThan(longTimeout.subtract(Duration.millis(20))), "elapsed="+elapsed);
         }
 
         assertServiceFailed(test);

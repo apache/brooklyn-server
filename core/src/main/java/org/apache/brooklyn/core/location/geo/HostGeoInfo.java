@@ -28,6 +28,7 @@ import org.apache.brooklyn.api.location.AddressableLocation;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -164,7 +165,7 @@ public class HostGeoInfo implements Serializable {
             return new UtraceHostGeoLookup();
         }
         if (type.isEmpty()) return null;
-        return (HostGeoLookup) Class.forName(type).newInstance();
+        return (HostGeoLookup) new ClassLoaderUtils(HostGeoInfo.class).loadClass(type).newInstance();
     }
 
     public static HostGeoInfo fromEntity(Entity e) {

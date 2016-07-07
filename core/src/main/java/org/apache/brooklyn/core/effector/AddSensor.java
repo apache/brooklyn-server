@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.effector;
 
 import java.util.Map;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -27,6 +28,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
@@ -54,7 +56,7 @@ public class AddSensor<T> implements EntityInitializer {
     protected final String name;
     protected final Duration period;
     protected final String type;
-    protected final AttributeSensor<T> sensor;
+    protected AttributeSensor<T> sensor;
 
     public AddSensor(Map<String, String> params) {
         this(ConfigBag.newInstance(params));
@@ -64,27 +66,28 @@ public class AddSensor<T> implements EntityInitializer {
         this.name = Preconditions.checkNotNull(params.get(SENSOR_NAME), "Name must be supplied when defining a sensor");
         this.period = params.get(SENSOR_PERIOD);
         this.type = params.get(SENSOR_TYPE);
-        this.sensor = newSensor();
     }
 
     @Override
     public void apply(EntityLocal entity) {
+        sensor = newSensor(entity);
         ((EntityInternal) entity).getMutableEntityType().addSensor(sensor);
     }
 
-    private AttributeSensor<T> newSensor() {
+    private AttributeSensor<T> newSensor(Entity entity) {
         String className = getFullClassName(type);
-        Class<T> clazz = getType(className);
+        Class<T> clazz = getType(entity, className);
         return Sensors.newSensor(clazz, name);
     }
 
     @SuppressWarnings("unchecked")
-    protected Class<T> getType(String className) {
+    protected Class<T> getType(Entity entity, String className) {
         try {
             // TODO use OSGi loader (low priority however); also ensure that allows primitives
             Maybe<Class<?>> primitive = Boxing.getPrimitiveType(className);
             if (primitive.isPresent()) return (Class<T>) primitive.get();
-            return (Class<T>) Class.forName(className);
+            
+            return (Class<T>) new ClassLoaderUtils(this, entity).loadClass(className);
         } catch (ClassNotFoundException e) {
             if (!className.contains(".")) {
                 // could be assuming "java.lang" package; try again with that

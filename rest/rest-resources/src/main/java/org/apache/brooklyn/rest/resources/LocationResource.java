@@ -147,16 +147,17 @@ public class LocationResource extends AbstractBrooklynRestResource implements Lo
     @Override
     public Response create(LocationSpec locationSpec) {
         String name = locationSpec.getName();
+        
         ImmutableList.Builder<String> yaml = ImmutableList.<String>builder().add(
                 "brooklyn.catalog:",
-                "  symbolicName: "+name,
-                "",
-                "brooklyn.locations:",
-                "- type: "+locationSpec.getSpec());
+                "  id: " + name,
+                "  itemType: location",
+                "  item:",
+                "    type: "+locationSpec.getSpec());
         if (locationSpec.getConfig().size() > 0) {
-            yaml.add("  brooklyn.config:");
+            yaml.add("    brooklyn.config:");
             for (Map.Entry<String, ?> entry : locationSpec.getConfig().entrySet()) {
-                yaml.add("    " + entry.getKey() + ": " + entry.getValue());
+                yaml.add("      " + entry.getKey() + ": " + entry.getValue());
             }
         }
 

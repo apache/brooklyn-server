@@ -163,7 +163,7 @@ public abstract class AbstractBlueprintTest {
         
         Asserts.succeedsEventually(new Runnable() {
             public void run() {
-                for (Entity entity : Entities.descendants(app)) {
+                for (Entity entity : Entities.descendantsAndSelf(app)) {
                     assertNotEquals(entity.getAttribute(Attributes.SERVICE_STATE_ACTUAL), Lifecycle.ON_FIRE);
                     assertNotEquals(entity.getAttribute(Attributes.SERVICE_UP), false);
                     

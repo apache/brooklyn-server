@@ -81,7 +81,7 @@ public class Windows7zipBlueprintLiveTest extends AbstractBlueprintTest {
         
         Predicate<Application> asserter = new Predicate<Application>() {
             @Override public boolean apply(Application app) {
-                VanillaWindowsProcess entity = Iterables.getOnlyElement(Entities.descendants(app, VanillaWindowsProcess.class));
+                VanillaWindowsProcess entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, VanillaWindowsProcess.class));
                 String winRMAddress = entity.getAttribute(AdvertiseWinrmLoginPolicy.VM_USER_CREDENTIALS); 
                 String ipPort = Strings.getFirstWordAfter(winRMAddress, "@");
                 String user = Strings.getFirstWord(winRMAddress);

@@ -21,7 +21,9 @@ package org.apache.brooklyn.rest.resources;
 import java.util.List;
 import java.util.Map;
 
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.UriInfo;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.policy.Policy;
@@ -35,6 +37,7 @@ import org.apache.brooklyn.rest.filter.HaHotStateRequired;
 import org.apache.brooklyn.rest.transform.ApplicationTransformer;
 import org.apache.brooklyn.rest.transform.PolicyTransformer;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,8 +45,6 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Function;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.Maps;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.UriInfo;
 
 @HaHotStateRequired
 public class PolicyResource extends AbstractBrooklynRestResource implements PolicyApi {
@@ -86,7 +87,7 @@ public class PolicyResource extends AbstractBrooklynRestResource implements Poli
         Entity entity = brooklyn().getEntity(application, entityToken);
         Class<? extends Policy> policyType;
         try {
-            policyType = (Class<? extends Policy>) Class.forName(policyTypeName);
+            policyType = (Class<? extends Policy>) new ClassLoaderUtils(this, mgmt()).loadClass(policyTypeName);
         } catch (ClassNotFoundException e) {
             throw WebResourceUtils.badRequest("No policy with type %s found", policyTypeName);
         } catch (ClassCastException e) {

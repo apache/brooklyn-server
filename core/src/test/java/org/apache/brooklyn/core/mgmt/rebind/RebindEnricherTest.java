@@ -313,7 +313,7 @@ public class RebindEnricherTest extends RebindTestFixtureWithApp {
         assertEquals(e1e.size(), 5);
 
         newApp = (TestApplication) rebind();
-        Entity e2 = Iterables.getOnlyElement( Entities.descendants(newApp, EntityPredicates.idEqualTo(e1.getId())) );
+        Entity e2 = Iterables.getOnlyElement( Entities.descendantsAndSelf(newApp, EntityPredicates.idEqualTo(e1.getId())) );
         Collection<Enricher> e2e = e2.getEnrichers();
         log.info("enrichers2: "+e2e);
         Entities.dumpInfo(e2);

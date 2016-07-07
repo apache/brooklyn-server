@@ -310,7 +310,7 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
         origE.tags().addTag(origApp);
 
         newApp = rebind();
-        MyEntity newE = Iterables.getOnlyElement( Entities.descendants(newApp, MyEntity.class) );
+        MyEntity newE = Iterables.getOnlyElement( Entities.descendantsAndSelf(newApp, MyEntity.class) );
 
         assertTrue(newE.tags().containsTag("foo"), "tags are "+newE.tags().getTags());
         assertFalse(newE.tags().containsTag("bar"));

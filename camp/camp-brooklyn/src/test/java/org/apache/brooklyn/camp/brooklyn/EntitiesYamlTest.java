@@ -422,10 +422,10 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         Assert.assertEquals(root1, app);
         
         Entity c1 = Tasks.resolving(new DslComponent("c1").newTask(), Entity.class).context( ((EntityInternal)app).getExecutionContext() ).embedResolutionInTask(true).get();
-        Assert.assertEquals(c1, Entities.descendants(app, EntityPredicates.displayNameEqualTo("child 1")).iterator().next());
+        Assert.assertEquals(c1, Iterables.getOnlyElement(Entities.descendantsAndSelf(app, EntityPredicates.displayNameEqualTo("child 1"))));
         
         Entity e1 = Tasks.resolving(new DslComponent(Scope.PARENT, "xxx").newTask(), Entity.class).context( ((EntityInternal)c1).getExecutionContext() ).embedResolutionInTask(true).get();
-        Assert.assertEquals(e1, Entities.descendants(app, EntityPredicates.displayNameEqualTo("entity 1")).iterator().next());
+        Assert.assertEquals(e1, Iterables.getOnlyElement(Entities.descendantsAndSelf(app, EntityPredicates.displayNameEqualTo("entity 1"))));
         
         Entity root2 = Tasks.resolving(new DslComponent(Scope.ROOT, "xxx").newTask(), Entity.class).context( ((EntityInternal)c1).getExecutionContext() ).embedResolutionInTask(true).get();
         Assert.assertEquals(root2, app);
@@ -516,9 +516,10 @@ public class EntitiesYamlTest extends AbstractYamlTest {
     public void testScopeReferences() throws Exception {
         addCatalogItems(
                 "brooklyn.catalog:",
+                "  itemType: entity",
                 "  items:",
-                "  -  id: ref_child",
-                "     item:",
+                "  - id: ref_child",
+                "    item:",
                 "      type: " + ReferencingYamlTestEntity.class.getName(),
                 "      test.reference.root: $brooklyn:root()",
                 "      test.reference.scope_root: $brooklyn:scopeRoot()",
@@ -527,8 +528,8 @@ public class EntitiesYamlTest extends AbstractYamlTest {
                 "        test.reference.root: $brooklyn:root()",
                 "        test.reference.scope_root: $brooklyn:scopeRoot()",
 
-                "  -  id: ref_parent",
-                "     item:",
+                "  - id: ref_parent",
+                "    item:",
                 "      type: " + ReferencingYamlTestEntity.class.getName(),
                 "      test.reference.root: $brooklyn:root()",
                 "      test.reference.scope_root: $brooklyn:scopeRoot()",
@@ -538,6 +539,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
                 "        test.reference.scope_root: $brooklyn:scopeRoot()",
                 "        brooklyn.children:",
                 "        - type: ref_child");
+        
         Entity app = createAndStartApplication(
                 "brooklyn.config:",
                 "  test.reference.root: $brooklyn:root()",
@@ -743,8 +745,8 @@ public class EntitiesYamlTest extends AbstractYamlTest {
 
         Entity app = createAndStartApplication(yaml);
         waitForApplicationTasks(app);
-        DynamicFabric fabric = Iterables.getOnlyElement(Entities.descendants(app, DynamicFabric.class));
-        Iterable<TestEntity> members = Entities.descendants(fabric, TestEntity.class);
+        DynamicFabric fabric = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, DynamicFabric.class));
+        Iterable<TestEntity> members = Entities.descendantsAndSelf(fabric, TestEntity.class);
         
         assertEquals(Iterables.size(members), 2);
     }
@@ -764,8 +766,8 @@ public class EntitiesYamlTest extends AbstractYamlTest {
 
         Entity app = createAndStartApplication(yaml);
         waitForApplicationTasks(app);
-        DynamicFabric fabric = Iterables.getOnlyElement(Entities.descendants(app, DynamicFabric.class));
-        Iterable<TestEntity> members = Entities.descendants(fabric, TestEntity.class);
+        DynamicFabric fabric = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, DynamicFabric.class));
+        Iterable<TestEntity> members = Entities.descendantsAndSelf(fabric, TestEntity.class);
         
         assertEquals(Iterables.size(members), 2);
     }

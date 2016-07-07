@@ -53,7 +53,6 @@ import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
 public class RebindCatalogItemTest extends RebindTestFixtureWithApp {
@@ -112,6 +111,27 @@ public class RebindCatalogItemTest extends RebindTestFixtureWithApp {
     @Test
     public void testAddAndRebindEntity() throws Exception {
         String symbolicName = "rebind-yaml-catalog-item-test";
+        String yaml = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  items:",
+                "  - id: " + symbolicName,
+                "    version: " + TEST_VERSION,
+                "    itemType: entity",
+                "    item:",
+                "      type: io.camp.mock:AppServer");
+        CatalogEntityItemDto item =
+            CatalogItemBuilder.newEntity(symbolicName, TEST_VERSION)
+                .displayName(symbolicName)
+                .plan(yaml)
+                .build();
+        origManagementContext.getCatalog().addItem(item);
+        LOG.info("Added item to catalog: {}, id={}", item, item.getId());
+        rebindAndAssertCatalogsAreEqual();
+    }
+
+    @Test
+    public void testAddAndRebindEntityLegacyFormat() throws Exception {
+        String symbolicName = "rebind-yaml-catalog-item-test";
         String yaml = 
                 "name: " + symbolicName + "\n" +
                 "brooklyn.catalog:\n" +
@@ -138,16 +158,17 @@ public class RebindCatalogItemTest extends RebindTestFixtureWithApp {
     public void testAddAndRebindPolicy() {
         // Doesn't matter that SamplePolicy doesn't exist
         String symbolicName = "Test Policy";
-        String yaml =
-                "name: " + symbolicName + "\n" +
-                "brooklyn.catalog:\n" +
-                "  id: sample_policy\n" +
-                "  version: " + TEST_VERSION + "\n" +
-                "brooklyn.policies: \n" +
-                "- type: org.apache.brooklyn.core.mgmt.rebind.RebindCatalogItemTest$MyPolicy\n" +
-                "  brooklyn.config:\n" +
-                "    cfg1: 111\n" +
-                "    cfg2: 222";
+        String yaml = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  items:",
+                "  - id: " + symbolicName,
+                "    version: " + TEST_VERSION,
+                "    itemType: policy",
+                "    item:",
+                "      type: org.apache.brooklyn.core.mgmt.rebind.RebindCatalogItemTest$MyPolicy",
+                "      brooklyn.config:",
+                "        cfg1: 111",
+                "        cfg2: 222");
         CatalogPolicyItemDto item =
                 CatalogItemBuilder.newPolicy(symbolicName, TEST_VERSION)
                     .displayName(symbolicName)
@@ -170,16 +191,17 @@ public class RebindCatalogItemTest extends RebindTestFixtureWithApp {
 
     private void doTestAddAndRebindAndDeleteLocation(boolean suppressPeriodicCheckpointing) throws Exception {
         String symbolicName = "sample_location";
-        String yaml = Joiner.on("\n").join(ImmutableList.of(
-                "name: Test Location",
+        String yaml = Joiner.on("\n").join(
                 "brooklyn.catalog:",
-                "  id: " + symbolicName,
-                "  version: " + TEST_VERSION,
-                "brooklyn.locations:",
-                "- type: "+LocalhostMachineProvisioningLocation.class.getName(),
-                "  brooklyn.config:",
-                "    cfg1: 111",
-                "    cfg2: 222"));
+                "  items:",
+                "  - id: " + symbolicName,
+                "    version: " + TEST_VERSION,
+                "    itemType: location",
+                "    item:",
+                "      type: "+LocalhostMachineProvisioningLocation.class.getName(),
+                "      brooklyn.config:",
+                "        cfg1: 111",
+                "        cfg2: 222");
         CatalogLocationItemDto item =
                 CatalogItemBuilder.newLocation(symbolicName, TEST_VERSION)
                     .displayName(symbolicName)
@@ -245,12 +267,14 @@ public class RebindCatalogItemTest extends RebindTestFixtureWithApp {
         //the store is unable to delete still locked files so the bug doesn't manifest.
         //TODO investigate if locked files not caused by unclosed streams!
         String symbolicName = "rebind-yaml-catalog-item-test";
-        String yaml = 
-                "name: " + symbolicName + "\n" +
-                "brooklyn.catalog:\n" +
-                "  version: " + TEST_VERSION + "\n" +
-                "services:\n" +
-                "- type: io.camp.mock:AppServer";
+        String yaml = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  items:",
+                "  - id: " + symbolicName,
+                "    version: " + TEST_VERSION,
+                "    itemType: entity",
+                "    item:",
+                "      type: io.camp.mock:AppServer");
         BasicBrooklynCatalog catalog = (BasicBrooklynCatalog) origManagementContext.getCatalog();
         CatalogEntityItemDto item =
                 CatalogItemBuilder.newEntity(symbolicName, TEST_VERSION)
@@ -266,12 +290,14 @@ public class RebindCatalogItemTest extends RebindTestFixtureWithApp {
     @Test
     public void testRebindAfterItemDeprecated() {
         String symbolicName = "rebind-yaml-catalog-item-test";
-        String yaml =
-                "name: " + symbolicName + "\n" +
-                "brooklyn.catalog:\n" +
-                "  version: " + TEST_VERSION + "\n" +
-                "services:\n" +
-                "- type: io.camp.mock:AppServer";
+        String yaml = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  items:",
+                "  - id: " + symbolicName,
+                "    version: " + TEST_VERSION,
+                "    itemType: entity",
+                "    item:",
+                "      type: io.camp.mock:AppServer");
         CatalogEntityItemDto item =
                 CatalogItemBuilder.newEntity(symbolicName, TEST_VERSION)
                     .displayName(symbolicName)

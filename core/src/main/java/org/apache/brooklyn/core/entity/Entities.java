@@ -104,7 +104,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -618,26 +617,35 @@ public class Entities {
 
     /**
      * Return all descendants of given entity matching the given predicate and optionally the entity itself.
-     *
+     * 
      * @see {@link EntityPredicates} for useful second arguments.
      */
+    @SuppressWarnings("unused")
     public static Iterable<Entity> descendants(Entity root, Predicate<? super Entity> matching, boolean includeSelf) {
-        Iterable<Entity> descs = Iterables.concat(Iterables.transform(root.getChildren(), new Function<Entity,Iterable<Entity>>() {
-            @Override
-            public Iterable<Entity> apply(Entity input) {
-                return descendants(input);
-            }
-        }));
-        return Iterables.filter(Iterables.concat(descs, Collections.singleton(root)), matching);
+        if (false) {
+            // Keeping this unused code, so that anonymous inner class numbers don't change!
+            Iterable<Entity> descs = Iterables.concat(Iterables.transform(root.getChildren(), new Function<Entity,Iterable<Entity>>() {
+                @Override
+                public Iterable<Entity> apply(Entity input) {
+                    return descendants(input);
+                }
+            }));
+            return Iterables.filter(Iterables.concat(descs, Collections.singleton(root)), matching);
+        }
+        if (includeSelf) {
+            return descendantsAndSelf(root, matching);
+        } else {
+            return Iterables.filter(descendantsWithoutSelf(root), matching);
+        }
     }
 
     /**
-     * Returns the entity  matching the given predicate
+     * Returns the entities matching the given predicate.
      *
      * @see #descendants(Entity, Predicate, boolean)
      */
-    public static Iterable<Entity> descendants(Entity root, Predicate<? super Entity> matching) {
-        return descendants(root, matching, true);
+    public static Iterable<Entity> descendantsAndSelf(Entity root, Predicate<? super Entity> matching) {
+        return Iterables.filter(descendantsAndSelf(root), matching);
     }
 
     /**
@@ -645,8 +653,22 @@ public class Entities {
      *
      * @see #descendants(Entity, Predicate, boolean)
      */
-    public static Iterable<Entity> descendants(Entity root) {
-        return descendants(root, Predicates.alwaysTrue(), true);
+    public static Iterable<Entity> descendantsAndSelf(Entity root) {
+        Set<Entity> result = Sets.newLinkedHashSet();
+        result.add(root);
+        descendantsWithoutSelf(root, result);
+        return result;
+    }
+
+    /**
+     * Returns the entity's children, its children's children, and so on.
+     *
+     * @see #descendants(Entity, Predicate, boolean)
+     */
+    public static Iterable<Entity> descendantsWithoutSelf(Entity root) {
+        Set<Entity> result = Sets.newLinkedHashSet();
+        descendantsWithoutSelf(root, result);
+        return result;
     }
 
     /**
@@ -655,34 +677,98 @@ public class Entities {
      * @see #descendants(Entity)
      * @see Iterables#filter(Iterable, Class)
      */
-    public static <T extends Entity> Iterable<T> descendants(Entity root, Class<T> ofType) {
-        return Iterables.filter(descendants(root), ofType);
+    public static <T extends Entity> Iterable<T> descendantsAndSelf(Entity root, Class<T> ofType) {
+        return Iterables.filter(descendantsAndSelf(root), ofType);
     }
 
     /** Returns the entity, its parent, its parent, and so on. */
+    @SuppressWarnings("unused")
+    public static Iterable<Entity> ancestorsAndSelf(final Entity root) {
+        if (false) {
+            // Keeping this unused code, so that anonymous inner class numbers don't change!
+            return new Iterable<Entity>() {
+                @Override
+                public Iterator<Entity> iterator() {
+                    return new Iterator<Entity>() {
+                        Entity next = root;
+                        @Override
+                        public boolean hasNext() {
+                            return next!=null;
+                        }
+                        @Override
+                        public Entity next() {
+                            Entity result = next;
+                            next = next.getParent();
+                            return result;
+                        }
+                        @Override
+                        public void remove() {
+                            throw new UnsupportedOperationException();
+                        }
+                    };
+                }
+            };
+        }
+        Set<Entity> result = Sets.newLinkedHashSet();
+        Entity current = root;
+        while (current != null) {
+            result.add(current);
+            current = current.getParent();
+        }
+        return result;
+    }
+
+    /** Returns the entity's parent, its parent's parent, and so on. */
+    public static Iterable<Entity> ancestorsWithoutSelf(Entity root) {
+        Set<Entity> result = Sets.newLinkedHashSet();
+        Entity parent = (root != null) ? root.getParent() : null;
+        while (parent != null) {
+            result.add(parent);
+            parent = parent.getParent();
+        }
+        return result;
+    }
+
+    /**
+     * Side-effects {@code result} to return descendants (not including {@code root}).
+     */
+    private static void descendantsWithoutSelf(Entity root, Collection<Entity> result) {
+        Stack<Entity> tovisit = new Stack<Entity>();
+        tovisit.add(root);
+
+        while (!tovisit.isEmpty()) {
+            Entity e = tovisit.pop();
+            result.addAll(e.getChildren());
+            tovisit.addAll(e.getChildren());
+        }
+    }
+    
+    /**
+     * @deprecated since 0.10.0; see {@link #descendantsAndSelf(Entity, Predicate)}
+     */
+    public static Iterable<Entity> descendants(Entity root, Predicate<? super Entity> matching) {
+        return descendantsAndSelf(root, matching);
+    }
+
+    /**
+     * @deprecated since 0.10.0; see {@link #descendantsAndSelf(Entity)}
+     */
+    public static Iterable<Entity> descendants(Entity root) {
+        return descendantsAndSelf(root);
+    }
+
+    /**
+     * @deprecated since 0.10.0; see {@link #descendantsAndSelf(Entity)}
+     */
+    public static <T extends Entity> Iterable<T> descendants(Entity root, Class<T> ofType) {
+        return descendantsAndSelf(root, ofType);
+    }
+
+    /**
+     * @deprecated since 0.10.0; see {@link #ancestorsAndSelf(Entity)}
+     */
     public static Iterable<Entity> ancestors(final Entity root) {
-        return new Iterable<Entity>() {
-            @Override
-            public Iterator<Entity> iterator() {
-                return new Iterator<Entity>() {
-                    Entity next = root;
-                    @Override
-                    public boolean hasNext() {
-                        return next!=null;
-                    }
-                    @Override
-                    public Entity next() {
-                        Entity result = next;
-                        next = next.getParent();
-                        return result;
-                    }
-                    @Override
-                    public void remove() {
-                        throw new UnsupportedOperationException();
-                    }
-                };
-            }
-        };
+        return ancestorsAndSelf(root);
     }
 
     /**

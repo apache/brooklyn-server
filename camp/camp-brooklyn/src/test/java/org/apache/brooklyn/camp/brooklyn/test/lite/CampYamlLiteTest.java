@@ -216,17 +216,18 @@ public class CampYamlLiteTest {
     }
 
     private String getSampleMyCatalogAppYaml(String symbolicName, String bundleUrl) {
-        return "brooklyn.catalog:\n" +
-                "  id: " + symbolicName + "\n" +
-                "  name: My Catalog App\n" +
-                "  description: My description\n" +
-                "  icon_url: classpath:/org/apache/brooklyn/test/osgi/entities/icon.gif\n" +
-                "  version: " + TEST_VERSION + "\n" +
-                "  libraries:\n" +
-                "  - url: " + bundleUrl + "\n" +
-                "\n" +
-                "services:\n" +
-                "- type: io.camp.mock:AppServer\n";
+        return Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  id: " + symbolicName,
+                "  version: " + TEST_VERSION,
+                "  itemType: entity",
+                "  name: My Catalog App",
+                "  description: My description",
+                "  icon_url: classpath:/org/apache/brooklyn/test/osgi/entities/icon.gif",
+                "  libraries:",
+                "  - url: " + bundleUrl,
+                "  item:",
+                "    type: io.camp.mock:AppServer");
     }
 
     private void assertMgmtHasSampleMyCatalogApp(String symbolicName, String bundleUrl) {

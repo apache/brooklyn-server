@@ -39,6 +39,7 @@ public class DurationSinceSensor extends AddSensor<Duration> {
 
     private static final Supplier<Long> CURRENT_TIME_SUPPLIER = new CurrentTimeSupplier();
 
+    @SuppressWarnings("serial")
     public static final ConfigKey<Supplier<Long>> EPOCH_SUPPLIER = ConfigKeys.builder(new TypeToken<Supplier<Long>>() {})
             .name("duration.since.epochsupplier")
             .description("The source of time from which durations are measured. Defaults to System.currentTimeMillis when " +
@@ -46,6 +47,7 @@ public class DurationSinceSensor extends AddSensor<Duration> {
             .defaultValue(CURRENT_TIME_SUPPLIER)
             .build();
 
+    @SuppressWarnings("serial")
     public static final ConfigKey<Supplier<Long>> TIME_SUPPLIER = ConfigKeys.builder(new TypeToken<Supplier<Long>>() {})
             .name("duration.since.timesupplier")
             .description("The source of the current time. Defaults to System.currentTimeMillis if unconfigured or the " +
@@ -55,18 +57,19 @@ public class DurationSinceSensor extends AddSensor<Duration> {
 
     private final Supplier<Long> epochSupplier;
     private final Supplier<Long> timeSupplier;
-    private final AttributeSensor<Long> epochSensor;
+    private AttributeSensor<Long> epochSensor;
 
     public DurationSinceSensor(ConfigBag params) {
         super(params);
         epochSupplier = params.get(EPOCH_SUPPLIER);
         timeSupplier = params.get(TIME_SUPPLIER);
-        epochSensor = Sensors.newLongSensor(sensor.getName() + ".epoch");
     }
 
     @Override
     public void apply(final EntityLocal entity) {
         super.apply(entity);
+
+        epochSensor = Sensors.newLongSensor(sensor.getName() + ".epoch");
 
         if (entity.sensors().get(epochSensor) == null) {
             Long epoch = epochSupplier.get();

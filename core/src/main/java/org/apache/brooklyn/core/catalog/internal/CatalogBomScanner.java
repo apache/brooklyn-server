@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.stream.Streams;
@@ -60,19 +61,27 @@ public class CatalogBomScanner {
     private CatalogPopulator catalogTracker;
 
     public void bind(ServiceReference<ManagementContext> managementContext) throws Exception {
-        LOG.debug("Binding management context with whiteList [{}] and blacklist [{}]",
-            Strings.join(getWhiteList(), "; "),
-            Strings.join(getBlackList(), "; "));
-        catalogTracker = new CatalogPopulator(managementContext);
+        if (isEnabled()) {
+            LOG.debug("Binding management context with whiteList [{}] and blacklist [{}]",
+                Strings.join(getWhiteList(), "; "),
+                Strings.join(getBlackList(), "; "));
+            catalogTracker = new CatalogPopulator(managementContext);
+        }
     }
 
     public void unbind(ServiceReference<ManagementContext> managementContext) throws Exception {
-        LOG.debug("Unbinding management context");
-        if (null != catalogTracker) {
-            CatalogPopulator temp = catalogTracker;
-            catalogTracker = null;
-            temp.close();
+        if (isEnabled()) {
+            LOG.debug("Unbinding management context");
+            if (null != catalogTracker) {
+                CatalogPopulator temp = catalogTracker;
+                catalogTracker = null;
+                temp.close();
+            }
         }
+    }
+
+    private boolean isEnabled() {
+        return BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_LOAD_BUNDLE_CATALOG_BOM);
     }
 
     private String[] bundleIds(Bundle bundle) {

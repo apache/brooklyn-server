@@ -23,7 +23,6 @@ import static org.testng.Assert.assertNotNull;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.apache.brooklyn.api.catalog.CatalogConfig;
 import org.apache.brooklyn.api.entity.Entity;
@@ -35,9 +34,9 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import org.testng.collections.Sets;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
@@ -94,7 +93,7 @@ public class BasicSpecParameterFromClassTest {
     
     @Test
     public void testDebug() throws ClassNotFoundException {
-        System.out.println(BasicSpecParameter.fromClass(mgmt,  Class.forName("org.apache.brooklyn.entity.stock.BasicApplication")));
+        System.out.println(BasicSpecParameter.fromClass(mgmt,  new ClassLoaderUtils(this.getClass()).loadClass("org.apache.brooklyn.entity.stock.BasicApplication")));
     }
 
     @Test

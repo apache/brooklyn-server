@@ -28,6 +28,7 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampConstants;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
@@ -41,11 +42,16 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 
+import com.google.common.base.CaseFormat;
+import com.google.common.base.Converter;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.Callables;
 
 public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
 
@@ -100,30 +106,34 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
         @Override
         public Entity call() throws Exception {
             Iterable<Entity> entitiesToSearch = null;
+            EntityInternal entity = getEntity();
+            Predicate<Entity> notSelfPredicate = Predicates.not(Predicates.<Entity>equalTo(entity));
+
             switch (scope) {
                 case THIS:
-                    return getEntity();
+                    return entity;
                 case PARENT:
-                    return getEntity().getParent();
+                    return entity.getParent();
                 case GLOBAL:
-                    entitiesToSearch = ((EntityManagerInternal)getEntity().getManagementContext().getEntityManager())
+                    entitiesToSearch = ((EntityManagerInternal)entity.getManagementContext().getEntityManager())
                         .getAllEntitiesInApplication( entity().getApplication() );
                     break;
                 case ROOT:
-                    return getEntity().getApplication();
+                    return entity.getApplication();
                 case SCOPE_ROOT:
-                    return Entities.catalogItemScopeRoot(getEntity());
+                    return Entities.catalogItemScopeRoot(entity);
                 case DESCENDANT:
-                    entitiesToSearch = Entities.descendants(getEntity());
+                    entitiesToSearch = Entities.descendantsWithoutSelf(entity);
                     break;
                 case ANCESTOR:
-                    entitiesToSearch = Entities.ancestors(getEntity());
+                    entitiesToSearch = Entities.ancestorsWithoutSelf(entity);
                     break;
                 case SIBLING:
-                    entitiesToSearch = getEntity().getParent().getChildren();
+                    entitiesToSearch = entity.getParent().getChildren();
+                    entitiesToSearch = Iterables.filter(entitiesToSearch, notSelfPredicate);
                     break;
                 case CHILD:
-                    entitiesToSearch = getEntity().getChildren();
+                    entitiesToSearch = entity.getChildren();
                     break;
                 default:
                     throw new IllegalStateException("Unexpected scope "+scope);
@@ -136,7 +146,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
             
             // TODO may want to block and repeat on new entities joining?
             throw new NoSuchElementException("No entity matching id " + componentId+
-                (scope==Scope.GLOBAL ? "" : ", in scope "+scope+" wrt "+getEntity()+
+                (scope==Scope.GLOBAL ? "" : ", in scope "+scope+" wrt "+entity+
                 (scopeComponent!=null ? " ("+scopeComponent+" from "+entity()+")" : "")));
         }        
     }
@@ -172,6 +182,10 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
         return new DslComponent(this, Scope.GLOBAL, scopeOrId);
     }
     
+    public DslComponent self() {
+        return new DslComponent(this, Scope.THIS, null);
+    }
+    
     public DslComponent parent() {
         return new DslComponent(this, Scope.PARENT, "");
     }
@@ -184,19 +198,53 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
     }
 
     // DSL words which return things
-    
+
+    public BrooklynDslDeferredSupplier<?> entityId() {
+        return new EntityId(this);
+    }
+    protected static class EntityId extends BrooklynDslDeferredSupplier<Object> {
+        private final DslComponent component;
+
+        public EntityId(DslComponent component) {
+            this.component = Preconditions.checkNotNull(component);
+        }
+
+        @Override
+        public Task<Object> newTask() {
+            Entity targetEntity = component.get();
+            return Tasks.create("identity", Callables.<Object>returning(targetEntity.getId()));
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(component);
+        }
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            EntityId that = EntityId.class.cast(obj);
+            return Objects.equal(this.component, that.component);
+        }
+        @Override
+        public String toString() {
+            return (component.scope==Scope.THIS ? "" : component.toString()+".") + "entityId()";
+        }
+    }
+
     public BrooklynDslDeferredSupplier<?> attributeWhenReady(final String sensorName) {
         return new AttributeWhenReady(this, sensorName);
     }
-    // class simply makes the memento XML files nicer
     protected static class AttributeWhenReady extends BrooklynDslDeferredSupplier<Object> {
         private static final long serialVersionUID = 1740899524088902383L;
         private final DslComponent component;
         private final String sensorName;
+
         public AttributeWhenReady(DslComponent component, String sensorName) {
             this.component = Preconditions.checkNotNull(component);
             this.sensorName = sensorName;
         }
+
         @SuppressWarnings("unchecked")
         @Override
         public Task<Object> newTask() {
@@ -207,11 +255,11 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
             }
             return (Task<Object>) DependentConfiguration.attributeWhenReady(targetEntity, (AttributeSensor<?>)targetSensor);
         }
+
         @Override
         public int hashCode() {
             return Objects.hashCode(component, sensorName);
         }
-
         @Override
         public boolean equals(Object obj) {
             if (this == obj) return true;
@@ -323,40 +371,40 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
     }
 
     public static enum Scope {
-        GLOBAL ("global"),
-        CHILD ("child"),
-        PARENT ("parent"),
-        SIBLING ("sibling"),
-        DESCENDANT ("descendant"),
-        ANCESTOR("ancestor"),
-        ROOT("root"),
-        SCOPE_ROOT("scopeRoot"),
-        THIS ("this");
-        
-        public static final Set<Scope> VALUES = ImmutableSet.of(GLOBAL, CHILD, PARENT, SIBLING, DESCENDANT, ANCESTOR, ROOT, SCOPE_ROOT, THIS);
-        
-        private final String name;
-        
-        private Scope(String name) {
-            this.name = name;
-        }
-        
+        GLOBAL,
+        CHILD,
+        PARENT,
+        SIBLING,
+        DESCENDANT,
+        ANCESTOR,
+        ROOT,
+        SCOPE_ROOT,
+        THIS;
+
+        private static Converter<String, String> converter = CaseFormat.LOWER_CAMEL.converterTo(CaseFormat.UPPER_UNDERSCORE);
+
         public static Scope fromString(String name) {
-            return tryFromString(name).get();
+            Maybe<Scope> parsed = tryFromString(name);
+            return parsed.get();
         }
-        
+
         public static Maybe<Scope> tryFromString(String name) {
-            for (Scope scope : VALUES)
-                if (scope.name.toLowerCase().equals(name.toLowerCase()))
-                    return Maybe.of(scope);
-            return Maybe.absent(new IllegalArgumentException(name + " is not a valid scope"));
+            try {
+                Scope scope = valueOf(converter.convert(name));
+                return Maybe.of(scope);
+            } catch (Exception cause) {
+                return Maybe.absent(cause);
+            }
         }
-        
+
         public static boolean isValid(String name) {
-            for (Scope scope : VALUES)
-                if (scope.name.toLowerCase().equals(name.toLowerCase()))
-                    return true;
-            return false;
+            Maybe<Scope> check = tryFromString(name);
+            return check.isPresentAndNonNull();
+        }
+
+        @Override
+        public String toString() {
+            return converter.reverse().convert(name());
         }
     }
 

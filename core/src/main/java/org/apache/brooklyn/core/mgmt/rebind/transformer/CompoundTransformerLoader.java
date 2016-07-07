@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import org.apache.brooklyn.core.mgmt.rebind.transformer.CompoundTransformer.Builder;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -89,7 +90,7 @@ public class CompoundTransformerLoader {
         } else if (name.equals("rawDataTransformer")) {
             String type = (String) args.get("type");
             try {
-                Class<?> clazz = CompoundTransformerLoader.class.getClassLoader().loadClass(type);
+                Class<?> clazz = new ClassLoaderUtils(CompoundTransformer.class).loadClass(type);
                 builder.rawDataTransformer((RawDataTransformer) clazz.newInstance());
             } catch (Exception e) {
                 throw Exceptions.propagate(e);

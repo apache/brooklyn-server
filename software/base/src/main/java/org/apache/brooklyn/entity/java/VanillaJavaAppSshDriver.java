@@ -101,8 +101,8 @@ public class VanillaJavaAppSshDriver extends JavaSoftwareProcessSshDriver implem
 
         ScriptHelper helper = newScript(CUSTOMIZING+"-classpath")
                 .body.append(String.format("ls -1 \"%s\"", Os.mergePaths(getRunDir(), "lib")))
+                .noExtraOutput()
                 .gatherOutput();
-        helper.setFlag(SshTool.PROP_NO_EXTRA_OUTPUT, true);
         int result = helper.execute();
         if (result != 0) {
             throw new IllegalStateException("Error listing classpath files: " + helper.getResultStderr());

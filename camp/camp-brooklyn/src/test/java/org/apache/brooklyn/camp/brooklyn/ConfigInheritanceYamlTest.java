@@ -122,8 +122,8 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
         addCatalogItems(
                 "brooklyn.catalog:",
                 "  id: localhost-stub",
-                "  name: Localhost (stubbed-SSH)",
                 "  itemType: location",
+                "  name: Localhost (stubbed-SSH)",
                 "  item:",
                 "    type: localhost",
                 "    brooklyn.config:",
@@ -788,7 +788,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                 "          mykey3: myval3");
 
         Entity app = createStartWaitAndLogApplication(yaml);
-        Entity entity = Iterables.find(Entities.descendants(app), Predicates.instanceOf(TestEntity.class));
+        Entity entity = Iterables.find(Entities.descendantsAndSelf(app), Predicates.instanceOf(TestEntity.class));
 
         assertEquals(entity.config().get(entity.getEntityType().getConfigKey("map.type-merged")), 
                 ImmutableMap.<String, Object>of("mykey1", "myval1", "mykey2", "myval2", "mykey3", "myval3"));

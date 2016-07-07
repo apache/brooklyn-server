@@ -16,38 +16,46 @@
 # under the License.
 
 brooklyn.catalog:
-    version: 0.10.0-SNAPSHOT # BROOKLYN_VERSION
+    version: "0.10.0-SNAPSHOT" # BROOKLYN_VERSION
     items:
     - id: org.apache.brooklyn.policy.ha.ConnectionFailureDetector
+      itemType: policy
       item:
         type: org.apache.brooklyn.policy.ha.ConnectionFailureDetector
         name: Connection Failure Detector
         description: HA policy for monitoring a host:port, 
     - id: org.apache.brooklyn.policy.ha.ServiceRestarter
+      itemType: policy
       item:
         type: org.apache.brooklyn.policy.ha.ServiceRestarter
         name: Service Restarter
         description: HA policy for restarting a service automatically, 
     - id: org.apache.brooklyn.policy.ha.SshMachineFailureDetector
+      itemType: policy
       item:
         type: org.apache.brooklyn.policy.ha.SshMachineFailureDetector
         name: Ssh Connectivity Failure Detector
         description: HA policy for monitoring an SshMachine, 
-    - id: org.apache.brooklyn.policy.followthesun.FollowTheSunPool
-      item:
-        type: org.apache.brooklyn.policy.followthesun.FollowTheSunPool
+#    removed from catalog because it cannot currently be configured via catalog mechanisms
+#    - id: org.apache.brooklyn.policy.followthesun.FollowTheSunPool
+#      item:
+#        type: org.apache.brooklyn.policy.followthesun.FollowTheSunPool
     - id: org.apache.brooklyn.policy.loadbalancing.BalanceableWorkerPool
+      itemType: entity
       item:
         type: org.apache.brooklyn.policy.loadbalancing.BalanceableWorkerPool
     - id: org.apache.brooklyn.policy.ha.ServiceReplacer
+      itemType: policy
       item:
         type: org.apache.brooklyn.policy.ha.ServiceReplacer
         name: Service Replacer
         description: HA policy for replacing a failed member of a group
     - id: org.apache.brooklyn.policy.loadbalancing.ItemsInContainersGroup
+      itemType: entity
       item:
         type: org.apache.brooklyn.policy.loadbalancing.ItemsInContainersGroup
     - id: org.apache.brooklyn.policy.autoscaling.AutoScalerPolicy
+      itemType: policy
       item:
         type: org.apache.brooklyn.policy.autoscaling.AutoScalerPolicy
         name: Auto-scaler

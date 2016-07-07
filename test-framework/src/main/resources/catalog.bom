@@ -16,8 +16,12 @@
 # under the License.
 
 brooklyn.catalog:
-    version: 0.10.0-SNAPSHOT # BROOKLYN_VERSION
+    version: "0.10.0-SNAPSHOT" # BROOKLYN_VERSION
+    itemType: entity
     items:
+    - id: org.apache.brooklyn.test.framework.TestSshCommand
+      item:
+        type: org.apache.brooklyn.test.framework.TestSshCommand
     - id: org.apache.brooklyn.test.framework.SimpleShellCommandTest
       item:
         type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
@@ -42,6 +46,3 @@ brooklyn.catalog:
     - id: org.apache.brooklyn.test.framework.LoopOverGroupMembersTestCase
       item:
         type: org.apache.brooklyn.test.framework.LoopOverGroupMembersTestCase
-    - id: org.apache.brooklyn.test.framework.TargetableTestComponent
-      item:
-        type: org.apache.brooklyn.test.framework.TargetableTestComponent
