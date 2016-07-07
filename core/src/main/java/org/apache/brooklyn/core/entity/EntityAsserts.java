@@ -32,17 +32,19 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.time.Duration;
 
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.apache.brooklyn.test.Asserts.assertEquals;
+import static org.apache.brooklyn.core.entity.trait.Startable.SERVICE_UP;
+import static org.apache.brooklyn.test.Asserts.*;
 
 /**
  * Convenience class containing assertions that may be made about entities.
@@ -221,6 +223,34 @@ public class EntityAsserts {
                         "Attribute " + attribute + " on " + entity + " has disallowed value " + val);
             }
         });
+    }
+
+    /**
+     * Asserts sensors {@code service.isUp} is true, and that {@code service.state} is "running".
+     * Setting these sensors is common behaviour for entities, but depends on the particular entity
+     * implementation.
+     */
+    @Beta
+    public static void assertEntityHealthy(Entity entity) {
+        assertAttributeEquals(entity, SERVICE_UP, true);
+        assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        assertAttribute(entity, Attributes.SERVICE_STATE_EXPECTED, new Predicate<Lifecycle.Transition>() {
+            @Override public boolean apply(Lifecycle.Transition transition) {
+                assertNotNull(transition);
+                return Lifecycle.RUNNING.equals(transition.getState());
+            }
+        });
+    }
+
+    /**
+     * Asserts sensors {@code service.isUp} is false, and that {@code service.state} is "on fire".
+     * Setting these sensors is common behaviour for entities, but depends on the particular entity
+     * implementation.
+     */
+    @Beta
+    public static void assertEntityFailed(Entity entity) {
+        assertAttributeEquals(entity, SERVICE_UP, false);
+        assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
     }
 
 }
