@@ -299,3 +299,40 @@ brooklyn.catalog:
             assert:
             - contains: "myname"
             - contains: "mymessage"
+
+  - id: container-type-test
+    name: "Container Type"
+    description: |
+      Deploys an httpd container using the container type
+    itemType: template
+    item:
+      services:
+      - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
+        id: httpd
+        name: "Httpd"
+        brooklyn.config:
+          docker.container.disable_ssh: true
+          docker.container.imageName: "httpd"
+          docker.container.inbound_tcp_ports: ["70", "80", "90"]
+      - type: org.apache.brooklyn.test.framework.TestCase
+        brooklyn.config:
+          timeout: 30m
+          targetId: httpd
+        brooklyn.children:
+        - type: org.apache.brooklyn.test.framework.TestCase
+          name: "Sensor Tests"
+          brooklyn.children:
+          - type: assert-up
+          - type: assert-running
+          - type: org.apache.brooklyn.test.framework.TestHttpCall
+            name: Check HTTP Response Status Code
+            url:
+              $brooklyn:formatString:
+              - http://%s
+              - $brooklyn:component("httpd").attributeWhenReady("docker.port.80.mapped.public")
+            timeout: 30s
+            applyAssertionTo: status
+            assert:
+            - isEqualTo: 200
+
+
