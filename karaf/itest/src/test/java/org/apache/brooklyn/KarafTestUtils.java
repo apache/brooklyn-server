@@ -22,12 +22,14 @@ import static org.ops4j.pax.exam.CoreOptions.junitBundles;
 import static org.ops4j.pax.exam.CoreOptions.maven;
 import static org.ops4j.pax.exam.MavenUtils.asInProject;
 import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.configureConsole;
+import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.editConfigurationFilePut;
 import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.features;
 import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.karafDistributionConfiguration;
 import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.logLevel;
 
 import java.io.File;
 
+import org.apache.brooklyn.util.text.Identifiers;
 import org.ops4j.pax.exam.Option;
 import org.ops4j.pax.exam.karaf.options.LogLevelOption.LogLevel;
 import org.ops4j.pax.exam.options.MavenArtifactUrlReference;
@@ -44,7 +46,9 @@ public class KarafTestUtils {
         configureConsole().ignoreLocalConsole(),
         logLevel(LogLevel.INFO),
         features(karafStandardFeaturesRepository(), "eventadmin"),
-        junitBundles()
+        junitBundles(),
+        editConfigurationFilePut("etc/org.apache.brooklyn.osgilauncher.cfg", "persistMode", "AUTO"),
+        editConfigurationFilePut("etc/org.apache.brooklyn.osgilauncher.cfg", "persistenceDir", new File("target/paxexam/persistence/" + Identifiers.makeRandomId(6) + "/").getAbsolutePath()),
     };
 
     public static MavenUrlReference karafStandardFeaturesRepository() {
