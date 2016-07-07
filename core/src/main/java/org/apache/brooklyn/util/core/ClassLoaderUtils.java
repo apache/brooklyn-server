@@ -172,13 +172,7 @@ public class ClassLoaderUtils {
                     try {
                         return loader.loadClass(className);
                     } catch (IllegalStateException e) {
-                        ClassNotFoundException cnfe = Exceptions.getFirstThrowableOfType(e, ClassNotFoundException.class);
-                        NoClassDefFoundError ncdfe = Exceptions.getFirstThrowableOfType(e, NoClassDefFoundError.class);
-                        if (cnfe == null && ncdfe == null) {
-                            throw e;
-                        } else {
-                            // ignore, fall back to Class.forName(...)
-                        }
+                        propagateIfCauseNotClassNotFound(e);
                     }
                 } else {
                     log.warn("Entity " + entity + " refers to non-existent catalog item " + catalogItemId + ". Trying to load class " + name);
@@ -196,12 +190,16 @@ public class ClassLoaderUtils {
             // Note that Class.forName(name, false, classLoader) doesn't seem to like us returning a 
             // class with a different name from that intended (e.g. stripping off an OSGi prefix).
             return classLoader.loadClass(className);
+        } catch (IllegalStateException e) {
+            propagateIfCauseNotClassNotFound(e);
         } catch (ClassNotFoundException e) {
         }
 
         if (mgmt != null) {
             try {
                 return mgmt.getCatalogClassLoader().loadClass(name);
+            } catch (IllegalStateException e) {
+                propagateIfCauseNotClassNotFound(e);
             } catch (ClassNotFoundException e) {
             }
         }
@@ -214,6 +212,17 @@ public class ClassLoaderUtils {
         }
     }
 
+    protected void propagateIfCauseNotClassNotFound(IllegalStateException e) {
+        // TODO loadClass() should not throw IllegalStateException; should throw ClassNotFoundException without wrapping.
+        ClassNotFoundException cnfe = Exceptions.getFirstThrowableOfType(e, ClassNotFoundException.class);
+        NoClassDefFoundError ncdfe = Exceptions.getFirstThrowableOfType(e, NoClassDefFoundError.class);
+        if (cnfe == null && ncdfe == null) {
+            throw e;
+        } else {
+            // ignore, try next way of loading
+        }
+    }
+    
     public Class<?> loadClass(String symbolicName, @Nullable String version, String className) throws ClassNotFoundException {
         Framework framework = getFramework();
         if (framework != null) {
