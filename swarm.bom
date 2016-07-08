@@ -65,6 +65,12 @@ brooklyn.catalog:
             The name of a default network to create on startup
           type: string
           default: "brooklyn"
+        - name: swarm.port
+          label: Swarm Port
+          description: |
+            The TCP port the Swarm manager listens on
+          type: port
+          default: 3376
 
       brooklyn.enrichers:
         - type: org.apache.brooklyn.enricher.stock.Propagator
@@ -227,6 +233,12 @@ brooklyn.catalog:
             The name of a default network to create on startup
           type: string
           default: "brooklyn"
+        - name: swarm.port
+          label: Swarm Port
+          description: |
+            The TCP port the Swarm manager listens on
+          type: port
+          default: 3376
         - name: swarm.scaling.cpu.limit
           label: Swarm Scaling CPU Limit
           description: |
@@ -270,6 +282,101 @@ brooklyn.catalog:
               - $brooklyn:entity("swarm-manager").attributeWhenReady("swarm.port")
 
       brooklyn.children:
+        - type: load-balancer
+          id: swarm-manager-load-balancer
+          name: "swarm-manager-load-balancer"
+          brooklyn.config:
+            shell.env:
+              CA_REQUEST_ROOT_URL: $brooklyn:config("ca.request.root.url")
+              ENTITY_ID: $brooklyn:entityId()
+              HOST_ADDRESS: $brooklyn:attributeWhenReady("host.address")
+              SUBNET_ADDRESS: $brooklyn:attributeWhenReady("host.subnet.address")
+              INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
+              RUN_DIR: $brooklyn:attributeWhenReady("run.dir")
+            pre.launch.command: |
+              set -e
+              # TODO copy as part of install.files
+              cat > functions.sh <<-'EOC'
+              function generate_key () {
+                openssl genrsa -out $1 2048
+              }
+
+              function generate_conf () {
+                local CNF=$1
+                shift 1
+                local ix=0
+                cat > ${CNF} <<-EOF
+              [ req ]
+              req_extensions=v3_req
+              distinguished_name=req_distinguished_name
+
+              [ req_distinguished_name ]
+              commonName                      = Common Name (eg, your name or your server\'s hostname)
+              commonName_max                  = 64
+
+              [ v3_req ]
+              subjectAltName = @alt_names
+
+              [ alt_names ]
+              EOF
+
+              while [ $# -gt 0 ] ; do
+                ix=$(( $ix + 1 ))
+                echo "IP.${ix} = $1" >> ${CNF}
+                shift 1
+              done
+              }
+
+              function generate_csr () {
+                openssl req -config $1 -new -key $2 -days 1825 -subj "/CN=$(hostname)" -out $3
+              }
+
+              function failwith() {
+                local err=$?
+                1>&2 echo "[CLOCKER] $1"
+                exit $err
+              }
+
+              function getcert() {
+                local url=$1
+                local file=$2
+                curl -L ${url} --output ${file} --write-out "%{http_code}"  | grep 200 ||
+                  failwith "${file} not received from CA"
+              }
+              EOC
+              source functions.sh
+
+              mkdir -p ${RUN_DIR}/conf
+              getcert ${CA_REQUEST_ROOT_URL}/cacert/ca.pem ${INSTALL_DIR}/ca.pem
+              generate_key ${RUN_DIR}/conf/${ENTITY_ID}.key
+              generate_conf ${INSTALL_DIR}/csr.cnf ${HOST_ADDRESS} ${SUBNET_ADDRESS}
+              generate_csr ${INSTALL_DIR}/csr.cnf ${RUN_DIR}/conf/${ENTITY_ID}.key ${INSTALL_DIR}/csr.pem
+
+              curl -X POST --data-binary @${INSTALL_DIR}/csr.pem  ${CA_REQUEST_ROOT_URL}/sign > ${RUN_DIR}/conf/${ENTITY_ID}.crt
+            loadbalancer.serverpool: $brooklyn:entity("docker-swarm-managers")
+            nginx.sticky: false
+            member.sensor.hostname: $brooklyn:sensor("host.name")
+            member.sensor.portNumber: $brooklyn:sensor("swarm.port")
+            proxy.https.port: $brooklyn:parent().config("swarm.port")
+            proxy.protocol: "https"
+            proxy.domainName: $brooklyn:attributeWhenReady("host.address")
+            controller.config.serviceUpUrlPath: "_ping"
+            proxy.ssl.config:
+              $brooklyn:object:
+                type: brooklyn.entity.proxy.ProxySslConfig
+                object.fields:
+                  targetIsSsl: true
+                  certificateDestination:
+                    $brooklyn:formatString:
+                      - "%s/conf/%s.crt"
+                      - $brooklyn:attributeWhenReady("run.dir")
+                      - $brooklyn:entityId()
+                  keyDestination:
+                    $brooklyn:formatString:
+                      - "%s/conf/%s.key"
+                      - $brooklyn:attributeWhenReady("run.dir")
+                      - $brooklyn:entityId()
+
         - type: cluster
           id: docker-swarm-managers
           name: "docker-swarm-managers"

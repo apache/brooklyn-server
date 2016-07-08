@@ -280,6 +280,7 @@ brooklyn.catalog:
 
         customize.command: |
           set -e # need all commands to execute successfully
+          # TODO copy as part of install.files
           cat > functions.sh <<-'EOC'
           #!/usr/bin/env bash
 
