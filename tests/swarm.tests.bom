@@ -3,6 +3,7 @@ brooklyn.catalog:
   iconUrl: https://raw.githubusercontent.com/docker-library/docs/471fa6e4cb58062ccbf91afc111980f9c7004981/swarm/logo.png
   dependsOn:
     - tests/common.tests.bom
+    - tests/docker.tests.bom
   license_code: CLOUDSOFT-1.0
 
   brooklyn.config:
@@ -40,7 +41,7 @@ brooklyn.catalog:
         - network.name
       brooklyn.children:
         - type: ssh-test
-          name: "TEST-6-1 Test network exists"
+          name: "TEST-06-1 Test network exists"
           brooklyn.config:
             shell.env:
               NETWORK_NAME: $brooklyn:config("network.name")
@@ -52,7 +53,7 @@ brooklyn.catalog:
             assertErr:
               isEmpty: true
         - type: ssh-test
-          name: "TEST-6-2 Test network properties"
+          name: "TEST-06-2 Test network properties"
           brooklyn.config:
             shell.env:
               NETWORK_NAME: $brooklyn:config("network.name")
@@ -68,7 +69,7 @@ brooklyn.catalog:
             assertErr:
               isEmpty: true
         - type: ssh-test
-          name: "TEST-6-3 Test same network connectivity"
+          name: "TEST-06-3 Test same network connectivity"
           brooklyn.config:
             shell.env:
               NETWORK_NAME: $brooklyn:config("network.name")
@@ -92,7 +93,7 @@ brooklyn.catalog:
             assertErr:
               isEmpty: true
         - type: ssh-test
-          name: "TEST-6-4 Test different network connectivity failure"
+          name: "TEST-06-4 Test different network connectivity failure"
           brooklyn.config:
             shell.env:
               NETWORK_NAME: $brooklyn:config("network.name")
@@ -120,13 +121,13 @@ brooklyn.catalog:
         Test Swarm can be scaled up
       brooklyn.children:
         - type: sensor-test
-          name: "TEST-7-1 Initial Size of cluster is 2"
+          name: "TEST-07-1 Initial Size of cluster is 2"
           targetId: docker-swarm-nodes
           sensor: group.members.count
           assert:
             equals: 2
         - type: ssh-test
-          name: "TEST-7-2 Create load on server"
+          name: "TEST-07-2 Create load on server"
           brooklyn.config:
             command: |
               echo "[TEST] Creating load"
@@ -135,14 +136,14 @@ brooklyn.catalog:
               docker exec -d TEST_7_2_LOAD_1 dd if=/dev/zero of=/dev/null
               docker exec -d TEST_7_2_LOAD_2 dd if=/dev/zero of=/dev/null
         - type: sensor-test
-          name: "TEST-7-3 Final Size of cluster is 3"
+          name: "TEST-07-3 Final Size of cluster is 3"
           targetId: docker-swarm-nodes
           timeout: 20m
           sensor: group.members.count
           assert:
             equals: 3
         - type: ssh-test
-          name: "TEST-7-4 Tear down load"
+          name: "TEST-07-4 Tear down load"
           brooklyn.config:
             command: |
               echo "[TEST] Removing load"
@@ -152,7 +153,7 @@ brooklyn.catalog:
   - id: test-swarm-etcd-tls
     item:
       type: ssh-test
-      name: "TEST-8-1 Swarm Etcd uses swarm"
+      name: "TEST-08-1 Swarm Etcd uses swarm"
       brooklyn.parameters:
         - name: ca.url
           description: URL of the CA server
@@ -180,38 +181,38 @@ brooklyn.catalog:
       description: |
         Restart Swarm member (node/manager)
       brooklyn.children:
-      - type: ssh-cmd-restart
-      - type: assert-failed
-      - type: assert-up
+        - type: ssh-cmd-restart
+        - type: assert-failed
+        - type: assert-up
 
   - id: test-swarm-node-restart
     item:
       type: test-case
       brooklyn.children:
-      - type: loop-test-case
-        name: "TEST-9-1 Restart Swarm node"
-        brooklyn.config:
-          targetId: docker-swarm-nodes
-          test.spec:
-            $brooklyn:entitySpec:
-              type: test-swarm-restart
-      - type: loop-test-case
-        name: "TEST-9-2 Restart Swarm manager"
-        brooklyn.config:
-          targetId: docker-swarm-managers
-          test.spec:
-            $brooklyn:entitySpec:
-              type: test-swarm-restart
-      - type: ssh-test
-        name: "TEST-9-3 Assert Healthy Swarm"
-        brooklyn.config:
-          command:
-            $brooklyn:formatString:
-              - |
-                NODES=$(docker info | grep "Nodes:")
-                echo "${NODES}"
-                [ "${NODES}" = "Nodes: %d" ]
-              - $brooklyn:entity("docker-swarm-nodes").attributeWhenReady("group.members.count")
+        - type: loop-test-case
+          name: "TEST-09-1 Restart Swarm node"
+          brooklyn.config:
+            targetId: docker-swarm-nodes
+            test.spec:
+              $brooklyn:entitySpec:
+                type: test-swarm-restart
+        - type: loop-test-case
+          name: "TEST-09-2 Restart Swarm manager"
+          brooklyn.config:
+            targetId: docker-swarm-managers
+            test.spec:
+              $brooklyn:entitySpec:
+                type: test-swarm-restart
+        - type: ssh-test
+          name: "TEST-09-3 Assert Healthy Swarm"
+          brooklyn.config:
+            command:
+              $brooklyn:formatString:
+                - |
+                  NODES=$(docker info | grep "Nodes:")
+                  echo "${NODES}"
+                  [ "${NODES}" = "Nodes: %d" ]
+                - $brooklyn:entity("docker-swarm-nodes").attributeWhenReady("group.members.count")
 
   - id: swarm-node-replacement-test
     name: Swarm Node Replace
@@ -379,38 +380,36 @@ brooklyn.catalog:
             docker.url: $brooklyn:entity("swarm").attributeWhenReady("swarm.url")
 
         - type: test-case
-          description: |
-            Swarm entity tests
+          name: "TEST-01 Swarm entity tests"
           brooklyn.config:
             targetId: swarm
           brooklyn.children:
             - type: assert-up
-              name: "TEST-1 Assert up"
+              name: "TEST-01 Assert up"
             - type: assert-running
-              name: "TEST-2 Assert running"
+              name: "TEST-02 Assert running"
 
         - type: test-case
-          description: |
-            Swarm client access tests
+          name: "TEST-03 Swarm client tests"
           brooklyn.config:
             targetId: swarm-client
             start.latch: $brooklyn:entity("swarm-client").attributeWhenReady("service.isUp")
           brooklyn.children:
             - type: test-connect-fails-without-tls
-              name: "TEST-3 Test connect fails without TLS"
+              name: "TEST-03 Test connect fails without TLS"
             # Run the docker tests against the swarm
             - type: docker-engine-test
-              name: "TEST-4 Test Swarm over TLS"
+              name: "TEST-04 Test Swarm over TLS"
             - type: test-docker-run-pulls
-              name: "TEST-5 Test docker run pulls"
+              name: "TEST-05 Test docker run pulls"
             - type: test-swarm-networking
-              name: "TEST-6 Test Swarm networking"
+              name: "TEST-06 Test Swarm networking"
               brooklyn.config:
                 network.name: $brooklyn:component("swarm").config("swarm.defaultnetwork")
             - type: test-swarm-scale-up
-              name: "TEST-7 Test Swarm scale up"
+              name: "TEST-07 Test Swarm scale up"
             - type: test-swarm-etcd-tls
-              name: "TEST-8 Test Swarm etcd TLS"
+              name: "TEST-08 Test Swarm etcd TLS"
               brooklyn.config:
                 ca.url: $brooklyn:entity("ca-server").attributeWhenReady("main.uri")
             - type: test-swarm-node-restart
