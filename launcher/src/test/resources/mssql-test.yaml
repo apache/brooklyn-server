@@ -35,6 +35,8 @@ services:
 - type: org.apache.brooklyn.entity.software.base.VanillaWindowsProcess
   brooklyn.config:
     templates.install:
+      classpath://org/apache/brooklyn/software/winrm/utils/enable-credssp.ps1: "C:\\enable-credssp.ps1"
+      classpath://org/apache/brooklyn/software/winrm/utils/invoke-command-credssp.ps1: "C:\\invoke-command-credssp.ps1"
       classpath://org/apache/brooklyn/entity/database/mssql/ConfigurationFile.ini: "C:\\ConfigurationFile.ini"
       classpath://org/apache/brooklyn/entity/database/mssql/installmssql.ps1: "C:\\installmssql.ps1"
       classpath://org/apache/brooklyn/entity/database/mssql/configuremssql.ps1: "C:\\configuremssql.ps1"
@@ -44,7 +46,9 @@ services:
     customize.command: powershell -command "C:\\configuremssql.ps1"
     launch.command: "C:\\launchmssql.bat"
     stop.command: "C:\\stopmssql.bat"
-    checkRunning.command: echo true
+    checkRunning.powershell.command: |
+      $service = Get-Service -Name MSSQLSERVER
+      If ( (-not $service) -or ($service.Status -ne 'Running') ) { exit 1 }
 
     ## NOTE: Values must be supplied for the following
     mssql.download.url: ${mssql.download.url}
