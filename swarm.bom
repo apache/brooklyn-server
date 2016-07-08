@@ -409,14 +409,8 @@ brooklyn.catalog:
         - type: cluster
           id: docker-swarm-nodes
           name: "docker-swarm-nodes"
-          brooklyn.parameters:
-          - name: swarm.recovery.quarantineFailedEntities
-            label: Quarantine
-            description: |
-              Quarantine failed entities instead of destroying them
-            type: boolean
-            default: true
           brooklyn.policies:
+            - type: org.apache.brooklyn.policy.ha.ServiceReplacer
             - type: org.apache.brooklyn.policy.autoscaling.AutoScalerPolicy
               brooklyn.config:
                 autoscaler.metric:
@@ -442,7 +436,7 @@ brooklyn.catalog:
           brooklyn.config:
             cluster.initial.size: $brooklyn:config("swarm.initial.size")
             dynamiccluster.quarantineFailedEntities:
-              $brooklyn:config("swarm.recovery.quarantineFailedEntities")
+              $brooklyn:entity("swarm-cluster").config("swarm.recovery.quarantineFailedEntities")
             dynamiccluster.firstmemberspec:
               $brooklyn:entitySpec:
                 type: docker-swarm-node
@@ -456,16 +450,6 @@ brooklyn.catalog:
                 type: docker-swarm-node
                 id: swarm-node
                 name: "swarm-node"
-                brooklyn.policies:
-                  - type: org.apache.brooklyn.policy.ha.ServiceRestarter
-                    brooklyn.config:
-                      failOnRecurringFailuresInThisDuration: $brooklyn:entity("swarm-cluster").config("swarm.recovery.failOnRecurringFailuresInThisDuration")
-                brooklyn.enrichers:
-                  - type: org.apache.brooklyn.policy.ha.ServiceFailureDetector
-                    brooklyn.config:
-                      serviceOnFire.stabilizationDelay: $brooklyn:entity("swarm-cluster").config("swarm.recovery.stabilizationDelay")
-                      entityFailed.stabilizationDelay: $brooklyn:entity("swarm-cluster").config("swarm.recovery.stabilizationDelay")
-                      entityRecovered.stabilizationDelay: $brooklyn:entity("swarm-cluster").config("swarm.recovery.stabilizationDelay")
                 brooklyn.config:
                   launch.latch: $brooklyn:entity("docker-swarm-managers").attributeWhenReady("service.isUp")
 
@@ -506,6 +490,22 @@ brooklyn.catalog:
     itemType: entity
     item:
       type: docker-engine-with-discovery
+
+      brooklyn.policies:
+        - type: org.apache.brooklyn.policy.ha.ServiceRestarter
+          brooklyn.config:
+            failOnRecurringFailuresInThisDuration:
+              $brooklyn:parent().config("swarm.recovery.failOnRecurringFailuresInThisDuration")
+
+      brooklyn.enrichers:
+        - type: org.apache.brooklyn.policy.ha.ServiceFailureDetector
+          brooklyn.config:
+            serviceOnFire.stabilizationDelay:
+              $brooklyn:parent().config("swarm.recovery.stabilizationDelay")
+            entityFailed.stabilizationDelay:
+              $brooklyn:parent().config("swarm.recovery.stabilizationDelay")
+            entityRecovered.stabilizationDelay:
+              $brooklyn:parent().config("swarm.recovery.stabilizationDelay")
 
       brooklyn.config:
         shell.env:
