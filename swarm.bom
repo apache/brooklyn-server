@@ -400,12 +400,13 @@ brooklyn.catalog:
           brooklyn.config:
             cluster.initial.size: $brooklyn:config("swarm.manager.size")
             dynamiccluster.quarantineFailedEntities:
-              $brooklyn:entity("swarm-cluster").config("swarm.recovery.quarantineFailedEntities")
+              $brooklyn:parent().config("swarm.recovery.quarantineFailedEntities")
             dynamiccluster.memberspec:
               $brooklyn:entitySpec:
                 type: docker-swarm-manager
                 id: swarm-manager
                 name: "swarm-manager"
+
         - type: cluster
           id: docker-swarm-nodes
           name: "docker-swarm-nodes"
@@ -436,7 +437,7 @@ brooklyn.catalog:
           brooklyn.config:
             cluster.initial.size: $brooklyn:config("swarm.initial.size")
             dynamiccluster.quarantineFailedEntities:
-              $brooklyn:entity("swarm-cluster").config("swarm.recovery.quarantineFailedEntities")
+              $brooklyn:parent().config("swarm.recovery.quarantineFailedEntities")
             dynamiccluster.firstmemberspec:
               $brooklyn:entitySpec:
                 type: docker-swarm-node
@@ -495,19 +496,22 @@ brooklyn.catalog:
         - type: org.apache.brooklyn.policy.ha.ServiceRestarter
           brooklyn.config:
             failOnRecurringFailuresInThisDuration:
-              $brooklyn:parent().config("swarm.recovery.failOnRecurringFailuresInThisDuration")
+              $brooklyn:config("swarm.recovery.failOnRecurringFailuresInThisDuration")
 
       brooklyn.enrichers:
         - type: org.apache.brooklyn.policy.ha.ServiceFailureDetector
           brooklyn.config:
             serviceOnFire.stabilizationDelay:
-              $brooklyn:parent().config("swarm.recovery.stabilizationDelay")
+              $brooklyn:config("swarm.recovery.stabilizationDelay")
             entityFailed.stabilizationDelay:
-              $brooklyn:parent().config("swarm.recovery.stabilizationDelay")
+              $brooklyn:config("swarm.recovery.stabilizationDelay")
             entityRecovered.stabilizationDelay:
-              $brooklyn:parent().config("swarm.recovery.stabilizationDelay")
+              $brooklyn:config("swarm.recovery.stabilizationDelay")
 
       brooklyn.config:
+        provisioning.properties:
+          $brooklyn:config("swarm.provisioning.properties")
+
         shell.env:
           SWARM_DISCOVERY_URL: $brooklyn:config("swarm.discovery.url")
           HOST_ADDRESS: $brooklyn:attributeWhenReady("host.address")
@@ -569,34 +573,58 @@ brooklyn.catalog:
             The network address for Docker to listen on
           type: string
           default: 0.0.0.0
+        - name: swarm.strategy
+          label: Swarm Strategy
+          description: |
+            The strategy to use when placing containers. Can be one of:
+            spread (default), binpack or random
+          type: string
+          default: "spread"
+        - name: swarm.overcommit
+          label: Swarm Overcommit
+          description: |
+            Set the fractional percentage by which to overcommit resources.
+            The default value is 0.05, or 5 percent
+          type: double
+          default: 0.05d
 
       brooklyn.policies:
         - type: org.apache.brooklyn.policy.ha.ServiceRestarter
           brooklyn.config:
             failOnRecurringFailuresInThisDuration:
-              $brooklyn:parent().config("swarm.recovery.failOnRecurringFailuresInThisDuration")
+              $brooklyn:config("swarm.recovery.failOnRecurringFailuresInThisDuration")
 
       brooklyn.enrichers:
         - type: org.apache.brooklyn.policy.ha.ServiceFailureDetector
           brooklyn.config:
             serviceOnFire.stabilizationDelay:
-              $brooklyn:parent().config("swarm.recovery.stabilizationDelay")
+              $brooklyn:config("swarm.recovery.stabilizationDelay")
             entityFailed.stabilizationDelay:
-              $brooklyn:parent().config("swarm.recovery.stabilizationDelay")
+              $brooklyn:config("swarm.recovery.stabilizationDelay")
             entityRecovered.stabilizationDelay:
-              $brooklyn:parent().config("swarm.recovery.stabilizationDelay")
+              $brooklyn:config("swarm.recovery.stabilizationDelay")
+        - type: org.apache.brooklyn.enricher.stock.Transformer
+          brooklyn.config:
+            uniqueTag: swarm-endpoint-publisher
+            enricher.triggerSensors:
+              - host.address
+              - swarm.port
+            enricher.targetSensor: $brooklyn:sensor("swarm.endpoint")
+            enricher.targetValue:
+              $brooklyn:formatString:
+                - "%s:%d"
+                - $brooklyn:attributeWhenReady("host.address")
+                - $brooklyn:attributeWhenReady("swarm.port")
         - type: org.apache.brooklyn.enricher.stock.Transformer
           brooklyn.config:
             uniqueTag: swarm-url-publisher
             enricher.triggerSensors:
-            - host.address
-            - swarm.port
+              - swarm.endpoint
             enricher.targetSensor: $brooklyn:sensor("swarm.url")
             enricher.targetValue:
               $brooklyn:formatString:
-              - "tcp://%s:%d"
-              - $brooklyn:attributeWhenReady("host.address")
-              - $brooklyn:attributeWhenReady("swarm.port")
+                - "tcp://%s"
+                - $brooklyn:attributeWhenReady("swarm.endpoint")
 
       brooklyn.initializers:
         - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
@@ -614,7 +642,11 @@ brooklyn.catalog:
         shell.env:
           SWARM_DISCOVERY_URL: $brooklyn:config("swarm.discovery.url")
           SWARM_PORT: $brooklyn:attributeWhenReady("swarm.port")
+          SWARM_ENDPOINT: $brooklyn:attributeWhenReady("swarm.endpoint")
           SWARM_URL: $brooklyn:attributeWhenReady("swarm.url")
+          SWARM_STRATEGY: $brooklyn:config("swarm.strategy")
+          SWARM_OVERCOMMIT: $brooklyn:config("swarm.overcommit")
+          DOCKER_HOST: $brooklyn:attributeWhenReady("swarm.url")
 
         post.launch.command: |
           echo "[CLOCKER] Launch Swarm manager"
@@ -629,8 +661,10 @@ brooklyn.catalog:
               --tlscert=/certs/cert.pem \
               --tlskey=/certs/key.pem \
               --host=0.0.0.0:${SWARM_PORT} \
+              --strategy ${SWARM_STRATEGY} \
+              --cluster-opt swarm.overcommit=${SWARM_OVERCOMMIT} \
               --replication \
-              --advertise ${SWARM_URL} \
+              --advertise ${SWARM_ENDPOINT} \
               --discovery-opt kv.cacertfile="/certs/ca.pem" \
               --discovery-opt kv.certfile="/certs/cert.pem" \
               --discovery-opt kv.keyfile="/certs/key.pem" \
