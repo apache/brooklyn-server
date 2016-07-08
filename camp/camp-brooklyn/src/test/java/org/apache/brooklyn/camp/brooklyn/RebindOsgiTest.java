@@ -118,6 +118,7 @@ public class RebindOsgiTest extends AbstractYamlRebindTest {
         String appVersion = "0.1.0";
         String appCatalogFormat;
         if (useOsgi) {
+            TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OSGI_BUNDLE_PATH);
             appCatalogFormat = Joiner.on("\n").join(
                     "brooklyn.catalog:",
                     "  id: " + appSymbolicName,

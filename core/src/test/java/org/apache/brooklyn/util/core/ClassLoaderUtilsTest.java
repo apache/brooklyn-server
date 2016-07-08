@@ -18,24 +18,40 @@
  */
 package org.apache.brooklyn.util.core;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+import java.net.URL;
+
+import javax.annotation.Nullable;
+
+import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.core.catalog.internal.CatalogBundleDto;
+import org.apache.brooklyn.core.catalog.internal.CatalogEntityItemDto;
+import org.apache.brooklyn.core.catalog.internal.CatalogItemBuilder;
+import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.core.osgi.Osgis;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.maven.MavenArtifact;
+import org.apache.brooklyn.util.maven.MavenRetriever;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
-import org.dom4j.tree.AbstractEntity;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.launch.Framework;
 import org.testng.annotations.AfterMethod;
@@ -70,12 +86,12 @@ public class ClassLoaderUtilsTest {
     @Test
     public void testLoadClassNotInOsgi() throws Exception {
         ClassLoaderUtils clu = new ClassLoaderUtils(getClass());
-        assertEquals(clu.loadClass(getClass().getName()), getClass());
-        assertEquals(clu.loadClass(Entity.class.getName()), Entity.class);
-        assertEquals(clu.loadClass(AbstractEntity.class.getName()), AbstractEntity.class);
+        assertLoadSucceeds(clu, getClass().getName(), getClass());
+        assertLoadSucceeds(clu, Entity.class.getName(), Entity.class);
+        assertLoadSucceeds(clu, AbstractEntity.class.getName(), AbstractEntity.class);
         assertLoadFails(clu, "org.apache.brooklyn.this.name.does.not.Exist");
     }
-    
+
     @Test
     public void testLoadClassInOsgi() throws Exception {
         String bundlePath = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH;
@@ -86,14 +102,20 @@ public class ClassLoaderUtilsTest {
 
         mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
         Bundle bundle = installBundle(mgmt, bundleUrl);
-        
-        ClassLoaderUtils clu = new ClassLoaderUtils(getClass(), mgmt);
-        
-        assertLoadFails(clu, classname);
-        assertEquals(clu.loadClass(bundle.getSymbolicName() + ":" + classname).getName(), classname);
-        assertEquals(clu.loadClass(bundle.getSymbolicName() + ":" + bundle.getVersion()+":" + classname).getName(), classname);
+        @SuppressWarnings("unchecked")
+        Class<? extends Entity> clazz = (Class<? extends Entity>) bundle.loadClass(classname);
+        Entity entity = createSimpleEntity(bundleUrl, clazz);
+
+        ClassLoaderUtils cluMgmt = new ClassLoaderUtils(getClass(), mgmt);
+        ClassLoaderUtils cluClass = new ClassLoaderUtils(clazz);
+        ClassLoaderUtils cluEntity = new ClassLoaderUtils(getClass(), entity);
+
+        assertLoadFails(classname, cluMgmt);
+        assertLoadSucceeds(bundle.getSymbolicName() + ":" + classname, clazz, cluMgmt, cluClass, cluEntity);
+        assertLoadSucceeds(bundle.getSymbolicName() + ":" + bundle.getVersion()+":" + classname, clazz, cluMgmt, cluClass, cluEntity);
     }
-    
+
+
     @Test
     public void testLoadClassInOsgiWhiteList() throws Exception {
         String bundlePath = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH;
@@ -104,28 +126,38 @@ public class ClassLoaderUtilsTest {
 
         mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
         Bundle bundle = installBundle(mgmt, bundleUrl);
+        Class<?> clazz = bundle.loadClass(classname);
+        Entity entity = createSimpleEntity(bundleUrl, clazz);
         
         String whileList = bundle.getSymbolicName()+":"+bundle.getVersion();
         System.setProperty(ClassLoaderUtils.WHITE_LIST_KEY, whileList);
         
-        ClassLoaderUtils clu = new ClassLoaderUtils(getClass(), mgmt);
-        assertEquals(clu.loadClass(classname).getName(), classname);
-        assertEquals(clu.loadClass(bundle.getSymbolicName() + ":" + classname).getName(), classname);
+        ClassLoaderUtils cluMgmt = new ClassLoaderUtils(getClass(), mgmt);
+        ClassLoaderUtils cluClass = new ClassLoaderUtils(clazz);
+        ClassLoaderUtils cluEntity = new ClassLoaderUtils(getClass(), entity);
+        
+        assertLoadSucceeds(classname, clazz, cluMgmt, cluClass, cluEntity);
+        assertLoadSucceeds(bundle.getSymbolicName() + ":" + classname, clazz, cluMgmt, cluClass, cluEntity);
     }
     
     @Test
     public void testLoadClassInOsgiCore() throws Exception {
-        Class<?> clazz = AbstractEntity.class;
+        Class<?> clazz = BasicEntity.class;
         String classname = clazz.getName();
         
         mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
         Bundle bundle = getBundle(mgmt, "org.apache.brooklyn.core");
+        Entity entity = createSimpleEntity(bundle.getLocation(), clazz);
         
-        ClassLoaderUtils clu = new ClassLoaderUtils(getClass(), mgmt);
-        assertEquals(clu.loadClass(classname), clazz);
-        assertEquals(clu.loadClass(classname), clazz);
-        assertEquals(clu.loadClass(bundle.getSymbolicName() + ":" + classname), clazz);
-        assertEquals(clu.loadClass(bundle.getSymbolicName() + ":" + bundle.getVersion() + ":" + classname), clazz);
+        ClassLoaderUtils cluMgmt = new ClassLoaderUtils(getClass(), mgmt);
+        ClassLoaderUtils cluClass = new ClassLoaderUtils(clazz);
+        ClassLoaderUtils cluNone = new ClassLoaderUtils(getClass());
+        ClassLoaderUtils cluEntity = new ClassLoaderUtils(getClass(), entity);
+        
+        assertLoadSucceeds(classname, clazz, cluMgmt, cluClass, cluNone, cluEntity);
+        assertLoadSucceeds(classname, clazz, cluMgmt, cluClass, cluNone, cluEntity);
+        assertLoadSucceeds(bundle.getSymbolicName() + ":" + classname, clazz, cluMgmt, cluClass, cluNone, cluEntity);
+        assertLoadSucceeds(bundle.getSymbolicName() + ":" + bundle.getVersion() + ":" + classname, clazz, cluMgmt, cluClass, cluNone, cluEntity);
     }
     
     @Test
@@ -136,11 +168,14 @@ public class ClassLoaderUtilsTest {
         mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
         Bundle bundle = getBundle(mgmt, "org.apache.brooklyn.api");
         
-        ClassLoaderUtils clu = new ClassLoaderUtils(getClass(), mgmt);
-        assertEquals(clu.loadClass(classname), clazz);
-        assertEquals(clu.loadClass(classname), clazz);
-        assertEquals(clu.loadClass(bundle.getSymbolicName() + ":" + classname), clazz);
-        assertEquals(clu.loadClass(bundle.getSymbolicName() + ":" + bundle.getVersion() + ":" + classname), clazz);
+        ClassLoaderUtils cluMgmt = new ClassLoaderUtils(getClass(), mgmt);
+        ClassLoaderUtils cluClass = new ClassLoaderUtils(clazz);
+        ClassLoaderUtils cluNone = new ClassLoaderUtils(getClass());
+        
+        assertLoadSucceeds(classname, clazz, cluMgmt, cluClass, cluNone);
+        assertLoadSucceeds(classname, clazz, cluMgmt, cluClass, cluNone);
+        assertLoadSucceeds(bundle.getSymbolicName() + ":" + classname, clazz, cluMgmt, cluClass, cluNone);
+        assertLoadSucceeds(bundle.getSymbolicName() + ":" + bundle.getVersion() + ":" + classname, clazz, cluMgmt, cluClass, cluNone);
     }
     
     @Test
@@ -162,13 +197,12 @@ public class ClassLoaderUtilsTest {
         mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
         ClassLoaderUtils clu = new ClassLoaderUtils(getClass(), mgmt);
         
-        String bundleUrl = "http://search.maven.org/remotecontent?filepath=com/google/guava/guava/18.0/guava-18.0.jar";
+        String bundleUrl = MavenRetriever.localUrl(MavenArtifact.fromCoordinate("com.google.guava:guava:jar:18.0"));
         Bundle bundle = installBundle(mgmt, bundleUrl);
         String bundleName = bundle.getSymbolicName();
         
         String classname = bundleName + ":" + ImmutableList.class.getName();
-        Class<?> clazz = clu.loadClass(classname);
-        assertEquals(clazz, ImmutableList.class);
+        assertLoadSucceeds(clu, classname, ImmutableList.class);
     }
     
     private Bundle installBundle(ManagementContext mgmt, String bundleUrl) throws Exception {
@@ -186,12 +220,113 @@ public class ClassLoaderUtilsTest {
         return result.get();
     }
 
-    private void assertLoadFails(ClassLoaderUtils clu, String className) {
-        try {
-            clu.loadClass(className);
-            Asserts.shouldHaveFailedPreviously();
-        } catch (ClassNotFoundException e) {
-            Asserts.expectedFailureContains(e, className, "not found on the application class path, nor in the bundle white list");
+    private void assertLoadSucceeds(String bundledClassName, Class<?> expectedClass, ClassLoaderUtils... clua) throws ClassNotFoundException {
+        for (ClassLoaderUtils clu : clua) {
+            try {
+                assertLoadSucceeds(clu, bundledClassName, expectedClass);
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                throw new IllegalStateException("Load failed for " + clu, e);
+            }
         }
     }
+
+    private void assertLoadSucceeds(ClassLoaderUtils clu, String bundledClassName, Class<?> expectedClass) throws ClassNotFoundException {
+        BundledName className = new BundledName(bundledClassName);
+
+        Class<?> cls = clu.loadClass(bundledClassName);
+        assertEquals(cls.getName(), className.name);
+        if (expectedClass != null) {
+            assertEquals(cls, expectedClass);
+        }
+
+        ClassLoader cl = cls.getClassLoader();
+        BundledName resource = className.toResource();
+        String bundledResource = resource.toString();
+        URL resourceUrl = cl.getResource(resource.name);
+        assertEquals(clu.getResource(bundledResource), resourceUrl);
+        assertEquals(clu.getResources(bundledResource), ImmutableList.of(resourceUrl));
+
+        BundledName rootResource = new BundledName(resource.bundle, resource.version, "/" + resource.name);
+        String rootBundledResource = rootResource.toString();
+        assertEquals(clu.getResource(rootBundledResource), resourceUrl);
+        assertEquals(clu.getResources(rootBundledResource), ImmutableList.of(resourceUrl));
+    }
+
+    private void assertLoadFails(String bundledClassName, ClassLoaderUtils... clua) {
+        for (ClassLoaderUtils clu : clua) {
+            assertLoadFails(clu, bundledClassName);
+        }
+    }
+
+    private void assertLoadFails(ClassLoaderUtils clu, String bundledClassName) {
+        BundledName className = new BundledName(bundledClassName);
+
+        try {
+            clu.loadClass(bundledClassName);
+            Asserts.shouldHaveFailedPreviously("Using loader " + clu);
+        } catch (ClassNotFoundException e) {
+            Asserts.expectedFailureContains(e, bundledClassName, "not found on the application class path, nor in the bundle white list");
+        }
+
+        BundledName resource = className.toResource();
+        String bundledResource = resource.toString();
+        assertNull(clu.getResource(bundledResource), resource + " is supposed to fail resource loading, but it was successful");
+        assertEquals(clu.getResources(bundledResource), ImmutableList.of(), resource + " is supposed to fail resource loading, but it was successful");
+    }
+
+    protected Entity createSimpleEntity(String bundleUrl, Class<?> clazz) {
+        @SuppressWarnings("unchecked")
+        Class<? extends Entity> entityClass = (Class<? extends Entity>) clazz;
+        EntitySpec<?> spec = EntitySpec.create(entityClass);
+        Entity entity = mgmt.getEntityManager().createEntity(spec);
+        CatalogEntityItemDto item = CatalogItemBuilder.newEntity(clazz.getName(), "1.0.0")
+                .libraries(ImmutableList.<CatalogBundle>of(new CatalogBundleDto(null, null, bundleUrl)))
+                .plan("{\"services\":[{\"type\": \"" + clazz.getName() + "\"}]}")
+                .build();
+        mgmt.getCatalog().addItem(item);
+        ((EntityInternal)entity).setCatalogItemId(item.getId());
+        return entity;
+    }
+
+    private static class BundledName {
+        String bundle;
+        String version;
+        String name;
+        BundledName(String bundledName) {
+            String[] arr = bundledName.split(":");
+            if (arr.length == 1) {
+                bundle = null;
+                version = null;
+                name = arr[0];
+            } else if (arr.length == 2) {
+                bundle = arr[0];
+                version = null;
+                name = arr[1];
+            } else if (arr.length == 3) {
+                bundle = arr[0];
+                version = arr[1];
+                name = arr[2];
+            } else {
+                throw new IllegalStateException("Invalid bundled name " + bundledName);
+            }
+        }
+        BundledName(@Nullable String bundle, @Nullable String version, String name) {
+            this.bundle = bundle;
+            this.version = version;
+            this.name = checkNotNull(name, "name");
+        }
+
+        @Override
+        public String toString() {
+            return (bundle != null ? bundle + ":" : "") +
+                    (version != null ? version + ":" : "") +
+                    name;
+        }
+
+        BundledName toResource() {
+            return new BundledName(bundle, version, name.replace(".", "/") + ".class");
+        }
+    }
+
 }

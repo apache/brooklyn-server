@@ -15,6 +15,10 @@
  */
 package org.apache.brooklyn.util.core.osgi;
 
+import java.io.IOException;
+import java.net.URL;
+import java.util.Enumeration;
+
 import org.apache.brooklyn.util.osgi.SystemFramework;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.FrameworkUtil;
@@ -42,6 +46,16 @@ public class ContainerFramework implements SystemFramework {
         @SuppressWarnings("unchecked")
         Class<T> c = (Class<T>)b.loadClass(type);
         return c;
+    }
+
+    @Override
+    public <T> URL getResourceFromBundle(String type, Bundle b) {
+        return b.getResource(type);
+    }
+
+    @Override
+    public <T> Enumeration<URL> getResourcesFromBundle(String type, Bundle b) throws IOException {
+        return b.getResources(type);
     }
 
 }
