@@ -66,6 +66,7 @@ import org.apache.brooklyn.core.internal.storage.impl.BrooklynStorageImpl;
 import org.apache.brooklyn.core.internal.storage.impl.inmemory.InMemoryDataGridFactory;
 import org.apache.brooklyn.core.location.BasicLocationRegistry;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.mgmt.classloading.BrooklynClassLoadingContextSequential;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.ha.HighAvailabilityManagerImpl;
@@ -131,7 +132,11 @@ public abstract class AbstractManagementContext implements ManagementContextInte
                         RegisteredType item = internal.getManagementContext().getTypeRegistry().get(internal.getCatalogItemId());
 
                         if (item != null) {
-                            return CatalogUtils.newClassLoadingContext(internal.getManagementContext(), item);
+                            BrooklynClassLoadingContext itemLoader = CatalogUtils.newClassLoadingContext(internal.getManagementContext(), item);
+                            // Falls back to the entity's class loader
+                            JavaBrooklynClassLoadingContext entityLoader = JavaBrooklynClassLoadingContext.create(input.getClass().getClassLoader());
+                            BrooklynClassLoadingContext seqLoader = new BrooklynClassLoadingContextSequential(internal.getManagementContext(), itemLoader, entityLoader);
+                            return seqLoader;
                         } else {
                             log.error("Can't find catalog item " + internal.getCatalogItemId() +
                                     " used for instantiating entity " + internal +
