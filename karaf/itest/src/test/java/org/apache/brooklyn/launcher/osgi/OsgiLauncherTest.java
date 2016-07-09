@@ -55,9 +55,11 @@ public class OsgiLauncherTest {
     private static final String TEST_KEY_IN_CFG = "test.key.in.cfg";
 
     @Inject
+    @Filter(timeout = 120000)
     protected ManagementContext mgmt;
 
     @Inject
+    @Filter(timeout = 120000)
     protected ConfigurationAdmin configAdmin;
 
     /**

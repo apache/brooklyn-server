@@ -53,6 +53,7 @@ public class DefaultBomLoadTest {
     BootFinished bootFinished;
 
     @Inject
+    @Filter(timeout = 120000)
     protected ManagementContext managementContext;
 
 

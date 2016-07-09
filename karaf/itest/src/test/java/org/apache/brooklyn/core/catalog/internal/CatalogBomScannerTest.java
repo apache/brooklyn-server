@@ -60,12 +60,15 @@ public class CatalogBomScannerTest {
     public static final String KARAF_INIT_BLUEPRINT_BOMSCANNER_PID = "org.apache.brooklyn.core.catalog.bomscanner";
 
     @Inject
+    @Filter(timeout = 120000)
     protected FeaturesService featuresService;
 
     @Inject
+    @Filter(timeout = 120000)
     protected ConfigurationAdmin configAdmin;
 
     @Inject
+    @Filter(timeout = 120000)
     protected ManagementContext managementContext;
 
     /**

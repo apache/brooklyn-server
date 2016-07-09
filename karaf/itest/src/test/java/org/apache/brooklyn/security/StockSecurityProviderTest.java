@@ -62,6 +62,7 @@ import org.ops4j.pax.exam.Option;
 import org.ops4j.pax.exam.junit.PaxExam;
 import org.ops4j.pax.exam.spi.reactors.ExamReactorStrategy;
 import org.ops4j.pax.exam.spi.reactors.PerClass;
+import org.ops4j.pax.exam.util.Filter;
 
 @RunWith(PaxExam.class)
 @ExamReactorStrategy(PerClass.class)
@@ -77,9 +78,11 @@ public class StockSecurityProviderTest {
      * installed
      */
     @Inject
+    @Filter(timeout = 120000)
     BootFinished bootFinished;
     
     @Inject
+    @Filter(timeout = 120000)
     ManagementContext managementContext;
 
     @Configuration
