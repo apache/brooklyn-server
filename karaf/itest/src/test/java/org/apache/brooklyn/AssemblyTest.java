@@ -49,6 +49,7 @@ public class AssemblyTest {
     private BundleContext bc;
 
     @Inject
+    @Filter(timeout = 120000)
     protected FeaturesService featuresService;
 
     /**
