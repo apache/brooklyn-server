@@ -278,9 +278,7 @@ public class EffectorUtils {
                 mgmtSupport.getEntityChangeListener().onEffectorCompleted(eff);
             }
         } catch (Exception e) {
-            handleEffectorException(entity, eff, e);
-            // (won't return below)
-            return null;
+            throw handleEffectorException(entity, eff, e);
         }
     }
 
@@ -319,11 +317,12 @@ public class EffectorUtils {
                 
             EffectorCallPropagatedRuntimeException result = new EffectorCallPropagatedRuntimeException(entity, effector, throwable);
             log.warn(Exceptions.collapseText(result));
+            log.debug(makeMessage(entity, effector), throwable);
             throw result;
         }
     }
     
-    public static void handleEffectorException(Entity entity, Effector<?> effector, Throwable throwable) {
+    public static RuntimeException handleEffectorException(Entity entity, Effector<?> effector, Throwable throwable) {
         throw EffectorCallPropagatedRuntimeException.propagate(entity, effector, throwable);
     }
 

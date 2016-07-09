@@ -87,7 +87,7 @@ public class EffectorTasks {
                     }) {
                         @Override
                         public void handleException(Throwable throwable) throws Exception {
-                            EffectorUtils.handleEffectorException(entity, effector, throwable);
+                            throw EffectorUtils.handleEffectorException(entity, effector, throwable);
                         }
                     });
             return dst.get();
