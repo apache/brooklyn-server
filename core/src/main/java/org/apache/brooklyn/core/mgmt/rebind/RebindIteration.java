@@ -91,10 +91,12 @@ import org.apache.brooklyn.core.objs.proxy.InternalPolicyFactory;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.javalang.Reflections.ReflectionNotFoundException;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -956,7 +958,7 @@ public abstract class RebindIteration {
             }
             
             try {
-                return new LoadedClass<T>((Class<T>)reflections.loadClass(jType), catalogItemId);
+                return new LoadedClass<T>((Class<T>)loadClass(jType), catalogItemId);
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
                 LOG.warn("Unable to load "+jType+" using reflections; will try standard context");
@@ -974,9 +976,27 @@ public abstract class RebindIteration {
                         return new LoadedClass<T>((Class<? extends T>) catalogClass.get(), catalogItemId);
                     }
                 }
-                throw new IllegalStateException("No catalogItemId specified for "+contextSuchAsId+" and can't load class from either classpath or catalog items");
+                throw new IllegalStateException("No catalogItemId specified for "+contextSuchAsId+" and can't load class (" + jType + ") from either classpath or catalog items");
             } else {
-                throw new IllegalStateException("No catalogItemId specified for "+contextSuchAsId+" and can't load class from classpath");
+                throw new IllegalStateException("No catalogItemId specified for "+contextSuchAsId+" and can't load class (" + jType + ") from classpath");
+            }
+        }
+
+        protected Class<?> loadClass(String jType) throws ClassNotFoundException {
+            try {
+            return reflections.loadClass(jType);
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+            }
+            return new ClassLoaderUtils(reflections.getClassLoader()).loadClass(jType);
+        }
+
+        @SuppressWarnings("unchecked")
+        public <T> Class<? extends T> loadClass(String classname, Class<T> superType) {
+            try {
+                return (Class<? extends T>) loadClass(classname);
+            } catch (ClassNotFoundException e) {
+                throw Exceptions.propagate(e);
             }
         }
 
@@ -984,7 +1004,7 @@ public abstract class RebindIteration {
          * Constructs a new location, passing to its constructor the location id and all of memento.getFlags().
          */
         protected Location newLocation(String locationId, String locationType) {
-            Class<? extends Location> locationClazz = reflections.loadClass(locationType, Location.class);
+            Class<? extends Location> locationClazz = loadClass(locationType, Location.class);
 
             if (InternalFactory.isNewStyle(locationClazz)) {
                 // Not using loationManager.createLocation(LocationSpec) because don't want init() to be called
@@ -1110,7 +1130,7 @@ public abstract class RebindIteration {
             String id = memento.getId();
             // catalog item subtypes are internal to brooklyn, not in osgi
             String itemType = checkNotNull(memento.getType(), "catalog item type of %s must not be null in memento", id);
-            Class<? extends CatalogItem> clazz = reflections.loadClass(itemType, CatalogItem.class);
+            Class<? extends CatalogItem> clazz = loadClass(itemType, CatalogItem.class);
             return invokeConstructor(reflections, clazz, new Object[]{});
         }
 

@@ -15,6 +15,10 @@
  */
 package org.apache.brooklyn.util.osgi;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import javax.annotation.Nullable;
+
 import com.google.common.base.Objects;
 import org.apache.brooklyn.util.text.Strings;
 import org.osgi.framework.Bundle;
@@ -29,12 +33,11 @@ public class VersionedName {
     private final Version version;
 
     public VersionedName(Bundle b) {
-        this.symbolicName = b.getSymbolicName();
-        this.version = b.getVersion();
+        this(b.getSymbolicName(), b.getVersion());
     }
 
-    public VersionedName(String symbolicName, Version version) {
-        this.symbolicName = symbolicName;
+    public VersionedName(String symbolicName, @Nullable Version version) {
+        this.symbolicName = checkNotNull(symbolicName, "symbolicName");
         this.version = version;
     }
 

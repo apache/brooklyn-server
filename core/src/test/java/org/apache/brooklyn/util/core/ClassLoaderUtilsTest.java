@@ -19,6 +19,8 @@
 package org.apache.brooklyn.util.core;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -29,6 +31,7 @@ import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
@@ -38,6 +41,8 @@ import org.osgi.framework.launch.Framework;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+
+import com.google.common.collect.ImmutableList;
 
 public class ClassLoaderUtilsTest {
 
@@ -73,9 +78,12 @@ public class ClassLoaderUtilsTest {
     
     @Test
     public void testLoadClassInOsgi() throws Exception {
+        String bundlePath = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH;
         String bundleUrl = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
         String classname = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY;
         
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), bundlePath);
+
         mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
         Bundle bundle = installBundle(mgmt, bundleUrl);
         
@@ -88,9 +96,12 @@ public class ClassLoaderUtilsTest {
     
     @Test
     public void testLoadClassInOsgiWhiteList() throws Exception {
+        String bundlePath = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH;
         String bundleUrl = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
         String classname = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY;
         
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), bundlePath);
+
         mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
         Bundle bundle = installBundle(mgmt, bundleUrl);
         
@@ -130,6 +141,34 @@ public class ClassLoaderUtilsTest {
         assertEquals(clu.loadClass(classname), clazz);
         assertEquals(clu.loadClass(bundle.getSymbolicName() + ":" + classname), clazz);
         assertEquals(clu.loadClass(bundle.getSymbolicName() + ":" + bundle.getVersion() + ":" + classname), clazz);
+    }
+    
+    @Test
+    public void testIsBundleWhiteListed() throws Exception {
+        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        ClassLoaderUtils clu = new ClassLoaderUtils(getClass(), mgmt);
+        
+        assertTrue(clu.isBundleWhiteListed(getBundle(mgmt, "org.apache.brooklyn.core")));
+        assertTrue(clu.isBundleWhiteListed(getBundle(mgmt, "org.apache.brooklyn.api")));
+        assertFalse(clu.isBundleWhiteListed(getBundle(mgmt, "com.google.guava")));
+    }
+    
+    /**
+     * When two guava versions installed, want us to load from the *brooklyn* version rather than 
+     * a newer version that happens to be in Karaf.
+     */
+    @Test(groups={"Integration"})
+    public void testLoadsFromRightGuavaVersion() throws Exception {
+        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        ClassLoaderUtils clu = new ClassLoaderUtils(getClass(), mgmt);
+        
+        String bundleUrl = "http://search.maven.org/remotecontent?filepath=com/google/guava/guava/18.0/guava-18.0.jar";
+        Bundle bundle = installBundle(mgmt, bundleUrl);
+        String bundleName = bundle.getSymbolicName();
+        
+        String classname = bundleName + ":" + ImmutableList.class.getName();
+        Class<?> clazz = clu.loadClass(classname);
+        assertEquals(clazz, ImmutableList.class);
     }
     
     private Bundle installBundle(ManagementContext mgmt, String bundleUrl) throws Exception {

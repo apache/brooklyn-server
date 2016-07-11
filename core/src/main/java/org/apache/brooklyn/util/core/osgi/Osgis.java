@@ -50,6 +50,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 
@@ -438,4 +439,9 @@ public class Osgis {
         });
     }
 
+    @Beta
+    public static Optional<Bundle> getBundleOf(Class<?> clazz) {
+        Bundle bundle = org.osgi.framework.FrameworkUtil.getBundle(clazz);
+        return Optional.fromNullable(bundle);
+    }
 }

@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.mgmt.classloading;
 import java.net.URL;
 
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.util.guava.Maybe;
 
 public class ClassLoaderFromBrooklynClassLoadingContext extends ClassLoader {
 
@@ -36,15 +37,15 @@ public class ClassLoaderFromBrooklynClassLoadingContext extends ClassLoader {
     }
     
     @Override
-    public Class<?> findClass(String className) throws ClassNotFoundException {
-        Class<?> result = clc.loadClass(className);
-        if (result!=null) return result;
+    protected Class<?> findClass(String className) throws ClassNotFoundException {
+        Maybe<Class<?>> result = clc.tryLoadClass(className);
+        if (result.isPresent()) return result.get();
         
         // last resort. see comment in XStream CompositeClassLoader
         ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
         if (contextClassLoader != null) {
-            result = contextClassLoader.loadClass(className);
-            if (result!=null) return result;
+            Class<?> result2 = contextClassLoader.loadClass(className);
+            if (result2 != null) return result2;
         }
         return null;
     }

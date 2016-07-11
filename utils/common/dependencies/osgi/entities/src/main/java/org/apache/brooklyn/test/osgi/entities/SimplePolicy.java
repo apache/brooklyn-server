@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.test.osgi.entities;
 
-
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
@@ -33,4 +32,9 @@ public class SimplePolicy extends AbstractPolicy {
 
     @SetFromFlag("config3")
     public static final ConfigKey<String> CONFIG3 = ConfigKeys.newStringConfigKey("config3");
+    
+    @Override
+    protected <T> void doReconfigureConfig(ConfigKey<T> key, T val) {
+        // no-op; allow any config to be set
+    }
 }
