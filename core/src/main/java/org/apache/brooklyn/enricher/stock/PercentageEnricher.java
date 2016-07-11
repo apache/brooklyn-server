@@ -90,7 +90,10 @@ public class PercentageEnricher extends AbstractEnricher implements SensorEventL
 
         subscriptions().subscribe(MutableMap.of("notifyOfInitialValue", true), producer, sourceCurrentSensor, this);
         subscriptions().subscribe(MutableMap.of("notifyOfInitialValue", true), producer, sourceTotalSensor, this);
-        RendererHints.register(targetSensor, RendererHints.displayValue(MathFunctions.percent(2)));
+
+        if (RendererHints.getHintsFor(targetSensor).isEmpty()) {
+            RendererHints.register(targetSensor, RendererHints.displayValue(MathFunctions.percent(2)));
+        }
     }
 
     @Override
