@@ -1,14 +1,24 @@
 id: swarm
 description: |
-  A simple blueprint deploying an all-in-one Docker Swarm cluster entity, with
-  built-in Etcd discovery, TLS protected endpoints and an included CA server
-  to create certificates for the Swarm.
+  A blueprint deploying an all-in-one Docker Swarm cluster entity.
 
-  Deploys on CentOS 7 VMs.
+  Includes built-in etcd discovery cluster, TLS protected endpoints,
+  Nginx load balancer for Swarm managers and a CA server to create
+  certificates for the Swarm and etcd nodes and the load balancer.
+
+  Deploys on CentOS 7 VMs in SoftLayer, on a single VLAN segment.
 
 location:
   jclouds:softlayer:
     region: ams01
+    identity: xxxxxxxx
+    credential: XXXXXXXX
+    privateKeyFile: ~/.ssh/softlayer.pem
+    customizers:
+      - $brooklyn:object:
+          type: org.apache.brooklyn.location.jclouds.softlayer.SoftLayerSameVlanLocationCustomizer
+          brooklyn.config:
+            softlayer.vlan.scopeUid: "swarm"
 
 services:
   - type: docker-swarm
