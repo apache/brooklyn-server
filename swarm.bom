@@ -24,7 +24,7 @@ brooklyn.catalog:
     itemType: template
     item:
       services:
-      - type: docker-swarm
+        - type: docker-swarm
 
   - id:  docker-swarm
     name: "Docker Swarm with Discovery and CA"
@@ -78,7 +78,7 @@ brooklyn.catalog:
             uniqueTag: swarm-url-propagator
             producer: $brooklyn:child("swarm-cluster")
             propagating:
-            - $brooklyn:sensor("swarm.url")
+              - $brooklyn:sensor("swarm.url")
 
       brooklyn.children:
         - type: ca-server
@@ -372,24 +372,24 @@ brooklyn.catalog:
       brooklyn.config:
         docker.discovery.tlsoptions:
           $brooklyn:formatString:
-          - >-
-            --cluster-store-opt "kv.cacertfile=%1$s/.certs/ca.pem"
-            --cluster-store-opt "kv.certfile=%1$s/.certs/cert.pem"
-            --cluster-store-opt "kv.keyfile=%1$s/.certs/key.pem"
-          - $brooklyn:attributeWhenReady("install.dir")
+            - >-
+              --cluster-store-opt "kv.cacertfile=%1$s/.certs/ca.pem"
+              --cluster-store-opt "kv.certfile=%1$s/.certs/cert.pem"
+              --cluster-store-opt "kv.keyfile=%1$s/.certs/key.pem"
+            - $brooklyn:attributeWhenReady("install.dir")
         docker.discovery.advertise:
           $brooklyn:formatString:
-          - >-
-            --cluster-advertise %s
-            --cluster-store %s
-          - $brooklyn:attributeWhenReady("docker.endpoint")
-          - $brooklyn:config("docker.discovery.url")
+            - >-
+              --cluster-advertise %s
+              --cluster-store %s
+            - $brooklyn:attributeWhenReady("docker.endpoint")
+            - $brooklyn:config("docker.discovery.url")
         docker.additionaloptions.docker-engine-with-discovery:
           $brooklyn:formatString:
-          - "%s %s %s"
-          - $brooklyn:config("docker.additionaloptions.docker-engine-tls")
-          - $brooklyn:config("docker.discovery.tlsoptions")
-          - $brooklyn:config("docker.discovery.advertise")
+            - "%s %s %s"
+            - $brooklyn:config("docker.additionaloptions.docker-engine-tls")
+            - $brooklyn:config("docker.discovery.tlsoptions")
+            - $brooklyn:config("docker.discovery.advertise")
         docker.additionaloptions: $brooklyn:config("docker.additionaloptions.docker-engine-with-discovery")
 
   - id: docker-swarm-node
