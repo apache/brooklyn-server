@@ -91,15 +91,16 @@ brooklyn.catalog:
           name: "etcd-cluster"
           brooklyn.config:
             cluster.initial.size: $brooklyn:config("etcd.initial.size")
+            etcd.cluster.name: "clocker"
             etcd.node.spec:
               $brooklyn:entitySpec:
                 type: etcd-node
                 name: "etcd-node"
                 brooklyn.config:
-                  etcd.client.secure: true
-                  etcd.peer.secure: true
                   ca.request.root.url: $brooklyn:entity("ca-server").attributeWhenReady("main.uri")
                   resources.preInstall.latch: $brooklyn:entity("ca-server").attributeWhenReady("service.isUp")
+                  files.preinstall:
+                    "classpath://docker/certificate-functions.sh": certificate-functions.sh
                   shell.env:
                     CA_REQUEST_ROOT_URL: $brooklyn:config("ca.request.root.url")
                     HOST_ADDRESS: $brooklyn:attributeWhenReady("host.address")
@@ -119,55 +120,7 @@ brooklyn.catalog:
                         - $brooklyn:attributeWhenReady("install.dir")
                   pre.install.command: |
                     set -e
-                    cat > functions.sh <<-'EOC'
-                    function generate_key () {
-                      openssl genrsa -out $1 2048
-                    }
-
-                    function generate_conf () {
-                      local CNF=$1
-                      shift 1
-                      local ix=0
-                      cat > ${CNF} <<-EOF
-                    [ req ]
-                    req_extensions=v3_req
-                    distinguished_name=req_distinguished_name
-
-                    [ req_distinguished_name ]
-                    commonName                      = Common Name (eg, your name or your server\'s hostname)
-                    commonName_max                  = 64
-
-                    [ v3_req ]
-                    subjectAltName = @alt_names
-
-                    [ alt_names ]
-                    EOF
-
-                    while [ $# -gt 0 ] ; do
-                      ix=$(( $ix + 1 ))
-                      echo "IP.${ix} = $1" >> ${CNF}
-                      shift 1
-                    done
-                    }
-
-                    function generate_csr () {
-                      openssl req -config $1 -new -key $2 -days 1825 -subj "/CN=$(hostname)" -out $3
-                    }
-
-                    function failwith() {
-                      local err=$?
-                      1>&2 echo "[CLOCKER] $1"
-                      exit $err
-                    }
-
-                    function getcert() {
-                      local url=$1
-                      local file=$2
-                      curl -L ${url} --output ${file} --write-out "%{http_code}"  | grep 200 ||
-                        failwith "${file} not received from CA"
-                    }
-                    EOC
-                    source functions.sh
+                    source ${INSTALL_DIR}/certificate-functions.sh
 
                     mkdir -p ${INSTALL_DIR}/certs
                     getcert ${CA_REQUEST_ROOT_URL}/cacert/ca.pem ${INSTALL_DIR}/certs/ca.pem
@@ -176,6 +129,8 @@ brooklyn.catalog:
                     generate_csr ${INSTALL_DIR}/certs/csr.cnf ${INSTALL_DIR}/certs/key.pem ${INSTALL_DIR}/certs/csr.pem
 
                     curl -X POST --data-binary @${INSTALL_DIR}/certs/csr.pem  ${CA_REQUEST_ROOT_URL}/sign > ${INSTALL_DIR}/certs/cert.pem
+                  etcd.client.secure: true
+                  etcd.peer.secure: true
                   etcd.options.additional:
                     $brooklyn:formatString:
                     - >-
@@ -293,58 +248,11 @@ brooklyn.catalog:
               SUBNET_ADDRESS: $brooklyn:attributeWhenReady("host.subnet.address")
               INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
               RUN_DIR: $brooklyn:attributeWhenReady("run.dir")
+            files.preinstall:
+              "classpath://docker/certificate-functions.sh": certificate-functions.sh
             pre.launch.command: |
               set -e
-              # TODO copy as part of install.files
-              cat > functions.sh <<-'EOC'
-              function generate_key () {
-                openssl genrsa -out $1 2048
-              }
-
-              function generate_conf () {
-                local CNF=$1
-                shift 1
-                local ix=0
-                cat > ${CNF} <<-EOF
-              [ req ]
-              req_extensions=v3_req
-              distinguished_name=req_distinguished_name
-
-              [ req_distinguished_name ]
-              commonName                      = Common Name (eg, your name or your server\'s hostname)
-              commonName_max                  = 64
-
-              [ v3_req ]
-              subjectAltName = @alt_names
-
-              [ alt_names ]
-              EOF
-
-              while [ $# -gt 0 ] ; do
-                ix=$(( $ix + 1 ))
-                echo "IP.${ix} = $1" >> ${CNF}
-                shift 1
-              done
-              }
-
-              function generate_csr () {
-                openssl req -config $1 -new -key $2 -days 1825 -subj "/CN=$(hostname)" -out $3
-              }
-
-              function failwith() {
-                local err=$?
-                1>&2 echo "[CLOCKER] $1"
-                exit $err
-              }
-
-              function getcert() {
-                local url=$1
-                local file=$2
-                curl -L ${url} --output ${file} --write-out "%{http_code}"  | grep 200 ||
-                  failwith "${file} not received from CA"
-              }
-              EOC
-              source functions.sh
+              source ${INSTALL_DIR}/certificate-functions.sh
 
               mkdir -p ${RUN_DIR}/conf
               getcert ${CA_REQUEST_ROOT_URL}/cacert/ca.pem ${INSTALL_DIR}/ca.pem
