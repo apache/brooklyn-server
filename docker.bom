@@ -430,8 +430,8 @@ brooklyn.catalog:
           - $brooklyn:config("docker.image")
         image.preinstall:
         # Avoids null which fails the deployment
-        docker.run.arguments: 
-        docker.run.volumes: 
+        docker.run.arguments:
+        docker.run.volumes:
         docker.run.env:
         docker.restart:
         docker.run.additionaloptions:
@@ -483,19 +483,31 @@ brooklyn.catalog:
           rm -f "${PID_FILE}"
 
       brooklyn.initializers:
-      - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
-        brooklyn.config:
-          name: container.id
-          period: 1m
-          type: int
-          command: "[ -f pid.txt ] && cat pid.txt"
-      - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
-        brooklyn.config:
-          name: container.stats.cpu.percent
-          period: 1m
-          command: "[ -f pid.txt ] && docker stats --no-stream `pid.txt` | tail -n+2 | cut -c21-40"
-      - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
-        brooklyn.config:
-          name: container.stats.memory.percent
-          period: 1m
-          command: "[ -f pid.txt ] && docker stats --no-stream `pid.txt` | tail -n+2 | cut -c63-82"
+        - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
+          brooklyn.config:
+            name: container.id
+            period: 5m
+            type: integer
+            command: |
+              test -f pid.txt &&
+                cat pid.txt
+        - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
+          brooklyn.config:
+            name: container.stats.cpu.percent
+            period: 1m
+            type: double
+            command: |
+              test -f pid.txt &&
+                ( docker stats --no-stream $(cat pid.txt) |
+                  tail -n +2 |
+                  cut -c21-40 )
+        - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
+          brooklyn.config:
+            name: container.stats.memory.percent
+            period: 1m
+            type: double
+            command: |
+              test -f pid.txt &&
+                ( docker stats --no-stream $(cat pid.txt) |
+                  tail -n +2 |
+                  cut -c63-82 )
