@@ -118,6 +118,7 @@ brooklyn.catalog:
       item:
         type: org.apache.brooklyn.entity.software.base.SameServerEntity
     - id: org.apache.brooklyn.entity.chef.ChefEntity
+      iconUrl: https://upload.wikimedia.org/wikipedia/en/5/56/Chef_Software_Inc._company_logo.png
       item:
         type: org.apache.brooklyn.entity.chef.ChefEntity
     - id: org.apache.brooklyn.entity.brooklynnode.BrooklynEntityMirror
@@ -165,10 +166,12 @@ brooklyn.catalog:
   - itemType: entity
     items:
     - id: org.apache.brooklyn.entity.webapp.nodejs.NodeJsWebAppService
+      iconUrl: classpath:///nodejs-logo.png
       item:
         type: org.apache.brooklyn.entity.webapp.nodejs.NodeJsWebAppService
         name: Node.JS Application
     - id: org.apache.brooklyn.entity.webapp.jboss.JBoss7Server
+      iconUrl: classpath:///jboss-logo.png
       item:
         type: org.apache.brooklyn.entity.webapp.jboss.JBoss7Server
         name: JBoss Application Server 7
@@ -180,23 +183,27 @@ brooklyn.catalog:
       item:
         type: org.apache.brooklyn.entity.webapp.DynamicWebAppFabric
     - id: org.apache.brooklyn.entity.proxy.nginx.NginxController
+      iconUrl: classpath:///nginx-logo.jpeg
       item:
         type: org.apache.brooklyn.entity.proxy.nginx.NginxController
         name: Nginx Server
         description: A single Nginx server. Provides HTTP and reverse proxy services
     - id: org.apache.brooklyn.entity.webapp.jboss.JBoss6Server
+      iconUrl: classpath:///jboss-logo.png
       item:
         type: org.apache.brooklyn.entity.webapp.jboss.JBoss6Server
         name: JBoss Application Server 6
         description: AS6 -  an open source Java application server from JBoss
     - id: org.apache.brooklyn.entity.webapp.tomcat.Tomcat8Server
+      iconUrl: classpath:///tomcat-logo.png
       item:
         type: org.apache.brooklyn.entity.webapp.tomcat.Tomcat8Server
-        name: Tomcat Server
+        name: Tomcat 8 Server
     - id: org.apache.brooklyn.entity.proxy.LoadBalancerCluster
       item:
         type: org.apache.brooklyn.entity.proxy.LoadBalancerCluster
     - id: org.apache.brooklyn.entity.webapp.jetty.Jetty6Server
+      iconUrl: classpath:///jetty-logo.png
       item:
         type: org.apache.brooklyn.entity.webapp.jetty.Jetty6Server
         name: Jetty6 Server
@@ -207,10 +214,12 @@ brooklyn.catalog:
         name: Dynamic Web-app Cluster
         description: A cluster of web-apps, which can be dynamically re-sized; this does not include a load-balancer
     - id: org.apache.brooklyn.entity.webapp.tomcat.TomcatServer
+      iconUrl: classpath:///tomcat-logo.png
       item:
         type: org.apache.brooklyn.entity.webapp.tomcat.TomcatServer
-        name: Tomcat Server
+        name: Tomcat 7 Server
     - id: org.apache.brooklyn.entity.dns.geoscaling.GeoscalingDnsService
+      iconUrl: classpath:///geoscaling-logo.gif
       item:
         type: org.apache.brooklyn.entity.dns.geoscaling.GeoscalingDnsService
     - id: org.apache.brooklyn.entity.webapp.ControlledDynamicWebAppCluster
@@ -223,6 +232,7 @@ brooklyn.catalog:
   - itemType: entity
     items:
     - id: org.apache.brooklyn.entity.osgi.karaf.KarafContainer
+      iconUrl: classpath:///karaf-logo.png
       item:
         type: org.apache.brooklyn.entity.osgi.karaf.KarafContainer
         name: Karaf
@@ -232,80 +242,99 @@ brooklyn.catalog:
   - itemType: entity
     items:
     - id: org.apache.brooklyn.entity.nosql.redis.RedisStore
+      iconUrl: classpath:///redis-logo.png
       item:
         type: org.apache.brooklyn.entity.nosql.redis.RedisStore
         name: Redis Server
         description: Redis is an open-source, networked, in-memory, key-value data store with optional durability
     - id: org.apache.brooklyn.entity.nosql.mongodb.sharding.MongoDBRouterCluster
+      iconUrl: classpath:///mongodb-logo.png
       item:
         type: org.apache.brooklyn.entity.nosql.mongodb.sharding.MongoDBRouterCluster
     - id: org.apache.brooklyn.entity.nosql.cassandra.CassandraDatacenter
+      iconUrl: classpath:///cassandra-logo.jpeg
       item:
         type: org.apache.brooklyn.entity.nosql.cassandra.CassandraDatacenter
         name: Apache Cassandra Datacenter Cluster
         description: Cassandra is a highly scalable, eventually 
     - id: org.apache.brooklyn.entity.nosql.solr.SolrServer
+      iconUrl: classpath:///solr-logo.jpeg
       item:
         type: org.apache.brooklyn.entity.nosql.solr.SolrServer
         name: Apache Solr Node
         description: Solr is the popular, blazing fast open source enterprise search 
     - id: org.apache.brooklyn.entity.nosql.couchdb.CouchDBNode
+      iconUrl: classpath:///couchdb-logo.png
       item:
         type: org.apache.brooklyn.entity.nosql.couchdb.CouchDBNode
         name: CouchDB Node
     - id: org.apache.brooklyn.entity.nosql.redis.RedisShard
+      iconUrl: classpath:///redis-logo.png
       item:
         type: org.apache.brooklyn.entity.nosql.redis.RedisShard
     - id: org.apache.brooklyn.entity.nosql.redis.RedisCluster
+      iconUrl: classpath:///redis-logo.png
       item:
         type: org.apache.brooklyn.entity.nosql.redis.RedisCluster
         name: Redis Cluster
         description: Redis is an open-source, networked, in-memory, key-value data store with optional durability
     - id: org.apache.brooklyn.entity.nosql.hazelcast.HazelcastCluster
+      iconUrl: classpath:///hazelcast-logo.png
       item:
         type: org.apache.brooklyn.entity.nosql.hazelcast.HazelcastCluster
         name: Hazelcast Cluster
         description: Hazelcast is a clustering and highly scalable data distribution platform for Java.
     - id: org.apache.brooklyn.entity.nosql.couchdb.CouchDBCluster
+      iconUrl: classpath:///couchdb-logo.png
       item:
         type: org.apache.brooklyn.entity.nosql.couchdb.CouchDBCluster
     - id: org.apache.brooklyn.entity.nosql.couchbase.CouchbaseNode
+      iconUrl: classpath:///couchbase-logo.png
       item:
         type: org.apache.brooklyn.entity.nosql.couchbase.CouchbaseNode
         name: CouchBase Node
         description: Couchbase Server is an open source, distributed (shared-nothing architecture) 
     - id: org.apache.brooklyn.entity.nosql.mongodb.sharding.MongoDBShardedDeployment
+      iconUrl: classpath:///mongodb-logo.png
       item:
         type: org.apache.brooklyn.entity.nosql.mongodb.sharding.MongoDBShardedDeployment
         name: MongoDB Sharded Deployment
     - id: org.apache.brooklyn.entity.nosql.cassandra.CassandraNode
+      iconUrl: classpath:///cassandra-logo.jpeg
       item:
         type: org.apache.brooklyn.entity.nosql.cassandra.CassandraNode
         name: Apache Cassandra Node
         description: Cassandra is a highly scalable, eventually 
     - id: org.apache.brooklyn.entity.nosql.riak.RiakNode
+      iconUrl: classpath:///org/apache/brooklyn/entity/nosql/riak/riak.png
       item:
         type: org.apache.brooklyn.entity.nosql.riak.RiakNode
         name: Riak Node
         description: Riak is a distributed NoSQL key-value data store that offers 
     - id: org.apache.brooklyn.entity.nosql.mongodb.sharding.MongoDBConfigServerCluster
+      iconUrl: classpath:///mongodb-logo.png
       item:
         type: org.apache.brooklyn.entity.nosql.mongodb.sharding.MongoDBConfigServerCluster
     - id: org.apache.brooklyn.entity.nosql.mongodb.MongoDBServer
+      iconUrl: classpath:///mongodb-logo.png
       item:
         type: org.apache.brooklyn.entity.nosql.mongodb.MongoDBServer
         name: MongoDB Server
     - id: org.apache.brooklyn.entity.nosql.mongodb.sharding.MongoDBRouter
+      iconUrl: classpath:///mongodb-logo.png
       item:
         type: org.apache.brooklyn.entity.nosql.mongodb.sharding.MongoDBRouter
         name: MongoDB Router
     - id: org.apache.brooklyn.entity.nosql.mongodb.MongoDBReplicaSet
+      iconUrl: classpath:///mongodb-logo.png
       item:
         type: org.apache.brooklyn.entity.nosql.mongodb.MongoDBReplicaSet
     - id: org.apache.brooklyn.entity.nosql.mongodb.sharding.MongoDBShardCluster
+      iconUrl: classpath:///mongodb-logo.png
       item:
         type: org.apache.brooklyn.entity.nosql.mongodb.sharding.MongoDBShardCluster
     - id: org.apache.brooklyn.entity.nosql.mongodb.MongoDBClient
+      iconUrl: classpath:///mongodb-logo.png
       item:
         type: org.apache.brooklyn.entity.nosql.mongodb.MongoDBClient
     - id: org.apache.brooklyn.entity.nosql.elasticsearch.ElasticSearchNode
@@ -314,6 +343,7 @@ brooklyn.catalog:
         name: Elastic Search Node
         description: Elasticsearch is an open-source search server based on Lucene. 
     - id: org.apache.brooklyn.entity.nosql.cassandra.CassandraFabric
+      iconUrl: classpath:///cassandra-logo.jpeg
       item:
         type: org.apache.brooklyn.entity.nosql.cassandra.CassandraFabric
         name: Apache Cassandra Database Fabric
@@ -324,33 +354,41 @@ brooklyn.catalog:
         name: Elastic Search Cluster
         description: Elasticsearch is an open-source search server based on Lucene. 
     - id: org.apache.brooklyn.entity.nosql.cassandra.CassandraCluster
+      iconUrl: classpath:///cassandra-logo.jpeg
       item:
         type: org.apache.brooklyn.entity.nosql.cassandra.CassandraCluster
     - id: org.apache.brooklyn.entity.nosql.redis.RedisSlave
+      iconUrl: classpath:///redis-logo.png
       item:
         type: org.apache.brooklyn.entity.nosql.redis.RedisSlave
     - id: org.apache.brooklyn.entity.nosql.mongodb.sharding.MongoDBConfigServer
+      iconUrl: classpath:///mongodb-logo.png
       item:
         type: org.apache.brooklyn.entity.nosql.mongodb.sharding.MongoDBConfigServer
     - id: org.apache.brooklyn.entity.nosql.couchbase.CouchbaseCluster
+      iconUrl: classpath:///couchbase-logo.png
       item:
         type: org.apache.brooklyn.entity.nosql.couchbase.CouchbaseCluster
         name: CouchBase Cluster
         description: Couchbase is an open source, distributed (shared-nothing architecture) 
     - id: org.apache.brooklyn.entity.nosql.couchbase.CouchbaseSyncGateway
+      iconUrl: classpath:///couchbase-logo.png
       item:
         type: org.apache.brooklyn.entity.nosql.couchbase.CouchbaseSyncGateway
     - id: org.apache.brooklyn.entity.nosql.hazelcast.HazelcastNode
+      iconUrl: classpath:///hazelcast-logo.png
       item:
         type: org.apache.brooklyn.entity.nosql.hazelcast.HazelcastNode
         name: Hazelcast Node
         description: Hazelcast is a clustering and highly scalable data distribution platform for Java.
     - id: org.apache.brooklyn.entity.nosql.riak.RiakCluster
+      iconUrl: classpath:///org/apache/brooklyn/entity/nosql/riak/riak.png
       item:
         type: org.apache.brooklyn.entity.nosql.riak.RiakCluster
         name: Riak Cluster
         description: Riak is a distributed NoSQL key-value data store that offers 
     - id: org.apache.brooklyn.entity.nosql.mongodb.sharding.CoLocatedMongoDBRouter
+      iconUrl: classpath:///mongodb-logo.png
       item:
         type: org.apache.brooklyn.entity.nosql.mongodb.sharding.CoLocatedMongoDBRouter
 
@@ -367,6 +405,7 @@ brooklyn.catalog:
   - itemType: entity
     items:
     - id: org.apache.brooklyn.entity.monitoring.monit.MonitNode
+      iconUrl: classpath:///monit-logo.png
       item:
         type: org.apache.brooklyn.entity.monitoring.monit.MonitNode
         name: Monit Node
@@ -376,59 +415,73 @@ brooklyn.catalog:
   - itemType: entity
     items:
     - id: org.apache.brooklyn.entity.messaging.activemq.ActiveMQBroker
+      iconUrl: classpath:///activemq-logo.png
       item:
         type: org.apache.brooklyn.entity.messaging.activemq.ActiveMQBroker
         name: ActiveMQ Broker
         description: ActiveMQ is an open source message broker which fully implements the Java Message Service 1.1 (JMS)
     - id: org.apache.brooklyn.entity.messaging.qpid.QpidBroker
+      iconUrl: classpath:///qpid-logo.jpeg
       item:
         type: org.apache.brooklyn.entity.messaging.qpid.QpidBroker
         name: Qpid Broker
         description: Apache Qpid is an open-source messaging system, implementing the Advanced Message Queuing Protocol (AMQP)
     - id: org.apache.brooklyn.entity.messaging.storm.Storm
+      iconUrl: classpath:///apache-storm-logo.png
       item:
         type: org.apache.brooklyn.entity.messaging.storm.Storm
         name: Storm Node
         description: Apache Storm is a distributed realtime computation system. 
     - id: org.apache.brooklyn.entity.messaging.kafka.KafkaCluster
+      iconUrl: classpath:///kafka-logo.png
       item:
         type: org.apache.brooklyn.entity.messaging.kafka.KafkaCluster
         name: Kafka
         description: Apache Kafka is a distributed publish-subscribe messaging system
     - id: org.apache.brooklyn.entity.messaging.activemq.ActiveMQQueue
+      iconUrl: classpath:///activemq-logo.png
       item:
         type: org.apache.brooklyn.entity.messaging.activemq.ActiveMQQueue
     - id: org.apache.brooklyn.entity.zookeeper.ZooKeeperEnsemble
+      iconUrl: classpath:///zookeeper_logo.gif
       item:
         type: org.apache.brooklyn.entity.zookeeper.ZooKeeperEnsemble
         name: ZooKeeper ensemble
         description: A cluster of ZooKeeper servers. 
     - id: org.apache.brooklyn.entity.messaging.kafka.KafkaZooKeeper
+      iconUrl: classpath:///zookeeper_logo.gif
       item:
         type: org.apache.brooklyn.entity.messaging.kafka.KafkaZooKeeper
     - id: org.apache.brooklyn.entity.messaging.activemq.ActiveMQTopic
+      iconUrl: classpath:///activemq-logo.png
       item:
         type: org.apache.brooklyn.entity.messaging.activemq.ActiveMQTopic
     - id: org.apache.brooklyn.entity.messaging.qpid.QpidQueue
+      iconUrl: classpath:///qpid-logo.jpeg
       item:
         type: org.apache.brooklyn.entity.messaging.qpid.QpidQueue
     - id: org.apache.brooklyn.entity.zookeeper.ZooKeeperNode
+      iconUrl: classpath:///zookeeper_logo.gif
       item:
         type: org.apache.brooklyn.entity.zookeeper.ZooKeeperNode
         name: ZooKeeper Node
         description: Apache ZooKeeper is a server which enables 
     - id: org.apache.brooklyn.entity.messaging.rabbit.RabbitBroker
+      iconUrl: classpath:///RabbitMQLogo.png
       item:
         type: org.apache.brooklyn.entity.messaging.rabbit.RabbitBroker
         name: RabbitMQ Broker
         description: RabbitMQ is an open source message broker software (i.e. message-oriented middleware) that implements the Advanced Message Queuing Protocol (AMQP) standard
     - id: org.apache.brooklyn.entity.messaging.kafka.KafkaBroker
+      iconUrl: classpath:///kafka-logo.png
       item:
         type: org.apache.brooklyn.entity.messaging.kafka.KafkaBroker
     - id: org.apache.brooklyn.entity.messaging.qpid.QpidTopic
+      iconUrl: classpath:///qpid-logo.jpeg
       item:
         type: org.apache.brooklyn.entity.messaging.qpid.QpidTopic
     - id: org.apache.brooklyn.entity.messaging.storm.StormDeployment
+      iconUrl: classpath:///apache-storm-logo.png
       item:
         type: org.apache.brooklyn.entity.messaging.storm.StormDeployment
         name: Storm Deployment
@@ -438,19 +491,23 @@ brooklyn.catalog:
   - itemType: entity
     items:
     - id: org.apache.brooklyn.entity.database.crate.CrateNode
+      iconUrl: classpath:///crate-logo.png
       item:
         type: org.apache.brooklyn.entity.database.crate.CrateNode
     - id: org.apache.brooklyn.entity.database.mysql.MySqlNode
+      iconUrl: classpath:///mysql-logo-110x57.png
       item:
         type: org.apache.brooklyn.entity.database.mysql.MySqlNode
         name: MySql Node
         description: MySql is an open source relational database management system (RDBMS)
     - id: org.apache.brooklyn.entity.database.mysql.MySqlCluster
+      iconUrl: classpath:///mysql-logo-110x57.png
       item:
         type: org.apache.brooklyn.entity.database.mysql.MySqlCluster
         name: MySql Master-Slave cluster
         description: Sets up a cluster of MySQL nodes using master-slave relation and binary logging
     - id: org.apache.brooklyn.entity.database.postgresql.PostgreSqlNode
+      iconUrl: classpath:///postgresql-logo-200px.png
       item:
         type: org.apache.brooklyn.entity.database.postgresql.PostgreSqlNode
         name: PostgreSQL Node
@@ -459,6 +516,7 @@ brooklyn.catalog:
       item:
         type: org.apache.brooklyn.entity.database.rubyrep.RubyRepNode
     - id: org.apache.brooklyn.entity.database.mariadb.MariaDbNode
+      iconUrl: classpath:///mariadb-logo-180x119.png
       item:
         type: org.apache.brooklyn.entity.database.mariadb.MariaDbNode
         name: MariaDB Node
@@ -468,6 +526,7 @@ brooklyn.catalog:
   - itemType: entity
     items:
     - id: org.apache.brooklyn.entity.cm.salt.SaltEntity
+      iconUrl: classpath:///saltstack-logo.png
       item:
         type: org.apache.brooklyn.entity.cm.salt.SaltEntity
         name: SaltEntity
@@ -477,6 +536,7 @@ brooklyn.catalog:
   - itemType: entity
     items:
     - id: org.apache.brooklyn.entity.cm.ansible.AnsibleEntity
+      iconUrl: classpath:///ansible-logo.png
       item:
         type: org.apache.brooklyn.entity.cm.ansible.AnsibleEntity
         name: AnsibleEntity
