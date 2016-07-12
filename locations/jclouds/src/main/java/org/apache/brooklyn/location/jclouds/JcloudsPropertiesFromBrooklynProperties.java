@@ -119,7 +119,7 @@ public class JcloudsPropertiesFromBrooklynProperties extends LocationPropertiesF
                     // 0.7.0 25 Feb -- previously we switched to provider2 in this case, but that was wrong when
                     // working with chains of names; not sure why this case would ever occur (apart from tests which have been changed)
                     // 28 Mar seen this warning many times but only in cases when NOT changing is the right behaviour 
-                    LOG.debug(JavaClassNames.niceClassAndMethod()+" NOT changing provider from "+provider+" to candidate "+provider2);
+                    LOG.trace(JavaClassNames.niceClassAndMethod()+" NOT changing provider from "+provider+" to candidate "+provider2);
                 }
             }
         }
