@@ -248,6 +248,7 @@ brooklyn.catalog:
               SUBNET_ADDRESS: $brooklyn:attributeWhenReady("host.subnet.address")
               INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
               RUN_DIR: $brooklyn:attributeWhenReady("run.dir")
+            resources.preInstall.latch: $brooklyn:entity("ca-server").attributeWhenReady("service.isUp")
             files.preinstall:
               "classpath://docker/certificate-functions.sh": certificate-functions.sh
             pre.launch.command: |
