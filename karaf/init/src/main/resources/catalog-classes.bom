@@ -18,10 +18,8 @@
 brooklyn.catalog:
   version: "0.10.0-SNAPSHOT" # BROOKLYN_VERSION
   items:
-  - brooklyn.libraries:
-    - name: org.apache.brooklyn.core
-      version: "0.10.0.SNAPSHOT" # BROOKLYN_VERSION
-    itemType: entity
+  # org.apache.brooklyn.core
+  - itemType: entity
     items:
      - id: org.apache.brooklyn.entity.group.QuarantineGroup
        item:
@@ -63,10 +61,8 @@ brooklyn.catalog:
        item:
          type: org.apache.brooklyn.entity.group.DynamicFabric
 
-  - brooklyn.libraries:
-    - name: org.apache.brooklyn.policy
-      version: "0.10.0.SNAPSHOT" # BROOKLYN_VERSION
-    items:
+  # org.apache.brooklyn.policy
+  - items:
     - id: org.apache.brooklyn.policy.ha.ConnectionFailureDetector
       itemType: policy
       item:
@@ -110,10 +106,8 @@ brooklyn.catalog:
         name: Auto-scaler
         description: Policy that is attached to a Resizable entity and dynamically 
 
-  - brooklyn.libraries:
-    - name: org.apache.brooklyn.software-base
-      version: "0.10.0.SNAPSHOT" # BROOKLYN_VERSION
-    itemType: entity
+    # org.apache.brooklyn.software-base
+  - itemType: entity
     items:
     - id: org.apache.brooklyn.entity.machine.MachineEntity
       item:
@@ -167,10 +161,8 @@ brooklyn.catalog:
         name: Server Pool
         description: Creates a pre-allocated server pool, which other applications can deploy to
 
-  - brooklyn.libraries:
-    - name: org.apache.brooklyn.software-webapp
-      version: "0.10.0.SNAPSHOT" # BROOKLYN_VERSION
-    itemType: entity
+  # org.apache.brooklyn.software-webapp
+  - itemType: entity
     items:
     - id: org.apache.brooklyn.entity.webapp.nodejs.NodeJsWebAppService
       item:
@@ -227,10 +219,8 @@ brooklyn.catalog:
         name: Controlled Dynamic Web-app Cluster
         description: A cluster of load-balanced web-apps, which can be dynamically re-sized
 
-  - brooklyn.libraries:
-    - name: org.apache.brooklyn.software-osgi
-      version: "0.10.0.SNAPSHOT" # BROOKLYN_VERSION
-    itemType: entity
+  # org.apache.brooklyn.software-osgi
+  - itemType: entity
     items:
     - id: org.apache.brooklyn.entity.osgi.karaf.KarafContainer
       item:
@@ -238,10 +228,8 @@ brooklyn.catalog:
         name: Karaf
         description: Apache Karaf is a small OSGi based runtime which provides a lightweight container onto which various components and applications can be deployed.
 
-  - brooklyn.libraries:
-    - name: org.apache.brooklyn.software-nosql
-      version: "0.10.0.SNAPSHOT" # BROOKLYN_VERSION
-    itemType: entity
+  # org.apache.brooklyn.software-nosql
+  - itemType: entity
     items:
     - id: org.apache.brooklyn.entity.nosql.redis.RedisStore
       item:
@@ -366,10 +354,8 @@ brooklyn.catalog:
       item:
         type: org.apache.brooklyn.entity.nosql.mongodb.sharding.CoLocatedMongoDBRouter
 
-  - brooklyn.libraries:
-    - name: org.apache.brooklyn.software-network
-      version: "0.10.0.SNAPSHOT" # BROOKLYN_VERSION
-    itemType: entity
+  # org.apache.brooklyn.software-network
+  - itemType: entity
     items:
     - id: org.apache.brooklyn.entity.network.bind.BindDnsServer
       description: BIND is an Internet Domain Name Server.
@@ -377,10 +363,8 @@ brooklyn.catalog:
         type: org.apache.brooklyn.entity.network.bind.BindDnsServer
         name: BIND
 
-  - brooklyn.libraries:
-    - name: org.apache.brooklyn.software-monitoring
-      version: "0.10.0.SNAPSHOT" # BROOKLYN_VERSION
-    itemType: entity
+  # org.apache.brooklyn.software-monitoring
+  - itemType: entity
     items:
     - id: org.apache.brooklyn.entity.monitoring.monit.MonitNode
       item:
@@ -388,10 +372,8 @@ brooklyn.catalog:
         name: Monit Node
         description: Monit is a free open source utility for managing and monitoring, processes, programs, files, directories and filesystems on a UNIX system
 
-  - brooklyn.libraries:
-    - name: org.apache.brooklyn.software-messaging
-      version: "0.10.0.SNAPSHOT" # BROOKLYN_VERSION
-    itemType: entity
+  # org.apache.brooklyn.software-messaging
+  - itemType: entity
     items:
     - id: org.apache.brooklyn.entity.messaging.activemq.ActiveMQBroker
       item:
@@ -452,10 +434,8 @@ brooklyn.catalog:
         name: Storm Deployment
         description: A Storm cluster. Apache Storm is a distributed realtime computation system. 
 
-  - brooklyn.libraries:
-    - name: org.apache.brooklyn.software-database
-      version: "0.10.0.SNAPSHOT" # BROOKLYN_VERSION
-    itemType: entity
+  # org.apache.brooklyn.software-database
+  - itemType: entity
     items:
     - id: org.apache.brooklyn.entity.database.crate.CrateNode
       item:
@@ -484,10 +464,8 @@ brooklyn.catalog:
         name: MariaDB Node
         description: MariaDB is an open source relational database management system (RDBMS)
 
-  - brooklyn.libraries:
-    - name: org.apache.brooklyn.software-cm-salt
-      version: "0.10.0.SNAPSHOT" # BROOKLYN_VERSION
-    itemType: entity
+  # org.apache.brooklyn.software-cm-salt
+  - itemType: entity
     items:
     - id: org.apache.brooklyn.entity.cm.salt.SaltEntity
       item:
@@ -495,10 +473,8 @@ brooklyn.catalog:
         name: SaltEntity
         description: Software managed by Salt CM
 
-  - brooklyn.libraries:
-    - name: org.apache.brooklyn.software-cm-ansible
-      version: "0.10.0.SNAPSHOT" # BROOKLYN_VERSION
-    itemType: entity
+  # org.apache.brooklyn.software-cm-ansible
+  - itemType: entity
     items:
     - id: org.apache.brooklyn.entity.cm.ansible.AnsibleEntity
       item:
@@ -506,10 +482,8 @@ brooklyn.catalog:
         name: AnsibleEntity
         description: Software managed by Ansible CM
 
-  - brooklyn.libraries:
-    - name: org.apache.brooklyn.test-framework
-      version: "0.10.0.SNAPSHOT" # BROOKLYN_VERSION
-    itemType: entity
+  # org.apache.brooklyn.test-framework
+  - itemType: entity
     items:
     - id: org.apache.brooklyn.test.framework.TestSshCommand
       item:
