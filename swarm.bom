@@ -539,11 +539,15 @@ brooklyn.catalog:
         - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
           brooklyn.config:
             name: swarm.version
+            shell.env:
+              DOCKER_HOST: $brooklyn:attributeWhenReady("swarm.url")
             command: |
               docker info | grep "^Server Version" | sed -e "s/^Server Version: //"
         - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
           brooklyn.config:
             name: swarm.role
+            shell.env:
+              DOCKER_HOST: $brooklyn:attributeWhenReady("swarm.url")
             command: |
               docker info | grep "^Role" | sed -e "s/^Role: //"
 
@@ -555,7 +559,6 @@ brooklyn.catalog:
           SWARM_URL: $brooklyn:attributeWhenReady("swarm.url")
           SWARM_STRATEGY: $brooklyn:config("swarm.strategy")
           SWARM_OVERCOMMIT: $brooklyn:config("swarm.overcommit")
-          DOCKER_HOST: $brooklyn:attributeWhenReady("swarm.url")
 
         post.launch.command: |
           echo "[CLOCKER] Launch Swarm manager"
