@@ -21,7 +21,9 @@ package org.apache.brooklyn.enricher.stock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.math.DoubleMath;
 import com.google.common.reflect.TypeToken;
 
 import org.apache.brooklyn.api.entity.Entity;
@@ -34,7 +36,6 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.render.RendererHints;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.math.MathFunctions;
 
 /**
@@ -45,6 +46,8 @@ import org.apache.brooklyn.util.math.MathFunctions;
 public class PercentageEnricher extends AbstractEnricher implements SensorEventListener<Number> {
 
     private static final Logger LOG = LoggerFactory.getLogger(PercentageEnricher.class);
+
+    private static final double EPSILON = 1e-12d; // For zero comparision
 
     @SuppressWarnings("serial")
     public static final ConfigKey<AttributeSensor<? extends Number>> SOURCE_CURRENT_SENSOR = ConfigKeys.newConfigKey(
@@ -76,16 +79,16 @@ public class PercentageEnricher extends AbstractEnricher implements SensorEventL
     public void setEntity(EntityLocal entity) {
         super.setEntity(entity);
 
-        sourceCurrentSensor = Preconditions.checkNotNull(getConfig(SOURCE_CURRENT_SENSOR), "Can't add Enricher %s to entity %s as it has no %s", JavaClassNames.simpleClassName(this), entity, SOURCE_CURRENT_SENSOR.getName());
-        sourceTotalSensor = Preconditions.checkNotNull(getConfig(SOURCE_TOTAL_SENSOR), "Can't add Enricher %s to entity %s as it has no %s", JavaClassNames.simpleClassName(this), entity, SOURCE_TOTAL_SENSOR.getName());
-        targetSensor = Preconditions.checkNotNull(getConfig(TARGET_SENSOR), "Can't add Enricher %s to entity %s as it has no %s", JavaClassNames.simpleClassName(this), entity, TARGET_SENSOR.getName());
-        producer = getConfig(PRODUCER) == null ? entity : getConfig(PRODUCER);
+        sourceCurrentSensor = Preconditions.checkNotNull(config().get(SOURCE_CURRENT_SENSOR), "Can't add percentage enricher to entity %s as it has no %s", entity, SOURCE_CURRENT_SENSOR.getName());
+        sourceTotalSensor = Preconditions.checkNotNull(config().get(SOURCE_TOTAL_SENSOR), "Can't add percentage enricher to entity %s as it has no %s", entity, SOURCE_TOTAL_SENSOR.getName());
+        targetSensor = Preconditions.checkNotNull(config().get(TARGET_SENSOR), "Can't add percentage enricher to entity %s as it has no %s", entity, TARGET_SENSOR.getName());
+        producer = Objects.firstNonNull(config().get(PRODUCER), entity);
 
         if (targetSensor.equals(sourceCurrentSensor) && entity.equals(producer)) {
-            throw new IllegalArgumentException("Can't add Enricher " + JavaClassNames.simpleClassName(this) + " to entity "+entity+" as cycle detected with " + SOURCE_CURRENT_SENSOR.getName());
+            throw new IllegalArgumentException("Can't add percentage enricher to entity " + entity + " as cycle detected with " + SOURCE_CURRENT_SENSOR.getName());
         }
         if (targetSensor.equals(sourceTotalSensor) && entity.equals(producer)) {
-            throw new IllegalArgumentException("Can't add Enricher " + JavaClassNames.simpleClassName(this) + " to entity "+entity+" as cycle detected with " + SOURCE_TOTAL_SENSOR.getName());
+            throw new IllegalArgumentException("Can't add percentage enricher to entity " + entity + " as cycle detected with " + SOURCE_TOTAL_SENSOR.getName());
         }
 
         subscriptions().subscribe(MutableMap.of("notifyOfInitialValue", true), producer, sourceCurrentSensor, this);
@@ -98,18 +101,27 @@ public class PercentageEnricher extends AbstractEnricher implements SensorEventL
 
     @Override
     public void onEvent(SensorEvent<Number> event) {
-        Number current = Preconditions.checkNotNull(producer.sensors().get(sourceCurrentSensor), "Can't calculate Enricher %s value for entity %s as current from producer %s is null", JavaClassNames.simpleClassName(this), entity, producer);
-        Number total = Preconditions.checkNotNull(producer.sensors().get(sourceTotalSensor),     "Can't calculate Enricher %s value for entity %s as total from producer %s is null", JavaClassNames.simpleClassName(this), entity, producer);
-        Double currentDouble = current.doubleValue();
-        Double totalDouble = total.doubleValue();
-
-        if (totalDouble.compareTo(0d) == 0) {
-            LOG.debug("Can't calculate Enricher ({}) value for entity ({}) as total from producer ({}) is zero", new Object[]{JavaClassNames.simpleClassName(this), entity, producer});
+        Number current = producer.sensors().get(sourceCurrentSensor);
+        if (current == null) {
+            LOG.trace("Can't calculate percentage value for entity {} as current from producer {} is null", entity, producer);
+            return;
+        }
+        Number total = producer.sensors().get(sourceTotalSensor);
+        if (total == null) {
+            LOG.trace("Can't calculate percentage value for entity {} as total from producer {} is null",  entity, producer);
             return;
         }
 
-        if (currentDouble < 0 || totalDouble < 0) {
-            LOG.debug("Can't calculate Enricher ({}) value for entity ({}) as Current ({})  or total ({}) value from producer ({}) is negative, returning", new Object[]{JavaClassNames.simpleClassName(this), entity, currentDouble, totalDouble, producer});
+        Double currentDouble = current.doubleValue();
+        Double totalDouble = total.doubleValue();
+
+        if (DoubleMath.fuzzyEquals(totalDouble, 0d, EPSILON)) {
+            LOG.trace("Can't calculate percentage value for entity {} as total from producer {} is zero", entity, producer);
+            return;
+        }
+        if (currentDouble < 0d || totalDouble < 0d) {
+            LOG.trace("Can't calculate percentage value for entity {} as current ({}) or total ({}) from producer {} is negative",
+                    new Object[] { entity, currentDouble, totalDouble, producer });
             return;
         }
 
