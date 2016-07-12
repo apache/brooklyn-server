@@ -507,7 +507,7 @@ brooklyn.catalog:
         description: Software managed by Ansible CM
 
   - brooklyn.libraries:
-    - name: org.apache.brooklyn.brooklyn-test-framework
+    - name: org.apache.brooklyn.test-framework
       version: "0.10.0.SNAPSHOT" # BROOKLYN_VERSION
     itemType: entity
     items:
