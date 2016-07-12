@@ -182,7 +182,16 @@ public class ConfigYamlTest extends AbstractYamlTest {
         assertEquals(entity.config().get(TestEntity.CONF_SET_PLAIN), ImmutableSet.of("myOther"));
     }
     
-    @Test
+    /**
+     * TODO The {@code entity.config().getNonBlocking()} can return absent. When it's called with 
+     * a deferred supplier value, it will kick off a task and then wait just a few millis for that 
+     * task to execute deferredSupplier.get(). If it times out, then it returns Maybe.absent. 
+     * However, on apache jenkins the machine is often slow so the task doesn't complete in the 
+     * given number of millis (even though deferredSupplier.get() doesn't need to block for anything).
+     * Same for {@link #testDeferredSupplierToAttributeWhenReadyInSpecialTypes()}.
+     * See https://issues.apache.org/jira/browse/BROOKLYN-272.
+     */
+    @Test(groups="Broken")
     public void testDeferredSupplierToAttributeWhenReady() throws Exception {
         String yaml = Joiner.on("\n").join(
                 "services:",
@@ -210,8 +219,16 @@ public class ConfigYamlTest extends AbstractYamlTest {
     /**
      * This tests config keys of type {@link org.apache.brooklyn.core.config.MapConfigKey}, etc.
      * For plain maps, see {@link #testDeferredSupplierToAttributeWhenReadyInPlainCollections()}.
+     * 
+     * TODO The {@code entity.config().getNonBlocking()} can return absent. When it's called with 
+     * a deferred supplier value, it will kick off a task and then wait just a few millis for that 
+     * task to execute deferredSupplier.get(). If it times out, then it returns Maybe.absent. 
+     * However, on apache jenkins the machine is often slow so the task doesn't complete in the 
+     * given number of millis (even though deferredSupplier.get() doesn't need to block for anything).
+     * Same for {@link #testDeferredSupplierToAttributeWhenReady()}.
+     * See https://issues.apache.org/jira/browse/BROOKLYN-272.
      */
-    @Test
+    @Test(groups="Broken")
     public void testDeferredSupplierToAttributeWhenReadyInSpecialTypes() throws Exception {
         String yaml = Joiner.on("\n").join(
                 "services:",
