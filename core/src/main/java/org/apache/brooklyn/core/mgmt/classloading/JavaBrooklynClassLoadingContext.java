@@ -21,13 +21,9 @@ package org.apache.brooklyn.core.mgmt.classloading;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import java.io.IOException;
 import java.net.URL;
-import java.util.Collections;
-import java.util.Enumeration;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.mgmt.persist.DeserializingClassRenamesProvider;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -90,7 +86,7 @@ public class JavaBrooklynClassLoadingContext extends AbstractBrooklynClassLoadin
             return cls;
         }
         try {
-            return (Maybe) Maybe.of(new ClassLoaderUtils(this, mgmt).loadClass(className));
+            return (Maybe) Maybe.of(new ClassLoaderUtils(loader, mgmt).loadClass(className));
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
             // return original error
@@ -133,17 +129,11 @@ public class JavaBrooklynClassLoadingContext extends AbstractBrooklynClassLoadin
 
     @Override
     public URL getResource(String name) {
-        return getClassLoader().getResource(name);
+        return new ClassLoaderUtils(loader).getResource(name);
     }
 
     @Override
     public Iterable<URL> getResources(String name) {
-        Enumeration<URL> resources;
-        try {
-            resources = getClassLoader().getResources(name);
-        } catch (IOException e) {
-            throw Exceptions.propagate(e);
-        }
-        return Collections.list(resources);
+        return new ClassLoaderUtils(loader).getResources(name);
     }
 }

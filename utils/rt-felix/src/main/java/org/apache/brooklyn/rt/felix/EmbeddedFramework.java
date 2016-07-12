@@ -15,6 +15,10 @@
  */
 package org.apache.brooklyn.rt.felix;
 
+import java.io.IOException;
+import java.net.URL;
+import java.util.Enumeration;
+
 import org.apache.brooklyn.util.osgi.SystemFramework;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.launch.Framework;
@@ -49,6 +53,24 @@ public class EmbeddedFramework implements SystemFramework {
             clazz = c;
         }
         return clazz;
+    }
+
+    @Override
+    public <T> URL getResourceFromBundle(String type, Bundle b) {
+        if (EmbeddedFelixFramework.isExtensionBundle(b)) {
+            return getClass().getClassLoader().getResource(type);
+        } else {
+            return b.getResource(type);
+        }
+    }
+
+    @Override
+    public <T> Enumeration<URL> getResourcesFromBundle(String type, Bundle b) throws IOException {
+        if (EmbeddedFelixFramework.isExtensionBundle(b)) {
+            return getClass().getClassLoader().getResources(type);
+        } else {
+            return b.getResources(type);
+        }
     }
 
 }

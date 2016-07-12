@@ -15,6 +15,10 @@
  */
 package org.apache.brooklyn.util.osgi;
 
+import java.io.IOException;
+import java.net.URL;
+import java.util.Enumeration;
+
 import org.osgi.framework.Bundle;
 import org.osgi.framework.launch.Framework;
 
@@ -42,4 +46,18 @@ public interface SystemFramework {
      * requirements for loading classes so the implementation will abstract those.
      */
     public <T> Class<T> loadClassFromBundle(String type, Bundle b) throws ClassNotFoundException;
+
+    /**
+     * Loads a resource from the passed bundle. The embedded environment has some special
+     * requirements for loading resources so the implementation will abstract those.
+     */
+    public <T> URL getResourceFromBundle(String type, Bundle b);
+
+    /**
+     * Loads resources from the passed bundle. The embedded environment has some special
+     * requirements for loading resources so the implementation will abstract those.
+     * As a single bundle is passed the result will contain at most one element, or be null if
+     * none is found.
+     */
+    public <T> Enumeration<URL> getResourcesFromBundle(String type, Bundle b) throws IOException;
 }
