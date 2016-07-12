@@ -401,6 +401,40 @@ brooklyn.catalog:
     item:
       type: docker-engine-with-discovery
 
+      brooklyn.parameters:
+        - name: swarm.port
+          label: Swarm Port
+          description: |
+            The TCP port the Swarm manager listens on
+          type: port
+          default: 3376
+        # TODO fix the way brooklyn.parameters are merged in blueprints
+        - name: docker.port
+          label: Docker Port
+          description: |
+            The TCP port for Docker to listen on
+          type: port
+          default: 2376
+        - name: docker.bindaddress
+          label: Docker Bind Address
+          description: |
+            The network address for Docker to listen on
+          type: string
+          default: 0.0.0.0
+        - name: swarm.recovery.stabilizationDelay
+          label: Stabilization Delay
+          description: |
+            Time period for which the service must be consistently in the same state to trigger an action
+          # A restart shouldn't trigger failure
+          type: org.apache.brooklyn.util.time.Duration
+          default: 5m
+        - name: swarm.recovery.failOnRecurringFailuresInThisDuration
+          label: Fail Duration
+          description: |
+            Reports entity as failed if it fails two or more times in this time window
+          type: org.apache.brooklyn.util.time.Duration
+          default: 15m
+
       brooklyn.policies:
         - type: org.apache.brooklyn.policy.ha.ServiceRestarter
           brooklyn.config:
@@ -496,6 +530,19 @@ brooklyn.catalog:
             The default value is 0.05, or 5 percent
           type: double
           default: 0.05d
+        - name: swarm.recovery.stabilizationDelay
+          label: Stabilization Delay
+          description: |
+            Time period for which the service must be consistently in the same state to trigger an action
+          # A restart shouldn't trigger failure
+          type: org.apache.brooklyn.util.time.Duration
+          default: 5m
+        - name: swarm.recovery.failOnRecurringFailuresInThisDuration
+          label: Fail Duration
+          description: |
+            Reports entity as failed if it fails two or more times in this time window
+          type: org.apache.brooklyn.util.time.Duration
+          default: 15m
 
       brooklyn.policies:
         - type: org.apache.brooklyn.policy.ha.ServiceRestarter
