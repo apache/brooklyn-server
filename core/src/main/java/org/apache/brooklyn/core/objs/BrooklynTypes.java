@@ -19,6 +19,8 @@
 package org.apache.brooklyn.core.objs;
 
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
@@ -33,7 +35,8 @@ import org.apache.brooklyn.core.policy.PolicyDynamicType;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 
-import com.google.common.collect.Maps;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 
 public class BrooklynTypes {
 
@@ -71,37 +74,46 @@ public class BrooklynTypes {
         }
     }
     
+    private static class DefinedBrooklynTypeLoader implements Callable<BrooklynDynamicType<?, ?>> {
+        private Class<?> brooklynClass;
+
+        public DefinedBrooklynTypeLoader(Class<?> type) {
+            this.brooklynClass = type;
+        }
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public BrooklynDynamicType<?, ?> call() throws Exception {
+            if (Entity.class.isAssignableFrom(brooklynClass)) {
+                return new ImmutableEntityType((Class<? extends Entity>)brooklynClass);
+            } else if (Location.class.isAssignableFrom(brooklynClass)) {
+                return new ImmutableEntityType((Class<? extends Entity>)brooklynClass);
+            } else if (Policy.class.isAssignableFrom(brooklynClass)) {
+                return new PolicyDynamicType((Class<? extends Policy>)brooklynClass); // TODO immutable?
+            } else if (Enricher.class.isAssignableFrom(brooklynClass)) {
+                return new EnricherDynamicType((Class<? extends Enricher>)brooklynClass); // TODO immutable?
+            } else {
+                throw new IllegalStateException("Invalid brooklyn type "+brooklynClass);
+            }
+        }
+        
+    }
+    
+    // weakKeys (no softKeys exists) because we need the entry only if there's a loaded class that matches a key;
+    // softKeys for the values because we want them around even if no hard references, until memory needs to be reclaimed;
     @SuppressWarnings("rawtypes")
-    private static final Map<Class,BrooklynDynamicType<?,?>> cache = Maps.newConcurrentMap();
+    private static final Cache<Class,BrooklynDynamicType<?,?>> cache = CacheBuilder.newBuilder().weakKeys().softValues().build();
     
     public static EntityDynamicType getDefinedEntityType(Class<? extends Entity> entityClass) {
         return (EntityDynamicType) BrooklynTypes.getDefinedBrooklynType(entityClass);
     }
 
     public static BrooklynDynamicType<?,?> getDefinedBrooklynType(Class<? extends BrooklynObject> brooklynClass) {
-        BrooklynDynamicType<?,?> t = cache.get(brooklynClass);
-        if (t!=null) return t;
-        return loadDefinedBrooklynType(brooklynClass);
-    }
-
-    @SuppressWarnings("unchecked")
-    private static synchronized BrooklynDynamicType<?,?> loadDefinedBrooklynType(Class<? extends BrooklynObject> brooklynClass) {
-        BrooklynDynamicType<?,?> type = cache.get(brooklynClass);
-        if (type != null) return type;
-        
-        if (Entity.class.isAssignableFrom(brooklynClass)) {
-            type = new ImmutableEntityType((Class<? extends Entity>)brooklynClass);
-        } else if (Location.class.isAssignableFrom(brooklynClass)) {
-            type = new ImmutableEntityType((Class<? extends Entity>)brooklynClass);
-        } else if (Policy.class.isAssignableFrom(brooklynClass)) {
-            type = new PolicyDynamicType((Class<? extends Policy>)brooklynClass); // TODO immutable?
-        } else if (Enricher.class.isAssignableFrom(brooklynClass)) {
-            type = new EnricherDynamicType((Class<? extends Enricher>)brooklynClass); // TODO immutable?
-        } else {
-            throw new IllegalStateException("Invalid brooklyn type "+brooklynClass);
+        try {
+            return cache.get(brooklynClass, new DefinedBrooklynTypeLoader(brooklynClass));
+        } catch (ExecutionException e) {
+            throw Exceptions.propagate(e);
         }
-        cache.put(brooklynClass, type);
-        return type;
     }
 
     public static Map<String, ConfigKey<?>> getDefinedConfigKeys(Class<? extends BrooklynObject> brooklynClass) {
@@ -129,4 +141,5 @@ public class BrooklynTypes {
             throw Exceptions.propagate(e);
         }
     }
+
 }
