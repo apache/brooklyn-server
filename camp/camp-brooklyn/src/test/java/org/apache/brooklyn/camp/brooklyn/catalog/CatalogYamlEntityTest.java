@@ -32,6 +32,7 @@ import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
+import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
@@ -890,6 +891,76 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         assertEquals(spec.getCatalogItemId(), ver(symbolicName));
 
         deleteCatalogEntity(symbolicName);
+    }
+
+    @Test
+    public void testIndirectCatalogItemCanLoadResources() throws Exception {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
+
+        String symbolicNameInner = "my.catalog.app.id.inner";
+        String symbolicNameOuter = "my.catalog.app.id.outer";
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  version: " + TEST_VERSION,
+            "  items:",
+            "  - id: " + symbolicNameInner,
+            "    name: My Catalog App",
+            "    description: My description",
+            "    icon_url: classpath://path/to/myicon.jpg",
+            "    libraries:",
+            "    - url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
+            "    item: " + SIMPLE_ENTITY_TYPE,
+            "  - id: " + symbolicNameOuter,
+            "    item: " + symbolicNameInner);
+
+        String yaml = "name: " + symbolicNameOuter + "\n" +
+                "services: \n" +
+                "  - serviceType: "+ver(symbolicNameOuter);
+        Entity app = createAndStartApplication(yaml);
+        Entity entity = app.getChildren().iterator().next();
+
+        ResourceUtils.create(entity).getResourceAsString("classpath://yaml-ref-osgi-entity.yaml");
+
+        deleteCatalogEntity(symbolicNameInner);
+        deleteCatalogEntity(symbolicNameOuter);
+    }
+
+    // The test is disabled as it fails. The entity will get assigned the outer-most catalog
+    // item which doesn't have the necessary libraries with visibility to the entity's classpath
+    // When loading resources from inside the entity then we will use the wrong BCLCS. A workaround
+    // has been implemented which explicitly adds the entity's class loader to the fallbacks.
+    @Test(groups="WIP")
+    public void testCatalogItemIdInReferencedItems() throws Exception {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
+
+        String symbolicNameInner = "my.catalog.app.id.inner";
+        String symbolicNameOuter = "my.catalog.app.id.outer";
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  version: " + TEST_VERSION,
+            "  items:",
+            "  - id: " + symbolicNameInner,
+            "    name: My Catalog App",
+            "    description: My description",
+            "    icon_url: classpath://path/to/myicon.jpg",
+            "    libraries:",
+            "    - url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
+            "    item: " + SIMPLE_ENTITY_TYPE,
+            "  - id: " + symbolicNameOuter,
+            "    item: " + symbolicNameInner);
+
+        String yaml = "name: " + symbolicNameOuter + "\n" +
+                "services: \n" +
+                "  - serviceType: "+ver(symbolicNameOuter);
+
+        Entity app = createAndStartApplication(yaml);
+        Entity entity = app.getChildren().iterator().next();
+
+        // Fails
+        assertEquals(entity.getCatalogItemId(), ver(symbolicNameInner));
+
+        deleteCatalogEntity(symbolicNameInner);
+        deleteCatalogEntity(symbolicNameOuter);
     }
 
     private void registerAndLaunchAndAssertSimpleEntity(String symbolicName, String serviceType) throws Exception {
