@@ -76,7 +76,7 @@ brooklyn.catalog:
         - type: org.apache.brooklyn.enricher.stock.Propagator
           brooklyn.config:
             uniqueTag: swarm-url-propagator
-            producer: $brooklyn:child("swarm-cluster")
+            producer: $brooklyn:entity("docker-swarm-managers")
             propagating:
               - $brooklyn:sensor("swarm.url")
 

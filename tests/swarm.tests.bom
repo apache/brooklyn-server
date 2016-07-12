@@ -332,17 +332,45 @@ brooklyn.catalog:
           sensor: group.members.count
           assert:
             equals: 3
-        - type: ssh-test
+        - type: test-stop-machine
           name: "TEST-11-2 Kill one node"
-          brooklyn.config:
-            command: |
-              echo "[TEST] Kill node"
+          target: $brooklyn:entity("docker-swarm-managers").attributeWhenReady("cluster.first.entity")
+        - type: sensor-test
+          name: "TEST-11-3 Size of manager cluster now 2"
+          targetId: docker-swarm-managers
+          sensor: group.members.count
+          assert:
+            equals: 2
         - type: ssh-test
-          name: "TEST-11-3 Can still connect"
+          name: "TEST-11-4 Can still connect"
           timeout: 20m
+          targetId: swarm-client
           brooklyn.config:
             command: |
-              echo "[TEST] Connect"
+              docker run hello-world
+            assertStatus:
+              equals: 0
+        - type: ssh-test
+          name: "TEST-11-5 Check load balancer"
+          timeout: 20m
+          targetId: swarm-client
+          brooklyn.config:
+            shell.env:
+              NGINX_URL:
+                $brooklyn:entity("swarm-manager-load-balancer").attributeWhenReady("main.uri")
+              CERT_PATH:
+                $brooklyn:formatString:
+                  - "%s/.certs"
+                  - $brooklyn:entity("swarm-client").attributeWhenReady("install.dir")
+            command: |
+              curl --cacert "${CERT_PATH}/ca.pem" \
+                --cert "${CERT_PATH}/cert.pem" \
+                --key "${CERT_PATH}/key.pem" \
+                ${NGINX_URL}/_ping
+            assertStatus:
+              equals: 0
+            assertOut:
+              contains: "pong"
 
   - id: docker-swarm-tests
     name: Docker Swarm Tests
@@ -355,7 +383,7 @@ brooklyn.catalog:
       brooklyn.config:
         swarm.initial.size: 2
         swarm.manager.size: 3
-        etcd.initial.size: 2
+        etcd.initial.size: 3
         swarm.max.size: 5
         swarm.scaling.cpu.limit: 0.95
         swarm.defaultnetwork: "brooklyn"
@@ -364,15 +392,17 @@ brooklyn.catalog:
         swarm.recovery.failOnRecurringFailuresInThisDuration: 5m
 
       brooklyn.children:
-        # The swarm to test
         - type: docker-swarm
           id: swarm
           name: "swarm"
+          description: |
+            The swarm to test
 
-        # A client for talking to the swarm
         - type: test-docker-client-with-tls
           id: swarm-client
           name: "swarm-client"
+          description: |
+            A client for talking to the swarm
           brooklyn.config:
             customize.latch: $brooklyn:entity("swarm").attributeWhenReady("service.isUp")
             client.address: $brooklyn:attributeWhenReady("host.address")
@@ -380,41 +410,44 @@ brooklyn.catalog:
             docker.url: $brooklyn:entity("swarm").attributeWhenReady("swarm.url")
 
         - type: test-case
-          name: "TEST-01 Swarm entity tests"
-          brooklyn.config:
-            targetId: swarm
+          name: "swarm-test-suite"
           brooklyn.children:
-            - type: assert-up
-              name: "TEST-01 Assert up"
-            - type: assert-running
-              name: "TEST-02 Assert running"
-
-        - type: test-case
-          name: "TEST-03 Swarm client tests"
-          brooklyn.config:
-            targetId: swarm-client
-            start.latch: $brooklyn:entity("swarm-client").attributeWhenReady("service.isUp")
-          brooklyn.children:
-            - type: test-connect-fails-without-tls
-              name: "TEST-03 Test connect fails without TLS"
-            # Run the docker tests against the swarm
-            - type: docker-engine-test
-              name: "TEST-04 Test Swarm over TLS"
-            - type: test-docker-run-pulls
-              name: "TEST-05 Test docker run pulls"
-            - type: test-swarm-networking
-              name: "TEST-06 Test Swarm networking"
+            - type: test-case
+              name: "GROUP-1 Test Swarm entity"
               brooklyn.config:
-                network.name: $brooklyn:component("swarm").config("swarm.defaultnetwork")
-            - type: test-swarm-scale-up
-              name: "TEST-07 Test Swarm scale up"
-            - type: test-swarm-etcd-tls
-              name: "TEST-08 Test Swarm etcd TLS"
+                targetId: swarm
+              brooklyn.children:
+                - type: assert-up
+                  name: "TEST-01 Assert up"
+                - type: assert-running
+                  name: "TEST-02 Assert running"
+            - type: test-case
+              name: "GROUP-2 Test Swarm client"
               brooklyn.config:
-                ca.url: $brooklyn:entity("ca-server").attributeWhenReady("main.uri")
-            - type: test-swarm-node-restart
-              name: "TEST-9 Test Swarm node restart"
-            - type: swarm-node-replacement-test
-              name: "TEST-10 Test Swarm node replace"
-            - type: test-swarm-manager-failover
-              name: "TEST-11 Test Swarm failover"
+                targetId: swarm-client
+                start.latch: $brooklyn:entity("swarm-client").attributeWhenReady("service.isUp")
+              brooklyn.children:
+                - type: test-connect-fails-without-tls
+                  name: "TEST-03 Test connect fails without TLS"
+                - type: docker-engine-test
+                  name: "TEST-04 Test Swarm over TLS"
+                  description: |
+                    Runs the docker tests against the swarm
+                - type: test-docker-run-pulls
+                  name: "TEST-05 Test docker run pulls"
+                - type: test-swarm-networking
+                  name: "TEST-06 Test Swarm networking"
+                  brooklyn.config:
+                    network.name: $brooklyn:component("swarm").config("swarm.defaultnetwork")
+                - type: test-swarm-scale-up
+                  name: "TEST-07 Test Swarm scale up"
+                - type: test-swarm-etcd-tls
+                  name: "TEST-08 Test Swarm etcd TLS"
+                  brooklyn.config:
+                    ca.url: $brooklyn:entity("ca-server").attributeWhenReady("main.uri")
+                - type: test-swarm-node-restart
+                  name: "TEST-09 Test Swarm node restart"
+                - type: swarm-node-replacement-test
+                  name: "TEST-10 Test Swarm node replace"
+                - type: test-swarm-manager-failover
+                  name: "TEST-11 Test Swarm failover"
