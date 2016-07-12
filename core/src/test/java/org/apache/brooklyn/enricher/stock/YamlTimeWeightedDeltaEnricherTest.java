@@ -24,19 +24,14 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.SubscriptionContext;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
-import org.apache.brooklyn.core.entity.AbstractApplication;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
 import org.apache.brooklyn.core.sensor.BasicSensorEvent;
-import org.apache.brooklyn.enricher.stock.YamlTimeWeightedDeltaEnricher;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.entity.stock.BasicEntity;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class YamlTimeWeightedDeltaEnricherTest {
-    
-    AbstractApplication app;
+public class YamlTimeWeightedDeltaEnricherTest extends BrooklynAppUnitTestSupport {
     
     BasicEntity producer;
 
@@ -44,22 +39,33 @@ public class YamlTimeWeightedDeltaEnricherTest {
     AttributeSensor<Double> avgSensor, deltaSensor;
     SubscriptionContext subscription;
     
-    @BeforeMethod
-    public void before() {
-        app = new AbstractApplication() {};
-        Entities.startManagement(app);
+    @BeforeMethod(alwaysRun=true)
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
         producer = app.addChild(EntitySpec.create(BasicEntity.class));
 
         intSensor = new BasicAttributeSensor<Integer>(Integer.class, "int sensor");
         deltaSensor = new BasicAttributeSensor<Double>(Double.class, "delta sensor");
     }
 
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        if (app != null) Entities.destroyAll(app.getManagementContext());
-    }
-    
-    @Test
+    /**
+     * TODO BROOKLYN-272, Disabled, because fails non-deterministically in jenkins (e.g. brooklyn-server-pull-requests # 732)
+     * 
+     * The problem is that the enricher's subscription uses "notifyOfInitialValue", 
+     * so another thread will execute with that value. If the other thread executes after we've 
+     * done onEvent(2000), but before we do the assertion, then the test will fail (because the 
+     * other thread will have set the sensor's initial value to null).
+     * 
+     * This is just an issue with the way we've written the test, rather than for production
+     * usage. In production, all events would go to the enricher sequentially.
+     * 
+     * We wrote the test like this because we want to inject specific timestamps.
+     * We *could* refactor LocalSubscriptionManager to be configured with a 
+     * {@link com.google.common.base.Ticker} that we can explicitly supply and configure.
+     * That's a bigger change than I'd like to make right at this moment!
+     */
+    @Test(groups={"Broken"})
     public void testMonospaceTimeWeightedDeltaEnricher() {
         @SuppressWarnings("unchecked")
         YamlTimeWeightedDeltaEnricher<Integer> delta = producer.enrichers().add(EnricherSpec.create(YamlTimeWeightedDeltaEnricher.class)
