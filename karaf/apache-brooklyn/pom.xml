@@ -128,7 +128,6 @@
             <bootFeature>brooklyn-jsgui</bootFeature>
             <bootFeature>brooklyn-rest-resources</bootFeature>
             <bootFeature>brooklyn-commands</bootFeature>
-            <bootFeature>brooklyn-commands</bootFeature>
           </bootFeatures>
         </configuration>
       </plugin>
