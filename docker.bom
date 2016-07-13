@@ -186,6 +186,11 @@ brooklyn.catalog:
           description: |
             Optional URL for the CA certificate
           type: string
+        - name: ca.cert
+          label: CA Certificate
+          description: |
+            Optional CA certificate data
+          type: string
         - name: node.cert.url
           label: Node Certificate URL
           description: |
@@ -264,6 +269,7 @@ brooklyn.catalog:
         docker.additionaloptions: $brooklyn:config("docker.additionaloptions.docker-engine-tls")
         shell.env:
           CA_REQUEST_ROOT_URL: $brooklyn:config("ca.request.root.url")
+          CA_CERT: $brooklyn:config("ca.cert")
           CA_CERT_URL: $brooklyn:config("ca.cert.url")
           NODE_CERT_URL: $brooklyn:config("node.cert.url")
           PRIV_KEY_URL: $brooklyn:config("private.key.url")
@@ -287,7 +293,7 @@ brooklyn.catalog:
           mkdir -p ${DOCKER_CERT_PATH}
 
           if [ "${CA_REQUEST_ROOT_URL}" ] ; then
-            #echo "$CA_CERTIFICATE" >  ${DOCKER_CERT_PATH}/ca.pem # commented out until after we get back to this.
+            #echo "$CA_CERT" >  ${DOCKER_CERT_PATH}/ca.pem # commented out until after we get back to this.
             getcert ${CA_REQUEST_ROOT_URL}/cacert/ca.pem ${DOCKER_CERT_PATH}/ca.pem
 
             generate_key ${DOCKER_CERT_PATH}/key.pem

@@ -61,8 +61,8 @@ brooklyn.catalog:
           INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
           NODE_PATH:
             $brooklyn:formatString:
-            - "%s/node_modules"
-            - $brooklyn:attributeWhenReady("install.dir")
+              - "%s/node_modules"
+              - $brooklyn:attributeWhenReady("install.dir")
 
         install.command: |
           echo "[CLOCKER] Install OpenSSL"
@@ -107,7 +107,6 @@ brooklyn.catalog:
           }
           EOF
 
-
           cat > sign_cert.sh <<-'EOF'
           #!/usr/bin/env bash
           source functions.sh
@@ -135,7 +134,7 @@ brooklyn.catalog:
           var express = require('express');
           const spawn = require('child_process').spawn;
 
-          const PORT=8080;
+          const PORT=${CA_SERVER_PORT};
 
           var server = express();
           server.use('/cacert', express.static('cacert'));
@@ -167,7 +166,7 @@ brooklyn.catalog:
       brooklyn.initializers:
         - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
           brooklyn.config:
-            name: CA_CERT
+            name: ca.cert
             description: |
               Present the CA certificate for the ca-server
             command: |
