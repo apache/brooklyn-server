@@ -32,6 +32,7 @@ import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.catalog.internal.CatalogBundleDto;
 import org.apache.brooklyn.core.catalog.internal.CatalogEntityItemDto;
 import org.apache.brooklyn.core.catalog.internal.CatalogItemBuilder;
@@ -52,7 +53,9 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.maven.MavenArtifact;
 import org.apache.brooklyn.util.maven.MavenRetriever;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
+import org.apache.brooklyn.util.osgi.OsgiUtils;
 import org.osgi.framework.Bundle;
+import org.osgi.framework.Version;
 import org.osgi.framework.launch.Framework;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -203,6 +206,27 @@ public class ClassLoaderUtilsTest {
         
         String classname = bundleName + ":" + ImmutableList.class.getName();
         assertLoadSucceeds(clu, classname, ImmutableList.class);
+    }
+    
+    @Test
+    public void testLoadBrooklynClass() throws Exception {
+        mgmt = LocalManagementContextForTests.builder(true).disableOsgi(false).build();
+        new ClassLoaderUtils(this, mgmt).loadClass(
+                "org.apache.brooklyn.api",
+                BrooklynVersion.get(),
+                Entity.class.getName());
+        new ClassLoaderUtils(this, mgmt).loadClass(
+                "org.apache.brooklyn.api",
+                OsgiUtils.toOsgiVersion(BrooklynVersion.get()),
+                Entity.class.getName());
+        new ClassLoaderUtils(this, mgmt).loadClass(
+                "org.apache.brooklyn.api",
+                "0.10.0-SNAPSHOT",
+                Entity.class.getName());
+        new ClassLoaderUtils(this, mgmt).loadClass(
+                "org.apache.brooklyn.api",
+                "0.10.0.SNAPSHOT",
+                Entity.class.getName());
     }
     
     private Bundle installBundle(ManagementContext mgmt, String bundleUrl) throws Exception {
