@@ -153,27 +153,25 @@ brooklyn.catalog:
   - id: test-swarm-etcd-tls
     item:
       type: ssh-test
-      name: "TEST-08-1 Swarm Etcd uses swarm"
-      brooklyn.parameters:
-        - name: ca.url
-          description: URL of the CA server
+      name: "TEST-08-1 Swarm Etcd uses TLS"
       brooklyn.config:
         shell.env:
-          DISCOVERY_URL: $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.authority")
+          ETCD_ENDPOINT_LIST: $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.endpoint")
           CERT_PATH:
             $brooklyn:formatString:
             - "%s/.certs"
             - $brooklyn:entity("swarm-client").attributeWhenReady("install.dir")
         command: |
           set -e
-          URL=${DISCOVERY_URL#etcd://}
-          ! curl https://${URL}/version --fail
-          ! curl http://${URL}/version --fail
-          curl --cacert "${CERT_PATH}/ca.pem" \
-            --cert "${CERT_PATH}/cert.pem" \
-            --key "${CERT_PATH}/key.pem" \
-            --fail \
-            https://${URL}/version
+          for endpoint in ${ETCD_ENDPOINT_LIST//,/ } ; do
+            ! curl https://${endpoint}/version --fail
+            ! curl http://${endpoint}/version --fail
+            curl --cacert "${CERT_PATH}/ca.pem" \
+              --cert "${CERT_PATH}/cert.pem" \
+              --key "${CERT_PATH}/key.pem" \
+              --fail \
+              https://${endpoint}/version
+          done
 
   - id: test-swarm-restart
     item:
