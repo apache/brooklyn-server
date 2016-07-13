@@ -46,6 +46,7 @@
             <Fragment-Host>org.ops4j.pax.web.pax-web-jetty</Fragment-Host>
             <Import-Package>
                 org.eclipse.jetty.jaas,
+                org.eclipse.jetty.security,
                 org.apache.brooklyn.rest.security.jaas,
                 *
             </Import-Package>

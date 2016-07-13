@@ -222,6 +222,7 @@
                     <instructions>
                         <Import-Package>
                             org.apache.karaf.jaas.config,
+                            org.eclipse.jetty.jaas,
                             *
                         </Import-Package>
                     </instructions>
