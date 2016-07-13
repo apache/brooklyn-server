@@ -25,8 +25,6 @@ import org.apache.brooklyn.util.core.flags.SetFromFlag;
 
 /**
  * Entity that tests a sensor value on another entity
- *
- * @author m4rkmckenna
  */
 @ImplementedBy(value = TestSensorImpl.class)
 public interface TestSensor extends BaseTest {

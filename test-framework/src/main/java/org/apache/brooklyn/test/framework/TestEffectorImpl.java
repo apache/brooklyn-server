@@ -43,9 +43,6 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
 
-/**
- *
- */
 public class TestEffectorImpl extends TargetableTestComponentImpl implements TestEffector {
     private static final Logger LOG = LoggerFactory.getLogger(TestEffectorImpl.class);
 

@@ -58,14 +58,24 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
     private final DslComponent scopeComponent;
     private final Scope scope;
 
+    /**
+     * Resolve componentId in the {@link Scope#GLOBAL} scope.
+     */
     public DslComponent(String componentId) {
         this(Scope.GLOBAL, componentId);
     }
-    
+
+    /**
+     * Resolve componentId in scope relative to the current
+     * {@link BrooklynTaskTags#getTargetOrContextEntity) target or context} entity.
+     */
     public DslComponent(Scope scope, String componentId) {
         this(null, scope, componentId);
     }
-    
+
+    /**
+     * Resolve componentId in scope relative to scopeComponent.
+     */
     public DslComponent(DslComponent scopeComponent, Scope scope, String componentId) {
         Preconditions.checkNotNull(scope, "scope");
         this.scopeComponent = scopeComponent;

@@ -28,8 +28,6 @@ import org.apache.brooklyn.util.time.Duration;
 
 /**
  * Entity that can target another entity for the purpouse of testing
- *
- * @author m4rkmckenna
  */
 @ImplementedBy(value = TargetableTestComponentImpl.class)
 public interface TargetableTestComponent extends Entity, Startable {

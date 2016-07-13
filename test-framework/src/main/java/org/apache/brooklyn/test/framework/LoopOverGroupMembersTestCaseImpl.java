@@ -35,9 +35,6 @@ import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 
-/**
- * Created by graememiller on 11/12/2015.
- */
 public class LoopOverGroupMembersTestCaseImpl extends TargetableTestComponentImpl implements LoopOverGroupMembersTestCase {
 
     private static final Logger logger = LoggerFactory.getLogger(LoopOverGroupMembersTestCaseImpl.class);
@@ -78,7 +75,12 @@ public class LoopOverGroupMembersTestCaseImpl extends TargetableTestComponentImp
             try {
                 TargetableTestComponent targetableTestComponent = this.addChild(testSpecCopy);
                 targetableTestComponent.start(locations);
-                logger.debug("Task of {} successfully run, targetting {}", this, member);
+                if (Lifecycle.RUNNING.equals(targetableTestComponent.sensors().get(Attributes.SERVICE_STATE_ACTUAL))) {
+                    logger.debug("Task of {} successfully run, targetting {}", this, member);
+                } else {
+                    logger.warn("Problem in child test-case of {}, targetting {}", this, member);
+                    allSuccesful = false;
+                }
             } catch (Throwable t) {
                 Exceptions.propagateIfFatal(t);
                 logger.warn("Problem in child test-case of "+this+", targetting "+member, t);

@@ -22,8 +22,6 @@ import org.apache.brooklyn.api.entity.ImplementedBy;
 
 /**
  * This implementation will start all child entities in parallel.
- *
- * @author Chris Burke
  */
 @ImplementedBy(value = ParallelTestCaseImpl.class)
 public interface ParallelTestCase extends TargetableTestComponent {

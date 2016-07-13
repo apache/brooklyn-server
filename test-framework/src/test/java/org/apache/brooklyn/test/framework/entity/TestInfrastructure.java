@@ -22,10 +22,6 @@ package org.apache.brooklyn.test.framework.entity;
 import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 
-/**
- * Created by graememiller on 17/12/2015.
- */
-
 @ImplementedBy(TestInfrastructureImpl.class)
 public interface TestInfrastructure extends BasicApplication {
 }

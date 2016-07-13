@@ -19,16 +19,11 @@
 
 package org.apache.brooklyn.test.framework.entity;
 
-import org.apache.brooklyn.api.location.Location;
-import org.apache.brooklyn.core.annotation.EffectorParam;
-import org.apache.brooklyn.core.entity.AbstractEntity;
-import org.apache.brooklyn.test.framework.entity.TestEntity;
-
 import java.util.Collection;
 
-/**
- * @author m4rkmckenna on 27/10/2015.
- */
+import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.core.entity.AbstractEntity;
+
 public class TestEntityImpl extends AbstractEntity implements TestEntity {
     @Override
     public void start(final Collection<? extends Location> locations) {
@@ -49,7 +44,7 @@ public class TestEntityImpl extends AbstractEntity implements TestEntity {
     }
 
     @Override
-    public TestPojo complexEffector(@EffectorParam(name = "stringValue") final String stringValue, @EffectorParam(name = "booleanValue") final Boolean booleanValue, @EffectorParam(name = "longValue") final Long longValue) {
+    public TestPojo complexEffector(final String stringValue, final Boolean booleanValue, final Long longValue) {
         sensors().set(COMPLEX_EFFECTOR_INVOKED, Boolean.TRUE);
         sensors().set(COMPLEX_EFFECTOR_STRING, stringValue);
         sensors().set(COMPLEX_EFFECTOR_BOOLEAN, booleanValue);
@@ -58,7 +53,7 @@ public class TestEntityImpl extends AbstractEntity implements TestEntity {
     }
 
     @Override
-    public String effectorReturnsString(@EffectorParam(name = "stringToReturn") String stringToReturn) {
+    public String effectorReturnsString(String stringToReturn) {
         return stringToReturn;
     }
 }

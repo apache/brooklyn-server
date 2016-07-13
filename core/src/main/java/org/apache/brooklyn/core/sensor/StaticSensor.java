@@ -83,15 +83,15 @@ public class StaticSensor<T> extends AddSensor<T> {
             public T call() throws Exception {
                 Maybe<T> v = resolveValue.get();
                 if (!v.isPresent()) {
-                    log.debug(this+" not setting sensor "+sensor+"; cannot resolve "+value+" after timeout " + timeout);
+                    log.debug(this+" not setting sensor "+sensor+" on "+entity+"; cannot resolve "+value+" after timeout " + timeout);
                     return null;
                 }
-                log.debug(this+" setting sensor "+sensor+" to "+v.get());
+                log.debug(this+" setting sensor "+sensor+" to "+v.get()+" on "+entity);
                 return entity.sensors().set(sensor, v.get());
             }
         }
-        Task<T> setValue = Tasks.<T>builder().displayName("setting " + sensor).body(new SetValue()).build();
+        Task<T> setValue = Tasks.<T>builder().displayName("Setting " + sensor + " on " + entity).body(new SetValue()).build();
 
-        Entities.submit(entity, Tasks.sequential("resolving and setting " + sensor, resolveValue, setValue));
+        Entities.submit(entity, Tasks.sequential("Resolving and setting " + sensor + " on " + entity, resolveValue, setValue));
     }
 }

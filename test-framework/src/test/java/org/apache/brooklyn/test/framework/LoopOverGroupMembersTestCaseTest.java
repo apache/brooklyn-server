@@ -47,12 +47,8 @@ import org.apache.brooklyn.entity.group.DynamicGroup;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.util.collections.MutableSet;
-import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Identifiers;
 
-/**
- * @author Graeme Miller on 27/10/2015.
- */
 public class LoopOverGroupMembersTestCaseTest {
 
     private TestApplication app;
