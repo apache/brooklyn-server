@@ -38,6 +38,7 @@ import org.apache.brooklyn.util.core.LoaderDispatcher.ResourceLoaderDispatcher;
 import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.osgi.OsgiUtils;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.FrameworkUtil;
@@ -61,7 +62,7 @@ public class ClassLoaderUtils {
      */
     static final String WHITE_LIST_KEY = "org.apache.brooklyn.classloader.fallback.bundles";
     static final String CLASS_NAME_DELIMITER = ":";
-    private static final String WHITE_LIST_DEFAULT = "org\\.apache\\.brooklyn\\..*:" + BrooklynVersion.get().replaceFirst("-", ".");
+    private static final String WHITE_LIST_DEFAULT = "org\\.apache\\.brooklyn\\..*:" + OsgiUtils.toOsgiVersion(BrooklynVersion.get());
 
     // Class.forName gets the class loader from the calling class.
     // We don't have access to the same reflection API so need to pass it explicitly.
@@ -268,15 +269,8 @@ public class ClassLoaderUtils {
         if (framework != null) {
             Maybe<Bundle> bundle = Osgis.bundleFinder(framework)
                 .symbolicName(symbolicName)
-                .version(version)
+                .version(OsgiUtils.toOsgiVersion(version))
                 .find();
-            if (bundle.isAbsent() && version != null) {
-                bundle = Osgis.bundleFinder(framework)
-                    .symbolicName(symbolicName)
-                    // Convert X.X.X-SNAPSHOT to X.X.X.SNAPSHOT. Any better way to do it?
-                    .version(version.replace("-", "."))
-                    .find();
-            }
             if (bundle.isAbsent()) {
                 throw new IllegalStateException("Bundle " + toBundleString(symbolicName, version) + " not found to load " + name);
             }
