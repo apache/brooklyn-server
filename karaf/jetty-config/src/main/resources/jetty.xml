@@ -56,6 +56,9 @@
                         <Item>org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule$RolePrincipal</Item>
                     </Array>
                 </Set>
+                <Set name="identityService">
+                    <New class="org.eclipse.jetty.security.DefaultIdentityService"/>
+                </Set>
             </New>
         </Arg>
     </Call>
