@@ -218,24 +218,19 @@ brooklyn.catalog:
         - name: swarm.recovery.failOnRecurringFailuresInThisDuration
           label: Fail Duration
           description: |
-          type: org.apache.brooklyn.util.time.Duration
             Reports entity as failed if it fails two or more times in this time window
+          type: org.apache.brooklyn.util.time.Duration
           default: 10m
-
-      brooklyn.enrichers:
-        - type: org.apache.brooklyn.enricher.stock.Transformer
-          brooklyn.config:
-            uniqueTag: swarm-url-publisher
-            enricher.producer: $brooklyn:entity("swarm-manager")
-            enricher.triggerSensors:
-            - host.address
-            - swarm.port
-            enricher.targetSensor: $brooklyn:sensor("swarm.url")
-            enricher.targetValue:
-              $brooklyn:formatString:
-              - "tcp://%s:%d"
-              - $brooklyn:entity("swarm-manager").attributeWhenReady("host.address")
-              - $brooklyn:entity("swarm-manager").attributeWhenReady("swarm.port")
+        - name: swarm.minCores
+          label: Swarm Minimum CPU Cores
+          description: |
+            Minimum CPU cores for provisioning Swarm nodes
+          default: 4
+        - name: swarm.minRam
+          label: Swarm Minimum RAM
+          description: |
+            Minimum RAM for provisioning Swarm nodes
+          default: 8g
 
       brooklyn.children:
         - type: load-balancer
@@ -346,6 +341,11 @@ brooklyn.catalog:
                 transformation: average
           brooklyn.config:
             cluster.initial.size: $brooklyn:config("swarm.initial.size")
+            # FIXME location cannot resolve provisioning.properties entries
+            #provisioning.properties.minRam:
+            #  $brooklyn:parent().config("swarm.minRam")
+            #provisioning.properties.minCores:
+            #  $brooklyn:parent().config("swarm.minCores")
             dynamiccluster.quarantineFailedEntities:
               $brooklyn:parent().config("swarm.recovery.quarantineFailedEntities")
             dynamiccluster.firstmemberspec:
@@ -453,9 +453,6 @@ brooklyn.catalog:
               $brooklyn:config("swarm.recovery.stabilizationDelay")
 
       brooklyn.config:
-        provisioning.properties:
-          $brooklyn:config("swarm.provisioning.properties")
-
         shell.env:
           SWARM_DISCOVERY_URL: $brooklyn:config("swarm.discovery.url")
           HOST_ADDRESS: $brooklyn:attributeWhenReady("host.address")

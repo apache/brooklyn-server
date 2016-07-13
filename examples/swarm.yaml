@@ -25,8 +25,8 @@ services:
     id: swarm
     name: "swarm"
     brooklyn.config:
-      swarm.initial.size: 3
-      swarm.max.size: 5
+      swarm.initial.size: 8
+      swarm.max.size: 16
       swarm.manager.size: 3
       etcd.initial.size: 3
       swarm.port: 4000
@@ -36,9 +36,8 @@ services:
       swarm.overcommit: 0.50
       swarm.recovery.stabilizationDelay: 10s
       swarm.recovery.failOnRecurringFailuresInThisDuration: 5m
-    swarm.provisioning.properties:
-      minRam: 32g
-      minCores: 4
-    provisioning.properties:
-      minRam: 4g
-      minCores: 2
+      swarm.minRam: 32g
+      swarm.minCores: 4
+      provisioning.properties:
+        minRam: 2g
+        minCores: 1

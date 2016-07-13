@@ -76,9 +76,7 @@ services:
     swarm.overcommit: 0.50
     swarm.recovery.stabilizationDelay: 10s
     swarm.recovery.failOnRecurringFailuresInThisDuration: 5m
-    swarm.provisioning.properties:
-      minRam: 32g
-      minCores: 4
+    swarm.minRam: 32g
     provisioning.properties:
       minRam: 4g
       minCores: 2
