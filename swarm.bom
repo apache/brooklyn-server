@@ -76,9 +76,15 @@ brooklyn.catalog:
         - type: org.apache.brooklyn.enricher.stock.Propagator
           brooklyn.config:
             uniqueTag: swarm-url-propagator
-            producer: $brooklyn:entity("docker-swarm-managers")
+            producer: $brooklyn:entity("swarm-manager-load-balancer")
             propagating:
               - $brooklyn:sensor("swarm.url")
+        - type: org.apache.brooklyn.enricher.stock.Propagator
+          brooklyn.config:
+            uniqueTag: swarm-main-uri-propagator
+            sensorMapping:
+              $brooklyn:sensor("swarm.url"):
+                $brooklyn:sensor("org.apache.brooklyn.core.entity.Attributes", "main.uri")
 
       brooklyn.children:
         - type: ca-server
@@ -252,12 +258,12 @@ brooklyn.catalog:
               source ${INSTALL_DIR}/certificate-functions.sh
 
               mkdir -p ${RUN_DIR}/conf
-              getcert ${CA_REQUEST_ROOT_URL}/cacert/ca.pem ${INSTALL_DIR}/ca.pem
-              generate_key ${RUN_DIR}/conf/${ENTITY_ID}.key
+              getcert ${CA_REQUEST_ROOT_URL}/cacert/ca.pem ${RUN_DIR}/conf/${ENTITY_ID}.ca.pem
+              generate_key ${RUN_DIR}/conf/${ENTITY_ID}.key.pem
               generate_conf ${INSTALL_DIR}/csr.cnf ${HOST_ADDRESS} ${SUBNET_ADDRESS}
-              generate_csr ${INSTALL_DIR}/csr.cnf ${RUN_DIR}/conf/${ENTITY_ID}.key ${INSTALL_DIR}/csr.pem
+              generate_csr ${INSTALL_DIR}/csr.cnf ${RUN_DIR}/conf/${ENTITY_ID}.key.pem ${INSTALL_DIR}/csr.pem
 
-              curl -X POST --data-binary @${INSTALL_DIR}/csr.pem  ${CA_REQUEST_ROOT_URL}/sign > ${RUN_DIR}/conf/${ENTITY_ID}.crt
+              curl -X POST --data-binary @${INSTALL_DIR}/csr.pem  ${CA_REQUEST_ROOT_URL}/sign > ${RUN_DIR}/conf/${ENTITY_ID}.cert.pem
             loadbalancer.serverpool: $brooklyn:entity("docker-swarm-managers")
             nginx.sticky: false
             member.sensor.hostname: $brooklyn:sensor("host.name")
@@ -268,19 +274,47 @@ brooklyn.catalog:
             controller.config.serviceUpUrlPath: "_ping"
             proxy.ssl.config:
               $brooklyn:object:
-                type: brooklyn.entity.proxy.ProxySslConfig
+                type: org.apache.brooklyn.entity.proxy.ProxySslConfig
                 object.fields:
                   targetIsSsl: true
+                  verifyClient: true
                   certificateDestination:
                     $brooklyn:formatString:
-                      - "%s/conf/%s.crt"
+                      - "%s/conf/%s.cert.pem"
                       - $brooklyn:attributeWhenReady("run.dir")
                       - $brooklyn:entityId()
                   keyDestination:
                     $brooklyn:formatString:
-                      - "%s/conf/%s.key"
+                      - "%s/conf/%s.key.pem"
                       - $brooklyn:attributeWhenReady("run.dir")
                       - $brooklyn:entityId()
+                  clientCertificateDestination:
+                    $brooklyn:formatString:
+                      - "%s/conf/%s.ca.pem"
+                      - $brooklyn:attributeWhenReady("run.dir")
+                      - $brooklyn:entityId()
+          brooklyn.enrichers:
+            - type: org.apache.brooklyn.enricher.stock.Transformer
+              brooklyn.config:
+                uniqueTag: cluster-swarm-endpoint-publisher
+                enricher.triggerSensors:
+                  - $brooklyn:sensor("host.address")
+                enricher.targetSensor: $brooklyn:sensor("swarm.endpoint")
+                enricher.targetValue:
+                  $brooklyn:formatString:
+                    - "%s:%s"
+                    - $brooklyn:attributeWhenReady("host.address")
+                    - $brooklyn:parent().config("swarm.port")
+            - type: org.apache.brooklyn.enricher.stock.Transformer
+              brooklyn.config:
+                uniqueTag: cluster-swarm-url-publisher
+                enricher.triggerSensors:
+                  - $brooklyn:sensor("swarm.endpoint")
+                enricher.targetSensor: $brooklyn:sensor("swarm.url")
+                enricher.targetValue:
+                  $brooklyn:formatString:
+                    - "tcp://%s"
+                    - $brooklyn:attributeWhenReady("swarm.endpoint")
 
         - type: cluster
           id: docker-swarm-managers
@@ -291,17 +325,15 @@ brooklyn.catalog:
             - type: org.apache.brooklyn.enricher.stock.Aggregator
               brooklyn.config:
                 uniqueTag: swarm-endpoint-aggregator
-                enricher.sourceSensor: $brooklyn:sensor("swarm.url")
-                enricher.targetSensor: $brooklyn:sensor("swarm.url.list")
+                enricher.sourceSensor: $brooklyn:sensor("swarm.endpoint")
+                enricher.targetSensor: $brooklyn:sensor("swarm.endpoint.list")
                 enricher.aggregating.fromMembers: true
             - type: org.apache.brooklyn.enricher.stock.Joiner
               brooklyn.config:
                 uniqueTag: swarm-endpoint-joiner
-                enricher.sourceSensor: $brooklyn:sensor("swarm.url.list")
-                enricher.targetSensor: $brooklyn:sensor("swarm.url")
+                enricher.sourceSensor: $brooklyn:sensor("swarm.endpoint.list")
+                enricher.targetSensor: $brooklyn:sensor("swarm.endpoint")
                 enricher.joiner.quote: false
-                enricher.joiner.minimum: 1
-                enricher.joiner.maximum: 1
           brooklyn.config:
             cluster.initial.size: $brooklyn:config("swarm.manager.size")
             dynamiccluster.quarantineFailedEntities:
@@ -595,6 +627,13 @@ brooklyn.catalog:
               DOCKER_HOST: $brooklyn:attributeWhenReady("swarm.url")
             command: |
               docker info | grep "^Role" | sed -e "s/^Role: //"
+        - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
+          brooklyn.config:
+            name: swarm.primary.endpoint
+            shell.env:
+              DOCKER_HOST: $brooklyn:attributeWhenReady("swarm.url")
+            command: |
+              docker info | grep "^Primary" | sed -e "s/^Primary: //"
 
       brooklyn.config:
         shell.env:

@@ -1,6 +1,6 @@
 # Cloudsoft Container Service
 
-This project contains entities and other items for using Apache Brooklyn in a
+This project contains entities and other items for using Cloudsoft AMP in a
 container ecosystem.
 
 ## Docker Engine
@@ -83,9 +83,11 @@ services:
 ```
 
 This is configured for a more typical production Swarm cluster, with 8-16
-Docker Engine members, three managers and three etcd servers. An Niginx load
-balancer will also be created,
+Docker Engine members, three managers and three etcd servers. An Nginx load
+balancer will also be created, and the `swarm.url` sensor on the root
+application entity points to this, which will round-robin across the
+available, healthy Swarm managers.
 
 There are many other configuration options available for the Swarm service,
 some of which are also shown in the above blueprint. Further details
-can be found in the [swarm.bom](swarm.bom) file or the AMP documentation..
+can be found in the [swarm.bom](swarm.bom) file or the AMP documentation.

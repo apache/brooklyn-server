@@ -107,6 +107,7 @@ brooklyn.catalog:
           }
           EOF
 
+
           cat > sign_cert.sh <<-'EOF'
           #!/usr/bin/env bash
           source functions.sh
@@ -200,12 +201,11 @@ brooklyn.catalog:
         - type: org.apache.brooklyn.enricher.stock.Transformer
           brooklyn.config:
             enricher.triggerSensors:
-            - host.address
-            - ca.server.port
-            enricher.sourceSensor: $brooklyn:sensor("host.address")
+              - host.address
+              - ca.server.port
             enricher.targetSensor: $brooklyn:sensor("main.uri")
             enricher.targetValue:
               $brooklyn:formatString:
-              - "http://%s:%d"
-              - $brooklyn:attributeWhenReady("host.address")
-              - $brooklyn:attributeWhenReady("ca.server.port")
+                - "http://%s:%d"
+                - $brooklyn:attributeWhenReady("host.address")
+                - $brooklyn:attributeWhenReady("ca.server.port")

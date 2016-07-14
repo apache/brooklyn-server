@@ -65,6 +65,11 @@ brooklyn.catalog:
 
       brooklyn.initializers:
         - type: org.apache.brooklyn.entity.machine.AddMachineMetrics
+        - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
+          brooklyn.config:
+            name: docker.version
+            command: |
+              docker info | grep "^Server Version" | sed -e "s/^Server Version: //"
 
       brooklyn.config:
         defaultDisplayName: "docker-engine"
@@ -330,11 +335,6 @@ brooklyn.catalog:
           brooklyn.config:
             name: docker.csr
             command: cat ${DOCKER_CERT_PATH}/csr.pem
-        - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
-          brooklyn.config:
-            name: docker.version
-            command: |
-              docker info | grep "^Server Version" | sed -e "s/^Server Version: //"
 
   - id: docker-engine-container
     name: "Docker Container"
