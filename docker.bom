@@ -14,6 +14,17 @@ brooklyn.catalog:
     qa: tests/docker.tests.bom
 
   items:
+  - id: docker-engine-template
+    name: "Docker Engine"
+    description: |
+      Creates a single docker engine.
+    itemType: template
+    item:
+      services:
+      - type: docker-engine
+        provisioningProperties:
+          templateOptions:
+            osFamily: centos
   - id: docker-engine
     name: "Docker Engine"
     description: |
