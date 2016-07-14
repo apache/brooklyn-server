@@ -21,6 +21,7 @@ package org.apache.brooklyn.util.core;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
@@ -219,14 +220,28 @@ public class ClassLoaderUtilsTest {
                 "org.apache.brooklyn.api",
                 OsgiUtils.toOsgiVersion(BrooklynVersion.get()),
                 Entity.class.getName());
-        new ClassLoaderUtils(this, mgmt).loadClass(
-                "org.apache.brooklyn.api",
-                "0.10.0-SNAPSHOT",
-                Entity.class.getName());
-        new ClassLoaderUtils(this, mgmt).loadClass(
-                "org.apache.brooklyn.api",
-                "0.10.0.SNAPSHOT",
-                Entity.class.getName());
+        try {
+            new ClassLoaderUtils(this, mgmt).loadClass(
+                    "org.apache.brooklyn.api",
+                    "100.100.100-alpha-version_wth.tags",
+                    Entity.class.getName());
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            IllegalStateException nested = Exceptions.getFirstThrowableOfType(e, IllegalStateException.class);
+            assertNotNull(nested);
+            Asserts.expectedFailureContains(nested, "not found to load");
+        }
+        try {
+            new ClassLoaderUtils(this, mgmt).loadClass(
+                    "org.apache.brooklyn.api",
+                    "100.100.100-SNAPSHOT",
+                    Entity.class.getName());
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            IllegalStateException nested = Exceptions.getFirstThrowableOfType(e, IllegalStateException.class);
+            assertNotNull(nested);
+            Asserts.expectedFailureContains(nested, "not found to load");
+        }
     }
     
     private Bundle installBundle(ManagementContext mgmt, String bundleUrl) throws Exception {
