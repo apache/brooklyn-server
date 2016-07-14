@@ -155,6 +155,7 @@ brooklyn.catalog:
           EOF
 
         install.command: |
+          sudo yum -y update
           sudo yum -y install docker-engine
 
         launch.command: |

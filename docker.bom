@@ -90,6 +90,8 @@ brooklyn.catalog:
         install.command: |
           set -e # need all commands to execute successfully
 
+          sudo yum -y update
+
           echo "[CLOCKER] Configuring package manager"
           if [[ "${DOCKER_REPOSITORY_URL}" && "${DOCKER_GPG_KEY_URL}" ]] ; then
             # Commercially Supported Docker Engine
@@ -204,13 +206,13 @@ brooklyn.catalog:
           brooklyn.config:
             uniqueTag: docker-endpoint-generator
             enricher.triggerSensors:
-            - host.name
+            - host.address
             - docker.port
             enricher.targetSensor: $brooklyn:sensor("docker.endpoint")
             enricher.targetValue:
               $brooklyn:formatString:
               - "%s:%s"
-              - $brooklyn:attributeWhenReady("host.name")
+              - $brooklyn:attributeWhenReady("host.address")
               - $brooklyn:attributeWhenReady("docker.port")
         - type: org.apache.brooklyn.enricher.stock.Transformer
           brooklyn.config:
