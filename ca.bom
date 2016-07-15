@@ -1,5 +1,5 @@
 brooklyn.catalog:
-  version: "2.0.0-SNAPSHOT"
+  version: "2.0.0-SNAPSHOT" # CONTAINER_SERVICE_VERSION
   iconUrl: https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/OpenSSL_logo.png/320px-OpenSSL_logo.png
 
   publish:
