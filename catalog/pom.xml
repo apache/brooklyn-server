@@ -19,15 +19,7 @@
       <resource>
         <directory>src/main/resources</directory>
       </resource>
-      <resource>
-        <directory>${project.build.directory}/catalog</directory>
-      </resource>
     </resources>
-    <testResources>
-      <testResource>
-        <directory>../tests</directory>
-      </testResource>
-    </testResources>
     <plugins>
       <plugin>
         <artifactId>maven-jar-plugin</artifactId>
@@ -49,14 +41,31 @@
               <goal>copy-resources</goal>
             </goals>
             <configuration>
-              <outputDirectory>${project.build.directory}/catalog/docker</outputDirectory>
-              <resources>          
+              <outputDirectory>${project.build.outputDirectory}/docker</outputDirectory>
+              <resources>
                 <resource>
                   <directory>../</directory>
                   <includes>
                     <include>*.bom</include>
                     <include>examples/*.*</include>
-                    <include>docs-internal/*.*</include>
+                  </includes>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+          <execution>
+            <id>copy-test-resources</id>
+            <phase>generate-test-resources</phase>
+            <goals>
+              <goal>copy-resources</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>${project.build.testOutputDirectory}/docker</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>../</directory>
+                  <includes>
+                    <include>tests/*.bom</include>
                   </includes>
                 </resource>
               </resources>

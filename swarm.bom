@@ -7,10 +7,10 @@ brooklyn.catalog:
       Resources for working with Docker Swarm from Apache Brooklyn
     license_code: CLOUDSOFT-1.0
     overview: README.md
-    qa: swarm.tests.bom
+    qa: tests/swarm.tests.bom
 
   brooklyn.libraries:
-    - https://oss.sonatype.org/content/repositories/releases/io/brooklyn/etcd/brooklyn-etcd/2.1.0/brooklyn-etcd-2.1.0.jar    
+    - https://oss.sonatype.org/content/repositories/releases/io/brooklyn/etcd/brooklyn-etcd/2.1.0/brooklyn-etcd-2.1.0.jar
 
   include: https://raw.githubusercontent.com/brooklyncentral/brooklyn-etcd/release/2.1.0/catalog.bom
 
@@ -375,7 +375,7 @@ brooklyn.catalog:
               --discovery-opt kv.certfile="/certs/cert.pem" \
               --discovery-opt kv.keyfile="/certs/key.pem" \
               ${SWARM_DISCOVERY_URL}
-          
+
           echo "[CLOCKER] Setup default ${SWARM_DEFAULT_NETWORK} overlay network"
           docker network ls | grep "overlay.*${SWARM_DEFAULT_NETWORK}" ||
             docker network create --driver=overlay "${SWARM_DEFAULT_NETWORK}"

@@ -2,8 +2,8 @@ brooklyn.catalog:
   version: "2.0.0-SNAPSHOT" # CONTAINER_SERVICE_VERSION
   iconUrl: https://raw.githubusercontent.com/docker-library/docs/471fa6e4cb58062ccbf91afc111980f9c7004981/swarm/logo.png
   dependsOn:
-    - docker.tests.bom
-    - jclouds.tests.bom
+    - tests/docker.tests.bom
+    - tests/jclouds.tests.bom
   license_code: CLOUDSOFT-1.0
 
   items:
@@ -15,5 +15,3 @@ brooklyn.catalog:
         services:
         # NOTE: Requires pre-installed locations location-container, location-swarm-master, see jclouds.tests.bom for details
         - type: jclouds-tests
-
-

@@ -4,11 +4,10 @@ brooklyn.catalog:
   license_code: CLOUDSOFT-1.0
 
   brooklyn.libraries:
-  - name: org.apache.brooklyn.test-framework
-    version: 0.10.0.SNAPSHOT # BROOKLYN_VERSION
+    - name: org.apache.brooklyn.test-framework
+      version: 0.10.0.SNAPSHOT # BROOKLYN_VERSION
 
   items:
-
   - id: test-case
     item:
       type: org.apache.brooklyn.test.framework.TestCase
@@ -28,7 +27,7 @@ brooklyn.catalog:
       brooklyn.config:
         assertStatus:
           equals: 0
-          
+
   - id: assert-up-initial
     item:
       type: org.apache.brooklyn.test.framework.TestSensor
@@ -118,7 +117,7 @@ brooklyn.catalog:
     item:
       name: TEST endpoint reachable
       type: org.apache.brooklyn.test.framework.TestEndpointReachable
-      
+
   - id: loop-test-case
     item:
       name: Loop over members

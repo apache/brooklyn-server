@@ -2,7 +2,7 @@ brooklyn.catalog:
   version: "2.0.0-SNAPSHOT" # CONTAINER_SERVICE_VERSION
   iconUrl: https://raw.githubusercontent.com/docker-library/docs/471fa6e4cb58062ccbf91afc111980f9c7004981/swarm/logo.png
   dependsOn:
-    - common.tests.bom
+    - tests/common.tests.bom
   license_code: CLOUDSOFT-1.0
 
   brooklyn.config:
@@ -129,7 +129,7 @@ brooklyn.catalog:
       brooklyn.config:
         shell.env:
           DISCOVERY_URL: $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.authority")
-          CERT_PATH: 
+          CERT_PATH:
             $brooklyn:formatString:
             - "%s/.certs"
             - $brooklyn:entity("swarm-manager").attributeWhenReady("install.dir")
@@ -165,7 +165,7 @@ brooklyn.catalog:
               echo "[TEST] Creating load"
               docker run -di --name TEST_7_2_LOAD_1 -e affinity:container!=TEST_7_2_LOAD_2  cloudsoft/centos:7 /bin/bash
               docker run -di --name TEST_7_2_LOAD_2 -e affinity:container!=TEST_7_2_LOAD_1  cloudsoft/centos:7 /bin/bash
-              
+
               docker exec -d TEST_7_2_LOAD_1 dd if=/dev/zero of=/dev/null
               docker exec -d TEST_7_2_LOAD_2 dd if=/dev/zero of=/dev/null
         - type: sensor-test
