@@ -25,6 +25,7 @@ services:
     id: swarm
     name: "swarm"
     brooklyn.config:
+      start.timeout: 30m
       swarm.initial.size: 8
       swarm.max.size: 16
       swarm.manager.size: 3
