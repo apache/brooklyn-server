@@ -70,6 +70,12 @@ brooklyn.catalog:
             name: docker.version
             command: |
               docker info | grep "^Server Version" | sed -e "s/^Server Version: //"
+        - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
+          brooklyn.config:
+            name: docker.container.count
+            type: integer
+            command: |
+              docker ps -q | wc -l
 
       brooklyn.config:
         defaultDisplayName: "docker-engine"

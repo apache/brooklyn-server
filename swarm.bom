@@ -641,6 +641,14 @@ brooklyn.catalog:
               DOCKER_HOST: $brooklyn:attributeWhenReady("swarm.url")
             command: |
               docker info | grep "^Name:" | sed -e "s/^Name: //"
+        - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
+          brooklyn.config:
+            name: swarm.container.count
+            type: integer
+            shell.env:
+              DOCKER_HOST: $brooklyn:attributeWhenReady("swarm.url")
+            command: |
+              docker info | grep "^Containers:" | sed -e "s/^Containers: //"
 
       brooklyn.config:
         shell.env:
