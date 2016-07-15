@@ -17,10 +17,11 @@ brooklyn.catalog:
     itemType: template
     item:
       services:
-      - type: docker-engine
-        provisioningProperties:
-          templateOptions:
-            osFamily: centos
+        - type: docker-engine
+          provisioningProperties:
+            templateOptions:
+              osFamily: centos
+
   - id: docker-engine
     name: "Docker Engine"
     description: |
@@ -93,6 +94,7 @@ brooklyn.catalog:
           DOCKER_VERSION: $brooklyn:config("docker.version")
           DOCKER_REPOSITORY_URL: $brooklyn:config("docker.repository.url")
           DOCKER_GPG_KEY_URL: $brooklyn:config("docker.gpgkey.url")
+          ENTITY_ID: $brooklyn:entityId()
 
         install.command: |
           set -e # need all commands to execute successfully
@@ -130,9 +132,18 @@ brooklyn.catalog:
           ExecStart=
           ExecStart=/usr/bin/docker daemon \
             -H unix:///var/run/docker.sock \
-            --label name=${HOST_NAME} \
+            --config-file /etc/systemd/system/docker.service.d/daemon.json \
             ${DOCKER_ADDITIONAL_OPTIONS}
           ExecStartPost=/usr/bin/chown ${USER}:docker /var/run/docker.sock
+          EOF
+          sudo tee /etc/systemd/system/docker.service.d/daemon.json <<-EOF
+          {
+            "labels": [
+              "io.cloudsoft.clocker.name=${HOST_NAME}",
+              "io.cloudsoft.clocker.version=2.0.0-SNAPSHOT",
+              "io.cloudsoft.clocker.entityId=${ENTITY_ID}"
+            ]
+          }
           EOF
           sudo systemctl enable docker.service
           sudo systemctl daemon-reload
