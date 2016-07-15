@@ -35,7 +35,7 @@ public class SoftwareProcessPersisterInMemorySizeIntegrationTest extends Brookly
         pass1MaxFiles = 80;
         pass1MaxKb = 200;
         pass2MaxFiles = 100;
-        pass2MaxKb = 150;
+        pass2MaxKb = 160;
         pass3MaxKb = 50;
     }
 
