@@ -619,21 +619,28 @@ brooklyn.catalog:
             shell.env:
               DOCKER_HOST: $brooklyn:attributeWhenReady("swarm.url")
             command: |
-              docker info | grep "^Server Version" | sed -e "s/^Server Version: //"
+              docker info | grep "^Server Version:" | sed -e "s/^Server Version: //"
         - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
           brooklyn.config:
             name: swarm.role
             shell.env:
               DOCKER_HOST: $brooklyn:attributeWhenReady("swarm.url")
             command: |
-              docker info | grep "^Role" | sed -e "s/^Role: //"
+              docker info | grep "^Role:" | sed -e "s/^Role: //"
         - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
           brooklyn.config:
             name: swarm.primary.endpoint
             shell.env:
               DOCKER_HOST: $brooklyn:attributeWhenReady("swarm.url")
             command: |
-              docker info | grep "^Primary" | sed -e "s/^Primary: //"
+              docker info | grep "^Primary:" | sed -e "s/^Primary: //"
+        - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
+          brooklyn.config:
+            name: swarm.manager.name
+            shell.env:
+              DOCKER_HOST: $brooklyn:attributeWhenReady("swarm.url")
+            command: |
+              docker info | grep "^Name:" | sed -e "s/^Name: //"
 
       brooklyn.config:
         shell.env:
