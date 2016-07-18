@@ -64,6 +64,7 @@ import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.net.Networking;
@@ -420,8 +421,19 @@ public class XmlMementoSerializerTest {
                 "<"+bundle.getSymbolicName()+":"+classname+">",
                 "  <val>myval</val>",
                 "</"+bundle.getSymbolicName()+":"+classname+">");
-        String serializedForm = serializer.toString(obj);
-        assertEquals(serializedForm.trim(), expectedForm.trim());
+        String WHITE_LIST_KEY = "org.apache.brooklyn.classloader.fallback.bundles";
+        String origWhiteList = System.getProperty(WHITE_LIST_KEY);
+        System.setProperty(WHITE_LIST_KEY, "some.none.existend.whitelist:1.0.0");
+        try {
+            String serializedForm = serializer.toString(obj);
+            assertEquals(serializedForm.trim(), expectedForm.trim());
+        } finally {
+            if (origWhiteList != null) {
+                System.setProperty(WHITE_LIST_KEY, origWhiteList);
+            } else {
+                System.clearProperty(WHITE_LIST_KEY);
+            }
+        }
     }
     
     // TODO This doesn't get the bundleName - should we expect it to? Is this because of 
