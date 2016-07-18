@@ -56,6 +56,9 @@ public abstract class TargetableTestComponentImpl extends AbstractEntity impleme
     public Entity resolveTarget() {
         Entity target = resolveTarget(getExecutionContext(), this);
         sensors().set(TARGET_ENTITY, target);
+        sensors().set(TARGET_ENTITY_ID, target.getId());
+        sensors().set(TARGET_ENTITY_NAME, target.getDisplayName());
+        sensors().set(TARGET_ENTITY_TYPE, target.getEntityType().getName());
         return target;
     }
 

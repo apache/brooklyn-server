@@ -20,10 +20,12 @@ package org.apache.brooklyn.test.framework;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.ImplementedBy;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
+import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.time.Duration;
 
 /**
@@ -54,6 +56,10 @@ public interface TargetableTestComponent extends Entity, Startable {
             "targetResolutionTimeout", 
             "Time to wait for targetId to exist (defaults to zero, i.e. must exist immediately)",
             Duration.ZERO);
+
+    AttributeSensor<String> TARGET_ENTITY_ID = Sensors.newStringSensor("test.target.entity.id", "Id of the target entity");
+    AttributeSensor<String> TARGET_ENTITY_NAME = Sensors.newStringSensor("test.target.entity.name", "Display name of the target entity");
+    AttributeSensor<String> TARGET_ENTITY_TYPE = Sensors.newStringSensor("test.target.entity.type", "Type of the target entity");
 
     /**
      * Get the target of the test.
