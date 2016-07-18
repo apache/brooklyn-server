@@ -21,9 +21,11 @@ package org.apache.brooklyn.util.core.xstream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
+import javax.xml.namespace.QName;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpression;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
@@ -56,14 +58,18 @@ public class XmlUtil {
         }
     }
 
-    public static Object xpath(String xml, String xpath) {
+    public static String xpath(String xml, String xpath) {
+        return (String) xpath(xml, xpath, XPathConstants.STRING);
+    }
+
+    public static Object xpath(String xml, String xpath, QName returnType) {
         try {
             DocumentBuilder builder = SharedDocumentBuilder.get();
             Document doc = builder.parse(new ByteArrayInputStream(xml.getBytes()));
             XPathFactory xPathfactory = XPathFactory.newInstance();
             XPathExpression expr = xPathfactory.newXPath().compile(xpath);
             
-            return expr.evaluate(doc);
+            return expr.evaluate(doc, returnType);
             
         } catch (ParserConfigurationException e) {
             throw Exceptions.propagate(e);
