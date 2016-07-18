@@ -27,20 +27,24 @@ import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 import org.apache.brooklyn.util.time.Duration;
 
 /**
- * Entity that can target another entity for the purpouse of testing
+ * Entity that can target another entity for the purpose of testing
  */
 @ImplementedBy(value = TargetableTestComponentImpl.class)
 public interface TargetableTestComponent extends Entity, Startable {
 
     /**
-     * The target entity to test (optional, use either this or targetId).
+     * The target entity to test. Optional, use either this or
+     * {@link #TARGET_ID targetId}. If both are set then this
+     * will take precedence.
      */
     AttributeSensorAndConfigKey<Entity, Entity> TARGET_ENTITY = ConfigKeys.newSensorAndConfigKey(Entity.class, "target", "Entity under test");
 
     /**
-     * Id of the target entity to test (optional, use either this or target).
+     * Id of the target entity to test.
+     *
+     * @see {@link #TARGET_ENTITY target}.
      */
-    AttributeSensorAndConfigKey<String, String> TARGET_ID = ConfigKeys.newStringSensorAndConfigKey("targetId", "Id of the entity under test");
+    ConfigKey<String> TARGET_ID = ConfigKeys.newStringConfigKey("targetId", "Id of the entity under test");
 
     /**
      * The duration to wait for an entity with the given targetId to exist, before throwing an exception.
@@ -54,8 +58,8 @@ public interface TargetableTestComponent extends Entity, Startable {
     /**
      * Get the target of the test.
      *
-     * @return The target.
-     * @throws IllegalArgumentException if the target cannot be found.
+     * @return The target entity
+     * @throws {@link IllegalArgumentException} if the target cannot be found
      */
     Entity resolveTarget();
 

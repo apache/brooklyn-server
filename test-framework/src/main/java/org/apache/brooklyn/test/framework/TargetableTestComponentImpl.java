@@ -44,14 +44,19 @@ public abstract class TargetableTestComponentImpl extends AbstractEntity impleme
     private static final Logger LOG = LoggerFactory.getLogger(TargetableTestComponentImpl.class);
 
     /**
-     * Find the target entity using "target" config key, if entity provided directly in config, or by doing an implicit
-     * lookup using DSL ($brooklyn:component("myNginX")), if id of entity provided as "targetId" config key.
+     * Find the target entity using the {@link #TARGET target} config key value,
+     * or by doing an implicit lookup using the equivalent of the DSL code
+     * {@code $brooklyn:entity("targetId")} if the id of an entity was
+     * provided as the {@link #TARGET_ID targetId} config key value.
      *
-     * @return The target entity.
-     * @throws @RuntimeException if no target can be determined.
+     * @return The target entity
+     * @throws {@link RuntimeException} if no target can be determined
      */
+    @Override
     public Entity resolveTarget() {
-        return resolveTarget(getExecutionContext(), this);
+        Entity target = resolveTarget(getExecutionContext(), this);
+        sensors().set(TARGET_ENTITY, target);
+        return target;
     }
 
     /**
