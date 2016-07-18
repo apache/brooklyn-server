@@ -31,6 +31,7 @@ import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -120,6 +121,10 @@ public class BrooklynServerConfig {
         "osgi/cache/${"+MANAGEMENT_NODE_ID_PROPERTY+"}/");
     public static final ConfigKey<Boolean> OSGI_CACHE_CLEAN = ConfigKeys.newBooleanConfigKey("brooklyn.osgi.cache.clean",
         "Whether to delete the OSGi directory before and after use; if unset, it will delete if the node ID forms part of the cache dir path (which by default it does) to avoid file leaks");
+
+    public static final ConfigKey<Duration> ENTITIES_STOP_WAIT_PROVISIONING_TIMEOUT = ConfigKeys.newDurationConfigKey("entities.stop.wait.provisioning.timeout",
+            "When stop is called on the Entity, it doesn't have a machine location instance so it doesn't have anything to ask to stop. To be able to stop the machine it has to wait for provisioning to complete. " +
+            "This ConfigKey sets the timeout for which the stop task will wait provisioning to complete.", Duration.FIVE_MINUTES);
 
     /** @see BrooklynServerPaths#getMgmtBaseDir(ManagementContext) */
     public static String getMgmtBaseDir(ManagementContext mgmt) {

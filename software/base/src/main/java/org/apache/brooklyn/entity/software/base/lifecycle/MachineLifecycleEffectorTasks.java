@@ -28,6 +28,8 @@ import java.util.concurrent.Callable;
 
 import javax.annotation.Nullable;
 
+import org.apache.brooklyn.core.server.BrooklynServerConfig;
+import org.apache.brooklyn.util.repeat.Repeater;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -77,10 +79,11 @@ import org.apache.brooklyn.entity.software.base.SoftwareProcess.RestartSoftwareP
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.StopSoftwareParameters;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.StopSoftwareParameters.StopMode;
 import org.apache.brooklyn.entity.stock.EffectorStartableImpl.StartParameters;
+import org.apache.brooklyn.util.collections.MutableSet;
+
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -441,6 +444,9 @@ public abstract class MachineLifecycleEffectorTasks {
                 }
             }
             entity().addLocations(ImmutableList.of((Location) machine));
+            if (entity().getAttribute(Attributes.JCLOUDS_PROVISIONING_RUNNING) != null) {
+                entity().sensors().remove(Attributes.JCLOUDS_PROVISIONING_RUNNING);
+            }
 
             // elsewhere we rely on (public) hostname being set _after_ subnet_hostname
             // (to prevent the tiny possibility of races resulting in hostname being returned
@@ -709,7 +715,26 @@ public abstract class MachineLifecycleEffectorTasks {
 
         DynamicTasks.queue("pre-stop", new PreStopCustomTask());
 
+        // BROOKLYN-263:
+        // With this change the stop effector will wait for Location to provision so it can stop it.
+        // It will not retry if non-jclouds location is used in the entity.
         Maybe<MachineLocation> machine = Machines.findUniqueMachineLocation(entity().getLocations());
+        if (Attributes.JcloudsProvisioningState.STARTED.equals(entity().sensors().get(Attributes.JCLOUDS_PROVISIONING_RUNNING))
+                && machine.isAbsent()) {
+            entity().sensors().set(Attributes.JCLOUDS_PROVISIONING_RUNNING, null);
+            Repeater.create("Wait for a machine to appear")
+                    .until(new Callable<Boolean>() {
+                        @Override
+                        public Boolean call() throws Exception {
+                            return Machines.findUniqueMachineLocation(entity().getLocations()).isPresent();
+                        }
+                    })
+                    .every(Duration.FIVE_SECONDS)
+                    .limitTimeTo(entity().getManagementContext().getConfig().getConfig(BrooklynServerConfig.ENTITIES_STOP_WAIT_PROVISIONING_TIMEOUT))
+                    .run();
+            machine = Machines.findUniqueMachineLocation(entity().getLocations());
+        }
+
         Task<List<?>> stoppingProcess = null;
         if (canStop(stopProcessMode, entity())) {
             stoppingProcess = Tasks.parallel("stopping",
