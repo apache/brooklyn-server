@@ -221,7 +221,13 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
     @Override
     public Optional<NodeMetadata> getOptionalNode() {
       if (_node == null) {
-          _node = Optional.fromNullable(getParent().getComputeService().getNodeMetadata(nodeId));
+          try {
+              _node = Optional.fromNullable(getParent().getComputeService().getNodeMetadata(nodeId));
+          } catch (Exception e) {
+              Exceptions.propagateIfFatal(e);
+              if (LOG.isDebugEnabled()) LOG.debug("Problem getting node-metadata for " + this + ", node id " + nodeId + " (continuing)", e);
+              _node = Optional.absent();
+          }
       }
       return _node;
     }
@@ -231,7 +237,13 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
           if (imageId == null) {
               _image = Optional.absent(); // can happen with JcloudsLocation.resumeMachine() usage
           } else {
-              _image = Optional.fromNullable(getParent().getComputeService().getImage(imageId));
+              try {
+                  _image = Optional.fromNullable(getParent().getComputeService().getImage(imageId));
+              } catch (Exception e) {
+                  Exceptions.propagateIfFatal(e);
+                  if (LOG.isDebugEnabled()) LOG.debug("Problem getting image for " + this + ", image id " + imageId + " (continuing)", e);
+                  _image = Optional.absent();
+              }
           }
       }
       return _image;
