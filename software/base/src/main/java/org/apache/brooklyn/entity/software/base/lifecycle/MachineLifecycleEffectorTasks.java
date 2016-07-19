@@ -145,15 +145,15 @@ public abstract class MachineLifecycleEffectorTasks {
     @Beta
     public static final AttributeSensor<ProvisioningTaskState> PROVISIONING_TASK_STATE = new BasicAttributeSensor<ProvisioningTaskState>(
             TypeToken.of(ProvisioningTaskState.class), 
-            "provisioning.task.state",
-            "Internal transient sensor for tracking the provisioning of a machine (to better handle aborting)", 
+            "internal.provisioning.task.state",
+            "Internal transient sensor (do not use) for tracking the provisioning of a machine (to better handle aborting)", 
             AttributeSensor.SensorPersistenceMode.NONE);
     
     @Beta
     public static final AttributeSensor<MachineLocation> PROVISIONED_MACHINE = new BasicAttributeSensor<MachineLocation>(
             TypeToken.of(MachineLocation.class), 
-            "provisioning.task.machine",
-            "Internal transient sensor for tracking the machine being provisioned (to better handle aborting)", 
+            "internal.provisioning.task.machine",
+            "Internal transient sensor (do not use) for tracking the machine being provisioned (to better handle aborting)", 
             AttributeSensor.SensorPersistenceMode.NONE);
     
     /**

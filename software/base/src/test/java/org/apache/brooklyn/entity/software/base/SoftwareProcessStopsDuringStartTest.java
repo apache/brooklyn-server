@@ -96,7 +96,10 @@ public class SoftwareProcessStopsDuringStartTest extends BrooklynAppUnitTestSupp
         EntityAsserts.assertAttributeEquals(entity, MachineLifecycleEffectorTasks.PROVISIONING_TASK_STATE, MachineLifecycleEffectorTasks.ProvisioningTaskState.DONE);
         EntityAsserts.assertAttributeEquals(entity, MachineLifecycleEffectorTasks.PROVISIONED_MACHINE, machine);
         
+        Stopwatch stopwatch = Stopwatch.createStarted();
         entity.stop();
+        Duration stopDuration = Duration.of(stopwatch);
+        assertTrue(Asserts.DEFAULT_LONG_TIMEOUT.isLongerThan(stopDuration), "stop took "+stopDuration);
         EntityAsserts.assertAttributeEquals(entity, MachineLifecycleEffectorTasks.PROVISIONING_TASK_STATE, null);
         EntityAsserts.assertAttributeEquals(entity, MachineLifecycleEffectorTasks.PROVISIONED_MACHINE, null);
         
@@ -200,13 +203,53 @@ public class SoftwareProcessStopsDuringStartTest extends BrooklynAppUnitTestSupp
         assertEquals(loc.getCalls(), ImmutableList.of("obtain"));
     }
     
+    @Test
+    public void testStopWhenProvisionFails() throws Exception {
+        loc.setObtainToFail(0);
+        
+        executor.submit(new Runnable() {
+            public void run() {
+                entity.start(ImmutableList.<Location>of(loc));
+            }});
+        loc.getObtainCalledLatch(0).await();
+        
+        // Calling stop - it should block
+        // TODO Nicer way of ensuring that stop is really waiting? We wait for the log message!
+        Future<?> stopFuture;
+        LogWatcher watcher = new LogWatcher(
+                MachineLifecycleEffectorTasks.class.getName(), 
+                ch.qos.logback.classic.Level.INFO,
+                EventPredicates.containsMessage("for the machine to finish provisioning, before terminating it") );
+        watcher.start();
+        try {
+            stopFuture = executor.submit(new Runnable() {
+                public void run() {
+                    entity.stop();
+                }});
+            watcher.assertHasEventEventually();
+        } finally {
+            watcher.close();
+        }
+        assertFalse(stopFuture.isDone());
+
+        // When the loc.obtain() call throws exception, that will allow stop() to complete.
+        // It must not wait for the full 10 minutes.
+        loc.getObtainResumeLatch(0).countDown();
+        stopFuture.get(Asserts.DEFAULT_LONG_TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS); // should be successful
+    }
+    
     public static class DelayedProvisioningLocation extends AbstractLocation implements MachineProvisioningLocation<SshMachineLocation> {
+        public List<Integer> obtainsToFail = MutableList.of();
         public List<CountDownLatch> obtainCalledLatches = MutableList.of(new CountDownLatch(1));
         public List<CountDownLatch> obtainResumeLatches = MutableList.of(new CountDownLatch(1));
         private Set<SshMachineLocation> obtainedMachines = Sets.newConcurrentHashSet();
         private final List<String> calls = Lists.newCopyOnWriteArrayList();
         private final AtomicInteger obtainCount = new AtomicInteger();
         
+        public void setObtainToFail(int index) {
+            this.obtainsToFail.add(index);
+        }
+
         public void setObtainResumeLatches(List<CountDownLatch> latches) {
             this.obtainResumeLatches = latches;
         }
@@ -234,6 +277,10 @@ public class SoftwareProcessStopsDuringStartTest extends BrooklynAppUnitTestSupp
                 calls.add("obtain");
                 getObtainCalledLatch(count).countDown();
                 getObtainResumeLatch(count).await();
+                
+                if (obtainsToFail.contains(count)) {
+                    throw new RuntimeException("Simulate failure in obtain");
+                }
                 
                 SshMachineLocation result = getManagementContext().getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
                         .parent(this)
