@@ -146,25 +146,28 @@ public class DeleteOrphanedLocationsTransformer extends CompoundTransformer impl
     public Set<String> findAllReferencedLocations(BrooklynMementoRawData input) {
         Set<String> allReferencedLocations = MutableSet.of();
 
-        allReferencedLocations.addAll(searchLocationsToKeepInEntities(input.getEntities()));
-        allReferencedLocations.addAll(searchLocationsToKeepInPolicies(input.getPolicies()));
-        allReferencedLocations.addAll(searchLocationsToKeepInEnrichers(input.getEnrichers()));
+        allReferencedLocations.addAll(searchLocationsToKeep(input.getEntities(), "/entity"));
+        allReferencedLocations.addAll(searchLocationsToKeep(input.getPolicies(), "/policy"));
+        allReferencedLocations.addAll(searchLocationsToKeep(input.getEnrichers(), "/enricher"));
+        allReferencedLocations.addAll(searchLocationsToKeep(input.getFeeds(), "/feed"));
         allReferencedLocations.addAll(searchLocationsToKeepInLocations(input.getLocations(), allReferencedLocations));
 
         return allReferencedLocations;
     }
 
-    private Set<String> searchLocationsToKeepInEntities(Map<String, String> entities) {
+    private Set<String> searchLocationsToKeep(Map<String, String> entities, String searchInTypePrefix) {
         Set<String> result = MutableSet.of();
 
         for(Map.Entry entity: entities.entrySet()) {
 
             String prefix = "/entity";
             String location = "/locations/string";
-            String locationProxy = "/attributes/softwareservice.provisioningLocation/locationProxy";
+            String locationProxy = "/attributes//locationProxy";
+            String locationInConfig = "/config//locationProxy";
 
-            result.addAll(getAllNodesFromXpath((DTMNodeList) XmlUtil.xpath((String) entity.getValue(), prefix+location, XPathConstants.NODESET)));
-            result.addAll(getAllNodesFromXpath((DTMNodeList) XmlUtil.xpath((String) entity.getValue(), prefix+locationProxy, XPathConstants.NODESET)));
+            result.addAll(getAllNodesFromXpath((DTMNodeList) XmlUtil.xpath((String) entity.getValue(), searchInTypePrefix+location, XPathConstants.NODESET)));
+            result.addAll(getAllNodesFromXpath((DTMNodeList) XmlUtil.xpath((String) entity.getValue(), searchInTypePrefix+locationProxy, XPathConstants.NODESET)));
+            result.addAll(getAllNodesFromXpath((DTMNodeList) XmlUtil.xpath((String) entity.getValue(), searchInTypePrefix+locationInConfig, XPathConstants.NODESET)));
         }
 
         return result;
@@ -177,30 +180,16 @@ public class DeleteOrphanedLocationsTransformer extends CompoundTransformer impl
         String locationId = "/id";
         String locationChildren = "/children/string";
         String locationParentDirectTag = "/parent";
-        String locationParent = "/locationConfig/jcloudsParent/locationProxy";
-        String locationProxy = "/locationConfig/vmInstanceIds/map/entry/locationProxy";
+        String locationProxy = "/locationConfig//locationProxy";
 
         for (Map.Entry location: locations.entrySet()) {
-            if (alreadyReferencedLocations.contains(location)) {
+            if (alreadyReferencedLocations.contains(location.getKey())) {
                 result.addAll(getAllNodesFromXpath((DTMNodeList) XmlUtil.xpath((String) location.getValue(), prefix+locationId, XPathConstants.NODESET)));
                 result.addAll(getAllNodesFromXpath((DTMNodeList) XmlUtil.xpath((String) location.getValue(), prefix+locationChildren, XPathConstants.NODESET)));
-                result.addAll(getAllNodesFromXpath((DTMNodeList) XmlUtil.xpath((String) location.getValue(), prefix+locationParent, XPathConstants.NODESET)));
                 result.addAll(getAllNodesFromXpath((DTMNodeList) XmlUtil.xpath((String) location.getValue(), prefix+locationParentDirectTag, XPathConstants.NODESET)));
                 result.addAll(getAllNodesFromXpath((DTMNodeList) XmlUtil.xpath((String) location.getValue(), prefix+locationProxy, XPathConstants.NODESET)));
             }
         }
-
-        return result;
-    }
-
-    private Set<String> searchLocationsToKeepInPolicies(Map<String, String> policies) {
-        Set<String> result = MutableSet.of();
-
-        return result;
-    }
-
-    private Set<String> searchLocationsToKeepInEnrichers(Map<String, String> enrichers) {
-        Set<String> result = MutableSet.of();
 
         return result;
     }
