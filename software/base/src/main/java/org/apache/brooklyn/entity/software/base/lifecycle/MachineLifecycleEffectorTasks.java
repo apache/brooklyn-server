@@ -143,14 +143,14 @@ public abstract class MachineLifecycleEffectorTasks {
             Duration.minutes(10));
 
     @Beta
-    public static final AttributeSensor<ProvisioningTaskState> PROVISIONING_TASK_STATE = new BasicAttributeSensor<ProvisioningTaskState>(
+    public static final AttributeSensor<ProvisioningTaskState> INTERNAL_PROVISIONING_TASK_STATE = new BasicAttributeSensor<ProvisioningTaskState>(
             TypeToken.of(ProvisioningTaskState.class), 
             "internal.provisioning.task.state",
             "Internal transient sensor (do not use) for tracking the provisioning of a machine (to better handle aborting)", 
             AttributeSensor.SensorPersistenceMode.NONE);
     
     @Beta
-    public static final AttributeSensor<MachineLocation> PROVISIONED_MACHINE = new BasicAttributeSensor<MachineLocation>(
+    public static final AttributeSensor<MachineLocation> INTERNAL_PROVISIONED_MACHINE = new BasicAttributeSensor<MachineLocation>(
             TypeToken.of(MachineLocation.class), 
             "internal.provisioning.task.machine",
             "Internal transient sensor (do not use) for tracking the machine being provisioned (to better handle aborting)", 
@@ -424,14 +424,14 @@ public abstract class MachineLifecycleEffectorTasks {
             if (expectedState != null && (expectedState.getState() == Lifecycle.STOPPING || expectedState.getState() == Lifecycle.STOPPED)) {
                 throw new IllegalStateException("Provisioning aborted before even begun for "+entity()+" in "+location+" (presumably by a concurrent call to stop");
             }
-            entity().sensors().set(PROVISIONING_TASK_STATE, ProvisioningTaskState.RUNNING);
+            entity().sensors().set(INTERNAL_PROVISIONING_TASK_STATE, ProvisioningTaskState.RUNNING);
             
             MachineLocation machine;
             try {
                 machine = Tasks.withBlockingDetails("Provisioning machine in " + location, new ObtainLocationTask(location, flags));
-                entity().sensors().set(PROVISIONED_MACHINE, machine);
+                entity().sensors().set(INTERNAL_PROVISIONED_MACHINE, machine);
             } finally {
-                entity().sensors().set(PROVISIONING_TASK_STATE, ProvisioningTaskState.DONE);
+                entity().sensors().set(INTERNAL_PROVISIONING_TASK_STATE, ProvisioningTaskState.DONE);
             }
             
             if (machine == null) {
@@ -781,7 +781,7 @@ public abstract class MachineLifecycleEffectorTasks {
         // There is some attempt to handle it by ProvisionMachineTask checking if the expectedState
         // is stopping/stopped.
         Maybe<MachineLocation> machine = Machines.findUniqueMachineLocation(entity().getLocations());
-        ProvisioningTaskState provisioningState = entity().sensors().get(PROVISIONING_TASK_STATE);
+        ProvisioningTaskState provisioningState = entity().sensors().get(INTERNAL_PROVISIONING_TASK_STATE);
 
         if (machine.isAbsent() && provisioningState == ProvisioningTaskState.RUNNING) {
             Duration maxWait = entity().config().get(STOP_WAIT_PROVISIONING_TIMEOUT);
@@ -790,7 +790,7 @@ public abstract class MachineLifecycleEffectorTasks {
                     .until(new Callable<Boolean>() {
                         @Override
                         public Boolean call() throws Exception {
-                            ProvisioningTaskState state = entity().sensors().get(PROVISIONING_TASK_STATE);
+                            ProvisioningTaskState state = entity().sensors().get(INTERNAL_PROVISIONING_TASK_STATE);
                             return (state == ProvisioningTaskState.DONE);
                         }})
                     .backoffTo(Duration.FIVE_SECONDS)
@@ -799,10 +799,10 @@ public abstract class MachineLifecycleEffectorTasks {
             if (!success) {
                 log.warn("When stopping {}, timed out after {} waiting for the machine to finish provisioning - machine may we left running", entity(), maxWait);
             }
-            machine = Maybe.ofDisallowingNull(entity().sensors().get(PROVISIONED_MACHINE));
+            machine = Maybe.ofDisallowingNull(entity().sensors().get(INTERNAL_PROVISIONED_MACHINE));
         }
-        entity().sensors().remove(PROVISIONING_TASK_STATE);
-        entity().sensors().remove(PROVISIONED_MACHINE);
+        entity().sensors().remove(INTERNAL_PROVISIONING_TASK_STATE);
+        entity().sensors().remove(INTERNAL_PROVISIONED_MACHINE);
 
         Task<List<?>> stoppingProcess = null;
         if (canStop(stopProcessMode, entity())) {

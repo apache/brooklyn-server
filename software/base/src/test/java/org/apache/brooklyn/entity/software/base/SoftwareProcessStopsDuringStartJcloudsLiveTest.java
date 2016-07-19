@@ -141,8 +141,8 @@ public class SoftwareProcessStopsDuringStartJcloudsLiveTest extends BrooklynAppL
             }
         }, Asserts.DEFAULT_LONG_TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
         EntityAsserts.assertEntityHealthy(entity);
-        assertEquals(entity.getAttribute(MachineLifecycleEffectorTasks.PROVISIONING_TASK_STATE), MachineLifecycleEffectorTasks.ProvisioningTaskState.DONE);
-        assertEquals(entity.getAttribute(MachineLifecycleEffectorTasks.PROVISIONED_MACHINE), Machines.findUniqueMachineLocation(entity.getLocations(), SshMachineLocation.class).get());
+        assertEquals(entity.getAttribute(MachineLifecycleEffectorTasks.INTERNAL_PROVISIONING_TASK_STATE), MachineLifecycleEffectorTasks.ProvisioningTaskState.DONE);
+        assertEquals(entity.getAttribute(MachineLifecycleEffectorTasks.INTERNAL_PROVISIONED_MACHINE), Machines.findUniqueMachineLocation(entity.getLocations(), SshMachineLocation.class).get());
 
         executeInLimitedTime(new Callable<Void>() {
             public Void call() {
@@ -152,8 +152,8 @@ public class SoftwareProcessStopsDuringStartJcloudsLiveTest extends BrooklynAppL
         }, Asserts.DEFAULT_LONG_TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
         assertEquals(app.getAttribute(Attributes.SERVICE_STATE_ACTUAL), Lifecycle.STOPPED);
         assertEquals(app.getAttribute(Attributes.SERVICE_STATE_EXPECTED).getState(), Lifecycle.STOPPED);
-        assertEquals(entity.getAttribute(MachineLifecycleEffectorTasks.PROVISIONING_TASK_STATE), null);
-        assertEquals(entity.getAttribute(MachineLifecycleEffectorTasks.PROVISIONED_MACHINE), null);
+        assertEquals(entity.getAttribute(MachineLifecycleEffectorTasks.INTERNAL_PROVISIONING_TASK_STATE), null);
+        assertEquals(entity.getAttribute(MachineLifecycleEffectorTasks.INTERNAL_PROVISIONED_MACHINE), null);
     }
 
     /**
@@ -188,7 +188,7 @@ public class SoftwareProcessStopsDuringStartJcloudsLiveTest extends BrooklynAppL
         // Invoke async
         @SuppressWarnings("unused")
         Task<Void> startTask = Entities.invokeEffector(app, app, Startable.START, ImmutableMap.of("locations", MutableList.of()));
-        EntityAsserts.assertAttributeEqualsEventually(entity, MachineLifecycleEffectorTasks.PROVISIONING_TASK_STATE, MachineLifecycleEffectorTasks.ProvisioningTaskState.RUNNING);
+        EntityAsserts.assertAttributeEqualsEventually(entity, MachineLifecycleEffectorTasks.INTERNAL_PROVISIONING_TASK_STATE, MachineLifecycleEffectorTasks.ProvisioningTaskState.RUNNING);
 
         Stopwatch stopwatch = Stopwatch.createStarted();
         Entities.destroyCatching(app);
