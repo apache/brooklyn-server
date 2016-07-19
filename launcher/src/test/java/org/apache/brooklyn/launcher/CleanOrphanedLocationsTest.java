@@ -39,6 +39,7 @@ import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.testng.annotations.Test;
 
@@ -103,8 +104,31 @@ public class CleanOrphanedLocationsTest extends RebindTestFixtureWithApp {
     }
     
     @Test
-    public void testKeepsParentOfReachableLocation() throws Exception {
-        SshMachineLocation parentLoc = mgmt().getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class));
+    public void testKeepsLocationsReferencedInTag() throws Exception {
+        SshMachineLocation loc = mgmt().getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class));
+        origApp.tags().addTag(loc);
+        assertTransformIsNoop();
+    }
+    
+    /**
+     * TODO Fails because it is persisted as {@code <defaultValue class="locationProxy">biqwd7ukcd</defaultValue>},
+     * rather than having locationProxy as the tag.
+     * 
+     * I (Aled) think we can live without this - hopefully no-one is setting location instances as 
+     * config default values!
+     */
+    @Test(groups="WIP", enabled=false)
+    public void testKeepsLocationsReferencedInConfigKeyDefault() throws Exception {
+        SshMachineLocation loc = mgmt().getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class));
+        origApp.config().set(ConfigKeys.newConfigKey(Object.class, "myconfig", "my description", loc), null);
+        assertTransformIsNoop();
+    }
+    
+    @Test
+    public void testKeepsAncestorsOfReachableLocation() throws Exception {
+        SshMachineLocation grandparentLoc = mgmt().getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class));
+        SshMachineLocation parentLoc = mgmt().getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
+                .parent((grandparentLoc)));
         SshMachineLocation childLoc = mgmt().getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
                 .parent((parentLoc)));
         origApp.addLocations(ImmutableList.of(childLoc));
@@ -112,11 +136,13 @@ public class CleanOrphanedLocationsTest extends RebindTestFixtureWithApp {
     }
     
     @Test
-    public void testKeepsChildrenOfReachableLocation() throws Exception {
-        SshMachineLocation parentLoc = mgmt().getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class));
+    public void testKeepsDescendantsOfReachableLocation() throws Exception {
+        SshMachineLocation grandparentLoc = mgmt().getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class));
+        SshMachineLocation parentLoc = mgmt().getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
+                .parent((grandparentLoc)));
         mgmt().getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
                 .parent((parentLoc)));
-        origApp.addLocations(ImmutableList.of(parentLoc));
+        origApp.addLocations(ImmutableList.of(grandparentLoc));
         assertTransformIsNoop();
     }
     
@@ -128,12 +154,31 @@ public class CleanOrphanedLocationsTest extends RebindTestFixtureWithApp {
         origApp.addLocations(ImmutableList.of(refereeLoc));
         assertTransformIsNoop();
     }
-    
+
+    @Test
+    public void testKeepsTransitiveReferencesOfReachableLocation() throws Exception {
+        Location loc3 = mgmt().getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class));
+        Location loc2 = mgmt().getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
+                .configure(ConfigKeys.newConfigKey(Object.class, "myconfig"), loc3));
+        Location loc1 = mgmt().getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
+                .configure(ConfigKeys.newConfigKey(Object.class, "myconfig"), loc2));
+        origApp.addLocations(ImmutableList.of(loc1));
+        assertTransformIsNoop();
+    }
+
     @Test
     public void testKeepsLocationsReferencedByEnricher() throws Exception {
         Location loc = mgmt().getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class));
         origApp.enrichers().add(EnricherSpec.create(MyEnricher.class)
                 .configure(ConfigKeys.newConfigKey(Object.class, "myconfig"), loc));
+        assertTransformIsNoop();
+    }
+    
+    @Test
+    public void testKeepsLocationsReferencedByEnricherInFlag() throws Exception {
+        Location loc = mgmt().getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class));
+        origApp.enrichers().add(EnricherSpec.create(MyEnricher.class)
+                .configure("myobj", loc));
         assertTransformIsNoop();
     }
     
@@ -231,6 +276,7 @@ public class CleanOrphanedLocationsTest extends RebindTestFixtureWithApp {
     }
     
     public static class MyEnricher extends AbstractEnricher {
+        @SetFromFlag Object obj;
     }
     
     public static class MyPolicy extends AbstractPolicy {

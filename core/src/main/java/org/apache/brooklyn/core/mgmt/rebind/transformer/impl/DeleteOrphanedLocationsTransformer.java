@@ -18,30 +18,27 @@
  */
 package org.apache.brooklyn.core.mgmt.rebind.transformer.impl;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.sun.org.apache.xml.internal.dtm.ref.DTMNodeList;
+import javax.xml.xpath.XPathConstants;
+
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.EntityMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.LocationMemento;
-import org.apache.brooklyn.core.mgmt.rebind.dto.BrooklynMementoImpl;
 import org.apache.brooklyn.core.mgmt.rebind.transformer.BrooklynMementoTransformer;
 import org.apache.brooklyn.core.mgmt.rebind.transformer.CompoundTransformer;
-import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
-
-import com.google.common.annotations.Beta;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import org.apache.brooklyn.util.core.xstream.XmlUtil;
 import org.w3c.dom.Node;
 
-import javax.xml.xpath.XPathConstants;
+import com.google.common.annotations.Beta;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 @Beta
 public class DeleteOrphanedLocationsTransformer extends CompoundTransformer implements BrooklynMementoTransformer {
@@ -56,11 +53,13 @@ public class DeleteOrphanedLocationsTransformer extends CompoundTransformer impl
 
     public static class Builder extends CompoundTransformer.Builder {
 
+        @Override
         public DeleteOrphanedLocationsTransformer build() {
             return new DeleteOrphanedLocationsTransformer(this);
         }
     }
 
+    @Override
     public BrooklynMementoRawData transform(BrooklynMementoRawData input) {
         Map<String, String> locationsToKeep = findLocationsToKeep(input);
 
@@ -74,55 +73,12 @@ public class DeleteOrphanedLocationsTransformer extends CompoundTransformer impl
                 .build();
     }
 
-    // TODO Work in progress; untested code!
-
+    @Override
     public BrooklynMemento transform(BrooklynMemento input) throws Exception {
-        Set<String> referencedLocationIds = findReferencedLocationIds(input);
-        Set<String> unreferencedLocationIds = Sets.newLinkedHashSet();
-        List<String> toCheck = Lists.newLinkedList(input.getLocationIds());
-
-        while (!toCheck.isEmpty()) {
-            String locationId = toCheck.remove(0);
-            List<String> locationsInHierarchy = MutableList.<String>builder()
-                    .add(locationId)
-                    .addAll(findLocationAncestors(input, locationId))
-                    .addAll(findLocationDescendents(input, locationId))
-                    .build();
-
-            if (containsAny(referencedLocationIds, locationsInHierarchy)) {
-                // keep them all
-            } else {
-                unreferencedLocationIds.addAll(locationsInHierarchy);
-            }
-            toCheck.removeAll(locationsInHierarchy);
-        }
-
-        // TODO What about brooklyn version?
-        return BrooklynMementoImpl.builder()
-                .applicationIds(input.getApplicationIds())
-                .topLevelLocationIds(MutableSet.<String>builder()
-                        .addAll(input.getTopLevelLocationIds())
-                        .removeAll(unreferencedLocationIds)
-                        .build())
-                .entities(input.getEntityMementos())
-                .locations(MutableMap.<String, LocationMemento>builder()
-                        .putAll(input.getLocationMementos())
-                        .removeAll(unreferencedLocationIds)
-                        .build())
-                .policies(input.getPolicyMementos())
-                .enrichers(input.getEnricherMementos())
-                .catalogItems(input.getCatalogItemMementos())
-                .build();
+        throw new UnsupportedOperationException();
     }
 
-    public boolean containsAny(Collection<?> container, Iterable<?> contenders) {
-        for (Object contender : contenders) {
-            if (container.contains(contender)) return true;
-        }
-        return false;
-    }
-
-    public Set<String> findReferencedLocationIds(BrooklynMemento input) {
+    protected Set<String> findReferencedLocationIds(BrooklynMemento input) {
         Set<String> result = Sets.newLinkedHashSet();
 
         for (EntityMemento entity : input.getEntityMementos().values()) {
@@ -131,18 +87,20 @@ public class DeleteOrphanedLocationsTransformer extends CompoundTransformer impl
         return result;
     }
 
+    @VisibleForTesting
     public Map<String, String> findLocationsToKeep(BrooklynMementoRawData input) {
         Map<String, String> locationsToKeep = MutableMap.of();
         Set<String> allReferencedLocations = findAllReferencedLocations(input);
 
-        for (Map.Entry location: input.getLocations().entrySet()) {
+        for (Map.Entry<String, String> location: input.getLocations().entrySet()) {
             if (allReferencedLocations.contains(location.getKey())) {
-                locationsToKeep.put((String) location.getKey(), (String) location.getValue());
+                locationsToKeep.put(location.getKey(), location.getValue());
             }
         }
         return locationsToKeep;
     }
 
+    @VisibleForTesting
     public Set<String> findAllReferencedLocations(BrooklynMementoRawData input) {
         Set<String> allReferencedLocations = MutableSet.of();
 
@@ -155,46 +113,43 @@ public class DeleteOrphanedLocationsTransformer extends CompoundTransformer impl
         return allReferencedLocations;
     }
 
-    private Set<String> searchLocationsToKeep(Map<String, String> entities, String searchInTypePrefix) {
+    protected Set<String> searchLocationsToKeep(Map<String, String> entities, String searchInTypePrefix) {
         Set<String> result = MutableSet.of();
 
-        for(Map.Entry entity: entities.entrySet()) {
+        for(Map.Entry<String, String> entity: entities.entrySet()) {
 
-            String prefix = "/entity";
             String location = "/locations/string";
-            String locationProxy = "/attributes//locationProxy";
-            String locationInConfig = "/config//locationProxy";
+            String locationProxy = "//locationProxy";
 
-            result.addAll(getAllNodesFromXpath((DTMNodeList) XmlUtil.xpath((String) entity.getValue(), searchInTypePrefix+location, XPathConstants.NODESET)));
-            result.addAll(getAllNodesFromXpath((DTMNodeList) XmlUtil.xpath((String) entity.getValue(), searchInTypePrefix+locationProxy, XPathConstants.NODESET)));
-            result.addAll(getAllNodesFromXpath((DTMNodeList) XmlUtil.xpath((String) entity.getValue(), searchInTypePrefix+locationInConfig, XPathConstants.NODESET)));
+            result.addAll(getAllNodesFromXpath((org.w3c.dom.NodeList) XmlUtil.xpath(entity.getValue(), searchInTypePrefix+location, XPathConstants.NODESET)));
+            result.addAll(getAllNodesFromXpath((org.w3c.dom.NodeList) XmlUtil.xpath(entity.getValue(), searchInTypePrefix+locationProxy, XPathConstants.NODESET)));
         }
 
         return result;
     }
 
-    private Set<String> searchLocationsToKeepInLocations(Map<String, String> locations, Set<String> alreadyReferencedLocations) {
+    protected Set<String> searchLocationsToKeepInLocations(Map<String, String> locations, Set<String> alreadyReferencedLocations) {
         Set<String> result = MutableSet.of();
 
         String prefix = "/location";
         String locationId = "/id";
         String locationChildren = "/children/string";
         String locationParentDirectTag = "/parent";
-        String locationProxy = "/locationConfig//locationProxy";
+        String locationProxy = "//locationProxy";
 
-        for (Map.Entry location: locations.entrySet()) {
+        for (Map.Entry<String, String> location: locations.entrySet()) {
             if (alreadyReferencedLocations.contains(location.getKey())) {
-                result.addAll(getAllNodesFromXpath((DTMNodeList) XmlUtil.xpath((String) location.getValue(), prefix+locationId, XPathConstants.NODESET)));
-                result.addAll(getAllNodesFromXpath((DTMNodeList) XmlUtil.xpath((String) location.getValue(), prefix+locationChildren, XPathConstants.NODESET)));
-                result.addAll(getAllNodesFromXpath((DTMNodeList) XmlUtil.xpath((String) location.getValue(), prefix+locationParentDirectTag, XPathConstants.NODESET)));
-                result.addAll(getAllNodesFromXpath((DTMNodeList) XmlUtil.xpath((String) location.getValue(), prefix+locationProxy, XPathConstants.NODESET)));
+                result.addAll(getAllNodesFromXpath((org.w3c.dom.NodeList) XmlUtil.xpath(location.getValue(), prefix+locationId, XPathConstants.NODESET)));
+                result.addAll(getAllNodesFromXpath((org.w3c.dom.NodeList) XmlUtil.xpath(location.getValue(), prefix+locationChildren, XPathConstants.NODESET)));
+                result.addAll(getAllNodesFromXpath((org.w3c.dom.NodeList) XmlUtil.xpath(location.getValue(), prefix+locationParentDirectTag, XPathConstants.NODESET)));
+                result.addAll(getAllNodesFromXpath((org.w3c.dom.NodeList) XmlUtil.xpath(location.getValue(), prefix+locationProxy, XPathConstants.NODESET)));
             }
         }
 
         return result;
     }
 
-    private Set<String> getAllNodesFromXpath(DTMNodeList nodeList) {
+    protected Set<String> getAllNodesFromXpath(org.w3c.dom.NodeList nodeList) {
         Set<String> result = MutableSet.of();
 
         int i = 0;
@@ -207,7 +162,7 @@ public class DeleteOrphanedLocationsTransformer extends CompoundTransformer impl
         return result;
     }
 
-    public Set<String> findLocationAncestors(BrooklynMemento input, String locationId) {
+    protected Set<String> findLocationAncestors(BrooklynMemento input, String locationId) {
         Set<String> result = Sets.newLinkedHashSet();
 
         String parentId = null;
@@ -220,7 +175,7 @@ public class DeleteOrphanedLocationsTransformer extends CompoundTransformer impl
         return result;
     }
 
-    public Set<String> findLocationDescendents(BrooklynMemento input, String locationId) {
+    protected Set<String> findLocationDescendents(BrooklynMemento input, String locationId) {
         Set<String> result = Sets.newLinkedHashSet();
         List<String> tovisit = Lists.newLinkedList();
 
