@@ -63,7 +63,6 @@ import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.config.Sanitizer;
-import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.BasicMachineMetadata;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
@@ -733,10 +732,6 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     if (LOG.isDebugEnabled())
                         LOG.debug("NOTE: unused flags passed to obtain VM in "+setup.getDescription()+": "
                                 + Sanitizer.sanitize(setup.getUnusedConfig()));
-                Object callerContext = setup.get(JcloudsLocationConfig.CALLER_CONTEXT);
-                if (callerContext != null && callerContext instanceof Entity) {
-                    ((Entity)callerContext).sensors().set(Attributes.JCLOUDS_PROVISIONING_RUNNING, Attributes.JcloudsProvisioningState.STARTED);
-                }
                 nodes = computeService.createNodesInGroup(groupId, 1, template);
                 provisionTimestamp = Duration.of(provisioningStopwatch);
             } finally {

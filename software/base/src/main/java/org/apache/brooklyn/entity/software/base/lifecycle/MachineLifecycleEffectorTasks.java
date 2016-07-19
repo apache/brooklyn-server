@@ -28,18 +28,6 @@ import java.util.concurrent.Callable;
 
 import javax.annotation.Nullable;
 
-import org.apache.brooklyn.core.server.BrooklynServerConfig;
-import org.apache.brooklyn.util.repeat.Repeater;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.annotations.Beta;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
@@ -49,6 +37,7 @@ import org.apache.brooklyn.api.location.MachineManagementMixins.SuspendsMachines
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -61,6 +50,7 @@ import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.core.entity.lifecycle.Lifecycle.Transition;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.entity.trait.StartableMethods;
@@ -71,6 +61,7 @@ import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
+import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
 import org.apache.brooklyn.entity.machine.MachineInitTasks;
 import org.apache.brooklyn.entity.machine.ProvidesProvisioningFlags;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
@@ -79,11 +70,10 @@ import org.apache.brooklyn.entity.software.base.SoftwareProcess.RestartSoftwareP
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.StopSoftwareParameters;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.StopSoftwareParameters.StopMode;
 import org.apache.brooklyn.entity.stock.EffectorStartableImpl.StartParameters;
-import org.apache.brooklyn.util.collections.MutableSet;
-
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -92,9 +82,21 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.net.UserAndHostAndPort;
 import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.ssh.BashCommands;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.annotations.Beta;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.common.reflect.TypeToken;
 
 /**
  * Default skeleton for start/stop/restart tasks on machines.
@@ -121,12 +123,49 @@ public abstract class MachineLifecycleEffectorTasks {
 
     private static final Logger log = LoggerFactory.getLogger(MachineLifecycleEffectorTasks.class);
 
-    public static final ConfigKey<Boolean> ON_BOX_BASE_DIR_RESOLVED = ConfigKeys.newBooleanConfigKey("onbox.base.dir.resolved",
-        "Whether the on-box base directory has been resolved (for internal use)");
+    public static final ConfigKey<Boolean> ON_BOX_BASE_DIR_RESOLVED = ConfigKeys.newBooleanConfigKey(
+            "onbox.base.dir.resolved",
+            "Whether the on-box base directory has been resolved (for internal use)");
 
     public static final ConfigKey<Collection<? extends Location>> LOCATIONS = StartParameters.LOCATIONS;
-    public static final ConfigKey<Duration> STOP_PROCESS_TIMEOUT = ConfigKeys.newConfigKey(Duration.class,
-            "process.stop.timeout", "How long to wait for the processes to be stopped; use null to mean forever", Duration.TWO_MINUTES);
+    
+    public static final ConfigKey<Duration> STOP_PROCESS_TIMEOUT = ConfigKeys.newDurationConfigKey(
+            "process.stop.timeout", "How long to wait for the processes to be stopped; use null to mean forever", 
+            Duration.TWO_MINUTES);
+
+    @Beta
+    public static final ConfigKey<Duration> STOP_WAIT_PROVISIONING_TIMEOUT = ConfigKeys.newDurationConfigKey(
+            "stop.wait.provisioning.timeout",
+            "If stop is called on an entity while it is still provisioning the machine (such that "
+                    + "the provisioning cannot be safely interrupted), this is the length of time "
+                    + "to wait for the machine instance to become available so that it can be terminated. "
+                    + "If stop aborts before this point, the machine may be left running.", 
+            Duration.minutes(10));
+
+    @Beta
+    public static final AttributeSensor<ProvisioningTaskState> INTERNAL_PROVISIONING_TASK_STATE = new BasicAttributeSensor<ProvisioningTaskState>(
+            TypeToken.of(ProvisioningTaskState.class), 
+            "internal.provisioning.task.state",
+            "Internal transient sensor (do not use) for tracking the provisioning of a machine (to better handle aborting)", 
+            AttributeSensor.SensorPersistenceMode.NONE);
+    
+    @Beta
+    public static final AttributeSensor<MachineLocation> INTERNAL_PROVISIONED_MACHINE = new BasicAttributeSensor<MachineLocation>(
+            TypeToken.of(MachineLocation.class), 
+            "internal.provisioning.task.machine",
+            "Internal transient sensor (do not use) for tracking the machine being provisioned (to better handle aborting)", 
+            AttributeSensor.SensorPersistenceMode.NONE);
+    
+    /**
+     * Used only internally by {@link org.apache.brooklyn.entity.software.base.lifecycle.MachineLifecycleEffectorTasks}
+     * to track provisioning, so machine can be terminated if stopped while opaque provision call is being made.
+     */
+    @Beta
+    @VisibleForTesting
+    public enum ProvisioningTaskState {
+        RUNNING,
+        DONE;
+    }
 
     protected final MachineInitTasks machineInitTasks = new MachineInitTasks();
     
@@ -379,20 +418,30 @@ public abstract class MachineLifecycleEffectorTasks {
             if (!(location instanceof LocalhostMachineProvisioningLocation))
                 log.info("Starting {}, obtaining a new location instance in {} with ports {}", new Object[]{entity(), location, flags.get("inboundPorts")});
             entity().sensors().set(SoftwareProcess.PROVISIONING_LOCATION, location);
+            Transition expectedState = entity().sensors().get(Attributes.SERVICE_STATE_EXPECTED);
+            
+            // BROOKLYN-263: see corresponding code in doStop()
+            if (expectedState != null && (expectedState.getState() == Lifecycle.STOPPING || expectedState.getState() == Lifecycle.STOPPED)) {
+                throw new IllegalStateException("Provisioning aborted before even begun for "+entity()+" in "+location+" (presumably by a concurrent call to stop");
+            }
+            entity().sensors().set(INTERNAL_PROVISIONING_TASK_STATE, ProvisioningTaskState.RUNNING);
+            
             MachineLocation machine;
             try {
                 machine = Tasks.withBlockingDetails("Provisioning machine in " + location, new ObtainLocationTask(location, flags));
-                if (machine == null)
-                    throw new NoMachinesAvailableException("Failed to obtain machine in " + location.toString());
-            } catch (Exception e) {
-                throw Exceptions.propagate(e);
+                entity().sensors().set(INTERNAL_PROVISIONED_MACHINE, machine);
+            } finally {
+                entity().sensors().set(INTERNAL_PROVISIONING_TASK_STATE, ProvisioningTaskState.DONE);
             }
-
+            
+            if (machine == null) {
+                throw new NoMachinesAvailableException("Failed to obtain machine in " + location.toString());
+            }
             if (log.isDebugEnabled())
                 log.debug("While starting {}, obtained new location instance {}", entity(),
-                        (machine instanceof SshMachineLocation ?
-                         machine + ", details " + ((SshMachineLocation) machine).getUser() + ":" + Sanitizer.sanitize(((SshMachineLocation) machine).config().getLocalBag())
-                                                               : machine));
+                        (machine instanceof SshMachineLocation
+                                ? machine + ", details " + ((SshMachineLocation) machine).getUser() + ":" + Sanitizer.sanitize(((SshMachineLocation) machine).config().getLocalBag())
+                                : machine));
             return machine;
         }
     }
@@ -444,9 +493,6 @@ public abstract class MachineLifecycleEffectorTasks {
                 }
             }
             entity().addLocations(ImmutableList.of((Location) machine));
-            if (entity().getAttribute(Attributes.JCLOUDS_PROVISIONING_RUNNING) != null) {
-                entity().sensors().remove(Attributes.JCLOUDS_PROVISIONING_RUNNING);
-            }
 
             // elsewhere we rely on (public) hostname being set _after_ subnet_hostname
             // (to prevent the tiny possibility of races resulting in hostname being returned
@@ -716,24 +762,47 @@ public abstract class MachineLifecycleEffectorTasks {
         DynamicTasks.queue("pre-stop", new PreStopCustomTask());
 
         // BROOKLYN-263:
-        // With this change the stop effector will wait for Location to provision so it can stop it.
-        // It will not retry if non-jclouds location is used in the entity.
+        // With this change the stop effector will wait for Location to provision so it can terminate
+        // the machine, if a provisioning request is in-progress.
+        //
+        // The ProvisionMachineTask stores transient internal state in PROVISIONING_TASK_STATE and
+        // PROVISIONED_MACHINE: it records when the provisioning is running and when done; and it
+        // records the final machine. We record the machine in the internal sensor (rather than 
+        // just relying on getLocations) because the latter is set much later in the start() 
+        // process.
+        //
+        // This code is a big improvement (previously there was a several-minute window in some 
+        // clouds where a call to stop() would leave the machine running). 
+        //
+        // However, there are still races. If the start() code has not yet reached the call to 
+        // location.obtain() then we won't wait, and the start() call won't know to abort. It's 
+        // fiddly to get that right, because we need to cope with restart() - so we mustn't leave 
+        // any state behind that will interfere with subsequent sequential calls to start().
+        // There is some attempt to handle it by ProvisionMachineTask checking if the expectedState
+        // is stopping/stopped.
         Maybe<MachineLocation> machine = Machines.findUniqueMachineLocation(entity().getLocations());
-        if (Attributes.JcloudsProvisioningState.STARTED.equals(entity().sensors().get(Attributes.JCLOUDS_PROVISIONING_RUNNING))
-                && machine.isAbsent()) {
-            entity().sensors().set(Attributes.JCLOUDS_PROVISIONING_RUNNING, null);
-            Repeater.create("Wait for a machine to appear")
+        ProvisioningTaskState provisioningState = entity().sensors().get(INTERNAL_PROVISIONING_TASK_STATE);
+
+        if (machine.isAbsent() && provisioningState == ProvisioningTaskState.RUNNING) {
+            Duration maxWait = entity().config().get(STOP_WAIT_PROVISIONING_TIMEOUT);
+            log.info("When stopping {}, waiting for up to {} for the machine to finish provisioning, before terminating it", entity(), maxWait);
+            boolean success = Repeater.create("Wait for a machine to appear")
                     .until(new Callable<Boolean>() {
                         @Override
                         public Boolean call() throws Exception {
-                            return Machines.findUniqueMachineLocation(entity().getLocations()).isPresent();
-                        }
-                    })
-                    .every(Duration.FIVE_SECONDS)
-                    .limitTimeTo(entity().getManagementContext().getConfig().getConfig(BrooklynServerConfig.ENTITIES_STOP_WAIT_PROVISIONING_TIMEOUT))
+                            ProvisioningTaskState state = entity().sensors().get(INTERNAL_PROVISIONING_TASK_STATE);
+                            return (state == ProvisioningTaskState.DONE);
+                        }})
+                    .backoffTo(Duration.FIVE_SECONDS)
+                    .limitTimeTo(maxWait)
                     .run();
-            machine = Machines.findUniqueMachineLocation(entity().getLocations());
+            if (!success) {
+                log.warn("When stopping {}, timed out after {} waiting for the machine to finish provisioning - machine may we left running", entity(), maxWait);
+            }
+            machine = Maybe.ofDisallowingNull(entity().sensors().get(INTERNAL_PROVISIONED_MACHINE));
         }
+        entity().sensors().remove(INTERNAL_PROVISIONING_TASK_STATE);
+        entity().sensors().remove(INTERNAL_PROVISIONED_MACHINE);
 
         Task<List<?>> stoppingProcess = null;
         if (canStop(stopProcessMode, entity())) {
