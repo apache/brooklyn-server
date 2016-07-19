@@ -88,6 +88,8 @@ public class VersionComparatorTest {
             "1.2-SNAPSHOT", "1.10-SNAPSHOT",
             "qualifer",
             "0", "0.1", "1");
+
+        assertVersionOrder("0.10.0-SNAPSHOT", "0.10.0.SNAPSHOT", "0.10.0-GA", "0.10.0.GA", "0.10.0");
     }
     
     private static void assertVersionOrder(String v1, String v2, String ...otherVersions) {

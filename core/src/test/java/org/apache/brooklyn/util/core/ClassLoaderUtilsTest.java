@@ -110,6 +110,8 @@ public class ClassLoaderUtilsTest {
         Class<? extends Entity> clazz = (Class<? extends Entity>) bundle.loadClass(classname);
         Entity entity = createSimpleEntity(bundleUrl, clazz);
 
+        System.setProperty(ClassLoaderUtils.WHITE_LIST_KEY, "do.not.match.whitelist:1.0.0");
+
         ClassLoaderUtils cluMgmt = new ClassLoaderUtils(getClass(), mgmt);
         ClassLoaderUtils cluClass = new ClassLoaderUtils(clazz);
         ClassLoaderUtils cluEntity = new ClassLoaderUtils(getClass(), entity);
