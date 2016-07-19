@@ -1,0 +1,7 @@
+<location>
+  <brooklynVersion>0.10.0-SNAPSHOT</brooklynVersion>
+  <type>org.apache.brooklyn.location.winrm.WinRmMachineLocation</type>
+  <id>jf4rwubqyb</id>
+  <displayName>WinRmMachineLocation:jf4r</displayName>
+  <parent>m72nvkl799</parent>
+</location>

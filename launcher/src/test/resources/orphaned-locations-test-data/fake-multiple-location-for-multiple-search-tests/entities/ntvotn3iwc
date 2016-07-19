@@ -1,0 +1,18 @@
+<entity>
+  <brooklynVersion>0.10.0-SNAPSHOT</brooklynVersion>
+  <type>org.apache.brooklyn.entity.stock.BasicApplicationImpl</type>
+  <id>ntvotn3iwc</id>
+  <displayName>multipleLocWinLocalhost</displayName>
+  <children>
+    <string>exq3hn5eug</string>
+  </children>
+  <config>
+    <camp.template.id>B6WmUWfk</camp.template.id>
+    <brooklyn.wrapper__app type="boolean">true</brooklyn.wrapper__app>
+  </config>
+  <locations>
+    <string>m72nvkl799</string>
+    <string>m72nPTUF99</string>
+    <string>m72nhtDr99</string>
+  </locations>
+</entity>

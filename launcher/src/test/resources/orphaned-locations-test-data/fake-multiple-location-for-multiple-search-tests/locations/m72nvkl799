@@ -1,0 +1,10 @@
+<location>
+  <brooklynVersion>0.10.0-SNAPSHOT</brooklynVersion>
+  <type>org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation</type>
+  <id>m72nvkl799</id>
+  <displayName>FixedListMachineProvisioningLocation:m72n</displayName>
+  <children>
+    <string>jf4rwubqyb</string>
+    <string>pski1c4s14</string>
+  </children>
+</location>

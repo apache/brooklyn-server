@@ -1,0 +1,19 @@
+<entity>
+  <brooklynVersion>0.10.0-SNAPSHOT</brooklynVersion>
+  <type>org.apache.brooklyn.entity.software.base.EmptyWindowsProcessImpl</type>
+  <id>exq3hn5eug</id>
+  <displayName>EmptyWindowsProcess:exq3</displayName>
+  <parent>ntvotn3iwc</parent>
+  <locations>
+    <string>jf4rwubqyb</string>
+    <string>jf4rwuTTTb</string>
+    <string>jf4rwuHHHb</string>
+  </locations>
+  <attributes>
+    <softwareservice.provisioningLocation>
+      <locationProxy>m72nvkl799</locationProxy>
+      <locationProxy>m72nTYl799</locationProxy>
+      <locationProxy>m72LKVN799</locationProxy>
+    </softwareservice.provisioningLocation>
+  </attributes>
+</entity>

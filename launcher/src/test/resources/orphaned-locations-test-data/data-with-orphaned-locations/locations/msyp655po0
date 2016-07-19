@@ -1,0 +1,18 @@
+<location>
+  <brooklynVersion>0.10.0-SNAPSHOT</brooklynVersion>
+  <type>org.apache.brooklyn.location.jclouds.JcloudsLocation</type>
+  <id>msyp655po0</id>
+  <children>
+    <string>ppamsemxgo</string>
+  </children>
+  <locationConfig>
+    <vmInstanceIds>
+      <map>
+        <entry>
+          <locationProxy>ppamsemxgo</locationProxy>
+          <string>eu-west-1/i-cecb8742</string>
+        </entry>
+      </map>
+    </vmInstanceIds>
+  </locationConfig>
+</location>

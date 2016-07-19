@@ -1,0 +1,11 @@
+<location>
+  <brooklynVersion>0.10.0-SNAPSHOT</brooklynVersion>
+  <type>org.apache.brooklyn.location.jclouds.JcloudsSshMachineLocation</type>
+  <id>pudtixbw89</id>
+  <parent>tjdywoxbji</parent>
+  <locationConfig>
+    <jcloudsParent>
+      <locationProxy>tjdywoxbji</locationProxy>
+    </jcloudsParent>
+  </locationConfig>
+</location>
