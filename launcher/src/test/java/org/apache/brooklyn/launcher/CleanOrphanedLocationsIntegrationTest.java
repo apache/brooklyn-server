@@ -49,7 +49,7 @@ import org.apache.brooklyn.core.internal.BrooklynProperties;
 import java.util.Map;
 import java.util.Set;
 
-public class CleanOrphanedLocationsLiveTest {
+public class CleanOrphanedLocationsIntegrationTest {
 
     private String PERSISTED_STATE_PATH_WITH_ORPHANED_LOCATIONS = "/orphaned-locations-test-data/data-with-orphaned-locations";
     private String PERSISTED_STATE_PATH_WITH_MULTIPLE_LOCATIONS_OCCURRENCE = "/orphaned-locations-test-data/fake-multiple-location-for-multiple-search-tests";
@@ -61,10 +61,7 @@ public class CleanOrphanedLocationsLiveTest {
     private String persistenceDirWithoutOrphanedLocations;
     private String persistenceDirWithMultipleLocationsOccurrence;
     private String destinationDir;
-    private String destinationLocation;
-    private String localBrooklynProperties;
     private String persistenceLocation;
-    private String highAvailabilityMode;
 
     private DeleteOrphanedLocationsTransformer transformer;
 
@@ -88,10 +85,6 @@ public class CleanOrphanedLocationsLiveTest {
 
         managementContext = new LocalManagementContext(brooklynProperties);
 
-        if (persistenceLocation == null) {
-            persistenceLocation = brooklynProperties.getConfig(BrooklynServerConfig.PERSISTENCE_LOCATION_SPEC);
-        }
-
         persistenceDir = BrooklynServerPaths.newMainPersistencePathResolver(brooklynProperties).location(persistenceLocation).dir(persistenceDir).resolve();
         PersistenceObjectStore objectStore = BrooklynPersistenceUtils.newPersistenceObjectStore(managementContext, persistenceLocation, persistenceDir,
                 PersistMode.AUTO, HighAvailabilityMode.HOT_STANDBY);
@@ -110,13 +103,11 @@ public class CleanOrphanedLocationsLiveTest {
 
     @Test
     public void testSelectionWithOrphanedLocationsInData() {
-
-        Set<String> locationsToKeep = MutableSet.of(
+        final Set<String> locationsToKeep = MutableSet.of(
                 "tjdywoxbji",
                 "pudtixbw89"
         );
-
-        Set<String> orphanedLocations = MutableSet.of(
+        final Set<String> orphanedLocations = MutableSet.of(
                 "banby1jx4j",
                 "msyp655po0",
                 "ppamsemxgo"
@@ -193,7 +184,6 @@ public class CleanOrphanedLocationsLiveTest {
     public void testCleanedCopiedPersistedState() throws Exception {
 
         BrooklynLauncher launcher = BrooklynLauncher.newInstance()
-                .localBrooklynPropertiesFile(localBrooklynProperties)
                 .brooklynProperties(OsgiManager.USE_OSGI, false)
                 .persistMode(PersistMode.AUTO)
                 .persistenceDir(persistenceDirWithOrphanedLocations)
@@ -201,8 +191,7 @@ public class CleanOrphanedLocationsLiveTest {
                 .highAvailabilityMode(HighAvailabilityMode.DISABLED);
 
         try {
-            launcher.cleanOrphanedLocations(destinationDir, destinationLocation);
-
+            launcher.cleanOrphanedLocations(destinationDir, null);
         } catch (Exception e) {
             throw new Exception(e);
         } finally {
@@ -232,12 +221,14 @@ public class CleanOrphanedLocationsLiveTest {
                 "jf4rwuHHHb",
                 "m72nvkl799",
                 "m72nPTUF99",
-                "m72nhtDr99"
+                "m72nhtDr99",
+                "pski1c4s14"
         );
 
         Set<String> locationsToKeep = MutableSet.of(
                 "m72nvkl799",
-                "jf4rwubqyb"
+                "jf4rwubqyb",
+                "pski1c4s14"
         );
 
         initManagementContextAndPersistence(persistenceDirWithMultipleLocationsOccurrence);
