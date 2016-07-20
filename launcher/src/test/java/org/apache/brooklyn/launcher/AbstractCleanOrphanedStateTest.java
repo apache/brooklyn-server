@@ -162,7 +162,7 @@ public abstract class AbstractCleanOrphanedStateTest extends RebindTestFixtureWi
     }
     
     public static class MyEnricher extends AbstractEnricher {
-        @SetFromFlag Object obj;
+        @SetFromFlag("myobj") Object obj;
     }
     
     public static class MyPolicy extends AbstractPolicy {

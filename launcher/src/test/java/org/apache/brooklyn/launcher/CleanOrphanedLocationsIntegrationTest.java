@@ -32,7 +32,7 @@ import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
 import org.apache.brooklyn.core.mgmt.rebind.PersistenceExceptionHandlerImpl;
 import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
-import org.apache.brooklyn.core.mgmt.rebind.transformer.impl.DeleteOrphanedLocationsTransformer;
+import org.apache.brooklyn.core.mgmt.rebind.transformer.impl.DeleteOrphanedStateTransformer;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServerPaths;
 import org.apache.brooklyn.test.Asserts;
@@ -63,7 +63,7 @@ public class CleanOrphanedLocationsIntegrationTest {
     private String destinationDir;
     private String persistenceLocation;
 
-    private DeleteOrphanedLocationsTransformer transformer;
+    private DeleteOrphanedStateTransformer transformer;
 
     private ManagementContext managementContext;
 
@@ -75,7 +75,7 @@ public class CleanOrphanedLocationsIntegrationTest {
 
         destinationDir = getClass().getResource(PERSISTED_STATE_DESTINATION_PATH).getFile();
 
-        transformer = DeleteOrphanedLocationsTransformer.builder().build();
+        transformer = DeleteOrphanedStateTransformer.builder().build();
     }
 
     private void initManagementContextAndPersistence(String persistenceDir) {
