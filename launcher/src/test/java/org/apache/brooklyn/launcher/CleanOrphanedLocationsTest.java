@@ -18,36 +18,23 @@
  */
 package org.apache.brooklyn.launcher;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
-
-import java.util.Arrays;
-import java.util.Set;
+import static org.testng.Assert.assertFalse;
 
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
-import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
+import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.enricher.AbstractEnricher;
-import org.apache.brooklyn.core.feed.AbstractFeed;
-import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixtureWithApp;
-import org.apache.brooklyn.core.mgmt.rebind.RebindTestUtils;
-import org.apache.brooklyn.core.mgmt.rebind.transformer.impl.DeleteOrphanedLocationsTransformer;
-import org.apache.brooklyn.core.policy.AbstractPolicy;
+import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.core.flags.SetFromFlag;
-import org.apache.commons.lang.builder.EqualsBuilder;
 import org.testng.annotations.Test;
 
-import com.beust.jcommander.internal.Sets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-public class CleanOrphanedLocationsTest extends RebindTestFixtureWithApp {
+public class CleanOrphanedLocationsTest extends AbstractCleanOrphanedStateTest {
 
     @Test
     public void testDeletesOrphanedLocations() throws Exception {
@@ -71,6 +58,37 @@ public class CleanOrphanedLocationsTest extends RebindTestFixtureWithApp {
         Location loc2 = mgmt().getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
                 .configure(ConfigKeys.newConfigKey(Object.class, "myconfig"), loc1));
         assertTransformDeletes(new Deletions().locations(loc1.getId(), loc2.getId()));
+    }
+
+    // Tests that we don't accidentally abort or throw exceptions. 
+    @Test
+    public void testHandlesDanglingReference() throws Exception {
+        SshMachineLocation todelete = mgmt().getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class));
+        SshMachineLocation loc = mgmt().getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class));
+        origApp.addLocations(ImmutableList.of(todelete));
+        origApp.sensors().set(Sensors.newSensor(Object.class, "mysensor"), loc);
+        origApp.config().set(ConfigKeys.newConfigKey(Object.class, "myconfig"), loc);
+        origApp.tags().addTag(loc);
+        loc.config().set(ConfigKeys.newConfigKey(Object.class, "myconfig"), todelete);
+        
+        Locations.unmanage(todelete);
+        assertFalse(getRawData().getLocations().containsKey(todelete.getId()));
+
+        assertTransformIsNoop();
+    }
+
+    // Previously when iterating over the list, we'd abort on the first null rather than looking
+    // at all the nodes in the list. This test doesn't quite manage to reproduce that. The non-null
+    // dangling references are persisted.
+    @Test
+    public void testHandlesDanglingReferencesInLocationListSurroundingValidReference() throws Exception {
+        SshMachineLocation todelete = mgmt().getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class));
+        SshMachineLocation loc = mgmt().getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class));
+        SshMachineLocation todelete2 = mgmt().getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class));
+        origApp.addLocations(ImmutableList.of(todelete, loc, todelete2));
+        Locations.unmanage(todelete);
+
+        assertTransformIsNoop();
     }
 
     @Test
@@ -120,7 +138,7 @@ public class CleanOrphanedLocationsTest extends RebindTestFixtureWithApp {
     @Test(groups="WIP", enabled=false)
     public void testKeepsLocationsReferencedInConfigKeyDefault() throws Exception {
         SshMachineLocation loc = mgmt().getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class));
-        origApp.config().set(ConfigKeys.newConfigKey(Object.class, "myconfig", "my description", loc), null);
+        origApp.config().set(ConfigKeys.newConfigKey(MachineLocation.class, "myconfig", "my description", loc), (MachineLocation)null);
         assertTransformIsNoop();
     }
     
@@ -197,91 +215,5 @@ public class CleanOrphanedLocationsTest extends RebindTestFixtureWithApp {
         feed.config().set(ConfigKeys.newConfigKey(Object.class, "myconfig"), loc);
         origApp.feeds().add(feed);
         assertTransformIsNoop();
-    }
-    
-    private void assertTransformIsNoop() throws Exception {
-        BrooklynMementoRawData origData = getRawData();
-        BrooklynMementoRawData transformedData = transformRawData(origData);
-        assertRawData(transformedData, origData);
-    }
-
-    private void assertTransformDeletes(Deletions deletions) throws Exception {
-        BrooklynMementoRawData origData = getRawData();
-        BrooklynMementoRawData transformedData = transformRawData(origData);
-        assertRawData(transformedData, origData, deletions);
-    }
-
-    protected BrooklynMementoRawData getRawData() throws Exception {
-        RebindTestUtils.waitForPersisted(origApp);
-        return mgmt().getRebindManager().retrieveMementoRawData();
-    }
-
-    protected BrooklynMementoRawData transformRawData(BrooklynMementoRawData rawData) throws Exception {
-        DeleteOrphanedLocationsTransformer transformer = DeleteOrphanedLocationsTransformer.builder().build();
-        return transformer.transform(rawData);
-    }
-
-    protected void assertRawData(BrooklynMementoRawData actual, BrooklynMementoRawData expected) {
-        // asserting lots of times, to ensure we get a more specific error message!
-        assertEquals(actual.getCatalogItems().keySet(), expected.getCatalogItems().keySet());
-        assertEquals(actual.getCatalogItems(), expected.getCatalogItems());
-        assertEquals(actual.getEntities().keySet(), expected.getEntities().keySet());
-        assertEquals(actual.getEntities(), expected.getEntities());
-        assertEquals(actual.getLocations().keySet(), expected.getLocations().keySet());
-        assertEquals(actual.getLocations(), expected.getLocations());
-        assertEquals(actual.getEnrichers().keySet(), expected.getEnrichers().keySet());
-        assertEquals(actual.getEnrichers(), expected.getEnrichers());
-        assertEquals(actual.getPolicies().keySet(), expected.getPolicies().keySet());
-        assertEquals(actual.getPolicies(), expected.getPolicies());
-        assertEquals(actual.getFeeds().keySet(), expected.getFeeds().keySet());
-        assertEquals(actual.getFeeds(), expected.getFeeds());
-        assertTrue(EqualsBuilder.reflectionEquals(actual, expected));
-    }
-    
-    protected void assertRawData(BrooklynMementoRawData actual, BrooklynMementoRawData orig, Deletions deletions) {
-        BrooklynMementoRawData expected = BrooklynMementoRawData.builder()
-                .catalogItems(orig.getCatalogItems())
-                .entities(orig.getEntities())
-                .locations(MutableMap.<String, String>builder().putAll(orig.getLocations()).removeAll(deletions.locations).build())
-                .feeds(MutableMap.<String, String>builder().putAll(orig.getFeeds()).removeAll(deletions.feeds).build())
-                .enrichers(MutableMap.<String, String>builder().putAll(orig.getEnrichers()).removeAll(deletions.enrichers).build())
-                .policies(MutableMap.<String, String>builder().putAll(orig.getPolicies()).removeAll(deletions.policies).build())
-                .build();
-        assertRawData(actual, expected);
-    }
-    
-    @SuppressWarnings("unused")
-    private static class Deletions {
-        final Set<String> locations = Sets.newLinkedHashSet();
-        final Set<String> feeds = Sets.newLinkedHashSet();
-        final Set<String> enrichers = Sets.newLinkedHashSet();
-        final Set<String> policies = Sets.newLinkedHashSet();
-        
-        Deletions locations(String... vals) {
-            if (vals != null) locations.addAll(Arrays.asList(vals));
-            return this;
-        }
-        Deletions feeds(String... vals) {
-            if (vals != null) feeds.addAll(Arrays.asList(vals));
-            return this;
-        }
-        Deletions enrichers(String... vals) {
-            if (vals != null) enrichers.addAll(Arrays.asList(vals));
-            return this;
-        }
-        Deletions policies(String... vals) {
-            if (vals != null) policies.addAll(Arrays.asList(vals));
-            return this;
-        }
-    }
-    
-    public static class MyEnricher extends AbstractEnricher {
-        @SetFromFlag Object obj;
-    }
-    
-    public static class MyPolicy extends AbstractPolicy {
-    }
-    
-    public static class MyFeed extends AbstractFeed {
     }
 }

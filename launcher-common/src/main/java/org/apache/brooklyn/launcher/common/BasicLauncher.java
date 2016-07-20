@@ -61,7 +61,7 @@ import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
 import org.apache.brooklyn.core.mgmt.rebind.PersistenceExceptionHandlerImpl;
 import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
 import org.apache.brooklyn.core.mgmt.rebind.transformer.CompoundTransformer;
-import org.apache.brooklyn.core.mgmt.rebind.transformer.impl.DeleteOrphanedLocationsTransformer;
+import org.apache.brooklyn.core.mgmt.rebind.transformer.impl.DeleteOrphanedStateTransformer;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServerPaths;
 import org.apache.brooklyn.entity.brooklynnode.BrooklynNode;
@@ -384,7 +384,7 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
     }
 
     public void cleanOrphanedLocations(String destinationDir, @Nullable String destinationLocationSpec) {
-        copyPersistedState(destinationDir, destinationLocationSpec, DeleteOrphanedLocationsTransformer.builder().build());
+        copyPersistedState(destinationDir, destinationLocationSpec, DeleteOrphanedStateTransformer.builder().build());
     }
 
     /** @deprecated since 0.7.0 use {@link #copyPersistedState} instead */

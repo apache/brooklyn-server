@@ -21,6 +21,8 @@ package org.apache.brooklyn.api.mgmt.rebind.mementos;
 import java.util.Collections;
 import java.util.Map;
 
+import javax.annotation.Nullable;
+
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
 
 import com.google.common.annotations.Beta;
@@ -120,6 +122,7 @@ public class BrooklynMementoRawData {
         }
     }
 
+    private final String brooklynVersion;
     private final Map<String, String> entities;
     private final Map<String, String> locations;
     private final Map<String, String> policies;
@@ -128,6 +131,7 @@ public class BrooklynMementoRawData {
     private final Map<String, String> catalogItems;
     
     private BrooklynMementoRawData(Builder builder) {
+        brooklynVersion = builder.brooklynVersion;
         entities = builder.entities;
         locations = builder.locations;
         policies = builder.policies;
@@ -136,6 +140,15 @@ public class BrooklynMementoRawData {
         catalogItems = builder.catalogItems;
     }
 
+    /**
+     * Setting the brooklyn version explicitly is optional. 
+     */
+    @Beta
+    @Nullable
+    public String getBrooklynVersion() {
+        return brooklynVersion;
+    }
+    
     public Map<String, String> getEntities() {
         return Collections.unmodifiableMap(entities);
     }
