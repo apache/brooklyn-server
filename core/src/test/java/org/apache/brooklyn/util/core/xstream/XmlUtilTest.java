@@ -24,14 +24,19 @@ import static org.testng.Assert.assertTrue;
 
 import java.util.List;
 
+import javax.xml.xpath.XPathConstants;
+
 import org.apache.brooklyn.util.core.xstream.XmlUtil.Escaper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
 public class XmlUtilTest {
@@ -54,6 +59,30 @@ public class XmlUtilTest {
         for (int i = 0; i < 2; i++) {
             assertEquals(XmlUtil.xpath(xml, "/a/b[text()]"), "myb");
         }
+    }
+
+    @Test
+    public void testXpathGetsNumber() throws Exception {
+        String xml = "<a><b>1</b></a>";
+        assertEquals(XmlUtil.xpath(xml, "/a/b[text()]", XPathConstants.NUMBER), 1.0D);
+    }
+
+    @Test
+    public void testXpathGetsBoolean() throws Exception {
+        String xml = "<a><b>true</b></a>";
+        assertEquals(XmlUtil.xpath(xml, "/a/b[text()]", XPathConstants.BOOLEAN), Boolean.TRUE);
+    }
+
+    @Test
+    public void testXpathGetsNodeSet() throws Exception {
+        String xml = "<a><b><string>v1</string><string>v2</string></b></a>";
+        NodeList resultSet = (NodeList) XmlUtil.xpath(xml, "/a/b/string", XPathConstants.NODESET);
+        List<String> results = Lists.newArrayList();
+        for (int i = 0; i < resultSet.getLength(); i++) {
+            Node item = resultSet.item(i);
+            results.add(item.getTextContent());
+        }
+        assertEquals(results, ImmutableList.of("v1", "v2"));
     }
 
     @Test

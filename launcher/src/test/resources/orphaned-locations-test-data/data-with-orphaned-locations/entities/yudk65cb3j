@@ -1,0 +1,22 @@
+<entity>
+  <brooklynVersion>0.10.0-SNAPSHOT</brooklynVersion>
+  <type>org.apache.brooklyn.entity.software.base.EmptySoftwareProcessImpl</type>
+  <id>yudk65cb3j</id>
+  <displayName>EmptySoftwareProcess:yudk</displayName>
+  <parent>xk1z8wlgx2</parent>
+  <config>
+    <camp.template.id>fh4wq1FX</camp.template.id>
+    <onbox.base.dir.resolved type="boolean">true</onbox.base.dir.resolved>
+    <install.unique__label>EmptySoftwareProcess</install.unique__label>
+  </config>
+  <locations>
+    <string>pudtixbw89</string>
+  </locations>
+  <attributes>
+    <softwareservice.provisioningLocation>
+      <locationProxy>tjdywoxbji</locationProxy>
+    </softwareservice.provisioningLocation>
+    <host.subnet.hostname>ec2-54-155-107-26.eu-west-1.compute.amazonaws.com</host.subnet.hostname>
+    <service.process.isRunning type="boolean">true</service.process.isRunning>
+  </attributes>
+</entity>

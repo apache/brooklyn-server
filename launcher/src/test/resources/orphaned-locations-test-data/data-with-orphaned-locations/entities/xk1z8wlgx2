@@ -1,0 +1,34 @@
+<entity>
+  <brooklynVersion>0.10.0-SNAPSHOT</brooklynVersion>
+  <type>org.apache.brooklyn.entity.stock.BasicApplicationImpl</type>
+  <id>xk1z8wlgx2</id>
+  <displayName>element1</displayName>
+  <tags>
+    <org.apache.brooklyn.core.mgmt.BrooklynTags_-NamedStringTag>
+      <kind>yaml_spec</kind>
+      <contents>name: element1
+location:
+  jclouds:aws-ec2:eu-west-1
+services:
+- type: org.apache.brooklyn.entity.software.base.EmptySoftwareProcess</contents>
+    </org.apache.brooklyn.core.mgmt.BrooklynTags_-NamedStringTag>
+  </tags>
+  <children>
+    <string>yudk65cb3j</string>
+  </children>
+  <config>
+    <camp.template.id>S0Odehz7</camp.template.id>
+    <brooklyn.wrapper__app type="boolean">true</brooklyn.wrapper__app>
+  </config>
+  <locations>
+    <string>tjdywoxbji</string>
+  </locations>
+  <attributes>
+    <service.state.expected>
+      <org.apache.brooklyn.core.entity.lifecycle.Lifecycle_-Transition>
+        <state>RUNNING</state>
+        <timestampUtc>1467993426499</timestampUtc>
+      </org.apache.brooklyn.core.entity.lifecycle.Lifecycle_-Transition>
+    </service.state.expected>
+  </attributes>
+</entity>
