@@ -210,6 +210,18 @@ brooklyn.catalog:
             will automatically be added. The default is 0.95 or 95%
           type: double
           default: 0.95
+        # TODO Move next two parameters to the swarm-node level
+        - name: swarm.recovery.stabilizationDelay
+          label: Stabilization Delay
+          description: |
+            Time period for which the service must be consistently in the same state to trigger an action
+          # A restart shouldn't trigger failure
+          default: 3m
+        - name: swarm.recovery.failOnRecurringFailuresInThisDuration
+          label: Fail Duration
+          description: |
+            Reports entity as failed if it fails two or more times in this time window
+          default: 10m
 
       brooklyn.enrichers:
         - type: org.apache.brooklyn.enricher.stock.Transformer
@@ -271,30 +283,16 @@ brooklyn.catalog:
                 type: docker-swarm-node
                 id: swarm-node
                 name: "swarm-node"
-                # TODO implement parameters merge behaviour and remove defaults from brooklyn.config below
-                # brooklyn.parameters.inheritance.type: prepend/append/overwrite/hide?
-                # brooklyn.parameters:
-                # - name: swarm.recovery.stabilizationDelay
-                #   label: Stabilization Delay
-                #   description: |
-                #     Time period for which the service must be consistently in the same state to trigger an action
-                #   # A restart shouldn't trigger failure
-                #   default: 5m
-                # - name: swarm.recovery.failOnRecurringFailuresInThisDuration
-                #   label: Fail Duration
-                #   description: |
-                #     Reports entity as failed if it fails two or more times in this time window
-                #   default: 15m
                 brooklyn.policies:
                   - type: org.apache.brooklyn.policy.ha.ServiceRestarter
                     brooklyn.config:
-                      failOnRecurringFailuresInThisDuration: $brooklyn:config("swarm.recovery.failOnRecurringFailuresInThisDuration")
+                      failOnRecurringFailuresInThisDuration: $brooklyn:entity("swarm-cluster").config("swarm.recovery.failOnRecurringFailuresInThisDuration")
                 brooklyn.enrichers:
                   - type: org.apache.brooklyn.policy.ha.ServiceFailureDetector
                     brooklyn.config:
-                      serviceOnFire.stabilizationDelay: $brooklyn:config("swarm.recovery.stabilizationDelay")
-                      entityFailed.stabilizationDelay: $brooklyn:config("swarm.recovery.stabilizationDelay")
-                      entityRecovered.stabilizationDelay: $brooklyn:config("swarm.recovery.stabilizationDelay")
+                      serviceOnFire.stabilizationDelay: $brooklyn:entity("swarm-cluster").config("swarm.recovery.stabilizationDelay")
+                      entityFailed.stabilizationDelay: $brooklyn:entity("swarm-cluster").config("swarm.recovery.stabilizationDelay")
+                      entityRecovered.stabilizationDelay: $brooklyn:entity("swarm-cluster").config("swarm.recovery.stabilizationDelay")
                 brooklyn.config:
                   launch.latch: $brooklyn:entity("swarm-manager").attributeWhenReady("service.isUp")
 
