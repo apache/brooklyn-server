@@ -383,7 +383,7 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
         }
     }
 
-    public void cleanOrphanedLocations(String destinationDir, @Nullable String destinationLocationSpec) {
+    public void cleanOrphanedState(String destinationDir, @Nullable String destinationLocationSpec) {
         copyPersistedState(destinationDir, destinationLocationSpec, DeleteOrphanedStateTransformer.builder().build());
     }
 

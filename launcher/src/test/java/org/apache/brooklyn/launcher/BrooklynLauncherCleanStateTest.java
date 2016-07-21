@@ -82,7 +82,7 @@ public class BrooklynLauncherCleanStateTest extends AbstractBrooklynLauncherRebi
             BrooklynLauncher launcher = newLauncherDefault(PersistMode.AUTO)
                     .highAvailabilityMode(HighAvailabilityMode.MASTER)
                     .webconsole(false);
-            launcher.cleanOrphanedLocations(destination, destinationLocation);
+            launcher.cleanOrphanedState(destination, destinationLocation);
             launcher.terminate();
 
             // Sanity checks (copied from BrooklynLauncherRebindTestToFiles#testCopyPersistedState)

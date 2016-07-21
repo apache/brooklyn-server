@@ -827,8 +827,8 @@ public class Main extends AbstractMain {
         }
     }
 
-    @Command(name = "clean-orphaned-locations", description = "Removes existing orphaned locations")
-    public static class CleanOrphanedLocationsCommand extends BrooklynCommandCollectingArgs {
+    @Command(name = "clean-orphaned-state", description = "Removes existing orphaned persisted state (e.g. locations, policies, enrichers and feeds)")
+    public static class CleanOrphanedStateCommand extends BrooklynCommandCollectingArgs {
 
         @Option(name = { "--localBrooklynProperties" }, title = "local brooklyn.properties file",
                 description = "local brooklyn.properties file, specific to this launch (appending to and overriding global properties)")
@@ -843,29 +843,24 @@ public class Main extends AbstractMain {
         public String persistenceLocation;
 
         @Option(name = { "--destinationDir" }, required = true, title = "destination dir",
-                description = "The directory to copy persistence data to without orphaned locations")
+                description = "The directory to copy persistence data to, with orphaned state removed")
         public String destinationDir;
 
         @Option(name = { "--destinationLocation" }, title = "persistence location",
                 description = "The location spec for an object store to copy data to")
         public String destinationLocation;
 
-        @Option(name = { "--transformations" }, title = "transformations",
-                description = "local transformations file, to be applied to the copy of the data before uploading it")
-        public String transformations;
-
         @Override
         public Void call() throws Exception {
-            checkNotNull(destinationDir, "orphanedReferencesTmpDir");
+            checkNotNull(destinationDir, "destinationDir");
 
             BrooklynLauncher launcher;
             failIfArguments();
 
             try {
-                log.info("Retrieving and copying persisted state to " + destinationDir + " without orphaned locations");
+                log.info("Retrieving and copying persisted state to " + destinationDir + " with orphaned state deleted");
 
-
-                PersistMode persistMode = PersistMode.AUTO;
+                PersistMode persistMode = PersistMode.REBIND;
                 HighAvailabilityMode highAvailabilityMode = HighAvailabilityMode.DISABLED;
 
                 launcher = BrooklynLauncher.newInstance()
@@ -883,7 +878,7 @@ public class Main extends AbstractMain {
             }
 
             try {
-                launcher.cleanOrphanedLocations(destinationDir, destinationLocation);
+                launcher.cleanOrphanedState(destinationDir, destinationLocation);
             } catch (FatalRuntimeException e) {
                 throw e;
             } catch (Exception e) {
@@ -1007,7 +1002,7 @@ public class Main extends AbstractMain {
                         HelpCommand.class,
                         cliInfoCommand(),
                         GeneratePasswordCommand.class,
-                        CleanOrphanedLocationsCommand.class,
+                        CleanOrphanedStateCommand.class,
                         CopyStateCommand.class,
                         ListAllCommand.class,
                         cliLaunchCommand()
