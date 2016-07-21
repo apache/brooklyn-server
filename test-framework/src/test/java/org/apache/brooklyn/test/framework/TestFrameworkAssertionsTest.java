@@ -85,8 +85,8 @@ public class TestFrameworkAssertionsTest {
     public Object[][] negativeTestsDP() {
         String arbitrary = Identifiers.makeRandomId(8);
         return new Object[][]{
-                {"some-sensor-value", "equals", arbitrary, Arrays.asList(ImmutableMap.of("isEqualTo", arbitrary))},
-                {"some-sensor-value", "equals", arbitrary, Arrays.asList(ImmutableMap.of("equalTo", arbitrary))},
+                {"some-sensor-value", "isEqualTo", arbitrary, Arrays.asList(ImmutableMap.of("isEqualTo", arbitrary))},
+                {"some-sensor-value", "equalTo", arbitrary, Arrays.asList(ImmutableMap.of("equalTo", arbitrary))},
                 {"some-sensor-value", "equals", arbitrary, Arrays.asList(ImmutableMap.of("equals", arbitrary))},
 
                 {"some-sensor-value", "notEqual", "some-sensor-value", Arrays.asList(ImmutableMap.of("notEqual", "some-sensor-value"))},

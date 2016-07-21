@@ -175,67 +175,70 @@ public class TestFrameworkAssertions {
                 case EQUAL_TO :
                 case EQUALS :
                     if (null == actual || !actual.equals(expected)) {
-                        failAssertion(target, EQUALS, expected);
+                        failAssertion(target, condition, expected, actual);
                     }
                     break;
 
                 case NOT_EQUAL :
                     if (Objects.equals(actual, expected)) {
-                        failAssertion(target, NOT_EQUAL, expected);
+                        failAssertion(target, condition, expected, actual);
                     }
                 case IS_NULL :
                     if (isTrue(expected) != (null == actual)) {
-                        failAssertion(target, IS_NULL, expected);
+                        failAssertion(target, condition, expected, actual);
                     }
                     break;
 
                 case NOT_NULL :
                     if (isTrue(expected) != (null != actual)) {
-                        failAssertion(target, NOT_NULL, expected);
+                        failAssertion(target, condition, expected, actual);
                     }
                     break;
 
                 case CONTAINS :
                     if (null == actual || !actual.toString().contains(expected.toString())) {
-                        failAssertion(target, CONTAINS, expected);
+                        failAssertion(target, condition, expected, actual);
                     }
                     break;
 
                 case IS_EMPTY :
                     if (isTrue(expected) != (null == actual || Strings.isEmpty(actual.toString()))) {
-                        failAssertion(target, IS_EMPTY, expected);
+                        failAssertion(target, condition, expected, actual);
                     }
                     break;
 
                 case NOT_EMPTY :
                     if (isTrue(expected) != ((null != actual && Strings.isNonEmpty(actual.toString())))) {
-                        failAssertion(target, NOT_EMPTY, expected);
+                        failAssertion(target, condition, expected, actual);
                     }
                     break;
 
                 case MATCHES :
                     if (null == actual || !actual.toString().matches(expected.toString())) {
-                        failAssertion(target, MATCHES, expected);
+                        failAssertion(target, condition, expected, actual);
                     }
                     break;
 
                 case HAS_TRUTH_VALUE :
                     if (isTrue(expected) != isTrue(actual)) {
-                        failAssertion(target, HAS_TRUTH_VALUE, expected);
+                        failAssertion(target, condition, expected, actual);
                     }
                     break;
 
                 default:
-                    failAssertion(target, UNKNOWN_CONDITION, condition);
+                    failAssertion(target, UNKNOWN_CONDITION, condition, actual);
             }
         }
     }
 
-    static void failAssertion(String target, String assertion, Object expected) {
+    static void failAssertion(String target, String assertion, Object expected, Object actual) {
         throw new AssertionError(Joiner.on(' ').join(
-            null != target ? target : "null",
-            null != assertion ? assertion : "null",
-            null != expected ? expected : "null"));
+            Objects.toString(target),
+            "expected",
+            Objects.toString(assertion),
+            Objects.toString(expected),
+            "but found",
+            Objects.toString(actual)));
     }
 
     private static boolean isTrue(Object object) {
