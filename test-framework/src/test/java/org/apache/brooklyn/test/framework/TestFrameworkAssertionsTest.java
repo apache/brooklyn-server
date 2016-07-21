@@ -33,6 +33,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 public class TestFrameworkAssertionsTest {
@@ -49,6 +50,8 @@ public class TestFrameworkAssertionsTest {
                 {"some-sensor-value", Arrays.asList(ImmutableMap.of("isEqualTo", "some-sensor-value"))},
                 {"some-sensor-value", Arrays.asList(ImmutableMap.of("equalTo", "some-sensor-value"))},
                 {"some-sensor-value", Arrays.asList(ImmutableMap.of("equals", "some-sensor-value"))},
+                {"some-sensor-value", Arrays.asList(ImmutableMap.of("notEqual", "other-sensor-value"))},
+                {10, Arrays.asList(ImmutableMap.of("notEqual", 20))},
                 {"some-regex-value-to-match", Arrays.asList(ImmutableMap.of("matches", "some.*match", "isEqualTo", "some-regex-value-to-match"))},
                 {null, Arrays.asList(ImmutableMap.of("isNull", Boolean.TRUE))},
                 {"some-non-null-value", Arrays.asList(ImmutableMap.of("isNull", Boolean.FALSE))},
@@ -67,15 +70,15 @@ public class TestFrameworkAssertionsTest {
     }
 
     @Test(dataProvider = "positiveTestsDP")
-    public void positiveTest(final String data, final List<Map<String, Object>> assertions) {
-        final Supplier<String> supplier = new Supplier<String>() {
+    public void positiveTest(final Object data, final List<Map<String, Object>> assertions) {
+        final Supplier<Object> supplier = new Supplier<Object>() {
             @Override
-            public String get() {
+            public Object get() {
                 LOG.info("Supplier invoked for data [{}]", data);
                 return data;
             }
         };
-        TestFrameworkAssertions.checkAssertions(ImmutableMap.of("timeout", new Duration(2L, TimeUnit.SECONDS)), assertions, data, supplier);
+        TestFrameworkAssertions.checkAssertions(ImmutableMap.of("timeout", new Duration(2L, TimeUnit.SECONDS)), assertions, Objects.toString(data), supplier);
     }
 
     @DataProvider
@@ -85,6 +88,9 @@ public class TestFrameworkAssertionsTest {
                 {"some-sensor-value", "equals", arbitrary, Arrays.asList(ImmutableMap.of("isEqualTo", arbitrary))},
                 {"some-sensor-value", "equals", arbitrary, Arrays.asList(ImmutableMap.of("equalTo", arbitrary))},
                 {"some-sensor-value", "equals", arbitrary, Arrays.asList(ImmutableMap.of("equals", arbitrary))},
+
+                {"some-sensor-value", "notEqual", "some-sensor-value", Arrays.asList(ImmutableMap.of("notEqual", "some-sensor-value"))},
+                {10, "notEqual", new Integer(10), Arrays.asList(ImmutableMap.of("notEqual", new Integer(10)))},
 
                 {"some-regex-value-to-match", "matches", "some.*not-match", Arrays.asList(ImmutableMap.of("matches", "some.*not-match", "isEqualTo", "oink"))},
 
@@ -108,19 +114,19 @@ public class TestFrameworkAssertionsTest {
     }
 
     @Test(dataProvider = "negativeTestsDP")
-    public void negativeTests(final String data, String condition, Object expected, final List<Map<String, Object>> assertions) {
-        final Supplier<String> supplier = new Supplier<String>() {
+    public void negativeTests(final Object data, String condition, Object expected, final List<Map<String, Object>> assertions) {
+        final Supplier<Object> supplier = new Supplier<Object>() {
             @Override
-            public String get() {
+            public Object get() {
                 LOG.info("Supplier invoked for data [{}]", data);
                 return data;
             }
         };
         try {
-            TestFrameworkAssertions.checkAssertions(ImmutableMap.of("timeout", new Duration(2L, TimeUnit.SECONDS)), assertions, data, supplier);
+            TestFrameworkAssertions.checkAssertions(ImmutableMap.of("timeout", new Duration(2L, TimeUnit.SECONDS)), assertions, Objects.toString(data), supplier);
             Asserts.shouldHaveFailedPreviously();
         } catch (AssertionError e) {
-            Asserts.expectedFailureContains(e, data, condition, expected.toString());
+            Asserts.expectedFailureContains(e, Objects.toString(data), condition, expected.toString());
         }
 
     }

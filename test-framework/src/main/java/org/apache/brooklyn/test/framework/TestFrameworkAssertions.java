@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Supplier;
@@ -47,6 +48,7 @@ public class TestFrameworkAssertions {
     public static final String IS_EQUAL_TO = "isEqualTo";
     public static final String EQUAL_TO = "equalTo";
     public static final String EQUALS = "equals";
+    public static final String NOT_EQUAL = "notEqual";
     public static final String MATCHES = "matches";
     public static final String CONTAINS = "contains";
     public static final String IS_EMPTY = "isEmpty";
@@ -177,6 +179,10 @@ public class TestFrameworkAssertions {
                     }
                     break;
 
+                case NOT_EQUAL :
+                    if (Objects.equals(actual, expected)) {
+                        failAssertion(target, NOT_EQUAL, expected);
+                    }
                 case IS_NULL :
                     if (isTrue(expected) != (null == actual)) {
                         failAssertion(target, IS_NULL, expected);
