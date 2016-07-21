@@ -191,7 +191,7 @@ public class CleanOrphanedLocationsIntegrationTest {
                 .highAvailabilityMode(HighAvailabilityMode.DISABLED);
 
         try {
-            launcher.cleanOrphanedLocations(destinationDir, null);
+            launcher.cleanOrphanedState(destinationDir, null);
         } catch (Exception e) {
             throw new Exception(e);
         } finally {
