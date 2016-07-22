@@ -19,20 +19,25 @@
 package org.apache.brooklyn.launcher;
 
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.location.Locations;
+import org.apache.brooklyn.core.location.access.PortForwardManager;
+import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.net.HostAndPort;
 
 public class CleanOrphanedLocationsTest extends AbstractCleanOrphanedStateTest {
 
@@ -128,14 +133,7 @@ public class CleanOrphanedLocationsTest extends AbstractCleanOrphanedStateTest {
         assertTransformIsNoop();
     }
     
-    /**
-     * TODO Fails because it is persisted as {@code <defaultValue class="locationProxy">biqwd7ukcd</defaultValue>},
-     * rather than having locationProxy as the tag.
-     * 
-     * I (Aled) think we can live without this - hopefully no-one is setting location instances as 
-     * config default values!
-     */
-    @Test(groups="WIP", enabled=false)
+    @Test
     public void testKeepsLocationsReferencedInConfigKeyDefault() throws Exception {
         SshMachineLocation loc = mgmt().getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class));
         origApp.config().set(ConfigKeys.newConfigKey(MachineLocation.class, "myconfig", "my description", loc), (MachineLocation)null);
@@ -215,5 +213,22 @@ public class CleanOrphanedLocationsTest extends AbstractCleanOrphanedStateTest {
         feed.config().set(ConfigKeys.newConfigKey(Object.class, "myconfig"), loc);
         origApp.feeds().add(feed);
         assertTransformIsNoop();
+    }
+    
+    @Test
+    public void testKeepsPortForwardManager() throws Exception {
+        PortForwardManager pfm = (PortForwardManager) mgmt().getLocationRegistry().getLocationManaged(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
+        BrooklynMementoRawData transformedData = assertTransformIsNoop();
+        assertTrue(transformedData.getLocations().containsKey(pfm.getId()));
+    }
+    
+    @Test
+    public void testKeepsPortForwardManagerAssociatedMachines() throws Exception {
+        SshMachineLocation machine = mgmt().getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class));
+        PortForwardManager pfm = (PortForwardManager) mgmt().getLocationRegistry().getLocationManaged(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
+        pfm.associate("mypublicid", HostAndPort.fromParts("mypublicip", 1234), machine, 22);
+        BrooklynMementoRawData transformedData = assertTransformIsNoop();
+        assertTrue(transformedData.getLocations().containsKey(pfm.getId()));
+        assertTrue(transformedData.getLocations().containsKey(machine.getId()));
     }
 }

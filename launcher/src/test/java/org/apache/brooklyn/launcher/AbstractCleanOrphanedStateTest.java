@@ -39,6 +39,7 @@ import org.apache.commons.lang.builder.EqualsBuilder;
 import com.beust.jcommander.internal.Sets;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
+import com.google.common.collect.Iterables;
 
 public abstract class AbstractCleanOrphanedStateTest extends RebindTestFixtureWithApp {
     
@@ -63,33 +64,42 @@ public abstract class AbstractCleanOrphanedStateTest extends RebindTestFixtureWi
         }
     }
 
-    protected void assertTransformIsNoop() throws Exception {
-        assertTransformIsNoop(getRawData());
+    protected BrooklynMementoRawData assertTransformIsNoop() throws Exception {
+        return assertTransformIsNoop(getRawData());
     }
 
-    protected void assertTransformIsNoop(BrooklynMementoRawData origData) throws Exception {
-        assertTransformIsNoop(origData, Functions.<BrooklynMementoRawData>identity());
+    protected BrooklynMementoRawData assertTransformIsNoop(BrooklynMementoRawData origData) throws Exception {
+        return assertTransformIsNoop(origData, Functions.<BrooklynMementoRawData>identity());
     }
 
-    protected void assertTransformIsNoop(Function<? super BrooklynMementoRawData, ? extends BrooklynMementoRawData> origDataTweaker) throws Exception {
-        assertTransformIsNoop(getRawData(), origDataTweaker);
+    protected BrooklynMementoRawData assertTransformIsNoop(Function<? super BrooklynMementoRawData, ? extends BrooklynMementoRawData> origDataTweaker) throws Exception {
+        return assertTransformIsNoop(getRawData(), origDataTweaker);
     }
     
-    protected void assertTransformIsNoop(BrooklynMementoRawData origData, Function<? super BrooklynMementoRawData, ? extends BrooklynMementoRawData> origDataTweaker) throws Exception {
+    protected BrooklynMementoRawData assertTransformIsNoop(BrooklynMementoRawData origData, Function<? super BrooklynMementoRawData, ? extends BrooklynMementoRawData> origDataTweaker) throws Exception {
         BrooklynMementoRawData origDataTweaked = origDataTweaker.apply(origData);
         BrooklynMementoRawData transformedData = transformRawData(origDataTweaked);
         assertRawData(transformedData, origDataTweaked);
+        return transformedData;
     }
     
-    protected void assertTransformDeletes(Deletions deletions) throws Exception {
-        assertTransformDeletes(deletions, Functions.<BrooklynMementoRawData>identity());
+    protected BrooklynMementoRawData assertTransformDeletes(Deletions deletions) throws Exception {
+        return assertTransformDeletes(deletions, Functions.<BrooklynMementoRawData>identity());
     }
 
-    protected void assertTransformDeletes(Deletions deletions, Function<? super BrooklynMementoRawData, ? extends BrooklynMementoRawData> origDataTweaker) throws Exception {
-        BrooklynMementoRawData origData = getRawData();
+    protected BrooklynMementoRawData assertTransformDeletes(Deletions deletions, BrooklynMementoRawData origData) throws Exception {
+        return assertTransformDeletes(deletions, origData, Functions.<BrooklynMementoRawData>identity());
+    }
+
+    protected BrooklynMementoRawData assertTransformDeletes(Deletions deletions, Function<? super BrooklynMementoRawData, ? extends BrooklynMementoRawData> origDataTweaker) throws Exception {
+        return assertTransformDeletes(deletions, getRawData(), origDataTweaker);
+    }
+    
+    protected BrooklynMementoRawData assertTransformDeletes(Deletions deletions, BrooklynMementoRawData origData, Function<? super BrooklynMementoRawData, ? extends BrooklynMementoRawData> origDataTweaker) throws Exception {
         BrooklynMementoRawData origDataTweaked = origDataTweaker.apply(origData);
         BrooklynMementoRawData transformedData = transformRawData(origDataTweaked);
         assertRawData(transformedData, origDataTweaked, deletions);
+        return transformedData;
     }
 
     protected BrooklynMementoRawData getRawData() throws Exception {
@@ -145,6 +155,10 @@ public abstract class AbstractCleanOrphanedStateTest extends RebindTestFixtureWi
         }
         protected Deletions locations(String... vals) {
             if (vals != null) locations.addAll(Arrays.asList(vals));
+            return this;
+        }
+        protected Deletions locations(Iterable<String> vals) {
+            if (vals != null) Iterables.addAll(locations, vals);
             return this;
         }
         protected Deletions feeds(String... vals) {

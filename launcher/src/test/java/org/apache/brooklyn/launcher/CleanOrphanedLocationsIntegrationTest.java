@@ -18,11 +18,14 @@
  */
 package org.apache.brooklyn.launcher;
 
+import java.util.Set;
+
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.api.mgmt.rebind.PersistenceExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.RebindManager;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
+import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
@@ -32,24 +35,16 @@ import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
 import org.apache.brooklyn.core.mgmt.rebind.PersistenceExceptionHandlerImpl;
 import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
-import org.apache.brooklyn.core.mgmt.rebind.transformer.impl.DeleteOrphanedStateTransformer;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServerPaths;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.time.Duration;
-import org.apache.commons.lang.builder.EqualsBuilder;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import org.apache.brooklyn.core.internal.BrooklynProperties;
-
-import java.util.Map;
-import java.util.Set;
-
-public class CleanOrphanedLocationsIntegrationTest {
+public class CleanOrphanedLocationsIntegrationTest extends AbstractCleanOrphanedStateTest {
 
     private String PERSISTED_STATE_PATH_WITH_ORPHANED_LOCATIONS = "/orphaned-locations-test-data/data-with-orphaned-locations";
     private String PERSISTED_STATE_PATH_WITH_MULTIPLE_LOCATIONS_OCCURRENCE = "/orphaned-locations-test-data/fake-multiple-location-for-multiple-search-tests";
@@ -63,8 +58,6 @@ public class CleanOrphanedLocationsIntegrationTest {
     private String destinationDir;
     private String persistenceLocation;
 
-    private DeleteOrphanedStateTransformer transformer;
-
     private ManagementContext managementContext;
 
     @BeforeMethod(alwaysRun = true)
@@ -74,8 +67,6 @@ public class CleanOrphanedLocationsIntegrationTest {
         persistenceDirWithMultipleLocationsOccurrence = getClass().getResource(PERSISTED_STATE_PATH_WITH_MULTIPLE_LOCATIONS_OCCURRENCE).getFile();
 
         destinationDir = getClass().getResource(PERSISTED_STATE_DESTINATION_PATH).getFile();
-
-        transformer = DeleteOrphanedStateTransformer.builder().build();
     }
 
     private void initManagementContextAndPersistence(String persistenceDir) {
@@ -102,13 +93,8 @@ public class CleanOrphanedLocationsIntegrationTest {
     }
 
     @Test
-    public void testSelectionWithOrphanedLocationsInData() {
-        final Set<String> locationsToKeep = MutableSet.of(
-                "tjdywoxbji",
-                "pudtixbw89"
-        );
+    public void testSelectionWithOrphanedLocationsInData() throws Exception {
         final Set<String> orphanedLocations = MutableSet.of(
-                "banby1jx4j",
                 "msyp655po0",
                 "ppamsemxgo"
         );
@@ -116,74 +102,21 @@ public class CleanOrphanedLocationsIntegrationTest {
         initManagementContextAndPersistence(persistenceDirWithOrphanedLocations);
         BrooklynMementoRawData mementoRawData = managementContext.getRebindManager().retrieveMementoRawData();
 
-        Set<String> allReferencedLocationsFoundByTransformer = transformer.findAllReferencedLocations(mementoRawData);
-        Map<String, String> locationsToKeepFoundByTransformer = transformer.findLocationsToKeep(mementoRawData);
-
-        Asserts.assertEquals(allReferencedLocationsFoundByTransformer, locationsToKeep);
-        Asserts.assertEquals(locationsToKeepFoundByTransformer.keySet(), locationsToKeep);
-
-        Map<String, String> locationsNotToKeepDueToTransormer = MutableMap.of();
-        locationsNotToKeepDueToTransormer.putAll(mementoRawData.getLocations());
-        for (Map.Entry location: locationsToKeepFoundByTransformer.entrySet()) {
-            locationsNotToKeepDueToTransormer.remove(location.getKey());
-        }
-        Set<String> notReferencedLocationsDueToTransormer = MutableSet.of();
-        notReferencedLocationsDueToTransormer.addAll(mementoRawData.getLocations().keySet());
-        for (String location: allReferencedLocationsFoundByTransformer) {
-            notReferencedLocationsDueToTransormer.remove(location);
-        }
-
-        Asserts.assertEquals(notReferencedLocationsDueToTransormer, orphanedLocations);
-        Asserts.assertEquals(locationsNotToKeepDueToTransormer.keySet(), orphanedLocations);
-
-
-        BrooklynMementoRawData transformedMemento = transformer.transform(mementoRawData);
-        Asserts.assertFalse(EqualsBuilder.reflectionEquals(mementoRawData, transformedMemento));
-        Asserts.assertTrue(EqualsBuilder.reflectionEquals(mementoRawData.getEntities(), transformedMemento.getEntities()));
-        Asserts.assertTrue(EqualsBuilder.reflectionEquals(mementoRawData.getEnrichers(), transformedMemento.getEnrichers()));
-        Asserts.assertTrue(EqualsBuilder.reflectionEquals(mementoRawData.getPolicies(), transformedMemento.getPolicies()));
-        Asserts.assertFalse(EqualsBuilder.reflectionEquals(mementoRawData.getLocations(), transformedMemento.getLocations()));
+        assertTransformDeletes(new Deletions().locations(orphanedLocations), mementoRawData);
     }
 
     @Test
-    public void testSelectionWithoutOrphanedLocationsInData() {
-
-        Set<String> locationsToKeep = MutableSet.of(
-                "tjdywoxbji",
-                "pudtixbw89"
-        );
-
+    public void testSelectionWithoutOrphanedLocationsInData() throws Exception {
         initManagementContextAndPersistence(persistenceDirWithoutOrphanedLocations);
         BrooklynMementoRawData mementoRawData = managementContext.getRebindManager().retrieveMementoRawData();
 
-        Set<String> allReferencedLocationsFoundByTransformer = transformer.findAllReferencedLocations(mementoRawData);
-        Map<String, String> locationsToKeepFoundByTransformer = transformer.findLocationsToKeep(mementoRawData);
-
-        Asserts.assertEquals(allReferencedLocationsFoundByTransformer, locationsToKeep);
-        Asserts.assertEquals(locationsToKeepFoundByTransformer.keySet(), locationsToKeep);
-
-        Map<String, String> locationsNotToKeepDueToTransormer = MutableMap.of();
-        locationsNotToKeepDueToTransormer.putAll(mementoRawData.getLocations());
-        for (Map.Entry location: locationsToKeepFoundByTransformer.entrySet()) {
-            locationsNotToKeepDueToTransormer.remove(location.getKey());
-        }
-        Set<String> notReferencedLocationsDueToTransormer = MutableSet.of();
-        notReferencedLocationsDueToTransormer.addAll(mementoRawData.getLocations().keySet());
-        for (String location: allReferencedLocationsFoundByTransformer) {
-            notReferencedLocationsDueToTransormer.remove(location);
-        }
-
-        Asserts.assertSize(locationsNotToKeepDueToTransormer.keySet(), 0);
-        Asserts.assertSize(notReferencedLocationsDueToTransormer, 0);
-
-        BrooklynMementoRawData transformedMemento = transformer.transform(mementoRawData);
-        Asserts.assertTrue(EqualsBuilder.reflectionEquals(mementoRawData, transformedMemento));
+        assertTransformIsNoop(mementoRawData);
     }
 
     @Test
     public void testCleanedCopiedPersistedState() throws Exception {
-
         BrooklynLauncher launcher = BrooklynLauncher.newInstance()
+                .webconsole(false)
                 .brooklynProperties(OsgiManager.USE_OSGI, false)
                 .persistMode(PersistMode.AUTO)
                 .persistenceDir(persistenceDirWithOrphanedLocations)
@@ -192,8 +125,6 @@ public class CleanOrphanedLocationsIntegrationTest {
 
         try {
             launcher.cleanOrphanedState(destinationDir, null);
-        } catch (Exception e) {
-            throw new Exception(e);
         } finally {
             launcher.terminate();
         }
@@ -203,42 +134,18 @@ public class CleanOrphanedLocationsIntegrationTest {
         Asserts.assertTrue(mementoRawDataFromCleanedState.getEntities().size() != 0);
         Asserts.assertTrue(mementoRawDataFromCleanedState.getLocations().size() != 0);
 
-
         initManagementContextAndPersistence(persistenceDirWithoutOrphanedLocations);
         BrooklynMementoRawData mementoRawData = managementContext.getRebindManager().retrieveMementoRawData();
 
-        Asserts.assertTrue(EqualsBuilder.reflectionEquals(mementoRawData, mementoRawDataFromCleanedState));
+        assertRawData(mementoRawData, mementoRawDataFromCleanedState);
     }
 
     @Test
-    public void testMultipleLocationOccurrenceInEntity() {
-        Set<String> allReferencedLocations = MutableSet.of(
-                "m72nvkl799",
-                "m72nTYl799",
-                "m72LKVN799",
-                "jf4rwubqyb",
-                "jf4rwuTTTb",
-                "jf4rwuHHHb",
-                "m72nvkl799",
-                "m72nPTUF99",
-                "m72nhtDr99",
-                "pski1c4s14"
-        );
-
-        Set<String> locationsToKeep = MutableSet.of(
-                "m72nvkl799",
-                "jf4rwubqyb",
-                "pski1c4s14"
-        );
-
+    public void testMultipleLocationOccurrenceInEntity() throws Exception {
         initManagementContextAndPersistence(persistenceDirWithMultipleLocationsOccurrence);
-
         BrooklynMementoRawData mementoRawData = managementContext.getRebindManager().retrieveMementoRawData();
-        Set<String> allReferencedLocationsFoundByTransformer = transformer.findAllReferencedLocations(mementoRawData);
-        Map<String, String> locationsToKeepFoundByTransformer = transformer.findLocationsToKeep(mementoRawData);
-
-        Asserts.assertEquals(allReferencedLocationsFoundByTransformer, allReferencedLocations);
-        Asserts.assertEquals(locationsToKeepFoundByTransformer.keySet(), locationsToKeep);
+        
+        assertTransformIsNoop(mementoRawData);
     }
 
     @AfterMethod
