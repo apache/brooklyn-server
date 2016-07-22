@@ -34,7 +34,7 @@
   
   <properties>
 
-    <org.osgi.compendium.version>5.0.0</org.osgi.compendium.version>
+    <org.osgi.compendium.version>5.0.0</org.osgi.compendium.version> <!-- duplicate in brooklyn-dist/dist-karaf/pom.xml -->
     
     <lifecycle-mapping-plugin.version>1.0.0</lifecycle-mapping-plugin.version>
 
@@ -57,8 +57,6 @@
     <module>jetty-config</module>
     <module>features</module>
     <module>commands</module>
-    <module>apache-brooklyn</module>
-    <module>itest</module>
   </modules>
   
   <dependencyManagement>

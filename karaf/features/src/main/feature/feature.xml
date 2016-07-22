@@ -279,59 +279,6 @@
         <feature>brooklyn-software-winrm</feature>
     </feature>
 
-    <feature name="brooklyn-software-network" version="${project.version}" description="Brooklyn Network Software Entities">
-        <bundle>mvn:org.apache.brooklyn/brooklyn-software-network/${project.version}</bundle>
-        <feature>brooklyn-software-base</feature>
-    </feature>
-
-    <feature name="brooklyn-software-cm" version="${project.version}" description="Configuration Management modules">
-        <bundle>mvn:org.apache.brooklyn/brooklyn-software-cm-salt/${project.version}</bundle>
-        <bundle>mvn:org.apache.brooklyn/brooklyn-software-cm-ansible/${project.version}</bundle>
-    </feature>
-
-    <feature name="brooklyn-software-osgi" version="${project.version}" description="Brooklyn OSGi Software Entities">
-        <bundle>mvn:org.apache.brooklyn/brooklyn-software-osgi/${project.version}</bundle>
-        <feature>brooklyn-core</feature>
-        <feature>brooklyn-api</feature>
-        <feature>brooklyn-software-base</feature>
-        <bundle dependency="true">mvn:com.google.guava/guava/${guava.version}</bundle>
-    </feature>
-
-    <feature name="brooklyn-software-database" version="${project.version}" description="Brooklyn Database Software Entities">
-        <bundle>mvn:org.apache.brooklyn/brooklyn-software-database/${project.version}</bundle>
-        <feature>brooklyn-core</feature>
-        <feature>brooklyn-api</feature>
-        <feature>brooklyn-software-base</feature>
-        <bundle dependency="true">mvn:com.google.guava/guava/${guava.version}</bundle>
-    </feature>
-
-    <feature name="brooklyn-software-webapp" version="${project.version}" description="Brooklyn Web App Software Entities">
-        <bundle>mvn:org.apache.brooklyn/brooklyn-software-webapp/${project.version}</bundle>
-        <feature>brooklyn-software-base</feature>
-        <bundle dependency="true">wrap:mvn:org.hibernate/jtidy/${jtidy.version}</bundle>
-    </feature>
-
-    <feature name="brooklyn-software-messaging" version="${project.version}" description="Brooklyn Messaging Software Entities">
-        <bundle>mvn:org.apache.brooklyn/brooklyn-software-messaging/${project.version}</bundle>
-        <feature>brooklyn-software-base</feature>
-    </feature>
-
-    <feature name="brooklyn-software-nosql" version="${project.version}" description="Brooklyn NoSQL Data Store Software Entities">
-        <bundle>mvn:org.apache.brooklyn/brooklyn-software-nosql/${project.version}</bundle>
-        <feature>brooklyn-software-base</feature>
-        <feature>brooklyn-software-database</feature>
-        <feature>brooklyn-software-webapp</feature>
-        <bundle dependency="true">mvn:org.mongodb/mongo-java-driver/3.0.3</bundle>
-    </feature>
-
-    <feature name="brooklyn-software-monitoring" version="${project.version}" description="Brooklyn Monitoring Software Entities">
-        <bundle>mvn:org.apache.brooklyn/brooklyn-software-monitoring/${project.version}</bundle>
-        <feature>brooklyn-core</feature>
-        <feature>brooklyn-api</feature>
-        <feature>brooklyn-software-base</feature>
-        <bundle dependency="true">mvn:com.google.guava/guava/${guava.version}</bundle>
-    </feature>
-
     <feature name="brooklyn-test-framework" version="${project.version}" description="Brooklyn Test Framework" >
         <bundle>mvn:org.apache.brooklyn/brooklyn-test-framework/${project.version}</bundle>
     </feature>
@@ -341,19 +288,6 @@
         <feature>brooklyn-jmxmp-agent</feature>
         <feature>brooklyn-jmxrmi-agent</feature>
         <feature>brooklyn-test-framework</feature>
-    </feature>
-
-    <!-- TODO Not including this in the init features; need to move this to brooklyn-dist first! -->
-    <!-- TODO Don't load all bundles out of the box in the long run. Let users cherry pick what they need. -->
-    <feature name="brooklyn-library-all" version="${project.version}" description="Brooklyn All Library Entities">
-        <feature>brooklyn-software-network</feature>
-        <feature>brooklyn-software-cm</feature>
-        <feature>brooklyn-software-osgi</feature>
-        <feature>brooklyn-software-database</feature>
-        <feature>brooklyn-software-webapp</feature>
-        <feature>brooklyn-software-messaging</feature>
-        <feature>brooklyn-software-nosql</feature>
-        <feature>brooklyn-software-monitoring</feature>
     </feature>
 
     <feature name="brooklyn-osgi-launcher" version="${project.version}" description="Brooklyn init">
