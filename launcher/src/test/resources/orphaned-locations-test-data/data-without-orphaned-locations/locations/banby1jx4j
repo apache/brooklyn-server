@@ -1,0 +1,20 @@
+<location>
+  <brooklynVersion>0.10.0-SNAPSHOT</brooklynVersion>
+  <type>org.apache.brooklyn.core.location.access.PortForwardManagerImpl</type>
+  <id>banby1jx4j</id>
+  <displayName>localhost</displayName>
+  <locationConfig>
+    <scope>global</scope>
+    <provider>portForwardManager</provider>
+    <name>localhost</name>
+    <spec.final>portForwardManager(scope=global)</spec.final>
+    <spec.original>portForwardManager(scope=global)</spec.original>
+    <brooklyn.object.constructor.portforward.scope>global</brooklyn.object.constructor.portforward.scope>
+    <brooklyn.object.constructor.special>
+      <null/>
+    </brooklyn.object.constructor.special>
+    <tags>
+      <set/>
+    </tags>
+  </locationConfig>
+</location>
