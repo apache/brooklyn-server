@@ -19,9 +19,12 @@
 package org.apache.brooklyn.core.mgmt.rebind.transformer;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
+import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.core.mgmt.rebind.transformer.CompoundTransformer.Builder;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.ResourceUtils;
@@ -34,6 +37,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 
 @Beta
 public class CompoundTransformerLoader {
@@ -56,8 +60,23 @@ public class CompoundTransformerLoader {
         return builder.build();
     }
 
+    @SuppressWarnings("unchecked")
     private static void addRule(Builder builder, String name, Map<?,?> args) {
-        if (name.equals("renameClass")) {
+        if (name.equals("deletions")) {
+            Set<String> validKeys = Sets.newLinkedHashSet();
+            for (BrooklynObjectType type : BrooklynObjectType.values()) {
+                String key = type.getSubPathName();
+                validKeys.add(key);
+                List<String> ids = (List<String>) args.get(key);
+                if (ids != null) {
+                    builder.deletion(type, ids);
+                }
+            }
+            Set<?> otherKeys = Sets.difference(args.keySet(), validKeys);
+            if (otherKeys.size() > 0) {
+                throw new IllegalStateException("Unsupported transform "+otherKeys+" in '"+name+"' ("+args+")");
+            }
+        } else if (name.equals("renameClass")) {
             String oldVal = (String) args.get("old_val");
             String newVal = (String) args.get("new_val");
             builder.renameClass(oldVal, newVal);

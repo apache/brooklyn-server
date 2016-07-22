@@ -18,18 +18,20 @@
  */
 package org.apache.brooklyn.core.mgmt.rebind.transformer;
 
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 import java.util.Collection;
 
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
-import org.apache.brooklyn.core.mgmt.rebind.transformer.CompoundTransformer;
-import org.apache.brooklyn.core.mgmt.rebind.transformer.CompoundTransformerLoader;
-import org.apache.brooklyn.core.mgmt.rebind.transformer.RawDataTransformer;
 import org.apache.brooklyn.core.mgmt.rebind.transformer.impl.XsltTransformer;
+import org.apache.brooklyn.test.Asserts;
 import org.testng.annotations.Test;
 
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimap;
 
 public class CompoundTransformerLoaderTest {
 
@@ -68,6 +70,57 @@ public class CompoundTransformerLoaderTest {
         assertTrue(Iterables.get(rawDataTransformers, 3) instanceof XsltTransformer);
         assertTrue(Iterables.get(rawDataTransformers, 4) instanceof XsltTransformer);
         assertTrue(Iterables.get(rawDataTransformers, 5) instanceof MyRawDataTransformer);
+    }
+    
+    @Test
+    public void testLoadsDeletionsFromYaml() throws Exception {
+        String contents =
+                "- deletions:\n"+
+                "    catalog:\n"+
+                "    - cat1\n"+
+                "    - cat2\n"+
+                "    entities:\n"+
+                "    - ent1\n"+
+                "    - ent2\n"+
+                "    locations:\n"+
+                "    - loc1\n"+
+                "    - loc2\n"+
+                "    enrichers:\n"+
+                "    - enricher1\n"+
+                "    - enricher2\n"+
+                "    policies:\n"+
+                "    - pol1\n"+
+                "    - pol2\n"+
+                "    feeds:\n"+
+                "    - feed1\n"+
+                "    - feed2\n";
+        
+        CompoundTransformer transformer = CompoundTransformerLoader.load(contents);
+        
+        Multimap<BrooklynObjectType, String> deletions = transformer.getDeletions();
+        HashMultimap<BrooklynObjectType, String> expected = HashMultimap.create();
+        expected.putAll(BrooklynObjectType.CATALOG_ITEM, ImmutableSet.of("cat1", "cat2"));
+        expected.putAll(BrooklynObjectType.ENTITY, ImmutableSet.of("ent1", "ent2"));
+        expected.putAll(BrooklynObjectType.LOCATION, ImmutableSet.of("loc1", "loc2"));
+        expected.putAll(BrooklynObjectType.POLICY, ImmutableSet.of("pol1", "pol2"));
+        expected.putAll(BrooklynObjectType.ENRICHER, ImmutableSet.of("enricher1", "enricher2"));
+        expected.putAll(BrooklynObjectType.FEED, ImmutableSet.of("feed1", "feed2"));
+        assertEquals(deletions, expected);
+    }
+    
+    @Test
+    public void testLoadFailsIfInvalidDeletionTypeFromYaml() throws Exception {
+        String contents =
+                "- deletions:\n"+
+                "    wrong:\n"+
+                "    - cat1\n";
+        
+        try {
+            CompoundTransformer transformer = CompoundTransformerLoader.load(contents);
+            Asserts.shouldHaveFailedPreviously("transformer="+transformer);
+        } catch (IllegalStateException e) {
+            Asserts.expectedFailureContains(e, "Unsupported transform");
+        }
     }
     
     public static class MyRawDataTransformer implements RawDataTransformer {

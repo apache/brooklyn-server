@@ -22,6 +22,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
@@ -32,17 +33,24 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.text.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
 
 @Beta
 public class CompoundTransformer {
-    
+
+    private static final Logger LOG = LoggerFactory.getLogger(CompoundTransformer.class);
+
     public static final CompoundTransformer NOOP = builder().build();
     
     // TODO Does not yet handle BrooklynMementoTransformer, for changing an entire BrooklynMemento.
@@ -55,6 +63,7 @@ public class CompoundTransformer {
 
     public static class Builder {
         private final Multimap<BrooklynObjectType, RawDataTransformer> rawDataTransformers = ArrayListMultimap.<BrooklynObjectType, RawDataTransformer>create();
+        private final Multimap<BrooklynObjectType, String> deletions = HashMultimap.<BrooklynObjectType, String>create();
         
         public Builder rawDataTransformer(RawDataTransformer val) {
             for (BrooklynObjectType type : BrooklynObjectType.values()) {
@@ -204,15 +213,25 @@ public class CompoundTransformer {
             // xstream format for inner classes is like <org.apache.brooklyn.core.mgmt.rebind.transformer.CompoundTransformerTest_-OrigType>
             return (val.contains("$")) ? val.replace("$", "_-") : val;
         }
+        
+        /** Ids of items to be deleted from the persisted state */
+        public Builder deletion(BrooklynObjectType type, Iterable<? extends String> ids) {
+            deletions.putAll(type, ids);
+            return this;
+        }
+
         public CompoundTransformer build() {
             return new CompoundTransformer(this);
         }
     }
 
     private final Multimap<BrooklynObjectType, RawDataTransformer> rawDataTransformers;
-    
+
+    private final Multimap<BrooklynObjectType, String> deletions;
+
     protected CompoundTransformer(Builder builder) {
         rawDataTransformers = builder.rawDataTransformers;
+        deletions = builder.deletions;
     }
 
     public BrooklynMementoRawData transform(BrooklynMementoPersisterToObjectStore reader, RebindExceptionHandler exceptionHandler) throws Exception {
@@ -231,6 +250,65 @@ public class CompoundTransformer {
         // TODO @neykov asks whether transformers should be run in registration order,
         // rather than in type order.  TBD.  (would be an easy change.)
         // (they're all strings so it shouldn't matter!)
+
+        for (BrooklynObjectType type : BrooklynObjectType.values()) {
+            Set<String> itemsToDelete = ImmutableSet.copyOf(deletions.get(type));
+            Set<String> missing;
+            switch (type) {
+            case ENTITY:
+                missing = Sets.difference(itemsToDelete, entities.keySet());
+                if (missing.size() > 0) {
+                    LOG.warn("Unable to delete " + type + " id"+Strings.s(missing.size())+" ("+missing+"), "
+                            + "because not found in persisted state (continuing)");
+                }
+                entities.keySet().removeAll(itemsToDelete);
+                break;
+            case LOCATION:
+                missing = Sets.difference(itemsToDelete, locations.keySet());
+                if (missing.size() > 0) {
+                    LOG.warn("Unable to delete " + type + " id"+Strings.s(missing.size())+" ("+missing+"), "
+                            + "because not found in persisted state (continuing)");
+                }
+                locations.keySet().removeAll(itemsToDelete);
+                break;
+            case POLICY:
+                missing = Sets.difference(itemsToDelete, policies.keySet());
+                if (missing.size() > 0) {
+                    LOG.warn("Unable to delete " + type + " id"+Strings.s(missing.size())+" ("+missing+"), "
+                            + "because not found in persisted state (continuing)");
+                }
+                policies.keySet().removeAll(itemsToDelete);
+                break;
+            case ENRICHER:
+                missing = Sets.difference(itemsToDelete, enrichers.keySet());
+                if (missing.size() > 0) {
+                    LOG.warn("Unable to delete " + type + " id"+Strings.s(missing.size())+" ("+missing+"), "
+                            + "because not found in persisted state (continuing)");
+                }
+                enrichers.keySet().removeAll(itemsToDelete);
+                break;
+            case FEED:
+                missing = Sets.difference(itemsToDelete, feeds.keySet());
+                if (missing.size() > 0) {
+                    LOG.warn("Unable to delete " + type + " id"+Strings.s(missing.size())+" ("+missing+"), "
+                            + "because not found in persisted state (continuing)");
+                }
+                feeds.keySet().removeAll(itemsToDelete);
+                break;
+            case CATALOG_ITEM:
+                missing = Sets.difference(itemsToDelete, catalogItems.keySet());
+                if (missing.size() > 0) {
+                    LOG.warn("Unable to delete " + type + " id"+Strings.s(missing.size())+" ("+missing+"), "
+                            + "because not found in persisted state (continuing)");
+                }
+                catalogItems.keySet().removeAll(itemsToDelete);
+                break;
+            case UNKNOWN:
+                break; // no-op
+            default:
+                throw new IllegalStateException("Unexpected brooklyn object type "+type);
+            }
+        }
         
         for (BrooklynObjectType type : BrooklynObjectType.values()) {
             Collection<RawDataTransformer> transformers = rawDataTransformers.get(type);
@@ -287,5 +365,10 @@ public class CompoundTransformer {
     @VisibleForTesting
     Multimap<BrooklynObjectType, RawDataTransformer> getRawDataTransformers() {
         return ArrayListMultimap.create(rawDataTransformers);
+    }
+    
+    @VisibleForTesting
+    Multimap<BrooklynObjectType, String> getDeletions() {
+        return HashMultimap.create(deletions);
     }
 }

@@ -19,12 +19,15 @@
 package org.apache.brooklyn.core.mgmt.rebind.transformer;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import java.io.File;
 
 import javax.annotation.Nullable;
 
+import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
@@ -44,8 +47,8 @@ import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixtureWithApp;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestUtils;
 import org.apache.brooklyn.core.mgmt.rebind.RecordingRebindExceptionHandler;
-import org.apache.brooklyn.core.mgmt.rebind.transformer.CompoundTransformer;
 import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.util.guava.SerializablePredicate;
 import org.apache.brooklyn.util.os.Os;
 import org.slf4j.Logger;
@@ -54,10 +57,11 @@ import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Multimap;
 
 @SuppressWarnings("serial")
 public class CompoundTransformerTest extends RebindTestFixtureWithApp {
@@ -392,6 +396,37 @@ public class CompoundTransformerTest extends RebindTestFixtureWithApp {
         assertSingleXmlTransformation(transformer, input, expected);
     }
 
+    @Test
+    public void testDeleteCatalogItem() throws Exception {
+        CompoundTransformer transformer = CompoundTransformer.builder()
+                .deletion(BrooklynObjectType.CATALOG_ITEM, ImmutableList.of("foo:1.2"))
+                .build();
+
+        String yaml = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  items:",
+                "  - id: foo",
+                "    version: 1.2",
+                "    itemType: template",
+                "    item:",
+                "      services:",
+                "      - type: "+BasicApplication.class.getName(),
+                "  - id: bar",
+                "    version: 1.2",
+                "    itemType: template",
+                "    item:",
+                "      services:",
+                "      - type: "+BasicApplication.class.getName());
+        
+        mgmt().getCatalog().addItems(yaml);
+        CatalogItem<?, ?> origItem = mgmt().getCatalog().getCatalogItem("foo", "1.2");
+        assertNotNull(origItem);
+        
+        transformAndRebind(transformer);
+        assertNull(mgmt().getCatalog().getCatalogItem("foo", "1.2"));
+        assertNotNull(mgmt().getCatalog().getCatalogItem("bar", "1.2"));
+    }
+    
     protected TestApplication transformAndRebind(CompoundTransformer transformer) throws Exception {
         RebindTestUtils.waitForPersisted(origApp);
         BrooklynMementoRawData newRawData = transform(origManagementContext, transformer);
