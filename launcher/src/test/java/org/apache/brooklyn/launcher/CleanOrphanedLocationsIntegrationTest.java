@@ -56,8 +56,6 @@ public class CleanOrphanedLocationsIntegrationTest extends AbstractCleanOrphaned
     private String persistenceDirWithoutOrphanedLocations;
     private String persistenceDirWithMultipleLocationsOccurrence;
     private String destinationDir;
-    private String persistenceLocation;
-
     private ManagementContext managementContext;
 
     @BeforeMethod(alwaysRun = true)
@@ -76,8 +74,8 @@ public class CleanOrphanedLocationsIntegrationTest extends AbstractCleanOrphaned
 
         managementContext = new LocalManagementContext(brooklynProperties);
 
-        persistenceDir = BrooklynServerPaths.newMainPersistencePathResolver(brooklynProperties).location(persistenceLocation).dir(persistenceDir).resolve();
-        PersistenceObjectStore objectStore = BrooklynPersistenceUtils.newPersistenceObjectStore(managementContext, persistenceLocation, persistenceDir,
+        persistenceDir = BrooklynServerPaths.newMainPersistencePathResolver(brooklynProperties).dir(persistenceDir).resolve();
+        PersistenceObjectStore objectStore = BrooklynPersistenceUtils.newPersistenceObjectStore(managementContext, null, persistenceDir,
                 PersistMode.AUTO, HighAvailabilityMode.HOT_STANDBY);
 
         BrooklynMementoPersisterToObjectStore persister = new BrooklynMementoPersisterToObjectStore(
@@ -120,7 +118,6 @@ public class CleanOrphanedLocationsIntegrationTest extends AbstractCleanOrphaned
                 .brooklynProperties(OsgiManager.USE_OSGI, false)
                 .persistMode(PersistMode.AUTO)
                 .persistenceDir(persistenceDirWithOrphanedLocations)
-                .persistenceLocation(persistenceLocation)
                 .highAvailabilityMode(HighAvailabilityMode.DISABLED);
 
         try {
