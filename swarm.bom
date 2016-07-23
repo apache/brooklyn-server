@@ -59,18 +59,6 @@ brooklyn.catalog:
             Size of the etcd cluster when created initially
           type: integer
           default: 1
-        - name: swarm.defaultnetwork
-          label: Swarm Default Network
-          description: |
-            The name of a default network to create on startup
-          type: string
-          default: "brooklyn"
-        - name: swarm.port
-          label: Swarm Port
-          description: |
-            The TCP port the Swarm manager listens on
-          type: port
-          default: 3376
 
       brooklyn.enrichers:
         - type: org.apache.brooklyn.enricher.stock.Propagator
@@ -96,7 +84,7 @@ brooklyn.catalog:
           id: etcd-cluster
           name: "etcd-cluster"
           brooklyn.config:
-            cluster.initial.size: $brooklyn:config("etcd.initial.size")
+            cluster.initial.size: $brooklyn:parent().config("etcd.initial.size")
             etcd.cluster.name: "clocker"
             etcd.node.spec:
               $brooklyn:entitySpec:
@@ -170,6 +158,24 @@ brooklyn.catalog:
       type: org.apache.brooklyn.entity.stock.BasicStartable
 
       brooklyn.parameters:
+        - name: swarm.initial.size
+          label: Initial Swarm Size
+          description: |
+            Size of the swarm cluster when created initially
+          type: integer
+          default: 1
+        - name: swarm.manager.size
+          label: Swarm Manager Size
+          description: |
+            Number of swarm managers
+          type: integer
+          default: 1
+        - name: swarm.max.size
+          label: Maximum Swarm Size
+          description: |
+            Maximum size the swarm cluster can be scaled to
+          type: integer
+          default: 5
         - name: swarm.discovery.url
           label: Discovery URL
           description: |
@@ -189,12 +195,6 @@ brooklyn.catalog:
           label: Private Key URL
           description: |
             Location of the private key to install for authentication of this engine
-        - name: swarm.defaultnetwork
-          label: Swarm Default Network
-          description: |
-            The name of a default network to create on startup
-          type: string
-          default: "brooklyn"
         - name: swarm.port
           label: Swarm Port
           description: |
@@ -214,29 +214,6 @@ brooklyn.catalog:
             Quarantine failed entities instead of destroying them
           type: boolean
           default: true
-        - name: swarm.recovery.stabilizationDelay
-          label: Stabilization Delay
-          description: |
-            Time period for which the service must be consistently in the same state to trigger an action
-          # A restart shouldn't trigger failure
-          type: org.apache.brooklyn.util.time.Duration
-          default: 3m
-        - name: swarm.recovery.failOnRecurringFailuresInThisDuration
-          label: Fail Duration
-          description: |
-            Reports entity as failed if it fails two or more times in this time window
-          type: org.apache.brooklyn.util.time.Duration
-          default: 10m
-        - name: swarm.minCores
-          label: Swarm Minimum CPU Cores
-          description: |
-            Minimum CPU cores for provisioning Swarm nodes
-          default: 4
-        - name: swarm.minRam
-          label: Swarm Minimum RAM
-          description: |
-            Minimum RAM for provisioning Swarm nodes
-          default: 8g
 
       brooklyn.children:
         - type: load-balancer
@@ -335,7 +312,7 @@ brooklyn.catalog:
                 enricher.targetSensor: $brooklyn:sensor("swarm.endpoint")
                 enricher.joiner.quote: false
           brooklyn.config:
-            cluster.initial.size: $brooklyn:config("swarm.manager.size")
+            cluster.initial.size: $brooklyn:parent().config("swarm.manager.size")
             dynamiccluster.quarantineFailedEntities:
               $brooklyn:parent().config("swarm.recovery.quarantineFailedEntities")
             dynamiccluster.memberspec:
@@ -354,9 +331,12 @@ brooklyn.catalog:
                 autoscaler.metric:
                   $brooklyn:sensor("org.apache.brooklyn.entity.machine.MachineAttributes", "cpu.average")
                 autoscaler.metricLowerBound: 0.00
-                autoscaler.metricUpperBound: $brooklyn:config("swarm.scaling.cpu.limit")
-                autoscaler.minPoolSize: $brooklyn:config("swarm.initial.size")
-                autoscaler.maxPoolSize: $brooklyn:config("swarm.max.size")
+                autoscaler.metricUpperBound:
+                  $brooklyn:entity("docker-swarm-nodes").parent().config("swarm.scaling.cpu.limit")
+                autoscaler.minPoolSize:
+                  $brooklyn:entity("docker-swarm-nodes").parent().config("swarm.initial.size")
+                autoscaler.maxPoolSize:
+                  $brooklyn:entity("docker-swarm-nodes").parent().config("swarm.max.size")
                 autoscaler.resizeUpStabilizationDelay: 30s
                 autoscaler.resizeDownIterationMax: 0 # Disable scaling down
                 autoscaler.resizeDownStabilizationDelay: forever
@@ -372,12 +352,7 @@ brooklyn.catalog:
                 enricher.aggregating.fromMembers: true
                 transformation: average
           brooklyn.config:
-            cluster.initial.size: $brooklyn:config("swarm.initial.size")
-            # FIXME location cannot resolve provisioning.properties entries
-            #provisioning.properties.minRam:
-            #  $brooklyn:parent().config("swarm.minRam")
-            #provisioning.properties.minCores:
-            #  $brooklyn:parent().config("swarm.minCores")
+            cluster.initial.size: $brooklyn:parent().config("swarm.initial.size")
             dynamiccluster.quarantineFailedEntities:
               $brooklyn:parent().config("swarm.recovery.quarantineFailedEntities")
             dynamiccluster.firstmemberspec:
@@ -403,6 +378,14 @@ brooklyn.catalog:
     itemType: entity
     item:
       type: docker-engine-tls
+
+      brooklyn.parameters:
+        - name: docker.discovery.url
+          label: Docker Discovery URL
+          description: |
+            URL of a KV store for Docker discovery
+          type: string
+
       brooklyn.config:
         docker.discovery.tlsoptions:
           $brooklyn:formatString:
@@ -426,34 +409,15 @@ brooklyn.catalog:
             - $brooklyn:config("docker.discovery.advertise")
         docker.additionaloptions: $brooklyn:config("docker.additionaloptions.docker-engine-with-discovery")
 
-  - id: docker-swarm-node
-    name: "Docker Swarm Node"
-    description:  |
-      A Docker Swarm member node
+  - id: docker-engine-with-resilience
+    name: Docker Engine with Resilience
+    description: |
+      A docker-engine configured with resilience policies
     itemType: entity
     item:
       type: docker-engine-with-discovery
 
       brooklyn.parameters:
-        - name: swarm.port
-          label: Swarm Port
-          description: |
-            The TCP port the Swarm manager listens on
-          type: port
-          default: 3376
-        # TODO fix the way brooklyn.parameters are merged in blueprints
-        - name: docker.port
-          label: Docker Port
-          description: |
-            The TCP port for Docker to listen on
-          type: port
-          default: 2376
-        - name: docker.bindaddress
-          label: Docker Bind Address
-          description: |
-            The network address for Docker to listen on
-          type: string
-          default: 0.0.0.0
         - name: swarm.recovery.stabilizationDelay
           label: Stabilization Delay
           description: |
@@ -484,11 +448,43 @@ brooklyn.catalog:
             entityRecovered.stabilizationDelay:
               $brooklyn:config("swarm.recovery.stabilizationDelay")
 
+  - id: docker-swarm-node
+    name: "Docker Swarm Node"
+    description:  |
+      A Docker Swarm member node
+    itemType: entity
+    item:
+      type: docker-engine-with-resilience
+
+      brooklyn.parameters:
+        - name: swarm.defaultnetwork
+          label: Swarm Default Network
+          description: |
+            The name of the default network to use
+          type: string
+          default: "brooklyn"
+        - name: swarm.minCores
+          label: Swarm Minimum CPU Cores
+          description: |
+            Minimum CPU cores for provisioning Swarm nodes
+          default: 4
+        - name: swarm.minRam
+          label: Swarm Minimum RAM
+          description: |
+            Minimum RAM for provisioning Swarm nodes
+          default: 8g
+
       brooklyn.config:
+        # FIXME location cannot resolve provisioning.properties entries
+        #provisioning.properties.minRam:
+        #  $brooklyn:parent().config("swarm.minRam")
+        #provisioning.properties.minCores:
+        #  $brooklyn:parent().config("swarm.minCores")
+
         shell.env:
           SWARM_DISCOVERY_URL: $brooklyn:config("swarm.discovery.url")
           HOST_ADDRESS: $brooklyn:attributeWhenReady("host.address")
-          SWARM_DEFAULT_NETWORK: $brooklyn:parent().config("swarm.defaultnetwork")
+          SWARM_DEFAULT_NETWORK: $brooklyn:config("swarm.defaultnetwork")
           CREATE_NETWORK: $brooklyn:config("swarm.defaultnetwork.create")
 
         post.launch.command: |
@@ -524,7 +520,7 @@ brooklyn.catalog:
     description:  The Swarm manager engine for running Docker containers
     itemType: entity
     item:
-      type: docker-engine-with-discovery
+      type: docker-engine-with-resilience
 
       brooklyn.parameters:
         - name: swarm.port
@@ -533,19 +529,6 @@ brooklyn.catalog:
             The TCP port the Swarm manager listens on
           type: port
           default: 3376
-        # TODO fix the way brooklyn.parameters are merged in blueprints
-        - name: docker.port
-          label: Docker Port
-          description: |
-            The TCP port for Docker to listen on
-          type: port
-          default: 2376
-        - name: docker.bindaddress
-          label: Docker Bind Address
-          description: |
-            The network address for Docker to listen on
-          type: string
-          default: 0.0.0.0
         - name: swarm.strategy
           label: Swarm Strategy
           description: |
@@ -560,35 +543,8 @@ brooklyn.catalog:
             The default value is 0.05, or 5 percent
           type: double
           default: 0.05d
-        - name: swarm.recovery.stabilizationDelay
-          label: Stabilization Delay
-          description: |
-            Time period for which the service must be consistently in the same state to trigger an action
-          # A restart shouldn't trigger failure
-          type: org.apache.brooklyn.util.time.Duration
-          default: 5m
-        - name: swarm.recovery.failOnRecurringFailuresInThisDuration
-          label: Fail Duration
-          description: |
-            Reports entity as failed if it fails two or more times in this time window
-          type: org.apache.brooklyn.util.time.Duration
-          default: 15m
-
-      brooklyn.policies:
-        - type: org.apache.brooklyn.policy.ha.ServiceRestarter
-          brooklyn.config:
-            failOnRecurringFailuresInThisDuration:
-              $brooklyn:config("swarm.recovery.failOnRecurringFailuresInThisDuration")
 
       brooklyn.enrichers:
-        - type: org.apache.brooklyn.policy.ha.ServiceFailureDetector
-          brooklyn.config:
-            serviceOnFire.stabilizationDelay:
-              $brooklyn:config("swarm.recovery.stabilizationDelay")
-            entityFailed.stabilizationDelay:
-              $brooklyn:config("swarm.recovery.stabilizationDelay")
-            entityRecovered.stabilizationDelay:
-              $brooklyn:config("swarm.recovery.stabilizationDelay")
         - type: org.apache.brooklyn.enricher.stock.Transformer
           brooklyn.config:
             uniqueTag: swarm-endpoint-publisher

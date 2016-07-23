@@ -85,6 +85,7 @@ brooklyn.catalog:
 
         provisioning.properties:
           osFamily: centos
+          osVersionRegex: 7.*
 
         shell.env:
           DOCKER_ADDITIONAL_OPTIONS: $brooklyn:config("docker.additionaloptions")
@@ -189,12 +190,6 @@ brooklyn.catalog:
             The docker network address to to listen on.
           type: string
           default: 0.0.0.0
-        # TODO belongs to docker-engine-with-discovery
-        - name: docker.discovery.url
-          label: Docker Discovery URL
-          description: |
-            URL of a KV store for Docker discovery
-          type: string
         - name: ca.request.root.url
           label: CA Request Root URL
           description: |
@@ -390,45 +385,39 @@ brooklyn.catalog:
     item:
       type: docker-engine
 
-#      TODO implement parameters merge behaviour and remove defaults from brooklyn.config below
-#      brooklyn.parameters.inheritance.type: prepend/append/overwrite/hide?
-#      brooklyn.parameters:
-#        - name: docker.image
-#          label: Docker Image
-#          description: |
-#            The docker image to use when running the container
-#        - name: docker.run.arguments
-#          label: Docker Run Arguments
-#          description: |
-#            Arguments to pass to the docker run command
-#        - name: docker.run.volumes
-#          label: Container Volumns
-#          type: java.util.List
-#          description: |
-#            List of volumes to mount. Items follow the documents docker format of -v
-#        - name: docker.run.env
-#          label: Container Environment
-#          type: java.util.Map
-#          description: |
-#            Map of environment variables to pass to the container
-#        - name: docker.restart
-#          label: Restart policy
-#          description: |
-#            Restart policy on the container. One of no, on-failure[:max-retries], always, unless-stopped\
-#        - name: docker.run.additionaloptions
-#          label: Run command additional options
-#          description: |
-#            Additional options to pass to the "docker run" command
+      brooklyn.parameters:
+        - name: docker.image
+          label: Docker Image
+          description: |
+            The docker image to use when running the container
+        - name: docker.run.arguments
+          label: Docker Run Arguments
+          description: |
+            Arguments to pass to the docker run command
+        - name: docker.run.volumes
+          label: Container Volumns
+          type: java.util.List
+          description: |
+            List of volumes to mount. Items follow the documented docker format
+            for the '-v' option
+        - name: docker.run.env
+          label: Container Environment
+          type: java.util.Map
+          description: |
+            Map of environment variables to pass to the container
+        - name: docker.restart
+          label: Restart policy
+          description: |
+            Restart policy on the container. One of no, on-failure[:max-retries],
+            always or unless-stopped
+        - name: docker.run.additionaloptions
+          label: Run command additional options
+          description: |
+            Additional options to pass to the 'docker run' command
 
       brooklyn.config:
         defaultDisplayName: $brooklyn:config("docker.image")
         image.preinstall:
-        # Avoids null which fails the deployment
-        docker.run.arguments:
-        docker.run.volumes:
-        docker.run.env:
-        docker.restart:
-        docker.run.additionaloptions:
 
         shell.env:
           DOCKER_IMAGE: $brooklyn:config("docker.image")
