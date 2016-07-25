@@ -1,0 +1,22 @@
+id: swarm
+description: |
+  A blueprint deploying an all-in-one Docker Swarm cluster entity.
+
+  Deploys on AWS using the default Swarm entity configuration.
+
+location:
+  jclouds:aws-ec2:
+    region: eu-central-1
+    privateKeyFile: "~/.ssh/swarm.pem"
+    loginUser.privateKeyFile: "~/.ssh/swarm.pem"
+    keyPair: "swarm"
+    templateOptions:
+      securityGroups:
+        - "swarm"
+
+services:
+  - type: docker-swarm
+    name: "swarm-aws-ec2"
+    brooklyn.config:
+      stopIptables: true
+      swarm.initial.size: 2
