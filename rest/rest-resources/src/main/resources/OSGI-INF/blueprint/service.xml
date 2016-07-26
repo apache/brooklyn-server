@@ -111,6 +111,10 @@ limitations under the License.
             </bean>
         </jaxrs:providers>
 
+        <jaxrs:properties>
+            <entry key="default.wae.mapper.least.specific" value="true"/>
+        </jaxrs:properties>
+
     </jaxrs:server>
 
     <bean class="org.apache.brooklyn.rest.util.ScannerInjectHelper">

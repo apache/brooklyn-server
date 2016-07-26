@@ -69,6 +69,7 @@
             <param-value>
                 io.swagger.jaxrs.listing.SwaggerSerializers,
                 org.apache.brooklyn.rest.util.FormMapProvider,
+                org.apache.brooklyn.rest.util.DefaultExceptionMapper,
                 com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider,
                 org.apache.brooklyn.rest.filter.RequestTaggingRsFilter,
                 org.apache.brooklyn.rest.filter.NoCacheFilter,
@@ -76,6 +77,13 @@
                 org.apache.brooklyn.rest.filter.EntitlementContextFilter,
                 org.apache.brooklyn.rest.util.ManagementContextProvider
                 <!-- org.apache.brooklyn.rest.util.ShutdownHandlerProvider -->
+            </param-value>
+        </init-param>
+
+        <init-param>
+            <param-name>jaxrs.properties</param-name>
+            <param-value>
+                default.wae.mapper.least.specific=true
             </param-value>
         </init-param>
 
