@@ -390,10 +390,11 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
      * @see EntitySpec#parameters(List)
      */
     public static void addParameters(AbstractBrooklynObjectSpec<?, ?> spec, List<? extends SpecParameter<?>> explicitParams, BrooklynClassLoadingContext loader) {
+        if (spec.getParameters().isEmpty()) {
+            spec.parametersAdd(BasicSpecParameter.fromSpec(loader.getManagementContext(), spec));
+        }
         if (explicitParams.size() > 0) {
             spec.parametersAdd(explicitParams);
-        } else {
-            spec.parametersAdd(BasicSpecParameter.fromSpec(loader.getManagementContext(), spec));
         }
     }
 

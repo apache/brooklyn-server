@@ -31,6 +31,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Optional;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -107,7 +108,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         SpecParameter<String> SIMPLE_PARAM = new BasicSpecParameter<>("simple", true, SIMPLE_CONFIG);
         CatalogItem<?, ?> item = catalog.getCatalogItem(SYMBOLIC_NAME, TEST_VERSION);
         AbstractBrooklynObjectSpec<?,?> spec = createSpec(item);
-        assertEquals(ImmutableSet.copyOf(spec.getParameters()), ImmutableList.of(SIMPLE_PARAM));
+        assertTrue(Iterables.tryFind(spec.getParameters(), Predicates.<SpecParameter<?>>equalTo(SIMPLE_PARAM)).isPresent());
     }
 
     @Test(dataProvider = "brooklynTypes")
@@ -141,7 +142,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         CatalogItem<?, ?> item = catalog.getCatalogItem(SYMBOLIC_NAME, TEST_VERSION);
         AbstractBrooklynObjectSpec<?,?> spec = createSpec(item);
         List<SpecParameter<?>> params = spec.getParameters();
-        assertEquals(params.size(), 1);
+        assertEquals(params.size(), 4);
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());
     }
 
@@ -164,7 +165,17 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         CatalogItem<?, ?> item = catalog.getCatalogItem(SYMBOLIC_NAME, TEST_VERSION);
         AbstractBrooklynObjectSpec<?,?> spec = createSpec(item);
         List<SpecParameter<?>> params = spec.getParameters();
-        assertEquals(params.size(), 1);
+        switch (type.getSimpleName()) {
+            case "ConfigEntityForTest":
+                assertEquals(params.size(), 3);
+                break;
+            case "ConfigPolicyForTest":
+                assertEquals(params.size(), 2);
+                break;
+            case "ConfigLocationForTest":
+                assertEquals(params.size(), 7);
+                break;
+        }
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());
         assertTrue(Iterables.tryFind(params, labelEqualTo("simple")).isPresent());
     }
@@ -190,7 +201,17 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         CatalogItem<?, ?> item = catalog.getCatalogItem(SYMBOLIC_NAME, TEST_VERSION);
         AbstractBrooklynObjectSpec<?,?> spec = createSpec(item);
         List<SpecParameter<?>> params = spec.getParameters();
-        assertEquals(params.size(), 2);
+        switch (type.getSimpleName()) {
+            case "ConfigEntityForTest":
+                assertEquals(params.size(), 4);
+                break;
+            case "ConfigPolicyForTest":
+                assertEquals(params.size(), 3);
+                break;
+            case "ConfigLocationForTest":
+                assertEquals(params.size(), 8);
+                break;
+        }
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());
         assertTrue(Iterables.tryFind(params, nameEqualTo("override")).isPresent());
     }
@@ -217,7 +238,17 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         CatalogItem<?, ?> item = catalog.getCatalogItem(SYMBOLIC_NAME, TEST_VERSION);
         AbstractBrooklynObjectSpec<?,?> spec = createSpec(item);
         List<SpecParameter<?>> params = spec.getParameters();
-        assertEquals(params.size(), 1);
+        switch (type.getSimpleName()) {
+            case "ConfigEntityForTest":
+                assertEquals(params.size(), 4);
+                break;
+            case "ConfigPolicyForTest":
+                assertEquals(params.size(), 3);
+                break;
+            case "ConfigLocationForTest":
+                assertEquals(params.size(), 8);
+                break;
+        }
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());
         assertTrue(Iterables.tryFind(params, labelEqualTo("override")).isPresent());
     }
@@ -271,7 +302,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         CatalogItem<?, ?> item = catalog.getCatalogItem(SYMBOLIC_NAME, TEST_VERSION);
         AbstractBrooklynObjectSpec<?,?> spec = createSpec(item);
         List<SpecParameter<?>> params = spec.getParameters();
-        assertEquals(params.size(), 1);
+        assertEquals(params.size(), 3);
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());
         Optional<ConfigKey<?>> config = Iterables.tryFind(spec.getConfig().keySet(), ConfigPredicates.nameEqualTo("simple"));
         assertTrue(config.isPresent());
@@ -326,7 +357,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         EntitySpec<?> parentSpec = (EntitySpec<?>) catalog.createSpec((CatalogItem)item);
         EntitySpec<?> spec = parentSpec.getChildren().get(0);
         List<SpecParameter<?>> params = spec.getParameters();
-        assertEquals(params.size(), 1);
+        assertEquals(params.size(), 3);
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());
         assertTrue(Iterables.tryFind(params, labelEqualTo("simple")).isPresent());
     }
@@ -347,7 +378,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
                 "services:",
                 "- type: " + ver(SYMBOLIC_NAME));
         List<SpecParameter<?>> params = spec.getParameters();
-        assertEquals(params.size(), 1);
+        assertEquals(params.size(), 4);
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());
         assertTrue(Iterables.tryFind(params, labelEqualTo("simple")).isPresent());
     }
@@ -369,7 +400,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
                 "services:",
                 "- type: " + ver(SYMBOLIC_NAME));
         List<SpecParameter<?>> params = spec.getParameters();
-        assertEquals(params.size(), 1);
+        assertEquals(params.size(), 4);
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());
         assertTrue(Iterables.tryFind(params, labelEqualTo("simple")).isPresent());
     }
@@ -391,7 +422,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
                 "services:",
                 "- type: " + ver(SYMBOLIC_NAME));
         List<SpecParameter<?>> params = spec.getParameters();
-        assertEquals(params.size(), 1);
+        assertEquals(params.size(), 4);
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());
         assertTrue(Iterables.tryFind(params, labelEqualTo("simple")).isPresent());
     }
@@ -506,7 +537,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         CatalogItem<?, ?> item = catalog.getCatalogItem(ConfigEntityForTest.class.getSimpleName() + "WithParams", TEST_VERSION);
         AbstractBrooklynObjectSpec<?,?> spec = createSpec(item);
         List<SpecParameter<?>> params = spec.getParameters();
-        assertEquals(params.size(), 1);
+        assertEquals(params.size(), 3);
         assertTrue(Iterables.tryFind(params, nameEqualTo("num")).isPresent());
 
         Application app = (Application) createAndStartApplication(
@@ -537,7 +568,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
                 "services:",
                 "- type: " + BasicApplication.class.getName());
         List<SpecParameter<?>> inputs = spec.getParameters();
-        assertEquals(inputs.size(), 1);
+        assertEquals(inputs.size(), 4);
         SpecParameter<?> firstInput = inputs.get(0);
         assertEquals(firstInput.getLabel(), "simple");
     }
@@ -550,7 +581,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
                 "  brooklyn.parameters:",
                 "  - simple");
         List<SpecParameter<?>> inputs = spec.getParameters();
-        assertEquals(inputs.size(), 1);
+        assertEquals(inputs.size(), 4);
         SpecParameter<?> firstInput = inputs.get(0);
         assertEquals(firstInput.getLabel(), "simple");
     }

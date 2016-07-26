@@ -69,7 +69,7 @@ public class SpecParameterParsingTest  extends AbstractYamlTest {
                 "      type: integer");
         EntitySpec<?> item = mgmt().getTypeRegistry().createSpec(mgmt().getTypeRegistry().get(itemId), null, EntitySpec.class);
         List<SpecParameter<?>> inputs = item.getParameters();
-        assertEquals(inputs.size(), 3);
+        assertEquals(inputs.size(), 6);
         SpecParameter<?> firstInput = inputs.get(0);
         assertEquals(firstInput.getLabel(), "simple");
         assertEquals(firstInput.isPinned(), true);
@@ -107,7 +107,7 @@ public class SpecParameterParsingTest  extends AbstractYamlTest {
                 "      type: " + OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY);
         AbstractBrooklynObjectSpec<?,?> spec = createSpec(itemId);
         List<SpecParameter<?>> inputs = spec.getParameters();
-        assertEquals(inputs.size(), 1);
+        assertEquals(inputs.size(), 4);
         SpecParameter<?> firstInput = inputs.get(0);
         assertEquals(firstInput.getLabel(), "simple");
         assertTrue(firstInput.isPinned());

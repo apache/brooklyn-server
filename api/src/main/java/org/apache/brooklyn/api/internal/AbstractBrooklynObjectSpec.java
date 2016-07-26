@@ -155,10 +155,14 @@ public abstract class AbstractBrooklynObjectSpec<T,SpecT extends AbstractBrookly
     @Beta
     public SpecT parametersAdd(List<? extends SpecParameter<?>> parameters) {
         // parameters follows immutable pattern, unlike the other fields
-        Set<SpecParameter<?>> params = MutableSet.<SpecParameter<?>>copyOf(this.parameters);
-        params.removeAll(parameters);
-        params.addAll(parameters);
-        this.parameters = ImmutableList.copyOf(params);
+        Set<SpecParameter<?>> params = MutableSet.<SpecParameter<?>>copyOf(parameters);
+        Set<SpecParameter<?>> current = MutableSet.<SpecParameter<?>>copyOf(this.parameters);
+        current.removeAll(params);
+
+        this.parameters = ImmutableList.<SpecParameter<?>>builder()
+                .addAll(params)
+                .addAll(current)
+                .build();
         return self();
     }
     /** replaces parameters with the given */
