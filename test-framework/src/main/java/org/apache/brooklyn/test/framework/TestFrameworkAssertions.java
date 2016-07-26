@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.Callable;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.config.ConfigKey;
@@ -32,14 +33,17 @@ import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.FatalConfigurationRuntimeException;
+import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 
 
@@ -62,9 +66,9 @@ public class TestFrameworkAssertions {
     public static final String UNKNOWN_CONDITION = "unknown condition";
 
     public static class AssertionOptions {
-        protected Map<String,?> flags;
-        protected List<? extends Map<String, ?>> assertions;
-        protected List<? extends Map<String, ?>> abortConditions;
+        protected Map<String,Object> flags = MutableMap.of();
+        protected List<? extends Map<String, ?>> assertions = ImmutableList.of();
+        protected List<? extends Map<String, ?>> abortConditions = ImmutableList.of();
         protected String target;
         protected Supplier<?> supplier;
         
@@ -73,18 +77,11 @@ public class TestFrameworkAssertions {
             this.supplier = supplier;
         }
         public AssertionOptions flags(Map<String,?> val) {
-            this.flags = val;
+            this.flags.putAll(val);
             return this;
         }
         public AssertionOptions timeout(Duration val) {
-            if (flags == null) {
-                flags = ImmutableMap.of("timeout", val);
-            } else {
-                MutableMap.<String, Object>builder()
-                        .putAll(flags)
-                        .put("timeout", val)
-                        .build();
-            }
+            this.flags.put("timeout", val);
             return this;
         }
         public AssertionOptions assertions(Map<String, ?> val) {
@@ -216,20 +213,58 @@ public class TestFrameworkAssertions {
         support.validate();
     }
 
+    // TODO Copied from Asserts.toDuration
+    private static Duration toDuration(Object duration, Duration defaultVal) {
+        if (duration == null)
+            return defaultVal;
+        else 
+            return Duration.of(duration);
+    }
+
     protected static <T> void checkAssertionsEventually(AssertionSupport support, final AssertionOptions options) {
         if (options.assertions == null || options.assertions.isEmpty()) {
             return;
         }
+        Map<String, ?> flags = options.flags;
+        
+        // To speed up tests, default is for the period to start small and increase...
+        // TODO ignoring "period" and "maxAttempts"
+        Integer maxAttempts = (Integer) flags.get("maxAttempts");
+        Duration timeout = toDuration(flags.get("timeout"), (maxAttempts == null ? Asserts.DEFAULT_LONG_TIMEOUT : Duration.PRACTICALLY_FOREVER));
+        Duration fixedPeriod = toDuration(flags.get("period"), null);
+        Duration minPeriod = (fixedPeriod != null) ? fixedPeriod : toDuration(flags.get("minPeriod"), Duration.millis(1));
+        Duration maxPeriod = (fixedPeriod != null) ? fixedPeriod : toDuration(flags.get("maxPeriod"), Duration.millis(500));
+        Predicate<Throwable> rethrowImmediatelyPredicate = Predicates.or(ImmutableList.of(
+                Predicates.instanceOf(AbortError.class), 
+                Predicates.instanceOf(InterruptedException.class), 
+                Predicates.instanceOf(RuntimeInterruptedException.class)));
+
         try {
-            Asserts.succeedsEventually(options.flags, new Runnable() {
-                @Override
-                public void run() {
-                    Object actual = options.supplier.get();
-                    for (Map<String, ?> assertionMap : options.assertions) {
-                        checkActualAgainstAssertions(assertionMap, options.target, actual);
-                    }
-                }
-            });
+            Repeater.create()
+                    .until(new Callable<Boolean>() {
+                        public Boolean call() {
+                            try {
+                                Object actual = options.supplier.get();
+                                
+                                for (Map<String, ?> abortMap : options.abortConditions) {
+                                    checkActualAgainstAbortConditions(abortMap, options.target, actual);
+                                }
+                                for (Map<String, ?> assertionMap : options.assertions) {
+                                    checkActualAgainstAssertions(assertionMap, options.target, actual);
+                                }
+                                return true;
+                            } catch (AssertionError e) {
+                                throw e;
+                            } catch (Throwable t) {
+                                throw t;
+                            }
+                        }})
+                    .limitIterationsTo(maxAttempts != null ? maxAttempts : Integer.MAX_VALUE)
+                    .limitTimeTo(timeout)
+                    .backoff(minPeriod, 1.2, maxPeriod)
+                    .rethrowExceptionImmediately(rethrowImmediatelyPredicate)
+                    .runRequiringTrue();
+
         } catch (AssertionError t) {
             support.fail(t);
         } catch (Throwable t) {
@@ -266,6 +301,8 @@ public class TestFrameworkAssertions {
                     if (Objects.equals(actual, expected)) {
                         failAssertion(target, condition, expected, actual);
                     }
+                    break;
+                    
                 case IS_NULL :
                     if (isTrue(expected) != (null == actual)) {
                         failAssertion(target, condition, expected, actual);
@@ -314,6 +351,74 @@ public class TestFrameworkAssertions {
         }
     }
 
+    protected static <T> void checkActualAgainstAbortConditions(Map<String, ?> assertions, String target, T actual) {
+        for (Map.Entry<String, ?> assertion : assertions.entrySet()) {
+            String condition = assertion.getKey().toString();
+            Object expected = assertion.getValue();
+            switch (condition) {
+
+                case IS_EQUAL_TO :
+                case EQUAL_TO :
+                case EQUALS :
+                    if (null != actual && actual.equals(expected)) {
+                        abort(target, condition, expected, actual);
+                    }
+                    break;
+
+                case NOT_EQUAL :
+                    if (!Objects.equals(actual, expected)) {
+                        abort(target, condition, expected, actual);
+                    }
+                    break;
+                    
+                case IS_NULL :
+                    if (isTrue(expected) == (null == actual)) {
+                        abort(target, condition, expected, actual);
+                    }
+                    break;
+
+                case NOT_NULL :
+                    if (isTrue(expected) == (null != actual)) {
+                        abort(target, condition, expected, actual);
+                    }
+                    break;
+
+                case CONTAINS :
+                    if (null != actual && actual.toString().contains(expected.toString())) {
+                        abort(target, condition, expected, actual);
+                    }
+                    break;
+
+                case IS_EMPTY :
+                    if (isTrue(expected) == (null == actual || Strings.isEmpty(actual.toString()))) {
+                        abort(target, condition, expected, actual);
+                    }
+                    break;
+
+                case NOT_EMPTY :
+                    if (isTrue(expected) == ((null != actual && Strings.isNonEmpty(actual.toString())))) {
+                        abort(target, condition, expected, actual);
+                    }
+                    break;
+
+                case MATCHES :
+                    if (null != actual && actual.toString().matches(expected.toString())) {
+                        abort(target, condition, expected, actual);
+                    }
+                    break;
+
+                case HAS_TRUTH_VALUE :
+                    if (isTrue(expected) == isTrue(actual)) {
+                        abort(target, condition, expected, actual);
+                    }
+                    break;
+
+                default:
+                    abort(target, condition, expected, actual);
+            }
+        }
+    }
+    
     static void failAssertion(String target, String assertion, Object expected, Object actual) {
         throw new AssertionError(Joiner.on(' ').join(
             Objects.toString(target),
@@ -322,6 +427,12 @@ public class TestFrameworkAssertions {
             Objects.toString(expected),
             "but found",
             Objects.toString(actual)));
+    }
+
+    static void abort(String target, String assertion, Object expected, Object actual) {
+        throw new AbortError(Objects.toString(target) + " matched abort criteria '" 
+                + Objects.toString(assertion) + " " + Objects.toString(expected) + "', found "
+                + Objects.toString(actual));
     }
 
     private static boolean isTrue(Object object) {

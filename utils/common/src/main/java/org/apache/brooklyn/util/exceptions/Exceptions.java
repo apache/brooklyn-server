@@ -182,6 +182,30 @@ public class Exceptions {
         }
     }
 
+    /** 
+     * Indicates whether this exception is "fatal" - i.e. in normal programming, should not be 
+     * caught but should instead be propagating so the call-stack fails. For example, an interrupt
+     * should cause the task to abort rather than catching and ignoring (or "handling" incorrectly).
+     */
+    public static boolean isFatal(Throwable throwable) {
+        return (throwable instanceof InterruptedException)
+                || (throwable instanceof RuntimeInterruptedException) 
+                || (throwable instanceof Error);
+    }
+
+    public static Predicate<Throwable> isFatalPredicate() {
+        return IsFatalPredicate.INSTANCE;
+    }
+
+    private static class IsFatalPredicate implements Predicate<Throwable> {
+        private static final IsFatalPredicate INSTANCE = new IsFatalPredicate();
+        
+        @Override
+        public boolean apply(Throwable input) {
+            return input != null && isFatal(input);
+        }
+    }
+    
     /** returns the first exception of the given type, or null */
     @SuppressWarnings("unchecked")
     public static <T extends Throwable> T getFirstThrowableOfType(Throwable from, Class<T> clazz) {

@@ -35,7 +35,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.TimeUnit;
 
 public class TestFrameworkAssertionsTest {
     private static final Logger LOG = LoggerFactory.getLogger(TestFrameworkAssertionsTest.class);
@@ -71,7 +70,7 @@ public class TestFrameworkAssertionsTest {
     }
 
     @Test(dataProvider = "positiveTestsDP")
-    public void positiveTest(final Object data, final List<Map<String, Object>> assertions) {
+    public void positiveTest(final Object data, final List<Map<String, ?>> assertions) {
         final Supplier<Object> supplier = new Supplier<Object>() {
             @Override
             public Object get() {
@@ -79,7 +78,30 @@ public class TestFrameworkAssertionsTest {
                 return data;
             }
         };
-        TestFrameworkAssertions.checkAssertionsEventually(new AssertionOptions(Objects.toString(data), supplier).timeout(Duration.seconds(2)).assertions(assertions));
+        TestFrameworkAssertions.checkAssertionsEventually(new AssertionOptions(Objects.toString(data), supplier)
+                .timeout(Asserts.DEFAULT_LONG_TIMEOUT).assertions(assertions));
+    }
+
+    @Test(dataProvider = "positiveTestsDP")
+    public void positiveAbortTest(final Object data, final List<Map<String, ?>> abortConditions) {
+        final Supplier<Object> supplier = new Supplier<Object>() {
+            @Override
+            public Object get() {
+                LOG.info("Supplier invoked for data [{}]", data);
+                return data;
+            }
+        };
+        
+        for (Map<String, ?> map : abortConditions) {
+            try {
+                TestFrameworkAssertions.checkAssertionsEventually(new AssertionOptions(Objects.toString(data), supplier)
+                        .timeout(Asserts.DEFAULT_LONG_TIMEOUT).abortConditions(map)
+                        .assertions(ImmutableMap.of("equals", "wrong-value-never-equals")));
+                Asserts.shouldHaveFailedPreviously();
+            } catch (AbortError e) {
+                // success
+            }
+        }
     }
 
     @DataProvider
@@ -115,7 +137,7 @@ public class TestFrameworkAssertionsTest {
     }
 
     @Test(dataProvider = "negativeTestsDP")
-    public void negativeTests(final Object data, String condition, Object expected, final List<Map<String, Object>> assertions) {
+    public void negativeTests(final Object data, String condition, Object expected, final List<Map<String, ?>> assertions) {
         final Supplier<Object> supplier = new Supplier<Object>() {
             @Override
             public Object get() {
@@ -133,7 +155,31 @@ public class TestFrameworkAssertionsTest {
         } catch (AssertionError e) {
             Asserts.expectedFailureContains(e, Objects.toString(data), condition, expected.toString());
         }
+    }
 
+    @Test(dataProvider = "negativeTestsDP")
+    public void negativeAbortTest(final Object data, String condition, Object expected, final List<Map<String, ?>> assertions) {
+        final Supplier<Object> supplier = new Supplier<Object>() {
+            @Override
+            public Object get() {
+                LOG.info("Supplier invoked for data [{}]", data);
+                return data;
+            }
+        };
+        
+        // It should always try at least once, so we can use a very small timeout
+        Duration timeout = Duration.millis(1);
+        
+        // The abort-condition should never hold, so it should always fail due to the timeout rather than
+        // aborting.
+        try {
+            TestFrameworkAssertions.checkAssertionsEventually(new AssertionOptions(Objects.toString(data), supplier)
+                    .timeout(timeout).abortConditions(assertions)
+                    .assertions(assertions));
+            Asserts.shouldHaveFailedPreviously();
+        } catch (AssertionError e) {
+            Asserts.expectedFailureContains(e, Objects.toString(data), condition, expected.toString());
+        }
     }
 
     @Test

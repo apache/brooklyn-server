@@ -22,24 +22,31 @@ package org.apache.brooklyn.test.framework;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
+import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -57,46 +64,75 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
 
     private List<Location> locs = ImmutableList.of();
     private String testId;
+    private ExecutorService executor;
 
     @BeforeMethod(alwaysRun=true)
     @Override
     public void setUp() throws Exception {
         super.setUp();
         testId = Identifiers.makeRandomId(8);
+        executor = Executors.newCachedThreadPool();
     }
 
+    @AfterMethod(alwaysRun=true)
+    @Override
+    public void tearDown() throws Exception {
+        if (executor != null) executor.shutdownNow();
+        super.tearDown();
+    }
+    
     @Test
     public void testAssertEqual() throws Exception {
         int testInteger = 100;
 
         //Add Sensor Test for BOOLEAN sensor
-        app.createAndManageChild(EntitySpec.create(TestSensor.class)
+        TestSensor testCaseBool = app.createAndManageChild(EntitySpec.create(TestSensor.class)
                 .configure(TestSensor.TARGET_ENTITY, app)
                 .configure(TestSensor.SENSOR_NAME, BOOLEAN_SENSOR.getName())
                 .configure(TestSensor.ASSERTIONS, newMapAssertion("equals", true)));
         //Add Sensor Test for STRING sensor
-        app.createAndManageChild(EntitySpec.create(TestSensor.class)
+        TestSensor testCaseStr = app.createAndManageChild(EntitySpec.create(TestSensor.class)
                 .configure(TestSensor.TARGET_ENTITY, app)
                 .configure(TestSensor.SENSOR_NAME, STRING_SENSOR.getName())
                 .configure(TestSensor.ASSERTIONS, newListAssertion("equals", testId)));
         //Add Sensor Test for INTEGER sensor
-        app.createAndManageChild(EntitySpec.create(TestSensor.class)
+        TestSensor testCaseInt = app.createAndManageChild(EntitySpec.create(TestSensor.class)
                 .configure(TestSensor.TARGET_ENTITY, app)
                 .configure(TestSensor.SENSOR_NAME, INTEGER_SENSOR.getName())
                 .configure(TestSensor.ASSERTIONS, newListAssertion("equals", testInteger)));
 
-        //Set BOOLEAN Sensor to true
+        //Set sensors, so test-cases will immediately succeed
         app.sensors().set(BOOLEAN_SENSOR, Boolean.TRUE);
-
-        // Give a value to INTEGER sensor
         app.sensors().set(INTEGER_SENSOR, testInteger);
-
-        //Set STRING sensor to random string
         app.sensors().set(STRING_SENSOR, testId);
 
         app.start(locs);
-
+        
+        assertTestSensorSucceeds(testCaseBool);
+        assertTestSensorSucceeds(testCaseStr);
+        assertTestSensorSucceeds(testCaseInt);
     }
+
+    @Test
+    public void testAssertEqualsWhenSensorSetLater() throws Exception {
+        TestSensor testCase = app.createAndManageChild(EntitySpec.create(TestSensor.class)
+                .configure(TestSensor.TIMEOUT, Asserts.DEFAULT_LONG_TIMEOUT)
+                .configure(TestSensor.TARGET_ENTITY, app)
+                .configure(TestSensor.SENSOR_NAME, STRING_SENSOR.getName())
+                .configure(TestSensor.ASSERTIONS, newListAssertion("equals", testId)));
+
+        // Wait long enough that we expect the assertion to have been attempted
+        executor.submit(new Runnable() {
+            public void run() {
+                Time.sleep(Duration.millis(250));
+                app.sensors().set(STRING_SENSOR, testId);
+            }});
+        
+        app.start(locs);
+        
+        assertTestSensorSucceeds(testCase);
+    }
+
 
     @Test
     public void testAssertEqualFailure() throws Exception {
@@ -127,21 +163,23 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testAssertNull() throws Exception {
         //Add Sensor Test for BOOLEAN sensor
-        app.createAndManageChild(EntitySpec.create(TestSensor.class)
+        TestSensor testCaseBool = app.createAndManageChild(EntitySpec.create(TestSensor.class)
                 .configure(TestSensor.TARGET_ENTITY, app)
                 .configure(TestSensor.SENSOR_NAME, BOOLEAN_SENSOR.getName())
                 .configure(TestSensor.ASSERTIONS,  newMapAssertion("isNull", true)));
         //Add Sensor Test for STRING sensor
-        app.createAndManageChild(EntitySpec.create(TestSensor.class)
+        TestSensor testCaseStr = app.createAndManageChild(EntitySpec.create(TestSensor.class)
                 .configure(TestSensor.TARGET_ENTITY, app)
                 .configure(TestSensor.SENSOR_NAME, STRING_SENSOR.getName())
                 .configure(TestSensor.ASSERTIONS, newListAssertion("notNull", true)));
 
-        //Set STRING sensor to random string
+        //Set STRING sensor (to non-null); leave bool sensor as null
         app.sensors().set(STRING_SENSOR, testId);
 
         app.start(locs);
-
+        
+        assertTestSensorSucceeds(testCaseBool);
+        assertTestSensorSucceeds(testCaseStr);
     }
 
 
@@ -165,11 +203,11 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
         final String sensorValue = String.format("%s%s%s", Identifiers.makeRandomId(8), time, Identifiers.makeRandomId(8));
 
         //Add Sensor Test for STRING sensor
-        app.createAndManageChild(EntitySpec.create(TestSensor.class)
+        TestSensor testCaseStr = app.createAndManageChild(EntitySpec.create(TestSensor.class)
                 .configure(TestSensor.TARGET_ENTITY, app)
                 .configure(TestSensor.SENSOR_NAME, STRING_SENSOR.getName())
                 .configure(TestSensor.ASSERTIONS, newListAssertion("matches", String.format(".*%s.*", time))));
-        app.createAndManageChild(EntitySpec.create(TestSensor.class)
+        TestSensor testCaseBool = app.createAndManageChild(EntitySpec.create(TestSensor.class)
                 .configure(TestSensor.TARGET_ENTITY, app)
                 .configure(TestSensor.SENSOR_NAME, BOOLEAN_SENSOR.getName())
                 .configure(TestSensor.ASSERTIONS, newMapAssertion("matches", "true")));
@@ -178,8 +216,10 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
         app.sensors().set(STRING_SENSOR, sensorValue);
         app.sensors().set(BOOLEAN_SENSOR, true);
 
-
         app.start(locs);
+        
+        assertTestSensorSucceeds(testCaseStr);
+        assertTestSensorSucceeds(testCaseBool);
     }
 
     @Test
@@ -214,7 +254,7 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testAssertMatchesOnNonStringSensor() throws Exception {
         //Add Sensor Test for OBJECT sensor
-        app.createAndManageChild(EntitySpec.create(TestSensor.class)
+        TestSensor testCaseObj = app.createAndManageChild(EntitySpec.create(TestSensor.class)
                 .configure(TestSensor.TARGET_ENTITY, app)
                 .configure(TestSensor.SENSOR_NAME, OBJECT_SENSOR.getName())
                 .configure(TestSensor.ASSERTIONS, newListAssertion("matches", ".*TestObject.*id=.*")));
@@ -222,7 +262,54 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
         app.sensors().set(OBJECT_SENSOR, new TestObject());
 
         app.start(locs);
+        
+        assertTestSensorSucceeds(testCaseObj);
+    }
 
+    @Test
+    public void testAbortsIfConditionSatisfied() throws Exception {
+        final AttributeSensor<Lifecycle> serviceStateSensor = Sensors.newSensor(Lifecycle.class,
+                "test.service.state", "Actual lifecycle state of the service (for testing)");
+
+        TestEntity entity = app.addChild(EntitySpec.create(TestEntity.class));
+        
+        app.createAndManageChild(EntitySpec.create(TestSensor.class)
+                .configure(TestSensor.TIMEOUT, Duration.ONE_MINUTE)
+                .configure(TestSensor.TARGET_ENTITY, entity)
+                .configure(TestSensor.SENSOR_NAME, serviceStateSensor.getName())
+                .configure(TestSensor.ASSERTIONS, newMapAssertion("equals", Lifecycle.RUNNING))
+                .configure(TestSensor.ABORT_CONDITIONS, newMapAssertion("equals", Lifecycle.ON_FIRE)));
+
+        entity.sensors().set(serviceStateSensor, Lifecycle.ON_FIRE);
+        assertStartFails(app, AbortError.class, Asserts.DEFAULT_LONG_TIMEOUT);
+    }
+
+    @Test
+    public void testDoesNotAbortIfConditionUnsatisfied() throws Exception {
+        final AttributeSensor<Lifecycle> serviceStateSensor = Sensors.newSensor(Lifecycle.class,
+                "test.service.state", "Actual lifecycle state of the service (for testing)");
+
+        final TestEntity entity = app.addChild(EntitySpec.create(TestEntity.class));
+        
+        TestSensor testCase = app.createAndManageChild(EntitySpec.create(TestSensor.class)
+                .configure(TestSensor.TIMEOUT, Asserts.DEFAULT_LONG_TIMEOUT)
+                .configure(TestSensor.TARGET_ENTITY, entity)
+                .configure(TestSensor.SENSOR_NAME, serviceStateSensor.getName())
+                .configure(TestSensor.ASSERTIONS, newMapAssertion("equals", Lifecycle.RUNNING))
+                .configure(TestSensor.ABORT_CONDITIONS, newMapAssertion("equals", Lifecycle.ON_FIRE)));
+
+        // Set the state to running while we are starting (so that the abort-condition will have
+        // been checked).
+        entity.sensors().set(serviceStateSensor, Lifecycle.STARTING);
+        executor.submit(new Runnable() {
+            public void run() {
+                Time.sleep(Duration.millis(50));
+                entity.sensors().set(serviceStateSensor, Lifecycle.RUNNING);
+            }});
+        
+        app.start(locs);
+        
+        assertTestSensorSucceeds(testCase);
     }
 
     @Test
@@ -271,6 +358,15 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
         }
 
         Entity entity = Iterables.find(Entities.descendantsWithoutSelf(app), Predicates.instanceOf(TestSensor.class));
+        assertTestSensorFails((TestSensor) entity);
+    }
+
+    protected void assertTestSensorSucceeds(TestSensor entity) {
+        EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, true);
+    }
+    
+    protected void assertTestSensorFails(TestSensor entity) {
         EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
         EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, false);
     }
