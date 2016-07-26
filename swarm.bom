@@ -94,7 +94,7 @@ brooklyn.catalog:
                   ca.request.root.url: $brooklyn:entity("ca-server").attributeWhenReady("main.uri")
                   resources.preInstall.latch: $brooklyn:entity("ca-server").attributeWhenReady("service.isUp")
                   files.preinstall:
-                    "classpath://docker/certificate-functions.sh": certificate-functions.sh
+                    "classpath://io.cloudsoft.amp.containerservice.docker-catalog:docker/certificate-functions.sh": certificate-functions.sh
                   shell.env:
                     CA_REQUEST_ROOT_URL: $brooklyn:config("ca.request.root.url")
                     HOST_ADDRESS: $brooklyn:attributeWhenReady("host.address")
@@ -229,7 +229,7 @@ brooklyn.catalog:
               RUN_DIR: $brooklyn:attributeWhenReady("run.dir")
             resources.preInstall.latch: $brooklyn:entity("ca-server").attributeWhenReady("service.isUp")
             files.preinstall:
-              "classpath://docker/certificate-functions.sh": certificate-functions.sh
+              "classpath://io.cloudsoft.amp.containerservice.docker-catalog:docker/certificate-functions.sh": certificate-functions.sh
             pre.launch.command: |
               set -e
               source ${INSTALL_DIR}/certificate-functions.sh
