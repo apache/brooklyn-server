@@ -21,6 +21,7 @@ package org.apache.brooklyn.test.framework;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.test.framework.TestFrameworkAssertions.AssertionOptions;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -78,7 +79,7 @@ public class TestFrameworkAssertionsTest {
                 return data;
             }
         };
-        TestFrameworkAssertions.checkAssertions(ImmutableMap.of("timeout", new Duration(2L, TimeUnit.SECONDS)), assertions, Objects.toString(data), supplier);
+        TestFrameworkAssertions.checkAssertionsEventually(new AssertionOptions(Objects.toString(data), supplier).timeout(Duration.seconds(2)).assertions(assertions));
     }
 
     @DataProvider
@@ -127,7 +128,7 @@ public class TestFrameworkAssertionsTest {
         Duration timeout = Duration.millis(1);
         
         try {
-            TestFrameworkAssertions.checkAssertions(ImmutableMap.of("timeout", timeout), assertions, Objects.toString(data), supplier);
+            TestFrameworkAssertions.checkAssertionsEventually(new AssertionOptions(Objects.toString(data), supplier).timeout(timeout).assertions(assertions));
             Asserts.shouldHaveFailedPreviously();
         } catch (AssertionError e) {
             Asserts.expectedFailureContains(e, Objects.toString(data), condition, expected.toString());
@@ -149,7 +150,8 @@ public class TestFrameworkAssertionsTest {
             }
         };
         try {
-            TestFrameworkAssertions.checkAssertions(ImmutableMap.of("timeout", Duration.millis(1)), assertions, "anyTarget", supplier);
+            TestFrameworkAssertions.checkAssertionsEventually(new AssertionOptions("anyTarget", supplier).timeout(Duration.millis(1))
+                    .assertions(assertions));
             Asserts.shouldHaveFailedPreviously();
         } catch (Throwable e) {
             Asserts.expectedFailureOfType(e, AssertionError.class);

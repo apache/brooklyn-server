@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.test.framework;
 
+import static org.apache.brooklyn.test.framework.TestFrameworkAssertions.getAbortConditions;
 import static org.apache.brooklyn.test.framework.TestFrameworkAssertions.getAssertions;
 
 import java.util.Collection;
@@ -25,23 +26,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
+import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.test.framework.TestFrameworkAssertions.AssertionOptions;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-
-import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.location.Location;
-import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
-import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
-import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.util.core.flags.TypeCoercions;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.time.Duration;
 
 /**
  * {@inheritDoc}
@@ -62,18 +62,20 @@ public class TestSensorImpl extends TargetableTestComponentImpl implements TestS
             final Entity target = resolveTarget();
             final Duration timeout = getConfig(TIMEOUT);
             final List<Map<String, Object>> assertions = getAssertions(this, ASSERTIONS);
+            final List<Map<String, Object>> abortConditions = getAbortConditions(this, ABORT_CONDITIONS);
             if (!getChildren().isEmpty()) {
                 throw new RuntimeException(String.format("The entity [%s] cannot have child entities", getClass().getName()));
             }
             
-            TestFrameworkAssertions.checkAssertions(ImmutableMap.of("timeout", timeout), assertions, sensor.get(),
-                new Supplier<Object>() {
+            Supplier<?> supplier = new Supplier<Object>() {
                 @Override
                 public Object get() {
                     final Object sensorValue = target.sensors().get(Sensors.newSensor(Object.class, sensor.get()));
                     return sensorValue;
                 }
-            });
+            };
+            TestFrameworkAssertions.checkAssertionsEventually(new AssertionOptions(sensor.get(), supplier).timeout(timeout)
+                    .assertions(assertions).abortConditions(abortConditions));
 
             setUpAndRunState(true, Lifecycle.RUNNING);
         } catch (Throwable t) {

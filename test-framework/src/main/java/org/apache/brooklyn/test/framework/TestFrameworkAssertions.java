@@ -24,18 +24,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import com.google.common.base.Joiner;
-import com.google.common.base.Supplier;
-import com.google.common.reflect.TypeToken;
-
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.FatalConfigurationRuntimeException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
+
+import com.google.common.base.Joiner;
+import com.google.common.base.Supplier;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.reflect.TypeToken;
 
 
 /**
@@ -56,14 +61,65 @@ public class TestFrameworkAssertions {
     public static final String HAS_TRUTH_VALUE = "hasTruthValue";
     public static final String UNKNOWN_CONDITION = "unknown condition";
 
+    public static class AssertionOptions {
+        protected Map<String,?> flags;
+        protected List<? extends Map<String, ?>> assertions;
+        protected List<? extends Map<String, ?>> abortConditions;
+        protected String target;
+        protected Supplier<?> supplier;
+        
+        public AssertionOptions(String target, Supplier<?> supplier) {
+            this.target = target;
+            this.supplier = supplier;
+        }
+        public AssertionOptions flags(Map<String,?> val) {
+            this.flags = val;
+            return this;
+        }
+        public AssertionOptions timeout(Duration val) {
+            if (flags == null) {
+                flags = ImmutableMap.of("timeout", val);
+            } else {
+                MutableMap.<String, Object>builder()
+                        .putAll(flags)
+                        .put("timeout", val)
+                        .build();
+            }
+            return this;
+        }
+        public AssertionOptions assertions(Map<String, ?> val) {
+            this.assertions = ImmutableList.of(val);
+            return this;
+        }
+        public AssertionOptions assertions(List<? extends Map<String, ?>> val) {
+            this.assertions = val;
+            return this;
+        }
+        public AssertionOptions abortConditions(Map<String, ?> val) {
+            this.abortConditions = ImmutableList.of(val);
+            return this;
+        }
+        public AssertionOptions abortConditions(List<? extends Map<String, ?>> val) {
+            this.abortConditions = val;
+            return this;
+        }
+        public AssertionOptions target(String val) {
+            this.target = val;
+            return this;
+        }
+        public AssertionOptions supplier(Supplier<?> val) {
+            this.supplier = val;
+            return this;
+        }
+    }
 
     private TestFrameworkAssertions() {
     }
 
 
     /**
-     *  Get assertions tolerantly from a configuration key.
-     *  This supports either a simple map of assertions, such as
+     * Get assertions tolerantly from a configuration key.
+     * This supports either a simple map of assertions, such as
      *
      * <pre>
      * assertOut:
@@ -76,13 +132,33 @@ public class TestFrameworkAssertions {
      * - contains: 2 users
      * - contains: 2 days
      * </pre>
-     * or
-     * <pre>
-     * private static List<Map<String,Object>> getAssertions(ConfigKey<Object> key) {
-     * }
-     * </pre>
      */
     public static List<Map<String, Object>> getAssertions(Entity entity, ConfigKey<Object> key) {
+        return getAsListOfMaps(entity, key);
+    }
+    
+    /**
+     * Get abort-condition tolerantly from a configuration key.
+     * This supports either a simple map of assertions, such as
+     *
+     * <pre>
+     * abortCondition:
+     *   equals: ON_FIRE
+     * </pre>
+     * or a list of such maps, (which allows you to repeat keys):
+     * <pre>
+     * abortCondition:
+     * - equals: ON_FIRE
+     * - equals: STOPPING
+     * - equals: STOPPED
+     * - equals: DESTROYED
+     * </pre>
+     */
+    public static List<Map<String, Object>> getAbortConditions(Entity entity, ConfigKey<Object> key) {
+        return getAsListOfMaps(entity, key);
+    }
+    
+    protected static List<Map<String, Object>> getAsListOfMaps(Entity entity, ConfigKey<Object> key) {
         Object config = entity.getConfig(key);
         Maybe<Map<String, Object>> maybeMap = TypeCoercions.tryCoerce(config, new TypeToken<Map<String, Object>>() {});
         if (maybeMap.isPresent()) {
@@ -98,65 +174,72 @@ public class TestFrameworkAssertions {
         throw new FatalConfigurationRuntimeException(key.getDescription() + " is not a map or list of maps");
     }
 
+    /**
+     * @Deprecated since 0.10.0; use {@link #checkAssertionsEventually(AssertionOptions)}
+     */
+    @Deprecated
+    public static <T> void checkAssertions(Map<String,?> flags, List<? extends Map<String, ?>> assertions,
+            String target, Supplier<T> supplier) {
+        checkAssertionsEventually(new AssertionOptions(target, supplier).flags(flags).assertions(assertions));
+    }
+    
+    /**
+     * @Deprecated since 0.10.0; use {@link #checkAssertionsEventually(AssertionOptions)}; don't pass in own {@link AssertionSupport}.
+     */
+    @Deprecated
+    public static <T> void checkAssertions(AssertionSupport support, Map<String,?> flags,
+            List<? extends Map<String, ?>> assertions, String target, Supplier<T> supplier) {
+        checkAssertionsEventually(support, new AssertionOptions(target, supplier).flags(flags).assertions(assertions));
+    }
 
-    public static <T> void checkAssertions(Map<String,?> flags,
-                                           Map<String, Object> assertions,
-                                           String target,
-                                           final Supplier<T> actualSupplier) {
+    /**
+     * @Deprecated since 0.10.0; use {@link #checkAssertionsEventually(AssertionOptions)}
+     */
+    @Deprecated
+    public static <T> void checkAssertions(AssertionSupport support, Map<String,?> flags,
+            Map<String, ?> assertions, String target, Supplier<T> supplier) {
+        checkAssertionsEventually(support, new AssertionOptions(target, supplier).flags(flags).assertions(assertions));
+    }
 
+    /**
+     * @Deprecated since 0.10.0; use {@link #checkAssertionsEventually(AssertionOptions)}
+     */
+    @Deprecated
+    public static <T> void checkAssertions(Map<String,?> flags, Map<String, ?> assertions,
+            String target, Supplier<T> supplier) {
+        checkAssertionsEventually(new AssertionOptions(target, supplier).flags(flags).assertions(assertions));
+    }
+
+    public static <T> void checkAssertionsEventually(AssertionOptions options) {
         AssertionSupport support = new AssertionSupport();
-        checkAssertions(support, flags, assertions, target, actualSupplier);
+        checkAssertionsEventually(support, options);
         support.validate();
     }
 
-
-    public static <T> void checkAssertions(Map<String,?> flags,
-                                           List<Map<String, Object>> assertions,
-                                           String target,
-                                           final Supplier<T> actualSupplier) {
-
-        AssertionSupport support = new AssertionSupport();
-        for (Map<String, Object> assertionMap : assertions) {
-            checkAssertions(support, flags, assertionMap, target, actualSupplier);
-        }
-        support.validate();
-    }
-
-    public static <T> void checkAssertions(final AssertionSupport support,
-                                           Map<String,?> flags,
-                                           final List<Map<String, Object>> assertions,
-                                           final String target,
-                                           final Supplier<T> actualSupplier) {
-
-        for (Map<String, Object> assertionMap : assertions) {
-            checkAssertions(support, flags, assertionMap, target, actualSupplier);
-        }
-    }
-
-    public static <T> void checkAssertions(final AssertionSupport support,
-                                           Map<String,?> flags,
-                                           final Map<String, Object> assertions,
-                                           final String target,
-                                           final Supplier<T> actualSupplier) {
-
-        if (null == assertions) {
+    protected static <T> void checkAssertionsEventually(AssertionSupport support, final AssertionOptions options) {
+        if (options.assertions == null || options.assertions.isEmpty()) {
             return;
         }
         try {
-            Asserts.succeedsEventually(flags, new Runnable() {
+            Asserts.succeedsEventually(options.flags, new Runnable() {
                 @Override
                 public void run() {
-                    T actual = actualSupplier.get();
-                    checkActualAgainstAssertions(assertions, target, actual);
+                    Object actual = options.supplier.get();
+                    for (Map<String, ?> assertionMap : options.assertions) {
+                        checkActualAgainstAssertions(assertionMap, options.target, actual);
+                    }
                 }
             });
+        } catch (AssertionError t) {
+            support.fail(t);
         } catch (Throwable t) {
+            Exceptions.propagateIfFatal(t);
             support.fail(t);
         }
     }
 
-    public static <T> void checkActualAgainstAssertions(AssertionSupport support,
-            Map<String, Object> assertions, String target, T actual) {
+    protected static <T> void checkActualAgainstAssertions(AssertionSupport support, Map<String, ?> assertions, 
+            String target, T actual) {
         try {
             checkActualAgainstAssertions(assertions, target, actual);
         } catch (Throwable t) {
@@ -164,9 +247,9 @@ public class TestFrameworkAssertions {
         }
     }
 
-    public static <T> void checkActualAgainstAssertions(Map<String, Object> assertions,
-                                                         String target, T actual) {
-        for (Map.Entry<String, Object> assertion : assertions.entrySet()) {
+    protected static <T> void checkActualAgainstAssertions(Map<String, ?> assertions,
+            String target, T actual) {
+        for (Map.Entry<String, ?> assertion : assertions.entrySet()) {
             String condition = assertion.getKey().toString();
             Object expected = assertion.getValue();
             switch (condition) {

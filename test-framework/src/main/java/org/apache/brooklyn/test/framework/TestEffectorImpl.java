@@ -33,12 +33,14 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.mgmt.internal.EffectorUtils;
+import org.apache.brooklyn.test.framework.TestFrameworkAssertions.AssertionOptions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -83,7 +85,9 @@ public class TestEffectorImpl extends TargetableTestComponentImpl implements Tes
 
             final List<Map<String, Object>> assertions = getAssertions(this, ASSERTIONS);
             if(assertions != null && !assertions.isEmpty()){
-                TestFrameworkAssertions.checkAssertions(ImmutableMap.of("timeout", timeout), assertions, effectorName, Suppliers.ofInstance(effectorResult));
+                Supplier<?> supplier = Suppliers.ofInstance(effectorResult);
+                TestFrameworkAssertions.checkAssertionsEventually(new AssertionOptions(effectorName, supplier)
+                        .timeout(timeout).assertions(assertions));
             }
 
             //Add result of effector to sensor

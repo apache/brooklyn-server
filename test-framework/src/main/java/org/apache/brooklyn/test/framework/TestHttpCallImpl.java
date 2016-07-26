@@ -27,6 +27,7 @@ import java.util.Map;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
+import org.apache.brooklyn.test.framework.TestFrameworkAssertions.AssertionOptions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.http.HttpTool;
 import org.apache.brooklyn.util.time.Duration;
@@ -85,7 +86,8 @@ public class TestHttpCallImpl extends TargetableTestComponentImpl implements Tes
                         return HttpTool.getContent(url);
                     }
                 };
-                TestFrameworkAssertions.checkAssertions(flags, assertions, target.toString(), getBody);
+                TestFrameworkAssertions.checkAssertionsEventually(new AssertionOptions(target.toString(), getBody)
+                        .flags(flags).assertions(assertions));
                 break;
             case status:
                 Supplier<Integer> getStatusCode = new Supplier<Integer>() {
@@ -99,7 +101,8 @@ public class TestHttpCallImpl extends TargetableTestComponentImpl implements Tes
                         }
                     }
                 };
-                TestFrameworkAssertions.checkAssertions(flags, assertions, target.toString(), getStatusCode);
+                TestFrameworkAssertions.checkAssertionsEventually(new AssertionOptions(target.toString(), getStatusCode)
+                        .flags(flags).assertions(assertions));
                 break;
             default:
                 throw new RuntimeException("Unexpected assertion target (" + target + ")");
