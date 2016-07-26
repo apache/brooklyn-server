@@ -23,6 +23,7 @@ import static org.apache.brooklyn.test.framework.TestFrameworkAssertions.getAsse
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeoutException;
 
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
@@ -71,8 +72,14 @@ public class TestEffectorImpl extends TargetableTestComponentImpl implements Tes
             } else {
                 effectorTask = Entities.invokeEffector(this, targetEntity, effector.get(), effectorParams);
             }
-
-            final Object effectorResult = effectorTask.get(timeout);
+            
+            final Object effectorResult;
+            try {
+                effectorResult = effectorTask.get(timeout);
+            } catch (TimeoutException e) {
+                effectorTask.cancel(true);
+                throw new AssertionError("Effector "+effectorName+" timed out after "+timeout, e);
+            }
 
             final List<Map<String, Object>> assertions = getAssertions(this, ASSERTIONS);
             if(assertions != null && !assertions.isEmpty()){

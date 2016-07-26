@@ -50,6 +50,9 @@ public interface TestEntity extends Entity, Startable {
     @Effector
     Integer effectorReturnsInt(@EffectorParam(name = "intToReturn") Integer intToReturn);
 
+    @Effector
+    void effectorHangs();
+
     class TestPojo {
         private final String stringValue;
         private final Boolean booleanValue;

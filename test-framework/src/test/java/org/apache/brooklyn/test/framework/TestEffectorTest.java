@@ -181,6 +181,16 @@ public class TestEffectorTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
+    public void testEffectorTimeout() throws Exception {
+        testCase.addChild(EntitySpec.create(TestEffector.class)
+                .configure(TestEffector.TIMEOUT, Duration.millis(10))
+                .configure(TestEffector.TARGET_ENTITY, testEntity)
+                .configure(TestEffector.EFFECTOR_NAME, "effectorHangs"));
+
+        assertStartFails(app, AssertionError.class, Asserts.DEFAULT_LONG_TIMEOUT);
+    }
+
+    @Test
     public void testFailFastIfNoTargetEntity() throws Exception {
         testCase.addChild(EntitySpec.create(TestEffector.class)
                 .configure(TestEffector.EFFECTOR_NAME, "simpleEffector"));

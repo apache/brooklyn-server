@@ -23,6 +23,8 @@ import java.util.Collection;
 
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.core.entity.AbstractEntity;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 
 public class TestEntityImpl extends AbstractEntity implements TestEntity {
     @Override
@@ -60,5 +62,10 @@ public class TestEntityImpl extends AbstractEntity implements TestEntity {
     @Override
     public Integer effectorReturnsInt(Integer intToReturn) {
         return intToReturn;
+    }
+    
+    @Override
+    public void effectorHangs() {
+        Time.sleep(Duration.minutes(5));
     }
 }
