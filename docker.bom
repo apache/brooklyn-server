@@ -147,6 +147,8 @@ brooklyn.catalog:
             ]
           }
           EOF
+          sudo service rngd stop || true
+          sudo systemctl disable rngd.service
           sudo systemctl enable docker.service
           sudo systemctl daemon-reload
 
