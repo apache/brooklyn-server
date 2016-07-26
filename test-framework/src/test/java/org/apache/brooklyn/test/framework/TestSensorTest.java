@@ -19,54 +19,52 @@
 
 package org.apache.brooklyn.test.framework;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.location.LocationSpec;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
-import org.apache.brooklyn.core.test.entity.TestApplication;
-import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
-import org.apache.brooklyn.util.text.Identifiers;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
+import org.apache.brooklyn.util.text.Identifiers;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
-public class TestSensorTest {
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+
+public class TestSensorTest extends BrooklynAppUnitTestSupport {
 
     private static final AttributeSensorAndConfigKey<Boolean, Boolean> BOOLEAN_SENSOR = ConfigKeys.newSensorAndConfigKey(Boolean.class, "boolean-sensor", "Boolean Sensor");
     private static final AttributeSensorAndConfigKey<String, String> STRING_SENSOR = ConfigKeys.newSensorAndConfigKey(String.class, "string-sensor", "String Sensor");
     private static final AttributeSensorAndConfigKey<Integer, Integer> INTEGER_SENSOR = ConfigKeys.newIntegerSensorAndConfigKey("integer-sensor", "Integer Sensor");
     private static final AttributeSensorAndConfigKey<Object, Object> OBJECT_SENSOR = ConfigKeys.newSensorAndConfigKey(Object.class, "object-sensor", "Object Sensor");
 
-    private TestApplication app;
-    private ManagementContext managementContext;
-    private LocalhostMachineProvisioningLocation loc;
+    private List<Location> locs = ImmutableList.of();
     private String testId;
 
-    @BeforeMethod
-    public void setup() {
+    @BeforeMethod(alwaysRun=true)
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
         testId = Identifiers.makeRandomId(8);
-        app = TestApplication.Factory.newManagedInstanceForTests();
-        managementContext = app.getManagementContext();
-        loc = managementContext.getLocationManager().createLocation(LocationSpec.create(LocalhostMachineProvisioningLocation.class)
-                .configure("name", testId));
-    }
-
-    @AfterMethod(alwaysRun = true)
-    public void tearDown() throws Exception {
-        if (app != null) Entities.destroyAll(app.getManagementContext());
     }
 
     @Test
@@ -98,53 +96,34 @@ public class TestSensorTest {
         //Set STRING sensor to random string
         app.sensors().set(STRING_SENSOR, testId);
 
-        app.start(ImmutableList.of(loc));
+        app.start(locs);
 
     }
 
     @Test
     public void testAssertEqualFailure() {
-        boolean booleanAssertFailed = false;
-
         //Add Sensor Test for BOOLEAN sensor
         app.createAndManageChild(EntitySpec.create(TestSensor.class)
+                .configure(TestSensor.TIMEOUT, Duration.millis(10))
                 .configure(TestSensor.TARGET_ENTITY, app)
                 .configure(TestSensor.SENSOR_NAME, BOOLEAN_SENSOR.getName())
                 .configure(TestSensor.ASSERTIONS, newMapAssertion("equals", true)));
 
         //Set BOOLEAN Sensor to false
         app.sensors().set(BOOLEAN_SENSOR, Boolean.FALSE);
-
-        try {
-            app.start(ImmutableList.of(loc));
-        } catch (final PropagatedRuntimeException pre) {
-            final AssertionError assertionError = Exceptions.getFirstThrowableOfType(pre, AssertionError.class);
-            assertThat(assertionError).isNotNull();
-            booleanAssertFailed = true;
-        } finally {
-            assertThat(booleanAssertFailed).isTrue();
-        }
+        assertStartFails(app, AssertionError.class);
     }
 
     @Test
     public void testAssertEqualOnNullSensor() {
-        boolean booleanAssertFailed = false;
-
         //Add Sensor Test for BOOLEAN sensor
         app.createAndManageChild(EntitySpec.create(TestSensor.class)
+                .configure(TestSensor.TIMEOUT, Duration.millis(10))
                 .configure(TestSensor.TARGET_ENTITY, app)
                 .configure(TestSensor.SENSOR_NAME, BOOLEAN_SENSOR.getName())
                 .configure(TestSensor.ASSERTIONS, newListAssertion("equals", false)));
 
-        try {
-            app.start(ImmutableList.of(loc));
-        } catch (final PropagatedRuntimeException pre) {
-            final AssertionError assertionError = Exceptions.getFirstThrowableOfType(pre, AssertionError.class);
-            assertThat(assertionError).isNotNull().as("An assertion error should have been thrown");
-            booleanAssertFailed = true;
-        } finally {
-            assertThat(booleanAssertFailed).isTrue().as("Equals assert should have failed as the sensor is NULL");
-        }
+        assertStartFails(app, AssertionError.class);
     }
 
     @Test
@@ -163,34 +142,23 @@ public class TestSensorTest {
         //Set STRING sensor to random string
         app.sensors().set(STRING_SENSOR, testId);
 
-        app.start(ImmutableList.of(loc));
+        app.start(locs);
 
     }
 
 
     @Test
     public void testAssertNullFail() {
-        boolean sensorTestFail = false;
         //Add Sensor Test for STRING sensor
         app.createAndManageChild(EntitySpec.create(TestSensor.class)
+                .configure(TestSensor.TIMEOUT, Duration.millis(10))
                 .configure(TestSensor.TARGET_ENTITY, app)
                 .configure(TestSensor.SENSOR_NAME, STRING_SENSOR.getName())
                 .configure(TestSensor.ASSERTIONS, newMapAssertion("isNull", true)));
 
         //Set STRING sensor to random string
         app.sensors().set(STRING_SENSOR, testId);
-
-
-        try {
-            app.start(ImmutableList.of(loc));
-        } catch (final PropagatedRuntimeException pre) {
-            final AssertionError assertionError = Exceptions.getFirstThrowableOfType(pre, AssertionError.class);
-            assertThat(assertionError).isNotNull().as("An assertion error should have been thrown");
-            sensorTestFail = true;
-        } finally {
-            assertThat(sensorTestFail).isTrue().as("isNull assert should have failed as the sensor has been set");
-        }
-
+        assertStartFails(app, AssertionError.class);
     }
 
     @Test
@@ -213,51 +181,35 @@ public class TestSensorTest {
         app.sensors().set(BOOLEAN_SENSOR, true);
 
 
-        app.start(ImmutableList.of(loc));
+        app.start(locs);
     }
 
     @Test
-    public void testAssertmatchesFail() {
-        boolean sensorTestFail = false;
+    public void testAssertMatchesFail() {
         final String sensorValue = String.format("%s%s%s", Identifiers.makeRandomId(8), System.currentTimeMillis(), Identifiers.makeRandomId(8));
 
         //Add Sensor Test for STRING sensor
         app.createAndManageChild(EntitySpec.create(TestSensor.class)
+                .configure(TestSensor.TIMEOUT, Duration.millis(10))
                 .configure(TestSensor.TARGET_ENTITY, app)
                 .configure(TestSensor.SENSOR_NAME, STRING_SENSOR.getName())
                 .configure(TestSensor.ASSERTIONS, newListAssertion("matches", String.format(".*%s.*", Identifiers.makeRandomId(8)))));
 
         //Set STRING sensor
         app.sensors().set(STRING_SENSOR, sensorValue);
-        try {
-            app.start(ImmutableList.of(loc));
-        } catch (final PropagatedRuntimeException pre) {
-            final AssertionError assertionError = Exceptions.getFirstThrowableOfType(pre, AssertionError.class);
-            assertThat(assertionError).isNotNull().as("An assertion error should have been thrown");
-            sensorTestFail = true;
-        } finally {
-            assertThat(sensorTestFail).isTrue().as("matches assert should have failed");
-        }
+        assertStartFails(app, AssertionError.class);
     }
 
     @Test
-    public void testAssertmatchesOnNullSensor() {
-        boolean sensorTestFail = false;
+    public void testAssertMatchesOnNullSensor() {
         //Add Sensor Test for STRING sensor
         app.createAndManageChild(EntitySpec.create(TestSensor.class)
+                .configure(TestSensor.TIMEOUT, Duration.millis(10))
                 .configure(TestSensor.TARGET_ENTITY, app)
                 .configure(TestSensor.SENSOR_NAME, STRING_SENSOR.getName())
                 .configure(TestSensor.ASSERTIONS, newMapAssertion("matches", String.format(".*%s.*", Identifiers.makeRandomId(8)))));
 
-        try {
-            app.start(ImmutableList.of(loc));
-        } catch (final PropagatedRuntimeException pre) {
-            final AssertionError assertionError = Exceptions.getFirstThrowableOfType(pre, AssertionError.class);
-            assertThat(assertionError).isNotNull().as("An assertion error should have been thrown");
-            sensorTestFail = true;
-        } finally {
-            assertThat(sensorTestFail).isTrue().as("matches assert should have failed");
-        }
+        assertStartFails(app, AssertionError.class);
     }
 
 
@@ -271,10 +223,24 @@ public class TestSensorTest {
 
         app.sensors().set(OBJECT_SENSOR, new TestObject());
 
-        app.start(ImmutableList.of(loc));
+        app.start(locs);
 
     }
 
+    protected void assertStartFails(TestApplication app, Class<? extends Throwable> clazz) {
+        try {
+            app.start(locs);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (final PropagatedRuntimeException pre) {
+            final Throwable throwable = Exceptions.getFirstThrowableOfType(pre, clazz);
+            assertThat(throwable).isNotNull().as("A "+clazz.getSimpleName()+" should have been thrown");
+        }
+        
+        Entity entity = Iterables.find(Entities.descendantsWithoutSelf(app), Predicates.instanceOf(TestSensor.class));
+        EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, false);
+    }
+    
     private List<Map<String, Object>> newListAssertion(final String assertionKey, final Object assertionValue) {
         final List<Map<String, Object>> result = new ArrayList<>();
         result.add(ImmutableMap.<String, Object>of(assertionKey, assertionValue));

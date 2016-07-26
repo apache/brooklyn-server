@@ -19,6 +19,7 @@
 package org.apache.brooklyn.test.framework;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.setExpectedState;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicReference;
@@ -29,6 +30,7 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.AbstractEntity;
+import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.repeat.Repeater;
@@ -115,5 +117,15 @@ public abstract class TargetableTestComponentImpl extends AbstractEntity impleme
     
     protected <T> T getRequiredConfig(ConfigKey<T> key) {
         return checkNotNull(config().get(key), "config %s must not be null", key);
+    }
+
+    protected void setUpAndRunState(boolean up, Lifecycle status) {
+        if (up) {
+            sensors().set(SERVICE_UP, up);
+            setExpectedState(this, status);
+        } else {
+            setExpectedState(this, status);
+            sensors().set(SERVICE_UP, up);
+        }
     }
 }

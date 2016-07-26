@@ -122,8 +122,12 @@ public class TestFrameworkAssertionsTest {
                 return data;
             }
         };
+        
+        // It should always try at least once, so we can use a very small timeout
+        Duration timeout = Duration.millis(1);
+        
         try {
-            TestFrameworkAssertions.checkAssertions(ImmutableMap.of("timeout", new Duration(2L, TimeUnit.SECONDS)), assertions, Objects.toString(data), supplier);
+            TestFrameworkAssertions.checkAssertions(ImmutableMap.of("timeout", timeout), assertions, Objects.toString(data), supplier);
             Asserts.shouldHaveFailedPreviously();
         } catch (AssertionError e) {
             Asserts.expectedFailureContains(e, Objects.toString(data), condition, expected.toString());
@@ -145,7 +149,7 @@ public class TestFrameworkAssertionsTest {
             }
         };
         try {
-            TestFrameworkAssertions.checkAssertions(ImmutableMap.of("timeout", new Duration(2L, TimeUnit.SECONDS)), assertions, "anyTarget", supplier);
+            TestFrameworkAssertions.checkAssertions(ImmutableMap.of("timeout", Duration.millis(1)), assertions, "anyTarget", supplier);
             Asserts.shouldHaveFailedPreviously();
         } catch (Throwable e) {
             Asserts.expectedFailureOfType(e, AssertionError.class);

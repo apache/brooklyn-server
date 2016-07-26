@@ -71,12 +71,10 @@ public class TestSensorImpl extends TargetableTestComponentImpl implements TestS
                 }
             });
 
-            sensors().set(SERVICE_UP, true);
-            ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
+            setUpAndRunState(true, Lifecycle.RUNNING);
         } catch (Throwable t) {
             LOG.debug("Sensor [{}] test failed", sensor);
-            sensors().set(SERVICE_UP, false);
-            ServiceStateLogic.setExpectedState(this, Lifecycle.ON_FIRE);
+            setUpAndRunState(false, Lifecycle.ON_FIRE);
             throw Exceptions.propagate(t);
         }
     }
@@ -86,8 +84,7 @@ public class TestSensorImpl extends TargetableTestComponentImpl implements TestS
      * {@inheritDoc}
      */
     public void stop() {
-        ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPED);
-        sensors().set(SERVICE_UP, false);
+        setUpAndRunState(false, Lifecycle.STOPPED);
     }
 
     /**

@@ -61,13 +61,11 @@ public class TestHttpCallImpl extends TargetableTestComponentImpl implements Tes
 
         try {
             doRequestAndCheckAssertions(ImmutableMap.of("timeout", timeout), assertions, target, url);
-            sensors().set(Attributes.SERVICE_UP, true);
-            ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
+            setUpAndRunState(true, Lifecycle.RUNNING);
 
         } catch (Throwable t) {
             LOG.info("{} Url [{}] test failed", this, url);
-            sensors().set(Attributes.SERVICE_UP, false);
-            ServiceStateLogic.setExpectedState(this, Lifecycle.ON_FIRE);
+            setUpAndRunState(false, Lifecycle.ON_FIRE);
             throw Exceptions.propagate(t);
         }
     }
@@ -107,8 +105,7 @@ public class TestHttpCallImpl extends TargetableTestComponentImpl implements Tes
      * {@inheritDoc}
      */
     public void stop() {
-        ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPED);
-        sensors().set(Attributes.SERVICE_UP, false);
+        setUpAndRunState(false, Lifecycle.STOPPED);
     }
 
     /**
