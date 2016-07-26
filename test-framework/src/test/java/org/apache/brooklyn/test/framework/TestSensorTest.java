@@ -19,8 +19,6 @@
 
 package org.apache.brooklyn.test.framework;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -68,7 +66,7 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
-    public void testAssertEqual() {
+    public void testAssertEqual() throws Exception {
         int testInteger = 100;
 
         //Add Sensor Test for BOOLEAN sensor
@@ -101,7 +99,7 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
-    public void testAssertEqualFailure() {
+    public void testAssertEqualFailure() throws Exception {
         //Add Sensor Test for BOOLEAN sensor
         app.createAndManageChild(EntitySpec.create(TestSensor.class)
                 .configure(TestSensor.TIMEOUT, Duration.millis(10))
@@ -115,7 +113,7 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
-    public void testAssertEqualOnNullSensor() {
+    public void testAssertEqualOnNullSensor() throws Exception {
         //Add Sensor Test for BOOLEAN sensor
         app.createAndManageChild(EntitySpec.create(TestSensor.class)
                 .configure(TestSensor.TIMEOUT, Duration.millis(10))
@@ -127,7 +125,7 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
-    public void testAssertNull() {
+    public void testAssertNull() throws Exception {
         //Add Sensor Test for BOOLEAN sensor
         app.createAndManageChild(EntitySpec.create(TestSensor.class)
                 .configure(TestSensor.TARGET_ENTITY, app)
@@ -148,7 +146,7 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
 
 
     @Test
-    public void testAssertNullFail() {
+    public void testAssertNullFail() throws Exception {
         //Add Sensor Test for STRING sensor
         app.createAndManageChild(EntitySpec.create(TestSensor.class)
                 .configure(TestSensor.TIMEOUT, Duration.millis(10))
@@ -162,7 +160,7 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
-    public void testAssertMatches() {
+    public void testAssertMatches() throws Exception {
         final long time = System.currentTimeMillis();
         final String sensorValue = String.format("%s%s%s", Identifiers.makeRandomId(8), time, Identifiers.makeRandomId(8));
 
@@ -185,7 +183,7 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
-    public void testAssertMatchesFail() {
+    public void testAssertMatchesFail() throws Exception {
         final String sensorValue = String.format("%s%s%s", Identifiers.makeRandomId(8), System.currentTimeMillis(), Identifiers.makeRandomId(8));
 
         //Add Sensor Test for STRING sensor
@@ -201,7 +199,7 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
-    public void testAssertMatchesOnNullSensor() {
+    public void testAssertMatchesOnNullSensor() throws Exception {
         //Add Sensor Test for STRING sensor
         app.createAndManageChild(EntitySpec.create(TestSensor.class)
                 .configure(TestSensor.TIMEOUT, Duration.millis(10))
@@ -214,7 +212,7 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
 
 
     @Test
-    public void testAssertMatchesOnNonStringSensor() {
+    public void testAssertMatchesOnNonStringSensor() throws Exception {
         //Add Sensor Test for OBJECT sensor
         app.createAndManageChild(EntitySpec.create(TestSensor.class)
                 .configure(TestSensor.TARGET_ENTITY, app)
@@ -227,15 +225,51 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
 
     }
 
-    protected void assertStartFails(TestApplication app, Class<? extends Throwable> clazz) {
-        try {
-            app.start(locs);
-            Asserts.shouldHaveFailedPreviously();
-        } catch (final PropagatedRuntimeException pre) {
-            final Throwable throwable = Exceptions.getFirstThrowableOfType(pre, clazz);
-            assertThat(throwable).isNotNull().as("A "+clazz.getSimpleName()+" should have been thrown");
+    @Test
+    public void testFailFastIfNoTargetEntity() throws Exception {
+        app.createAndManageChild(EntitySpec.create(TestSensor.class)
+                .configure(TestSensor.TIMEOUT, Duration.ONE_MINUTE)
+                .configure(TestSensor.SENSOR_NAME, STRING_SENSOR.getName())
+                .configure(TestSensor.ASSERTIONS, newMapAssertion("isNull", true)));
+
+        assertStartFails(app, IllegalStateException.class, Asserts.DEFAULT_LONG_TIMEOUT);
+    }
+
+    @Test
+    public void testFailFastIfNoSensor() throws Exception {
+        app.createAndManageChild(EntitySpec.create(TestSensor.class)
+                .configure(TestSensor.TIMEOUT, Duration.ONE_MINUTE)
+                .configure(TestSensor.TARGET_ENTITY, app)
+                .configure(TestSensor.ASSERTIONS, newMapAssertion("isNull", true)));
+
+        assertStartFails(app, NullPointerException.class, Asserts.DEFAULT_LONG_TIMEOUT);
+    }
+
+    protected void assertStartFails(TestApplication app, Class<? extends Throwable> clazz) throws Exception {
+        assertStartFails(app, clazz, null);
+    }
+    
+    protected void assertStartFails(final TestApplication app, final Class<? extends Throwable> clazz, Duration execTimeout) throws Exception {
+        Runnable task = new Runnable() {
+            public void run() {
+                try {
+                    app.start(locs);
+                    Asserts.shouldHaveFailedPreviously();
+                } catch (final PropagatedRuntimeException pre) {
+                    final Throwable throwable = Exceptions.getFirstThrowableOfType(pre, clazz);
+                    if (throwable == null) {
+                        throw pre;
+                    }
+                }
+            }
+        };
+
+        if (execTimeout == null) {
+            task.run();
+        } else {
+            Asserts.assertReturnsEventually(task, execTimeout);
         }
-        
+
         Entity entity = Iterables.find(Entities.descendantsWithoutSelf(app), Predicates.instanceOf(TestSensor.class));
         EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
         EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, false);

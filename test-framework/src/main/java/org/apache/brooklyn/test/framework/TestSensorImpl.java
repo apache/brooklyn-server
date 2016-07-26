@@ -23,6 +23,7 @@ import static org.apache.brooklyn.test.framework.TestFrameworkAssertions.getAsse
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,27 +54,34 @@ public class TestSensorImpl extends TargetableTestComponentImpl implements TestS
      * {@inheritDoc}
      */
     public void start(Collection<? extends Location> locations) {
-        if (!getChildren().isEmpty()) {
-            throw new RuntimeException(String.format("The entity [%s] cannot have child entities", getClass().getName()));
-        }
+        final AtomicReference<String> sensor = new AtomicReference<>();
+        
         ServiceStateLogic.setExpectedState(this, Lifecycle.STARTING);
-        final Entity target = resolveTarget();
-        final String sensor = getConfig(SENSOR_NAME);
-        final Duration timeout = getConfig(TIMEOUT);
-        final List<Map<String, Object>> assertions = getAssertions(this, ASSERTIONS);
         try {
-            TestFrameworkAssertions.checkAssertions(ImmutableMap.of("timeout", timeout), assertions, sensor,
+            sensor.set(getRequiredConfig(SENSOR_NAME));
+            final Entity target = resolveTarget();
+            final Duration timeout = getConfig(TIMEOUT);
+            final List<Map<String, Object>> assertions = getAssertions(this, ASSERTIONS);
+            if (!getChildren().isEmpty()) {
+                throw new RuntimeException(String.format("The entity [%s] cannot have child entities", getClass().getName()));
+            }
+            
+            TestFrameworkAssertions.checkAssertions(ImmutableMap.of("timeout", timeout), assertions, sensor.get(),
                 new Supplier<Object>() {
                 @Override
                 public Object get() {
-                    final Object sensorValue = target.sensors().get(Sensors.newSensor(Object.class, sensor));
+                    final Object sensorValue = target.sensors().get(Sensors.newSensor(Object.class, sensor.get()));
                     return sensorValue;
                 }
             });
 
             setUpAndRunState(true, Lifecycle.RUNNING);
         } catch (Throwable t) {
-            LOG.debug("Sensor [{}] test failed", sensor);
+            if (sensor.get() != null) {
+                LOG.debug("Sensor [{}] test failed for {} (rethrowing)", sensor, TestSensorImpl.this);
+            } else {
+                LOG.debug("Sensor test failed for {} (no sensor; rethrowing)", TestSensorImpl.this);
+            }
             setUpAndRunState(false, Lifecycle.ON_FIRE);
             throw Exceptions.propagate(t);
         }

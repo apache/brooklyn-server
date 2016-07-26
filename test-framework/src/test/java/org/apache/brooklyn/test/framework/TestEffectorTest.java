@@ -39,6 +39,7 @@ import org.apache.brooklyn.test.framework.entity.TestEntity;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
 import org.apache.brooklyn.util.text.Identifiers;
+import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -179,17 +180,47 @@ public class TestEffectorTest extends BrooklynAppUnitTestSupport {
 
     }
 
-    protected void assertStartFails(TestApplication app, Class<? extends Throwable> clazz) {
-        try {
-            app.start(locs);
-            Asserts.shouldHaveFailedPreviously();
-        } catch (PropagatedRuntimeException pre) {
-            final Throwable throwable = Exceptions.getFirstThrowableOfType(pre, clazz);
-            assertThat(throwable).isNotNull().as("A "+clazz.getSimpleName()+" should have been thrown");
-        } catch (Throwable throwable) {
-            Asserts.expectedFailureOfType(throwable, AssertionError.class);
+    @Test
+    public void testFailFastIfNoTargetEntity() throws Exception {
+        testCase.addChild(EntitySpec.create(TestEffector.class)
+                .configure(TestEffector.EFFECTOR_NAME, "simpleEffector"));
+
+        assertStartFails(app, IllegalStateException.class, Asserts.DEFAULT_LONG_TIMEOUT);
+    }
+
+    @Test
+    public void testFailFastIfNoEffector() throws Exception {
+        testCase.addChild(EntitySpec.create(TestEffector.class)
+                .configure(TestEffector.TARGET_ENTITY, testEntity));
+
+        assertStartFails(app, NullPointerException.class, Asserts.DEFAULT_LONG_TIMEOUT);
+    }
+
+    protected void assertStartFails(TestApplication app, Class<? extends Throwable> clazz) throws Exception {
+        assertStartFails(app, clazz, null);
+    }
+    
+    protected void assertStartFails(final TestApplication app, final Class<? extends Throwable> clazz, Duration execTimeout) throws Exception {
+        Runnable task = new Runnable() {
+            public void run() {
+                try {
+                    app.start(locs);
+                    Asserts.shouldHaveFailedPreviously();
+                } catch (final PropagatedRuntimeException pre) {
+                    final Throwable throwable = Exceptions.getFirstThrowableOfType(pre, clazz);
+                    if (throwable == null) {
+                        throw pre;
+                    }
+                }
+            }
+        };
+
+        if (execTimeout == null) {
+            task.run();
+        } else {
+            Asserts.assertReturnsEventually(task, execTimeout);
         }
-        
+
         Entity entity = Iterables.find(Entities.descendantsWithoutSelf(app), Predicates.instanceOf(TestEffector.class));
         EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
         EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, false);

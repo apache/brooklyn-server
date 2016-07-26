@@ -33,6 +33,7 @@ import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -56,14 +57,20 @@ public abstract class TargetableTestComponentImpl extends AbstractEntity impleme
      */
     @Override
     public Entity resolveTarget() {
+        return tryResolveTarget().get();
+    }
+    
+    protected Maybe<Entity> tryResolveTarget() {
         Entity target = resolveTarget(getExecutionContext(), this);
         sensors().set(TARGET_ENTITY, target);
         if (target != null) {
             sensors().set(TARGET_ENTITY_ID, target.getId());
             sensors().set(TARGET_ENTITY_NAME, target.getDisplayName());
             sensors().set(TARGET_ENTITY_TYPE, target.getEntityType().getName());
+            return Maybe.of(target);
+        } else {
+            return Maybe.absent("Cannot resolve target entity");
         }
-        return target;
     }
 
     /**

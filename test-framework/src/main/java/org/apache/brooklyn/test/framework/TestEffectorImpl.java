@@ -43,6 +43,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 
 public class TestEffectorImpl extends TargetableTestComponentImpl implements TestEffector {
+    @SuppressWarnings("unused")
     private static final Logger LOG = LoggerFactory.getLogger(TestEffectorImpl.class);
 
 
@@ -50,15 +51,16 @@ public class TestEffectorImpl extends TargetableTestComponentImpl implements Tes
      * {@inheritDoc}
      */
     public void start(Collection<? extends Location> locations) {
-        if (!getChildren().isEmpty()) {
-            throw new RuntimeException(String.format("The entity [%s] cannot have child entities", getClass().getName()));
-        }
         ServiceStateLogic.setExpectedState(this, Lifecycle.STARTING);
-        final Entity targetEntity = resolveTarget();
-        final String effectorName = getConfig(EFFECTOR_NAME);
-        final Map<String, ?> effectorParams = getConfig(EFFECTOR_PARAMS);
-        final Duration timeout = getConfig(TIMEOUT);
         try {
+            final Entity targetEntity = resolveTarget();
+            final String effectorName = getRequiredConfig(EFFECTOR_NAME);
+            final Map<String, ?> effectorParams = getConfig(EFFECTOR_PARAMS);
+            final Duration timeout = getConfig(TIMEOUT);
+            if (!getChildren().isEmpty()) {
+                throw new RuntimeException(String.format("The entity [%s] cannot have child entities", getClass().getName()));
+            }
+            
             Maybe<Effector<?>> effector = EffectorUtils.findEffectorDeclared(targetEntity, effectorName);
             if (effector.isAbsentOrNull()) {
                 throw new AssertionError(String.format("No effector with name [%s]", effectorName));
