@@ -56,4 +56,9 @@ public class TestEntityImpl extends AbstractEntity implements TestEntity {
     public String effectorReturnsString(String stringToReturn) {
         return stringToReturn;
     }
+    
+    @Override
+    public Integer effectorReturnsInt(Integer intToReturn) {
+        return intToReturn;
+    }
 }

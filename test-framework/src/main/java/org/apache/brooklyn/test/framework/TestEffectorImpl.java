@@ -24,13 +24,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Supplier;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
-
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
@@ -42,6 +35,12 @@ import org.apache.brooklyn.core.mgmt.internal.EffectorUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 
 public class TestEffectorImpl extends TargetableTestComponentImpl implements TestEffector {
     private static final Logger LOG = LoggerFactory.getLogger(TestEffectorImpl.class);
@@ -75,12 +74,7 @@ public class TestEffectorImpl extends TargetableTestComponentImpl implements Tes
 
             final List<Map<String, Object>> assertions = getAssertions(this, ASSERTIONS);
             if(assertions != null && !assertions.isEmpty()){
-                TestFrameworkAssertions.checkAssertions(ImmutableMap.of("timeout", timeout), assertions, effectorName, new Supplier<String>() {
-                    @Override
-                    public String get() {
-                        return (String)effectorResult;
-                    }
-                });
+                TestFrameworkAssertions.checkAssertions(ImmutableMap.of("timeout", timeout), assertions, effectorName, Suppliers.ofInstance(effectorResult));
             }
 
             //Add result of effector to sensor

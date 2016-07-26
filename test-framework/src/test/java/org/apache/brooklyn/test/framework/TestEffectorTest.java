@@ -79,6 +79,25 @@ public class TestEffectorTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
+    public void testEffectorReturnsInt() throws Exception {
+        int intToReturn = 123;
+        
+        List<Map<String, Object>> assertions = ImmutableList.<Map<String, Object>>of(
+                ImmutableMap.<String, Object>of(TestFrameworkAssertions.EQUAL_TO, intToReturn));
+
+        final TestEffector testEffector = testCase.addChild(EntitySpec.create(TestEffector.class)
+                .configure(TestEffector.TARGET_ENTITY, testEntity)
+                .configure(TestEffector.EFFECTOR_NAME, "effectorReturnsInt")
+                .configure(TestEffector.EFFECTOR_PARAMS, ImmutableMap.of("intToReturn", intToReturn))
+                .configure(TestEffector.ASSERTIONS, assertions));
+
+        app.start(locs);
+
+        assertThat(testEffector.sensors().get(TestEffector.EFFECTOR_RESULT)).isEqualTo(123);
+        assertThat(testEffector.sensors().get(SERVICE_UP)).isTrue();
+    }
+
+    @Test
     public void testEffectorPositiveAssertions() throws Exception {
         String stringToReturn = "Hello World!";
 
