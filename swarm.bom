@@ -600,7 +600,7 @@ brooklyn.catalog:
         - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
           brooklyn.config:
             name: swarm.container.count
-            type: integer
+            targetType: integer
             shell.env:
               DOCKER_HOST: $brooklyn:attributeWhenReady("swarm.url")
             command: |

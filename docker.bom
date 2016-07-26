@@ -74,7 +74,7 @@ brooklyn.catalog:
         - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
           brooklyn.config:
             name: docker.container.count
-            type: integer
+            targetType: integer
             command: |
               docker ps -q | wc -l
 
@@ -86,6 +86,7 @@ brooklyn.catalog:
         provisioning.properties:
           osFamily: centos
           osVersionRegex: 7.*
+          installDevUrandom: true
 
         shell.env:
           DOCKER_ADDITIONAL_OPTIONS: $brooklyn:config("docker.additionaloptions")
@@ -346,7 +347,8 @@ brooklyn.catalog:
         - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
           brooklyn.config:
             name: docker.csr
-            command: cat ${DOCKER_CERT_PATH}/csr.pem
+            command: |
+              cat ${DOCKER_CERT_PATH}/csr.pem
 
   - id: docker-engine-container
     name: "Docker Container"
@@ -473,7 +475,7 @@ brooklyn.catalog:
           brooklyn.config:
             name: container.id
             period: 5m
-            type: integer
+            targetType: integer
             command: |
               test -f pid.txt &&
                 cat pid.txt
@@ -481,7 +483,7 @@ brooklyn.catalog:
           brooklyn.config:
             name: container.stats.cpu.percent
             period: 1m
-            type: double
+            targetType: double
             command: |
               test -f pid.txt &&
                 ( docker stats --no-stream $(cat pid.txt) |
@@ -491,7 +493,7 @@ brooklyn.catalog:
           brooklyn.config:
             name: container.stats.memory.percent
             period: 1m
-            type: double
+            targetType: double
             command: |
               test -f pid.txt &&
                 ( docker stats --no-stream $(cat pid.txt) |
