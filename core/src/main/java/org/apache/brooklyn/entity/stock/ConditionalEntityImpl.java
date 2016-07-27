@@ -32,8 +32,8 @@ public class ConditionalEntityImpl extends BasicStartableImpl implements Conditi
         EntitySpec<?> spec = config().get(CONDITIONAL_ENTITY_SPEC);
         Boolean create = config().get(CREATE_CONDITIONAL_ENTITY);
 
-        // Child not yet created; Entity spec is present; Create flag is true if set
-        if (child == null && spec != null && (create == null || Boolean.TRUE.equals(create))) {
+        // Child not yet created; Entity spec is present; Create flag is true
+        if (child == null && spec != null && Boolean.TRUE.equals(create)) {
             Entity created = addChild(EntitySpec.create(spec));
             sensors().set(CONDITIONAL_ENTITY, created);
         }

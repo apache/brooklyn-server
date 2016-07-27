@@ -74,7 +74,7 @@ public class ConditionalEntityTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
-    public void testDoesNotAddsConditionalWhenConfigured() throws Exception {
+    public void testDoesNotAddConditionalWhenConfigured() throws Exception {
         optional = app.addChild(EntitySpec.create(ConditionalEntity.class)
                 .configure(ConditionalEntity.CREATE_CONDITIONAL_ENTITY, false)
                 .configure(ConditionalEntity.CONDITIONAL_ENTITY_SPEC, EntitySpec.create(TestEntity.class)));
@@ -84,7 +84,7 @@ public class ConditionalEntityTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
-    public void testDoesNotAddsConditionalWhenNotConfigured() throws Exception {
+    public void testDoesNotAddConditionalWhenOnlySpecConfigured() throws Exception {
         optional = app.addChild(EntitySpec.create(ConditionalEntity.class)
                 .configure(ConditionalEntity.CONDITIONAL_ENTITY_SPEC, EntitySpec.create(TestEntity.class)));
         app.start(ImmutableList.of(loc1));
