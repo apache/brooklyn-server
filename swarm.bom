@@ -313,7 +313,7 @@ brooklyn.catalog:
           docker run -d --name swarm-${HOST_NAME} \
             -v ${INSTALL_DIR}/.certs:/certs:ro \
             --restart unless-stopped \
-            swarm join --addr=${DOCKER_ENDPOINT} \
+            swarm join --addr=${DOCKER_ENDPOINT_PUBLIC} \
               --discovery-opt kv.cacertfile="/certs/ca.pem" \
               --discovery-opt kv.certfile="/certs/cert.pem" \
               --discovery-opt kv.keyfile="/certs/key.pem" \

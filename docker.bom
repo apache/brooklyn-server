@@ -202,9 +202,21 @@ brooklyn.catalog:
           brooklyn.config:
             uniqueTag: docker-endpoint-generator
             enricher.triggerSensors:
-            - host.address
+            - host.subnet.address
             - docker.port
             enricher.targetSensor: $brooklyn:sensor("docker.endpoint")
+            enricher.targetValue:
+              $brooklyn:formatString:
+              - "%s:%s"
+              - $brooklyn:attributeWhenReady("host.subnet.address")
+              - $brooklyn:attributeWhenReady("docker.port")
+        - type: org.apache.brooklyn.enricher.stock.Transformer
+          brooklyn.config:
+            uniqueTag: docker-public-endpoint-generator
+            enricher.triggerSensors:
+            - host.address
+            - docker.port
+            enricher.targetSensor: $brooklyn:sensor("docker.endpoint.public")
             enricher.targetValue:
               $brooklyn:formatString:
               - "%s:%s"
@@ -261,6 +273,7 @@ brooklyn.catalog:
           INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
           TLS_OPTIONS: $brooklyn:config("docker.tlsoptions")
           DOCKER_ENDPOINT: $brooklyn:attributeWhenReady("docker.endpoint")
+          DOCKER_ENDPOINT_PUBLIC: $brooklyn:attributeWhenReady("docker.endpoint.public")
           DOCKER_HOST: $brooklyn:attributeWhenReady("docker.url")
           DOCKER_TLS_VERIFY: true
           DOCKER_CERT_PATH: $brooklyn:config("docker.cert.path")
