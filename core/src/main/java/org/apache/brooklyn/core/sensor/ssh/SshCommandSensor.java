@@ -35,6 +35,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.AddSensor;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.http.HttpRequestSensor;
 import org.apache.brooklyn.feed.ssh.SshFeed;
 import org.apache.brooklyn.feed.ssh.SshPollConfig;
@@ -42,6 +43,7 @@ import org.apache.brooklyn.feed.ssh.SshValueFunctions;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.text.Strings;
 
@@ -85,7 +87,9 @@ public final class SshCommandSensor<T> extends AddSensor<T> {
         Supplier<Map<String,String>> envSupplier = new Supplier<Map<String,String>>() {
             @Override
             public Map<String, String> get() {
-                return MutableMap.copyOf(Strings.toStringMap(entity.getConfig(BrooklynConfigKeys.SHELL_ENVIRONMENT), ""));
+                Map<String, Object> env = entity.getConfig(BrooklynConfigKeys.SHELL_ENVIRONMENT);
+                ShellEnvironmentSerializer envSerializer = new ShellEnvironmentSerializer(((EntityInternal)entity).getManagementContext());
+                return envSerializer.serialize(env);
             }
         };
 

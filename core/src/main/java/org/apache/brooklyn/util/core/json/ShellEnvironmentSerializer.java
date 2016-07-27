@@ -13,14 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.brooklyn.entity.software.base;
+package org.apache.brooklyn.util.core.json;
+
+import java.util.Map;
+import java.util.Map.Entry;
+
+import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.util.core.json.BrooklynObjectsJsonMapper;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.commons.lang3.StringUtils;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.Maps;
 
 public class ShellEnvironmentSerializer {
     private ObjectMapper mapper;
@@ -44,8 +50,26 @@ public class ShellEnvironmentSerializer {
             throw Exceptions.propagate(e);
         }
     }
+    
+    public Map<String, String> serialize(@Nullable Map<?, ?> env) {
+        if (env == null) {
+            return null;
+        }
+        Map<String, String> serializedEnv = Maps.newHashMap();
+        for (Entry<?, ?> entry : env.entrySet()) {
+            String key = serializeShellEnv(entry.getKey());
+            String value = serializeShellEnv(entry.getValue());
+            serializedEnv.put(key, value);
+        }
+        return serializedEnv;
+    }
 
     protected boolean isJsonString(String str) {
         return str.length() > 0 && str.charAt(0) == '"';
     }
+
+    private String serializeShellEnv(Object value) {
+        return StringUtils.defaultString(serialize(value));
+    }
+
 }
