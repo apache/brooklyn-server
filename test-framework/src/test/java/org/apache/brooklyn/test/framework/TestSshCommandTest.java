@@ -147,7 +147,7 @@ public class TestSshCommandTest extends BrooklynAppUnitTestSupport {
             app.start(ImmutableList.<Location>of());
             Asserts.shouldHaveFailedPreviously();
         } catch (Throwable t) {
-            Asserts.expectedFailureContains(t, "exit code equals 0");
+            Asserts.expectedFailureContains(t, "exit code expected equals 0 but found 1");
         }
 
         assertEntityFailed(test);
@@ -184,7 +184,7 @@ public class TestSshCommandTest extends BrooklynAppUnitTestSupport {
             app.start(ImmutableList.<Location>of());
             Asserts.shouldHaveFailedPreviously();
         } catch (Throwable t) {
-            Asserts.expectedFailureContains(t, "stdout contains mystdout");
+            Asserts.expectedFailureContains(t, "stdout expected contains mystdout but found wrongstdout");
         }
 
         assertEntityFailed(test);
@@ -204,7 +204,7 @@ public class TestSshCommandTest extends BrooklynAppUnitTestSupport {
             app.start(ImmutableList.<Location>of());
             Asserts.shouldHaveFailedPreviously();
         } catch (Throwable t) {
-            Asserts.expectedFailureContains(t, "stderr contains mystderr");
+            Asserts.expectedFailureContains(t, "stderr expected contains mystderr but found wrongstderr");
         }
 
         assertEntityFailed(test);
@@ -225,7 +225,7 @@ public class TestSshCommandTest extends BrooklynAppUnitTestSupport {
             app.start(ImmutableList.<Location>of());
             Asserts.shouldHaveFailedPreviously();
         } catch (Exception e) {
-            Asserts.expectedFailureContains(e, "exit code equals 1", "exit code equals 255");
+            Asserts.expectedFailureContains(e, "exit code expected equals 1 but found 0", "exit code expected equals 255 but found 0");
         }
 
         assertEntityFailed(test);
