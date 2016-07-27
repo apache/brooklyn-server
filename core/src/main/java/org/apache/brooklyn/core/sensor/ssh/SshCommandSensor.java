@@ -95,16 +95,17 @@ public final class SshCommandSensor<T> extends AddSensor<T> {
             public Map<String, String> get() {
                 Map<String, Object> env = MutableMap.copyOf(entity.getConfig(BrooklynConfigKeys.SHELL_ENVIRONMENT));
 
-                // now add the resolved shell environment entries from our configuration
+                // Add the shell environment entries from our configuration
+                if (sensorEnv != null) env.putAll(sensorEnv);
+
+                // Try to resolve the configuration in the env Map
                 try {
-                    if (sensorEnv != null && sensorEnv.size() > 0) {
-                        Map<String,Object> sensorEnvResolved = (Map<String, Object>) Tasks.resolveDeepValue(sensorEnv, Object.class, ((EntityInternal) entity).getExecutionContext());
-                        env.putAll(sensorEnvResolved);
-                    }
+                    env = (Map<String, Object>) Tasks.resolveDeepValue(env, Object.class, ((EntityInternal) entity).getExecutionContext());
                 } catch (InterruptedException | ExecutionException e) {
                     Exceptions.propagateIfFatal(e);
                 }
 
+                // Convert the environment into strings with the serializer
                 ShellEnvironmentSerializer serializer = new ShellEnvironmentSerializer(((EntityInternal) entity).getManagementContext());
                 return serializer.serialize(env);
             }
