@@ -20,8 +20,6 @@ package org.apache.brooklyn.entity.stock;
 
 import java.util.Collection;
 
-import com.google.common.base.Preconditions;
-
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
@@ -31,9 +29,11 @@ public class ConditionalEntityImpl extends BasicStartableImpl implements Conditi
     @Override
     public void start(Collection<? extends Location> locations) {
         Entity child = sensors().get(CONDITIONAL_ENTITY);
+        EntitySpec<?> spec = config().get(CONDITIONAL_ENTITY_SPEC);
         Boolean create = config().get(CREATE_CONDITIONAL_ENTITY);
-        if (Boolean.TRUE.equals(create) && child == null) {
-            EntitySpec<?> spec = Preconditions.checkNotNull(config().get(CONDITIONAL_ENTITY_SPEC));
+
+        // Child not yet created; Entity spec is present; Create flag is true if set
+        if (child == null && spec != null && (create == null || Boolean.TRUE.equals(create))) {
             Entity created = addChild(EntitySpec.create(spec));
             sensors().set(CONDITIONAL_ENTITY, created);
         }
