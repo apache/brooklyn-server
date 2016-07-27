@@ -79,37 +79,38 @@ public final class SshCommandEffector extends AddEffector {
 
             MutableMap<String, Object> env = MutableMap.of();
 
-            // first set all declared parameters, including default values,
+            // Set all declared parameters, including default values
             for (ParameterType<?> param : effector.getParameters()) {
                 env.addIfNotNull(param.getName(), params.get(Effectors.asConfigKey(param)));
             }
 
-            // then set things from the entities defined shell environment, if applicable
-            env.putAll(entity().getConfig(BrooklynConfigKeys.SHELL_ENVIRONMENT));
+            // Set things from the entities defined shell environment, if applicable
+            env.putAll(entity().config().get(BrooklynConfigKeys.SHELL_ENVIRONMENT));
 
-            // now add the resolved shell environment entries from our configuration
-            try {
-                Map<String, Object> effectorEnv = params.get(EFFECTOR_SHELL_ENVIRONMENT);
-                if (effectorEnv != null && effectorEnv.size() > 0) {
-                    Map<String, Object> effectorEnvResolved = (Map<String, Object>) Tasks.resolveDeepValue(effectorEnv, Object.class, entity().getExecutionContext());
-                    env.putAll(effectorEnvResolved);
-                }
-            } catch (InterruptedException | ExecutionException e) {
-                Exceptions.propagateIfFatal(e);
-            }
+            // Add the shell environment entries from our configuration
+            Map<String, Object> effectorEnv = params.get(EFFECTOR_SHELL_ENVIRONMENT);
+            if (effectorEnv != null) env.putAll(effectorEnv);
 
-            // Finally set the parameters we've been passed. This will repeat declared parameters but to no harm,
+            // Set the parameters we've been passed. This will repeat declared parameters but to no harm,
             // it may pick up additional values (could be a flag defining whether this is permitted or not.)
             // Make sure we do not include the shell.env here again, by filtering it out.
             env.putAll(Maps.filterKeys(params.getAllConfig(), Predicates.not(Predicates.equalTo(EFFECTOR_SHELL_ENVIRONMENT.getName()))));
 
-            ShellEnvironmentSerializer serializer = new ShellEnvironmentSerializer(entity().getManagementContext());
-            SshEffectorTasks.SshEffectorTaskFactory<String> t = SshEffectorTasks.ssh(sshCommand)
-                .requiringZeroAndReturningStdout()
-                .summary("effector "+effector.getName())
-                .environmentVariables(serializer.serialize(env));
+            // Try to resolve the configuration in the env Map
+            try {
+                env = (MutableMap<String, Object>) Tasks.resolveDeepValue(env, Object.class, entity().getExecutionContext());
+            } catch (InterruptedException | ExecutionException e) {
+                Exceptions.propagateIfFatal(e);
+            }
 
-            return queue(t).get();
+            // Execute the effector with the serialized environment strings
+            ShellEnvironmentSerializer serializer = new ShellEnvironmentSerializer(entity().getManagementContext());
+            SshEffectorTasks.SshEffectorTaskFactory<String> task = SshEffectorTasks.ssh(sshCommand)
+                    .requiringZeroAndReturningStdout()
+                    .summary("effector "+effector.getName())
+                    .environmentVariables(serializer.serialize(env));
+
+            return queue(task).get();
         }
     }
 }
