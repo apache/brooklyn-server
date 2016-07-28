@@ -221,9 +221,11 @@ public interface EntityApi {
             @ApiParam(value = "Entity ID or name", required = true)
             @PathParam("entity") String entity);
 
+    // see http://stackoverflow.com/questions/332129/yaml-mime-type for "@Produces"
     @GET
     @Path("/{entity}/spec")
     @ApiOperation(value = "Get the YAML spec used to create the entity, if available")
+    @Produces({"text/x-yaml", "application/x-yaml", "text/yaml", "text/plain", "application/yaml", MediaType.TEXT_PLAIN})
     @ApiResponses(value = {
             @ApiResponse(code = 404, message = "Application or entity missing")
     })
