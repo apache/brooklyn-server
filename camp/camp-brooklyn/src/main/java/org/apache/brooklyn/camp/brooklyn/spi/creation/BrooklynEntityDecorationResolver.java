@@ -21,6 +21,9 @@ package org.apache.brooklyn.camp.brooklyn.spi.creation;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.annotations.Beta;
+import com.google.common.collect.ImmutableList;
+
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -38,9 +41,6 @@ import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.guava.Maybe;
-
-import com.google.common.annotations.Beta;
-import com.google.common.collect.ImmutableList;
 
 /**
  * Pattern for resolving "decorations" on service specs / entity specs, such as policies, enrichers, etc.
@@ -181,20 +181,14 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
     public static class SpecParameterResolver extends BrooklynEntityDecorationResolver<SpecParameter<?>> {
 
         protected SpecParameterResolver(BrooklynYamlTypeInstantiator.Factory instantiator) { super(instantiator); }
-        @Override protected String getDecorationKind() { return "Spec Parameter initializer"; }
+
+        @Override
+        protected String getDecorationKind() { return "Spec Parameter initializer"; }
 
         @Override
         public void decorate(EntitySpec<?> entitySpec, ConfigBag attrs) {
             List<? extends SpecParameter<?>> explicitParams = buildListOfTheseDecorationsFromEntityAttributes(attrs);
-            // TODO see discussion at EntitySpec.parameters; 
-            // maybe we should instead inherit always, or 
-            // inherit except where it is set as config and then add the new explicit ones
-            if (!explicitParams.isEmpty()) {
-                entitySpec.parameters(explicitParams);
-            }
-            if (entitySpec.getParameters().isEmpty()) {
-                entitySpec.parameters(BasicSpecParameter.fromSpec(instantiator.loader.getManagementContext(), entitySpec));
-            }
+            BasicSpecParameter.addParameters(entitySpec, explicitParams, instantiator.loader);
         }
 
         @Override

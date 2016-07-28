@@ -20,6 +20,10 @@ package org.apache.brooklyn.camp.brooklyn;
 
 import java.util.Map;
 
+import org.testng.Assert;
+
+import com.google.common.base.Preconditions;
+
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -28,9 +32,7 @@ import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.testng.Assert;
-
-import com.google.common.base.Preconditions;
+import org.apache.brooklyn.util.text.Strings;
 
 public class TestSensorAndEffectorInitializer implements EntityInitializer {
 
@@ -47,7 +49,7 @@ public class TestSensorAndEffectorInitializer implements EntityInitializer {
                 @Override
                 public String call(ConfigBag parameters) {
                     Object name = parameters.getStringKey("name");
-                    entity().sensors().set(Sensors.newStringSensor(SENSOR_LAST_HELLO), ""+name);
+                    entity().sensors().set(Sensors.newStringSensor(SENSOR_LAST_HELLO), Strings.toString(name));
                     return helloWord()+" "+name;
                 }
             }).build();
