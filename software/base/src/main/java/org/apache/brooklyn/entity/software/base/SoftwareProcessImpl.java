@@ -28,6 +28,7 @@ import java.util.TimerTask;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.brooklyn.location.jclouds.networking.NetworkingEffectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -130,6 +131,9 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
     public void init() {
         super.init();
         getLifecycleEffectorTasks().attachLifecycleEffectors(this);
+        if (Boolean.TRUE.equals(getConfig(ADD_OPEN_INBOUND_PORTS_EFFECTOR))) {
+            getMutableEntityType().addEffector(NetworkingEffectors.OPEN_INBOUND_PORTS_IN_SECURITY_GROUP_EFFECTOR);
+        }
     }
     
     @Override
