@@ -99,18 +99,30 @@ public class BrooklynConfigKeys {
     public static final ConfigKey<Boolean> SKIP_ENTITY_INSTALLATION = newBooleanConfigKey("install.skip", "Skip the driver install commands entirely, for pre-installed software");
 
     // The implementation in AbstractSoftwareSshDriver runs this command as an SSH command 
-    public static final ConfigKey<String> PRE_INSTALL_COMMAND = ConfigKeys.newStringConfigKey("pre.install.command",
-            "Command to be run prior to the install method being called on the driver");
-    public static final ConfigKey<String> POST_INSTALL_COMMAND = ConfigKeys.newStringConfigKey("post.install.command",
-            "Command to be run after the install method being called on the driver");
-    public static final ConfigKey<String> PRE_CUSTOMIZE_COMMAND = ConfigKeys.newStringConfigKey("pre.customize.command",
-            "Command to be run prior to the customize method being called on the driver");
-    public static final ConfigKey<String> POST_CUSTOMIZE_COMMAND = ConfigKeys.newStringConfigKey("post.customize.command",
-            "Command to be run after the customize method being called on the driver");
-    public static final ConfigKey<String> PRE_LAUNCH_COMMAND = ConfigKeys.newStringConfigKey("pre.launch.command",
-            "Command to be run prior to the launch method being called on the driver");
-    public static final ConfigKey<String> POST_LAUNCH_COMMAND = ConfigKeys.newStringConfigKey("post.launch.command",
-            "Command to be run after the launch method being called on the driver");
+    public static final ConfigKey<String> PRE_INSTALL_COMMAND = ConfigKeys.builder(String.class, "pre.install.command")
+            .description("Command to be run prior to the install method being called on the driver")
+            .parentInheritance(ConfigInheritance.NONE)
+            .build();
+    public static final ConfigKey<String> POST_INSTALL_COMMAND = ConfigKeys.builder(String.class, "post.install.command")
+            .description("Command to be run after the install method being called on the driver")
+            .parentInheritance(ConfigInheritance.NONE)
+            .build();
+    public static final ConfigKey<String> PRE_CUSTOMIZE_COMMAND = ConfigKeys.builder(String.class, "pre.customize.command")
+            .description("Command to be run prior to the customize method being called on the driver")
+            .parentInheritance(ConfigInheritance.NONE)
+            .build();
+    public static final ConfigKey<String> POST_CUSTOMIZE_COMMAND = ConfigKeys.builder(String.class, "post.customize.command")
+            .description("Command to be run after the customize method being called on the driver")
+            .parentInheritance(ConfigInheritance.NONE)
+            .build();
+    public static final ConfigKey<String> PRE_LAUNCH_COMMAND = ConfigKeys.builder(String.class, "pre.launch.command")
+            .description("Command to be run prior to the launch method being called on the driver")
+            .parentInheritance(ConfigInheritance.NONE)
+            .build();
+    public static final ConfigKey<String> POST_LAUNCH_COMMAND = ConfigKeys.builder(String.class, "post.launch.command")
+            .description("Command to be run after the launch method being called on the driver")
+            .parentInheritance(ConfigInheritance.NONE)
+            .build();
 
     public static final MapConfigKey<Object> SHELL_ENVIRONMENT = new MapConfigKey.Builder<Object>(Object.class, "shell.env")
             .description("Map of environment variables to pass to the runtime shell. Non-string values are serialized to json before passed to the shell.") 
