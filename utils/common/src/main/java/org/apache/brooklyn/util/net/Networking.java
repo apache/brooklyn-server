@@ -30,6 +30,7 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Enumeration;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -37,6 +38,9 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
+import com.google.common.collect.Range;
+import com.google.common.collect.RangeSet;
+import com.google.common.collect.TreeRangeSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.time.Time;
@@ -49,6 +53,9 @@ import com.google.common.base.Throwables;
 import com.google.common.net.HostAndPort;
 import com.google.common.primitives.UnsignedBytes;
 
+/**
+ * <tt>Networking</tt> is for generic network utility methods.
+ */
 public class Networking {
 
     private static final Logger log = LoggerFactory.getLogger(Networking.class);
@@ -225,6 +232,30 @@ public class Networking {
             }
             checkPortValid((Integer)val, ""+entry.getKey());
         }
+    }
+
+    // TODO it does not add adjacent intervals: {[22, 22], [23, 23]} is not merged to {[22, 23]}
+    public static RangeSet<Integer> portRulesToRanges(Collection<String> portRules) {
+        RangeSet<Integer> result = TreeRangeSet.create();
+        for (String portRule : portRules) {
+            if (portRule.contains("-")) {
+                String[] fromTo = portRule.split("-");
+                Preconditions.checkState(fromTo.length == 2, "Invalid port range '%s'", portRule);
+                result.add(closedRange(fromTo[0], fromTo[1]));
+            } else {
+                result.add(closedRange(portRule, portRule));
+            }
+        }
+        return result;
+    }
+
+    private static Range<Integer> closedRange(String from, String to) {
+        Integer fromPort = Integer.parseInt(from);
+        Integer toPort = Integer.parseInt(to);
+        Preconditions.checkArgument(fromPort >= MIN_PORT_NUMBER && fromPort <= MAX_PORT_NUMBER, "fromPort %s should be a number between %s and %s", fromPort, MIN_PORT_NUMBER, MAX_PORT_NUMBER);
+        Preconditions.checkArgument(toPort >= MIN_PORT_NUMBER && toPort <= MAX_PORT_NUMBER, "toPort %s should be a number between %s and %s", toPort, MIN_PORT_NUMBER, MAX_PORT_NUMBER);
+        Preconditions.checkArgument(fromPort <= toPort, "fromNumber should be less or equal than toPort %s <= %s", fromPort, toPort);
+        return Range.closed(Integer.parseInt(from), Integer.parseInt(to));
     }
 
     /**

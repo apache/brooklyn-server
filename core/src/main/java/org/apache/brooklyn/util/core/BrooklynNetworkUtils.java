@@ -18,14 +18,23 @@
  */
 package org.apache.brooklyn.util.core;
 
-import java.net.InetAddress;
-
+import com.google.common.base.Preconditions;
+import com.google.common.collect.Range;
+import com.google.common.collect.RangeSet;
+import com.google.common.collect.TreeRangeSet;
 import org.apache.brooklyn.core.location.geo.LocalhostExternalIpLoader;
 import org.apache.brooklyn.core.server.BrooklynServiceAttributes;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.net.Networking;
 
+import java.net.InetAddress;
+import java.util.Collection;
+
+/**
+ * <tt>BrooklynNetworkUtils</tt> is for utility methods that rely on some other part(s) of Brooklyn,
+ * or seem too custom in how they are used/configured to be considered a "common utility".
+ */
 public class BrooklynNetworkUtils {
 
     /** returns the externally-facing IP address from which this host comes, or 127.0.0.1 if not resolvable */
@@ -33,10 +42,13 @@ public class BrooklynNetworkUtils {
         return LocalhostExternalIpLoader.getLocalhostIpQuicklyOrDefault();
     }
 
-    /** returns a IP address for localhost paying attention to a system property to prevent lookup in some cases */ 
+    /** returns a IP address for localhost paying attention to a system property to prevent lookup in some cases */
     public static InetAddress getLocalhostInetAddress() {
-        return TypeCoercions.coerce(JavaGroovyEquivalents.elvis(BrooklynServiceAttributes.LOCALHOST_IP_ADDRESS.getValue(), 
+        return TypeCoercions.coerce(JavaGroovyEquivalents.elvis(BrooklynServiceAttributes.LOCALHOST_IP_ADDRESS.getValue(),
                 Networking.getLocalHost()), InetAddress.class);
     }
 
+    private static Range<Integer> closedRange(String from, String to) {
+        return Range.closed(Integer.parseInt(from), Integer.parseInt(to));
+    }
 }
