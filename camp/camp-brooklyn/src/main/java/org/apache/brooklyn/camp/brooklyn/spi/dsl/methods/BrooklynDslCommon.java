@@ -120,6 +120,10 @@ public class BrooklynDslCommon {
         return new DslComponent(Scope.THIS, "").config(keyName);
     }
 
+    public static BrooklynDslDeferredSupplier<?> attribute(String sensorName) {
+        return new DslComponent(Scope.THIS, "").attribute(sensorName);
+    }
+
     public static BrooklynDslDeferredSupplier<?> attributeWhenReady(String sensorName) {
         return new DslComponent(Scope.THIS, "").attributeWhenReady(sensorName);
     }
