@@ -18,9 +18,6 @@ brooklyn.catalog:
     item:
       services:
         - type: docker-engine
-          provisioningProperties:
-            templateOptions:
-              osFamily: centos
 
   - id: docker-engine
     name: "Docker Engine"
@@ -69,11 +66,13 @@ brooklyn.catalog:
         - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
           brooklyn.config:
             name: docker.version
+            period: 5m
             command: |
               docker info | grep "^Server Version" | sed -e "s/^Server Version: //"
         - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
           brooklyn.config:
             name: docker.container.count
+            period: 1m
             targetType: integer
             command: |
               docker ps -q | wc -l
@@ -86,7 +85,6 @@ brooklyn.catalog:
         provisioning.properties:
           osFamily: centos
           osVersionRegex: 7.*
-          installDevUrandom: true
 
         shell.env:
           DOCKER_ADDITIONAL_OPTIONS: $brooklyn:config("docker.additionaloptions")
@@ -97,6 +95,7 @@ brooklyn.catalog:
           DOCKER_REPOSITORY_URL: $brooklyn:config("docker.repository.url")
           DOCKER_GPG_KEY_URL: $brooklyn:config("docker.gpgkey.url")
           ENTITY_ID: $brooklyn:entityId()
+          CONTAINER_SERVICE_VERSION: "2.0.0-SNAPSHOT"
 
         install.command: |
           set -e # need all commands to execute successfully
@@ -142,12 +141,12 @@ brooklyn.catalog:
           {
             "labels": [
               "io.cloudsoft.clocker.name=${HOST_NAME}",
-              "io.cloudsoft.clocker.version=2.0.0-SNAPSHOT",
+              "io.cloudsoft.clocker.version=${CONTAINER_SERVICE_VERSION}",
               "io.cloudsoft.clocker.entityId=${ENTITY_ID}"
             ]
           }
           EOF
-          sudo service rngd stop || true
+          sudo service rngd stop || true # Fix 100% CPU on some VMs
           sudo systemctl disable rngd.service
           sudo systemctl enable docker.service
           sudo systemctl daemon-reload
@@ -349,6 +348,7 @@ brooklyn.catalog:
         - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
           brooklyn.config:
             name: docker.csr
+            period: 5m
             command: |
               cat ${DOCKER_CERT_PATH}/csr.pem
 

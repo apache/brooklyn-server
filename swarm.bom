@@ -35,6 +35,7 @@ brooklyn.catalog:
       type: org.apache.brooklyn.entity.stock.BasicApplication
 
       brooklyn.parameters:
+        # Duplicated parameters for UI visibility
         - name: swarm.initial.size
           label: Initial Swarm Size
           description: |
@@ -243,7 +244,7 @@ brooklyn.catalog:
               curl -X POST --data-binary @${INSTALL_DIR}/csr.pem  ${CA_REQUEST_ROOT_URL}/sign > ${RUN_DIR}/conf/${ENTITY_ID}.cert.pem
             loadbalancer.serverpool: $brooklyn:entity("docker-swarm-managers")
             nginx.sticky: false
-            member.sensor.hostname: $brooklyn:sensor("host.name")
+            member.sensor.hostname: $brooklyn:sensor("host.subnet.address")
             member.sensor.portNumber: $brooklyn:sensor("swarm.port")
             proxy.https.port: $brooklyn:parent().config("swarm.port")
             proxy.protocol: "https"
@@ -361,15 +362,12 @@ brooklyn.catalog:
                 id: swarm-node
                 name: "swarm-node"
                 brooklyn.config:
-                  launch.latch: $brooklyn:entity("docker-swarm-managers").attributeWhenReady("service.isUp")
                   swarm.defaultnetwork.create: true
             dynamiccluster.memberspec:
               $brooklyn:entitySpec:
                 type: docker-swarm-node
                 id: swarm-node
                 name: "swarm-node"
-                brooklyn.config:
-                  launch.latch: $brooklyn:entity("docker-swarm-managers").attributeWhenReady("service.isUp")
 
   - id: docker-engine-with-discovery
     name: Docker Engine with TLS and discovery
@@ -572,6 +570,7 @@ brooklyn.catalog:
         - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
           brooklyn.config:
             name: swarm.version
+            period: 5m
             shell.env:
               DOCKER_HOST: $brooklyn:attributeWhenReady("swarm.url")
             command: |
@@ -579,6 +578,7 @@ brooklyn.catalog:
         - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
           brooklyn.config:
             name: swarm.role
+            period: 5m
             shell.env:
               DOCKER_HOST: $brooklyn:attributeWhenReady("swarm.url")
             command: |
@@ -586,6 +586,7 @@ brooklyn.catalog:
         - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
           brooklyn.config:
             name: swarm.primary.endpoint
+            period: 5m
             shell.env:
               DOCKER_HOST: $brooklyn:attributeWhenReady("swarm.url")
             command: |
@@ -593,6 +594,7 @@ brooklyn.catalog:
         - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
           brooklyn.config:
             name: swarm.manager.name
+            period: 5m
             shell.env:
               DOCKER_HOST: $brooklyn:attributeWhenReady("swarm.url")
             command: |
@@ -600,6 +602,7 @@ brooklyn.catalog:
         - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
           brooklyn.config:
             name: swarm.container.count
+            period: 1m
             targetType: integer
             shell.env:
               DOCKER_HOST: $brooklyn:attributeWhenReady("swarm.url")
