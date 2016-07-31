@@ -228,7 +228,7 @@ brooklyn.catalog:
       assertStatus:
         equals: 1
       assertErr:
-        contains: Are you trying to connect to a TLS-enabled daemon without TLS?
+        contains: " HTTP "
 
   - id: preinstall-image-tests
     name: Preinstalled Image Tests

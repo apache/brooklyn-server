@@ -243,7 +243,8 @@ brooklyn.catalog:
 
               curl -X POST --data-binary @${INSTALL_DIR}/csr.pem  ${CA_REQUEST_ROOT_URL}/sign > ${RUN_DIR}/conf/${ENTITY_ID}.cert.pem
             loadbalancer.serverpool: $brooklyn:entity("docker-swarm-managers")
-            nginx.sticky: false
+            nginx.sticky: true
+            nginx.sensorpoll.http: 10000
             member.sensor.hostname: $brooklyn:sensor("host.subnet.address")
             member.sensor.portNumber: $brooklyn:sensor("swarm.port")
             proxy.https.port: $brooklyn:parent().config("swarm.port")
@@ -256,6 +257,7 @@ brooklyn.catalog:
                 object.fields:
                   targetIsSsl: true
                   verifyClient: true
+                  reuseSessions: true
                   certificateDestination:
                     $brooklyn:formatString:
                       - "%s/conf/%s.cert.pem"

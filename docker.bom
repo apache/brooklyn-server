@@ -133,6 +133,7 @@ brooklyn.catalog:
           ExecStart=
           ExecStart=/usr/bin/docker daemon \
             -H unix:///var/run/docker.sock \
+            --api-cors-header="*" \
             --config-file /etc/systemd/system/docker.service.d/daemon.json \
             ${DOCKER_ADDITIONAL_OPTIONS}
           ExecStartPost=/usr/bin/chown ${USER}:docker /var/run/docker.sock
