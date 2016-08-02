@@ -152,25 +152,32 @@ public class BashCommands {
                 commandWhoseOutputToWrite, user, file);
     }
 
-    /** some machines require a tty for sudo; brooklyn by default does not use a tty
-     * (so that it can get separate error+stdout streams); you can enable a tty as an
-     * option to every ssh command, or you can do it once and 
-     * modify the machine so that a tty is not subsequently required.
+    /**
+     * Some machines require a TTY for sudo. Brooklyn by default does not use a TTY
+     * so that it can get separate STDERR and STDOUT streams. You can enable a TTY as an
+     * option to every SSH command, or you can do it once and modify the machine so that
+     * a TTY is not subsequently required. If this task has already been executed it
+     * will try to detect the changes and do nothing.
      * <p>
-     * this command must be run with allocatePTY set as a flag to ssh.  see SshTasks.dontRequireTtyForSudo which sets that up. 
+     * This command must be run with allocatePTY set as a flag to ssh.
+     * See {@link SshTasks#dontRequireTtyForSudo(SshMachineLocation, OnFailingTask)} which sets that up. 
      * <p>
-     * (having a tty for sudo seems like another case of imaginary security which is just irritating.
-     * like water restrictions at airport security.) */
+     * Having a TTY for sudo seems like another case of imaginary security which is just irritating.
+     * Like water restrictions at airport security.
+     */
     public static String dontRequireTtyForSudo() {
         String sudoersFileName =  "/etc/sudoers";
+        String tmpSuffix = Identifiers.makeRandomLowercaseId(6); // Avoid clobbering
 
         // Visudo's quiet mode (-q) is not enabled. visudo's output is used for diagnostic purposes 
         return ifFileExistsElse0(sudoersFileName, 
-                chainGroup(
-                  sudo(format("cp %1$s %1$s.tmp", sudoersFileName)),
-                  sudo(format("sed -i.brooklyn.bak 's/.*requiretty.*/#brooklyn-removed-require-tty/' %1$s.tmp", sudoersFileName)),
-                  sudo(format("visudo -c -f %1$s.tmp", sudoersFileName)), 
-                  sudo(format("mv %1$s.tmp %1$s", sudoersFileName))));
+                alternatives(
+                    sudo(format("grep brooklyn-removed-require-tty %s", sudoersFileName)),
+                    chainGroup(
+                        sudo(format("cp %1$s %1$s.%2$s", sudoersFileName, tmpSuffix)),
+                        sudo(format("sed -i.brooklyn.bak 's/.*requiretty.*/#brooklyn-removed-require-tty/' %1$s.%2$s", sudoersFileName, tmpSuffix)),
+                        sudo(format("visudo -c -f %1$s.%2$s", sudoersFileName, tmpSuffix)),
+                        sudo(format("mv %1$s.%2$s %1$s", sudoersFileName, tmpSuffix)))));
     }
 
     /** generates ~/.ssh/id_rsa if that file does not exist */
