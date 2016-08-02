@@ -128,16 +128,16 @@ brooklyn.catalog:
                   etcd.peer.secure: true
                   etcd.options.additional:
                     $brooklyn:formatString:
-                    - >-
-                      --cert-file="%1$s/certs/cert.pem"
-                      --key-file="%1$s/certs/key.pem"
-                      --trusted-ca-file="%1$s/certs/ca.pem"
-                      --client-cert-auth
-                      --peer-cert-file="%1$s/certs/cert.pem"
-                      --peer-key-file="%1$s/certs/key.pem"
-                      --peer-trusted-ca-file="%1$s/certs/ca.pem"
-                      --peer-client-cert-auth
-                    - $brooklyn:attributeWhenReady("install.dir")
+                      - >-
+                        --cert-file="%1$s/certs/cert.pem"
+                        --key-file="%1$s/certs/key.pem"
+                        --trusted-ca-file="%1$s/certs/ca.pem"
+                        --client-cert-auth
+                        --peer-cert-file="%1$s/certs/cert.pem"
+                        --peer-key-file="%1$s/certs/key.pem"
+                        --peer-trusted-ca-file="%1$s/certs/ca.pem"
+                        --peer-client-cert-auth
+                      - $brooklyn:attributeWhenReady("install.dir")
         - type: docker-swarm-cluster
           id: swarm-cluster
           name: "swarm-cluster"
