@@ -164,7 +164,20 @@ public class Exceptions {
         }
         throw new PropagatedRuntimeException(msg, throwable);
     }
-    
+
+    /** 
+     * Propagate exceptions which are interrupts (be it {@link InterruptedException}
+     * or {@link RuntimeInterruptedException}.
+     */
+    public static void propagateIfInterrupt(Throwable throwable) {
+        if (throwable instanceof InterruptedException) {
+            throw new RuntimeInterruptedException((InterruptedException) throwable);
+        } else if (throwable instanceof RuntimeInterruptedException) {
+            Thread.currentThread().interrupt();
+            throw (RuntimeInterruptedException) throwable;
+        }
+    }
+
     /** 
      * Propagate exceptions which are fatal.
      * <p>
@@ -172,12 +185,8 @@ public class Exceptions {
      * such as {@link InterruptedException} and {@link Error}s.
      */
     public static void propagateIfFatal(Throwable throwable) {
-        if (throwable instanceof InterruptedException) {
-            throw new RuntimeInterruptedException((InterruptedException) throwable);
-        } else if (throwable instanceof RuntimeInterruptedException) {
-            Thread.currentThread().interrupt();
-            throw (RuntimeInterruptedException) throwable;
-        } else if (throwable instanceof Error) {
+        propagateIfInterrupt(throwable);
+        if (throwable instanceof Error) {
             throw (Error) throwable;
         }
     }

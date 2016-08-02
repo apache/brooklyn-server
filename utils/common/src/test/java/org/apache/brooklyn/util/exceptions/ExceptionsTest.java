@@ -127,6 +127,45 @@ public class ExceptionsTest {
         Throwable t = new Throwable();
         Exceptions.propagateIfFatal(t);
     }
+
+    @Test
+    public void testPropagateIfInterruptPropagatesInterruptedException() throws Exception {
+        InterruptedException tothrow = new InterruptedException("simulated");
+        try {
+            Exceptions.propagateIfInterrupt(tothrow);
+            fail();
+        } catch (RuntimeException e) {
+            assertTrue(Thread.interrupted()); // note this clears the interrupted flag as well
+            assertEquals(e.getCause(), tothrow);
+        }
+    }
+    
+    @Test
+    public void testPropagateIfInterruptPropagatesRuntimeInterruptedException() throws Exception {
+        RuntimeInterruptedException tothrow = new RuntimeInterruptedException(new InterruptedException("simulated"));
+        try {
+            Exceptions.propagateIfInterrupt(tothrow);
+            fail();
+        } catch (RuntimeInterruptedException e) {
+            assertTrue(Thread.interrupted()); // note this clears the interrupted flag as well
+            assertEquals(e, tothrow);
+        }
+    }
+    
+    @Test
+    public void testPropagateIfInterruptDoesNotPropagateOtherExceptions() throws Exception {
+        Exception e = new Exception();
+        Exceptions.propagateIfInterrupt(e);
+        
+        RuntimeException re = new RuntimeException();
+        Exceptions.propagateIfInterrupt(re);
+        
+        Throwable t = new Throwable();
+        Exceptions.propagateIfInterrupt(t);
+        
+        Throwable er = new Error();
+        Exceptions.propagateIfInterrupt(er);
+    }
     
     @Test
     public void testGetFirstThrowableOfType() throws Exception {
