@@ -218,6 +218,6 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
         NamedStringTag spec = BrooklynTags.findFirst(BrooklynTags.YAML_SPEC_KIND, entity.tags().getTags());
         if (spec == null)
             return null;
-        return (String) WebResourceUtils.getValueForDisplay(spec.getContents(), true, true);
+        return (String) WebResourceUtils.getValueForDisplay(spec.getContents(), false, true);
     }
 }

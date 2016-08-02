@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.rest.resources;
 
+import static org.testng.Assert.assertEquals;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +32,7 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.stock.BasicApplication;
+import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.rest.domain.ApplicationSpec;
 import org.apache.brooklyn.rest.domain.EntitySpec;
 import org.apache.brooklyn.rest.domain.TaskSummary;
@@ -46,6 +49,7 @@ import org.testng.annotations.Test;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -84,6 +88,44 @@ public class EntityResourceTest extends BrooklynRestResourceTest {
         });
     }
 
+    @Test
+    public void testGetSpecAcceptingXYaml() throws Exception {
+        testGetSpec("text/x-yaml");
+    }
+    
+    @Test
+    public void testGetSpecWithNoExplicitAccepts() throws Exception {
+        testGetSpec(null);
+    }
+    
+    protected void testGetSpec(String acceptMimeType) throws Exception {
+        String appName = "ent-with-spec";
+        
+        // Create an app with a yaml spec
+        String yaml = Joiner.on("\n").join(
+                "name: " + appName,
+                "services:",
+                "- type: "+BasicEntity.class.getName());
+        Response appResponse = client().path("/applications")
+                .header("Content-Type", "text/x-yaml")
+                .post(yaml);
+        waitForApplicationToBeRunning(appResponse.getLocation());
+
+        // Retrieve the yaml spec, and confirm it is as expected (not wrapped in quotes, and treating \n sensibly)
+        Response response;
+        if (acceptMimeType != null) {
+            response = client().path("/applications/" + appName + "/entities/" + appName + "/spec")
+                    .accept(acceptMimeType)
+                    .get();
+        } else {
+            response = client().path("/applications/" + appName + "/entities/" + appName + "/spec")
+                    .get();
+        }
+        String data = response.readEntity(String.class);
+
+        assertEquals(data.trim(), yaml.trim());
+    }
+    
     @Test
     public void testTagsSanity() throws Exception {
         entity.tags().addTag("foo");
