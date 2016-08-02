@@ -205,13 +205,13 @@ public class EffectorBasicTest extends BrooklynAppUnitTestSupport {
         // it instead of
         //    Error invoking start at FailingEntityImpl{id=wv6KwsPh}: Simulating entity stop failure for test
         // show
-        //   Simulating entity stop failure for test
+        //   Simulating entity start failure for test
         collapsed = Exceptions.collapseTextInContext(e, task);
         Assert.assertFalse(Strings.containsLiteral(collapsed, "Propagated"), "Error too verbose: "+collapsed);
         Assert.assertFalse(Strings.containsLiteral(collapsed, "invoking"), "Error too verbose: "+collapsed);
-        Assert.assertFalse(Strings.containsLiteral(collapsed, "start"), "Error too verbose: "+collapsed);
         Assert.assertFalse(Strings.containsLiteral(collapsed, "FailingEntity"), "Error too verbose: "+collapsed);
         Assert.assertFalse(Strings.containsLiteral(collapsed, entity.getId()), "Error too verbose: "+collapsed);
+        Assert.assertTrue(Strings.containsLiteral(collapsed, "start"), "Error not verbose enough: "+collapsed);
         Assert.assertTrue(Strings.containsLiteral(collapsed, "Simulating"), "Error not verbose enough: "+collapsed);
     }
      

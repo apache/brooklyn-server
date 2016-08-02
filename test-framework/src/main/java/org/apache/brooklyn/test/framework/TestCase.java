@@ -18,11 +18,25 @@
  */
 package org.apache.brooklyn.test.framework;
 
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.ImplementedBy;
+import org.apache.brooklyn.config.ConfigInheritance;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
+
+import com.google.common.reflect.TypeToken;
 
 /**
  * Entity that logically groups other test entities
  */
 @ImplementedBy(value = TestCaseImpl.class)
 public interface TestCase extends TargetableTestComponent {
+
+    @SuppressWarnings("serial")
+    ConfigKey<EntitySpec<?>> ON_ERROR_SPEC = ConfigKeys.builder(new TypeToken<EntitySpec<?>>() {})
+            .name("on.error.spec")
+            .description("Spec of entity to instantiate (and start, if startable) if the test-case fails")
+            .parentInheritance(ConfigInheritance.NONE)
+            .typeInheritance(ConfigInheritance.ALWAYS)
+            .build();
 }
