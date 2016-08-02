@@ -17,9 +17,9 @@ brooklyn.catalog:
         - type: ssh-test
           command: |
             set -e
-            docker rmi busybox || true # OK to fail
+            docker rmi --force busybox || true
             ! docker images | grep busybox
-            docker run --rm -ti busybox echo "Hello from busybox-image" | grep busybox-image
+            docker run --rm busybox echo "Hello from busybox-image" | grep busybox-image
             docker images | grep busybox
           assertStatus:
             equals: 0
@@ -151,7 +151,7 @@ brooklyn.catalog:
       name: "TEST-08-1 Swarm Etcd uses TLS"
       brooklyn.config:
         shell.env:
-          ETCD_ENDPOINT_LIST: $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.endpoint")
+          ETCD_ENDPOINT_LIST: $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.endpoints")
           CERT_PATH:
             $brooklyn:formatString:
             - "%s/.certs"
@@ -328,31 +328,37 @@ brooklyn.catalog:
         - type: test-stop-machine
           name: "TEST-11-2 Kill one node"
           target: $brooklyn:entity("docker-swarm-managers").attributeWhenReady("cluster.first.entity")
-        - type: sensor-test
-          name: "TEST-11-3 Size of manager cluster now 2"
-          targetId: docker-swarm-managers
-          sensor: group.members.count
-          assert:
-            equals: 2
+        - type: ssh-test
+          name: "TEST-11-3 Manager endpoints active now 2"
+          targetId: swarm-client
+          brooklyn.config:
+            shell.env:
+              SWARM_ENDPOINTS: $brooklyn:entity("docker-swarm-managers").attributeWhenReady("swarm.endpoints")
+            command: |
+              echo ${SWARM_ENDPOINTS} | tr ',' ' ' | wc -w
+            assertStatus:
+              equals: 0
+            assertOut:
+              contains: "2"
         - type: ssh-test
           name: "TEST-11-4 Can still connect"
           timeout: 20m
           targetId: swarm-client
           brooklyn.config:
             command: |
-              docker run -ti hello-world
+              docker run -i hello-world
             assertStatus:
               equals: 0
             assertOut:
               contains: "Hello from Docker!"
         - type: ssh-test
-          name: "TEST-11-5 Check load balancer"
+          name: "TEST-11-5a Check load balancer (haproxy swarm.url)"
           timeout: 20m
           targetId: swarm-client
           brooklyn.config:
             shell.env:
-              NGINX_URL:
-                $brooklyn:entity("swarm-manager-load-balancer").attributeWhenReady("main.uri")
+              HAPROXY_URL:
+                $brooklyn:entity("swarm-manager-load-balancer").attributeWhenReady("swarm.url")
               CERT_PATH:
                 $brooklyn:formatString:
                   - "%s/.certs"
@@ -361,7 +367,28 @@ brooklyn.catalog:
               curl --cacert "${CERT_PATH}/ca.pem" \
                 --cert "${CERT_PATH}/cert.pem" \
                 --key "${CERT_PATH}/key.pem" \
-                ${NGINX_URL}/_ping
+                ${HAPROXY_URL}/_ping
+            assertStatus:
+              equals: 0
+            assertOut:
+              contains: "pong"
+        - type: ssh-test
+          name: "TEST-11-5b Check load balancer (swarm main.uri)"
+          timeout: 20m
+          targetId: swarm-client
+          brooklyn.config:
+            shell.env:
+              HAPROXY_URL:
+                $brooklyn:entity("swarm").attributeWhenReady("main.uri")
+              CERT_PATH:
+                $brooklyn:formatString:
+                  - "%s/.certs"
+                  - $brooklyn:entity("swarm-client").attributeWhenReady("install.dir")
+            command: |
+              curl --cacert "${CERT_PATH}/ca.pem" \
+                --cert "${CERT_PATH}/cert.pem" \
+                --key "${CERT_PATH}/key.pem" \
+                ${HAPROXY_URL}/_ping
             assertStatus:
               equals: 0
             assertOut:
@@ -374,6 +401,7 @@ brooklyn.catalog:
     itemType: entity
     item:
       type: test-case
+      name: "docker-swarm-tests"
 
       brooklyn.config:
         timeout: 1h

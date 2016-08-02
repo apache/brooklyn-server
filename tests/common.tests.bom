@@ -228,7 +228,7 @@ brooklyn.catalog:
       assertStatus:
         equals: 1
       assertErr:
-        contains: " HTTP "
+        notEmpty: true
 
   - id: preinstall-image-tests
     name: Preinstalled Image Tests
