@@ -6,11 +6,6 @@ brooklyn.catalog:
     - tests/docker.tests.bom
   license_code: CLOUDSOFT-1.0
 
-  brooklyn.config:
-    timeout: 1h
-    timeout.initialStartup: 1h
-    timeout.runtimeAssertion: 1h
-
   items:
   - id: test-docker-run-pulls
     item:
@@ -24,7 +19,7 @@ brooklyn.catalog:
             set -e
             docker rmi busybox || true # OK to fail
             ! docker images | grep busybox
-            docker run --rm busybox echo "Hello from busybox-image" | grep busybox-image
+            docker run --rm -ti busybox echo "Hello from busybox-image" | grep busybox-image
             docker images | grep busybox
           assertStatus:
             equals: 0
@@ -345,9 +340,11 @@ brooklyn.catalog:
           targetId: swarm-client
           brooklyn.config:
             command: |
-              docker run hello-world
+              docker run -ti hello-world
             assertStatus:
               equals: 0
+            assertOut:
+              contains: "Hello from Docker!"
         - type: ssh-test
           name: "TEST-11-5 Check load balancer"
           timeout: 20m
@@ -379,6 +376,9 @@ brooklyn.catalog:
       type: test-case
 
       brooklyn.config:
+        timeout: 1h
+        timeout.initialStartup: 1h
+        timeout.runtimeAssertion: 1h
         swarm.initial.size: 2
         swarm.manager.size: 3
         etcd.initial.size: 3
