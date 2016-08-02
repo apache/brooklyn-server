@@ -10,11 +10,13 @@ brooklyn.catalog:
     qa: tests/swarm.tests.bom
 
   brooklyn.libraries:
-    - https://oss.sonatype.org/content/repositories/releases/io/brooklyn/etcd/brooklyn-etcd/2.1.0/brooklyn-etcd-2.1.0.jar
-
-  include: https://raw.githubusercontent.com/brooklyncentral/brooklyn-etcd/release/2.1.0/catalog.bom
+    - name: io.brooklyn.etcd.brooklyn-etcd
+      version: "2.3.0.SNAPSHOT" # BROOKLYN_ETCD_VERSION
 
   items:
+
+  - classpath://io.brooklyn.etcd.brooklyn-etcd:brooklyn-etcd/catalog.bom
+
   - id: docker-swarm-template
     name: "Docker Swarm with Discovery and CA"
     description: |

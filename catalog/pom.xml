@@ -49,6 +49,9 @@
                     <include>*.bom</include>
                     <include>examples/*.*</include>
                   </includes>
+                  <excludes>
+                    <exclude>catalog.bom</exclude>
+                  </excludes>
                 </resource>
               </resources>
             </configuration>
