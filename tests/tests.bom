@@ -9,8 +9,9 @@ brooklyn.catalog:
 
   items:
     - id: docker-and-swarm-engine-tests
-      name: Docker Engine and Swarm Tests
-      description: Tests on Docker Engine with and without TLS, and on Swarm (with TLS)
+      name: "Docker Engine and Swarm Tests"
+      description: |
+        Tests on Docker Engine with and without TLS, and on Swarm (with TLS)
       itemType: template
       item:
         brooklyn.config:

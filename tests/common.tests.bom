@@ -115,6 +115,22 @@ brooklyn.catalog:
       params:
         restartMachine: true
 
+  - id: test-http-status-200
+    item:
+      name: "Check HTTP Response Status Code"
+      type: org.apache.brooklyn.test.framework.TestHttpCall
+      brooklyn.config:
+        applyAssertionTo: status
+        assert:
+          - isEqualTo: 200
+
+  - id: test-http-body
+    item:
+      name: "Check HTTP Response Body"
+      type: org.apache.brooklyn.test.framework.TestHttpCall
+      brooklyn.config:
+        applyAssertionTo: body
+
   - id: test-reachable
     item:
       name: "TEST endpoint reachable"

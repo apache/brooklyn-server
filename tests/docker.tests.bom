@@ -6,6 +6,7 @@ brooklyn.catalog:
   license_code: CLOUDSOFT-1.0
 
   items:
+
   - id: docker-vm-container-happy-test
     name: Docker Entity tests
     description: Tests of wrapper-vm docker
