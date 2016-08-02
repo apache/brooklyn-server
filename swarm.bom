@@ -472,6 +472,13 @@ brooklyn.catalog:
         #provisioning.properties.minCores:
         #  $brooklyn:parent().config("swarm.minCores")
 
+        provisioning.properties:
+          customizers:
+          - $brooklyn:object:
+              type: org.apache.brooklyn.location.jclouds.networking.SharedLocationSecurityGroupCustomizer
+              object.fields:
+                tcpPortRanges:
+                  - "32768-65535"
         shell.env:
           SWARM_DISCOVERY_URL: $brooklyn:config("swarm.discovery.url")
           HOST_ADDRESS: $brooklyn:attributeWhenReady("host.address")
