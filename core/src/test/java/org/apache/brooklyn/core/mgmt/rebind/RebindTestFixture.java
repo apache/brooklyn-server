@@ -45,6 +45,7 @@ import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.FileBasedObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
+import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.repeat.Repeater;
@@ -97,15 +98,22 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
 
     /** @return A started management context */
     protected LocalManagementContext createOrigManagementContext() {
+        LocalManagementContextForTests.newInstance();
+
         return RebindTestUtils.managementContextBuilder(mementoDir, classLoader)
                 .persistPeriodMillis(getPersistPeriodMillis())
                 .forLive(useLiveManagementContext())
+                .enablePersistenceBackups(enablePersistenceBackups())
                 .emptyCatalog(useEmptyCatalog())
                 .properties(createBrooklynProperties())
                 .enableOsgi(useOsgi())
                 .buildStarted();
     }
 
+    protected boolean enablePersistenceBackups() {
+        return true;
+    }
+    
     /** As {@link #createNewManagementContext(File)} using the default memento dir */
     protected LocalManagementContext createNewManagementContext() {
         return createNewManagementContext(mementoDir);
