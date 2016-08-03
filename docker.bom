@@ -227,8 +227,8 @@ brooklyn.catalog:
           brooklyn.config:
             uniqueTag: docker-public-endpoint-generator
             enricher.triggerSensors:
-              - host.address
-              - docker.port
+              - $brooklyn:sensor("host.address")
+              - $brooklyn:sensor("docker.port")
             enricher.targetSensor: $brooklyn:sensor("docker.endpoint.public")
             enricher.targetValue:
               $brooklyn:formatString:
@@ -239,8 +239,8 @@ brooklyn.catalog:
           brooklyn.config:
             uniqueTag: docker-endpoint-generator
             enricher.triggerSensors:
-              - host.subnet.address
-              - docker.port
+              - $brooklyn:sensor("host.subnet.address")
+              - $brooklyn:sensor("docker.port")
             enricher.targetSensor: $brooklyn:sensor("docker.endpoint")
             enricher.targetValue:
               $brooklyn:formatString:
@@ -250,7 +250,8 @@ brooklyn.catalog:
         - type: org.apache.brooklyn.enricher.stock.Transformer
           brooklyn.config:
             uniqueTag: docker-url-generator
-            enricher.sourceSensor: $brooklyn:sensor("docker.endpoint")
+            enricher.triggerSensors:
+              - $brooklyn:sensor("docker.endpoint")
             enricher.targetSensor: $brooklyn:sensor("docker.url")
             enricher.targetValue:
               $brooklyn:formatString:
@@ -260,7 +261,7 @@ brooklyn.catalog:
           brooklyn.config:
             uniqueTag: docker-bind-url-generator
             enricher.triggerSensors:
-              - docker.port
+              - $brooklyn:sensor("docker.port")
             enricher.targetSensor: $brooklyn:sensor("docker.bind.url")
             enricher.targetValue:
               $brooklyn:formatString:

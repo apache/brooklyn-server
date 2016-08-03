@@ -17,6 +17,133 @@ brooklyn.catalog:
 
   - classpath://io.brooklyn.etcd.brooklyn-etcd:brooklyn-etcd/catalog.bom
 
+  - id: haproxy-load-balancer-template
+    name: "HAProxy Load Balancer"
+    description: |
+      HAProxy load balancer entity
+    itemType: template
+    iconUrl: https://media.licdn.com/mpr/mpr/shrink_200_200/AAEAAQAAAAAAAAhhAAAAJGMyYWJjZWExLTljZGMtNDA3ZS05YjU3LTU2ODdmZTk2YTlmNg.png
+    item:
+      services:
+        - type: org.apache.brooklyn.entity.stock.BasicApplication
+
+          brooklyn.parameters:
+            # Duplicated parameters for UI visibility
+            - name: haproxy.version
+              label: HAProxy Version
+              description: |
+                The HAProxy version to install
+              type: string
+              default: "1.6.7"
+            - name: haproxy.port
+              label: HAProxy Port
+              description: |
+                Port that HAProxy should listen on
+              type: port
+              default: 8000
+            - name: haproxy.protocol
+              label: HAProxy Protocol
+              description: |
+                Protocol to forward (either http or https)
+              type: string
+              default: "http"
+            - name: haproxy.bind.options
+              label: HAProxy Bind Options
+              description: |
+                Extra bind configuration for HAProxy
+              type: string
+
+          brooklyn.children:
+            - type: haproxy-load-balancer
+
+  - id: haproxy-load-balancer
+    name: "HAProxy Load Balancer"
+    description: |
+      HAProxy load balancer entity
+    itemType: entity
+    iconUrl: https://media.licdn.com/mpr/mpr/shrink_200_200/AAEAAQAAAAAAAAhhAAAAJGMyYWJjZWExLTljZGMtNDA3ZS05YjU3LTU2ODdmZTk2YTlmNg.png
+    item:
+      type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
+      name: "haproxy-load-balancer"
+
+      brooklyn.parameters:
+        - name: haproxy.version
+          label: HAProxy Version
+          description: |
+            The HAProxy version to install
+          type: string
+          default: "1.6.7"
+        - name: haproxy.port
+          label: HAProxy Port
+          description: |
+            Port that HAProxy should listen on
+          type: port
+          default: 8000
+        - name: haproxy.protocol
+          label: HAProxy Protocol
+          description: |
+            Protocol to forward (either http or https)
+          type: string
+          default: "http"
+        - name: haproxy.bind.options
+          label: HAProxy Bind Options
+          description: |
+            Extra bind configuration such as TLS certificate paths
+          type: string
+
+      brooklyn.config:
+        dontRequireTtyForSudo: true
+
+        provisioning.properties:
+          osFamily: centos
+          osVersionRegex: 7.*
+
+        haproxy.bind.options:
+
+        shell.env:
+          HOST_ADDRESS: $brooklyn:attributeWhenReady("host.address")
+          SUBNET_ADDRESS: $brooklyn:attributeWhenReady("host.subnet.address")
+          INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
+          RUN_DIR: $brooklyn:attributeWhenReady("run.dir")
+          HAPROXY_VERSION: $brooklyn:config("haproxy.version")
+          HAPROXY_PORT: $brooklyn:attributeWhenReady("haproxy.port")
+          HAPROXY_PROTOCOL: $brooklyn:config("haproxy.protocol")
+          HAPROXY_BIND_OPTIONS: $brooklyn:config("haproxy.bind.options")
+
+        install.command: |
+          sudo yum install -y gcc make openssl-devel
+          haproxy_major_minor=$(echo ${HAPROXY_VERSION} | cut -d. -f1,2)
+          wget "http://www.haproxy.org/download/${haproxy_major_minor}/src/haproxy-${HAPROXY_VERSION}.tar.gz"
+          tar zxf haproxy-${HAPROXY_VERSION}.tar.gz
+          cd haproxy-${HAPROXY_VERSION}
+          make TARGET=linux26 USE_OPENSSL=true
+          sudo cp haproxy /usr/bin
+
+        customize.command: |
+          cat > haproxy.conf <<-EOF
+          global
+            daemon
+            maxconn 256
+            pidfile ${PID_FILE}
+          defaults
+            option http-server-close
+            timeout connect 5000ms
+            timeout client 60s
+            timeout server 60s
+          frontend www-${HAPROXY_PROTOCOL}
+            bind *:${HAPROXY_PORT} ${HAPROXY_BIND_OPTIONS}
+            reqadd X-Forwarded-Proto:\ ${HAPROXY_PROTOCOL}
+            default_backend servers
+            mode tcp
+            option tcplog
+            log 127.0.0.1 syslog
+          EOF
+          echo "backend servers" > servers.conf
+
+        launch.command: |
+          haproxy -f haproxy.conf -f servers.conf -c &&
+            haproxy -D -f haproxy.conf -f servers.conf -sf $(cat ${PID_FILE})
+
   - id: docker-swarm-template
     name: "Docker Swarm with Discovery and CA"
     description: |
@@ -217,17 +344,39 @@ brooklyn.catalog:
           default: true
 
       brooklyn.children:
-        - type: load-balancer
+        - type: haproxy-load-balancer
           id: swarm-manager-load-balancer
           name: "swarm-manager-load-balancer"
+          brooklyn.policies:
+            - type: org.apache.brooklyn.entity.group.SshCommandMembershipTrackingPolicy
+              brooklyn.config:
+                sensorsToTrack:
+                  - $brooklyn:sensor("host.subnet.address")
+                  - $brooklyn:sensor("swarm.port")
+                  - $brooklyn:sensor("swarm.endpoint")
+                group: $brooklyn:entity("docker-swarm-managers")
+                shell.env:
+                  SWARM_ENDPOINTS:
+                    $brooklyn:entity("docker-swarm-managers").attributeWhenReady("swarm.endpoints")
+                update.command: |
+                  cat > servers.conf <<-EOF
+                  backend servers
+                    balance roundrobin
+                  EOF
+                  for endpoint in $(echo ${SWARM_ENDPOINTS} | tr ',' ' ') ; do
+                    echo "  server manager$((++n)) ${endpoint} maxconn 32 ssl \
+                      ca-file ${RUN_DIR}/ca.pem crt ${RUN_DIR}/cert.pem" >> servers.conf
+                  done
+                  haproxy -D -f haproxy.conf -f servers.conf -st $(cat ${RUN_DIR}/pid.txt)
           brooklyn.config:
+            haproxy.port: $brooklyn:parent().config("swarm.port")
+            haproxy.protocol: "https"
+            haproxy.bind.options:
+              $brooklyn:formatString:
+                - "ssl ca-file %1$s/ca.pem crt %1$s/cert.pem"
+                - $brooklyn:attributeWhenReady("run.dir")
             shell.env:
               CA_REQUEST_ROOT_URL: $brooklyn:config("ca.request.root.url")
-              ENTITY_ID: $brooklyn:entityId()
-              HOST_ADDRESS: $brooklyn:attributeWhenReady("host.address")
-              SUBNET_ADDRESS: $brooklyn:attributeWhenReady("host.subnet.address")
-              INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
-              RUN_DIR: $brooklyn:attributeWhenReady("run.dir")
             resources.preInstall.latch: $brooklyn:entity("ca-server").attributeWhenReady("service.isUp")
             files.preinstall:
               "classpath://io.cloudsoft.amp.containerservice.docker-catalog:docker/certificate-functions.sh": certificate-functions.sh
@@ -235,56 +384,26 @@ brooklyn.catalog:
               set -e
               source ${INSTALL_DIR}/certificate-functions.sh
 
-              mkdir -p ${RUN_DIR}/conf
-              getcert ${CA_REQUEST_ROOT_URL}/cacert/ca.pem ${RUN_DIR}/conf/${ENTITY_ID}.ca.pem
-              generate_key ${RUN_DIR}/conf/${ENTITY_ID}.key.pem
+              getcert ${CA_REQUEST_ROOT_URL}/cacert/ca.pem ${RUN_DIR}/ca.pem
+              generate_key ${RUN_DIR}/key.pem
               generate_conf ${INSTALL_DIR}/csr.cnf ${HOST_ADDRESS} ${SUBNET_ADDRESS}
-              generate_csr ${INSTALL_DIR}/csr.cnf ${RUN_DIR}/conf/${ENTITY_ID}.key.pem ${INSTALL_DIR}/csr.pem
+              generate_csr ${INSTALL_DIR}/csr.cnf ${RUN_DIR}/key.pem ${INSTALL_DIR}/csr.pem
 
-              curl -X POST --data-binary @${INSTALL_DIR}/csr.pem  ${CA_REQUEST_ROOT_URL}/sign > ${RUN_DIR}/conf/${ENTITY_ID}.cert.pem
-            loadbalancer.serverpool: $brooklyn:entity("docker-swarm-managers")
-            nginx.sticky: true
-            nginx.sensorpoll.http: 10000
-            member.sensor.hostname: $brooklyn:sensor("host.subnet.address")
-            member.sensor.portNumber: $brooklyn:sensor("swarm.port")
-            proxy.https.port: $brooklyn:parent().config("swarm.port")
-            proxy.protocol: "https"
-            proxy.domainName: $brooklyn:attributeWhenReady("host.address")
-            controller.config.serviceUpUrlPath: "_ping"
-            proxy.ssl.config:
-              $brooklyn:object:
-                type: org.apache.brooklyn.entity.proxy.ProxySslConfig
-                object.fields:
-                  targetIsSsl: true
-                  verifyClient: true
-                  reuseSessions: true
-                  certificateDestination:
-                    $brooklyn:formatString:
-                      - "%s/conf/%s.cert.pem"
-                      - $brooklyn:attributeWhenReady("run.dir")
-                      - $brooklyn:entityId()
-                  keyDestination:
-                    $brooklyn:formatString:
-                      - "%s/conf/%s.key.pem"
-                      - $brooklyn:attributeWhenReady("run.dir")
-                      - $brooklyn:entityId()
-                  clientCertificateDestination:
-                    $brooklyn:formatString:
-                      - "%s/conf/%s.ca.pem"
-                      - $brooklyn:attributeWhenReady("run.dir")
-                      - $brooklyn:entityId()
+              curl -X POST --data-binary @${INSTALL_DIR}/csr.pem  ${CA_REQUEST_ROOT_URL}/sign > ${RUN_DIR}/cert.pem
+              cat ${RUN_DIR}/key.pem >> ${RUN_DIR}/cert.pem
           brooklyn.enrichers:
             - type: org.apache.brooklyn.enricher.stock.Transformer
               brooklyn.config:
                 uniqueTag: cluster-swarm-endpoint-publisher
                 enricher.triggerSensors:
                   - $brooklyn:sensor("host.address")
+                  - $brooklyn:sensor("haproxy.port")
                 enricher.targetSensor: $brooklyn:sensor("swarm.endpoint")
                 enricher.targetValue:
                   $brooklyn:formatString:
-                    - "%s:%s"
+                    - "%s:%d"
                     - $brooklyn:attributeWhenReady("host.address")
-                    - $brooklyn:parent().config("swarm.port")
+                    - $brooklyn:attributeWhenReady("haproxy.port")
             - type: org.apache.brooklyn.enricher.stock.Transformer
               brooklyn.config:
                 uniqueTag: cluster-swarm-url-publisher
@@ -312,7 +431,7 @@ brooklyn.catalog:
               brooklyn.config:
                 uniqueTag: swarm-endpoint-joiner
                 enricher.sourceSensor: $brooklyn:sensor("swarm.endpoint.list")
-                enricher.targetSensor: $brooklyn:sensor("swarm.endpoint")
+                enricher.targetSensor: $brooklyn:sensor("swarm.endpoints")
                 enricher.joiner.quote: false
           brooklyn.config:
             cluster.initial.size: $brooklyn:parent().config("swarm.manager.size")
@@ -549,9 +668,21 @@ brooklyn.catalog:
           brooklyn.config:
             uniqueTag: swarm-endpoint-publisher
             enricher.triggerSensors:
-              - host.address
-              - swarm.port
+              - $brooklyn:sensor("host.subnet.address")
+              - $brooklyn:sensor("swarm.port")
             enricher.targetSensor: $brooklyn:sensor("swarm.endpoint")
+            enricher.targetValue:
+              $brooklyn:formatString:
+                - "%s:%d"
+                - $brooklyn:attributeWhenReady("host.subnet.address")
+                - $brooklyn:attributeWhenReady("swarm.port")
+        - type: org.apache.brooklyn.enricher.stock.Transformer
+          brooklyn.config:
+            uniqueTag: swarm-public-endpoint-publisher
+            enricher.triggerSensors:
+              - $brooklyn:sensor("host.address")
+              - $brooklyn:sensor("swarm.port")
+            enricher.targetSensor: $brooklyn:sensor("swarm.endpoint.public")
             enricher.targetValue:
               $brooklyn:formatString:
                 - "%s:%d"
@@ -561,12 +692,12 @@ brooklyn.catalog:
           brooklyn.config:
             uniqueTag: swarm-url-publisher
             enricher.triggerSensors:
-              - swarm.endpoint
+              - $brooklyn:sensor("swarm.endpoint.public")
             enricher.targetSensor: $brooklyn:sensor("swarm.url")
             enricher.targetValue:
               $brooklyn:formatString:
                 - "tcp://%s"
-                - $brooklyn:attributeWhenReady("swarm.endpoint")
+                - $brooklyn:attributeWhenReady("swarm.endpoint.public")
 
       brooklyn.initializers:
         - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
