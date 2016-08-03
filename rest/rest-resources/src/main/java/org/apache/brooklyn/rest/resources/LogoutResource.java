@@ -62,6 +62,13 @@ public class LogoutResource extends AbstractBrooklynRestResource implements Logo
     }
 
     @Override
+    public Response unAuthorize() {
+        return Response.status(Status.UNAUTHORIZED)
+            .header(HttpHeaders.WWW_AUTHENTICATE, BASIC_REALM_WEBCONSOLE)
+            .build();
+    }
+
+    @Override
     public Response logoutUser(String user) {
         // Will work when switching users, but will keep re-authenticating if user types in same user name.
         // Could improve by keeping state in cookies to decide whether to request auth or declare successfull re-auth.
