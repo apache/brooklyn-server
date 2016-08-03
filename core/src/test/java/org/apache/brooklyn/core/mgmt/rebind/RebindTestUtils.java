@@ -153,6 +153,7 @@ public class RebindTestUtils {
         boolean forLive;
         boolean enableOsgi = false;
         boolean emptyCatalog;
+        private boolean enablePersistenceBackups = true;
         
         ManagementContextBuilder(File mementoDir, ClassLoader classLoader) {
             this(classLoader, new FileBasedObjectStore(mementoDir));
@@ -185,6 +186,10 @@ public class RebindTestUtils {
             return this;
         }
 
+        public ManagementContextBuilder enablePersistenceBackups(boolean val) {
+            this.enablePersistenceBackups  = val;
+            return this;
+        }
         public ManagementContextBuilder enableOsgi(boolean val) {
             this.enableOsgi = val;
             return this;
@@ -207,6 +212,11 @@ public class RebindTestUtils {
                     : BrooklynProperties.Factory.newDefault();
             if (this.emptyCatalog) {
                 properties.putIfAbsent(BrooklynServerConfig.BROOKLYN_CATALOG_URL, ManagementContextInternal.EMPTY_CATALOG_URL);
+            }
+            if (!enablePersistenceBackups) {
+                properties.putIfAbsent(BrooklynServerConfig.PERSISTENCE_BACKUPS_REQUIRED_ON_DEMOTION, false);
+                properties.putIfAbsent(BrooklynServerConfig.PERSISTENCE_BACKUPS_REQUIRED_ON_PROMOTION, false);
+                properties.putIfAbsent(BrooklynServerConfig.PERSISTENCE_BACKUPS_REQUIRED, false);
             }
             if (forLive) {
                 unstarted = new LocalManagementContext(properties);

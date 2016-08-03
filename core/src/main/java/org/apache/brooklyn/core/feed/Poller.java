@@ -148,7 +148,7 @@ public class Poller<V> {
                         DynamicSequentialTask<Void> task = new DynamicSequentialTask<Void>(MutableMap.of("displayName", scheduleName, "entity", entity), 
                             new Callable<Void>() { public Void call() {
                                 if (onlyIfServiceUp && !Boolean.TRUE.equals(entity.getAttribute(Attributes.SERVICE_UP))) {
-                                        return null;
+                                    return null;
                                 }
                                 pollJob.wrappedJob.run();
                                 return null; 
