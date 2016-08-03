@@ -147,6 +147,9 @@ public class Poller<V> {
                     public Task<?> call() {
                         DynamicSequentialTask<Void> task = new DynamicSequentialTask<Void>(MutableMap.of("displayName", scheduleName, "entity", entity), 
                             new Callable<Void>() { public Void call() {
+                                if (!Entities.isManaged(entity)) {
+                                    return null;
+                                }
                                 if (onlyIfServiceUp && !Boolean.TRUE.equals(entity.getAttribute(Attributes.SERVICE_UP))) {
                                     return null;
                                 }
