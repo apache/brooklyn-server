@@ -421,6 +421,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
     public void setEntity(EntityLocal entity) {
         if (destroyed.get()) throw new IllegalStateException("Cannot set entity on a destroyed entity adjunct");
         this.entity = entity;
+        this.execution = ((EntityInternal) entity).getExecutionContext();
         if (entity!=null && getCatalogItemId() == null) {
             setCatalogItemId(entity.getCatalogItemId());
         }
