@@ -297,16 +297,12 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
         serviceProcessIsRunning = FunctionFeed.builder()
                 .entity(this)
                 .period(period)
-                .poll(new FunctionPollConfig<Object, Boolean>(SERVICE_PROCESS_IS_RUNNING)
+                .poll(new FunctionPollConfig<Boolean, Boolean>(SERVICE_PROCESS_IS_RUNNING)
                         .suppressDuplicates(true)
                         .onException(Functions.constant(Boolean.FALSE))
-                        .callable(new Callable<Object>() {
-                            public Object call() {
-                                if (Entities.isManaged(SoftwareProcessImpl.this)) {
-                                    return SoftwareProcessImpl.this.getDriver().isRunning();
-                                } else {
-                                    return Entities.UNCHANGED;
-                                }
+                        .callable(new Callable<Boolean>() {
+                            public Boolean call() {
+                                return getDriver().isRunning();
                             }
                         }))
                 .build();
