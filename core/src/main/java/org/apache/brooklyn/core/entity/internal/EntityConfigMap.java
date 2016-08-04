@@ -26,6 +26,13 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Predicate;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
+
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigInheritance;
@@ -35,7 +42,6 @@ import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.config.StructuredConfigKey;
 import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
 import org.apache.brooklyn.core.entity.AbstractEntity;
-import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.util.collections.CollectionMerger;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -44,12 +50,6 @@ import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.internal.ConfigKeySelfExtracting;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Predicate;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 
 public class EntityConfigMap extends AbstractConfigMapImpl {
 
@@ -96,7 +96,7 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
         
         // TODO Confirm desired behaviour: I switched this around to get ownKey.getParentInheritance first.
         ConfigInheritance inheritance = ownKey.getParentInheritance();
-        if (inheritance==null) inheritance = key.getInheritance(); 
+        if (inheritance==null) inheritance = key.getParentInheritance();
         if (inheritance==null) {
             // TODO we could warn by introducing a temporary "ALWAYS_BUT_WARNING" instance
             inheritance = getDefaultParentInheritance(); 
@@ -132,7 +132,11 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
 
         // Get own value
         if (((ConfigKeySelfExtracting<T>)key).isSet(ownConfig)) {
-            ownValue = Maybe.of(((ConfigKeySelfExtracting<T>)key).extractValue(ownConfig, exec));
+            Map<ConfigKey<?>, ?> ownCopy = null;
+            synchronized (ownConfig) {
+                ownCopy = MutableMap.copyOf(ownConfig);
+            }
+            ownValue = Maybe.of(((ConfigKeySelfExtracting<T>) key).extractValue(ownCopy, exec));
         } else if (localConfigBag.containsKey(key)) {
             // TODO configBag.get doesn't handle tasks/attributeWhenReady - it only uses TypeCoercions
             // Precedence ordering has changed; previously we'd prefer an explicit isSet(inheritedConfig)
@@ -141,7 +145,7 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
         } else {
             ownValue = Maybe.<T>absent();
         }
-        
+
         // Get the parent-inheritance value (but only if we'll need it)
         switch (parentInheritance) {
         case IF_NO_EXPLICIT_VALUE:
@@ -271,10 +275,12 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
     }
     
     public void setLocalConfig(Map<ConfigKey<?>, ?> vals) {
-        ownConfig.clear();
-        localConfigBag.clear();
-        ownConfig.putAll(vals);
-        localConfigBag.putAll(vals);
+        synchronized (ownConfig) {
+            ownConfig.clear();
+            localConfigBag.clear();
+            ownConfig.putAll(vals);
+            localConfigBag.putAll(vals);
+        }
     }
     
     public void setInheritedConfig(Map<ConfigKey<?>, ?> valsO, ConfigBag configBagVals) {
@@ -355,13 +361,17 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
     @Override
     public EntityConfigMap submap(Predicate<ConfigKey<?>> filter) {
         EntityConfigMap m = new EntityConfigMap(entity, Maps.<ConfigKey<?>, Object>newLinkedHashMap());
-        for (Map.Entry<ConfigKey<?>,Object> entry: inheritedConfig.entrySet())
-            if (filter.apply(entry.getKey()))
+        for (Map.Entry<ConfigKey<?>,Object> entry: inheritedConfig.entrySet()) {
+            if (filter.apply(entry.getKey())) {
                 m.inheritedConfig.put(entry.getKey(), entry.getValue());
+            }
+        }
         synchronized (ownConfig) {
-            for (Map.Entry<ConfigKey<?>,Object> entry: ownConfig.entrySet())
-                if (filter.apply(entry.getKey()))
+            for (Map.Entry<ConfigKey<?>,Object> entry: ownConfig.entrySet()) {
+                if (filter.apply(entry.getKey())) {
                     m.ownConfig.put(entry.getKey(), entry.getValue());
+                }
+            }
         }
         return m;
     }
