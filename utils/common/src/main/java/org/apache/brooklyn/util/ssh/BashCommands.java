@@ -608,14 +608,17 @@ public class BashCommands {
      */
     public static String installJava(int version) {
         Preconditions.checkArgument(version == 6 || version == 7 || version == 8, "Supported Java versions are 6, 7, or 8");
-        return installPackageOr(MutableMap.of("apt", "openjdk-" + version + "-jdk","yum", "java-1." + version + ".0-openjdk-devel"), null,
+        List<String> commands = new LinkedList<String>();
+        commands.add(installPackageOr(MutableMap.of("apt", "openjdk-" + version + "-jdk","yum", "java-1." + version + ".0-openjdk-devel"), null,
                 ifExecutableElse1("zypper", chainGroup(
                         ok(sudo("zypper --non-interactive addrepo http://download.opensuse.org/repositories/Java:/openjdk6:/Factory/SLE_11_SP3 java_sles_11")),
                         ok(sudo("zypper --non-interactive addrepo http://download.opensuse.org/repositories/Java:/openjdk6:/Factory/openSUSE_11.4 java_suse_11")),
                         ok(sudo("zypper --non-interactive addrepo http://download.opensuse.org/repositories/Java:/openjdk6:/Factory/openSUSE_12.3 java_suse_12")),
                         ok(sudo("zypper --non-interactive addrepo http://download.opensuse.org/repositories/Java:/openjdk6:/Factory/openSUSE_13.1 java_suse_13")),
                         alternatives(installPackageOrFail(MutableMap.of("zypper", "java-1_" + version + "_0-openjdk-devel"), null),
-                                installPackageOrFail(MutableMap.of("zypper", "java-1_" + version + "_0-ibm"), null)))));
+                                installPackageOrFail(MutableMap.of("zypper", "java-1_" + version + "_0-ibm"), null))))));
+        commands.add(ok(upgradeNSS()));
+        return chainGroup(commands);
     }
 
     public static String installJava6() {
@@ -653,6 +656,16 @@ public class BashCommands {
 
     public static String installJavaLatestOrWarn() {
         return alternatives(installJava8(), installJava7(), installJava6(), warn("java latest install failed, entity may subsequently fail"));
+    }
+
+    /**
+     * Returns a command which upgrades NSS on Yum based machines - Addresses https://issues.apache.org/jira/browse/BROOKLYN-320
+     * @return command
+     */
+    public static String upgradeNSS(){
+        return chainGroup(
+                "which yum",
+                sudo("yum -y upgrade nss"));
     }
 
     /** cats the given text to the given command, using bash << multi-line input syntax */
