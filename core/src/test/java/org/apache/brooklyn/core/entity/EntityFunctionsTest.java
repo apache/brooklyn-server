@@ -49,6 +49,9 @@ public class EntityFunctionsTest extends BrooklynAppUnitTestSupport {
     public void testAttribute() throws Exception {
         entity.sensors().set(TestEntity.NAME, "myname");
         assertEquals(EntityFunctions.attribute(TestEntity.NAME).apply(entity), "myname");
+        assertEquals(EntityFunctions.attribute(TestEntity.NAME.getName()).apply(entity), "myname");
+        assertEquals(EntityFunctions.attribute(TestEntity.NAME, "%s - suffix").apply(entity), "myname - suffix");
+        assertEquals(EntityFunctions.attribute(TestEntity.NAME.getName(), "%s - suffix").apply(entity), "myname - suffix");
         assertNull(EntityFunctions.attribute(TestEntity.SEQUENCE).apply(entity));
     }
 
@@ -57,24 +60,27 @@ public class EntityFunctionsTest extends BrooklynAppUnitTestSupport {
         entity.sensors().set(TestEntity.NAME, "myname");
         assertEquals(EntityFunctions.attribute(entity, TestEntity.NAME).apply(new Object()), "myname");
     }
-    
+
     @Test
     public void testConfig() throws Exception {
         entity.config().set(TestEntity.CONF_NAME, "myname");
         assertEquals(EntityFunctions.config(TestEntity.CONF_NAME).apply(entity), "myname");
+        assertEquals(EntityFunctions.config(TestEntity.CONF_NAME.getName()).apply(entity), "myname");
+        assertEquals(EntityFunctions.config(TestEntity.CONF_NAME, "%s - suffix").apply(entity), "myname - suffix");
+        assertEquals(EntityFunctions.config(TestEntity.CONF_NAME.getName(), "%s - suffix").apply(entity), "myname - suffix");
         assertNull(EntityFunctions.config(TestEntity.CONF_OBJECT).apply(entity));
     }
-    
+
     @Test
     public void testDisplayName() throws Exception {
         assertEquals(EntityFunctions.displayName().apply(entity), "mydisplayname");
     }
-    
+
     @Test
     public void testId() throws Exception {
         assertEquals(EntityFunctions.id().apply(entity), entity.getId());
     }
-    
+
     @Test
     public void testLocationMatching() throws Exception {
         entity.addLocations(ImmutableList.of(loc));
