@@ -53,7 +53,20 @@ public class ObjectsYamlTest extends AbstractYamlTest {
         private Integer number;
         private Object object;
 
+        // Factory method.
+        public static TestObject newTestObject(String string, Integer number, Object object) {
+            return new TestObject(string + "-suffix", number + 1, object);
+        }
+
+        // No-arg constructor.
         public TestObject() { }
+
+        // Parameterised constructor.
+        public TestObject(String string, Integer number, Object object) {
+            this.string = string;
+            this.number = number;
+            this.object = object;
+        }
 
         public String getString() { return string; }
         public void setString(String string) { this.string = string; }
@@ -270,6 +283,57 @@ public class ObjectsYamlTest extends AbstractYamlTest {
         Assert.assertTrue(managementContextInjected.get());
         Assert.assertEquals(((TestObject) testObject).getNumber(), Integer.valueOf(7));
         Assert.assertEquals(((TestObject) testObject).getString(), "frog");
+
+        Object testObjectObject = ((TestObject) testObject).getObject();
+        Assert.assertTrue(testObjectObject instanceof SimpleTestPojo, "Expected a SimpleTestPojo: "+testObjectObject);
+    }
+
+    @Test
+    public void testBrooklynObjectWithParameterisedConstructor() throws Exception {
+        Entity testEntity = setupAndCheckTestEntityInBasicYamlWith(
+            "  brooklyn.config:",
+            "    test.confObject:",
+            "      $brooklyn:object:",
+            "        type: "+ObjectsYamlTest.class.getName()+"$TestObject",
+            "        constructor.args:",
+            "        - frog",
+            "        - 7",
+            "        - $brooklyn:object:",
+            "            type: org.apache.brooklyn.camp.brooklyn.SimpleTestPojo"
+        );
+
+        Object testObject = testEntity.getConfig(TestEntity.CONF_OBJECT);
+
+        Assert.assertTrue(testObject instanceof TestObject, "Expected a TestObject: "+testObject);
+        Assert.assertTrue(managementContextInjected.get());
+        Assert.assertEquals(((TestObject) testObject).getNumber(), Integer.valueOf(7));
+        Assert.assertEquals(((TestObject) testObject).getString(), "frog");
+
+        Object testObjectObject = ((TestObject) testObject).getObject();
+        Assert.assertTrue(testObjectObject instanceof SimpleTestPojo, "Expected a SimpleTestPojo: "+testObjectObject);
+    }
+
+    @Test
+    public void testBrooklynObjectWithFactoryMethod() throws Exception {
+        Entity testEntity = setupAndCheckTestEntityInBasicYamlWith(
+            "  brooklyn.config:",
+            "    test.confObject:",
+            "      $brooklyn:object:",
+            "        type: "+ObjectsYamlTest.class.getName()+"$TestObject",
+            "        factoryMethod.name: newTestObject",
+            "        factoryMethod.args:",
+            "        - frog",
+            "        - 7",
+            "        - $brooklyn:object:",
+            "            type: org.apache.brooklyn.camp.brooklyn.SimpleTestPojo"
+        );
+
+        Object testObject = testEntity.getConfig(TestEntity.CONF_OBJECT);
+
+        Assert.assertTrue(testObject instanceof TestObject, "Expected a TestObject: "+testObject);
+        Assert.assertTrue(managementContextInjected.get());
+        Assert.assertEquals(((TestObject) testObject).getNumber(), Integer.valueOf(8));
+        Assert.assertEquals(((TestObject) testObject).getString(), "frog-suffix");
 
         Object testObjectObject = ((TestObject) testObject).getObject();
         Assert.assertTrue(testObjectObject instanceof SimpleTestPojo, "Expected a SimpleTestPojo: "+testObjectObject);
