@@ -32,7 +32,6 @@ import org.testng.annotations.Test;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
@@ -539,25 +538,30 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         List<SpecParameter<?>> params = spec.getParameters();
         assertEquals(params.size(), 3);
         assertTrue(Iterables.tryFind(params, nameEqualTo("num")).isPresent());
-
+        
         Application app = (Application) createAndStartApplication(
                 "services:",
                 "  - type: " + ver(SYMBOLIC_NAME));
-
-        Optional<Entity> s = Iterables.tryFind(mgmt().getEntityManager().getEntitiesInApplication(app), EntityPredicates.displayNameEqualTo("s"));
-        assertTrue(s.isPresent());
-        assertEquals(s.get().config().get(ConfigKeys.newIntegerConfigKey("test")).intValue(), 1234);
 
         Iterable<Entity> children = app.getChildren();
         Optional<Entity> a = Iterables.tryFind(children, EntityPredicates.displayNameEqualTo("a"));
         assertTrue(a.isPresent());
         assertEquals(a.get().config().get(NUM).intValue(), 1234);
+        Optional<Entity> as = Iterables.tryFind(a.get().getChildren(), EntityPredicates.displayNameEqualTo("s"));
+        assertTrue(as.isPresent());
+        assertEquals(as.get().config().get(ConfigKeys.newIntegerConfigKey("test")).intValue(), 1234);
         Optional<Entity> b = Iterables.tryFind(children, EntityPredicates.displayNameEqualTo("b"));
         assertTrue(b.isPresent());
         assertEquals(b.get().config().get(NUM).intValue(), 5678);
+        Optional<Entity> bs = Iterables.tryFind(b.get().getChildren(), EntityPredicates.displayNameEqualTo("s"));
+        assertTrue(bs.isPresent());
+        assertEquals(bs.get().config().get(ConfigKeys.newIntegerConfigKey("test")).intValue(), 5678);
         Optional<Entity> c = Iterables.tryFind(children, EntityPredicates.displayNameEqualTo("c"));
         assertTrue(c.isPresent());
         assertEquals(c.get().config().get(ConfigKeys.newIntegerConfigKey("test")).intValue(), 1234);
+        Optional<Entity> cs = Iterables.tryFind(c.get().getChildren(), EntityPredicates.displayNameEqualTo("s"));
+        assertTrue(cs.isPresent());
+        assertEquals(cs.get().config().get(ConfigKeys.newIntegerConfigKey("test")).intValue(), 1234);
     }
 
     @Test
