@@ -28,11 +28,9 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
-import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,6 +38,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.Callables;
 
@@ -83,7 +82,7 @@ public class Repeater implements Callable<Boolean> {
     private Duration timeLimit = null;
     private int iterationLimit = 0;
     private boolean rethrowException = false;
-    private boolean rethrowExceptionImmediately = false;
+    private Predicate<? super Throwable> rethrowImmediatelyCondition = Exceptions.isFatalPredicate();
     private boolean warnOnUnRethrownException = true;
 
     public Repeater() {
@@ -243,7 +242,12 @@ public class Repeater implements Callable<Boolean> {
      * @return {@literal this} to aid coding in a fluent style.
      */
     public Repeater rethrowExceptionImmediately() {
-        this.rethrowExceptionImmediately = true;
+        this.rethrowImmediatelyCondition = Predicates.alwaysTrue();
+        return this;
+    }
+
+    public Repeater rethrowExceptionImmediately(Predicate<? super Throwable> val) {
+        this.rethrowImmediatelyCondition = checkNotNull(val, "rethrowExceptionImmediately predicate");
         return this;
     }
 
@@ -321,19 +325,19 @@ public class Repeater implements Callable<Boolean> {
 
             try {
                 body.call();
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 log.warn(description, e);
-                if (rethrowExceptionImmediately) throw Exceptions.propagate(e);
+                if (rethrowImmediatelyCondition.apply(e)) throw Exceptions.propagate(e);
             }
 
             boolean done = false;
             try {
                 lastError = null;
                 done = exitCondition.call();
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 if (log.isDebugEnabled()) log.debug(description, e);
                 lastError = e;
-                if (rethrowExceptionImmediately) throw Exceptions.propagate(e);
+                if (rethrowImmediatelyCondition.apply(e)) throw Exceptions.propagate(e);
             }
             if (done) {
                 if (log.isDebugEnabled()) log.debug("{}: condition satisfied", description);

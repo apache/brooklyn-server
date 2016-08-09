@@ -24,20 +24,19 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
+import org.apache.brooklyn.test.framework.TestFrameworkAssertions.AssertionOptions;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.http.HttpTool;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-
-import org.apache.brooklyn.api.location.Location;
-import org.apache.brooklyn.core.entity.Attributes;
-import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
-import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.http.HttpTool;
-import org.apache.brooklyn.util.time.Duration;
 
 /**
  * {@inheritDoc}
@@ -50,24 +49,29 @@ public class TestHttpCallImpl extends TargetableTestComponentImpl implements Tes
      * {@inheritDoc}
      */
     public void start(Collection<? extends Location> locations) {
-        if (!getChildren().isEmpty()) {
-            throw new RuntimeException(String.format("The entity [%s] cannot have child entities", getClass().getName()));
-        }
+        String url = null;
+        
         ServiceStateLogic.setExpectedState(this, Lifecycle.STARTING);
-        final String url = getConfig(TARGET_URL);
-        final List<Map<String, Object>> assertions = getAssertions(this, ASSERTIONS);
-        final Duration timeout = getConfig(TIMEOUT);
-        final HttpAssertionTarget target = getConfig(ASSERTION_TARGET);
 
         try {
+            url = getRequiredConfig(TARGET_URL);
+            final List<Map<String, Object>> assertions = getAssertions(this, ASSERTIONS);
+            final Duration timeout = getConfig(TIMEOUT);
+            final HttpAssertionTarget target = getRequiredConfig(ASSERTION_TARGET);
+            if (!getChildren().isEmpty()) {
+                throw new RuntimeException(String.format("The entity [%s] cannot have child entities", getClass().getName()));
+            }
+            
             doRequestAndCheckAssertions(ImmutableMap.of("timeout", timeout), assertions, target, url);
-            sensors().set(Attributes.SERVICE_UP, true);
-            ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
+            setUpAndRunState(true, Lifecycle.RUNNING);
 
         } catch (Throwable t) {
-            LOG.info("{} Url [{}] test failed", this, url);
-            sensors().set(Attributes.SERVICE_UP, false);
-            ServiceStateLogic.setExpectedState(this, Lifecycle.ON_FIRE);
+            if (url != null) {
+                LOG.info("{} Url [{}] test failed (rethrowing)", this, url);
+            } else {
+                LOG.info("{} Url test failed (no url; rethrowing)", this);
+            }
+            setUpAndRunState(false, Lifecycle.ON_FIRE);
             throw Exceptions.propagate(t);
         }
     }
@@ -82,7 +86,8 @@ public class TestHttpCallImpl extends TargetableTestComponentImpl implements Tes
                         return HttpTool.getContent(url);
                     }
                 };
-                TestFrameworkAssertions.checkAssertions(flags, assertions, target.toString(), getBody);
+                TestFrameworkAssertions.checkAssertionsEventually(new AssertionOptions(target.toString(), getBody)
+                        .flags(flags).assertions(assertions));
                 break;
             case status:
                 Supplier<Integer> getStatusCode = new Supplier<Integer>() {
@@ -96,7 +101,8 @@ public class TestHttpCallImpl extends TargetableTestComponentImpl implements Tes
                         }
                     }
                 };
-                TestFrameworkAssertions.checkAssertions(flags, assertions, target.toString(), getStatusCode);
+                TestFrameworkAssertions.checkAssertionsEventually(new AssertionOptions(target.toString(), getStatusCode)
+                        .flags(flags).assertions(assertions));
                 break;
             default:
                 throw new RuntimeException("Unexpected assertion target (" + target + ")");
@@ -107,8 +113,7 @@ public class TestHttpCallImpl extends TargetableTestComponentImpl implements Tes
      * {@inheritDoc}
      */
     public void stop() {
-        ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPED);
-        sensors().set(Attributes.SERVICE_UP, false);
+        setUpAndRunState(false, Lifecycle.STOPPED);
     }
 
     /**

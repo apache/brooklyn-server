@@ -18,29 +18,30 @@
  */
 package org.apache.brooklyn.test.framework;
 
+import static org.apache.brooklyn.test.framework.TestFrameworkAssertions.getAbortConditions;
 import static org.apache.brooklyn.test.framework.TestFrameworkAssertions.getAssertions;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Objects;
-import com.google.common.base.Predicate;
-import com.google.common.base.Supplier;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.test.framework.TestFrameworkAssertions.AssertionOptions;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Objects;
+import com.google.common.base.Predicate;
+import com.google.common.base.Supplier;
+import com.google.common.collect.Lists;
 
 /**
  * {@inheritDoc}
@@ -53,30 +54,37 @@ public class TestSensorImpl extends TargetableTestComponentImpl implements TestS
      * {@inheritDoc}
      */
     public void start(Collection<? extends Location> locations) {
-        if (!getChildren().isEmpty()) {
-            throw new RuntimeException(String.format("The entity [%s] cannot have child entities", getClass().getName()));
-        }
+        final AtomicReference<String> sensor = new AtomicReference<>();
+        
         ServiceStateLogic.setExpectedState(this, Lifecycle.STARTING);
-        final Entity target = resolveTarget();
-        final String sensor = getConfig(SENSOR_NAME);
-        final Duration timeout = getConfig(TIMEOUT);
-        final List<Map<String, Object>> assertions = getAssertions(this, ASSERTIONS);
         try {
-            TestFrameworkAssertions.checkAssertions(ImmutableMap.of("timeout", timeout), assertions, sensor,
-                new Supplier<Object>() {
+            sensor.set(getRequiredConfig(SENSOR_NAME));
+            final Entity target = resolveTarget();
+            final Duration timeout = getConfig(TIMEOUT);
+            final List<Map<String, Object>> assertions = getAssertions(this, ASSERTIONS);
+            final List<Map<String, Object>> abortConditions = getAbortConditions(this, ABORT_CONDITIONS);
+            if (!getChildren().isEmpty()) {
+                throw new RuntimeException(String.format("The entity [%s] cannot have child entities", getClass().getName()));
+            }
+            
+            Supplier<?> supplier = new Supplier<Object>() {
                 @Override
                 public Object get() {
-                    final Object sensorValue = target.sensors().get(Sensors.newSensor(Object.class, sensor));
+                    final Object sensorValue = target.sensors().get(Sensors.newSensor(Object.class, sensor.get()));
                     return sensorValue;
                 }
-            });
+            };
+            TestFrameworkAssertions.checkAssertionsEventually(new AssertionOptions(sensor.get(), supplier).timeout(timeout)
+                    .assertions(assertions).abortConditions(abortConditions));
 
-            sensors().set(SERVICE_UP, true);
-            ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
+            setUpAndRunState(true, Lifecycle.RUNNING);
         } catch (Throwable t) {
-            LOG.debug("Sensor [{}] test failed", sensor);
-            sensors().set(SERVICE_UP, false);
-            ServiceStateLogic.setExpectedState(this, Lifecycle.ON_FIRE);
+            if (sensor.get() != null) {
+                LOG.debug("Sensor [{}] test failed for {} (rethrowing)", sensor, TestSensorImpl.this);
+            } else {
+                LOG.debug("Sensor test failed for {} (no sensor; rethrowing)", TestSensorImpl.this);
+            }
+            setUpAndRunState(false, Lifecycle.ON_FIRE);
             throw Exceptions.propagate(t);
         }
     }
@@ -86,8 +94,7 @@ public class TestSensorImpl extends TargetableTestComponentImpl implements TestS
      * {@inheritDoc}
      */
     public void stop() {
-        ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPED);
-        sensors().set(SERVICE_UP, false);
+        setUpAndRunState(false, Lifecycle.STOPPED);
     }
 
     /**

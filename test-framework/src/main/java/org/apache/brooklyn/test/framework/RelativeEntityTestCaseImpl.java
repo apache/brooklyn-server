@@ -44,12 +44,15 @@ public class RelativeEntityTestCaseImpl extends TargetableTestComponentImpl impl
     public Entity resolveTarget() {
         Entity anchor = config().get(ANCHOR);
         if (anchor == null) {
-            anchor = super.resolveTarget();
-        }
-        if (anchor == null) {
-            throw new IllegalArgumentException("No anchor entity found for " + this);
+            Maybe<Entity> resolvedTarget = tryResolveTarget();
+            if (resolvedTarget.isPresent()) {
+                anchor = resolvedTarget.get();
+            } else {
+                throw new IllegalArgumentException("No anchor entity found for " + this);
+            }
         }
         sensors().set(ANCHOR, anchor);
+        
         Maybe<Object> component = config().getRaw(COMPONENT);
         if (component.isAbsentOrNull()) {
             throw new IllegalArgumentException("No component found for " + this);

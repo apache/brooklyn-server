@@ -25,60 +25,53 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.location.LocationSpec;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
-import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.framework.entity.TestEntity;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
 import org.apache.brooklyn.util.text.Identifiers;
-import org.testng.annotations.AfterMethod;
+import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 
-public class TestEffectorTest {
+public class TestEffectorTest extends BrooklynAppUnitTestSupport {
 
-    private TestApplication app;
-    private ManagementContext managementContext;
-    @SuppressWarnings("unused")
-    private LocalhostMachineProvisioningLocation loc;
+    private List<Location> locs = ImmutableList.of();
     private String testId;
 
-    @BeforeMethod
-    public void setup() {
+    private TestCase testCase;
+    private TestEntity testEntity;
+
+    @BeforeMethod(alwaysRun=true)
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
         testId = Identifiers.makeRandomId(8);
-        app = TestApplication.Factory.newManagedInstanceForTests();
-        managementContext = app.getManagementContext();
-
-        loc = managementContext.getLocationManager()
-                .createLocation(LocationSpec.create(LocalhostMachineProvisioningLocation.class)
-                .configure("name", testId));
-
+        testCase = app.createAndManageChild(EntitySpec.create(TestCase.class));
+        testEntity = testCase.addChild(EntitySpec.create(TestEntity.class));
     }
-
-
-    @AfterMethod(alwaysRun = true)
-    public void tearDown() throws Exception {
-        if (app != null) Entities.destroyAll(app.getManagementContext());
-    }
-
 
     @Test
-    public void testSimpleEffector() {
-        final TestCase testCase = app.createAndManageChild(EntitySpec.create(TestCase.class));
-        final TestEntity testEntity = testCase.addChild(EntitySpec.create(TestEntity.class));
-
-
+    public void testSimpleEffector() throws Exception {
         final TestEffector testEffector = testCase.addChild(EntitySpec.create(TestEffector.class)
                 .configure(TestEffector.TARGET_ENTITY, testEntity)
                 .configure(TestEffector.EFFECTOR_NAME, "simpleEffector"));
 
-        app.start(ImmutableList.of(app.newSimulatedLocation()));
+        app.start(locs);
 
         assertThat(testEntity.sensors().get(TestEntity.SIMPLE_EFFECTOR_INVOKED)).isNotNull();
         assertThat(testEntity.sensors().get(TestEntity.SIMPLE_EFFECTOR_INVOKED)).isTrue();
@@ -87,10 +80,26 @@ public class TestEffectorTest {
     }
 
     @Test
-    public void testEffectorPositiveAssertions() {
-        final TestCase testCase = app.createAndManageChild(EntitySpec.create(TestCase.class));
-        final TestEntity testEntity = testCase.addChild(EntitySpec.create(TestEntity.class));
+    public void testEffectorReturnsInt() throws Exception {
+        int intToReturn = 123;
+        
+        List<Map<String, Object>> assertions = ImmutableList.<Map<String, Object>>of(
+                ImmutableMap.<String, Object>of(TestFrameworkAssertions.EQUAL_TO, intToReturn));
 
+        final TestEffector testEffector = testCase.addChild(EntitySpec.create(TestEffector.class)
+                .configure(TestEffector.TARGET_ENTITY, testEntity)
+                .configure(TestEffector.EFFECTOR_NAME, "effectorReturnsInt")
+                .configure(TestEffector.EFFECTOR_PARAMS, ImmutableMap.of("intToReturn", intToReturn))
+                .configure(TestEffector.ASSERTIONS, assertions));
+
+        app.start(locs);
+
+        assertThat(testEffector.sensors().get(TestEffector.EFFECTOR_RESULT)).isEqualTo(123);
+        assertThat(testEffector.sensors().get(SERVICE_UP)).isTrue();
+    }
+
+    @Test
+    public void testEffectorPositiveAssertions() throws Exception {
         String stringToReturn = "Hello World!";
 
         Map<String, String> effectorParams = ImmutableMap.of("stringToReturn", stringToReturn);
@@ -106,17 +115,14 @@ public class TestEffectorTest {
                 .configure(TestEffector.EFFECTOR_PARAMS, effectorParams)
                 .configure(TestEffector.ASSERTIONS, assertions));
 
-        app.start(ImmutableList.of(app.newSimulatedLocation()));
+        app.start(locs);
 
         assertThat(testEffector.sensors().get(TestEffector.EFFECTOR_RESULT)).isEqualTo(stringToReturn);
         assertThat(testEffector.sensors().get(SERVICE_UP)).isTrue().withFailMessage("Service should be up");
     }
 
     @Test
-    public void testEffectorNegativeAssertions() {
-        final TestCase testCase = app.createAndManageChild(EntitySpec.create(TestCase.class));
-        final TestEntity testEntity = testCase.addChild(EntitySpec.create(TestEntity.class));
-
+    public void testEffectorNegativeAssertions() throws Exception {
         String stringToReturn = "Goodbye World!";
 
         Map<String, String> effectorParams = ImmutableMap.of("stringToReturn", stringToReturn);
@@ -132,21 +138,12 @@ public class TestEffectorTest {
                 .configure(TestEffector.EFFECTOR_PARAMS, effectorParams)
                 .configure(TestEffector.ASSERTIONS, assertions));
 
-        try {
-            app.start(ImmutableList.of(app.newSimulatedLocation()));
-            Asserts.shouldHaveFailedPreviously();
-        } catch (Throwable throwable) {
-            Asserts.expectedFailureOfType(throwable, AssertionError.class);
-        }
-
+        assertStartFails(app, AssertionError.class);
         assertThat(testEffector.sensors().get(SERVICE_UP)).isFalse().withFailMessage("Service should not be up");
     }
 
     @Test
-    public void testComplexffector() {
-        final TestCase testCase = app.createAndManageChild(EntitySpec.create(TestCase.class));
-        final TestEntity testEntity = testCase.addChild(EntitySpec.create(TestEntity.class));
-
+    public void testComplexffector() throws Exception {
         final long expectedLongValue = System.currentTimeMillis();
         final boolean expectedBooleanValue = expectedLongValue % 2 == 0;
 
@@ -158,7 +155,7 @@ public class TestEffectorTest {
                         "booleanValue", expectedBooleanValue,
                         "longValue", expectedLongValue)));
 
-        app.start(ImmutableList.of(app.newSimulatedLocation()));
+        app.start(locs);
 
         assertThat(testEntity.sensors().get(TestEntity.SIMPLE_EFFECTOR_INVOKED)).isNull();
         assertThat(testEntity.sensors().get(TestEntity.COMPLEX_EFFECTOR_INVOKED)).isNotNull();
@@ -183,4 +180,59 @@ public class TestEffectorTest {
 
     }
 
+    @Test
+    public void testEffectorTimeout() throws Exception {
+        testCase.addChild(EntitySpec.create(TestEffector.class)
+                .configure(TestEffector.TIMEOUT, Duration.millis(10))
+                .configure(TestEffector.TARGET_ENTITY, testEntity)
+                .configure(TestEffector.EFFECTOR_NAME, "effectorHangs"));
+
+        assertStartFails(app, AssertionError.class, Asserts.DEFAULT_LONG_TIMEOUT);
+    }
+
+    @Test
+    public void testFailFastIfNoTargetEntity() throws Exception {
+        testCase.addChild(EntitySpec.create(TestEffector.class)
+                .configure(TestEffector.EFFECTOR_NAME, "simpleEffector"));
+
+        assertStartFails(app, IllegalStateException.class, Asserts.DEFAULT_LONG_TIMEOUT);
+    }
+
+    @Test
+    public void testFailFastIfNoEffector() throws Exception {
+        testCase.addChild(EntitySpec.create(TestEffector.class)
+                .configure(TestEffector.TARGET_ENTITY, testEntity));
+
+        assertStartFails(app, NullPointerException.class, Asserts.DEFAULT_LONG_TIMEOUT);
+    }
+
+    protected void assertStartFails(TestApplication app, Class<? extends Throwable> clazz) throws Exception {
+        assertStartFails(app, clazz, null);
+    }
+    
+    protected void assertStartFails(final TestApplication app, final Class<? extends Throwable> clazz, Duration execTimeout) throws Exception {
+        Runnable task = new Runnable() {
+            public void run() {
+                try {
+                    app.start(locs);
+                    Asserts.shouldHaveFailedPreviously();
+                } catch (final PropagatedRuntimeException pre) {
+                    final Throwable throwable = Exceptions.getFirstThrowableOfType(pre, clazz);
+                    if (throwable == null) {
+                        throw pre;
+                    }
+                }
+            }
+        };
+
+        if (execTimeout == null) {
+            task.run();
+        } else {
+            Asserts.assertReturnsEventually(task, execTimeout);
+        }
+
+        Entity entity = Iterables.find(Entities.descendantsWithoutSelf(app), Predicates.instanceOf(TestEffector.class));
+        EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, false);
+    }
 }

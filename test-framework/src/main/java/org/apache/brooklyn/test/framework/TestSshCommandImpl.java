@@ -89,11 +89,6 @@ public class TestSshCommandImpl extends TargetableTestComponentImpl implements T
         execute();
     }
 
-    private void setUpAndRunState(boolean up, Lifecycle status) {
-        sensors().set(SERVICE_UP, up);
-        setExpectedState(this, status);
-    }
-
     private static class Result {
         int exitCode;
         String stdout;

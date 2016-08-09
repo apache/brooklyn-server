@@ -108,13 +108,11 @@ public class TestEndpointReachableImpl extends TargetableTestComponentImpl imple
                     Asserts.assertNotNull(val);
                     assertSucceeds(assertions, val);
                 }});
-            sensors().set(Attributes.SERVICE_UP, true);
-            ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
+            setUpAndRunState(true, Lifecycle.RUNNING);
 
         } catch (Throwable t) {
             LOG.info("{} [{}] test failed", this, endpoint != null ? endpoint : endpointSensor);
-            sensors().set(Attributes.SERVICE_UP, false);
-            ServiceStateLogic.setExpectedState(this, Lifecycle.ON_FIRE);
+            setUpAndRunState(false, Lifecycle.ON_FIRE);
             throw Exceptions.propagate(t);
         }
     }
@@ -207,8 +205,7 @@ public class TestEndpointReachableImpl extends TargetableTestComponentImpl imple
      * {@inheritDoc}
      */
     public void stop() {
-        ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPED);
-        sensors().set(Attributes.SERVICE_UP, false);
+        setUpAndRunState(false, Lifecycle.STOPPED);
     }
 
     /**
