@@ -71,6 +71,7 @@ public class CleanOrphanedLocationsIntegrationTest extends AbstractCleanOrphaned
 
         BrooklynProperties brooklynProperties = BrooklynProperties.Factory.builderDefault().build();
         brooklynProperties.put(BrooklynServerConfig.MGMT_BASE_DIR.getName(), "");
+        brooklynProperties.put(BrooklynServerConfig.OSGI_CACHE_DIR, "target/" + BrooklynServerConfig.OSGI_CACHE_DIR.getDefaultValue());
 
         managementContext = new LocalManagementContext(brooklynProperties);
 
