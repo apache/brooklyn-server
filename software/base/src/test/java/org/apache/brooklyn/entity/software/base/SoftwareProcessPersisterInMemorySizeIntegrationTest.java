@@ -18,9 +18,6 @@
  */
 package org.apache.brooklyn.entity.software.base;
 
-import java.io.IOException;
-import java.util.concurrent.TimeoutException;
-
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterInMemorySizeIntegrationTest;
 import org.testng.annotations.BeforeMethod;
@@ -49,7 +46,7 @@ public class SoftwareProcessPersisterInMemorySizeIntegrationTest extends Brookly
     }
 
     // to allow selection for running in IDE
-    public void testPersistenceVolumeFast() throws IOException, TimeoutException, InterruptedException {
+    public void testPersistenceVolumeFast() throws Exception {
         super.testPersistenceVolumeFast();
     }
 
