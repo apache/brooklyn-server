@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.List;
 
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 
 public class DslParser {
     private final String expression;
@@ -52,7 +53,29 @@ public class DslParser {
         if (index >= expression.length())
             throw new IllegalStateException("Unexpected end of expression to parse, looking for content since position "+start);
         
-        if (expression.charAt(index)=='"') {
+        String multilineTemplatePrefix = "$brooklyn:template";
+        if (expression.regionMatches(index, multilineTemplatePrefix, 0, multilineTemplatePrefix.length())) {
+            // skip to next line
+            char c;
+            do {
+                c = expression.charAt(index);
+                index++;
+            } while(c != '\n' && index<expression.length());
+            if (index < expression.length()) {
+                int stringStart = index;
+                index = expression.length();
+                return new QuotedString('"' + JavaStringEscapes.escapeJavaString(expression.substring(stringStart, index)) + '"');
+            } else {
+                return new QuotedString("");
+            }
+        }
+
+        String templatePrefix = "$brooklyn:\"";
+        boolean isTemplatePrefix = expression.regionMatches(index, templatePrefix, 0, templatePrefix.length());
+        if (expression.charAt(index)=='"' || isTemplatePrefix) {
+            if (isTemplatePrefix) {
+                index += templatePrefix.length() - 1;
+            }
             // assume a string
             int stringStart = index;
             index++;

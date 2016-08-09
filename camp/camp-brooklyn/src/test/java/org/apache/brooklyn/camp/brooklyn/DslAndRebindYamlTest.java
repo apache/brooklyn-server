@@ -444,6 +444,53 @@ public class DslAndRebindYamlTest extends AbstractYamlTest {
                 "    test.confName: $brooklyn:formatString(\"hello %s\", \"world\")");
     }
 
+    @Test
+    public void testDslTemplate() throws Exception {
+        Entity entity = entityWithTemplatedString();
+        Assert.assertEquals(getConfigInTask(entity, TestEntity.CONF_NAME), "hello world");
+    }
+
+    @Test
+    public void testDslTemplateRebind() throws Exception {
+        Entity testEntity = entityWithTemplatedString();
+        Application app2 = rebind(testEntity.getApplication());
+        Entity e2 = Iterables.getOnlyElement(app2.getChildren());
+
+        Assert.assertEquals(getConfigInTask(e2, TestEntity.CONF_NAME), "hello world");
+    }
+
+    protected Entity entityWithTemplatedString() throws Exception {
+        return setupAndCheckTestEntityInBasicYamlWith(
+                "  id: x",
+                "  brooklyn.config:",
+                "    test.sourceName: hello world",
+                "    test.confName: $brooklyn:\"${config['test.sourceName']}\"");
+    }
+
+    @Test
+    public void testDslMultilineTemplate() throws Exception {
+        Entity entity = entityWithMultilineTemplatedString();
+        Assert.assertEquals(getConfigInTask(entity, TestEntity.CONF_NAME), "hello world");
+    }
+
+    @Test
+    public void testDslMultilineTemplateRebind() throws Exception {
+        Entity testEntity = entityWithMultilineTemplatedString();
+        Application app2 = rebind(testEntity.getApplication());
+        Entity e2 = Iterables.getOnlyElement(app2.getChildren());
+
+        Assert.assertEquals(getConfigInTask(e2, TestEntity.CONF_NAME), "hello world");
+    }
+
+    protected Entity entityWithMultilineTemplatedString() throws Exception {
+        return setupAndCheckTestEntityInBasicYamlWith(
+                "  id: x",
+                "  brooklyn.config:",
+                "    test.sourceName: hello world",
+                "    test.confName: |",
+                "      $brooklyn:template",
+                "      ${config['test.sourceName']}");
+    }
 
     /*
         - type: org.apache.brooklyn.enricher.stock.Transformer

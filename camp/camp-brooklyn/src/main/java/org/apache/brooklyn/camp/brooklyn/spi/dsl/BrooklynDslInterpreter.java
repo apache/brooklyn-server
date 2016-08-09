@@ -147,7 +147,7 @@ public class BrooklynDslInterpreter extends PlanInterpreterAdapter {
         }
 
         if (f instanceof QuotedString) {
-            return ((QuotedString)f).unwrapped();
+            return BrooklynDslCommon.template(((QuotedString)f).unwrapped());
         }
 
         throw new IllegalArgumentException("Unexpected element in parse tree: '"+f+"' (type "+(f!=null ? f.getClass() : null)+")");

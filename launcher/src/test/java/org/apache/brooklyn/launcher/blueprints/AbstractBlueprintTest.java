@@ -35,10 +35,12 @@ import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.persist.FileBasedObjectStore;
 import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestUtils;
+import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.launcher.BrooklynLauncher;
 import org.apache.brooklyn.launcher.SimpleYamlLauncherForTests;
@@ -54,6 +56,7 @@ import org.testng.annotations.BeforeMethod;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableMap;
 
 public abstract class AbstractBlueprintTest {
 
@@ -215,10 +218,14 @@ public abstract class AbstractBlueprintTest {
     
     /** @return A started management context */
     protected LocalManagementContext createOrigManagementContext() {
+        BrooklynProperties properties = BrooklynProperties.Factory.newDefault();
+        properties.addFrom(ImmutableMap.of(
+                BrooklynServerConfig.OSGI_CACHE_DIR.getName(), "target/" + BrooklynServerConfig.OSGI_CACHE_DIR.getDefaultValue()));
         return RebindTestUtils.managementContextBuilder(mementoDir, classLoader)
                 .persistPeriodMillis(1)
                 .forLive(true)
                 .emptyCatalog(true)
+                .properties(properties)
                 .buildStarted();
     }
 

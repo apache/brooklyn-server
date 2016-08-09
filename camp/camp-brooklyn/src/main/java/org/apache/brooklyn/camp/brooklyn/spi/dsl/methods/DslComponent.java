@@ -28,6 +28,7 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Callables;
 
@@ -47,6 +48,7 @@ import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 
@@ -210,6 +212,8 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
         return new EntityId(this);
     }
     protected static class EntityId extends BrooklynDslDeferredSupplier<Object> {
+        private static final long serialVersionUID = -419427634694971033L;
+
         private final DslComponent component;
 
         public EntityId(DslComponent component) {
@@ -375,6 +379,33 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
             return (component.scope==Scope.THIS ? "" : component.toString()+".") + 
                 "sensor("+JavaStringEscapes.wrapJavaString(sensorName)+")";
         }
+    }
+
+    public Object template(String template) {
+        return new DslTemplate(this, template);
+    }
+
+    protected final static class DslTemplate extends BrooklynDslDeferredSupplier<Object> {
+        private static final long serialVersionUID = -585564936781673667L;
+        private DslComponent component;
+        private String template;
+
+        public DslTemplate(DslComponent component, String template) {
+            this.component = component;
+            this.template = template;
+        }
+
+        @Override
+        public Task<Object> newTask() {
+            return Tasks.<Object>builder().displayName("evaluating template "+template ).dynamic(false).body(new Callable<Object>() {
+                @Override
+                public Object call() throws Exception {
+                    Entity targetEntity = component.get();
+                    return TemplateProcessor.processTemplateContents(template, (EntityInternal)targetEntity, ImmutableMap.<String, Object>of());
+                }
+            }).build();
+        }
+
     }
 
     public static enum Scope {

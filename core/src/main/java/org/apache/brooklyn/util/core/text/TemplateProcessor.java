@@ -50,6 +50,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
 
 import freemarker.cache.StringTemplateLoader;
+import freemarker.ext.beans.SimpleMethodModel;
 import freemarker.template.Configuration;
 import freemarker.template.ObjectWrapper;
 import freemarker.template.Template;
@@ -407,10 +408,10 @@ public class TemplateProcessor {
                 if (entity!=null)
                     return wrapAsTemplateModel( Iterables.getOnlyElement( entity.getLocations() ) );
             }
-            if ("attribute".equals(key)) {
+            if ("attribute".equals(key) && entity != null) {
                 return new EntityAttributeTemplateModel(entity);
             }
-            
+
             if (mgmt!=null) {
                 // TODO deprecated in 0.7.0, remove after next version
                 // ie not supported to access global props without qualification
@@ -511,7 +512,7 @@ public class TemplateProcessor {
     }
     
     /** Processes template contents against the given {@link TemplateHashModel}. */
-    public static String processTemplateContents(String templateContents, final TemplateHashModel substitutions) {
+    public static String processTemplateContents(String templateContents, final TemplateModel substitutions) {
         try {
             Configuration cfg = new Configuration();
             StringTemplateLoader templateLoader = new StringTemplateLoader();

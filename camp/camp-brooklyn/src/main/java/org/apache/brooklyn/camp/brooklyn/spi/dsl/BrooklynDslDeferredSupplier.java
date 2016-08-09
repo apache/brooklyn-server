@@ -18,8 +18,6 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.dsl;
 
-import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.util.concurrent.locks.ReentrantLock;
 

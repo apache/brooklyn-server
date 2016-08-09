@@ -41,7 +41,6 @@ import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
 import org.apache.brooklyn.core.config.external.ExternalConfigSupplier;
-import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.EntityDynamicType;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.internal.ExternalConfigSupplierRegistry;
@@ -277,6 +276,10 @@ public class BrooklynDslCommon {
 
     protected static class DslRegexReplacement extends BrooklynDslDeferredSupplier<String> {
 
+        /**
+         * 
+         */
+        private static final long serialVersionUID = 737189899361183341L;
         private Object source;
         private Object pattern;
         private Object replacement;
@@ -483,6 +486,10 @@ public class BrooklynDslCommon {
         }
     }
 
+    public static Object template(String template) {
+        return new DslComponent(Scope.THIS, "").template(template);
+    }
+
     public static class Functions {
         public static Object regexReplacement(final Object pattern, final Object replacement) {
             if (DslUtils.resolved(pattern, replacement)) {
@@ -509,6 +516,7 @@ public class BrooklynDslCommon {
         }
 
         protected static class DslRegexReplacer extends BrooklynDslDeferredSupplier<Function<String, String>> {
+            private static final long serialVersionUID = -2900037495440842269L;
 
             private Object pattern;
             private Object replacement;

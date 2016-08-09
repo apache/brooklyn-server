@@ -71,6 +71,15 @@ public class TemplateProcessorTest extends BrooklynAppUnitTestSupport {
     }
     
     @Test
+    public void testDsl() {
+        TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
+                .configure(TestEntity.CONF_NAME, "myval"));
+        String templateContents = "${brooklyn(\"id\")}";
+        String result = TemplateProcessor.processTemplateContents(templateContents, entity, ImmutableMap.<String,Object>of());
+        assertEquals(result, "myval");
+    }
+    
+    @Test
     public void testEntityConfigNumber() {
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
                 .configure(TestEntity.CONF_OBJECT, 123456));
