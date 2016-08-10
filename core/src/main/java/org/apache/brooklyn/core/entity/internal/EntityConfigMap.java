@@ -132,7 +132,7 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
 
         // Get own value
         if (((ConfigKeySelfExtracting<T>)key).isSet(ownConfig)) {
-            Map<ConfigKey<?>, ?> ownCopy = null;
+            Map<ConfigKey<?>, ?> ownCopy;
             synchronized (ownConfig) {
                 ownCopy = MutableMap.copyOf(ownConfig);
             }
