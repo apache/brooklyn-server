@@ -21,17 +21,22 @@ package org.apache.brooklyn.camp.brooklyn;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
+import java.util.Date;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecCmd;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
@@ -331,5 +336,66 @@ public class ConfigParametersYamlTest extends AbstractYamlTest {
         ExecCmd cmd = ExecCmdAsserts.findExecContaining(RecordingSshTool.getExecCmds(), "myLaunchCmd");
         assertEquals(cmd.env.get("KEY_IN_SUPER"), "myDefaultVal", "cmd="+cmd);
         assertEquals(cmd.env.get("KEY_IN_SUB"), "myBoringVal", "cmd="+cmd);
+    }
+    
+    @Test
+    public void testConfigParametersTypes() throws Exception {
+        Map<String, Class<?>> keys = ImmutableMap.<String, Class<?>>builder()
+                .put("bool", Boolean.class)
+                .put("boolean", Boolean.class)
+                .put("Boolean", Boolean.class)
+                .put("byte", Byte.class)
+                .put("Byte", Byte.class)
+                .put("char", Character.class)
+                .put("character", Character.class)
+                .put("Character", Character.class)
+                .put("short", Short.class)
+                .put("Short", Short.class)
+                .put("int", Integer.class)
+                .put("integer", Integer.class)
+                .put("Integer", Integer.class)
+                .put("long", Long.class)
+                .put("Long", Long.class)
+                .put("float", Float.class)
+                .put("Float", Float.class)
+                .put("double", Double.class)
+                .put("Double", Double.class)
+                .put("string", String.class)
+                .put("String", String.class)
+                .put("duration", Duration.class)
+                .put("Duration", Duration.class)
+                .put("timestamp", Date.class)
+                .put("Timestamp", Date.class)
+                .put("port", PortRange.class)
+                .put("Port", PortRange.class)
+                .build();
+        
+        List<String> catalogYaml = MutableList.of(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  items:",
+                "  - id: entity-with-keys",
+                "    item:",
+                "      type: "+TestEntity.class.getName(),
+                "      brooklyn.parameters:");
+        for (Map.Entry<String, Class<?>> entry : keys.entrySet()) {
+                catalogYaml.add("      - name: "+entry.getKey()+"_key");
+                catalogYaml.add("        type: "+entry.getKey());
+        }
+        
+        addCatalogItems(catalogYaml);
+        
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: entity-with-keys");
+        
+        Entity app = createStartWaitAndLogApplication(yaml);
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+
+        // Check config key is listed
+        for (Map.Entry<String, Class<?>> entry : keys.entrySet()) {
+            String keyName = entry.getKey()+"_key";
+            assertEquals(entity.getEntityType().getConfigKey(keyName).getType(), entry.getValue());
+        }
     }
 }
