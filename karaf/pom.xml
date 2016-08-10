@@ -51,13 +51,9 @@
     <!-- brooklyn-rest-client's transitive dependencies from resteasy -->
     <jboss-annotations-api_1.1_spec.version>1.0.1.Final</jboss-annotations-api_1.1_spec.version>
     <javax-activation.version>1.1</javax-activation.version>
-    <jcip-annotations.version>1.0</jcip-annotations.version>
+    <jcip-annotations.bundle.version>1.0_2</jcip-annotations.bundle.version>
+    <jsr305.bundle.version>2.0.1_1</jsr305.bundle.version> <!-- see jsr305.version -->
     
-    <!-- brooklyn-rest-client's transitive dependencies from httpclient:4.4.1 -->
-    <commons-logging.version>1.2</commons-logging.version>
-    <commons-codec.version>1.9</commons-codec.version>
-    <commons-io.version>2.4</commons-io.version>
-
     <maven.compiler.source>${java.version}</maven.compiler.source>
     <maven.compiler.target>${java.version}</maven.compiler.target>
   </properties>
