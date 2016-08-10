@@ -539,12 +539,14 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         private final Map<String, ?> args;
         private final List<? extends Object> argList;
         private Task<?> cachedTask;
+
         public ExecuteEffector(DslComponent component, String effectorName, Map<String, ?> args) {
             this.component = Preconditions.checkNotNull(component);
             this.effectorName = effectorName;
             this.args = args;
             this.argList = null;
         }
+
         public ExecuteEffector(DslComponent component, String effectorName, List<? extends Object> args) {
             this.component = Preconditions.checkNotNull(component);
             this.effectorName = effectorName;
@@ -560,20 +562,26 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             if (targetEffector.isAbsentOrNull()) {
                 throw new IllegalArgumentException("Effector " + effectorName + " not found on entity: " + targetEntity);
             }
-            if (cachedTask == null) {
-                if (argList == null) {
-                    cachedTask = Entities.invokeEffector(targetEntity, targetEntity, targetEffector.get(), args);
-                } else {
-                    cachedTask = invokeWithDeferredArgs(targetEntity, targetEffector.get(), argList);
+            synchronized (this) {
+                if (cachedTask == null) {
+                    if (argList == null) {
+                        cachedTask = Entities.invokeEffector(targetEntity, targetEntity, targetEffector.get(), args);
+                    } else {
+                        cachedTask = invokeWithDeferredArgs(targetEntity, targetEffector.get(), argList);
+                    }
                 }
             }
             return (Task<Object>) cachedTask;
         }
+
         private Task<Object> invokeWithDeferredArgs(final Entity targetEntity, final Effector<?> targetEffector, final List<? extends Object> args) {
             List<TaskAdaptable<Object>> taskArgs = Lists.newArrayList();
             for (Object arg : args) {
-                if (arg instanceof TaskAdaptable) taskArgs.add((TaskAdaptable<Object>) arg);
-                else if (arg instanceof TaskFactory) taskArgs.add(((TaskFactory<TaskAdaptable<Object>>) arg).newTask());
+                if (arg instanceof TaskAdaptable) {
+                    taskArgs.add((TaskAdaptable<Object>) arg);
+                } else if (arg instanceof TaskFactory) {
+                    taskArgs.add(((TaskFactory<TaskAdaptable<Object>>) arg).newTask());
+                }
             }
 
             return DependentConfiguration.transformMultiple(
@@ -585,9 +593,13 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                             Object[] vv = new Object[args.size()];
                             int i=0;
                             for (Object arg : args) {
-                                if (arg instanceof TaskAdaptable || arg instanceof TaskFactory) vv[i] = tri.next();
-                                else if (arg instanceof DeferredSupplier) vv[i] = ((DeferredSupplier<?>) arg).get();
-                                else vv[i] = arg;
+                                if (arg instanceof TaskAdaptable || arg instanceof TaskFactory) {
+                                    vv[i] = tri.next();
+                                } else if (arg instanceof DeferredSupplier) {
+                                    vv[i] = ((DeferredSupplier<?>) arg).get();
+                                } else {
+                                    vv[i] = arg;
+                                }
                                 i++;
                             }
                             return Entities.invokeEffectorWithArgs(targetEntity, targetEntity, targetEffector, vv);
@@ -595,10 +607,12 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                     },
                     taskArgs);
         }
+
         @Override
         public int hashCode() {
             return Objects.hashCode(component, effectorName);
         }
+
         @Override
         public boolean equals(Object obj) {
             if (this == obj) return true;
@@ -607,6 +621,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             return Objects.equal(this.component, that.component) &&
                     Objects.equal(this.effectorName, that.effectorName);
         }
+
         @Override
         public String toString() {
             return (component.scope==Scope.THIS ? "" : component.toString()+".") +
