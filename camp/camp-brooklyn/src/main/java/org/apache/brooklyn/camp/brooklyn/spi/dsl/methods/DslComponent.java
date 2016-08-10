@@ -240,7 +240,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
     }
 
     public BrooklynDslDeferredSupplier<?> attribute(final String sensorName) {
-        return new AttributeWhenReady(this, sensorName, Predicates.notNull());
+        return new AttributeWhenReady(this, sensorName, Predicates.alwaysTrue());
     }
     public BrooklynDslDeferredSupplier<?> attributeWhenReady(final String sensorName) {
         return new AttributeWhenReady(this, sensorName);
