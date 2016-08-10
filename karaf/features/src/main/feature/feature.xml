@@ -100,6 +100,36 @@
         <bundle dependency="true">mvn:javax.servlet/javax.servlet-api/${javax-servlet.version}</bundle>
     </feature>
 
+    <feature name="brooklyn-rest-client" version="${project.version}" description="Brooklyn REST Client">
+        <feature>brooklyn-rest-api</feature>
+        <feature>swagger</feature>
+        
+        <bundle>mvn:org.apache.brooklyn/brooklyn-rest-client/${project.version}</bundle>
+        
+        <bundle dependency="true">mvn:org.apache.httpcomponents/httpclient-osgi/${httpclient.version}</bundle>
+        <bundle dependency='true'>mvn:commons-logging/commons-logging/${commons-logging.version}</bundle>
+        <bundle dependency='true'>mvn:commons-codec/commons-codec/${commons-codec.version}</bundle>
+
+        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsr305/${jsr305.bundle.version}</bundle>
+        <bundle dependency='true'>mvn:com.google.code.gson/gson/${gson.version}</bundle>
+        
+        <bundle dependency='true'>wrap:mvn:org.jboss.resteasy/resteasy-jaxrs/${resteasy.version}</bundle>
+        <bundle dependency='true'>wrap:mvn:org.jboss.resteasy/resteasy-jackson2-provider/${resteasy.version}</bundle>
+        <bundle dependency='true'>wrap:mvn:org.jboss.resteasy/jaxrs-api/${resteasy.version}</bundle>
+        <bundle dependency='true'>wrap:mvn:javax.activation/activation/${javax-activation.version}</bundle>
+        <bundle dependency="true">mvn:commons-io/commons-io/${commons-io.version}</bundle>
+        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jcip-annotations/${jcip-annotations.bundle.version}</bundle>
+        
+        <bundle dependency="true">mvn:com.fasterxml.jackson.core/jackson-core/${fasterxml.jackson.version}</bundle>
+        <bundle dependency="true">mvn:com.fasterxml.jackson.core/jackson-annotations/${fasterxml.jackson.version}</bundle>
+        <bundle dependency="true">mvn:com.fasterxml.jackson.core/jackson-databind/${fasterxml.jackson.version}</bundle>
+        <bundle dependency="true">mvn:com.fasterxml.jackson.jaxrs/jackson-jaxrs-json-provider/${fasterxml.jackson.version}</bundle>
+        <bundle dependency='true'>mvn:com.fasterxml.jackson.jaxrs/jackson-jaxrs-base/${fasterxml.jackson.version}</bundle>
+        <bundle dependency="true">mvn:com.fasterxml.jackson.module/jackson-module-jaxb-annotations/${fasterxml.jackson.version}</bundle>
+        <bundle dependency="true">mvn:com.fasterxml.jackson.datatype/jackson-datatype-guava/${fasterxml.jackson.version}</bundle>
+    </feature>
+
+
     <feature name="brooklyn-api"  version="${project.version}" description="Brooklyn API">
         <feature>brooklyn-utils-common</feature>
         <bundle>mvn:org.apache.brooklyn/brooklyn-api/${project.version}</bundle>
