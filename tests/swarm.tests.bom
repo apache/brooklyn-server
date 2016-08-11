@@ -352,7 +352,7 @@ brooklyn.catalog:
             assertOut:
               contains: "Hello from Docker!"
         - type: ssh-test
-          name: "TEST-11-5a Check load balancer (haproxy swarm.url)"
+          name: "TEST-11-5 Check load balancer"
           timeout: 20m
           targetId: swarm-client
           brooklyn.config:
@@ -364,35 +364,15 @@ brooklyn.catalog:
                   - "%s/.certs"
                   - $brooklyn:entity("swarm-client").attributeWhenReady("install.dir")
             command: |
+              SWARM_URL=${HAPROXY_URL/tcp/https}
               curl --cacert "${CERT_PATH}/ca.pem" \
                 --cert "${CERT_PATH}/cert.pem" \
                 --key "${CERT_PATH}/key.pem" \
-                ${HAPROXY_URL}/_ping
+                ${SWARM_URL}/_ping
             assertStatus:
               equals: 0
             assertOut:
-              contains: "pong"
-        - type: ssh-test
-          name: "TEST-11-5b Check load balancer (swarm main.uri)"
-          timeout: 20m
-          targetId: swarm-client
-          brooklyn.config:
-            shell.env:
-              HAPROXY_URL:
-                $brooklyn:entity("swarm").attributeWhenReady("main.uri")
-              CERT_PATH:
-                $brooklyn:formatString:
-                  - "%s/.certs"
-                  - $brooklyn:entity("swarm-client").attributeWhenReady("install.dir")
-            command: |
-              curl --cacert "${CERT_PATH}/ca.pem" \
-                --cert "${CERT_PATH}/cert.pem" \
-                --key "${CERT_PATH}/key.pem" \
-                ${HAPROXY_URL}/_ping
-            assertStatus:
-              equals: 0
-            assertOut:
-              contains: "pong"
+              equals: "OK"
 
   - id: docker-swarm-tests
     name: Docker Swarm Tests

@@ -144,8 +144,13 @@ brooklyn.catalog:
             ]
           }
           EOF
-          sudo service rngd stop || true # Fix 100% CPU on some VMs
-          sudo systemctl disable rngd.service
+
+          if sudo systemctl list-unit-files | grep "rngd" ; then
+            echo "[CLOCKER] Fix 100% CPU issue on some VMs"
+            sudo service rngd stop || true
+            sudo systemctl disable rngd.service
+          fi
+
           sudo systemctl enable docker.service
           sudo systemctl daemon-reload
 

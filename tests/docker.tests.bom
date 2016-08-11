@@ -30,11 +30,17 @@ brooklyn.catalog:
         targetId: docker-entity
         brooklyn.children:
         - type: assert-up-initial
+          name: "TEST-01 check service is running"
         - type: test-stop-process
+          name: "TEST-02 stop process"
         - type: test-start
+          name: "TEST-03 start process"
         - type: test-restart-process
+          name: "TEST-04 restart process"
         - type: test-restart-machine
+          name: "TEST-05 restart machine"
         - type: test-reachable
+          name: "TEST-06 check service is reachable"
           brooklyn.config:
             endpoint:
               $brooklyn:formatString:
@@ -77,6 +83,7 @@ brooklyn.catalog:
         targetId: docker-vm-entity-run-options
         brooklyn.children:
         - type: assert-up
+          name: "TEST-01 check service is running"
           brooklyn.parameters:
           - name: timeout.initialStartup
             description: The timeout for provisioning, installing and launching the app-under-test.
@@ -85,7 +92,7 @@ brooklyn.catalog:
           brooklyn.config:
             timeout: $brooklyn:config("timeout.initialStartup")
         - type: ssh-test
-          name: TEST container arguments applied
+          name: "TEST-02 container arguments applied"
           brooklyn.config:
             env:
               CONTAINER_ID: $brooklyn:entity("docker-vm-entity-run-options").attributeWhenReady("container.id")
@@ -93,7 +100,7 @@ brooklyn.catalog:
               COMMAND=$(docker inspect --format "{{ .Path }} {{ .Args }}" ${CONTAINER_ID})
               [ "${COMMAND}" = "/bin/nc [-ll -p 1234 -e /bin/ls]" ]
         - type: ssh-test
-          name: TEST volume arguments applied
+          name: "TEST-03 volume arguments applied"
           brooklyn.config:
             env:
               CONTAINER_ID: $brooklyn:entity("docker-vm-entity-run-options").attributeWhenReady("container.id")
@@ -104,7 +111,7 @@ brooklyn.catalog:
               EXPECTED=$(printf "\nnamed, /var/lib/docker/volumes/named/_data, /named1\nnamed, /var/lib/docker/volumes/named/_data, /named2\n, /tmp/vol1, /vol1")
               [ "${ACTUAL}" = "${EXPECTED}" ]
         - type: ssh-test
-          name: TEST environment arguments applied
+          name: "TEST-04 environment arguments applied"
           brooklyn.config:
             env:
               CONTAINER_ID: $brooklyn:entity("docker-vm-entity-run-options").attributeWhenReady("container.id")
@@ -113,7 +120,7 @@ brooklyn.catalog:
               echo "ACTUAL=$ACTUAL"
               [ "${ACTUAL}" = "[k1=v1 k2=v2 some weird key=multi space var]" ]
         - type: ssh-test
-          name: TEST default restart policy applied
+          name: "TEST-05 default restart policy applied"
           brooklyn.config:
             env:
               CONTAINER_ID: $brooklyn:entity("docker-vm-entity-run-options").attributeWhenReady("container.id")
@@ -122,7 +129,7 @@ brooklyn.catalog:
               echo "ACTUAL=$ACTUAL"
               [ "${ACTUAL}" = "unless-stopped" ]
         - type: ssh-test
-          name: TEST Additional Options
+          name: "TEST-06 Additional Options"
           brooklyn.config:
             env:
               CONTAINER_ID: $brooklyn:entity("docker-vm-entity-run-options").attributeWhenReady("container.id")
@@ -131,6 +138,7 @@ brooklyn.catalog:
               echo "ACTUAL=$ACTUAL"
               [ "${ACTUAL}" = "option" ]
         - type: test-reachable
+          name: "TEST-07 Check service is reachable"
           brooklyn.config:
             endpoint:
               $brooklyn:formatString:
