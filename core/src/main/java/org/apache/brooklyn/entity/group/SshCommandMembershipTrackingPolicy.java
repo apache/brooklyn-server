@@ -86,7 +86,8 @@ public class SshCommandMembershipTrackingPolicy extends AbstractMembershipTracki
         Collection<? extends Location> locations = Locations.getLocationsCheckingAncestors(entity.getLocations(), entity);
         Maybe<SshMachineLocation> machine = Machines.findUniqueMachineLocation(locations, SshMachineLocation.class);
         if (machine.isAbsentOrNull()) {
-            throw new IllegalStateException("No machine available to execute command");
+            LOG.debug("No machine available to execute command");
+            return;
         }
         LOG.info("Executing command on {}: {}", machine.get(), command);
         String executionDir = config().get(EXECUTION_DIR);
@@ -117,6 +118,6 @@ public class SshCommandMembershipTrackingPolicy extends AbstractMembershipTracki
                 .environmentVariables(serializer.serialize(env));
 
         String output = DynamicTasks.submit(task.newTask(), entity).getUnchecked();
-        LOG.debug("Command returned: {}", output);
+        LOG.trace("Command returned: {}", output);
     }
 }
