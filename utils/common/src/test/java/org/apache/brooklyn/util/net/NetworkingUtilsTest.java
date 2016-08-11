@@ -33,22 +33,20 @@ import java.net.UnknownHostException;
 import java.util.Collection;
 import java.util.concurrent.TimeUnit;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableRangeSet;
-import com.google.common.collect.Range;
-import com.google.common.collect.RangeSet;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
-import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.text.Identifiers;
-import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableRangeSet;
+import com.google.common.collect.Range;
+import com.google.common.collect.RangeSet;
 import com.google.common.net.HostAndPort;
 
 public class NetworkingUtilsTest {
@@ -98,8 +96,7 @@ public class NetworkingUtilsTest {
     @Test
     public void testPortRulesToRanges() throws Exception {
         RangeSet<Integer> actualRangeSet = Networking.portRulesToRanges(ImmutableList.of(
-                "22", "23", "5000-6000", "8081", "80-90", "90-100", "23",
-                "8081"));
+                "22", "23", "5000-6000", "8081", "80-90", "90-100", "23", "8081"));
 
         Asserts.assertEquals(actualRangeSet, ImmutableRangeSet.<Integer>builder()
                 .add(Range.closed(22, 22))
@@ -111,30 +108,39 @@ public class NetworkingUtilsTest {
     }
 
     @Test
-    public void testPortRulesToRangesWithWrongRanges() throws Exception {
-        try {
-            Networking.portRulesToRanges(ImmutableList.of("-1"));
-            fail("Have to fail parsing");
-        } catch (IllegalArgumentException e) {
-            Asserts.assertTrue(e instanceof NumberFormatException);
-            Asserts.assertEquals(e.getMessage(), "For input string: \"\"");
-        }
-
-        assertCheckException(ImmutableList.of("68000"), Strings.format("fromPort 68000 should be a number between %s and %s",
-                Networking.MIN_PORT_NUMBER, Networking.MAX_PORT_NUMBER).toString());
-
-        assertCheckException(ImmutableList.of("67000-67000"), "fromPort 67000 should be a number between 1 and 65535");
-        assertCheckException(ImmutableList.of("0-67000"), "fromPort 0 should be a number between 1 and 65535");
-        assertCheckException(ImmutableList.of("300-67000"), "toPort 67000 should be a number between 1 and 65535");
-        assertCheckException(ImmutableList.of("2-1"), "fromNumber should be less or equal than toPort 2 <= 1");
+    public void testPortRulesToRangesWithInvalidRanges() throws Exception {
+        assertPortRulesException(ImmutableList.of("-1"), "Invalid port range '-1'");
+        assertPortRulesException(ImmutableList.of("1-"), "Invalid port range '1-'");
+        assertPortRulesException(ImmutableList.of("-"), "Invalid port range '-'");
+        assertPortRulesException(ImmutableList.of("1-2-"), "Invalid port range '1-2-'");
+        assertPortRulesException(ImmutableList.of("-1-2"), "Invalid port range '-1-2'");
+        assertPortRulesException(ImmutableList.of("1-2-3"), "Invalid port range '1-2-3'");
+        assertPortRulesException(ImmutableList.of("a"), NumberFormatException.class, "For input string: \"a\"");
+        assertPortRulesException(ImmutableList.of("1-a"), NumberFormatException.class, "For input string: \"a\"");
+        assertPortRulesException(ImmutableList.of("a-2"), NumberFormatException.class, "For input string: \"a\"");
     }
 
-    private void assertCheckException(Collection<String> ports, String message) {
+    @Test
+    public void testPortRulesToRangesWithOutOfRange() throws Exception {
+        assertPortRulesException(ImmutableList.of("68000"), String.format("fromPort 68000 should be a number between %s and %s",
+                Networking.MIN_PORT_NUMBER, Networking.MAX_PORT_NUMBER));
+        assertPortRulesException(ImmutableList.of("67000-67000"), "fromPort 67000 should be a number between 1 and 65535");
+        assertPortRulesException(ImmutableList.of("0-67000"), "fromPort 0 should be a number between 1 and 65535");
+        assertPortRulesException(ImmutableList.of("300-67000"), "toPort 67000 should be a number between 1 and 65535");
+        assertPortRulesException(ImmutableList.of("2-1"), "fromPort 2 should be less than or equal to toPort 1");
+    }
+
+    private void assertPortRulesException(Collection<String> portRules, String message) {
+        assertPortRulesException(portRules, IllegalArgumentException.class, message);
+    }
+    
+    private void assertPortRulesException(Collection<String> portRules, Class<? extends Exception> type, String message) {
         try {
-            Networking.portRulesToRanges(ports);
-            fail("Should have failed");
-        } catch (IllegalArgumentException e) {
-            Asserts.assertEquals(e.getMessage(), message);
+            Networking.portRulesToRanges(portRules);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            if (!type.isInstance(e)) throw e;
+            Asserts.expectedFailureContains(e, message);
         }
     }
     

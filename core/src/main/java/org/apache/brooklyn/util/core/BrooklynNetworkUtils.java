@@ -18,22 +18,19 @@
  */
 package org.apache.brooklyn.util.core;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Range;
-import com.google.common.collect.RangeSet;
-import com.google.common.collect.TreeRangeSet;
+import java.net.InetAddress;
+
 import org.apache.brooklyn.core.location.geo.LocalhostExternalIpLoader;
 import org.apache.brooklyn.core.server.BrooklynServiceAttributes;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.net.Networking;
 
-import java.net.InetAddress;
-import java.util.Collection;
-
 /**
  * <tt>BrooklynNetworkUtils</tt> is for utility methods that rely on some other part(s) of Brooklyn,
  * or seem too custom in how they are used/configured to be considered a "common utility".
+ * 
+ * See {@link Networking} for more generic network utilities.
  */
 public class BrooklynNetworkUtils {
 
@@ -46,9 +43,5 @@ public class BrooklynNetworkUtils {
     public static InetAddress getLocalhostInetAddress() {
         return TypeCoercions.coerce(JavaGroovyEquivalents.elvis(BrooklynServiceAttributes.LOCALHOST_IP_ADDRESS.getValue(),
                 Networking.getLocalHost()), InetAddress.class);
-    }
-
-    private static Range<Integer> closedRange(String from, String to) {
-        return Range.closed(Integer.parseInt(from), Integer.parseInt(to));
     }
 }

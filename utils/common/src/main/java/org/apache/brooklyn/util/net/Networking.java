@@ -43,6 +43,7 @@ import com.google.common.collect.RangeSet;
 import com.google.common.collect.TreeRangeSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Identifiers;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,7 +55,8 @@ import com.google.common.net.HostAndPort;
 import com.google.common.primitives.UnsignedBytes;
 
 /**
- * <tt>Networking</tt> is for generic network utility methods.
+ * Generic network utility methods (which are generally not specific to Brooklyn configuration, or 
+ * brooklyn use-cases).
  */
 public class Networking {
 
@@ -240,7 +242,10 @@ public class Networking {
         for (String portRule : portRules) {
             if (portRule.contains("-")) {
                 String[] fromTo = portRule.split("-");
-                Preconditions.checkState(fromTo.length == 2, "Invalid port range '%s'", portRule);
+                checkArgument(fromTo.length == 2, "Invalid port range '%s'", portRule);
+                checkArgument(Strings.countOccurrences(portRule, '-') == 1, "Invalid port range '%s'", portRule);
+                checkArgument(Strings.isNonEmpty(fromTo[0]), "Invalid port range '%s'", portRule);
+                checkArgument(Strings.isNonEmpty(fromTo[1]), "Invalid port range '%s'", portRule);
                 result.add(closedRange(fromTo[0], fromTo[1]));
             } else {
                 result.add(closedRange(portRule, portRule));
@@ -252,10 +257,10 @@ public class Networking {
     private static Range<Integer> closedRange(String from, String to) {
         Integer fromPort = Integer.parseInt(from);
         Integer toPort = Integer.parseInt(to);
-        Preconditions.checkArgument(fromPort >= MIN_PORT_NUMBER && fromPort <= MAX_PORT_NUMBER, "fromPort %s should be a number between %s and %s", fromPort, MIN_PORT_NUMBER, MAX_PORT_NUMBER);
-        Preconditions.checkArgument(toPort >= MIN_PORT_NUMBER && toPort <= MAX_PORT_NUMBER, "toPort %s should be a number between %s and %s", toPort, MIN_PORT_NUMBER, MAX_PORT_NUMBER);
-        Preconditions.checkArgument(fromPort <= toPort, "fromNumber should be less or equal than toPort %s <= %s", fromPort, toPort);
-        return Range.closed(Integer.parseInt(from), Integer.parseInt(to));
+        checkArgument(isPortValid(fromPort), "fromPort %s should be a number between %s and %s", fromPort, MIN_PORT_NUMBER, MAX_PORT_NUMBER);
+        checkArgument(isPortValid(toPort), "toPort %s should be a number between %s and %s", toPort, MIN_PORT_NUMBER, MAX_PORT_NUMBER);
+        checkArgument(fromPort <= toPort, "fromPort %s should be less than or equal to toPort %s", fromPort, toPort);
+        return Range.closed(fromPort, toPort);
     }
 
     /**
