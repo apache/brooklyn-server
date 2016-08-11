@@ -18,10 +18,6 @@
  */
 package org.apache.brooklyn.entity.software.base;
 
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
-
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -33,15 +29,14 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.CustomResponse;
-import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecCmd;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecCmdPredicates;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecParams;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -85,7 +80,7 @@ public class VanillaSoftwareProcessTest extends BrooklynAppUnitTestSupport {
                 .configure(VanillaSoftwareProcess.STOP_COMMAND, "stopCommand"));
         app.start(ImmutableList.of(loc));
 
-        assertExecsContain(RecordingSshTool.getExecCmds(), ImmutableList.of(
+        ExecCmdAsserts.assertExecsContain(RecordingSshTool.getExecCmds(), ImmutableList.of(
                 "preInstallCommand", "installCommand", "postInstallCommand", 
                 "preCustomizeCommand", "customizeCommand", "postCustomizeCommand", 
                 "preLaunchCommand", "launchCommand", "postLaunchCommand", 
@@ -93,7 +88,7 @@ public class VanillaSoftwareProcessTest extends BrooklynAppUnitTestSupport {
         
         app.stop();
 
-        assertExecContains(RecordingSshTool.getLastExecCmd(), "stopCommand");
+        ExecCmdAsserts.assertExecContains(RecordingSshTool.getLastExecCmd(), "stopCommand");
     }
 
     // See https://issues.apache.org/jira/browse/BROOKLYN-273
@@ -127,7 +122,7 @@ public class VanillaSoftwareProcessTest extends BrooklynAppUnitTestSupport {
                 VanillaSoftwareProcess.RestartSoftwareParameters.RESTART_MACHINE.getName(), VanillaSoftwareProcess.RestartSoftwareParameters.RestartMachineMode.FALSE))
                 .get();
 
-        assertExecsContain(RecordingSshTool.getExecCmds(), ImmutableList.of(
+        ExecCmdAsserts.assertExecsContain(RecordingSshTool.getExecCmds(), ImmutableList.of(
                 "checkRunningCommand", "stopCommand",  
                 "preLaunchCommand", "launchCommand", "postLaunchCommand", 
                 "checkRunningCommand"));
@@ -151,12 +146,12 @@ public class VanillaSoftwareProcessTest extends BrooklynAppUnitTestSupport {
                 .configure(VanillaSoftwareProcess.STOP_COMMAND, "stopCommand"));
         app.start(ImmutableList.of(loc));
 
-        assertExecsContain(RecordingSshTool.getExecCmds(), ImmutableList.of(
+        ExecCmdAsserts.assertExecsContain(RecordingSshTool.getExecCmds(), ImmutableList.of(
                 "preCustomizeCommand", "customizeCommand", "postCustomizeCommand", 
                 "preLaunchCommand", "launchCommand", "postLaunchCommand", 
                 "checkRunningCommand"));
         
-        assertExecsNotContains(RecordingSshTool.getExecCmds(), ImmutableList.of(
+        ExecCmdAsserts.assertExecsNotContains(RecordingSshTool.getExecCmds(), ImmutableList.of(
                 "preInstallCommand", "installCommand", "postInstallCommand"));
     }
 
@@ -177,10 +172,10 @@ public class VanillaSoftwareProcessTest extends BrooklynAppUnitTestSupport {
                 .configure(VanillaSoftwareProcess.STOP_COMMAND, "stopCommand"));
         app.start(ImmutableList.of(loc));
 
-        assertExecsContain(RecordingSshTool.getExecCmds(), ImmutableList.of(
+        ExecCmdAsserts.assertExecsContain(RecordingSshTool.getExecCmds(), ImmutableList.of(
                 "checkRunningCommand"));
         
-        assertExecsNotContains(RecordingSshTool.getExecCmds(), ImmutableList.of(
+        ExecCmdAsserts.assertExecsNotContains(RecordingSshTool.getExecCmds(), ImmutableList.of(
                 "launchCommand"));
     }
 
@@ -219,7 +214,7 @@ public class VanillaSoftwareProcessTest extends BrooklynAppUnitTestSupport {
                 .configure(VanillaSoftwareProcess.STOP_COMMAND, "stopCommand"));
         app.start(ImmutableList.of(loc));
 
-        assertExecsContain(RecordingSshTool.getExecCmds(), ImmutableList.of(
+        ExecCmdAsserts.assertExecsContain(RecordingSshTool.getExecCmds(), ImmutableList.of(
                 "checkRunningCommand",
                 "preInstallCommand", "installCommand", "postInstallCommand", 
                 "preCustomizeCommand", "customizeCommand", "postCustomizeCommand", 
@@ -246,7 +241,7 @@ public class VanillaSoftwareProcessTest extends BrooklynAppUnitTestSupport {
 
         Map<String, String> expectedEnv = ImmutableMap.of("KEY1", "VAL1");
         
-        assertExecsSatisfy(RecordingSshTool.getExecCmds(), ImmutableList.of(
+        ExecCmdAsserts.assertExecsSatisfy(RecordingSshTool.getExecCmds(), ImmutableList.of(
                 Predicates.and(ExecCmdPredicates.containsCmd("preInstallCommand"), ExecCmdPredicates.containsEnv(expectedEnv)),
                 Predicates.and(ExecCmdPredicates.containsCmd("installCommand"), ExecCmdPredicates.containsEnv(expectedEnv)),
                 Predicates.and(ExecCmdPredicates.containsCmd("postInstallCommand"), ExecCmdPredicates.containsEnv(expectedEnv)),
@@ -260,63 +255,8 @@ public class VanillaSoftwareProcessTest extends BrooklynAppUnitTestSupport {
         
         app.stop();
 
-        assertExecSatisfies(
+        ExecCmdAsserts.assertExecSatisfies(
                 RecordingSshTool.getLastExecCmd(),
                 Predicates.and(ExecCmdPredicates.containsCmd("stopCommand"), ExecCmdPredicates.containsEnv(expectedEnv)));
-    }
-    
-    protected void assertExecsContain(List<ExecCmd> actuals, List<String> expectedCmds) {
-        String errMsg = "actuals="+actuals+"; expected="+expectedCmds;
-        assertTrue(actuals.size() >= expectedCmds.size(), "actualSize="+actuals.size()+"; expectedSize="+expectedCmds.size()+"; "+errMsg);
-        for (int i = 0; i < expectedCmds.size(); i++) {
-            assertExecContains(actuals.get(i), expectedCmds.get(i), errMsg);
-        }
-    }
-
-    protected void assertExecContains(ExecCmd actual, String expectedCmdRegex) {
-        assertExecContains(actual, expectedCmdRegex, null);
-    }
-    
-    protected void assertExecContains(ExecCmd actual, String expectedCmdRegex, String errMsg) {
-        for (String cmd : actual.commands) {
-            if (cmd.matches(expectedCmdRegex)) {
-                return;
-            }
-        }
-        fail(expectedCmdRegex + " not matched by any commands in " + actual+(errMsg != null ? "; "+errMsg : ""));
-    }
-
-    protected void assertExecsNotContains(List<? extends ExecCmd> actuals, List<String> expectedNotCmdRegexs) {
-        for (ExecCmd actual : actuals) {
-            assertExecContains(actual, expectedNotCmdRegexs);
-        }
-    }
-    
-    protected void assertExecContains(ExecCmd actual, List<String> expectedNotCmdRegexs) {
-        for (String cmdRegex : expectedNotCmdRegexs) {
-            for (String subActual : actual.commands) {
-                if (subActual.matches(cmdRegex)) {
-                    fail("Exec should not contain " + cmdRegex + ", but matched by " + actual);
-                }
-            }
-        }
-    }
-
-    protected void assertExecsSatisfy(List<ExecCmd> actuals, List<? extends Predicate<? super ExecCmd>> expectedCmds) {
-        String errMsg = "actuals="+actuals+"; expected="+expectedCmds;
-        assertTrue(actuals.size() >= expectedCmds.size(), "actualSize="+actuals.size()+"; expectedSize="+expectedCmds.size()+"; "+errMsg);
-        for (int i = 0; i < expectedCmds.size(); i++) {
-            assertExecSatisfies(actuals.get(i), expectedCmds.get(i), errMsg);
-        }
-    }
-
-    protected void assertExecSatisfies(ExecCmd actual, Predicate<? super ExecCmd> expected) {
-        assertExecSatisfies(actual, expected, null);
-    }
-    
-    protected void assertExecSatisfies(ExecCmd actual, Predicate<? super ExecCmd> expected, String errMsg) {
-        if (!expected.apply(actual)) {
-            fail(expected + " not matched by " + actual + (errMsg != null ? "; "+errMsg : ""));
-        }
     }
 }

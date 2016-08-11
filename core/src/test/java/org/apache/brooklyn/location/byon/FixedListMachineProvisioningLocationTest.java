@@ -33,21 +33,15 @@ import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.location.RecordingMachineLocationCustomizer;
-import org.apache.brooklyn.core.location.RecordingMachineLocationCustomizer.Call;
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
+import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.net.Networking;
-import org.apache.brooklyn.util.stream.Streams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -61,33 +55,26 @@ import com.google.common.collect.Lists;
 /**
  * Provisions {@link SshMachineLocation}s in a specific location from a list of known machines
  */
-public class FixedListMachineProvisioningLocationTest {
+public class FixedListMachineProvisioningLocationTest extends BrooklynMgmtUnitTestSupport {
     
     private static final Logger LOG = LoggerFactory.getLogger(FixedListMachineProvisioningLocationTest.class);
 
     SshMachineLocation machine;
-    LocalManagementContext mgmt;
     FixedListMachineProvisioningLocation<SshMachineLocation> provisioner;
     FixedListMachineProvisioningLocation<SshMachineLocation> provisioner2;
     
-    @SuppressWarnings("unchecked")
     @BeforeMethod(alwaysRun=true)
-    public void createProvisioner() throws UnknownHostException {
-        mgmt = LocalManagementContextForTests.newInstance();
+    @SuppressWarnings("unchecked")
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
         
-        machine = mgmt.getLocationManager().createLocation(MutableMap.of("address", Inet4Address.getByName("192.168.144.200")), SshMachineLocation.class);
-        provisioner = mgmt.getLocationManager().createLocation(
-                MutableMap.of("machines", MutableList.of(machine)),
-                FixedListMachineProvisioningLocation.class);
+        machine = mgmt.getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
+                .configure("address", Inet4Address.getByName("192.168.144.200")));
+        provisioner = mgmt.getLocationManager().createLocation(LocationSpec.create(FixedListMachineProvisioningLocation.class)
+                .configure("machines", MutableList.of(machine)));
     }
 
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        if (provisioner != null) Streams.closeQuietly(provisioner);
-        if (provisioner2 != null) Streams.closeQuietly(provisioner2);
-        Entities.destroyAll(mgmt);
-    }
-    
     @Test
     public void testSetsChildLocations() throws NoMachinesAvailableException {
         // Available machines should be listed as children

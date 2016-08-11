@@ -185,11 +185,14 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
         private static final String DEFAULT_TYPE = "string";
         private static final Map<String, Class<?>> BUILT_IN_TYPES = ImmutableMap.<String, Class<?>>builder()
                 .put(DEFAULT_TYPE, String.class)
+                .put("bool", Boolean.class)
                 .put("boolean", Boolean.class)
                 .put("byte", Byte.class)
                 .put("char", Character.class)
+                .put("character", Character.class)
                 .put("short", Short.class)
                 .put("integer", Integer.class)
+                .put("int", Integer.class)
                 .put("long", Long.class)
                 .put("float", Float.class)
                 .put("double", Double.class)
@@ -258,8 +261,8 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
         private static TypeToken inferType(String typeRaw, BrooklynClassLoadingContext loader) {
             if (typeRaw == null) return TypeToken.of(String.class);
             String type = typeRaw.trim();
-            if (BUILT_IN_TYPES.containsKey(type)) {
-                return TypeToken.of(BUILT_IN_TYPES.get(type));
+            if (BUILT_IN_TYPES.containsKey(type.toLowerCase())) {
+                return TypeToken.of(BUILT_IN_TYPES.get(type.toLowerCase()));
             } else {
                 // Assume it's a Java type
                 Maybe<Class<?>> inputType = loader.tryLoadClass(type);
