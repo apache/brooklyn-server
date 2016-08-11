@@ -385,4 +385,14 @@ public class StringsTest extends FixedLocaleTest {
         Assert.assertEquals(0, Strings.parseCsv("", ",").size());
         Assert.assertEquals(0, Strings.parseCsv("        ", ",").size());
     }
+    
+    @Test
+    public void testCountOccurrences() throws Exception {
+        assertEquals(Strings.countOccurrences(null, 'a'), 0);
+        assertEquals(Strings.countOccurrences("", 'a'), 0);
+        assertEquals(Strings.countOccurrences("b", 'a'), 0);
+        assertEquals(Strings.countOccurrences("a", 'a'), 1);
+        assertEquals(Strings.countOccurrences("aa", 'a'), 2);
+        assertEquals(Strings.countOccurrences("abba", 'a'), 2);
+    }
 }

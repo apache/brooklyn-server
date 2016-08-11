@@ -26,6 +26,12 @@ import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.net.Networking;
 
+/**
+ * <tt>BrooklynNetworkUtils</tt> is for utility methods that rely on some other part(s) of Brooklyn,
+ * or seem too custom in how they are used/configured to be considered a "common utility".
+ * 
+ * See {@link Networking} for more generic network utilities.
+ */
 public class BrooklynNetworkUtils {
 
     /** returns the externally-facing IP address from which this host comes, or 127.0.0.1 if not resolvable */
@@ -33,10 +39,9 @@ public class BrooklynNetworkUtils {
         return LocalhostExternalIpLoader.getLocalhostIpQuicklyOrDefault();
     }
 
-    /** returns a IP address for localhost paying attention to a system property to prevent lookup in some cases */ 
+    /** returns a IP address for localhost paying attention to a system property to prevent lookup in some cases */
     public static InetAddress getLocalhostInetAddress() {
-        return TypeCoercions.coerce(JavaGroovyEquivalents.elvis(BrooklynServiceAttributes.LOCALHOST_IP_ADDRESS.getValue(), 
+        return TypeCoercions.coerce(JavaGroovyEquivalents.elvis(BrooklynServiceAttributes.LOCALHOST_IP_ADDRESS.getValue(),
                 Networking.getLocalHost()), InetAddress.class);
     }
-
 }

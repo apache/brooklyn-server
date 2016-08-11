@@ -30,6 +30,7 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Enumeration;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -37,8 +38,12 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
+import com.google.common.collect.Range;
+import com.google.common.collect.RangeSet;
+import com.google.common.collect.TreeRangeSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Identifiers;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,6 +54,10 @@ import com.google.common.base.Throwables;
 import com.google.common.net.HostAndPort;
 import com.google.common.primitives.UnsignedBytes;
 
+/**
+ * Generic network utility methods (which are generally not specific to Brooklyn configuration, or 
+ * brooklyn use-cases).
+ */
 public class Networking {
 
     private static final Logger log = LoggerFactory.getLogger(Networking.class);
@@ -225,6 +234,33 @@ public class Networking {
             }
             checkPortValid((Integer)val, ""+entry.getKey());
         }
+    }
+
+    // TODO it does not add adjacent intervals: {[22, 22], [23, 23]} is not merged to {[22, 23]}
+    public static RangeSet<Integer> portRulesToRanges(Collection<String> portRules) {
+        RangeSet<Integer> result = TreeRangeSet.create();
+        for (String portRule : portRules) {
+            if (portRule.contains("-")) {
+                String[] fromTo = portRule.split("-");
+                checkArgument(fromTo.length == 2, "Invalid port range '%s'", portRule);
+                checkArgument(Strings.countOccurrences(portRule, '-') == 1, "Invalid port range '%s'", portRule);
+                checkArgument(Strings.isNonEmpty(fromTo[0]), "Invalid port range '%s'", portRule);
+                checkArgument(Strings.isNonEmpty(fromTo[1]), "Invalid port range '%s'", portRule);
+                result.add(closedRange(fromTo[0], fromTo[1]));
+            } else {
+                result.add(closedRange(portRule, portRule));
+            }
+        }
+        return result;
+    }
+
+    private static Range<Integer> closedRange(String from, String to) {
+        Integer fromPort = Integer.parseInt(from);
+        Integer toPort = Integer.parseInt(to);
+        checkArgument(isPortValid(fromPort), "fromPort %s should be a number between %s and %s", fromPort, MIN_PORT_NUMBER, MAX_PORT_NUMBER);
+        checkArgument(isPortValid(toPort), "toPort %s should be a number between %s and %s", toPort, MIN_PORT_NUMBER, MAX_PORT_NUMBER);
+        checkArgument(fromPort <= toPort, "fromPort %s should be less than or equal to toPort %s", fromPort, toPort);
+        return Range.closed(fromPort, toPort);
     }
 
     /**

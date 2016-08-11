@@ -937,4 +937,15 @@ public class Strings {
     public static List<String> parseCsv(String csv) {
         return parseCsv(csv, ",");
     }
+    
+    public static int countOccurrences(String phrase, char target) {
+        if (phrase == null) return 0;
+        int result = 0;
+        for (int i = 0; i < phrase.length(); i++) {
+            if (target == phrase.charAt(i)) {
+                result++;
+            }
+        }
+        return result;
+    }
 }
