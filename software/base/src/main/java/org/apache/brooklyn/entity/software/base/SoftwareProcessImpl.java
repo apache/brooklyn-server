@@ -293,9 +293,10 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
      * @see #disconnectServiceUpIsRunning()
      */
     protected void connectServiceUpIsRunning() {
+        Duration period = config().get(SERVICE_PROCESS_IS_RUNNING_POLL_PERIOD);
         serviceProcessIsRunning = FunctionFeed.builder()
                 .entity(this)
-                .period(Duration.FIVE_SECONDS)
+                .period(period)
                 .poll(new FunctionPollConfig<Boolean, Boolean>(SERVICE_PROCESS_IS_RUNNING)
                         .suppressDuplicates(true)
                         .onException(Functions.constant(Boolean.FALSE))

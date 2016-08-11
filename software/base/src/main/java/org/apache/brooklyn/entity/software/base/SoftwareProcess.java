@@ -260,6 +260,12 @@ public interface SoftwareProcess extends Entity, Startable {
                     "several others. Set to null or to 0 to disable any delay.",
             Duration.TEN_SECONDS);
 
+    ConfigKey<Duration> SERVICE_PROCESS_IS_RUNNING_POLL_PERIOD = ConfigKeys.newConfigKey(Duration.class,
+            "softwareProcess.serviceProcessIsRunningPollPeriod",
+            "The period for polling for whether the process is running; applies only if the entity "
+                    + "wires up the connectServiceUpIsRunning.",
+            Duration.FIVE_SECONDS);
+    
     /**
      * Sets the object that manages the sequence of calls of the entity's driver.
      */
