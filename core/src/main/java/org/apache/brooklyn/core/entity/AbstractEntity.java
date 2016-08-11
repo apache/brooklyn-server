@@ -1698,6 +1698,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
             CatalogUtils.setCatalogItemIdOnAddition(AbstractEntity.this, policy);
             policiesInternal.add((AbstractPolicy)policy);
             ((AbstractPolicy)policy).setEntity(AbstractEntity.this);
+            ConfigConstraints.assertValid(policy);
 
             getManagementSupport().getEntityChangeListener().onPolicyAdded(policy);
             sensors().emit(AbstractEntity.POLICY_ADDED, new PolicyDescriptor(policy));
@@ -1776,6 +1777,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
             CatalogUtils.setCatalogItemIdOnAddition(AbstractEntity.this, enricher);
             enrichersInternal.add((AbstractEnricher) enricher);
             ((AbstractEnricher)enricher).setEntity(AbstractEntity.this);
+            ConfigConstraints.assertValid(enricher);
             
             getManagementSupport().getEntityChangeListener().onEnricherAdded(enricher);
             // TODO Could add equivalent of AbstractEntity.POLICY_ADDED for enrichers; no use-case for that yet

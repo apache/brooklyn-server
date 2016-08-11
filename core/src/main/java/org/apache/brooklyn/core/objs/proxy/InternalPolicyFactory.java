@@ -27,7 +27,6 @@ import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.config.ConfigConstraints;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
@@ -125,7 +124,6 @@ public class InternalPolicyFactory extends InternalFactory {
             for (Map.Entry<ConfigKey<?>, Object> entry : spec.getConfig().entrySet()) {
                 pol.config().set((ConfigKey)entry.getKey(), entry.getValue());
             }
-            ConfigConstraints.assertValid(pol);
             ((AbstractPolicy)pol).init();
             
             return pol;
@@ -167,7 +165,6 @@ public class InternalPolicyFactory extends InternalFactory {
             for (Map.Entry<ConfigKey<?>, Object> entry : spec.getConfig().entrySet()) {
                 enricher.config().set((ConfigKey)entry.getKey(), entry.getValue());
             }
-            ConfigConstraints.assertValid(enricher);
             ((AbstractEnricher)enricher).init();
             
             return enricher;
