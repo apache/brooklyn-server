@@ -1,5 +1,6 @@
 brooklyn.catalog:
   items:
+    - classpath://io.cloudsoft.amp.containerservice.docker-catalog:docker/common.bom
     - classpath://io.cloudsoft.amp.containerservice.docker-catalog:docker/ca.bom
     - classpath://io.cloudsoft.amp.containerservice.docker-catalog:docker/docker.bom
     - classpath://io.cloudsoft.amp.containerservice.docker-catalog:docker/swarm.bom

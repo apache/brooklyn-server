@@ -135,15 +135,10 @@ brooklyn.catalog:
 
   - id: test-docker-client
     item:
-      type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
+      type: software-process
       name: "test-docker-client"
 
       brooklyn.config:
-        dontRequireTtyForSudo: true
-
-        provisioning.properties:
-          osFamily: centos
-
         pre.install.command: |
           echo "[TEST] Install docker so we can use it as a client"
           sudo tee /etc/yum.repos.d/docker.repo <<-EOF

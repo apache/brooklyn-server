@@ -1,7 +1,5 @@
 brooklyn.catalog:
   version: "2.0.0-SNAPSHOT" # CONTAINER_SERVICE_VERSION
-  iconUrl: https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/OpenSSL_logo.png/320px-OpenSSL_logo.png
-
   publish:
     description: |
       An X.509 Certificate Authority tool using OpenSSL
@@ -14,9 +12,10 @@ brooklyn.catalog:
     description: |
       An X.509 Certificate Authority tool using OpenSSL
     itemType: template
+    iconUrl: https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/OpenSSL_logo.png/320px-OpenSSL_logo.png
     item:
       services:
-      - type: ca-server
+        - type: ca-server
 
   - id: ca-server
     name: "Certificate Authority Server"
@@ -29,9 +28,10 @@ brooklyn.catalog:
       requests to '/cert/{nodeName}/ca.pem' '/cert/{nodeName}/cert.pem' and
       '/cert/{nodeName}/key.pem'
     itemType: entity
+    iconUrl: https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/OpenSSL_logo.png/320px-OpenSSL_logo.png
     item:
-      type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
-      name: authority
+      type: centos-software-process
+      name: "authority"
 
       brooklyn.parameters:
         - name: ca.server.port
@@ -42,11 +42,6 @@ brooklyn.catalog:
           default: 8080
 
       brooklyn.config:
-        dontRequireTtyForSudo: true
-
-        provisioning.properties:
-          osFamily: centos
-
         shell.env:
           COUNTRY: $brooklyn:config("country")
           STATE: $brooklyn:config("state")
