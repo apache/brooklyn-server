@@ -1,14 +1,15 @@
 id: swarm-using-external-resources
+name: "Docker Swarm Cluster with Load-Balancer"
 description: |
-  An example deploying a Docker Swarm cluster using an existing discovery
-  mechanism (an Etcd cluster) and providing external URLs for the TLS
-  certificates and private keys for each Swarm node.  Note the same URL will
-  be used for each Swarm node so the certificate will have to be suitable
-  for use on all of them, typically a wildcard certifiate.
+  This uses an existing discovery mechanism (an Etcd cluster) and must be
+  provided with URLs to download the TLS certificates and private keys for
+  each Swarm node.
 
-  Deploys on CentOS nodes.
+  Note the same URL will be used for each Swarm node so the certificate
+  will have to be suitable for use on all of them, typically a wildcard
+  certifiate.
 
-# TODO this needs to be reviewed, it hasn't been tested yet.
+  Deploys on CentOS 7 VMs.
 
 location:
   jclouds:softlayer:

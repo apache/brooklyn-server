@@ -5,7 +5,7 @@ container ecosystem.
 
 ## Docker Engine
 
-*   `docker-engine` for provisioning a VM with Docker Engine; normal
+*   `docker-engine` for provisioning a VM with Docker Engine. Normal
     `SoftwareProcess` configuration keys apply
 
 *   `docker-engine-container` for provisioning a container on a `docker-engine`
@@ -17,10 +17,11 @@ Here's an example:
 
 ```YAML
 services:
-- type: docker-engine
-  brooklyn.children:
-  - type: docker-engine-container
-    container: hello-world
+  - type: docker-engine
+    name: "hello-world"
+    brooklyn.children:
+      - type: docker-engine-container
+        container: hello-world
 ```
 
 The implementation is as simple as possible, as you can see in the
@@ -42,13 +43,12 @@ catalog entry.
 
 ```YAML
 services:
-- type: docker-swarm
-  id: swarm
-  name: "swarm"
-  brooklyn.config:
-    swarm.initial.size: 3
-    swarm.max.size: 5
-    etcd.initial.size: 1
+  - type: docker-swarm
+    name: "swarm"
+    brooklyn.config:
+      swarm.initial.size: 3
+      swarm.max.size: 5
+      etcd.initial.size: 1
 ```
 
 This requires the [ca.bom](ca.bom) and [swarm.bom](swarm.bom) definitions to
@@ -61,29 +61,27 @@ below.
 
 ```YAML
 services:
-- type: docker-swarm:2.0.0-SNAPSHOT # CLOCKER_VERSION
-  id: swarm
-  name: "swarm"
-  brooklyn.config:
-    swarm.initial.size: 8
-    swarm.max.size: 16
-    swarm.manager.size: 3
-    etcd.initial.size: 3
-    swarm.port: 4000
-    swarm.defaultnetwork: "swarm"
-    swarm.scaling.cpu.limit: 0.80
-    swarm.strategy: "binpack"
-    swarm.overcommit: 0.50
-    swarm.recovery.stabilizationDelay: 10s
-    swarm.recovery.failOnRecurringFailuresInThisDuration: 5m
-    swarm.minRam: 32g
-    provisioning.properties:
-      minRam: 4g
-      minCores: 2
+  - type: docker-swarm
+    name: "swarm"
+    brooklyn.config:
+      swarm.initial.size: 8
+      swarm.max.size: 16
+      swarm.manager.size: 3
+      etcd.initial.size: 3
+      swarm.port: 4000
+      swarm.defaultnetwork: "swarm"
+      swarm.scaling.cpu.limit: 0.80
+      swarm.strategy: "binpack"
+      swarm.overcommit: 0.50
+      swarm.recovery.stabilizationDelay: 10s
+      swarm.recovery.failOnRecurringFailuresInThisDuration: 5m
+      provisioning.properties:
+        minRam: 4g
+        minCores: 2
 ```
 
 This is configured for a more typical production Swarm cluster, with 8-16
-Docker Engine members, three managers and three etcd servers. An Nginx load
+Docker Engine members, three managers and three etcd servers. An HAProxy load
 balancer will also be created, and the `swarm.url` sensor on the root
 application entity points to this, which will round-robin across the
 available, healthy Swarm managers.

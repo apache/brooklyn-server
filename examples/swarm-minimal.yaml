@@ -1,8 +1,14 @@
-id: swarm
+id: swarm-minimal
+name: "Docker Swarm Cluster"
 description: |
-  A blueprint deploying an all-in-one Docker Swarm cluster entity.
+  Uses the default settings for configuring the Swarm, apart from the initial
+  size of the cluster of Docker Engine nodes.
 
-  Deploys on AWS using the default Swarm entity configuration.
+  Deploys on AWS using only the default Swarm entity configuration. Requires
+  a security group to be deined in the AWS region or VPC, which should be
+  set in the 'templateOptions' of the location, as seen below. The VMs
+  must also have iptables disabled, which is accomplished by setting the
+  'stopIptables' configuration key to 'true' on the Swarm entity.
 
 location:
   jclouds:aws-ec2:

@@ -1,4 +1,5 @@
-name: ca
+id: ca
+name: "Certificate Authority"
 description: |
   Standalone Certificate Authority server.
 

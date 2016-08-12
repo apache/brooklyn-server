@@ -1,18 +1,19 @@
-id: swarm
+id: swarm-byon
+name: "Docker Swarm Cluster"
 description: |
-  A blueprint deploying an all-in-one Docker Swarm cluster entity.
-
-  Deploys on pre-configured VMs using the configured location details.
+  Deploys to existing VMs (for example, that have been created using
+  Vagrant) using the given BYON configuration. Ensure that enough VMs
+  are available for the given maximum size of the Swarm cluster.
 
 location:
   byon:
-    displayName: swarm-byon
-    loginUser: docker
-    user: docker
+    displayName: swarm-vagrant
+    loginUser: vagrant
+    user: vagrant
     privateKeyFile: ~/.ssh/swarm.pem
     loginUser.privateKeyFile: ~/.ssh/swarm.pem
     hosts:
-      - 10.10.101.0/25
+      - 192.168.50.0/27
 
 services:
   - type: docker-swarm
@@ -24,7 +25,7 @@ services:
       swarm.max.size: 10
       swarm.manager.size: 3
       etcd.initial.size: 3
-      swarm.port: 4000
+      swarm.port: 4444
       swarm.defaultnetwork: "swarm"
       swarm.scaling.cpu.limit: 0.99
       swarm.recovery.stabilizationDelay: 10s

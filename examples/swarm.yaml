@@ -1,9 +1,8 @@
 id: swarm
+name: "Docker Swarm Cluster"
 description: |
-  A blueprint deploying an all-in-one Docker Swarm cluster entity.
-
   Includes built-in etcd discovery cluster, TLS protected endpoints,
-  Nginx load balancer for Swarm managers and a CA server to create
+  HAProxy load balancer for Swarm managers and a CA server to create
   certificates for the Swarm and etcd nodes and the load balancer.
 
   Deploys on CentOS 7 VMs in SoftLayer, on a single VLAN segment.
