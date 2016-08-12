@@ -25,27 +25,27 @@ import com.google.common.reflect.TypeToken;
  * - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
  *   brooklyn.config:
  *     docker.container.imageName: httpd
- *     docker.container.disable_ssh: true
- *     docker.container.ports: ["80"]
+ *     docker.container.disableSsh: true
+ *     docker.container.inboundPorts:
+ *       - "8080-8081"
  */
 @ImplementedBy(DockerContainerImpl.class)
 public interface DockerContainer extends SoftwareProcess {
 
    ConfigKey<Boolean> DISABLE_SSH =
            ConfigKeys.newBooleanConfigKey(
-                   "docker.container.disable_ssh",
+                   "docker.container.disableSsh",
                    "Skip checks such as ssh for when docker image doesn't allow ssh",
-                   true);
+                   Boolean.TRUE);
 
    ConfigKey<String> IMAGE_NAME =
            ConfigKeys.newStringConfigKey(
                    "docker.container.imageName",
-                   "Image name to pull from docker hub",
-                   null);
+                   "Image name to pull from docker hub");
 
    ConfigKey<Iterable<String>> INBOUND_TCP_PORTS =
            ConfigKeys.newConfigKey(
-                   new TypeToken<Iterable<String>>() {},
-                   "docker.container.inbound_tcp_ports",
+                   new TypeToken<Iterable<String>>() { },
+                   "docker.container.inboundPorts",
                    "List of ports, that the docker image opens, to be made public");
 }

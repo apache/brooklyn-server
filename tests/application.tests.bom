@@ -417,14 +417,14 @@ brooklyn.catalog:
       type: test-case
       name: "Deploy Container Type Tests"
       brooklyn.children:
-        - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
+        - type: docker-container
           location: testing-swarm
           id: httpd
           name: "httpd"
           brooklyn.config:
-            docker.container.disable_ssh: true
+            docker.container.disableSsh: true
             docker.container.imageName: "httpd"
-            docker.container.inbound_tcp_ports:
+            docker.container.inboundPorts:
               - "70"
               - "80"
               - "90-99"

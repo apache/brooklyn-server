@@ -66,3 +66,4 @@ brooklyn.catalog:
                 brooklyn.children:
                   - type: deploy-multi-node-app-swarm-to-cloud
                   - type: deploy-multi-node-app-cloud-to-swarm
+

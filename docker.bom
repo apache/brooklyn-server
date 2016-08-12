@@ -408,11 +408,13 @@ brooklyn.catalog:
           description: |
             List of volumes to mount. Items follow the documented docker format
             for the '-v' option
+          default: [ ]
         - name: docker.run.env
           label: Container Environment
           type: java.util.Map
           description: |
             Map of environment variables to pass to the container
+          default: { }
         - name: docker.restart
           label: Restart policy
           description: |
@@ -505,3 +507,11 @@ brooklyn.catalog:
                 ( docker stats --no-stream $(cat pid.txt) |
                   tail -n +2 |
                   cut -c63-82 )
+
+  - id: docker-container
+    name: "Docker Container"
+    description: |
+      An easy way to launch a Docker container
+    itemType: entity
+    item:
+      type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
