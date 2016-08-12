@@ -79,87 +79,103 @@ brooklyn.catalog:
           name: "etcd-cluster"
           brooklyn.config:
             cluster.initial.size: $brooklyn:config("etcd.initial.size")
-            etcd.client.secure: true
-            etcd.peer.secure: true
-            ca.request.root.url: $brooklyn:entity("ca-server").attributeWhenReady("main.uri")
-            resources.preInstall.latch: $brooklyn:entity("ca-server").attributeWhenReady("service.isUp")
-            shell.env:
-              CA_REQUEST_ROOT_URL: $brooklyn:config("ca.request.root.url")
-              HOST_ADDRESS: $brooklyn:attributeWhenReady("host.address")
-              SUBNET_ADDRESS: $brooklyn:attributeWhenReady("host.subnet.address")
-              INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
-            pre.install.command: |
-              set -e
-              cat > functions.sh <<-'EOC'
-              function generate_key () {
-                openssl genrsa -out $1 2048
-              }
+            etcd.node.spec:
+              $brooklyn:entitySpec:
+                type: etcd-node
+                name: "etcd-node"
+                brooklyn.config:
+                  etcd.client.secure: true
+                  etcd.peer.secure: true
+                  ca.request.root.url: $brooklyn:entity("ca-server").attributeWhenReady("main.uri")
+                  resources.preInstall.latch: $brooklyn:entity("ca-server").attributeWhenReady("service.isUp")
+                  shell.env:
+                    CA_REQUEST_ROOT_URL: $brooklyn:config("ca.request.root.url")
+                    HOST_ADDRESS: $brooklyn:attributeWhenReady("host.address")
+                    SUBNET_ADDRESS: $brooklyn:attributeWhenReady("host.subnet.address")
+                    INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
+                    ETCDCTL_CA_FILE:
+                      $brooklyn:formatString:
+                        - "%s/certs/ca.pem"
+                        - $brooklyn:attributeWhenReady("install.dir")
+                    ETCDCTL_CERT_FILE:
+                      $brooklyn:formatString:
+                        - "%s/certs/cert.pem"
+                        - $brooklyn:attributeWhenReady("install.dir")
+                    ETCDCTL_KEY_FILE:
+                      $brooklyn:formatString:
+                        - "%s/certs/key.pem"
+                        - $brooklyn:attributeWhenReady("install.dir")
+                  pre.install.command: |
+                    set -e
+                    cat > functions.sh <<-'EOC'
+                    function generate_key () {
+                      openssl genrsa -out $1 2048
+                    }
 
-              function generate_conf () {
-                local CNF=$1
-                shift 1
-                local ix=0
-                cat > ${CNF} <<-EOF
-              [ req ]
-              req_extensions=v3_req
-              distinguished_name=req_distinguished_name
+                    function generate_conf () {
+                      local CNF=$1
+                      shift 1
+                      local ix=0
+                      cat > ${CNF} <<-EOF
+                    [ req ]
+                    req_extensions=v3_req
+                    distinguished_name=req_distinguished_name
 
-              [ req_distinguished_name ]
-              commonName                      = Common Name (eg, your name or your server\'s hostname)
-              commonName_max                  = 64
+                    [ req_distinguished_name ]
+                    commonName                      = Common Name (eg, your name or your server\'s hostname)
+                    commonName_max                  = 64
 
-              [ v3_req ]
-              subjectAltName = @alt_names
+                    [ v3_req ]
+                    subjectAltName = @alt_names
 
-              [ alt_names ]
-              EOF
+                    [ alt_names ]
+                    EOF
 
-              while [ $# -gt 0 ] ; do
-                ix=$(( $ix + 1 ))
-                echo "IP.${ix} = $1" >> ${CNF}
-                shift 1
-              done
-              }
+                    while [ $# -gt 0 ] ; do
+                      ix=$(( $ix + 1 ))
+                      echo "IP.${ix} = $1" >> ${CNF}
+                      shift 1
+                    done
+                    }
 
-              function generate_csr () {
-                openssl req -config $1 -new -key $2 -days 1825 -subj "/CN=$(hostname)" -out $3
-              }
+                    function generate_csr () {
+                      openssl req -config $1 -new -key $2 -days 1825 -subj "/CN=$(hostname)" -out $3
+                    }
 
-              function failwith() {
-                local err=$?
-                1>&2 echo "[CLOCKER] $1"
-                exit $err
-              }
+                    function failwith() {
+                      local err=$?
+                      1>&2 echo "[CLOCKER] $1"
+                      exit $err
+                    }
 
-              function getcert() {
-                local url=$1
-                local file=$2
-                curl -L ${url} --output ${file} --write-out "%{http_code}"  | grep 200 ||
-                  failwith "${file} not received from CA"
-              }
-              EOC
-              source functions.sh
+                    function getcert() {
+                      local url=$1
+                      local file=$2
+                      curl -L ${url} --output ${file} --write-out "%{http_code}"  | grep 200 ||
+                        failwith "${file} not received from CA"
+                    }
+                    EOC
+                    source functions.sh
 
-              mkdir -p ${INSTALL_DIR}/certs
-              getcert ${CA_REQUEST_ROOT_URL}/cacert/ca.pem ${INSTALL_DIR}/certs/ca.pem
-              generate_key ${INSTALL_DIR}/certs/key.pem
-              generate_conf ${INSTALL_DIR}/certs/csr.cnf ${HOST_ADDRESS} ${SUBNET_ADDRESS}
-              generate_csr ${INSTALL_DIR}/certs/csr.cnf ${INSTALL_DIR}/certs/key.pem ${INSTALL_DIR}/certs/csr.pem
+                    mkdir -p ${INSTALL_DIR}/certs
+                    getcert ${CA_REQUEST_ROOT_URL}/cacert/ca.pem ${INSTALL_DIR}/certs/ca.pem
+                    generate_key ${INSTALL_DIR}/certs/key.pem
+                    generate_conf ${INSTALL_DIR}/certs/csr.cnf ${HOST_ADDRESS} ${SUBNET_ADDRESS}
+                    generate_csr ${INSTALL_DIR}/certs/csr.cnf ${INSTALL_DIR}/certs/key.pem ${INSTALL_DIR}/certs/csr.pem
 
-              curl -X POST --data-binary @${INSTALL_DIR}/certs/csr.pem  ${CA_REQUEST_ROOT_URL}/sign > ${INSTALL_DIR}/certs/cert.pem
-
-            etcd.options.additional:
-              $brooklyn:formatString:
-              - >-
-                --cert-file="%1$s/certs/cert.pem"
-                --key-file="%1$s/certs/key.pem"
-                --trusted-ca-file="%1$s/certs/ca.pem"
-                --client-cert-auth
-                --peer-cert-file="%1$s/certs/cert.pem"
-                --peer-key-file="%1$s/certs/key.pem"
-                --peer-trusted-ca-file="%1$s/certs/ca.pem"
-                --peer-client-cert-auth
-              - $brooklyn:attributeWhenReady("install.dir")
+                    curl -X POST --data-binary @${INSTALL_DIR}/certs/csr.pem  ${CA_REQUEST_ROOT_URL}/sign > ${INSTALL_DIR}/certs/cert.pem
+                  etcd.options.additional:
+                    $brooklyn:formatString:
+                    - >-
+                      --cert-file="%1$s/certs/cert.pem"
+                      --key-file="%1$s/certs/key.pem"
+                      --trusted-ca-file="%1$s/certs/ca.pem"
+                      --client-cert-auth
+                      --peer-cert-file="%1$s/certs/cert.pem"
+                      --peer-key-file="%1$s/certs/key.pem"
+                      --peer-trusted-ca-file="%1$s/certs/ca.pem"
+                      --peer-client-cert-auth
+                    - $brooklyn:attributeWhenReady("install.dir")
         - type: docker-swarm-cluster
           id: swarm-cluster
           name: "swarm-cluster"
