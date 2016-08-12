@@ -174,9 +174,6 @@ public class YormlBasicTests {
 
     @Test
     public void testExtraFieldError() {
-        // TODO see failures
-        // TODO extra blackboard item of fields to handle
-        // TODO instantiate expected type if none explicit
         try {
             YormlTestFixture.newInstance().
             addType("shape", Shape.class).
@@ -297,10 +294,10 @@ public class YormlBasicTests {
         
         YormlTestFixture.newInstance().
         addType("shape-weird", ShapeWithWeirdFields.class).
-        writing(shape).reading("{ \"type\": \"shape-weird\", "
-            + "\"fields\": { \"name\": \"normal-trust-me\", "
-            + "\""+Shape.class.getCanonicalName()+"."+"name\": \"weird-shape\", "
-            + "\"size\": 4 "
+        writing(shape).reading("{ type: shape-weird, "
+            + "fields: { name: normal-trust-me, "
+                + Shape.class.getCanonicalName()+"."+"name: weird-shape, "
+                + "size: 4 "
             + "} }").
         doReadWriteAssertingJsonMatch();
     }
@@ -311,9 +308,8 @@ public class YormlBasicTests {
         try {
             YormlTestFixture.newInstance().
             addType("shape-weird", ShapeWithWeirdFields.class).
-            read("{ \"type\": \"shape-weird\", "
-                + "\"fields\": { \"aStatic\": 4 "
-                + "} }", null);
+            read("{ type: shape-weird, "
+                + "fields: { aStatic: 4 " + "} }", null);
             Assert.assertEquals(3, ShapeWithWeirdFields.aStatic);
             Asserts.shouldHaveFailedPreviously();
         } catch (Exception e) {

@@ -57,12 +57,12 @@ matter some syntaxes may be more natural than others.  Consider allowing writing
     say_hi:    # map converts to list treating key as name of effector, expecting type 'Effector' as value
       type: ssh     # type alias 'ssh' when type 'Effector` is needed matches SshEffector type
       parameters:   # field in SshEffector, of type Parameter
-      - name        # string given when Parameter expected means it's the parameter name
+      - person      # string given when Parameter expected means it's the parameter name
       - name: hello_word                  # map of type, becomes a Parameter populating fields
         description: how to say hello
         default: hello 
       command: |                          # and now the command, which SshEffector expects
-        echo ${hello_word} ${name:-world}
+        echo ${hello_word} ${person:-world}
 ```
 
 The important thing here is not using all of them at the same time (as we did for shape), 
@@ -548,12 +548,15 @@ to be shown.
   steps:
     00-provision: provision
     10-install:
-      type: bash
-      contents: |
+      bash: |
         curl blah
         tar blah
     20-run:
-      type: invoke-effector
+      effector: 
+        launch:
+          parameters...
+    21-run-other:
+      type; invoke-effector
       effector: launch
       parameters:
         ...
