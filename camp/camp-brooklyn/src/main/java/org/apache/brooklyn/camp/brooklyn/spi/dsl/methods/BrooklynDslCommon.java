@@ -29,7 +29,19 @@ import java.util.concurrent.ExecutionException;
 
 import javax.annotation.Nullable;
 
+import org.apache.commons.beanutils.BeanUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Function;
+import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.Configurable;
@@ -59,79 +71,77 @@ import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.javalang.coerce.ClassCoercionException;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.text.Strings;
-import org.apache.commons.beanutils.BeanUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Function;
-import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 
 /** static import functions which can be used in `$brooklyn:xxx` contexts */
 public class BrooklynDslCommon {
 
     private static final Logger LOG = LoggerFactory.getLogger(BrooklynDslCommon.class);
 
-    // Access specific entities
+    // Access specific objects
 
-    public static DslComponent self() {
+    public static DslComponent<Entity> self() {
         return new DslComponent(Scope.THIS, null);
     }
-    public static DslComponent entity(String id) {
+    public static DslComponent<Entity> entity(String id) {
         return new DslComponent(Scope.GLOBAL, id);
     }
-    public static DslComponent parent() {
+    public static DslComponent<Entity> parent() {
         return new DslComponent(Scope.PARENT, null);
     }
-    public static DslComponent child(String id) {
+    public static DslComponent<Entity> child(String id) {
         return new DslComponent(Scope.CHILD, id);
     }
-    public static DslComponent sibling(String id) {
+    public static DslComponent<Entity> sibling(String id) {
         return new DslComponent(Scope.SIBLING, id);
     }
-    public static DslComponent descendant(String id) {
+    public static DslComponent<Entity> descendant(String id) {
         return new DslComponent(Scope.DESCENDANT, id);
     }
-    public static DslComponent ancestor(String id) {
+    public static DslComponent<Entity> ancestor(String id) {
         return new DslComponent(Scope.ANCESTOR, id);
     }
-    public static DslComponent root() {
+    public static DslComponent<Entity> root() {
         return new DslComponent(Scope.ROOT, null);
     }
-    public static DslComponent scopeRoot() {
+    public static DslComponent<Entity> scopeRoot() {
         return new DslComponent(Scope.SCOPE_ROOT, null);
     }
     // prefer the syntax above to the below now, but not deprecating the below
-    public static DslComponent component(String id) {
+    public static DslComponent<Entity> component(String id) {
         return component("global", id);
     }
-    public static DslComponent component(String scope, String id) {
+    public static DslComponent<Entity> component(String scope, String id) {
         if (!DslComponent.Scope.isValid(scope)) {
             throw new IllegalArgumentException(scope + " is not a valid scope");
         }
         return new DslComponent(DslComponent.Scope.fromString(scope), id);
     }
+    public static DslComponent<Location> location() {
+        return new DslComponent(Scope.LOCATION, null);
+    }
 
     // Access things on entities
 
     public static BrooklynDslDeferredSupplier<?> config(String keyName) {
-        return new DslComponent(Scope.THIS, "").config(keyName);
+        return self().config(keyName);
     }
 
     public static BrooklynDslDeferredSupplier<?> attributeWhenReady(String sensorName) {
-        return new DslComponent(Scope.THIS, "").attributeWhenReady(sensorName);
+        return self().attributeWhenReady(sensorName);
     }
 
     public static BrooklynDslDeferredSupplier<?> entityId() {
-        return new DslComponent(Scope.THIS, "").entityId();
+        return self().entityId();
+    }
+
+    public static BrooklynDslDeferredSupplier<?> locationId() {
+        return location().locationId();
     }
 
     /** Returns a {@link Sensor}, looking up the sensor on the context if available and using that,
      * or else defining an untyped (Object) sensor */
     public static BrooklynDslDeferredSupplier<Sensor<?>> sensor(String sensorName) {
-        return new DslComponent(Scope.THIS, "").sensor(sensorName);
+        return self().sensor(sensorName);
     }
     
     /** Returns a {@link Sensor} declared on the type (e.g. entity class) declared in the first argument. */
@@ -183,7 +193,7 @@ public class BrooklynDslCommon {
         List<Object> factoryMethodArgs = (List<Object>) config.getStringKeyMaybe("factoryMethod.args").or(ImmutableList.of());
         Map<String,Object> objectFields = (Map<String, Object>) config.getStringKeyMaybe("object.fields").or(MutableMap.of());
         Map<String,Object> brooklynConfig = (Map<String, Object>) config.getStringKeyMaybe(BrooklynCampReservedKeys.BROOKLYN_CONFIG).or(MutableMap.of());
-        
+
         String mappedTypeName = DeserializingClassRenamesProvider.findMappedName(typeName);
         Class<?> type;
         try {
@@ -282,8 +292,6 @@ public class BrooklynDslCommon {
                 (args==null || args.length==0 ? "" : ","+Strings.join(args, ","))+")";
         }
     }
-
-
 
     protected static class DslRegexReplacement extends BrooklynDslDeferredSupplier<String> {
 
