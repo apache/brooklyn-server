@@ -6,12 +6,17 @@ brooklyn.catalog:
     - tests/jclouds.tests.bom
   license_code: CLOUDSOFT-1.0
 
+##
+# Requires pre-installed locations location-container and location-swarm-master
+# See jclouds.tests.bom for details
+##
+
   items:
     - id: existing-swarm-tests
-      name: Existing Swarm tests
-      description: Tests targeting an existing swarm.
+      name: "Existing Swarm tests"
+      description: |
+        Tests targeting an existing swarm.
       itemType: template
       item:
         services:
-        # NOTE: Requires pre-installed locations location-container, location-swarm-master, see jclouds.tests.bom for details
-        - type: jclouds-tests
+          - type: jclouds-tests
