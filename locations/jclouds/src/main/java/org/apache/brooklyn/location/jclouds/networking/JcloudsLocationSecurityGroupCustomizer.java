@@ -27,35 +27,9 @@ import java.util.concurrent.ExecutionException;
 
 import javax.annotation.Nullable;
 
-import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.core.location.geo.LocalhostExternalIpLoader;
-import org.apache.brooklyn.location.jclouds.JcloudsLocation;
-import org.apache.brooklyn.location.jclouds.JcloudsLocationCustomizer;
-import org.apache.brooklyn.location.jclouds.JcloudsMachineLocation;
-import org.apache.brooklyn.location.jclouds.JcloudsSshMachineLocation;
-
-import org.jclouds.aws.AWSResponseException;
-import org.jclouds.compute.ComputeService;
-import org.jclouds.compute.domain.SecurityGroup;
-import org.jclouds.compute.domain.Template;
-import org.jclouds.compute.extensions.SecurityGroupExtension;
-import org.jclouds.domain.Location;
-import org.jclouds.net.domain.IpPermission;
-import org.jclouds.net.domain.IpProtocol;
-import org.jclouds.providers.ProviderMetadata;
-import org.jclouds.providers.Providers;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.brooklyn.location.jclouds.BasicJcloudsLocationCustomizer;
-import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.core.task.Tasks;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.net.Cidr;
-import org.apache.brooklyn.util.time.Duration;
-
-import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -74,19 +48,44 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 
+import org.jclouds.aws.AWSResponseException;
+import org.jclouds.compute.ComputeService;
+import org.jclouds.compute.domain.SecurityGroup;
+import org.jclouds.compute.domain.Template;
+import org.jclouds.compute.extensions.SecurityGroupExtension;
+import org.jclouds.domain.Location;
+import org.jclouds.net.domain.IpPermission;
+import org.jclouds.net.domain.IpProtocol;
+import org.jclouds.providers.ProviderMetadata;
+import org.jclouds.providers.Providers;
+
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.core.location.geo.LocalhostExternalIpLoader;
+import org.apache.brooklyn.location.jclouds.BasicJcloudsLocationCustomizer;
+import org.apache.brooklyn.location.jclouds.JcloudsLocation;
+import org.apache.brooklyn.location.jclouds.JcloudsLocationConfig;
+import org.apache.brooklyn.location.jclouds.JcloudsLocationCustomizer;
+import org.apache.brooklyn.location.jclouds.JcloudsMachineLocation;
+import org.apache.brooklyn.location.jclouds.JcloudsSshMachineLocation;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.net.Cidr;
+import org.apache.brooklyn.util.time.Duration;
+
 /**
  * Configures custom security groups on Jclouds locations.
- *
- * @see SecurityGroupExtension is an optional extension to jclouds compute service. It allows the manipulation of
- * {@link SecurityGroup}s.
- *
+ * <p>
  * This customizer can be injected into {@link JcloudsLocation#obtainOnce} using
- * It will be executed after the provisiioning of the {@link JcloudsMachineLocation} to apply app-specific
- * customization related to the security groups.
+ * the {@link JcloudsLocationConfig#JCLOUDS_LOCATION_CUSTOMIZERS} configuration key.
+ * It will be executed after the provisiioning of the {@link JcloudsMachineLocation}
+ * to apply app-specific customization related to the security groups.
+ * <p>
+ * {@link SecurityGroupExtension} is an optional extension to the jclouds compute
+ * service. It allows the manipulation of {@link SecurityGroup security groups}.
  *
  * @since 0.7.0
  */
-@Beta
 public class JcloudsLocationSecurityGroupCustomizer extends BasicJcloudsLocationCustomizer {
 
     private static final Logger LOG = LoggerFactory.getLogger(JcloudsLocationSecurityGroupCustomizer.class);

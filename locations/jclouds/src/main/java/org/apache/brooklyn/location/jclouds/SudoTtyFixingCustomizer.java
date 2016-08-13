@@ -30,19 +30,15 @@ import com.google.common.base.Preconditions;
 /**
  * Wraps Brooklyn's sudo-tty mitigations in a {@link JcloudsLocationCustomizer} for easy(-ish) consumption
  * in YAML blueprints:
+ * <pre>{@code
+ * name: My App
+ * brooklyn.config:
+ *   provisioning.properties:
+ *     customizerType: SudoTtyFixingCustomizer
+ * }</pre>
+ * This class should be seen as a temporary workaround and might disappear completely if/when Brooklyn takes care of this automatically.
  *
- * <pre>
- *   name: My App
- *   brooklyn.config:
- *     provisioning.properties:
- *       customizerType: SudoTtyFixingCustomizer
- *   services: ...
- * </pre>
- *
- * <p>This class should be seen as a temporary workaround and might disappear completely if/when Brooklyn takes care of this automatically.
- *
- * <p>See
- * <a href='http://unix.stackexchange.com/questions/122616/why-do-i-need-a-tty-to-run-sudo-if-i-can-sudo-without-a-password'>http://unix.stackexchange.com/questions/122616/why-do-i-need-a-tty-to-run-sudo-if-i-can-sudo-without-a-password</a>
+ * @see <a href='http://unix.stackexchange.com/questions/122616/why-do-i-need-a-tty-to-run-sudo-if-i-can-sudo-without-a-password'>http://unix.stackexchange.com/questions/122616/why-do-i-need-a-tty-to-run-sudo-if-i-can-sudo-without-a-password</a>
  * for background.
  */
 @Beta

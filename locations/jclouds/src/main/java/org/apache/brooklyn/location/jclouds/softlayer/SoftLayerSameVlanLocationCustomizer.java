@@ -105,24 +105,14 @@ public class SoftLayerSameVlanLocationCustomizer extends BasicJcloudsLocationCus
     public static final AttributeSensor<Integer> PRIVATE_VLAN_ID = Sensors.newIntegerSensor(
             "softLayer.vlan.privateId", "The private VLAN ID for this entity");
 
-    /* Flags passed in on object creation. */
-    private final Map<String, ?> flags;
-
     /* Lock object for global critical sections accessing shared state maps. */
     private static final transient Object lock = new Object[0];
 
     /** Convenience creation method. */
     public static SoftLayerSameVlanLocationCustomizer forScope(String scopeUid) {
-        SoftLayerSameVlanLocationCustomizer customizer = new SoftLayerSameVlanLocationCustomizer(ImmutableMap.of(SCOPE_UID.getName(), scopeUid));
+        SoftLayerSameVlanLocationCustomizer customizer = new SoftLayerSameVlanLocationCustomizer();
+        customizer.config().set(SCOPE_UID, scopeUid);
         return customizer;
-    }
-
-    public SoftLayerSameVlanLocationCustomizer() {
-        this(ImmutableMap.<String, Object>of());
-    }
-
-    public SoftLayerSameVlanLocationCustomizer(Map<String, ?> flags) {
-        this.flags = ImmutableMap.copyOf(flags);
     }
 
     /**
@@ -287,7 +277,7 @@ public class SoftLayerSameVlanLocationCustomizer extends BasicJcloudsLocationCus
 
     /* Save the VLAN IDs as sensor data on the entity and set tag. */
     private void saveVlanDetails(JcloudsMachineLocation machine, String scopeUid, Integer privateVlanId, Integer publicVlanId) {
-        Object context = flags.get(LocationConfigKeys.CALLER_CONTEXT.getName());
+        Object context = config().get(LocationConfigKeys.CALLER_CONTEXT);
         if (context == null) {
             context = machine.config().get(LocationConfigKeys.CALLER_CONTEXT);
         }
@@ -306,7 +296,7 @@ public class SoftLayerSameVlanLocationCustomizer extends BasicJcloudsLocationCus
      * location flags, or the location itself.
      */
     private Duration getTimeout(JcloudsLocation location) {
-        Duration timeout = (Duration) flags.get(SCOPE_TIMEOUT.getName());
+        Duration timeout = config().get(SCOPE_TIMEOUT);
         if (timeout == null) {
             timeout = location.config().get(SCOPE_TIMEOUT);
         }
@@ -318,7 +308,7 @@ public class SoftLayerSameVlanLocationCustomizer extends BasicJcloudsLocationCus
      * location itself.
      */
     private String getScopeUid(JcloudsLocation location) {
-        String scopeUid = (String) flags.get(SCOPE_UID.getName());
+        String scopeUid = config().get(SCOPE_UID);
         if (Strings.isEmpty(scopeUid)) {
             scopeUid = location.config().get(SCOPE_UID);
         }

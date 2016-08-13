@@ -23,18 +23,14 @@ import org.jclouds.compute.domain.Template;
 import org.jclouds.compute.domain.TemplateBuilder;
 import org.jclouds.compute.options.TemplateOptions;
 
-import com.google.common.annotations.Beta;
-
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.core.location.LocationConfigKeys;
+import org.apache.brooklyn.core.objs.BasicConfigurableObject;
 
 /**
  * A default no-op implementation, which can be extended to override the appropriate methods.
- * 
- * Sub-classing will give the user some protection against future API changes - note that 
- * {@link JcloudsLocationCustomizer} is marked {@link Beta}.
- * 
- * @author aled
  */
-public class BasicJcloudsLocationCustomizer implements JcloudsLocationCustomizer {
+public class BasicJcloudsLocationCustomizer extends BasicConfigurableObject implements JcloudsLocationCustomizer {
 
     @Override
     public void customize(JcloudsLocation location, ComputeService computeService, TemplateBuilder templateBuilder) {
@@ -53,47 +49,31 @@ public class BasicJcloudsLocationCustomizer implements JcloudsLocationCustomizer
 
     @Override
     public void customize(JcloudsLocation location, ComputeService computeService, JcloudsMachineLocation machine) {
-        if (machine instanceof JcloudsSshMachineLocation) {
-            customize(location, computeService, (JcloudsSshMachineLocation)machine);
-        } else {
-            // no-op
-        }
+        // no-op
     }
-    
+
     @Override
     public void preRelease(JcloudsMachineLocation machine) {
-        if (machine instanceof JcloudsSshMachineLocation) {
-            preRelease((JcloudsSshMachineLocation)machine);
-        } else {
-            // no-op
-        }
+        // no-op
     }
 
     @Override
     public void postRelease(JcloudsMachineLocation machine) {
-        if (machine instanceof JcloudsSshMachineLocation) {
-            postRelease((JcloudsSshMachineLocation)machine);
-        } else {
-            // no-op
+        // no-op
+    }
+
+    /** @return the calling entity */
+    protected Entity getCallerContext(JcloudsMachineLocation machine) {
+        SudoTtyFixingCustomizer s;
+
+        Object context = config().get(LocationConfigKeys.CALLER_CONTEXT);
+        if (context == null) {
+            context = machine.config().get(LocationConfigKeys.CALLER_CONTEXT);
         }
+        if (!(context instanceof Entity)) {
+            throw new IllegalStateException("Invalid location context: " + context);
+        }
+        Entity entity = (Entity) context;
+        return entity;
     }
-    
-    @Override
-    @Deprecated
-    public void customize(JcloudsLocation location, ComputeService computeService, JcloudsSshMachineLocation machine) {
-        // no-op
-    }
-
-    @Override
-    @Deprecated
-    public void preRelease(JcloudsSshMachineLocation machine) {
-        // no-op
-    }
-
-    @Override
-    @Deprecated
-    public void postRelease(JcloudsSshMachineLocation machine) {
-        // no-op
-    }
-    
 }
