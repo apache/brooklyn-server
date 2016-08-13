@@ -59,7 +59,7 @@ public class RelativeEntityTestCaseImpl extends TargetableTestComponentImpl impl
         } else if (!(component.get() instanceof DslComponent)) {
             throw new IllegalArgumentException("Expected DslComponent value for component, found " + component.get());
         }
-        DslComponent finder = DslComponent.class.cast(component.get());
+        DslComponent<Entity> finder = DslComponent.class.cast(component.get());
         Task<Entity> task = Entities.submit(anchor, finder);
         return task.getUnchecked();
     }

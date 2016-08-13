@@ -27,25 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
-import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
-import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.location.Location;
-import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.core.effector.Effectors;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.core.entity.factory.EntityFactory;
-import org.apache.brooklyn.core.entity.factory.EntityFactoryForLocation;
-import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
-import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
-import org.apache.brooklyn.core.entity.trait.Changeable;
-import org.apache.brooklyn.core.entity.trait.Startable;
-import org.apache.brooklyn.core.location.Locations;
-import org.apache.brooklyn.enricher.stock.Enrichers;
-import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,9 +38,28 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.core.effector.Effectors;
+import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
+import org.apache.brooklyn.core.entity.trait.Changeable;
+import org.apache.brooklyn.core.entity.trait.Startable;
+import org.apache.brooklyn.core.location.Locations;
+import org.apache.brooklyn.enricher.stock.Enrichers;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
+
 /**
- * When a dynamic fabric is started, it starts an entity in each of its locations. 
- * This entity will be the parent of each of the started entities. 
+ * When a dynamic fabric is started, it starts an entity in each of its locations.
+ * This entity will be the parent of each of the started entities.
  */
 public class DynamicFabricImpl extends AbstractGroupImpl implements DynamicFabric {
     private static final Logger logger = LoggerFactory.getLogger(DynamicFabricImpl.class);
@@ -70,7 +70,7 @@ public class DynamicFabricImpl extends AbstractGroupImpl implements DynamicFabri
     @Override
     public void init() {
         super.init();
-        
+
         enrichers().add(Enrichers.builder()
                 .aggregating(Changeable.GROUP_SIZE)
                 .publishing(FABRIC_SIZE)
@@ -78,50 +78,41 @@ public class DynamicFabricImpl extends AbstractGroupImpl implements DynamicFabri
                 .computingSum()
                 .valueToReportIfNoSensors(0)
                 .build());
-        
+
         sensors().set(SERVICE_UP, false);
     }
-    
+
     protected EntitySpec<?> getMemberSpec() {
         return getConfig(MEMBER_SPEC);
     }
-    
-    protected EntityFactory<?> getFactory() {
-        return getConfig(FACTORY);
-    }
-    
+
     protected String getDisplayNamePrefix() {
         return getConfig(DISPLAY_NAME_PREFIX);
     }
-    
+
     protected String getDisplayNameSuffix() {
         return getConfig(DISPLAY_NAME_SUFFIX);
     }
-    
+
     @Override
     public void setMemberSpec(EntitySpec<?> memberSpec) {
         setConfigEvenIfOwned(MEMBER_SPEC, memberSpec);
     }
-    
-    @Override
-    public void setFactory(EntityFactory<?> factory) {
-        setConfigEvenIfOwned(FACTORY, factory);
-    }
-    
+
     @Override
     public void start(Collection<? extends Location> locsO) {
         addLocations(locsO);
         List<Location> locationsToStart = MutableList.copyOf(Locations.getLocationsCheckingAncestors(locsO, this));
-        
-        Preconditions.checkNotNull(locationsToStart, "locations must be supplied");
+
+        Preconditions.checkNotNull(locationsToStart, "Locations must be supplied");
         Preconditions.checkArgument(locationsToStart.size() >= 1, "One or more locations must be supplied");
-        
+
         int locIndex = 0;
-        
+
         ServiceStateLogic.setExpectedState(this, Lifecycle.STARTING);
         try {
             Map<Entity, Task<?>> tasks = Maps.newLinkedHashMap();
-            
+
             // first look at existing Startable children - start them with the locations passed in here,
             // if they have no locations yet
             for (Entity child: getChildren()) {
@@ -134,9 +125,9 @@ public class DynamicFabricImpl extends AbstractGroupImpl implements DynamicFabri
                             it = locationsToStart.get(locIndex++ % locationsToStart.size());
                             ((EntityInternal)child).addLocations(Arrays.asList(it));
                         }
-                    
+
                     tasks.put(child, Entities.submit(this,
-                        Effectors.invocation(child, START, ImmutableMap.of("locations", 
+                        Effectors.invocation(child, START, ImmutableMap.of("locations",
                             it==null ? ImmutableList.of() : ImmutableList.of(it))).asTask()));
                 }
             }
@@ -144,11 +135,21 @@ public class DynamicFabricImpl extends AbstractGroupImpl implements DynamicFabri
             while (locIndex-->0 && !locationsToStart.isEmpty())
                 locationsToStart.remove(0);
 
-            // finally (and usually) we create new entities for locations passed in
+            // now look at the configured location specs
+            List<LocationSpec<?>> locationSpecs = MutableList.copyOf(config().get(LOCATION_SPECS));
+            if (locationSpecs.size() > 0) {
+                // use these in addition to locations passed to start method
+                for (LocationSpec<?> spec : locationSpecs) {
+                    Location location = getManagementContext().getLocationManager().createLocation(spec);
+                    locationsToStart.add(location);
+                }
+            }
+
+            // finally (and usually) we create and start new entities in our list of locations
             // (unless they were consumed by pre-existing children which didn't have locations)
             for (Location it : locationsToStart) {
                 Entity e = addCluster(it);
-                
+
                 ((EntityInternal)e).addLocations(Arrays.asList(it));
                 if (e instanceof Startable) {
                     Task<?> task = Entities.submit(this,
@@ -156,7 +157,7 @@ public class DynamicFabricImpl extends AbstractGroupImpl implements DynamicFabri
                     tasks.put(e, task);
                 }
             }
-            
+
             waitForTasksOnStart(tasks);
             ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
             sensors().set(SERVICE_UP, true);
@@ -180,7 +181,7 @@ public class DynamicFabricImpl extends AbstractGroupImpl implements DynamicFabri
             }
         }
     }
-    
+
     @Override
     public void stop() {
         ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPING);
@@ -209,7 +210,7 @@ public class DynamicFabricImpl extends AbstractGroupImpl implements DynamicFabri
         }
         return result;
     }
-    
+
     @Override
     public boolean removeChild(Entity child) {
         boolean changed = super.removeChild(child);
@@ -218,12 +219,12 @@ public class DynamicFabricImpl extends AbstractGroupImpl implements DynamicFabri
         }
         return changed;
     }
-    
+
     protected Map getCustomChildFlags() {
         Map result = getConfig(CUSTOM_CHILD_FLAGS);
         return (result == null) ? ImmutableMap.of() : result;
     }
-    
+
     protected Entity addCluster(Location location) {
         String locationName = elvis(location.getDisplayName(), location.getDisplayName(), null);
         Map creation = Maps.newLinkedHashMap();
@@ -232,44 +233,35 @@ public class DynamicFabricImpl extends AbstractGroupImpl implements DynamicFabri
             String displayName = "" + elvis(getDisplayNamePrefix(), "") + elvis(locationName, "unnamed") + elvis(getDisplayNameSuffix(),"");
             creation.put("displayName", displayName);
         }
-        logger.info("Creating entity in fabric {} at {}{}", new Object[] {this, location, 
-                (creation!=null && !creation.isEmpty() ? ", properties "+creation : "") });
+        logger.info("Creating entity in fabric {} at {}{}",
+                new Object[] { this, location, (creation!=null && !creation.isEmpty() ? ", properties "+creation : "") });
 
         Entity entity = createCluster(location, creation);
-        
+
         if (locationName != null) {
             if (entity.getDisplayName()==null)
                 ((EntityLocal)entity).setDisplayName(entity.getEntityType().getSimpleName() +" ("+locationName+")");
-            else if (!entity.getDisplayName().contains(locationName)) 
+            else if (!entity.getDisplayName().contains(locationName))
                 ((EntityLocal)entity).setDisplayName(entity.getDisplayName() +" ("+locationName+")");
         }
         if (entity.getParent()==null) entity.setParent(this);
-        
+
         // Continue to call manage(), because some uses of NodeFactory (in tests) still instantiate the
         // entity via its constructor
         Entities.manage(entity);
-        
+
         addMember(entity);
-        
+
         return entity;
     }
-    
+
     protected Entity createCluster(Location location, Map flags) {
         EntitySpec<?> memberSpec = getMemberSpec();
         if (memberSpec != null) {
             return addChild(EntitySpec.create(memberSpec).configure(flags));
+        } else {
+            throw new IllegalStateException("Must specify a member spec for the cluster");
         }
-        
-        EntityFactory<?> factory = getFactory();
-        if (factory == null) { 
-            throw new IllegalStateException("No member spec nor entity factory supplied for dynamic fabric "+this);
-        }
-        EntityFactory<?> factoryToUse = (factory instanceof EntityFactoryForLocation) ? ((EntityFactoryForLocation)factory).newFactoryForLocation(location) : factory;
-        Entity entity = factoryToUse.newEntity(flags, this);
-        if (entity==null) 
-            throw new IllegalStateException("EntityFactory factory routine returned null entity, in "+this);
-        
-        return entity;
     }
-    
+
 }
