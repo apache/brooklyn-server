@@ -28,6 +28,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.annotation.Nullable;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Function;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.framework.FrameworkLookup;
@@ -67,12 +74,6 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.text.Strings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Function;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 
 /**
  * This generates instances of a template resolver that use a {@link ServiceTypeResolver}
@@ -458,11 +459,19 @@ public class BrooklynComponentTemplateResolver {
                 // TODO: This should called from BrooklynAssemblyTemplateInstantiator.configureEntityConfig
                 // And have transformSpecialFlags(Object flag, ManagementContext mgmt) drill into the Object flag if it's a map or iterable?
                 @SuppressWarnings("unchecked")
-                Map<String, Object> resolvedConfig = (Map<String, Object>)transformSpecialFlags(specConfig.getSpecConfiguration());
+                Map<String, Object> resolvedConfig = (Map<String, Object>) transformSpecialFlags(specConfig.getSpecConfiguration());
                 specConfig.setSpecConfiguration(resolvedConfig);
                 EntitySpec<?> entitySpec = Factory.newInstance(getLoader(), specConfig.getSpecConfiguration()).resolveSpec(encounteredRegisteredTypeIds);
-                
                 return EntityManagementUtils.unwrapEntity(entitySpec);
+            }
+            if (flag instanceof LocationSpecConfiguration) {
+                BrooklynYamlLocationResolver resolver = new BrooklynYamlLocationResolver(mgmt);
+                LocationSpecConfiguration specConfig = (LocationSpecConfiguration) flag;
+                @SuppressWarnings("unchecked")
+                Map<String, Object> resolvedConfig = (Map<String, Object>) transformSpecialFlags(specConfig.getSpecConfiguration());
+                specConfig.setSpecConfiguration(resolvedConfig);
+                LocationSpec<?> locationSpec = resolver.resolveLocationFromMap(resolvedConfig);
+                return locationSpec;
             }
             if (flag instanceof ManagementContextInjectable) {
                 log.debug("Injecting Brooklyn management context info object: {}", flag);

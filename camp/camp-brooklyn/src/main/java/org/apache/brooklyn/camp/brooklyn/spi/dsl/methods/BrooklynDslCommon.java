@@ -49,6 +49,7 @@ import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampReservedKeys;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.BrooklynYamlTypeInstantiator;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.EntitySpecConfiguration;
+import org.apache.brooklyn.camp.brooklyn.spi.creation.LocationSpecConfiguration;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
 import org.apache.brooklyn.core.config.external.ExternalConfigSupplier;
@@ -176,6 +177,10 @@ public class BrooklynDslCommon {
 
     public static EntitySpecConfiguration entitySpec(Map<String, Object> arguments) {
         return new EntitySpecConfiguration(arguments);
+    }
+
+    public static LocationSpecConfiguration locationSpec(Map<String, Object> arguments) {
+        return new LocationSpecConfiguration(arguments);
     }
 
     /**
