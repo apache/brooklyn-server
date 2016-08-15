@@ -29,6 +29,8 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.guava.SerializablePredicate;
 import org.apache.brooklyn.util.javalang.Reflections;
@@ -171,11 +173,35 @@ public class EntityPredicates {
     }
 
     // ---------------------------
-    
+
+    public static Predicate<Entity> attributeNotNull(final String attributeName) {
+        return attributeSatisfies(attributeName, Predicates.notNull());
+    }
+
+    public static <T> Predicate<Entity> attributeNotNull(final AttributeSensor<T> attribute) {
+        return attributeSatisfies(attribute, Predicates.<T>notNull());
+    }
+
+    public static Predicate<Entity> attributeEqualTo(final String attributeName, final Object val) {
+        return attributeSatisfies(attributeName, Predicates.equalTo(val));
+    }
+
     public static <T> Predicate<Entity> attributeEqualTo(final AttributeSensor<T> attribute, final T val) {
         return attributeSatisfies(attribute, Predicates.equalTo(val));
     }
-    
+
+    public static <T> Predicate<Entity> attributeNotEqualTo(final String attributeName, final Object val) {
+        return attributeSatisfies(attributeName, Predicates.not(Predicates.equalTo(val)));
+    }
+
+    public static <T> Predicate<Entity> attributeNotEqualTo(final AttributeSensor<T> attribute, final T val) {
+        return attributeSatisfies(attribute, Predicates.not(Predicates.equalTo(val)));
+    }
+
+    public static Predicate<Entity> attributeSatisfies(final String attributeName, final Predicate<Object> condition) {
+        return new AttributeSatisfies<Object>(Sensors.newSensor(Object.class, attributeName), condition);
+    }
+
     public static <T> Predicate<Entity> attributeSatisfies(final AttributeSensor<T> attribute, final Predicate<T> condition) {
         return new AttributeSatisfies<T>(attribute, condition);
     }
@@ -208,22 +234,50 @@ public class EntityPredicates {
         };
     }
     
-    public static <T> Predicate<Entity> attributeNotEqualTo(final AttributeSensor<T> attribute, final T val) {
-        return attributeSatisfies(attribute, Predicates.not(Predicates.equalTo(val)));
+    // ---------------------------
+
+    public static <T> Predicate<Entity> configNotNull(final String configKeyName) {
+        return configSatisfies(configKeyName, Predicates.notNull());
     }
 
-    // ---------------------------
+    public static <T> Predicate<Entity> configNotNull(final ConfigKey<T> configKey) {
+        return configSatisfies(configKey, Predicates.<T>notNull());
+    }
+
+    public static <T> Predicate<Entity> configNotNull(final HasConfigKey<T> configKey) {
+        return configNotNull(configKey.getConfigKey());
+    }
+
+    public static <T> Predicate<Entity> configEqualTo(final String configKeyName, final Object val) {
+        return configSatisfies(configKeyName, Predicates.equalTo(val));
+    }
 
     public static <T> Predicate<Entity> configEqualTo(final ConfigKey<T> configKey, final T val) {
         return configSatisfies(configKey, Predicates.equalTo(val));
     }
 
-    public static <T> Predicate<Entity> configSatisfies(final ConfigKey<T> configKey, final Predicate<T> condition) {
-        return new ConfigKeySatisfies<T>(configKey, condition);
-    }
-
     public static <T> Predicate<Entity> configEqualTo(final HasConfigKey<T> configKey, final T val) {
         return configEqualTo(configKey.getConfigKey(), val);
+    }
+
+    public static <T> Predicate<Entity> configNotEqualTo(final String configKeyName, final Object val) {
+        return configSatisfies(configKeyName, Predicates.not(Predicates.equalTo(val)));
+    }
+
+    public static <T> Predicate<Entity> configNotEqualTo(final ConfigKey<T> configKey, final T val) {
+        return configSatisfies(configKey, Predicates.not(Predicates.equalTo(val)));
+    }
+
+    public static <T> Predicate<Entity> configNotEqualTo(final HasConfigKey<T> configKey, final T val) {
+        return configNotEqualTo(configKey.getConfigKey(), val);
+    }
+
+    public static Predicate<Entity> configSatisfies(final String configKeyName, final Predicate<Object> condition) {
+        return new ConfigKeySatisfies<Object>(ConfigKeys.newConfigKey(Object.class, configKeyName), condition);
+    }
+
+    public static <T> Predicate<Entity> configSatisfies(final ConfigKey<T> configKey, final Predicate<T> condition) {
+        return new ConfigKeySatisfies<T>(configKey, condition);
     }
 
     public static <T> Predicate<Entity> configSatisfies(final HasConfigKey<T> configKey, final Predicate<T> condition) {

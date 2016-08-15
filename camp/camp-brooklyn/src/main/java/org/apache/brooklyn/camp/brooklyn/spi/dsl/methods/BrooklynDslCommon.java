@@ -19,6 +19,7 @@
 package org.apache.brooklyn.camp.brooklyn.spi.dsl.methods;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
 
 import java.util.Arrays;
 import java.util.Iterator;
@@ -38,10 +39,8 @@ import org.apache.brooklyn.camp.brooklyn.BrooklynCampReservedKeys;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.BrooklynYamlTypeInstantiator;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.EntitySpecConfiguration;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
-import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
 import org.apache.brooklyn.core.config.external.ExternalConfigSupplier;
-import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.EntityDynamicType;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.internal.ExternalConfigSupplierRegistry;
@@ -66,6 +65,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
@@ -178,6 +178,9 @@ public class BrooklynDslCommon {
     public static Object object(Map<String, Object> arguments) {
         ConfigBag config = ConfigBag.newInstance(arguments);
         String typeName = BrooklynYamlTypeInstantiator.InstantiatorFromKey.extractTypeName("object", config).orNull();
+        List<Object> constructorArgs = (List<Object>) config.getStringKeyMaybe("constructor.args").or(ImmutableList.of());
+        String factoryMethodName = (String) config.getStringKeyMaybe("factoryMethod.name").orNull();
+        List<Object> factoryMethodArgs = (List<Object>) config.getStringKeyMaybe("factoryMethod.args").or(ImmutableList.of());
         Map<String,Object> objectFields = (Map<String, Object>) config.getStringKeyMaybe("object.fields").or(MutableMap.of());
         Map<String,Object> brooklynConfig = (Map<String, Object>) config.getStringKeyMaybe(BrooklynCampReservedKeys.BROOKLYN_CONFIG).or(MutableMap.of());
         
@@ -187,17 +190,24 @@ public class BrooklynDslCommon {
             type = new ClassLoaderUtils(BrooklynDslCommon.class).loadClass(mappedTypeName);
         } catch (ClassNotFoundException e) {
             LOG.debug("Cannot load class " + typeName + " for DLS object; assuming it is in OSGi bundle; will defer its loading");
-            return new DslObject(mappedTypeName, objectFields, brooklynConfig);
+            return new DslObject(mappedTypeName, constructorArgs, objectFields, brooklynConfig);
         }
 
         if (!Reflections.hasNoArgConstructor(type)) {
             throw new IllegalStateException(String.format("Cannot construct %s bean: No public no-arg constructor available", type));
         }
-        if ((objectFields.isEmpty() || DslUtils.resolved(objectFields.values())) &&
-                (brooklynConfig.isEmpty() || DslUtils.resolved(brooklynConfig.values()))) {
-            return DslObject.create(type, objectFields, brooklynConfig);
+        if (resolved(constructorArgs) && resolved(factoryMethodArgs) && resolved(objectFields.values()) && resolved(brooklynConfig.values())) {
+            if (factoryMethodName == null) {
+                return DslObject.create(type, constructorArgs, objectFields, brooklynConfig);
+            } else {
+                return DslObject.create(type, factoryMethodName, factoryMethodArgs, objectFields, brooklynConfig);
+            }
         } else {
-            return new DslObject(type, objectFields, brooklynConfig);
+            if (factoryMethodName == null) {
+                return new DslObject(type, constructorArgs, objectFields, brooklynConfig);
+            } else {
+                return new DslObject(type, factoryMethodName, factoryMethodArgs, objectFields, brooklynConfig);
+            }
         }
     }
 
@@ -213,7 +223,7 @@ public class BrooklynDslCommon {
      * are not yet fully resolved.
      */
     public static Object formatString(final String pattern, final Object...args) {
-        if (DslUtils.resolved(args)) {
+        if (resolved(args)) {
             // if all args are resolved, apply the format string now
             return String.format(pattern, args);
         } else {
@@ -222,7 +232,7 @@ public class BrooklynDslCommon {
     }
 
     public static Object regexReplacement(final Object source, final Object pattern, final Object replacement) {
-        if (DslUtils.resolved(Arrays.asList(source, pattern, replacement))) {
+        if (resolved(Arrays.asList(source, pattern, replacement))) {
             return (new Functions.RegexReplacer(String.valueOf(pattern), String.valueOf(replacement))).apply(String.valueOf(source));
         } else {
             return new DslRegexReplacement(source, pattern, replacement);
@@ -327,18 +337,66 @@ public class BrooklynDslCommon {
 
         private static final long serialVersionUID = 8878388748085419L;
 
-        private String typeName;
-        private Class<?> type;
-        private Map<String,Object> fields, config;
+        private final String typeName;
+        private final String factoryMethodName;
+        private final Class<?> type;
+        private final List<Object> constructorArgs, factoryMethodArgs;
+        private final Map<String, Object> fields, config;
 
-        public DslObject(String typeName, Map<String,Object> fields,  Map<String,Object> config) {
+        public DslObject(
+                String typeName,
+                List<Object> constructorArgs,
+                Map<String, Object> fields,
+                Map<String, Object> config) {
             this.typeName = checkNotNull(typeName, "typeName");
+            this.type = null;
+            this.constructorArgs = constructorArgs;
+            this.factoryMethodName = null;
+            this.factoryMethodArgs = ImmutableList.of();
             this.fields = MutableMap.copyOf(fields);
             this.config = MutableMap.copyOf(config);
         }
-        
-        public DslObject(Class<?> type, Map<String,Object> fields,  Map<String,Object> config) {
+
+        public DslObject(
+                Class<?> type,
+                List<Object> constructorArgs,
+                Map<String, Object> fields,
+                Map<String, Object> config) {
+            this.typeName = null;
             this.type = checkNotNull(type, "type");
+            this.constructorArgs = constructorArgs;
+            this.factoryMethodName = null;
+            this.factoryMethodArgs = ImmutableList.of();
+            this.fields = MutableMap.copyOf(fields);
+            this.config = MutableMap.copyOf(config);
+        }
+
+        public DslObject(
+                String typeName,
+                String factoryMethodName,
+                List<Object> factoryMethodArgs,
+                Map<String, Object> fields,
+                Map<String, Object> config) {
+            this.typeName = checkNotNull(typeName, "typeName");
+            this.type = null;
+            this.constructorArgs = ImmutableList.of();
+            this.factoryMethodName = factoryMethodName;
+            this.factoryMethodArgs = factoryMethodArgs;
+            this.fields = MutableMap.copyOf(fields);
+            this.config = MutableMap.copyOf(config);
+        }
+
+        public DslObject(
+                Class<?> type,
+                String factoryMethodName,
+                List<Object> factoryMethodArgs,
+                Map<String, Object> fields,
+                Map<String, Object> config) {
+            this.typeName = null;
+            this.type = checkNotNull(type, "type");
+            this.constructorArgs = ImmutableList.of();
+            this.factoryMethodName = factoryMethodName;
+            this.factoryMethodArgs = factoryMethodArgs;
             this.fields = MutableMap.copyOf(fields);
             this.config = MutableMap.copyOf(config);
         }
@@ -346,6 +404,7 @@ public class BrooklynDslCommon {
         @SuppressWarnings("unchecked")
         @Override
         public Task<Object> newTask() {
+            Class<?> type = this.type;
             if (type == null) {
                 EntityInternal entity = entity();
                 try {
@@ -354,6 +413,8 @@ public class BrooklynDslCommon {
                     throw Exceptions.propagate(e);
                 }
             }
+            final Class<?> clazz = type;
+
             List<TaskAdaptable<Object>> tasks = Lists.newLinkedList();
             for (Object value : Iterables.concat(fields.values(), config.values())) {
                 if (value instanceof TaskAdaptable) {
@@ -362,8 +423,8 @@ public class BrooklynDslCommon {
                     tasks.add(((TaskFactory<TaskAdaptable<Object>>) value).newTask());
                 }
             }
-            
-            Map<String,?> flags = MutableMap.<String,String>of("displayName", "building '"+type+"' with "+tasks.size()+" task"+(tasks.size()!=1?"s":""));
+
+            Map<String,?> flags = MutableMap.<String,String>of("displayName", "building '"+clazz+"' with "+tasks.size()+" task"+(tasks.size()!=1?"s":""));
             return DependentConfiguration.transformMultiple(flags, new Function<List<Object>, Object>() {
                         @Override
                         public Object apply(List<Object> input) {
@@ -384,24 +445,48 @@ public class BrooklynDslCommon {
                                     config.put(name, ((DeferredSupplier<?>) value).get());
                                 }
                             }
-                            return create(type, fields, config);
+                            if (factoryMethodName == null) {
+                                return create(clazz, constructorArgs, fields, config);
+                            } else {
+                                return create(clazz, factoryMethodName, factoryMethodArgs, fields, config);
+                            }
                         }
                     }, tasks);
         }
 
-        public static <T> T create(Class<T> type, Map<String,?> fields, Map<String,?> config) {
+        public static <T> T create(Class<T> type, List<?> constructorArgs, Map<String,?> fields, Map<String,?> config) {
             try {
                 T bean;
                 try {
                     bean = (T) TypeCoercions.coerce(fields, type);
                 } catch (ClassCoercionException ex) {
-                    bean = Reflections.invokeConstructorFromArgs(type).get();
+                    bean = Reflections.invokeConstructorFromArgs(type, constructorArgs.toArray()).get();
                     BeanUtils.populate(bean, fields);
                 }
                 if (bean instanceof Configurable && config.size() > 0) {
-                    ConfigBag brooklyn = ConfigBag.newInstance(config);
-                    FlagUtils.setFieldsFromFlags(bean, brooklyn);
-                    FlagUtils.setAllConfigKeys((Configurable) bean, brooklyn, true);
+                    ConfigBag configBag = ConfigBag.newInstance(config);
+                    FlagUtils.setFieldsFromFlags(bean, configBag);
+                    FlagUtils.setAllConfigKeys((Configurable) bean, configBag, true);
+                }
+                return bean;
+            } catch (Exception e) {
+                throw Exceptions.propagate(e);
+            }
+        }
+
+        public static Object create(Class<?> type, String factoryMethodName, List<Object> factoryMethodArgs, Map<String,?> fields, Map<String,?> config) {
+            try {
+                Object bean;
+                try {
+                    bean = TypeCoercions.coerce(fields, type);
+                } catch (ClassCoercionException ex) {
+                    bean = Reflections.invokeMethodFromArgs(type, factoryMethodName, factoryMethodArgs).get();
+                    BeanUtils.populate(bean, fields);
+                }
+                if (bean instanceof Configurable && config.size() > 0) {
+                    ConfigBag configBag = ConfigBag.newInstance(config);
+                    FlagUtils.setFieldsFromFlags(bean, configBag);
+                    FlagUtils.setAllConfigKeys((Configurable) bean, configBag, true);
                 }
                 return bean;
             } catch (Exception e) {
@@ -485,7 +570,7 @@ public class BrooklynDslCommon {
 
     public static class Functions {
         public static Object regexReplacement(final Object pattern, final Object replacement) {
-            if (DslUtils.resolved(pattern, replacement)) {
+            if (resolved(pattern, replacement)) {
                 return new RegexReplacer(String.valueOf(pattern), String.valueOf(replacement));
             } else {
                 return new DslRegexReplacer(pattern, replacement);

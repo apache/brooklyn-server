@@ -31,7 +31,9 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.Identifiable;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
+import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.guava.Functionals;
 
@@ -141,7 +143,11 @@ public class EntityFunctions {
         }
         return new AppsSupplier();
     }
-    
+
+    public static Function<Entity, Object> attribute(String attributeName) {
+        return attribute(Sensors.newSensor(Object.class, attributeName));
+    }
+
     public static <T> Function<Entity, T> attribute(AttributeSensor<T> attribute) {
         return new GetEntityAttributeFunction<T>(checkNotNull(attribute, "attribute"));
     }
@@ -153,6 +159,26 @@ public class EntityFunctions {
         }
         @Override public T apply(Entity input) {
             return (input == null) ? null : input.getAttribute(attribute);
+        }
+    }
+
+    public static Function<Entity, String> attribute(String attributeName, String format) {
+        return attribute(Sensors.newSensor(Object.class, attributeName), format);
+    }
+
+    public static Function<Entity, String> attribute(AttributeSensor<?> attribute, String format) {
+        return new FormatEntityAttributeFunction(checkNotNull(attribute, "attribute"), checkNotNull(format, "format"));
+    }
+
+    protected static class FormatEntityAttributeFunction implements Function<Entity, String> {
+        private final AttributeSensor<?> attribute;
+        private final String format;
+        protected FormatEntityAttributeFunction(AttributeSensor<?> attribute, String format) {
+            this.attribute = attribute;
+            this.format = format;
+        }
+        @Override public String apply(Entity input) {
+            return (input == null) ? null : String.format(format, input.getAttribute(attribute));
         }
     }
 
@@ -172,6 +198,10 @@ public class EntityFunctions {
         }
     }
 
+    public static Function<Entity, Object> config(String keyName) {
+        return config(ConfigKeys.newConfigKey(Object.class, keyName));
+    }
+
     public static <T> Function<Entity, T> config(ConfigKey<T> key) {
         return new GetEntityConfigFunction<T>(checkNotNull(key, "key"));
     }
@@ -185,6 +215,28 @@ public class EntityFunctions {
 
         @Override public T apply(Entity input) {
             return (input == null) ? null : input.getConfig(key);
+        }
+    }
+
+    public static Function<Entity, String> config(String keyName, String format) {
+        return config(ConfigKeys.newConfigKey(Object.class, keyName), format);
+    }
+
+    public static Function<Entity, String> config(ConfigKey<?> key, String format) {
+        return new FormatEntityConfigFunction(checkNotNull(key, "key"), checkNotNull(format, "format"));
+    }
+
+    protected static class FormatEntityConfigFunction implements Function<Entity, String> {
+        private final ConfigKey<?> key;
+        private final String format;
+
+        protected FormatEntityConfigFunction(ConfigKey<?> key, String format) {
+            this.key = key;
+            this.format = format;
+        }
+
+        @Override public String apply(Entity input) {
+            return (input == null) ? null : String.format(format, input.getConfig(key));
         }
     }
 

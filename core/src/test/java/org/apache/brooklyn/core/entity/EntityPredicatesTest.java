@@ -40,7 +40,7 @@ public class EntityPredicatesTest extends BrooklynAppUnitTestSupport {
     private TestEntity entity;
     private BasicGroup group;
     private Location loc;
-    
+
     @BeforeMethod(alwaysRun=true)
     @Override
     public void setUp() throws Exception {
@@ -55,33 +55,73 @@ public class EntityPredicatesTest extends BrooklynAppUnitTestSupport {
         assertTrue(EntityPredicates.applicationIdEqualTo(app.getId()).apply(entity));
         assertFalse(EntityPredicates.applicationIdEqualTo("wrongid").apply(entity));
     }
-    
+
     @Test
     public void testIdEqualTo() throws Exception {
         assertTrue(EntityPredicates.idEqualTo(entity.getId()).apply(entity));
         assertFalse(EntityPredicates.idEqualTo("wrongid").apply(entity));
     }
-    
+
+    @Test
+    public void testAttributeNotNull() throws Exception {
+        entity.sensors().set(TestEntity.NAME, "myname");
+        assertTrue(EntityPredicates.attributeNotNull(TestEntity.NAME).apply(entity));
+        assertTrue(EntityPredicates.attributeNotNull(TestEntity.NAME.getName()).apply(entity));
+        assertFalse(EntityPredicates.attributeNotNull(TestEntity.SEQUENCE).apply(entity));
+        assertFalse(EntityPredicates.attributeNotNull(TestEntity.SEQUENCE.getName()).apply(entity));
+    }
+
     @Test
     public void testAttributeEqualTo() throws Exception {
         entity.sensors().set(TestEntity.NAME, "myname");
         assertTrue(EntityPredicates.attributeEqualTo(TestEntity.NAME, "myname").apply(entity));
+        assertTrue(EntityPredicates.attributeEqualTo(TestEntity.NAME.getName(), "myname").apply(entity));
         assertFalse(EntityPredicates.attributeEqualTo(TestEntity.NAME, "wrongname").apply(entity));
+        assertFalse(EntityPredicates.attributeEqualTo(TestEntity.NAME.getName(), "wrongname").apply(entity));
     }
-    
+
+    @Test
+    public void testAttributeNotEqualTo() throws Exception {
+        entity.sensors().set(TestEntity.NAME, "myname");
+        assertFalse(EntityPredicates.attributeNotEqualTo(TestEntity.NAME, "myname").apply(entity));
+        assertFalse(EntityPredicates.attributeNotEqualTo(TestEntity.NAME.getName(), "myname").apply(entity));
+        assertTrue(EntityPredicates.attributeNotEqualTo(TestEntity.NAME, "wrongname").apply(entity));
+        assertTrue(EntityPredicates.attributeNotEqualTo(TestEntity.NAME.getName(), "wrongname").apply(entity));
+    }
+
+    @Test
+    public void testConfigNotNull() throws Exception {
+        entity.config().set(TestEntity.CONF_NAME, "myname");
+        assertTrue(EntityPredicates.configNotNull(TestEntity.CONF_NAME).apply(entity));
+        assertTrue(EntityPredicates.configNotNull(TestEntity.CONF_NAME.getName()).apply(entity));
+        assertFalse(EntityPredicates.configNotNull(TestEntity.CONF_OBJECT).apply(entity));
+        assertFalse(EntityPredicates.configNotNull(TestEntity.CONF_OBJECT.getName()).apply(entity));
+    }
+
     @Test
     public void testConfigEqualTo() throws Exception {
         entity.config().set(TestEntity.CONF_NAME, "myname");
         assertTrue(EntityPredicates.configEqualTo(TestEntity.CONF_NAME, "myname").apply(entity));
+        assertTrue(EntityPredicates.configEqualTo(TestEntity.CONF_NAME.getName(), "myname").apply(entity));
         assertFalse(EntityPredicates.configEqualTo(TestEntity.CONF_NAME, "wrongname").apply(entity));
+        assertFalse(EntityPredicates.configEqualTo(TestEntity.CONF_NAME.getName(), "wrongname").apply(entity));
     }
-    
+
+    @Test
+    public void testConfigNotEqualTo() throws Exception {
+        entity.config().set(TestEntity.CONF_NAME, "myname");
+        assertFalse(EntityPredicates.configNotEqualTo(TestEntity.CONF_NAME, "myname").apply(entity));
+        assertFalse(EntityPredicates.configNotEqualTo(TestEntity.CONF_NAME.getName(), "myname").apply(entity));
+        assertTrue(EntityPredicates.configNotEqualTo(TestEntity.CONF_NAME, "wrongname").apply(entity));
+        assertTrue(EntityPredicates.configNotEqualTo(TestEntity.CONF_NAME.getName(), "wrongname").apply(entity));
+    }
+
     @Test
     public void testDisplayNameEqualTo() throws Exception {
         assertTrue(EntityPredicates.displayNameEqualTo("mydisplayname").apply(entity));
         assertFalse(EntityPredicates.displayNameEqualTo("wrongname").apply(entity));
     }
-    
+
     @Test
     public void testDisplayNameSatisfies() throws Exception {
         assertTrue(EntityPredicates.displayNameSatisfies(StringPredicates.matchesRegex("myd.*me")).apply(entity));
@@ -94,7 +134,7 @@ public class EntityPredicatesTest extends BrooklynAppUnitTestSupport {
         assertFalse(EntityPredicates.isChildOf(entity).apply(entity));
         assertFalse(EntityPredicates.isChildOf(entity).apply(app));
     }
-    
+
     @Test
     public void testIsMemberOf() throws Exception {
         group.addMember(entity);
@@ -102,14 +142,14 @@ public class EntityPredicatesTest extends BrooklynAppUnitTestSupport {
         assertFalse(EntityPredicates.isMemberOf(group).apply(app));
         assertFalse(EntityPredicates.isMemberOf(group).apply(group));
     }
-    
+
     @Test
     public void testManaged() throws Exception {
         assertTrue(EntityPredicates.isManaged().apply(entity));
         Entities.unmanage(entity);
         assertFalse(EntityPredicates.isManaged().apply(entity));
     }
-    
+
     @Test
     public void testWithLocation() throws Exception {
         entity.addLocations(ImmutableList.of(loc));
