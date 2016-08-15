@@ -47,6 +47,7 @@ import org.apache.brooklyn.core.mgmt.internal.ExternalConfigSupplierRegistry;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.DeserializingClassRenamesProvider;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -68,6 +69,7 @@ import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 /** static import functions which can be used in `$brooklyn:xxx` contexts */
 public class BrooklynDslCommon {
@@ -350,7 +352,7 @@ public class BrooklynDslCommon {
                 Map<String, Object> config) {
             this.typeName = checkNotNull(typeName, "typeName");
             this.type = null;
-            this.constructorArgs = constructorArgs;
+            this.constructorArgs = checkNotNull(constructorArgs, "constructorArgs");
             this.factoryMethodName = null;
             this.factoryMethodArgs = ImmutableList.of();
             this.fields = MutableMap.copyOf(fields);
@@ -364,7 +366,7 @@ public class BrooklynDslCommon {
                 Map<String, Object> config) {
             this.typeName = null;
             this.type = checkNotNull(type, "type");
-            this.constructorArgs = constructorArgs;
+            this.constructorArgs = checkNotNull(constructorArgs, "constructorArgs");
             this.factoryMethodName = null;
             this.factoryMethodArgs = ImmutableList.of();
             this.fields = MutableMap.copyOf(fields);
@@ -381,7 +383,7 @@ public class BrooklynDslCommon {
             this.type = null;
             this.constructorArgs = ImmutableList.of();
             this.factoryMethodName = factoryMethodName;
-            this.factoryMethodArgs = factoryMethodArgs;
+            this.factoryMethodArgs = checkNotNull(factoryMethodArgs, "factoryMethodArgs");
             this.fields = MutableMap.copyOf(fields);
             this.config = MutableMap.copyOf(config);
         }
@@ -396,7 +398,7 @@ public class BrooklynDslCommon {
             this.type = checkNotNull(type, "type");
             this.constructorArgs = ImmutableList.of();
             this.factoryMethodName = factoryMethodName;
-            this.factoryMethodArgs = factoryMethodArgs;
+            this.factoryMethodArgs = checkNotNull(factoryMethodArgs, "factoryMethodArgs");
             this.fields = MutableMap.copyOf(fields);
             this.config = MutableMap.copyOf(config);
         }
@@ -416,7 +418,7 @@ public class BrooklynDslCommon {
             final Class<?> clazz = type;
 
             List<TaskAdaptable<Object>> tasks = Lists.newLinkedList();
-            for (Object value : Iterables.concat(fields.values(), config.values())) {
+            for (Object value : Iterables.concat(fields.values(), config.values(), constructorArgs, factoryMethodArgs)) {
                 if (value instanceof TaskAdaptable) {
                     tasks.add((TaskAdaptable<Object>) value);
                 } else if (value instanceof TaskFactory) {
@@ -428,28 +430,31 @@ public class BrooklynDslCommon {
             return DependentConfiguration.transformMultiple(flags, new Function<List<Object>, Object>() {
                         @Override
                         public Object apply(List<Object> input) {
-                            Iterator<Object> values = input.iterator();
-                            for (String name : fields.keySet()) {
-                                Object value = fields.get(name);
-                                if (value instanceof TaskAdaptable || value instanceof TaskFactory) {
-                                    fields.put(name, values.next());
-                                } else if (value instanceof DeferredSupplier) {
-                                    fields.put(name, ((DeferredSupplier<?>) value).get());
+                            final Iterator<Object> taskValues = input.iterator();
+                            Function<Object, Object> resolver = new Function<Object, Object>() {
+                                @Override public Object apply(Object value) {
+                                    return requiresTask(value) ? taskValues.next() : resolveValue(value);
                                 }
-                            }
-                            for (String name : config.keySet()) {
-                                Object value = config.get(name);
-                                if (value instanceof TaskAdaptable || value instanceof TaskFactory) {
-                                    config.put(name, values.next());
-                                } else if (value instanceof DeferredSupplier) {
-                                    config.put(name, ((DeferredSupplier<?>) value).get());
-                                }
-                            }
+                            };
+                            Map<String, Object> resolvedFields = MutableMap.copyOf(Maps.transformValues(fields, resolver));
+                            Map<String, Object> resolvedConfig = MutableMap.copyOf(Maps.transformValues(config, resolver));
+                            List<Object> resolvedConstructorArgs = MutableList.copyOf(Lists.transform(constructorArgs, resolver));
+                            List<Object> resolvedFactoryMethodArgs = MutableList.copyOf(Lists.transform(factoryMethodArgs, resolver));
+
                             if (factoryMethodName == null) {
-                                return create(clazz, constructorArgs, fields, config);
+                                return create(clazz, resolvedConstructorArgs, resolvedFields, resolvedConfig);
                             } else {
-                                return create(clazz, factoryMethodName, factoryMethodArgs, fields, config);
+                                return create(clazz, factoryMethodName, resolvedFactoryMethodArgs, resolvedFields, resolvedConfig);
                             }
+                        }
+                        protected boolean requiresTask(Object value) {
+                            return (value instanceof TaskAdaptable || value instanceof TaskFactory);
+                        }
+                        protected Object resolveValue(Object value) {
+                            if (value instanceof DeferredSupplier) {
+                                return ((DeferredSupplier<?>) value).get();
+                            }
+                            return value;
                         }
                     }, tasks);
         }
