@@ -57,6 +57,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
 /**
@@ -891,7 +892,11 @@ public class Reflections {
             }
         }
         
-        return Maybe.absent("Method not found matching given args");
+        List<String> argTypes = Lists.newArrayList();
+        for (Object arg : args) {
+            argTypes.add(arg == null ? "<null>" : arg.getClass().getSimpleName());
+        }
+        return Maybe.absent("Method '"+method+"' not found matching given args of type "+argTypes);
     }
 
     /** true iff all args match the corresponding types */

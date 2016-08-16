@@ -22,17 +22,16 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
 
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.api.mgmt.TaskAdaptable;
-import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampReservedKeys;
@@ -43,16 +42,17 @@ import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
 import org.apache.brooklyn.core.config.external.ExternalConfigSupplier;
 import org.apache.brooklyn.core.entity.EntityDynamicType;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.ExternalConfigSupplierRegistry;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.DeserializingClassRenamesProvider;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
-import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.Reflections;
@@ -66,8 +66,8 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 /** static import functions which can be used in `$brooklyn:xxx` contexts */
 public class BrooklynDslCommon {
@@ -350,7 +350,7 @@ public class BrooklynDslCommon {
                 Map<String, Object> config) {
             this.typeName = checkNotNull(typeName, "typeName");
             this.type = null;
-            this.constructorArgs = constructorArgs;
+            this.constructorArgs = checkNotNull(constructorArgs, "constructorArgs");
             this.factoryMethodName = null;
             this.factoryMethodArgs = ImmutableList.of();
             this.fields = MutableMap.copyOf(fields);
@@ -364,7 +364,7 @@ public class BrooklynDslCommon {
                 Map<String, Object> config) {
             this.typeName = null;
             this.type = checkNotNull(type, "type");
-            this.constructorArgs = constructorArgs;
+            this.constructorArgs = checkNotNull(constructorArgs, "constructorArgs");
             this.factoryMethodName = null;
             this.factoryMethodArgs = ImmutableList.of();
             this.fields = MutableMap.copyOf(fields);
@@ -381,7 +381,7 @@ public class BrooklynDslCommon {
             this.type = null;
             this.constructorArgs = ImmutableList.of();
             this.factoryMethodName = factoryMethodName;
-            this.factoryMethodArgs = factoryMethodArgs;
+            this.factoryMethodArgs = checkNotNull(factoryMethodArgs, "factoryMethodArgs");
             this.fields = MutableMap.copyOf(fields);
             this.config = MutableMap.copyOf(config);
         }
@@ -396,12 +396,11 @@ public class BrooklynDslCommon {
             this.type = checkNotNull(type, "type");
             this.constructorArgs = ImmutableList.of();
             this.factoryMethodName = factoryMethodName;
-            this.factoryMethodArgs = factoryMethodArgs;
+            this.factoryMethodArgs = checkNotNull(factoryMethodArgs, "factoryMethodArgs");
             this.fields = MutableMap.copyOf(fields);
             this.config = MutableMap.copyOf(config);
         }
 
-        @SuppressWarnings("unchecked")
         @Override
         public Task<Object> newTask() {
             Class<?> type = this.type;
@@ -415,58 +414,51 @@ public class BrooklynDslCommon {
             }
             final Class<?> clazz = type;
 
-            List<TaskAdaptable<Object>> tasks = Lists.newLinkedList();
-            for (Object value : Iterables.concat(fields.values(), config.values())) {
-                if (value instanceof TaskAdaptable) {
-                    tasks.add((TaskAdaptable<Object>) value);
-                } else if (value instanceof TaskFactory) {
-                    tasks.add(((TaskFactory<TaskAdaptable<Object>>) value).newTask());
+            final ExecutionContext executionContext = ((EntityInternal)entity()).getExecutionContext();
+            
+            final Function<Object, Object> resolver = new Function<Object, Object>() {
+                @Override public Object apply(Object value) {
+                    try {
+                        return Tasks.resolveDeepValue(value, Object.class, executionContext);
+                    } catch (ExecutionException | InterruptedException e) {
+                        throw Exceptions.propagate(e);
+                    }
                 }
-            }
-
-            Map<String,?> flags = MutableMap.<String,String>of("displayName", "building '"+clazz+"' with "+tasks.size()+" task"+(tasks.size()!=1?"s":""));
-            return DependentConfiguration.transformMultiple(flags, new Function<List<Object>, Object>() {
+            };
+            
+            return Tasks.builder().displayName("building instance of '"+clazz+"'")
+                    .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
+                    .dynamic(false)
+                    .body(new Callable<Object>() {
                         @Override
-                        public Object apply(List<Object> input) {
-                            Iterator<Object> values = input.iterator();
-                            for (String name : fields.keySet()) {
-                                Object value = fields.get(name);
-                                if (value instanceof TaskAdaptable || value instanceof TaskFactory) {
-                                    fields.put(name, values.next());
-                                } else if (value instanceof DeferredSupplier) {
-                                    fields.put(name, ((DeferredSupplier<?>) value).get());
-                                }
-                            }
-                            for (String name : config.keySet()) {
-                                Object value = config.get(name);
-                                if (value instanceof TaskAdaptable || value instanceof TaskFactory) {
-                                    config.put(name, values.next());
-                                } else if (value instanceof DeferredSupplier) {
-                                    config.put(name, ((DeferredSupplier<?>) value).get());
-                                }
-                            }
+                        public Object call() throws Exception {
+                            Map<String, Object> resolvedFields = MutableMap.copyOf(Maps.transformValues(fields, resolver));
+                            Map<String, Object> resolvedConfig = MutableMap.copyOf(Maps.transformValues(config, resolver));
+                            List<Object> resolvedConstructorArgs = MutableList.copyOf(Lists.transform(constructorArgs, resolver));
+                            List<Object> resolvedFactoryMethodArgs = MutableList.copyOf(Lists.transform(factoryMethodArgs, resolver));
+                            
                             if (factoryMethodName == null) {
-                                return create(clazz, constructorArgs, fields, config);
+                                return create(clazz, resolvedConstructorArgs, resolvedFields, resolvedConfig);
                             } else {
-                                return create(clazz, factoryMethodName, factoryMethodArgs, fields, config);
+                                return create(clazz, factoryMethodName, resolvedFactoryMethodArgs, resolvedFields, resolvedConfig);
                             }
-                        }
-                    }, tasks);
+                        }})
+                    .build();
         }
 
         public static <T> T create(Class<T> type, List<?> constructorArgs, Map<String,?> fields, Map<String,?> config) {
             try {
-                T bean;
-                try {
-                    bean = (T) TypeCoercions.coerce(fields, type);
-                } catch (ClassCoercionException ex) {
-                    bean = Reflections.invokeConstructorFromArgs(type, constructorArgs.toArray()).get();
-                    BeanUtils.populate(bean, fields);
-                }
-                if (bean instanceof Configurable && config.size() > 0) {
-                    ConfigBag configBag = ConfigBag.newInstance(config);
-                    FlagUtils.setFieldsFromFlags(bean, configBag);
-                    FlagUtils.setAllConfigKeys((Configurable) bean, configBag, true);
+                T bean = Reflections.invokeConstructorFromArgs(type, constructorArgs.toArray()).get();
+                BeanUtils.populate(bean, fields);
+
+                if (config.size() > 0) {
+                    if (bean instanceof Configurable) {
+                        ConfigBag configBag = ConfigBag.newInstance(config);
+                        FlagUtils.setFieldsFromFlags(bean, configBag);
+                        FlagUtils.setAllConfigKeys((Configurable) bean, configBag, true);
+                    } else {
+                        LOG.warn("While building object, type "+type+" is not 'Configurable'; cannot apply supplied config (continuing)");
+                    }
                 }
                 return bean;
             } catch (Exception e) {
@@ -476,17 +468,19 @@ public class BrooklynDslCommon {
 
         public static Object create(Class<?> type, String factoryMethodName, List<Object> factoryMethodArgs, Map<String,?> fields, Map<String,?> config) {
             try {
-                Object bean;
-                try {
-                    bean = TypeCoercions.coerce(fields, type);
-                } catch (ClassCoercionException ex) {
-                    bean = Reflections.invokeMethodFromArgs(type, factoryMethodName, factoryMethodArgs).get();
-                    BeanUtils.populate(bean, fields);
-                }
-                if (bean instanceof Configurable && config.size() > 0) {
-                    ConfigBag configBag = ConfigBag.newInstance(config);
-                    FlagUtils.setFieldsFromFlags(bean, configBag);
-                    FlagUtils.setAllConfigKeys((Configurable) bean, configBag, true);
+                Object bean = Reflections.invokeMethodFromArgs(type, factoryMethodName, factoryMethodArgs).get();
+                BeanUtils.populate(bean, fields);
+
+                if (config.size() > 0) {
+                    if (bean instanceof Configurable) {
+                        ConfigBag configBag = ConfigBag.newInstance(config);
+                        FlagUtils.setFieldsFromFlags(bean, configBag);
+                        FlagUtils.setAllConfigKeys((Configurable) bean, configBag, true);
+                    } else {
+                        LOG.warn("While building object via factory method '"+factoryMethodName+"', type "
+                                + (bean == null ? "<null>" : bean.getClass())+" is not 'Configurable'; cannot apply "
+                                + "supplied config (continuing)");
+                    }
                 }
                 return bean;
             } catch (Exception e) {
