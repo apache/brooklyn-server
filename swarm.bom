@@ -335,7 +335,6 @@ brooklyn.catalog:
                 autoscaler.resizeUpStabilizationDelay: 30s
                 autoscaler.resizeDownIterationMax: 0 # Disable scaling down
                 autoscaler.resizeDownStabilizationDelay: forever
-            - type: org.apache.brooklyn.policy.ha.ServiceReplacer
           brooklyn.enrichers:
             - type: org.apache.brooklyn.enricher.stock.Aggregator
               brooklyn.config:

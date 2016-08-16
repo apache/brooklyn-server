@@ -334,5 +334,3 @@ brooklyn.catalog:
             applyAssertionTo: status
             assert:
             - isEqualTo: 200
-
-
