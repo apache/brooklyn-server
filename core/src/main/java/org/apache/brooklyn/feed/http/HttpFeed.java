@@ -20,8 +20,10 @@ package org.apache.brooklyn.feed.http;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URL;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -29,6 +31,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
@@ -36,13 +39,20 @@ import org.apache.brooklyn.core.feed.AbstractFeed;
 import org.apache.brooklyn.core.feed.AttributePollHandler;
 import org.apache.brooklyn.core.feed.DelegatingPollHandler;
 import org.apache.brooklyn.core.feed.Poller;
-import org.apache.brooklyn.util.http.HttpTool;
+import org.apache.brooklyn.core.location.Locations;
+import org.apache.brooklyn.core.location.Machines;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.http.HttpToolResponse;
-import org.apache.brooklyn.util.http.HttpTool.HttpClientBuilder;
+import org.apache.brooklyn.util.http.executor.Credentials.BasicAuth;
+import org.apache.brooklyn.util.http.executor.HttpConfig;
+import org.apache.brooklyn.util.http.executor.HttpExecutor;
+import org.apache.brooklyn.util.http.executor.HttpExecutorFactory;
+import org.apache.brooklyn.util.http.executor.HttpRequest;
+import org.apache.brooklyn.util.http.executor.HttpResponse;
+import org.apache.brooklyn.util.http.executor.apacheclient.HttpExecutorImpl;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.http.auth.Credentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.HttpClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,6 +66,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
+import com.google.common.io.ByteStreams;
 import com.google.common.reflect.TypeToken;
 
 /**
@@ -127,6 +138,7 @@ public class HttpFeed extends AbstractFeed {
         private boolean suspended = false;
         private Credentials credentials;
         private String uniqueTag;
+        private HttpExecutor httpExecutor;
         private volatile boolean built;
 
         public Builder entity(EntityLocal val) {
@@ -207,6 +219,10 @@ public class HttpFeed extends AbstractFeed {
             this.uniqueTag = uniqueTag;
             return this;
         }
+        public Builder httpExecutor(HttpExecutor val) {
+            this.httpExecutor = val;
+            return this;
+        }
         public HttpFeed build() {
             built = true;
             HttpFeed result = new HttpFeed(this);
@@ -222,6 +238,7 @@ public class HttpFeed extends AbstractFeed {
     }
     
     private static class HttpPollIdentifier {
+        final HttpExecutor httpExecutor;
         final String method;
         final Supplier<URI> uriProvider;
         final Map<String,String> headers;
@@ -229,8 +246,9 @@ public class HttpFeed extends AbstractFeed {
         final Optional<Credentials> credentials;
         final Duration connectionTimeout;
         final Duration socketTimeout;
-        private HttpPollIdentifier(String method, Supplier<URI> uriProvider, Map<String, String> headers, byte[] body,
-                                   Optional<Credentials> credentials, Duration connectionTimeout, Duration socketTimeout) {
+        private HttpPollIdentifier(HttpExecutor httpExecutor, String method, Supplier<URI> uriProvider, Map<String, String> headers,
+                                   byte[] body, Optional<Credentials> credentials, Duration connectionTimeout, Duration socketTimeout) {
+            this.httpExecutor =  httpExecutor;
             this.method = checkNotNull(method, "method").toLowerCase();
             this.uriProvider = checkNotNull(uriProvider, "uriProvider");
             this.headers = checkNotNull(headers, "headers");
@@ -262,6 +280,7 @@ public class HttpFeed extends AbstractFeed {
                     Objects.equal(uriProvider, o.uriProvider) &&
                     Objects.equal(headers, o.headers) &&
                     Objects.equal(body, o.body) &&
+                    Objects.equal(httpExecutor, o.httpExecutor) &&
                     Objects.equal(credentials, o.credentials);
         }
     }
@@ -275,7 +294,23 @@ public class HttpFeed extends AbstractFeed {
     protected HttpFeed(Builder builder) {
         setConfig(ONLY_IF_SERVICE_UP, builder.onlyIfServiceUp);
         Map<String,String> baseHeaders = ImmutableMap.copyOf(checkNotNull(builder.headers, "headers"));
-        
+
+        HttpExecutor httpExecutor;
+        if (builder.httpExecutor != null) {
+            httpExecutor = builder.httpExecutor;
+        } else {
+            HttpExecutorFactory httpExecutorFactory = null;
+            Collection<? extends Location> locations = Locations.getLocationsCheckingAncestors(builder.entity.getLocations(), builder.entity);
+            Maybe<Location> location =  Machines.findUniqueElement(locations, Location.class);
+            if (location.isPresent() && location.get().hasExtension(HttpExecutorFactory.class)) {
+                httpExecutorFactory = location.get().getExtension(HttpExecutorFactory.class);
+                Map<String, Object> httpExecutorProps = location.get().getAllConfig(true);
+                httpExecutor = httpExecutorFactory.getHttpExecutor(httpExecutorProps);
+            } else {
+                httpExecutor = HttpExecutorImpl.newInstance();
+            }
+        }
+
         SetMultimap<HttpPollIdentifier, HttpPollConfig<?>> polls = HashMultimap.<HttpPollIdentifier,HttpPollConfig<?>>create();
         for (HttpPollConfig<?> config : builder.polls) {
             if (!config.isEnabled()) continue;
@@ -302,7 +337,7 @@ public class HttpFeed extends AbstractFeed {
             }
             checkNotNull(baseUriProvider);
 
-            polls.put(new HttpPollIdentifier(method, baseUriProvider, headers, body, credentials, connectionTimeout, socketTimeout), configCopy);
+            polls.put(new HttpPollIdentifier(httpExecutor, method, baseUriProvider, headers, body, credentials, connectionTimeout, socketTimeout), configCopy);
         }
         setConfig(POLLS, polls);
         initUniqueTag(builder.uniqueTag, polls.values());
@@ -311,7 +346,7 @@ public class HttpFeed extends AbstractFeed {
     @Override
     protected void preStart() {
         SetMultimap<HttpPollIdentifier, HttpPollConfig<?>> polls = getConfig(POLLS);
-        
+
         for (final HttpPollIdentifier pollInfo : polls.keySet()) {
             // Though HttpClients are thread safe and can take advantage of connection pooling
             // and authentication caching, the httpcomponents documentation says:
@@ -319,7 +354,6 @@ public class HttpFeed extends AbstractFeed {
             //     threads of execution, it is highly recommended that each thread maintains its
             //     own dedicated instance of HttpContext.
             //  http://hc.apache.org/httpcomponents-client-ga/tutorial/html/connmgmt.html
-            final HttpClient httpClient = createHttpClient(pollInfo);
 
             Set<HttpPollConfig<?>> configs = polls.get(pollInfo);
             long minPeriod = Integer.MAX_VALUE;
@@ -331,52 +365,54 @@ public class HttpFeed extends AbstractFeed {
             }
 
             Callable<HttpToolResponse> pollJob;
-            
-            if (pollInfo.method.equals("get")) {
-                pollJob = new Callable<HttpToolResponse>() {
-                    public HttpToolResponse call() throws Exception {
-                        if (log.isTraceEnabled()) log.trace("http polling for {} sensors at {}", entity, pollInfo);
-                        return HttpTool.httpGet(httpClient, pollInfo.uriProvider.get(), pollInfo.headers);
-                    }};
-            } else if (pollInfo.method.equals("post")) {
-                pollJob = new Callable<HttpToolResponse>() {
-                    public HttpToolResponse call() throws Exception {
-                        if (log.isTraceEnabled()) log.trace("http polling for {} sensors at {}", entity, pollInfo);
-                        return HttpTool.httpPost(httpClient, pollInfo.uriProvider.get(), pollInfo.headers, pollInfo.body);
-                    }};
-            } else if (pollInfo.method.equals("head")) {
-                pollJob = new Callable<HttpToolResponse>() {
-                    public HttpToolResponse call() throws Exception {
-                        if (log.isTraceEnabled()) log.trace("http polling for {} sensors at {}", entity, pollInfo);
-                        return HttpTool.httpHead(httpClient, pollInfo.uriProvider.get(), pollInfo.headers);
-                    }};
-            } else {
-                throw new IllegalStateException("Unexpected http method: "+pollInfo.method);
-            }
-            
-            getPoller().scheduleAtFixedRate(pollJob, new DelegatingPollHandler<HttpToolResponse>(handlers), minPeriod);
-        }
-    }
+            pollJob = new Callable<HttpToolResponse>() {
+                public HttpToolResponse call() throws Exception {
+                    if (log.isTraceEnabled()) log.trace("http polling for {} sensors at {}", entity, pollInfo);
 
-    // TODO Should we really trustAll for https? Make configurable?
-    private HttpClient createHttpClient(HttpPollIdentifier pollIdentifier) {
-        URI uri = pollIdentifier.uriProvider.get();
-        HttpClientBuilder builder = HttpTool.httpClientBuilder()
-                .trustAll()
-                .laxRedirect(true);
-        if (uri != null) builder.uri(uri);
-        if (uri != null) builder.credential(pollIdentifier.credentials);
-        if (pollIdentifier.connectionTimeout != null) {
-            builder.connectionTimeout(pollIdentifier.connectionTimeout);
+                    BasicAuth creds = null;
+                    if (pollInfo.credentials.isPresent()) {
+                        creds =  org.apache.brooklyn.util.http.executor.Credentials.basic(
+                                pollInfo.credentials.get().getUserPrincipal().getName(),
+                                pollInfo.credentials.get().getPassword());
+                    }
+
+                    HttpResponse response =  pollInfo.httpExecutor.execute(new HttpRequest.Builder()
+                            .headers(pollInfo.headers)
+                            .uri(pollInfo.uriProvider.get())
+                            .credentials(creds)
+                            .method(pollInfo.method)
+                            .body(pollInfo.body)
+                            .config(HttpConfig.builder()
+                                    .trustSelfSigned(true)
+                                    .trustAll(true)
+                                    .laxRedirect(true)
+                                    .build())
+                            .build());
+                    return createHttpToolRespose(response);
+                }};
+                getPoller().scheduleAtFixedRate(pollJob, new DelegatingPollHandler(handlers), minPeriod);
         }
-        if (pollIdentifier.socketTimeout != null) {
-            builder.socketTimeout(pollIdentifier.socketTimeout);
-        }
-        return builder.build();
     }
 
     @SuppressWarnings("unchecked")
     protected Poller<HttpToolResponse> getPoller() {
-        return (Poller<HttpToolResponse>) super.getPoller();
+        return  (Poller<HttpToolResponse>) super.getPoller();
+    }
+
+    @SuppressWarnings("unchecked")
+    private HttpToolResponse createHttpToolRespose(HttpResponse response) throws IOException {
+        int responseCode = response.code();
+        if (responseCode == 400) { // Unprocessable Entity - https://stackoverflow.com/questions/6123425/rest-response-code-for-invalid-data
+            throw new IOException(" Unprocessable Entity: " + response.reasonPhrase());
+        }
+        Map<String,? extends List<String>> headers = (Map<String, List<String>>) (Map<?, ?>) response.headers().asMap();
+
+        return new HttpToolResponse(responseCode,
+                headers,
+                ByteStreams.toByteArray(response.getContent()),
+                System.currentTimeMillis(),
+                0,
+                0);
     }
 }
+

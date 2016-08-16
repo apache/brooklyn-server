@@ -27,6 +27,7 @@ import org.apache.brooklyn.api.location.MachineLocationCustomizer;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 
@@ -36,6 +37,10 @@ public interface CloudLocationConfig {
     public static final ConfigKey<String> CLOUD_REGION_ID = LocationConfigKeys.CLOUD_REGION_ID;
     public static final ConfigKey<String> CLOUD_AVAILABILITY_ZONE_ID = LocationConfigKeys.CLOUD_AVAILABILITY_ZONE_ID;
         
+
+    @SetFromFlag("extensions")
+    public static final MapConfigKey<String> EXTENSION = LocationConfigKeys.EXTENSIONS;
+
     @SetFromFlag("identity")
     public static final ConfigKey<String> ACCESS_IDENTITY = LocationConfigKeys.ACCESS_IDENTITY;
     @SetFromFlag("credential")
