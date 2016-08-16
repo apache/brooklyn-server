@@ -22,17 +22,16 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
 
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.api.mgmt.TaskAdaptable;
-import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampReservedKeys;
@@ -43,6 +42,7 @@ import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
 import org.apache.brooklyn.core.config.external.ExternalConfigSupplier;
 import org.apache.brooklyn.core.entity.EntityDynamicType;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.ExternalConfigSupplierRegistry;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.DeserializingClassRenamesProvider;
@@ -53,7 +53,6 @@ import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
-import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.Reflections;
@@ -67,7 +66,6 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
@@ -403,7 +401,6 @@ public class BrooklynDslCommon {
             this.config = MutableMap.copyOf(config);
         }
 
-        @SuppressWarnings("unchecked")
         @Override
         public Task<Object> newTask() {
             Class<?> type = this.type;
@@ -417,46 +414,36 @@ public class BrooklynDslCommon {
             }
             final Class<?> clazz = type;
 
-            List<TaskAdaptable<Object>> tasks = Lists.newLinkedList();
-            for (Object value : Iterables.concat(fields.values(), config.values(), constructorArgs, factoryMethodArgs)) {
-                if (value instanceof TaskAdaptable) {
-                    tasks.add((TaskAdaptable<Object>) value);
-                } else if (value instanceof TaskFactory) {
-                    tasks.add(((TaskFactory<TaskAdaptable<Object>>) value).newTask());
+            final ExecutionContext executionContext = ((EntityInternal)entity()).getExecutionContext();
+            
+            final Function<Object, Object> resolver = new Function<Object, Object>() {
+                @Override public Object apply(Object value) {
+                    try {
+                        return Tasks.resolveDeepValue(value, Object.class, executionContext);
+                    } catch (ExecutionException | InterruptedException e) {
+                        throw Exceptions.propagate(e);
+                    }
                 }
-            }
-
-            Map<String,?> flags = MutableMap.<String,String>of("displayName", "building '"+clazz+"' with "+tasks.size()+" task"+(tasks.size()!=1?"s":""));
-            return DependentConfiguration.transformMultiple(flags, new Function<List<Object>, Object>() {
+            };
+            
+            return Tasks.builder().displayName("building instance of '"+clazz+"'")
+                    .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
+                    .dynamic(false)
+                    .body(new Callable<Object>() {
                         @Override
-                        public Object apply(List<Object> input) {
-                            final Iterator<Object> taskValues = input.iterator();
-                            Function<Object, Object> resolver = new Function<Object, Object>() {
-                                @Override public Object apply(Object value) {
-                                    return requiresTask(value) ? taskValues.next() : resolveValue(value);
-                                }
-                            };
+                        public Object call() throws Exception {
                             Map<String, Object> resolvedFields = MutableMap.copyOf(Maps.transformValues(fields, resolver));
                             Map<String, Object> resolvedConfig = MutableMap.copyOf(Maps.transformValues(config, resolver));
                             List<Object> resolvedConstructorArgs = MutableList.copyOf(Lists.transform(constructorArgs, resolver));
                             List<Object> resolvedFactoryMethodArgs = MutableList.copyOf(Lists.transform(factoryMethodArgs, resolver));
-
+                            
                             if (factoryMethodName == null) {
                                 return create(clazz, resolvedConstructorArgs, resolvedFields, resolvedConfig);
                             } else {
                                 return create(clazz, factoryMethodName, resolvedFactoryMethodArgs, resolvedFields, resolvedConfig);
                             }
-                        }
-                        protected boolean requiresTask(Object value) {
-                            return (value instanceof TaskAdaptable || value instanceof TaskFactory);
-                        }
-                        protected Object resolveValue(Object value) {
-                            if (value instanceof DeferredSupplier) {
-                                return ((DeferredSupplier<?>) value).get();
-                            }
-                            return value;
-                        }
-                    }, tasks);
+                        }})
+                    .build();
         }
 
         public static <T> T create(Class<T> type, List<?> constructorArgs, Map<String,?> fields, Map<String,?> config) {
