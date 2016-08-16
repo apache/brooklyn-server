@@ -448,17 +448,17 @@ public class BrooklynDslCommon {
 
         public static <T> T create(Class<T> type, List<?> constructorArgs, Map<String,?> fields, Map<String,?> config) {
             try {
-                T bean;
-                try {
-                    bean = (T) TypeCoercions.coerce(fields, type);
-                } catch (ClassCoercionException ex) {
-                    bean = Reflections.invokeConstructorFromArgs(type, constructorArgs.toArray()).get();
-                    BeanUtils.populate(bean, fields);
-                }
-                if (bean instanceof Configurable && config.size() > 0) {
-                    ConfigBag configBag = ConfigBag.newInstance(config);
-                    FlagUtils.setFieldsFromFlags(bean, configBag);
-                    FlagUtils.setAllConfigKeys((Configurable) bean, configBag, true);
+                T bean = Reflections.invokeConstructorFromArgs(type, constructorArgs.toArray()).get();
+                BeanUtils.populate(bean, fields);
+
+                if (config.size() > 0) {
+                    if (bean instanceof Configurable) {
+                        ConfigBag configBag = ConfigBag.newInstance(config);
+                        FlagUtils.setFieldsFromFlags(bean, configBag);
+                        FlagUtils.setAllConfigKeys((Configurable) bean, configBag, true);
+                    } else {
+                        LOG.warn("While building object, type "+type+" is not 'Configurable'; cannot apply supplied config (continuing)");
+                    }
                 }
                 return bean;
             } catch (Exception e) {
@@ -468,17 +468,19 @@ public class BrooklynDslCommon {
 
         public static Object create(Class<?> type, String factoryMethodName, List<Object> factoryMethodArgs, Map<String,?> fields, Map<String,?> config) {
             try {
-                Object bean;
-                try {
-                    bean = TypeCoercions.coerce(fields, type);
-                } catch (ClassCoercionException ex) {
-                    bean = Reflections.invokeMethodFromArgs(type, factoryMethodName, factoryMethodArgs).get();
-                    BeanUtils.populate(bean, fields);
-                }
-                if (bean instanceof Configurable && config.size() > 0) {
-                    ConfigBag configBag = ConfigBag.newInstance(config);
-                    FlagUtils.setFieldsFromFlags(bean, configBag);
-                    FlagUtils.setAllConfigKeys((Configurable) bean, configBag, true);
+                Object bean = Reflections.invokeMethodFromArgs(type, factoryMethodName, factoryMethodArgs).get();
+                BeanUtils.populate(bean, fields);
+
+                if (config.size() > 0) {
+                    if (bean instanceof Configurable) {
+                        ConfigBag configBag = ConfigBag.newInstance(config);
+                        FlagUtils.setFieldsFromFlags(bean, configBag);
+                        FlagUtils.setAllConfigKeys((Configurable) bean, configBag, true);
+                    } else {
+                        LOG.warn("While building object via factory method '"+factoryMethodName+"', type "
+                                + (bean == null ? "<null>" : bean.getClass())+" is not 'Configurable'; cannot apply "
+                                + "supplied config (continuing)");
+                    }
                 }
                 return bean;
             } catch (Exception e) {
