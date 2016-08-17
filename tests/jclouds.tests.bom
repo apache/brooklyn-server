@@ -80,9 +80,8 @@ brooklyn.catalog:
   ##
   - id: wait-for-container-ip
     item:
-      name: "TEST [container.ip] [exists]"
-      description: |
-        Make sure we have an eagerly evaluated container ip, before we stop the container
+      name: TEST [container.ip] [exists]
+      description: Make sure we have an eagerly evaluated container ip, before we stop the container
       type: sensor-test
       sensor: container.ip
       target: $brooklyn:ancestor("test-scope").descendant("swarm-master")
@@ -91,7 +90,7 @@ brooklyn.catalog:
 
   - id: assert-container-destroyed
     item:
-      name: "Assert container is destroyed"
+      name: Assert container is destroyed
       type: ssh-test
       target: $brooklyn:ancestor("test-scope").descendant("swarm-master")
       shell.env:
@@ -109,7 +108,7 @@ brooklyn.catalog:
 
   - id: wait-for-dd
     item:
-      name: "Wait for dd to complete"
+      name: Wait for dd to complete
       type: ssh-test
       target: $brooklyn:ancestor("test-scope").descendant("swarm-master")
       shell.env:
@@ -138,7 +137,7 @@ brooklyn.catalog:
 
   - id: assert-location-image
     item:
-      name: "Assert specific image is used"
+      name: Assert specific image is used
       type: ssh-test
       brooklyn.config:
         target: $brooklyn:ancestor("test-scope").descendant("swarm-master")
@@ -158,7 +157,7 @@ brooklyn.catalog:
 
   - id: docker-pull-image
     item:
-      name: "Pull Docker image"
+      name: Pull Docker image
       type: ssh-test
       brooklyn.config:
         target: $brooklyn:ancestor("test-scope").descendant("swarm-master")
@@ -176,7 +175,7 @@ brooklyn.catalog:
 
   - id: test-location-image
     item:
-      name: "Location image test"
+      name: Location image test
       id: test-scope
       type: test-case
       brooklyn.config:
@@ -188,7 +187,7 @@ brooklyn.catalog:
         - type: container
           provisioning.properties:
             templateOptions:
-              entrypoint: [ "/bin/sh", "-c", "while true; do sleep 10; done" ]
+              entrypoint: ["/bin/sh", "-c", "while true; do sleep 10; done"]
         - type: assert-up
           brooklyn.config:
             timeout: 10m
@@ -200,7 +199,7 @@ brooklyn.catalog:
   ##
   - id: test-container-stop
     item:
-      name: "Jclouds docker provider release test"
+      name: Jclouds docker provider release test
       id: test-scope
       type: test-case
       brooklyn.children:
@@ -215,7 +214,7 @@ brooklyn.catalog:
 
   - id: test-container-clean-up
     item:
-      name: "Jclouds docker provider clean up test"
+      name: Jclouds docker provider clean up test
       id: test-scope
       type: test-case
       brooklyn.children:
@@ -230,7 +229,7 @@ brooklyn.catalog:
 
   - id: test-default-image
     item:
-      name: "Default image test"
+      name: Default image test
       type: test-location-image
       brooklyn.config:
         # Should already be there
@@ -241,7 +240,7 @@ brooklyn.catalog:
 
   - id: test-explicit-image-id
     item:
-      name: "Explicit imageId test"
+      name: Explicit imageId test
       type: test-location-image
       brooklyn.config:
         pull.image.name: busybox:1.24
@@ -252,7 +251,7 @@ brooklyn.catalog:
 
   - id: test-explicit-image-name
     item:
-      name: "Explicit image name test"
+      name: Explicit image name test
       type: test-location-image
       brooklyn.config:
         pull.image.name: busybox:1.24
@@ -264,7 +263,7 @@ brooklyn.catalog:
   - id: jclouds-tests
     item:
       type: test-case
-      name: "Jclouds provider tests"
+      name: Jclouds provider tests
       brooklyn.children:
         - type: test-container-stop
         - type: test-container-clean-up

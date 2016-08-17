@@ -3,12 +3,10 @@ brooklyn.catalog:
   iconUrl: https://raw.githubusercontent.com/docker-library/docs/471fa6e4cb58062ccbf91afc111980f9c7004981/swarm/logo.png
   dependsOn:
     - tests/common.tests.bom
+    - tests/application.tests.bom
   license_code: CLOUDSOFT-1.0
 
 ##
-# Tests deploying AMP blueprints to a pre-existing docker swarm location and
-# a jclouds cloud location.
-#
 # Needs a location named location-container similar to jclouds.tests.bom
 # for the containers, using a pre-existing swarm, and the VMs will be created
 # on the default application location in each cloud.
@@ -29,477 +27,42 @@ brooklyn.catalog:
 #       password: p4ssw0rd
 #       templateOptions:
 #         networkMode: "brooklyn" # the default swarm network
-#
 ##
 
   items:
+    - id: swarm-endpoint-tests
+      name: "Swarm Endpoint Deployment Tests"
+      description: |
+        Tests containers and applications can be deployed to both Swarm and
+        Cloud locations
+      itemType: template
+      item:
+        brooklyn.config:
+          timeout: 1h
+          timeout.initialStartup: 1h
+          timeout.runtimeAssertion: 1h
 
-  - id: tomcat-webapp-cluster
-    name: "Tomcat Webapp Cluster"
-    description: |
-      Cluster of Tomcat servers
-    itemType: entity
-    item:
-      type: org.apache.brooklyn.entity.group.DynamicCluster
-      id: cluster
-      name: "Webapp Cluster"
-      brooklyn.config:
-        initialSize: 1
-        memberSpec:
-          $brooklyn:entitySpec:
-            type: org.apache.brooklyn.entity.webapp.tomcat.TomcatServer
-            id: tomcat
-            name: "Tomcat Server"
+        services:
+          - type: test-case
+            name: "TEST-01 Containers"
+            brooklyn.children:
+              - type: deploy-single-container-type
+          - type: test-case
+            name: "TEST-02 Applications"
             brooklyn.config:
-              wars.root:
-                "http://search.maven.org/remotecontent?filepath=org/apache/brooklyn/example/brooklyn-example-hello-world-sql-webapp/0.9.0/brooklyn-example-hello-world-sql-webapp-0.9.0.war"
-              java.sysprops:
-                brooklyn.example.db.url:
-                  $brooklyn:formatString:
-                    - "jdbc:%s%s?user=%s&password=%s"
-                    - $brooklyn:config("db.url")
-                    - "visitors"
-                    - "brooklyn"
-                    - "br00k11n"
-            brooklyn.enrichers:
-              - type: org.apache.brooklyn.core.network.OnPublicNetworkEnricher
-                brooklyn.config:
-                  sensors:
-                    - http.port
-      brooklyn.enrichers:
-        - type: org.apache.brooklyn.enricher.stock.Aggregator
-          brooklyn.config:
-            enricher.sourceSensor: $brooklyn:sensor("webapp.reqs.perSec.windowed")
-            enricher.targetSensor: $brooklyn:sensor("webapp.reqs.perSec.perNode")
-            enricher.aggregating.fromMembers: true
-            transformation: average
-
-  - id: nginx-load-balancer
-    name: "Nginx Load Balancer"
-    description: |
-      Nginx load balancer
-    itemType: entity
-    item:
-      type: org.apache.brooklyn.entity.proxy.nginx.NginxController
-      id: nginx
-      name: "Load Balancer (nginx)"
-      brooklyn.config:
-        loadbalancer.serverpool: $brooklyn:sibling("cluster")
-        nginx.sticky: false
-      brooklyn.enrichers:
-        - type: org.apache.brooklyn.core.network.OnPublicNetworkEnricher
-          brooklyn.config:
-            sensors:
-              - main.uri
-
-  - id: mysql-database
-    name: "MySQL Database"
-    description: |
-      MySQL database
-    itemType: entity
-    item:
-      type: org.apache.brooklyn.entity.database.mysql.MySqlNode
-      id: db
-      name: "Database (MySQL)"
-      brooklyn.config:
-        provisioning.properties:
-          osFamily: centos
-          osVersionRegex: 7
-        pre.install.command: |
-          # FIXME mysql should install perl itself!
-          sudo yum install -y perl perl-Data-Dumper
-        datastore.creation.script.url:
-          "https://github.com/apache/brooklyn-library/raw/master/examples/simple-web-cluster/src/main/resources/visitors-creation-script.sql"
-      brooklyn.enrichers:
-        - type: org.apache.brooklyn.core.network.OnSubnetNetworkEnricher
-          brooklyn.config:
-            sensors:
-              - datastore.url
-
-  - id: multi-node-app-swarm
-    name: "Multi-node Application"
-    description: |
-      A multi-node Brooklyn app, consisting of a cluster of Tomcat servers,
-      a MySQL database and an Nginx load balancer, deployed to a swarm location.
-    itemType: entity
-    item:
-      type: org.apache.brooklyn.entity.stock.BasicApplication
-      brooklyn.children:
-        - type: tomcat-webapp-cluster
-          id: cluster
-          location: location-container
-        - type: nginx-load-balancer
-          id: nginx
-          location: location-container
-        - type: mysql-database
-          id: db
-          location: location-container
-
-  - id: multi-node-app-cloud-to-swarm
-    name: "Multi-node Hybrid Application"
-    description: |
-      A hybrid multi-node Brooklyn app, consisting of a cluster of Tomcat servers,
-      a MySQL database and an Nginx load balancer, with the load balancer deployed
-      to a cloud location and the other entities deployed to a swarm location.
-    itemType: entity
-    item:
-      type: org.apache.brooklyn.entity.stock.BasicApplication
-      brooklyn.children:
-        - type: tomcat-webapp-cluster
-          id: cluster
-          location: location-container
-        - type: nginx-load-balancer
-          id: nginx
-        - type: mysql-database
-          id: db
-          location: location-container
-
-  - id: multi-node-app-swarm-to-cloud
-    name: "Multi-node Hybrid Application"
-    description: |
-      A multi-node Brooklyn app, consisting of a cluster of Tomcat servers,
-      a MySQL database and an Nginx load balancer, with the database deployed
-      to a cloud location and the other entities deployed to a swarm location
-    itemType: entity
-    item:
-      type: org.apache.brooklyn.entity.stock.BasicApplication
-      brooklyn.children:
-        - type: tomcat-webapp-cluster
-          id: cluster
-          location: location-container
-        - type: nginx-load-balancer
-          id: nginx
-          location: location-container
-        - type: mysql-database
-          id: db
-
-  - id: test-multi-node-app
-    name: Test multi-node app deployment
-    description: |
-      Test that we can provision a multi-node Brooklyn app
-    itemType: entity
-    item:
-      type: test-case
-      name: "Sensor Tests"
-      brooklyn.children:
-        - type: assert-up
-        - type: assert-running
-        - type: test-http-status-200
-          url: $brooklyn:config("nginx.url")
-          timeout: 60s
-        - type: test-http-status-200
-          name: "Check Write to web-app message board"
-          url:
-            $brooklyn:formatString:
-              - "%s/db.jsp?name=myname&message=mymessage"
-              - $brooklyn:config("nginx.url")
-        - type: test-http-body
-          name: "Check Read from web-app message board"
-          url:
-            $brooklyn:formatString:
-              - "%s/db.jsp"
-              - $brooklyn:config("nginx.url")
-          assert:
-            - contains: "myname"
-            - contains: "mymessage"
-
-  ###
-  # Deploys a multi-node blueprint, consisting of:
-  #  - a cluster of Tomcat nodes (size 1)
-  #  - nginx
-  #  - database
-  #
-  # Asserts that:
-  #  - app comes up
-  #  - via nginx, can connect to web-app
-  #  - via nginx, can write to database and read from database
-  #
-  # The different versions test communication between Swarm containers and
-  # Cloud virtual machines going in both directions.
-  ##
-
-  - id: deploy-multi-node-app-swarm
-    name: "Multi Node Swarm App"
-    description: |
-      Deploy a multi-node app to a Swarm location
-    item:
-      type: test-case
-      id: test-scope
-      name: "Swarm Deploy Tests"
-      brooklyn.children:
-        - type: multi-node-app-swarm
-          id: swarm-only-app
-          brooklyn.config:
-            db.url: $brooklyn:ancestor("test-scope").descendant("db").attributeWhenReady("datastore.url.mapped.subnet")
-            member.sensor.hostname: $brooklyn:sensor("host.subnet.address")
-        - type:  test-multi-node-app
-          brooklyn.config:
-            timeout: 30m
-            targetId: swarm-only-app
-            nginx.url: $brooklyn:ancestor("test-scope").descendant("nginx").attributeWhenReady("main.uri.mapped.public")
-
-  - id: deploy-multi-node-app-cloud-to-swarm
-    name: "Multi Node Cloud to Swarm App"
-    description: |
-      Deploy a multi-node app to Cloud and Swarm locations, with communication
-      from the Cloud entity (Nginx) to the Swarm entities.
-    item:
-      type: test-case
-      id: test-scope
-      name: "Cloud to Swarm Deploy Tests"
-      brooklyn.children:
-        - type: multi-node-app-cloud-to-swarm
-          id: cloud-to-swarm-app
-          brooklyn.config:
-            db.url: $brooklyn:ancestor("test-scope").descendant("db").attributeWhenReady("datastore.url.mapped.subnet")
-            member.sensor.hostandport: $brooklyn:sensor("http.endpoint.mapped.public")
-            proxy.domainName: $brooklyn:attributeWhenReady("host.address")
-        - type:  test-multi-node-app
-          brooklyn.config:
-            timeout: 30m
-            targetId: cloud-to-swarm-app
-            nginx.url: $brooklyn:ancestor("test-scope").descendant("nginx").attributeWhenReady("main.uri")
-
-  - id: deploy-multi-node-app-swarm-to-cloud
-    name: "Multi Node Swarm to Cloud App"
-    description: |
-      Deploy a multi-node app to Cloud and Swarm locations, with communication
-      deom the Swarm entities to the Cloud entity (MySQL).
-    item:
-      type: test-case
-      id: test-scope
-      name: "Swarm to Cloud Deploy Tests"
-      brooklyn.children:
-        - type: multi-node-app-swarm-to-cloud
-          id: swarm-to-cloud-app
-          brooklyn.config:
-            db.url: $brooklyn:ancestor("test-scope").descendant("db").attributeWhenReady("datastore.url")
-            member.sensor.hostname: $brooklyn:sensor("host.subnet.address")
-        - type:  test-multi-node-app
-          brooklyn.config:
-            timeout: 30m
-            targetId: swarm-to-cloud-app
-            nginx.url: $brooklyn:ancestor("test-scope").descendant("nginx").attributeWhenReady("main.uri.mapped.public")
-
-  ###
-  # Deploy a single-node blueprint, and confirm SSH works.
-  ##
-  - id: deploy-app-to-swarm-single-node
-    name: "Single Node App to Docker Swarm endpoint"
-    description: |
-      Test that we can provision a simple Brooklyn SoftwareProcess to a Swarm endpoint
-    item:
-      type: test-case
-      name: "Single Node App Deploy Tests"
-      brooklyn.children:
-        - type: org.apache.brooklyn.entity.software.base.EmptySoftwareProcess
-          location: location-container
-          id: empty
-          brooklyn.config:
-            onbox.base.dir.skipResolution: true
-            sshMonitoring.enabled: false
-        - type: test-case
-          name: "Empty Container Tests"
-          brooklyn.config:
-            timeout: 15m
-            targetId: empty
-          brooklyn.children:
-            - type: test-case
-              name: "Sensor Tests"
-              brooklyn.children:
-                # Is up and can deploy
-                - type: assert-up
-                - type: assert-running
-                # Can ssh
-                - type: ssh-test
-                  command: |
-                    echo "hello-world"
-                  assertStatus:
-                    equals: 0
-                  assertOut:
-                    contains: "hello-world"
-                  assertErr:
-                    isEmpty: true
-
-  ##
-  # A Riak cluster example.
-  #
-  # Requires a (docker swarm) location pre-configured with cloudsoft/ubuntu:14.04 for the Riak application to deploy to.
-  ##
-  - id: riak-cluster-to-swarm-multi-node
-    name: "Riak Cluster"
-    description: |
-      Riak cluster with load-balanced chatroom webapp
-    iconUrl: classpath://riak-icon.png
-    itemType: entity
-    item:
-      type: org.apache.brooklyn.entity.stock.BasicApplication
-      id: riak-app
-      name: "Riak App"
-      brooklyn.children:
-        - type: org.apache.brooklyn.entity.nosql.riak.RiakCluster
-          id: riak-cluster
-          name: "Riak Cluster"
-          brooklyn.config:
-            provisioning.properties:
-              # cloudsoft/ubuntu:14.04
-              osFamily: ubuntu
-              osVersionRegex: 14.04
-            initialSize: 3
-            install.version: 2.1.4
-            riak.networking.optimize: false
-            riak.networking.internal: false
-        - type: org.apache.brooklyn.entity.webapp.ControlledDynamicWebAppCluster
-          id: web-cluster
-          name: "Web Cluster"
-          brooklyn.config:
-            initialSize: 2
-            dynamiccluster.memberspec:
-              $brooklyn:entitySpec:
-                type: org.apache.brooklyn.entity.webapp.tomcat.Tomcat8Server
-                brooklyn.config:
-                  wars.root:
-                    "https://s3-eu-west-1.amazonaws.com/brooklyn-clocker/brooklyn-example-hello-world-sql-webapp.war"
-                  java.sysprops:
-                    brooklyn.example.riak.nodes:
-                      $brooklyn:entity("riak-cluster").attributeWhenReady("riak.cluster.nodeList")
-            controlleddynamicwebappcluster.controllerSpec:
-              $brooklyn:entitySpec:
-                type: org.apache.brooklyn.entity.proxy.nginx.NginxController
-                id: load-balancer
-                brooklyn.enrichers:
-                  - type: org.apache.brooklyn.core.network.OnPublicNetworkEnricher
-                    brooklyn.config:
-                      sensors:
-                        - main.uri
-          brooklyn.enrichers:
-            # publish the mapped URL at the cluster
-            - type: org.apache.brooklyn.enricher.stock.Propagator
-              brooklyn.config:
-                uniqueTag: url-propagator
-                enricher.producer: $brooklyn:entity("load-balancer")
-                enricher.propagating.inclusions:
-                  - main.uri.mapped.public
-      brooklyn.enrichers:
-        # publish the cluster URL (the mapped public one) as the main.uri of the top-level app
-        - type: org.apache.brooklyn.enricher.stock.Propagator
-          brooklyn.config:
-            uniqueTag: main-uri-publisher
-            enricher.producer: $brooklyn:entity("web-cluster")
-            enricher.propagating.inclusions:
-              - main.uri.mapped.public
-
-  - id: deploy-riak-cluster-to-swarm-multi-node
-    name: "Multi Node Riak Cluster to Swarm"
-    description: |
-      Deploy Riak cluster with load-balanced chatroom webapp to Swarm location
-    item:
-      type: test-case
-      name: "Multi Node App Deploy Tests"
-      brooklyn.children:
-        - type: riak-cluster-to-swarm-multi-node
-          id: riak-app
-          location: location-container
-        - type: test-case
-          brooklyn.config:
-            timeout: 30m
-            targetId: riak-app
-          brooklyn.children:
-            - type: test-case
-              name: "Sensor Tests"
-              brooklyn.children:
-                - type: assert-up
-                - type: assert-running
-                - type: test-http-status-200
-                  url: $brooklyn:entity("riak-app").attributeWhenReady("main.uri.mapped.public")
-                  timeout: 60s
-                - type: test-http-status-200
-                  name: "Check Write to web-app message board"
-                  url:
-                    $brooklyn:formatString:
-                      - "%s/riak.jsp?name=myname&message=mymessage"
-                      - $brooklyn:entity("riak-app").attributeWhenReady("main.uri.mapped.public")
-                  timeout: 60s
-                - type: test-http-body
-                  name: "Check Read from web-app message board"
-                  url:
-                    $brooklyn:formatString:
-                      - "%s/riak.jsp"
-                      - $brooklyn:entity("riak-app").attributeWhenReady("main.uri.mapped.public")
-                  timeout: 60s
-                  assert:
-                    - contains: "myname"
-                    - contains: "mymessage"
-
-  - id: deploy-single-container-type
-    name: "Deploy Container Type"
-    description: |
-      Deploys an httpd container using the container type
-    itemType: entity
-    item:
-      type: test-case
-      name: "Deploy Container Type Tests"
-      brooklyn.children:
-        - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
-          location: location-container
-          id: httpd
-          name: "httpd"
-          brooklyn.config:
-            docker.container.disable_ssh: true
-            docker.container.imageName: "httpd"
-            docker.container.inbound_tcp_ports:
-              - "70"
-              - "80"
-              - "90-99"
-        - type: test-case
-          brooklyn.config:
-            timeout: 30m
-            targetId: httpd
-          brooklyn.children:
-            - type: test-case
-              name: "Sensor Tests"
-              brooklyn.children:
-                - type: assert-up
-                - type: assert-running
-                - type: test-http-status-200
-                  url:
-                    $brooklyn:formatString:
-                      - "http://%s"
-                      - $brooklyn:entity("httpd").attributeWhenReady("docker.port.80.mapped.public")
-                  timeout: 30s
-
-  - id: swarm-endpoint-tests
-    name: "Swarm Endpoint Tests"
-    description: |
-      Tests applications can be deployed to both Swarm and Cloud locations
-    itemType: template
-    item:
-      brooklyn.config:
-        timeout: 1h
-        timeout.initialStartup: 1h
-        timeout.runtimeAssertion: 1h
-
-      services:
-        - type: test-case
-          name: "TEST-01 Containers"
-          brooklyn.children:
-            - type: deploy-single-container-type
-        - type: test-case
-          name: "TEST-02 Applications"
-          brooklyn.config:
-            dontRequireTtyForSudo: true
-          brooklyn.children:
-            - type: test-case
-              name: "TEST-02-1 Single-Node Application"
-              brooklyn.children:
-                - type: deploy-app-to-swarm-single-node
-            - type: test-case
-              name: "TEST-02-2 Multi-Node Application"
-              brooklyn.children:
-                - type: deploy-riak-cluster-to-swarm-multi-node
-                - type: deploy-multi-node-app-swarm
-            - type: test-case
-              name: "TEST-02-3 Hybrid Multi-Node Application"
-              brooklyn.children:
-                - type: deploy-multi-node-app-swarm-to-cloud
-                - type: deploy-multi-node-app-cloud-to-swarm
+              dontRequireTtyForSudo: true
+            brooklyn.children:
+              - type: test-case
+                name: "TEST-02-1 Single-Node Application"
+                brooklyn.children:
+                  - type: deploy-app-to-swarm-single-node
+              - type: test-case
+                name: "TEST-02-2 Multi-Node Application"
+                brooklyn.children:
+                  - type: deploy-riak-cluster-to-swarm-multi-node
+                  - type: deploy-multi-node-app-swarm
+              - type: test-case
+                name: "TEST-02-3 Hybrid Multi-Node Application"
+                brooklyn.children:
+                  - type: deploy-multi-node-app-swarm-to-cloud
+                  - type: deploy-multi-node-app-cloud-to-swarm
