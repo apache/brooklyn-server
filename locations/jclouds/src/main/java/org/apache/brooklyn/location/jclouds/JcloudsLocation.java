@@ -1013,8 +1013,20 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                         }
                         executeCommandThrowingOnError(
                                 (SshMachineLocation)machineLocation,
-                                "Authorizing ssh keys",
+                                "Authorizing ssh keys from URLs",
                                 ImmutableList.of(new AuthorizeRSAPublicKeys(extraKeyDataToAuth).render(org.jclouds.scriptbuilder.domain.OsFamily.UNIX)));
+                    }
+                }
+                
+                String extraKeyDataToAuth = setup.get(EXTRA_PUBLIC_KEY_DATA_TO_AUTH);
+                if (extraKeyDataToAuth!=null && !extraKeyDataToAuth.isEmpty()) {
+                    if (windows) {
+                        LOG.warn("Ignoring flag EXTRA_PUBLIC_KEY_DATA_TO_AUTH on Windows location", machineLocation);
+                    } else {
+                        executeCommandThrowingOnError(
+                                (SshMachineLocation)machineLocation,
+                                "Authorizing ssh keys from data",
+                                ImmutableList.of(new AuthorizeRSAPublicKeys(Collections.singletonList(extraKeyDataToAuth)).render(org.jclouds.scriptbuilder.domain.OsFamily.UNIX)));
                     }
                 }
 
@@ -1385,13 +1397,25 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     }})
             .put(EXTRA_PUBLIC_KEY_DATA_TO_AUTH, new CustomizeTemplateOptions() {
                     public void apply(TemplateOptions t, ConfigBag props, Object v) {
-                        if (isGoogleComputeTemplateOptions(t)) {
-                            // see email to jclouds list, 29 Aug 2015; 
-                            // GCE takes this to be the only login public key, 
-                            // and setting this only works if you also overrideLoginPrivateKey
-                            LOG.warn("Ignoring "+EXTRA_PUBLIC_KEY_DATA_TO_AUTH+"; not supported in jclouds-gce implementation.");
+                        // this is unreliable: 
+                        // * seems now (Aug 2016) to be run *before* the TO.runScript which creates the user,
+                        // so is installed for the initial login user not the created user
+                        // * not supported in GCE (it uses it as the login public key, see email to jclouds list, 29 Aug 2015)
+                        // so only works if you also overrideLoginPrivateKey
+                        // --
+                        // for this reason we also inspect these ourselves 
+                        // along with EXTRA_PUBLIC_KEY_URLS_TO_AUTH
+                        // and install after creation;
+                        // --
+                        // we also do it here for legacy reasons though i (alex) can't think of any situations it's needed
+                        // --
+                        // also we warn on exceptions in case someone is dumping comments or something else
+                        try {
+                            t.authorizePublicKey(((CharSequence)v).toString());
+                        } catch (Exception e) {
+                            Exceptions.propagateIfFatal(e);
+                            LOG.warn("Error trying jclouds authorizePublicKey; will run later: "+e, e);
                         }
-                        t.authorizePublicKey(((CharSequence)v).toString());
                     }})
             .put(RUN_AS_ROOT, new CustomizeTemplateOptions() {
                     public void apply(TemplateOptions t, ConfigBag props, Object v) {
@@ -2065,6 +2089,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             createdUserCreds = LoginCredentials.builder().user(user).password(passwordToSet).build();
 
             if (useKey) {
+                // NB: further keys are added from config *after* user creation
                 statements.add(new AuthorizeRSAPublicKeys("~"+user+"/.ssh", ImmutableList.of(credential.getPublicKeyData())));
                 if (Strings.isNonBlank(credential.getPrivateKeyData())) {
                     createdUserCreds = LoginCredentials.builder().user(user).privateKey(credential.getPrivateKeyData()).build();
