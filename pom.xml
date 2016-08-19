@@ -83,6 +83,7 @@
 
     <modules>
         <module>docker-location</module>
+        <module>kubernetes-location</module>
         <module>catalog</module>
     </modules>
 

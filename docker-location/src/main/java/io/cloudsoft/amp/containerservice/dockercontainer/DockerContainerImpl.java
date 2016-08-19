@@ -49,9 +49,10 @@ public class DockerContainerImpl extends EmptySoftwareProcessImpl implements Doc
          config().set(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, true);
          config().set(PROVISIONING_PROPERTIES.subKey("useJcloudsSshInit"), false);
          config().set(PROVISIONING_PROPERTIES.subKey("waitForSshable"), false);
+         config().set(EmptySoftwareProcessImpl.USE_SSH_MONITORING, false);
       }
 
-      ImmutableSet.Builder<AttributeSensor<Integer>> builder = ImmutableSet.<AttributeSensor<Integer>>builder();
+      ImmutableSet.Builder<AttributeSensor<Integer>> builder = ImmutableSet.builder();
       List<String> portRanges = MutableList.copyOf(config().get(DockerContainer.INBOUND_TCP_PORTS));
       for (String portRange : portRanges) {
          Iterator<Integer> iterator = PortRanges.fromString(portRange).iterator();
@@ -83,4 +84,5 @@ public class DockerContainerImpl extends EmptySoftwareProcessImpl implements Doc
          sensors().set(Attributes.SERVICE_UP, true);
       }
    }
+
 }

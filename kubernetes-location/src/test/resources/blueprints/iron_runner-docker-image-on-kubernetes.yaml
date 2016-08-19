@@ -1,0 +1,15 @@
+location:
+  kubernetes:
+    endpoint: "https://192.168.99.100:8443/"
+    secrets: { "iron.io" : "auth=" }
+    privileged: true
+    limits: { "memory" : "64M" }
+
+services:
+- type: io.cloudsoft.amp.container.kubernetes.entity.KubernetesPod
+  brooklyn.children:
+  - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
+    brooklyn.config:
+      docker.container.imageName: iron/runner
+      docker.container.inboundPorts: [ "8080" ]
+      env: { CLUSTER_ID: "id", CLUSTER_TOKEN : "token" }
