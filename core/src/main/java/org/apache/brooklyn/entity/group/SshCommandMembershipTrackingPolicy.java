@@ -26,6 +26,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.CaseFormat;
+import com.google.common.base.Converter;
+import com.google.common.base.Preconditions;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
@@ -54,6 +56,11 @@ import org.apache.brooklyn.util.text.Strings;
  * Sets the environment variable {@code EVENT_TYPE} to the value of the {@link EventType}
  * for the invocation, and {@code MEMBER_ID} to the ID of the entity that is being
  * added, removed or updated.
+ * <p>
+ * The {@code execution.target} configuration specifies where the command will be
+ * executed. This can be one of: the {@link ExecutionTarget#ENTITY owing entity};
+ * the {@link ExecutionTarget#MEMBER member} that was updated; or
+ * {@link ExecutionTarget#ALL_MEMBERS all members} of the group.
  */
 public class SshCommandMembershipTrackingPolicy extends AbstractMembershipTrackingPolicy {
 
@@ -61,6 +68,38 @@ public class SshCommandMembershipTrackingPolicy extends AbstractMembershipTracki
 
     public static final String EVENT_TYPE = "EVENT_TYPE";
     public static final String MEMBER_ID = "MEMBER_ID";
+
+    public static enum ExecutionTarget {
+        ENTITY,
+        MEMBER,
+        ALL_MEMBERS;
+
+        private static Converter<String, String> converter = CaseFormat.LOWER_CAMEL.converterTo(CaseFormat.UPPER_UNDERSCORE);
+
+        public static ExecutionTarget fromString(String name) {
+            Maybe<ExecutionTarget> parsed = tryFromString(name);
+            return parsed.get();
+        }
+
+        public static Maybe<ExecutionTarget> tryFromString(String name) {
+            try {
+                ExecutionTarget scope = valueOf(converter.convert(name));
+                return Maybe.of(scope);
+            } catch (Exception cause) {
+                return Maybe.absent(cause);
+            }
+        }
+
+        public static boolean isValid(String name) {
+            Maybe<ExecutionTarget> check = tryFromString(name);
+            return check.isPresentAndNonNull();
+        }
+
+        @Override
+        public String toString() {
+            return converter.reverse().convert(name());
+        }
+    }
 
     public static final ConfigKey<String> EXECUTION_DIR = ConfigKeys.newStringConfigKey("executionDir", "Directory where the command should run; "
         + "if not supplied, executes in the entity's run dir (or home dir if no run dir is defined); "
@@ -70,28 +109,50 @@ public class SshCommandMembershipTrackingPolicy extends AbstractMembershipTracki
 
     public static final ConfigKey<String> UPDATE_COMMAND = ConfigKeys.newStringConfigKey("update.command", "Command to run on membership change events");
 
+    public static final ConfigKey<ExecutionTarget> EXECUTION_TARGET = ConfigKeys.newConfigKey(ExecutionTarget.class,
+            "execution.target",
+            "Strategy for executing the command on different targets (default to the entity the policy is attached to)", ExecutionTarget.ENTITY);
+
     /**
      * Called when a member is updated or group membership changes.
      */
     @Override
     protected void onEntityEvent(EventType type, Entity member) {
         LOG.trace("Event {} received for {} in {}", new Object[] { type, member, getGroup() });
-        String command = config().get(UPDATE_COMMAND);
+        String command = Preconditions.checkNotNull(config().get(UPDATE_COMMAND));
+        ExecutionTarget where = Preconditions.checkNotNull(config().get(EXECUTION_TARGET));
+
         if (Strings.isNonBlank(command)) {
-            execute(command, type.name(), member.getId());
+            // Execute the command at the appropriate target entity
+            switch (where) {
+                case ENTITY:
+                    execute(entity, command, type.name(), member.getId());
+                    break;
+                case MEMBER:
+                    execute(member, command, type.name(), member.getId());
+                    break;
+                case ALL_MEMBERS:
+                    for (Entity each : getGroup().getMembers()) {
+                        execute(each, command, type.name(), member.getId());
+                    }
+                    break;
+                default:
+                    LOG.warn("Unknown value passed as execution target: {}", where.name());
+            }
         }
     }
 
-    public void execute(String command, String type, String memberId) {
-        Collection<? extends Location> locations = Locations.getLocationsCheckingAncestors(entity.getLocations(), entity);
+    public void execute(Entity target, String command, String type, String memberId) {
+        Collection<? extends Location> locations = Locations.getLocationsCheckingAncestors(target.getLocations(), target);
         Maybe<SshMachineLocation> machine = Machines.findUniqueMachineLocation(locations, SshMachineLocation.class);
         if (machine.isAbsentOrNull()) {
             LOG.debug("No machine available to execute command");
             return;
         }
+
         LOG.info("Executing command on {}: {}", machine.get(), command);
         String executionDir = config().get(EXECUTION_DIR);
-        String sshCommand = SshCommandSensor.makeCommandExecutingInDirectory(command, executionDir, entity);
+        String sshCommand = SshCommandSensor.makeCommandExecutingInDirectory(command, executionDir, (EntityInternal) target);
 
         // Set things from the entities defined shell environment, overriding with our config
         Map<String, Object> env = MutableMap.of();
@@ -117,7 +178,7 @@ public class SshCommandMembershipTrackingPolicy extends AbstractMembershipTracki
                 .summary("group-" + CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.LOWER_HYPHEN, type))
                 .environmentVariables(serializer.serialize(env));
 
-        String output = DynamicTasks.submit(task.newTask(), entity).getUnchecked();
+        String output = DynamicTasks.submit(task.newTask(), target).getUnchecked();
         LOG.trace("Command returned: {}", output);
     }
 }
