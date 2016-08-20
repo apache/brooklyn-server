@@ -196,7 +196,11 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
             "entity.group.added", "Group dynamically added to entity");
     public static final BasicNotificationSensor<Group> GROUP_REMOVED = new BasicNotificationSensor<Group>(Group.class,
             "entity.group.removed", "Group dynamically removed from entity");
-    
+
+    public static final AttributeSensor<String> ENTITY_ID = Attributes.ENTITY_ID;
+    public static final AttributeSensor<String> APPLICATION_ID = Attributes.APPLICATION_ID;
+    public static final AttributeSensor<String> CATALOG_ID = Attributes.CATALOG_ID;
+
     static {
         RendererHints.register(Entity.class, RendererHints.displayValue(EntityFunctions.displayName()));
     }
@@ -1615,7 +1619,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     // -------- INITIALIZATION --------------
 
     /**
-     * Default entity initialization, just calls {@link #initEnrichers()}.
+     * Default entity initialization sets ID sensors and calls {@link #initEnrichers()}.
      */
     public void init() {
         super.init();
@@ -1623,6 +1627,9 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         if (Strings.isNonBlank(getConfig(DEFAULT_DISPLAY_NAME))) {
             setDefaultDisplayName(getConfig(DEFAULT_DISPLAY_NAME));
         }
+        sensors().set(ENTITY_ID, getId());
+        sensors().set(APPLICATION_ID, getApplicationId());
+        sensors().set(CATALOG_ID, getCatalogItemId());
     }
     
     /**
