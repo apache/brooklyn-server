@@ -161,7 +161,11 @@ public class Enrichers {
         }
         /** as {@link #combining(Collection)} but the collection of values comes from the given sensor on multiple entities */
         public <S> AggregatorBuilder<S, Object> aggregating(AttributeSensor<S> val) {
-            return new AggregatorBuilder<S,Object>(val);
+            return new AggregatorBuilder<S, Object>(val);
+        }
+        /** as {@link #combining(Collection)} but the collection of values comes from the given sensor on multiple entities */
+        public <S> AggregatorBuilder<S, Object> aggregating(AttributeSensor<S> keySensor, AttributeSensor<S> valueSensor) {
+            return new AggregatorBuilder<S, Object>(keySensor, valueSensor);
         }
         /** creates an {@link UpdatingMap} enricher: 
          * {@link UpdatingMapBuilder#from(AttributeSensor)} and {@link UpdatingMapBuilder#computing(Function)} are required
@@ -182,13 +186,15 @@ public class Enrichers {
 
 
     protected abstract static class AbstractAggregatorBuilder<S, T, B extends AbstractAggregatorBuilder<S, T, B>> extends AbstractEnricherBuilder<B> {
-        protected final AttributeSensor<S> aggregating;
+        protected AttributeSensor<S> aggregating;
+        protected AttributeSensor<S> keySensor;
+        protected AttributeSensor<S> valueSensor;
         protected AttributeSensor<T> publishing;
         protected Entity fromEntity;
         /** @deprecated since 0.7.0, kept for backwards compatibility for rebind, but not used otherwise */
         @Deprecated protected Function<? super Collection<S>, ? extends T> computing;
         // use supplier so latest values of other fields can be used
-        protected Supplier<Function<? super Collection<S>, ? extends T>> computingSupplier;
+        protected Supplier<Function<? super Collection<S>, ? extends T>> computingSupplier = Suppliers.ofInstance(null);
         protected Boolean fromMembers;
         protected Boolean fromChildren;
         protected Boolean excludingBlank;
@@ -197,10 +203,15 @@ public class Enrichers {
         protected Predicate<Object> valueFilter;
         protected Object defaultValueForUnreportedSensors;
         protected Object valueToReportIfNoSensors;
-        
+
         public AbstractAggregatorBuilder(AttributeSensor<S> aggregating) {
             super(Aggregator.class);
             this.aggregating = aggregating;
+        }
+        public AbstractAggregatorBuilder(AttributeSensor<S> keySensor, AttributeSensor<S> valueSensor) {
+            super(MapAggregator.class);
+            this.keySensor = keySensor;
+            this.valueSensor = valueSensor;
         }
         @SuppressWarnings({ "unchecked", "rawtypes" })
         public <T2 extends T> AggregatorBuilder<S,T2> publishing(AttributeSensor<? extends T2> val) {
@@ -259,7 +270,6 @@ public class Enrichers {
             };
             return self();
         }
-
         public B computingAverage() {
             this.computingSupplier = new Supplier<Function<? super Collection<S>, ? extends T>>() {
                 @Override
@@ -283,6 +293,10 @@ public class Enrichers {
             this.entityFilter = val;
             return self();
         }
+        public B valueFilter(Predicate<Object> val) {
+            this.valueFilter = val;
+            return self();
+        }
         public B excludingBlank() {
             this.excludingBlank = true;
             return self();
@@ -293,42 +307,33 @@ public class Enrichers {
             return "aggregator:"+publishing.getName();
         }
         public EnricherSpec<?> build() {
-            Predicate<Object> valueFilter;
-            if (Boolean.TRUE.equals(excludingBlank)) {
-                valueFilter = new Predicate<Object>() {
-                    @Override public boolean apply(Object input) {
-                        return (input != null) &&
-                                ((input instanceof CharSequence) ? Strings.isNonBlank((CharSequence)input) : true);
-                    }
-                };
-                // above kept for deserialization; not sure necessary
-                valueFilter = StringPredicates.isNonBlank(); 
-            } else {
-                valueFilter = null;
-            }
-            // FIXME excludingBlank; use valueFilter? exclude means ignored entirely or substituted for defaultMemberValue?
             return super.build().configure(MutableMap.builder()
                             .putIfNotNull(Aggregator.PRODUCER, fromEntity)
                             .put(Aggregator.TARGET_SENSOR, publishing)
-                            .put(Aggregator.SOURCE_SENSOR, aggregating)
+                            .putIfNotNull(Aggregator.SOURCE_SENSOR, aggregating)
+                            .putIfNotNull(MapAggregator.KEY_SENSOR, keySensor)
+                            .putIfNotNull(MapAggregator.VALUE_SENSOR, valueSensor)
                             .putIfNotNull(Aggregator.FROM_CHILDREN, fromChildren)
                             .putIfNotNull(Aggregator.FROM_MEMBERS, fromMembers)
                             .putIfNotNull(Aggregator.TRANSFORMATION, computingSupplier.get())
                             .putIfNotNull(Aggregator.FROM_HARDCODED_PRODUCERS, fromHardcodedProducers)
+                            .putIfNotNull(Aggregator.EXCLUDE_BLANK, excludingBlank)
                             .putIfNotNull(Aggregator.ENTITY_FILTER, entityFilter)
                             .putIfNotNull(Aggregator.VALUE_FILTER, valueFilter)
                             .putIfNotNull(Aggregator.DEFAULT_MEMBER_VALUE, defaultValueForUnreportedSensors)
                             .build());
         }
-        
+
         @Override
         public String toString() {
             return Objects.toStringHelper(this)
                     .omitNullValues()
                     .add("aggregating", aggregating)
+                    .add("keySensor", keySensor)
+                    .add("valueSensor", valueSensor)
                     .add("publishing", publishing)
                     .add("fromEntity", fromEntity)
-                    .add("computing", computingSupplier)
+                    .add("computing", computingSupplier.get())
                     .add("fromMembers", fromMembers)
                     .add("fromChildren", fromChildren)
                     .add("excludingBlank", excludingBlank)
@@ -638,6 +643,8 @@ public class Enrichers {
         protected AttributeSensor<String> publishing;
         protected Entity fromEntity;
         protected String separator;
+        protected String keyValueSeparator;
+        protected Boolean joinMapEntries;
         protected Boolean quote;
         protected Integer minimum;
         protected Integer maximum;
@@ -652,6 +659,14 @@ public class Enrichers {
         }
         public B separator(String separator) {
             this.separator = separator;
+            return self();
+        }
+        public B keyValueSeparator(String keyValueSeparator) {
+            this.keyValueSeparator = keyValueSeparator;
+            return self();
+        }
+        public B joinMapEntries(Boolean joinMapEntries) {
+            this.joinMapEntries = joinMapEntries;
             return self();
         }
         public B quote(Boolean quote) {
@@ -677,6 +692,8 @@ public class Enrichers {
                             .put(Joiner.TARGET_SENSOR, publishing)
                             .put(Joiner.SOURCE_SENSOR, transforming)
                             .putIfNotNull(Joiner.SEPARATOR, separator)
+                            .putIfNotNull(Joiner.KEY_VALUE_SEPARATOR, keyValueSeparator)
+                            .putIfNotNull(Joiner.JOIN_MAP_ENTRIES, joinMapEntries)
                             .putIfNotNull(Joiner.QUOTE, quote)
                             .putIfNotNull(Joiner.MINIMUM, minimum)
                             .putIfNotNull(Joiner.MAXIMUM, maximum)
@@ -756,6 +773,9 @@ public class Enrichers {
     public static class AggregatorBuilder<S, T> extends AbstractAggregatorBuilder<S, T, AggregatorBuilder<S, T>> {
         public AggregatorBuilder(AttributeSensor<S> aggregating) {
             super(aggregating);
+        }
+        public AggregatorBuilder(AttributeSensor<S> keySensor, AttributeSensor<S> valueSensor) {
+            super(keySensor, valueSensor);
         }
     }
 

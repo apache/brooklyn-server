@@ -393,6 +393,29 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
         entity.sensors().set(NUM1, 987654);
         EntityAsserts.assertAttributeEqualsContinually(group, LONG1, Long.valueOf(123));
     }
+
+    @Test
+    public void testAggregatingMap() {
+        group.addMember(entity);
+        group.enrichers().add(Enrichers.builder()
+                .aggregating(STR1, STR2)
+                .publishing(MAP1)
+                .fromMembers()
+                .excludingBlank()
+                .build());
+
+        EntityAsserts.assertAttributeEqualsEventually(group, MAP1, ImmutableMap.<String, String>of());
+
+        entity.sensors().set(STR1, "a");
+        EntityAsserts.assertAttributeEqualsEventually(group, MAP1, ImmutableMap.<String, String>of());
+
+        entity.sensors().set(STR2, "b");
+        EntityAsserts.assertAttributeEqualsEventually(group, MAP1, ImmutableMap.<String, String>of("a", "b"));
+
+        entity.sensors().set(STR2, "c");
+        EntityAsserts.assertAttributeEqualsEventually(group, MAP1, ImmutableMap.<String, String>of("a", "c"));
+    }
+
     @Test
     public void testUpdatingMap1() {
         entity.enrichers().add(Enrichers.builder()
@@ -429,6 +452,7 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
     }
 
     private static AttributeSensor<Object> LIST_SENSOR = Sensors.newSensor(Object.class, "sensor.list");
+    private static AttributeSensor<Object> MAP_SENSOR = Sensors.newSensor(Object.class, "sensor.map");
     
     @Test
     public void testJoinerDefault() {
@@ -490,5 +514,21 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
         EntityAsserts.assertAttributeEqualsEventually(entity, TestEntity.NAME, "a,b,c,d");
     }
 
+    @Test
+    public void testJoinerMap() {
+        entity.enrichers().add(Enrichers.builder()
+                .joining(MAP_SENSOR)
+                .keyValueSeparator("=")
+                .joinMapEntries(true)
+                .publishing(TestEntity.NAME)
+                .build());
+        // check quotes
+        entity.sensors().set(MAP_SENSOR, MutableMap.<String, String>of("a", "\"v", "b", "w x y"));
+        EntityAsserts.assertAttributeEqualsEventually(entity, TestEntity.NAME, "\"a=\\\"v\",\"b=w x y\"");
+
+        // empty map causes ""
+        entity.sensors().set(MAP_SENSOR, MutableMap.<String, String>of());
+        EntityAsserts.assertAttributeEqualsEventually(entity, TestEntity.NAME, "");
+    }
 
 }

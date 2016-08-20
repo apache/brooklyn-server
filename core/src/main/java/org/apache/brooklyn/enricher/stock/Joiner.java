@@ -50,6 +50,10 @@ public class Joiner<T> extends AbstractEnricher implements SensorEventListener<T
     public static ConfigKey<Sensor<?>> TARGET_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {}, "enricher.targetSensor");
     @SetFromFlag("separator")
     public static ConfigKey<String> SEPARATOR = ConfigKeys.newStringConfigKey("enricher.joiner.separator", "Separator string to insert between each argument", ",");
+    @SetFromFlag("keyValueSeparator")
+    public static ConfigKey<String> KEY_VALUE_SEPARATOR = ConfigKeys.newStringConfigKey("enricher.joiner.keyValueSeparator", "Separator string to insert between each key-value pair", "=");
+    @SetFromFlag("joinMapEntries")
+    public static ConfigKey<Boolean> JOIN_MAP_ENTRIES = ConfigKeys.newBooleanConfigKey("enricher.joiner.joinMapEntries", "Whether to add map entries as key-value pairs or just use the value, defaulting to false", false);
     @SetFromFlag("quote")
     public static ConfigKey<Boolean> QUOTE = ConfigKeys.newBooleanConfigKey("enricher.joiner.quote", "Whether to bash-escape each parameter and wrap in double-quotes, defaulting to true", true);
     @SetFromFlag("minimum")
@@ -72,12 +76,12 @@ public class Joiner<T> extends AbstractEnricher implements SensorEventListener<T
         this.producer = getConfig(PRODUCER) == null ? entity: getConfig(PRODUCER);
         this.sourceSensor = (AttributeSensor<T>) getRequiredConfig(SOURCE_SENSOR);
         this.targetSensor = (Sensor<String>) getRequiredConfig(TARGET_SENSOR);
-        
+
         subscriptions().subscribe(producer, sourceSensor, this);
-        
-        Object value = producer.getAttribute((AttributeSensor<?>)sourceSensor);
+
+        Object value = producer.getAttribute((AttributeSensor<?>) sourceSensor);
         // TODO would be useful to have a convenience to "subscribeAndThenIfItIsAlreadySetRunItOnce"
-        if (value!=null) {
+        if (value != null) {
             onEvent(new BasicSensorEvent(sourceSensor, producer, value, -1));
         }
     }
@@ -92,36 +96,48 @@ public class Joiner<T> extends AbstractEnricher implements SensorEventListener<T
         Object result = null;
         if (v!=null) {
             if (v instanceof Map) {
-                v = ((Map<?,?>)v).values();
+                if (config().get(JOIN_MAP_ENTRIES)) {
+                    v = ((Map<?,?>) v).entrySet();
+                } else {
+                    v = ((Map<?,?>) v).values();
+                }
             }
             if (!(v instanceof Iterable)) {
                 LOG.warn("Enricher "+this+" received a non-iterable value "+v.getClass()+" "+v+"; refusing to join");
             } else {
                 MutableList<Object> c1 = MutableList.of();
-                Integer maximum = getConfig(MAXIMUM);
+                Integer maximum = config().get(MAXIMUM);
                 for (Object ci: (Iterable<?>)v) {
                     if (maximum!=null && maximum>=0) {
                         if (c1.size()>=maximum) break;
                     }
-                    c1.appendIfNotNull(Strings.toString(ci));
+                    if (ci instanceof Map.Entry) {
+                        String key = Strings.toString(((Map.Entry) ci).getKey());
+                        Object value = ((Map.Entry) ci).getValue();
+                        String keyValueSeparator = config().get(KEY_VALUE_SEPARATOR);
+                        if (value != null) {
+                            c1.append(String.format("%s%s%s", key, keyValueSeparator, Strings.toString(value)));
+                        }
+                    } else {
+                        c1.appendIfNotNull(Strings.toString(ci));
+                    }
                 }
-                Integer minimum = getConfig(MINIMUM);
+                Integer minimum = config().get(MINIMUM);
                 if (minimum!=null && c1.size() < minimum) {
                     // use default null return value
                 } else {
-                    if (getConfig(QUOTE)) {
+                    if (config().get(QUOTE)) {
                         MutableList<Object> c2 = MutableList.of();
                         for (Object ci: c1) {
                             c2.add(StringEscapes.BashStringEscapes.wrapBash((String)ci));
                         }
                         c1 = c2;
                     }
-                    result = Strings.join(c1, getConfig(SEPARATOR));
+                    result = Strings.join(c1, config().get(SEPARATOR));
                 }
             }
         }
-        if (LOG.isTraceEnabled())
-            LOG.trace("Enricher "+this+" computed "+result+" from "+event);
+        LOG.trace("Enricher "+this+" computed "+result+" from "+event);
         return result;
     }
 }
