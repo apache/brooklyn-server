@@ -171,6 +171,8 @@
         <minidev.asm.version>1.0.2</minidev.asm.version>
         <commons-beanutils.version>1.9.1</commons-beanutils.version>
         <commons-collections.version>3.2.1</commons-collections.version>
+        <javax.mail.version>1.4.4</javax.mail.version>
+        <cxf.javax.annotation-api.version>1.2</cxf.javax.annotation-api.version>
 
         <!-- Testing Dependency Versions -->
         <testng.version>6.8.8</testng.version>
