@@ -43,9 +43,11 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.jboss.resteasy.client.ClientExecutor;
 import org.jboss.resteasy.client.ClientResponse;
-import org.jboss.resteasy.client.ProxyFactory;
+import org.jboss.resteasy.client.ProxyBuilder;
 import org.jboss.resteasy.client.core.executors.ApacheHttpClient4Executor;
+import org.jboss.resteasy.client.core.extractors.DefaultEntityExtractorFactory;
 import org.jboss.resteasy.specimpl.BuiltResponse;
+import org.jboss.resteasy.spi.ResteasyProviderFactory;
 import org.jboss.resteasy.util.GenericType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,9 +70,10 @@ import org.apache.brooklyn.rest.api.ServerApi;
 import org.apache.brooklyn.rest.api.UsageApi;
 import org.apache.brooklyn.rest.api.VersionApi;
 import org.apache.brooklyn.rest.client.util.http.BuiltResponsePreservingError;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.javalang.AggregateClassLoader;
 import org.apache.brooklyn.util.net.Urls;
-import org.apache.brooklyn.util.os.Os;
 
 import io.swagger.annotations.ApiOperation;
 
@@ -265,7 +268,18 @@ public class BrooklynApi {
 
     @SuppressWarnings("unchecked")
     private <T> T proxy(Class<T> clazz) {
-        final T result0 = ProxyFactory.create(clazz, target, clientExecutor);
+        AggregateClassLoader aggregateClassLoader =  AggregateClassLoader.newInstanceWithNoLoaders();
+        aggregateClassLoader.addLast(clazz.getClassLoader());
+        aggregateClassLoader.addLast(getClass().getClassLoader());
+
+        final T result0 = ProxyBuilder.build(clazz, target)
+                .executor(clientExecutor)
+                .classloader(aggregateClassLoader)
+                .providerFactory(ResteasyProviderFactory.getInstance())
+                .extractorFactory(new DefaultEntityExtractorFactory())
+                .requestAttributes(MutableMap.<String, Object>of())
+                .now();
+
         return (T) Proxy.newProxyInstance(clazz.getClassLoader(), new Class<?>[] { clazz }, new InvocationHandler() {
             @Override
             public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
