@@ -33,6 +33,20 @@ import java.util.concurrent.Future;
 
 import javax.ws.rs.core.MediaType;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.io.Files;
+
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Application;
@@ -70,19 +84,6 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.text.Strings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.io.Files;
 
 public class BrooklynRestResourceUtils {
 
@@ -365,13 +366,11 @@ public class BrooklynRestResourceUtils {
                 configureRenderingMetadata(spec, coreSpec);
 
                 coreSpec.child(toCoreEntitySpec(itemAndClass.clazz, name, configO, itemAndClass.catalogItemId)
-                    .configure(BrooklynCampConstants.PLAN_ID, "soleChildId"));
+                        .configure(BrooklynCampConstants.PLAN_ID, "soleChildId"));
                 coreSpec.enricher(Enrichers.builder()
-                    .propagatingAllBut(Attributes.SERVICE_UP, Attributes.SERVICE_NOT_UP_INDICATORS, 
-                        Attributes.SERVICE_STATE_ACTUAL, Attributes.SERVICE_STATE_EXPECTED, 
-                        Attributes.SERVICE_PROBLEMS)
-                        .from(new DslComponent(Scope.CHILD, "soleChildId").newTask())
-                        .build());
+                        .propagatingAllBut(Attributes.SERVICE_UP, Attributes.SERVICE_NOT_UP_INDICATORS,
+                                Attributes.SERVICE_STATE_ACTUAL, Attributes.SERVICE_STATE_EXPECTED, Attributes.SERVICE_PROBLEMS)
+                        .from(new DslComponent<Entity>(Scope.CHILD, "soleChildId").newTask()).build());
 
                 log.info("REST placing '{}' under management", spec.getName());
                 instance = (Application) mgmt.getEntityManager().createEntity(coreSpec);

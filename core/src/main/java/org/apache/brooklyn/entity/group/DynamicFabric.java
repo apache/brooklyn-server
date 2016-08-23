@@ -18,39 +18,41 @@
  */
 package org.apache.brooklyn.entity.group;
 
+import java.util.List;
+
+import com.google.common.collect.ImmutableMap;
+import com.google.common.reflect.TypeToken;
+
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.ImplementedBy;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.entity.Attributes;
-import org.apache.brooklyn.core.entity.factory.EntityFactory;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.reflect.TypeToken;
-
 /**
- * When a dynamic fabric is started, it starts an entity in each of its locations. 
- * This entity will be the parent of each of the started entities. 
+ * When a dynamic fabric is started, it starts an entity in each of its locations.
+ * This entity will be the parent of each of the started entities.
  */
 @ImplementedBy(DynamicFabricImpl.class)
 @SuppressWarnings("serial")
 public interface DynamicFabric extends AbstractGroup, Startable, Fabric {
 
     public static final AttributeSensor<Integer> FABRIC_SIZE = Sensors.newIntegerSensor("fabric.size", "Fabric size");
-    
+
     @SetFromFlag("memberSpec")
     public static final ConfigKey<EntitySpec<?>> MEMBER_SPEC = ConfigKeys.newConfigKey(
-            new TypeToken<EntitySpec<?>>() {}, "dynamiccfabric.memberspec", "entity spec for creating new cluster members", null);
+            new TypeToken<EntitySpec<?>>() {}, "dynamiccfabric.memberspec", "Entity specification for creating new cluster members", null);
 
-    @SetFromFlag("factory")
-    public static final ConfigKey<EntityFactory<?>> FACTORY = ConfigKeys.newConfigKey(
-        new TypeToken<EntityFactory<?>>() {}, "dynamicfabric.factory", "factory for creating new cluster members", null);
+    @SetFromFlag("locationSpecs")
+    public static final ConfigKey<List<LocationSpec<?>>> LOCATION_SPECS = ConfigKeys.newConfigKey(
+            new TypeToken<List<LocationSpec<?>>>() {}, "dynamiccfabric.locationspecs", "List of location specifications for starting new cluster members", null);
 
     @SetFromFlag("displayNamePrefix")
     public static final ConfigKey<String> DISPLAY_NAME_PREFIX = ConfigKeys.newStringConfigKey(
@@ -67,9 +69,7 @@ public interface DynamicFabric extends AbstractGroup, Startable, Fabric {
     public static final AttributeSensor<Lifecycle> SERVICE_STATE_ACTUAL = Attributes.SERVICE_STATE_ACTUAL;
 
     public void setMemberSpec(EntitySpec<?> memberSpec);
-    
-    public void setFactory(EntityFactory<?> factory);
-    
+
     public Integer getFabricSize();
 
 }

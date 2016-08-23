@@ -23,7 +23,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
-import org.apache.brooklyn.api.location.Location;
+import com.google.common.collect.Iterables;
+
 import org.apache.brooklyn.api.location.LocationDefinition;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -34,8 +35,6 @@ import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.Maybe.Absent;
 import org.apache.brooklyn.util.text.Strings;
-
-import com.google.common.collect.Iterables;
 
 public class BrooklynYamlLocationResolver {
 
@@ -53,43 +52,43 @@ public class BrooklynYamlLocationResolver {
 
         if (location==null && locations==null)
             return null;
-        
+
         LocationSpec<?> locationFromString = null;
         List<LocationSpec<?>> locationsFromList = null;
-        
+
         if (location!=null) {
             if (location instanceof String) {
-                locationFromString = resolveLocationFromString((String)location);
+                locationFromString = resolveLocationFromString((String) location);
             } else if (location instanceof Map) {
-                locationFromString = resolveLocationFromMap((Map<?,?>)location);
+                locationFromString = resolveLocationFromMap((Map<?,?>) location);
             } else {
                 throw new UserFacingException("Illegal parameter for 'location'; must be a string or map (but got "+location+")");
             }
         }
-        
+
         if (locations!=null) {
             if (!(locations instanceof Iterable))
                 throw new UserFacingException("Illegal parameter for 'locations'; must be an iterable (but got "+locations+")");
-            locationsFromList = resolveLocations( (Iterable<Object>)locations );
+            locationsFromList = resolveLocations((Iterable<Object>) locations );
         }
-        
-        if (locationFromString!=null && locationsFromList!=null) {
+
+        if (locationFromString != null && locationsFromList != null) {
             if (locationsFromList.size() != 1)
                 throw new UserFacingException("Conflicting 'location' and 'locations' ("+location+" and "+locations+"); "
                     + "if both are supplied the list must have exactly one element being the same");
-            if (!locationFromString.equals( Iterables.getOnlyElement(locationsFromList) ))
+            if (!locationFromString.equals(Iterables.getOnlyElement(locationsFromList)))
                 throw new UserFacingException("Conflicting 'location' and 'locations' ("+location+" and "+locations+"); "
                     + "different location specified in each");
-        } else if (locationFromString!=null) {
+        } else if (locationFromString != null) {
             locationsFromList = (List) Arrays.asList(locationFromString);
         }
-        
+
         return locationsFromList;
     }
 
     public List<LocationSpec<?>> resolveLocations(Iterable<Object> locations) {
         List<LocationSpec<?>> result = MutableList.of();
-        for (Object l: locations) {
+        for (Object l : locations) {
             LocationSpec<?> ll = resolveLocation(l);
             if (ll!=null) result.add(ll);
         }
@@ -105,9 +104,14 @@ public class BrooklynYamlLocationResolver {
         // could support e.g. location definition
         throw new UserFacingException("Illegal parameter for 'location' ("+location+"); must be a string or map");
     }
-    
-    /** resolves the location from the given spec string, either "Named Location", or "named:Named Location" format;
-     * returns null if input is blank (or null); otherwise guaranteed to resolve or throw error */
+
+    /**
+     * Resolves the location from the given spec string.
+     * <p>
+     * Either {@code Named Location}, or {@code named:Named Location} format.
+     *
+     * @return null if input is blank (or null) otherwise guaranteed to resolve or throw error
+     */
     public LocationSpec<?> resolveLocationFromString(String location) {
         if (Strings.isBlank(location)) return null;
         return resolveLocation(location, MutableMap.of());
@@ -119,32 +123,29 @@ public class BrooklynYamlLocationResolver {
         }
         Object key = Iterables.getOnlyElement(location.keySet());
         Object value = location.get(key);
-        
+
         if (!(key instanceof String)) {
             throw new UserFacingException("Illegal parameter for 'location'; expected String key ("+location+")");
         }
         if (!(value instanceof Map)) {
             throw new UserFacingException("Illegal parameter for 'location'; expected config map ("+location+")");
         }
-        return resolveLocation((String)key, (Map<?,?>)value);
+        return resolveLocation((String) key, (Map<?,?>) value);
     }
-    
+
     protected LocationSpec<?> resolveLocation(String spec, Map<?,?> flags) {
-        LocationDefinition ldef = mgmt.getLocationRegistry().getDefinedLocationByName((String)spec);
-        if (ldef!=null)
+        LocationDefinition ldef = mgmt.getLocationRegistry().getDefinedLocationByName(spec);
+        if (ldef != null)
             // found it as a named location
             return mgmt.getLocationRegistry().getLocationSpec(ldef, flags).get();
-        
+
         Maybe<LocationSpec<?>> l = mgmt.getLocationRegistry().getLocationSpec(spec, flags);
         if (l.isPresent()) return l.get();
-        
+
         RuntimeException exception = ((Absent<?>)l).getException();
-        if (exception instanceof NoSuchElementException && 
-                exception.getMessage().contains("Unknown location")) {
-            // common case
+        if (exception instanceof NoSuchElementException && exception.getMessage().contains("Unknown location")) {
             throw new UserFacingException(exception.getMessage(), exception.getCause());
         }
-        throw new UserFacingException("Illegal parameter for 'location' ("+spec+"); not resolvable: "+
-            Exceptions.collapseText( exception ), exception);
+        throw new UserFacingException("Illegal parameter for 'location' ("+spec+"); not resolvable: " + Exceptions.collapseText(exception), exception);
     }
 }
