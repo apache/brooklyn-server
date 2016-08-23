@@ -37,32 +37,45 @@ public class LogoutResource extends AbstractBrooklynRestResource implements Logo
     @Context UriInfo uri;
 
     @Override
-    public Response logout() {
-        WebEntitlementContext ctx = (WebEntitlementContext) Entitlements.getEntitlementContext();
-        URI dest = uri.getBaseUriBuilder().path(LogoutApi.class).path(LogoutApi.class, "logoutUser").build(ctx.user());
+    public Response redirectToLogout() {
+        URI dest = uri.getBaseUriBuilder().path(LogoutApi.class).build();
 
-        // When execution gets here we don't know whether this is the first fetch of logout() or a subsequent one
-        // with a re-authenticated user. The only way to tell is compare if user names changed. So redirect to an URL
-        // which contains the user name.
-        return Response.status(Status.TEMPORARY_REDIRECT)
-                .header("Location", dest.toASCIIString())
+        // Return response with Javascript which will make an asynchronous POST request to the logout method.
+        // (When calling logout it is important to use wrong username and password in order to make browser forget the old ones)
+        return Response.status(Status.OK)
+                .entity(String.format("<!DOCTYPE html>\n<body>\n" +
+                        "<script>\n" +
+                        "var a=new window.XMLHttpRequest;" +
+                        "a.open('POST','%1$s',0,'user','wrong'+(new Date).getTime().toString());a.send(\"\");\n" +
+                        "window.location.href='/';</script></body>", dest.toASCIIString()))
                 .build();
     }
 
     @Override
-    public Response logoutUser(String user) {
-        // Will work when switching users, but will keep re-authenticating if user types in same user name.
-        // Could improve by keeping state in cookies to decide whether to request auth or declare successfull re-auth.
+    public Response logout() {
         WebEntitlementContext ctx = (WebEntitlementContext) Entitlements.getEntitlementContext();
-        if (user.equals(ctx.user())) {
-            doLogout();
 
-            return Response.status(Status.UNAUTHORIZED)
-                    .header("WWW-Authenticate", "Basic realm=\"webconsole\"")
-                    .build();
-        } else {
-            return Response.temporaryRedirect(uri.getAbsolutePathBuilder().replacePath("/").build()).build();
+        if (ctx != null && ctx.user() != null) {
+            doLogout();
         }
+
+        URI dest = uri.getBaseUriBuilder().build();
+
+        return Response.status(Status.UNAUTHORIZED)
+                .header("WWW-Authenticate", "Basic realm=\"webconsole\"")
+                // For Status 403, HTTP Location header may be omitted.
+                // Location is best to be used for http status 302 https://tools.ietf.org/html/rfc2616#section-10.3.3
+                .header("Location", dest.toASCIIString())
+                .entity("<script>window.location.replace(\"/\");</script>")
+                .build();
+    }
+
+    @Override
+    @Deprecated
+    public Response logoutUser(String user) {
+        return Response.status(Status.FOUND)
+                .header("Location", uri.getBaseUriBuilder().path(LogoutApi.class, "logout").build())
+                .build();
     }
 
     private void doLogout() {
