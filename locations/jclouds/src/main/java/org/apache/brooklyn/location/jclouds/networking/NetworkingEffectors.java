@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.location.jclouds.networking;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -52,6 +53,7 @@ public class NetworkingEffectors {
 
     public static final ConfigKey<JcloudsMachineLocation> JCLOUDS_MACHINE_LOCATIN = ConfigKeys.newConfigKey(JcloudsMachineLocation.class, "jcloudsMachineLocation");
 
+    @Beta
     @SuppressWarnings("unchecked")
     public static final Effector<Iterable<IpPermission>> OPEN_INBOUND_PORTS_IN_SECURITY_GROUP_EFFECTOR = (Effector<Iterable<IpPermission>>)(Effector<?>)Effectors.effector(Iterable.class, "openPortsInSecurityGroup")
                 .parameter(INBOUND_PORTS_LIST)
