@@ -7,10 +7,6 @@ brooklyn.catalog:
     overview: README.md
     qa: tests/swarm.tests.bom
 
-  brooklyn.libraries:
-    - name: io.brooklyn.etcd.brooklyn-etcd
-      version: "2.3.0.SNAPSHOT" # BROOKLYN_ETCD_VERSION
-
   items:
 
   - classpath://io.brooklyn.etcd.brooklyn-etcd:brooklyn-etcd/catalog.bom
