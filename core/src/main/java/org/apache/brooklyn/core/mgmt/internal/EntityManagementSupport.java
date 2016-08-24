@@ -234,22 +234,23 @@ public class EntityManagementSupport {
                 
                 nonDeploymentManagementContext.setMode(NonDeploymentManagementContextMode.MANAGEMENT_STARTED);
                 
-                /*
-                 * - set derived/inherited config values
-                 * - publish all queued sensors
-                 * - start all queued executions (e.g. subscription delivery)
-                 * [above happens in exactly this order, at each entity]
-                 * then: the entity internally knows it fully managed (ManagementSupport.isManaged() returns true -- though not sure we need that);
-                 * subsequent sensor events and executions occur directly (no queueing)
-                 */
-                
-                if (!isReadOnly()) {
-                    nonDeploymentManagementContext.getSubscriptionManager().startDelegatingForPublishing();
-                }
-                
-                // TODO more of the above
-                // TODO custom started activities
-                // (elaborate or remove ^^^ ? -AH, Sept 2014)
+            }
+            
+            /* on start, we want to:
+             * - set derived/inherited config values (not needed, the specs should have taken care of that?)
+             * - publish all queued sensors (done below)
+             * - start all queued executions 
+             *   (e.g. subscription delivery - done below? are there others and if so how are they unlocked?
+             *   curious where the "start queued tasks" logic is; must be somewhere as it all seems to have been working fine (Aug 2016)) 
+             * [in exactly this order, at each entity]
+             * then subsequent sensor events and executions occur directly (no queueing)
+             * 
+             * NOTE: should happen out of synch block in case something is potentially long running;
+             * should happen quickly tough, state might get messy and errors occur if stopped while starting!
+             */                
+            
+            if (!isReadOnly()) {
+                nonDeploymentManagementContext.getSubscriptionManager().startDelegatingForPublishing();
             }
             
             if (!isReadOnly()) {
