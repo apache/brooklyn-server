@@ -147,6 +147,9 @@ public interface SoftwareProcess extends Entity, Startable {
     @SetFromFlag("runDir")
     AttributeSensorAndConfigKey<String,String> RUN_DIR = BrooklynConfigKeys.RUN_DIR;
 
+    ConfigKey<Boolean> ADD_OPEN_INBOUND_PORTS_EFFECTOR = ConfigKeys.newBooleanConfigKey("effector.add.openInboundPorts",
+            "Flag which adds effector for opening ports through Cloud security groups", false);
+
     ConfigKey<Boolean> OPEN_IPTABLES = ConfigKeys.newBooleanConfigKey("openIptables",
             "Whether to open the INBOUND_PORTS via iptables rules; " +
             "if true then ssh in to run iptables commands, as part of machine provisioning", false);
