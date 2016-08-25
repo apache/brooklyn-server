@@ -38,13 +38,10 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.QuorumCheck.QuorumChecks;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.text.StringPredicates;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 
@@ -63,7 +60,7 @@ public class Aggregator<T,U> extends AbstractAggregator<T,U> implements SensorEv
         + "such as 'average' (for numbers), 'sum' (for numbers), or 'list' (the default, putting any collection of items into a list)");
     public static final ConfigKey<Function<? super Collection<?>, ?>> TRANSFORMATION = ConfigKeys.newConfigKey(new TypeToken<Function<? super Collection<?>, ?>>() {}, "enricher.transformation");
     
-    public static final ConfigKey<Boolean> EXCLUDE_BLANK = ConfigKeys.newBooleanConfigKey("enricher.aggregator.excludeBlank", "Whether explicit nulls or blank strings should be excluded (default false); this only applies if no value filter set", false);
+    public static final ConfigKey<Boolean> EXCLUDE_BLANK = ConfigKeys.newBooleanConfigKey("enricher.aggregator.excludeBlank", "Whether explicit nulls or blank strings should be excluded (default false); may only apply if no value filter set", false);
 
     /**
      * @see QuorumChecks
@@ -173,14 +170,6 @@ public class Aggregator<T,U> extends AbstractAggregator<T,U> implements SensorEv
                 if (LOG.isDebugEnabled()) LOG.debug("{} already had value ({}) for producer ({}); but that producer has just been added", new Object[] {this, vo, producer});
             }
         }
-    }
-    
-    @Override
-    protected Predicate<?> getDefaultValueFilter() {
-        if (getConfig(EXCLUDE_BLANK))
-            return StringPredicates.isNonBlank();
-        else
-            return Predicates.alwaysTrue();
     }
     
     @Override

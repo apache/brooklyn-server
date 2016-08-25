@@ -35,6 +35,7 @@ import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.trait.Changeable;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.text.StringPredicates;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,6 +68,7 @@ public abstract class AbstractAggregator<T,U> extends AbstractEnricher implement
     public static final ConfigKey<Predicate<? super Entity>> ENTITY_FILTER = ConfigKeys.newConfigKey(new TypeToken<Predicate<? super Entity>>() {}, "enricher.aggregating.entityFilter");
 
     public static final ConfigKey<Predicate<?>> VALUE_FILTER = ConfigKeys.newConfigKey(new TypeToken<Predicate<?>>() {}, "enricher.aggregating.valueFilter");
+    public static final ConfigKey<Boolean> EXCLUDE_BLANK = Aggregator.EXCLUDE_BLANK;
 
     protected Entity producer;
     protected Sensor<U> targetSensor;
@@ -123,9 +125,12 @@ public abstract class AbstractAggregator<T,U> extends AbstractEnricher implement
     }
     
     protected Predicate<?> getDefaultValueFilter() {
-        return Predicates.alwaysTrue();
+        if (getConfig(EXCLUDE_BLANK))
+            return StringPredicates.isNonBlank();
+        else
+            return Predicates.alwaysTrue();
     }
-
+    
     @SuppressWarnings({ "unchecked" })
     protected void setEntityLoadingTargetConfig() {
         this.targetSensor = (Sensor<U>) getRequiredConfig(TARGET_SENSOR);

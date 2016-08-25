@@ -44,21 +44,10 @@ public class MapAggregator<U> extends AbstractMultipleSensorAggregator<U> {
     public static final ConfigKey<Sensor<?>> KEY_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {}, "enricher.keySensor");
     public static final ConfigKey<Sensor<?>> VALUE_SENSOR = ConfigKeys.newConfigKey(new TypeToken<Sensor<?>>() {}, "enricher.valueSensor");
 
-    public static final ConfigKey<Boolean> EXCLUDE_BLANK = Aggregator.EXCLUDE_BLANK;
-
     private Sensor<?> keySensor;
     private Sensor<?> valueSensor;
 
     public MapAggregator() { }
-
-    @Override
-    protected Predicate<?> getDefaultValueFilter() {
-        if (config().get(EXCLUDE_BLANK)) {
-            return StringPredicates.isNonBlank();
-        } else {
-            return Predicates.alwaysTrue();
-        }
-    }
 
     @Override
     protected Object compute() {

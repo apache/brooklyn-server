@@ -22,13 +22,6 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.base.CaseFormat;
-import com.google.common.base.Converter;
-import com.google.common.base.Preconditions;
-
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.config.ConfigKey;
@@ -48,6 +41,13 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.annotations.Beta;
+import com.google.common.base.CaseFormat;
+import com.google.common.base.Converter;
+import com.google.common.base.Preconditions;
 
 /**
  * Policy which tracks membership of a group, and executes SSH commands
@@ -62,6 +62,10 @@ import org.apache.brooklyn.util.text.Strings;
  * the {@link ExecutionTarget#MEMBER member} that was updated; or
  * {@link ExecutionTarget#ALL_MEMBERS all members} of the group.
  */
+// TODO might make sense to split up behaviour into two classes,
+// an InvokeEffectorMembershipTrackingPolicy and an SshMultiEntityCommandEffector -- 
+// where the latter has the configurable target introduced here
+@Beta
 public class SshCommandMembershipTrackingPolicy extends AbstractMembershipTrackingPolicy {
 
     private static final Logger LOG = LoggerFactory.getLogger(SshCommandMembershipTrackingPolicy.class);
@@ -76,11 +80,11 @@ public class SshCommandMembershipTrackingPolicy extends AbstractMembershipTracki
 
         private static Converter<String, String> converter = CaseFormat.LOWER_CAMEL.converterTo(CaseFormat.UPPER_UNDERSCORE);
 
+        // TODO these methods maybe not needed due to EnumTypeCoercions
         public static ExecutionTarget fromString(String name) {
             Maybe<ExecutionTarget> parsed = tryFromString(name);
             return parsed.get();
         }
-
         public static Maybe<ExecutionTarget> tryFromString(String name) {
             try {
                 ExecutionTarget scope = valueOf(converter.convert(name));
@@ -142,6 +146,7 @@ public class SshCommandMembershipTrackingPolicy extends AbstractMembershipTracki
         }
     }
 
+    @SuppressWarnings("unchecked")
     public void execute(Entity target, String command, String type, String memberId) {
         Collection<? extends Location> locations = Locations.getLocationsCheckingAncestors(target.getLocations(), target);
         Maybe<SshMachineLocation> machine = Machines.findUniqueMachineLocation(locations, SshMachineLocation.class);

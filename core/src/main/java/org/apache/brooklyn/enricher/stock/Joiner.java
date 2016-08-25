@@ -115,6 +115,7 @@ public class Joiner<T> extends AbstractEnricher implements SensorEventListener<T
                         String key = Strings.toString(((Map.Entry) ci).getKey());
                         Object value = ((Map.Entry) ci).getValue();
                         String keyValueSeparator = config().get(KEY_VALUE_SEPARATOR);
+                        // TODO we might want to handle QUOTE=true specially for this case, to quote keys and values if needed
                         if (value != null) {
                             c1.append(String.format("%s%s%s", key, keyValueSeparator, Strings.toString(value)));
                         }
