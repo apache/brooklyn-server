@@ -159,13 +159,13 @@ public class CatalogInitialization implements ManagementContextInjectable {
      *   after a master -> standby -> master cycle)
      * @param needsInitialItemsLoaded whether the catalog needs the initial items loaded
      * @param needsAdditionalItemsLoaded whether the catalog needs the additions loaded
-     * @param optionalExcplicitItemsForResettingCatalog
+     * @param optionalExplicitItemsForResettingCatalog
      *   if supplied, the catalog is reset to contain only these items, before calling any other initialization
      *   for use primarily when rebinding
      */
-    public void populateCatalog(ManagementNodeState nodeState, boolean needsInitialItemsLoaded, boolean needsAdditionsLoaded, Collection<CatalogItem<?, ?>> optionalExcplicitItemsForResettingCatalog) {
+    public void populateCatalog(ManagementNodeState nodeState, boolean needsInitialItemsLoaded, boolean needsAdditionsLoaded, Collection<CatalogItem<?, ?>> optionalExplicitItemsForResettingCatalog) {
         if (log.isDebugEnabled()) {
-            String message = "Populating catalog for "+nodeState+", needsInitial="+needsInitialItemsLoaded+", needsAdditional="+needsAdditionsLoaded+", explicitItems="+(optionalExcplicitItemsForResettingCatalog==null ? "null" : optionalExcplicitItemsForResettingCatalog.size())+"; from "+JavaClassNames.callerNiceClassAndMethod(1);
+            String message = "Populating catalog for "+nodeState+", needsInitial="+needsInitialItemsLoaded+", needsAdditional="+needsAdditionsLoaded+", explicitItems="+(optionalExplicitItemsForResettingCatalog==null ? "null" : optionalExplicitItemsForResettingCatalog.size())+"; from "+JavaClassNames.callerNiceClassAndMethod(1);
             if (!ManagementNodeState.isHotProxy(nodeState)) {
                 log.debug(message);
             } else {
@@ -196,7 +196,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
                     }
                 }
 
-                populateCatalogImpl(catalog, needsInitialItemsLoaded, needsAdditionsLoaded, optionalExcplicitItemsForResettingCatalog);
+                populateCatalogImpl(catalog, needsInitialItemsLoaded, needsAdditionsLoaded, optionalExplicitItemsForResettingCatalog);
                 if (nodeState == ManagementNodeState.MASTER) {
                     // TODO ideally this would remain false until it has *persisted* the changed catalog;
                     // if there is a subsequent startup failure the forced additions will not be persisted,
