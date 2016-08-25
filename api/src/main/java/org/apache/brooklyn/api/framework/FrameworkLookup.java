@@ -119,7 +119,7 @@ public class FrameworkLookup {
     }
 
     private static <T> ServiceLoader<T> lookupAllViaServiceLoader(Class<T> clazz, ClassLoader loader) {
-        LOG.debug("Looking up all " + clazz.getSimpleName() + "  via ServiceLoader");
+        LOG.trace("Looking up all " + clazz.getSimpleName() + "  via ServiceLoader");
 
         if (null == loader) {
             return ServiceLoader.load(clazz);
@@ -131,7 +131,7 @@ public class FrameworkLookup {
         final List<T> result = new ArrayList<>();
         final Bundle bundle = FrameworkUtil.getBundle(FrameworkLookup.class);
         if (bundle != null) {
-            LOG.debug("Looking up all " + clazz.getSimpleName() + " in OSGI");
+            LOG.trace("Looking up all " + clazz.getSimpleName() + " in OSGI");
             BundleContext ctx = bundle.getBundleContext();
             for (ServiceReference<T> reference: getServiceReferences(clazz, ctx)) {
                 result.add(ctx.getService(reference));
@@ -141,7 +141,7 @@ public class FrameworkLookup {
     }
 
     private static <T> Maybe<T> lookupViaServiceLoader(Class<T> clazz, ClassLoader loader) {
-        LOG.debug("Looking up " + clazz.getSimpleName() + "  via ServiceLoader");
+        LOG.trace("Looking up " + clazz.getSimpleName() + "  via ServiceLoader");
 
         Maybe<T> result = Maybe.absent("No class " + clazz.getSimpleName() + " found with ServiceLoader");
         ServiceLoader<T> LOADER = lookupAllViaServiceLoader(clazz, loader);
@@ -156,7 +156,7 @@ public class FrameworkLookup {
 
         final Bundle bundle = FrameworkUtil.getBundle(FrameworkLookup.class);
         if (bundle != null) {
-            LOG.debug("Looking up " + clazz.getSimpleName() + " in OSGI");
+            LOG.trace("Looking up " + clazz.getSimpleName() + " in OSGI");
             BundleContext ctx = bundle.getBundleContext();
             final ServiceReference<T> reference = ctx.getServiceReference(clazz);
             final T service = ctx.getService(reference);
