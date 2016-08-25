@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.core.entity;
 
+import static org.apache.brooklyn.core.entity.AbstractEntity.APPLICATION_ID;
+import static org.apache.brooklyn.core.entity.AbstractEntity.CATALOG_ID;
 import static org.apache.brooklyn.core.entity.AbstractEntity.CHILD_ADDED;
 import static org.apache.brooklyn.core.entity.AbstractEntity.CHILD_REMOVED;
 import static org.apache.brooklyn.core.entity.AbstractEntity.CONFIG_KEY_ADDED;
@@ -25,6 +27,7 @@ import static org.apache.brooklyn.core.entity.AbstractEntity.CONFIG_KEY_REMOVED;
 import static org.apache.brooklyn.core.entity.AbstractEntity.EFFECTOR_ADDED;
 import static org.apache.brooklyn.core.entity.AbstractEntity.EFFECTOR_CHANGED;
 import static org.apache.brooklyn.core.entity.AbstractEntity.EFFECTOR_REMOVED;
+import static org.apache.brooklyn.core.entity.AbstractEntity.ENTITY_ID;
 import static org.apache.brooklyn.core.entity.AbstractEntity.GROUP_ADDED;
 import static org.apache.brooklyn.core.entity.AbstractEntity.GROUP_REMOVED;
 import static org.apache.brooklyn.core.entity.AbstractEntity.LOCATION_ADDED;
@@ -44,6 +47,14 @@ import java.util.Set;
 
 import javax.annotation.Nullable;
 
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
+import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -58,13 +69,6 @@ import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableSet;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
-
-import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 
 public class EntityTypeTest extends BrooklynAppUnitTestSupport {
     private static final AttributeSensor<String> TEST_SENSOR = Sensors.newStringSensor("test.sensor");
@@ -73,6 +77,7 @@ public class EntityTypeTest extends BrooklynAppUnitTestSupport {
     private RecordingSensorEventListener<Sensor> listener;
 
     public final static Set<Sensor<?>> DEFAULT_SENSORS = ImmutableSet.<Sensor<?>>of(
+            ENTITY_ID, APPLICATION_ID, CATALOG_ID,
             SENSOR_ADDED, SENSOR_REMOVED,
             CONFIG_KEY_ADDED, CONFIG_KEY_REMOVED,
             EFFECTOR_ADDED, EFFECTOR_REMOVED, EFFECTOR_CHANGED,

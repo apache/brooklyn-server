@@ -42,20 +42,19 @@ public abstract class AbstractMultipleSensorAggregator<U> extends AbstractAggreg
 
     private static final Logger LOG = LoggerFactory.getLogger(AbstractMultipleSensorAggregator.class);
 
-    
     /** access via {@link #getValues(Sensor)} */
     private final Map<String, Map<Entity,Object>> values = Collections.synchronizedMap(new LinkedHashMap<String, Map<Entity,Object>>());
 
-    public AbstractMultipleSensorAggregator() {}
+    public AbstractMultipleSensorAggregator() { }
 
     protected abstract Collection<Sensor<?>> getSourceSensors();
-    
+
     @Override
     protected void setEntityLoadingConfig() {
         super.setEntityLoadingConfig();
         Preconditions.checkNotNull(getSourceSensors(), "sourceSensors must be set");
     }
-    
+
     @Override
     protected void setEntityBeforeSubscribingProducerChildrenEvents() {
         BrooklynLogging.log(LOG, BrooklynLogging.levelDebugOrTraceIfReadOnly(producer),
@@ -95,7 +94,7 @@ public abstract class AbstractMultipleSensorAggregator<U> extends AbstractAggreg
                     vs = new LinkedHashMap<Entity,Object>();
                     values.put(sensor.getName(), vs);
                 }
-                
+
                 Object vo = vs.get(producer);
                 if (vo==null) {
                     Object initialVal;
@@ -107,11 +106,10 @@ public abstract class AbstractMultipleSensorAggregator<U> extends AbstractAggreg
                     vs.put(producer, initialVal != null ? initialVal : defaultMemberValue);
                     // NB: see notes on possible race, in Aggregator#onProducerAdded
                 }
-                
             }
         }
     }
-    
+
     @Override
     protected void onProducerRemoved(Entity producer) {
         synchronized (values) {
@@ -163,7 +161,7 @@ public abstract class AbstractMultipleSensorAggregator<U> extends AbstractAggreg
             return MutableMap.copyOf(sv).asUnmodifiable();
         }
     }
-    
+
     @Override
     protected abstract Object compute();
 }
