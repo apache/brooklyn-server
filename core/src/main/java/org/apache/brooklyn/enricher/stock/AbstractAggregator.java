@@ -68,7 +68,7 @@ public abstract class AbstractAggregator<T,U> extends AbstractEnricher implement
     public static final ConfigKey<Predicate<? super Entity>> ENTITY_FILTER = ConfigKeys.newConfigKey(new TypeToken<Predicate<? super Entity>>() {}, "enricher.aggregating.entityFilter");
 
     public static final ConfigKey<Predicate<?>> VALUE_FILTER = ConfigKeys.newConfigKey(new TypeToken<Predicate<?>>() {}, "enricher.aggregating.valueFilter");
-    public static final ConfigKey<Boolean> EXCLUDE_BLANK = Aggregator.EXCLUDE_BLANK;
+    public static final ConfigKey<Boolean> EXCLUDE_BLANK = ConfigKeys.newBooleanConfigKey("enricher.aggregator.excludeBlank", "Whether explicit nulls or blank strings should be excluded (default false); may only apply if no value filter set", false);
 
     protected Entity producer;
     protected Sensor<U> targetSensor;
