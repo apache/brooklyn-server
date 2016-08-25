@@ -674,9 +674,9 @@ public class DependentConfiguration {
         protected List<AttributeAndSensorCondition<?>> abortSensorConditions = Lists.newArrayList();
         protected String blockingDetails;
         protected Duration timeout;
-        protected Maybe<V> onTimeout;
+        protected Maybe<V> onTimeout = Maybe.absent();
         protected  boolean ignoreUnmanaged = WaitInTaskForAttributeReady.DEFAULT_IGNORE_UNMANAGED;
-        protected Maybe<V> onUnmanaged;
+        protected Maybe<V> onUnmanaged = Maybe.absent();
 
         protected Builder(Entity source, AttributeSensor<T> sensor) {
             this.source = source;

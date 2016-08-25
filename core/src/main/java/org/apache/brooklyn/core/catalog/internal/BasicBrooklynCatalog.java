@@ -154,6 +154,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                         cdto.setManagementContext((ManagementContextInternal) mgmt);
                     }
                     setManagementContext = true;
+                    onAdditionUpdateOtherRegistries(cdto);
                 }
             }
             if (!setManagementContext) {
@@ -163,6 +164,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             if (log.isTraceEnabled()) {
                 log.trace("Scheduling item for persistence addition: {}", entry.getId());
             }
+            
             mgmt.getRebindManager().getChangeListener().onManaged(entry);
         }
 
@@ -951,14 +953,18 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         if (log.isTraceEnabled()) {
             log.trace("Scheduling item for persistence addition: {}", itemDto.getId());
         }
+        onAdditionUpdateOtherRegistries(itemDto);
+        mgmt.getRebindManager().getChangeListener().onManaged(itemDto);
+
+        return itemDto;
+    }
+
+    private void onAdditionUpdateOtherRegistries(CatalogItemDtoAbstract<?, ?> itemDto) {
         if (itemDto.getCatalogItemType() == CatalogItemType.LOCATION) {
             @SuppressWarnings("unchecked")
             CatalogItem<Location,LocationSpec<?>> locationItem = (CatalogItem<Location, LocationSpec<?>>) itemDto;
             ((BasicLocationRegistry)mgmt.getLocationRegistry()).updateDefinedLocation(locationItem);
         }
-        mgmt.getRebindManager().getChangeListener().onManaged(itemDto);
-
-        return itemDto;
     }
 
     /** returns item DTO if item is an allowed duplicate, or null if it should be added (there is no duplicate), 
