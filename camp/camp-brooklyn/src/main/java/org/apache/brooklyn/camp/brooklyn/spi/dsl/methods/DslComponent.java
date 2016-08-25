@@ -20,18 +20,10 @@ package org.apache.brooklyn.camp.brooklyn.spi.dsl.methods;
 
 import java.util.NoSuchElementException;
 import java.util.concurrent.Callable;
-
-import com.google.common.base.CaseFormat;
-import com.google.common.base.Converter;
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
-import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.Callables;
+import java.util.concurrent.ExecutionException;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
@@ -49,6 +41,16 @@ import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
+
+import com.google.common.base.CaseFormat;
+import com.google.common.base.Converter;
+import com.google.common.base.Objects;
+import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.Callables;
 
 public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
 
@@ -210,6 +212,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
         return new EntityId(this);
     }
     protected static class EntityId extends BrooklynDslDeferredSupplier<Object> {
+        private static final long serialVersionUID = -419427634694971033L;
         private final DslComponent component;
 
         public EntityId(DslComponent component) {
@@ -327,17 +330,17 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
         }
     }
     
-    public BrooklynDslDeferredSupplier<Sensor<?>> sensor(final String sensorName) {
-        return new DslSensorSupplier(this, sensorName);
+    public BrooklynDslDeferredSupplier<Sensor<?>> sensor(final Object sensorIndicator) {
+        return new DslSensorSupplier(this, sensorIndicator);
     }
     protected final static class DslSensorSupplier extends BrooklynDslDeferredSupplier<Sensor<?>> {
         private final DslComponent component;
-        private final String sensorName;
+        private final Object sensorName;
         private static final long serialVersionUID = -4735177561947722511L;
 
-        public DslSensorSupplier(DslComponent component, String sensorName) {
+        public DslSensorSupplier(DslComponent component, Object sensorIndicator) {
             this.component = Preconditions.checkNotNull(component);
-            this.sensorName = sensorName;
+            this.sensorName = sensorIndicator;
         }
 
         @Override
@@ -345,13 +348,26 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
             return Tasks.<Sensor<?>>builder().displayName("looking up sensor for "+sensorName).dynamic(false).body(new Callable<Sensor<?>>() {
                 @Override
                 public Sensor<?> call() throws Exception {
-                    Entity targetEntity = component.get();
-                    Sensor<?> result = null;
-                    if (targetEntity!=null) {
-                        result = targetEntity.getEntityType().getSensor(sensorName);
+                    return resolve(sensorName, false);
+                }
+                
+                public Sensor<?> resolve(Object si, boolean resolved) throws ExecutionException, InterruptedException {
+                    if (si instanceof Sensor) return (Sensor<?>)si;
+                    if (si instanceof String) {
+                        Entity targetEntity = component.get();
+                        Sensor<?> result = null;
+                        if (targetEntity!=null) {
+                            result = targetEntity.getEntityType().getSensor((String)si);
+                        }
+                        if (result!=null) return result;
+                        return Sensors.newSensor(Object.class, (String)si);
                     }
-                    if (result!=null) return result;
-                    return Sensors.newSensor(Object.class, sensorName);
+                    if (!resolved) {
+                        // attempt to resolve, and recurse
+                        final ExecutionContext executionContext = ((EntityInternal)entity()).getExecutionContext();
+                        return resolve(Tasks.resolveDeepValue(si, Object.class, executionContext), true);
+                    }
+                    throw new IllegalStateException("Cannot resolve '"+sensorName+"' as a sensor");
                 }
             }).build();
         }
@@ -373,7 +389,10 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
         @Override
         public String toString() {
             return (component.scope==Scope.THIS ? "" : component.toString()+".") + 
-                "sensor("+JavaStringEscapes.wrapJavaString(sensorName)+")";
+                "sensor("+
+                    (sensorName instanceof String ? JavaStringEscapes.wrapJavaString((String)sensorName) :
+                        sensorName instanceof Sensor ? JavaStringEscapes.wrapJavaString(((Sensor<?>)sensorName).getName()) :
+                        sensorName)+")";
         }
     }
 
