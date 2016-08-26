@@ -1,0 +1,212 @@
+brooklyn.catalog:
+  id: brooklyn-k8s
+  version: 0.1
+
+  items:
+  - id: k8s-cluster-template
+    description: |
+      TODO
+    name: "K8S Cluster"
+    # iconUrl: TODO
+    itemType: template
+    item:
+      services:
+      - type: k8s-cluster-application
+        name: "K8S Cluster"
+
+  - id: k8s-cluster-application
+    description: |
+      TODO
+    name: "K8S Cluster"
+    # iconUrl: TODO
+    itemType: entity
+    item:
+      type: org.apache.brooklyn.entity.stock.BasicApplication
+
+      brooklyn.parameters:
+      - name: num.nodes
+        description: TODO
+        type: integer
+        default: 1
+        constraints:
+          - required
+
+      - name: k8s.version
+        description: TODO
+        type: string
+        default: 1.3.5
+        constraints:
+          - required
+
+      - name: cni.version
+        description: TODO
+        type: string
+        default: 0.3.0
+        constraints:
+          - required
+
+      - name: flannel.version
+        description: TODO
+        type: string
+        default: 0.5.5
+        constraints:
+          - required
+
+      - name: docker.version
+        description: TODO
+        type: string
+        default: 1.12.1
+        constraints:
+          - required
+
+      - name: calico.version
+        description: TODO
+        type: string
+        default: 0.21.0
+        constraints:
+          - required
+
+      - name: calico.cni.version
+        description: TODO
+        type: string
+        default: 1.3.1
+        constraints:
+          - required
+
+      brooklyn.children:
+      - type: k8s-master
+        name: "K8S Master"
+      - type: k8s-node-cluster
+        name: "K8S Node Cluster"
+
+  - id: k8s-master
+    description: TODO
+    itemType: entity
+    item:
+
+      type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
+      name: "K8S Master"
+
+      shell.env:
+        K8S_VERSION: $brooklyn:config("k8s.version")
+        CNI_VERSION: $brooklyn:config("cni.version")
+        FLANNEL_VERSION: $brooklyn:config("flannel.version")
+        DOCKER_VERSION: $brooklyn:config("docker.version")
+        CALICO_VERSION: $brooklyn:config("calico.version")
+        CALICO_CNI_VERSION: $brooklyn:config("calico.cni.version")
+
+        MASTER_IP: $brooklyn:attributeWhenReady("host.address")
+        MASTER: $brooklyn:formatString("centos@%s", attributeWhenReady("host.address"))
+        NODE_IPS: $brooklyn:component("my-k8s-node-cluster").attributeWhenReady("k8s.nodes.address.list.comma_separated")
+        NODES: $brooklyn:component("my-k8s-node-cluster").attributeWhenReady("k8s.nodes.list.comma_separated")
+
+        ETCD_SERVERS: $brooklyn:formatString("http://%s:4001", attributeWhenReady("host.address"))
+        ETCD_AUTHORITY: $brooklyn:formatString("%s:4001", attributeWhenReady("host.address"))
+
+        DOCKER_HOST: "tcp://127.0.0.1:4243"
+
+      install.command: |
+        echo "install"
+
+      launch.command: |
+        echo "launch"
+
+      checkRunning.command: |
+        echo "checkRunning"
+
+  - id: k8s-node
+    description: TODO
+    itemType: entity
+    item:
+
+      type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
+      name: "K8S Node"
+
+      shell.env:
+        K8S_VERSION: $brooklyn:config("k8s.version")
+        CNI_VERSION: $brooklyn:config("cni.version")
+        FLANNEL_VERSION: $brooklyn:config("flannel.version")
+        DOCKER_VERSION: $brooklyn:config("docker.version")
+        CALICO_VERSION: $brooklyn:config("calico.version")
+        CALICO_CNI_VERSION: $brooklyn:config("calico.cni.version")
+
+        MASTER_IP: $brooklyn:attributeWhenReady("host.address")
+        MASTER: $brooklyn:formatString("centos@%s", attributeWhenReady("host.address"))
+        NODE_IPS: $brooklyn:component("my-k8s-node-cluster").attributeWhenReady("k8s.nodes.address.list.comma_separated")
+        NODES: $brooklyn:component("my-k8s-node-cluster").attributeWhenReady("k8s.nodes.list.comma_separated")
+
+        ETCD_SERVERS: $brooklyn:formatString("http://%s:4001", attributeWhenReady("host.address"))
+        ETCD_AUTHORITY: $brooklyn:formatString("%s:4001", attributeWhenReady("host.address"))
+
+        DOCKER_HOST: "tcp://127.0.0.1:4243"
+
+      install.command: |
+        echo "install"
+
+      launch.command: |
+        echo "launch"
+
+      checkRunning.command: |
+        echo "checkRunning"
+
+      brooklyn.enrichers:
+      - type: org.apache.brooklyn.enricher.stock.Transformer
+        brooklyn.config:
+          uniqueTag: node-generator
+          enricher.sourceSensor: $brooklyn:sensor("host.address")
+          enricher.targetSensor: $brooklyn:sensor("node")
+          enricher.targetValue:
+            $brooklyn:formatString:
+            - "centos@%s"
+            - $brooklyn:attributeWhenReady("host.address")
+
+  - id: k8s-node-cluster
+    description: TODO
+    name: "Hyperledger Fabric Cluster"
+    # iconUrl: TODO
+    item:
+      type: org.apache.brooklyn.entity.group.DynamicCluster
+      id: my-k8s-node-cluster
+
+      brooklyn.config:
+        initialSize: $brooklyn:config("num.nodes")
+
+      memberSpec:
+        $brooklyn:entitySpec:
+          type: k8s-node
+          name: "K8S Node"
+
+      brooklyn.enrichers:
+      - type: org.apache.brooklyn.enricher.stock.Aggregator
+        brooklyn.config:
+          uniqueTag: k8s-nodes-address-aggregator
+          enricher.aggregator.excludeBlank: true
+          enricher.aggregating.fromMembers: true
+          enricher.sourceSensor: $brooklyn:sensor("host.address")
+          enricher.targetSensor: $brooklyn:sensor("k8s.nodes.address.list")
+
+      - type: org.apache.brooklyn.enricher.stock.Joiner
+        brooklyn.config:
+          uniqueTag: k8s-nodes-address-joiner
+          enricher.sourceSensor: $brooklyn:sensor("k8s.nodes.address.list")
+          enricher.targetSensor: $brooklyn:sensor("k8s.nodes.address.list.comma_separated")
+          separator: ","
+          quote: false
+          minimum: $brooklyn:config("cluster.initial.size")
+
+      - type: org.apache.brooklyn.enricher.stock.Aggregator
+        brooklyn.config:
+          uniqueTag: k8s-nodes-aggregator
+          enricher.aggregator.excludeBlank: true
+          enricher.aggregating.fromMembers: true
+          enricher.sourceSensor: $brooklyn:sensor("node")
+          enricher.targetSensor: $brooklyn:sensor("k8s.nodes.list")
+
+      - type: org.apache.brooklyn.enricher.stock.Joiner
+        brooklyn.config:
+          uniqueTag: k8s-nodes-joiner
+          enricher.sourceSensor: $brooklyn:sensor("k8s.nodes.list")
+          enricher.targetSensor: $brooklyn:sensor("k8s.nodes.list.comma_separated")
+          separator: ","
+          quote: false
+          minimum: $brooklyn:config("cluster.initial.size")
