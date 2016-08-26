@@ -18,12 +18,22 @@
  */
 package org.apache.brooklyn.location.jclouds;
 
+import java.util.List;
+import java.util.Map;
+
+import com.google.common.annotations.Beta;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.domain.Template;
 import org.jclouds.compute.domain.TemplateBuilder;
 import org.jclouds.compute.options.TemplateOptions;
 
-import com.google.common.annotations.Beta;
+import org.apache.brooklyn.api.entity.EntityInitializer;
+import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.core.config.ConfigBag;
 
 
 /**
@@ -34,7 +44,28 @@ import com.google.common.annotations.Beta;
  * 
  * @author aled
  */
-public class BasicJcloudsLocationCustomizer implements JcloudsLocationCustomizer {
+public class BasicJcloudsLocationCustomizer implements JcloudsLocationCustomizer, EntityInitializer {
+
+    protected final ConfigBag params;
+
+    public BasicJcloudsLocationCustomizer() {
+        this(ImmutableMap.<String, String>of());
+    }
+
+    public BasicJcloudsLocationCustomizer(Map<String, String> params) {
+        this(ConfigBag.newInstance(params));
+    }
+
+    public BasicJcloudsLocationCustomizer(final ConfigBag params) {
+        this.params = params;
+    }
+
+    @Override
+    public void apply(EntityLocal entity) {
+        List<JcloudsLocationCustomizer> current = MutableList.copyOf(entity.config().get(JcloudsLocationConfig.JCLOUDS_LOCATION_CUSTOMIZERS));
+        current.add(this);
+        entity.config().set(JcloudsLocationConfig.JCLOUDS_LOCATION_CUSTOMIZERS, ImmutableList.copyOf(current));
+    }
 
     @Override
     public void customize(JcloudsLocation location, ComputeService computeService, TemplateBuilder templateBuilder) {
