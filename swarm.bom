@@ -216,27 +216,6 @@ brooklyn.catalog:
         - type: haproxy-load-balancer
           id: swarm-manager-load-balancer
           name: "swarm-manager-load-balancer"
-          brooklyn.policies:
-            - type: org.apache.brooklyn.entity.group.SshCommandMembershipTrackingPolicy
-              brooklyn.config:
-                sensorsToTrack:
-                  - $brooklyn:sensor("host.subnet.address")
-                  - $brooklyn:sensor("swarm.port")
-                  - $brooklyn:sensor("swarm.endpoint")
-                group: $brooklyn:entity("docker-swarm-managers")
-                shell.env:
-                  SWARM_ENDPOINTS:
-                    $brooklyn:entity("docker-swarm-managers").attributeWhenReady("swarm.endpoints")
-                update.command: |
-                  cat > servers.conf <<-EOF
-                  backend servers
-                    balance roundrobin
-                  EOF
-                  for endpoint in $(echo ${SWARM_ENDPOINTS} | tr ',' ' ') ; do
-                    echo "  server manager$((++n)) ${endpoint} maxconn 32 ssl \
-                      ca-file ${RUN_DIR}/ca.pem crt ${RUN_DIR}/cert.pem" >> servers.conf
-                  done
-                  haproxy -D -f haproxy.conf -f servers.conf -st $(cat ${RUN_DIR}/pid.txt)
           brooklyn.config:
             haproxy.port: $brooklyn:parent().config("swarm.port")
             haproxy.protocol: "https"
@@ -260,7 +239,37 @@ brooklyn.catalog:
 
               curl -X POST --data-binary @${INSTALL_DIR}/csr.pem  ${CA_REQUEST_ROOT_URL}/sign > ${RUN_DIR}/cert.pem
               cat ${RUN_DIR}/key.pem >> ${RUN_DIR}/cert.pem
+          brooklyn.initializers:
+            - type: org/apache/brooklyn/core/effector/ssh/SshCommandEffector
+              brooklyn.config:
+                name: configureSwarm
+                description: |
+                  Generate HAProxy configuration from Swarm endpoint list
+                shell.env:
+                  SWARM_ENDPOINTS:
+                    $brooklyn:attributeWhenReady("swarm.endpoints")
+                update.command: |
+                  cat > servers.conf <<-EOF
+                  backend servers
+                    balance roundrobin
+                  EOF
+                  for endpoint in $(echo ${SWARM_ENDPOINTS} | tr ',' ' ') ; do
+                    echo "  server manager$((++n)) ${endpoint} maxconn 32 ssl \
+                      ca-file ${RUN_DIR}/ca.pem crt ${RUN_DIR}/cert.pem" >> servers.conf
+                  done
+                  haproxy -D -f haproxy.conf -f servers.conf -st $(cat ${RUN_DIR}/pid.txt)
+          brooklyn.policies:
+            - type: org.apache.brooklyn.policy.InvokeEffectorOnSensorChange
+              brooklyn.config:
+                effector: configureSwarm
+                sensor: $brooklyn:sensor("swarm.endpoints")
           brooklyn.enrichers:
+            - type: org.apache.brooklyn.enricher.stock.Propagator
+              brooklyn.config:
+                uniqueTag: swarm-endpoints-propagator
+                producer: $brooklyn:entity("docker-swarm-managers")
+                propagating:
+                  - $brooklyn:sensor("swarm.endpoints")
             - type: org.apache.brooklyn.enricher.stock.Transformer
               brooklyn.config:
                 uniqueTag: cluster-swarm-endpoint-publisher
