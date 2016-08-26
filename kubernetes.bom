@@ -1,0 +1,141 @@
+brooklyn.catalog:
+  id: brooklyn-kubernetes
+  version: 0.1
+
+  items:
+  - id: kubernetes-cluster-template
+    name: "Kubernetes Cluster"
+    description: |
+      TODO
+    iconUrl: https://pbs.twimg.com/media/Bt_pEfqCAAAiVyz.png
+    itemType: template
+    item:
+      services:
+        - type: kubernetes-cluster-application
+          name: "Kubernetes Cluster"
+
+  - id: kubernetes-cluster-application
+    name: "Kubernetes Cluster"
+    description: |
+      TODO
+    iconUrl: https://pbs.twimg.com/media/Bt_pEfqCAAAiVyz.png
+    itemType: entity
+    item:
+      type: org.apache.brooklyn.entity.stock.BasicApplication
+
+      brooklyn.parameters:
+        - name: kubernetes.initial.size
+          label: "Kubernetes Cluster Size"
+          type: integer
+          default: 1
+        - name: etcd.initial.size
+          label: "Etcd Cluster Size"
+          type: integer
+          default: 1
+        - name: kubernetes.version
+          label: "Kubernetes Version"
+          type: string
+          default: 1.3.5
+        - name: cni.version
+          label: "CNI Version"
+          type: string
+          default: 0.3.0
+        - name: flannel.version
+          label: "Flannel Version"
+          type: string
+          default: 0.5.5
+        - name: docker.version
+          label: "Docker Version"
+          type: string
+          default: 1.12.1
+        - name: calico.version
+          label: "Calico Version"
+          type: string
+          default: 0.21.0
+        - name: calico.cni.version
+          label: "Calico CNI Version"
+          type: string
+          default: 1.3.1
+
+      brooklyn.children:
+        - type: etcd-cluster
+          name: "etcd-cluster"
+          brooklyn.config:
+            initialSize: $brooklyn:config("etcd.initial.size")
+        - type: kubernetes-master
+          name: "kubernetes-master"
+        - type: kubernetes-node-cluster
+          name: "kubernetes-node-cluster"
+
+  - id: kubernetes-master
+    description: TODO
+    itemType: entity
+    item:
+      type: kubernetes-node
+      id: kubernetes-master
+      name: "kubernetes-master"
+      description: |
+        Kubernetes Master
+
+      brooklyn.config:
+        shell.env:
+          MASTER_IP: $brooklyn:attributeWhenReady("host.address")
+
+        post.install.command: |
+          echo "post install"
+
+        launch.command: |
+          echo "launch"
+
+        checkRunning.command: |
+          echo "checkRunning"
+
+  - id: kubernetes-node
+    description: TODO
+    itemType: entity
+    item:
+      type: centos-software-process
+      id: kubernetes-node
+      name: "kubernetes-node"
+      description: |
+        Kubernetes Node
+
+      brooklyn.config:
+        shell.env:
+          KUBERNETES_VERSION: $brooklyn:config("kubernetes.version")
+          CNI_VERSION: $brooklyn:config("cni.version")
+          FLANNEL_VERSION: $brooklyn:config("flannel.version")
+          DOCKER_VERSION: $brooklyn:config("docker.version")
+          CALICO_VERSION: $brooklyn:config("calico.version")
+          CALICO_CNI_VERSION: $brooklyn:config("calico.cni.version")
+
+          MASTER_IP: $brooklyn:entity("").attributeWhenReady("host.address")
+
+          ETCD_SERVERS: $brooklyn:formatString("http://%s:4001", attributeWhenReady("host.address"))
+          ETCD_AUTHORITY: $brooklyn:formatString("%s:4001", attributeWhenReady("host.address"))
+
+          DOCKER_HOST: "tcp://127.0.0.1:4243"
+
+        install.command: |
+          echo "install"
+
+        launch.command: |
+          echo "launch"
+
+        checkRunning.command: |
+          echo "checkRunning"
+
+  - id: kubernetes-node-cluster
+    description: TODO
+    name: "Kubernetes Fabric Cluster"
+    item:
+      type: cluster
+      id: kubernetes-cluster
+      name: "kubernetes-cluster"
+
+      brooklyn.config:
+        initialSize: $brooklyn:config("kubernetes.initial.size")
+
+        memberSpec:
+          $brooklyn:entitySpec:
+            type: kubernetes-node
