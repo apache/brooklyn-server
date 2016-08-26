@@ -130,7 +130,7 @@ public class BrooklynDslCommon {
 
     /** Returns a {@link Sensor}, looking up the sensor on the context if available and using that,
      * or else defining an untyped (Object) sensor */
-    public static BrooklynDslDeferredSupplier<Sensor<?>> sensor(String sensorName) {
+    public static BrooklynDslDeferredSupplier<Sensor<?>> sensor(Object sensorName) {
         return new DslComponent(Scope.THIS, "").sensor(sensorName);
     }
     

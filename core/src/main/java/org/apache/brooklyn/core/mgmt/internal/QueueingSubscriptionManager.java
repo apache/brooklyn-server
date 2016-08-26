@@ -138,8 +138,10 @@ public class QueueingSubscriptionManager extends AbstractSubscriptionManager {
         
         Set<SubscriptionHandle> result = new LinkedHashSet<SubscriptionHandle>();
         for (QueuedSubscription q: queuedSubscriptions) {
-            if ((q.s.sensor==null || Objects.equal(q.s.sensor, sensor)) &&
-                    (q.s.producer==null || Objects.equal(q.s.producer, sensor)))
+            // just match based on sensor name to facilitate yaml
+            // (if subscription has no sensor, that means subscribe to all sensors)
+            if ((q.s.sensor==null || (sensor!=null && Objects.equal(q.s.sensor.getName(), sensor.getName()))) &&
+                    (q.s.producer==null || Objects.equal(q.s.producer, source)))
                 result.add(q.s);
         }
         return result;

@@ -28,8 +28,11 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
+import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.sensor.ssh.SshCommandSensor;
@@ -61,11 +64,16 @@ import com.google.common.base.Preconditions;
  * executed. This can be one of: the {@link ExecutionTarget#ENTITY owing entity};
  * the {@link ExecutionTarget#MEMBER member} that was updated; or
  * {@link ExecutionTarget#ALL_MEMBERS all members} of the group.
+ * 
+ * @deprecated introduced and removed in 0.10.0-snapshot; use a combination of 
+ * InvokeEffectorOnSensorChange and SshCommandEffector instead
+ * (much simpler semantics as you normally will want to listen to a local sensor
+ * (which in turn is aggregated over members) instead of children sensors directly).
+ * If there is a need for {@link #EVENT_TYPE} or {@link #MEMBER_ID} then we'll want
+ * InvokeEffectorOnSensorChange to be able to subscribe to members/children etc as well,
+ * and pass parameters based on source.entityId and source.sensor.
  */
-// TODO might make sense to split up behaviour into two classes,
-// an InvokeEffectorMembershipTrackingPolicy and an SshMultiEntityCommandEffector -- 
-// where the latter has the configurable target introduced here
-@Beta
+@Deprecated
 public class SshCommandMembershipTrackingPolicy extends AbstractMembershipTrackingPolicy {
 
     private static final Logger LOG = LoggerFactory.getLogger(SshCommandMembershipTrackingPolicy.class);
@@ -148,6 +156,10 @@ public class SshCommandMembershipTrackingPolicy extends AbstractMembershipTracki
 
     @SuppressWarnings("unchecked")
     public void execute(Entity target, String command, String type, String memberId) {
+        if (Entities.isNoLongerManaged(target)) return;
+        Lifecycle state = target.getAttribute(Attributes.SERVICE_STATE_ACTUAL);
+        if (state==Lifecycle.STOPPING || state==Lifecycle.STOPPED) return;
+        
         Collection<? extends Location> locations = Locations.getLocationsCheckingAncestors(target.getLocations(), target);
         Maybe<SshMachineLocation> machine = Machines.findUniqueMachineLocation(locations, SshMachineLocation.class);
         if (machine.isAbsentOrNull()) {
