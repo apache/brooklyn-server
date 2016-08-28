@@ -18,8 +18,23 @@
  */
 package org.apache.brooklyn.entity.software.base;
 
+import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecContains;
+import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecHasNever;
+import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecHasOnlyOnce;
+import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecSatisfies;
+import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecsContain;
+import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecsNotContains;
+import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecsSatisfy;
+
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
@@ -27,19 +42,13 @@ import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.entity.software.base.SoftwareProcess.ChildStartableMode;
 import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
-import org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.CustomResponse;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecCmdPredicates;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecParams;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
-
-import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 public class VanillaSoftwareProcessTest extends BrooklynAppUnitTestSupport {
 
@@ -80,7 +89,7 @@ public class VanillaSoftwareProcessTest extends BrooklynAppUnitTestSupport {
                 .configure(VanillaSoftwareProcess.STOP_COMMAND, "stopCommand"));
         app.start(ImmutableList.of(loc));
 
-        ExecCmdAsserts.assertExecsContain(RecordingSshTool.getExecCmds(), ImmutableList.of(
+        assertExecsContain(RecordingSshTool.getExecCmds(), ImmutableList.of(
                 "preInstallCommand", "installCommand", "postInstallCommand", 
                 "preCustomizeCommand", "customizeCommand", "postCustomizeCommand", 
                 "preLaunchCommand", "launchCommand", "postLaunchCommand", 
@@ -88,7 +97,7 @@ public class VanillaSoftwareProcessTest extends BrooklynAppUnitTestSupport {
         
         app.stop();
 
-        ExecCmdAsserts.assertExecContains(RecordingSshTool.getLastExecCmd(), "stopCommand");
+        assertExecContains(RecordingSshTool.getLastExecCmd(), "stopCommand");
     }
 
     // See https://issues.apache.org/jira/browse/BROOKLYN-273
@@ -122,7 +131,7 @@ public class VanillaSoftwareProcessTest extends BrooklynAppUnitTestSupport {
                 VanillaSoftwareProcess.RestartSoftwareParameters.RESTART_MACHINE.getName(), VanillaSoftwareProcess.RestartSoftwareParameters.RestartMachineMode.FALSE))
                 .get();
 
-        ExecCmdAsserts.assertExecsContain(RecordingSshTool.getExecCmds(), ImmutableList.of(
+        assertExecsContain(RecordingSshTool.getExecCmds(), ImmutableList.of(
                 "checkRunningCommand", "stopCommand",  
                 "preLaunchCommand", "launchCommand", "postLaunchCommand", 
                 "checkRunningCommand"));
@@ -146,12 +155,12 @@ public class VanillaSoftwareProcessTest extends BrooklynAppUnitTestSupport {
                 .configure(VanillaSoftwareProcess.STOP_COMMAND, "stopCommand"));
         app.start(ImmutableList.of(loc));
 
-        ExecCmdAsserts.assertExecsContain(RecordingSshTool.getExecCmds(), ImmutableList.of(
+        assertExecsContain(RecordingSshTool.getExecCmds(), ImmutableList.of(
                 "preCustomizeCommand", "customizeCommand", "postCustomizeCommand", 
                 "preLaunchCommand", "launchCommand", "postLaunchCommand", 
                 "checkRunningCommand"));
         
-        ExecCmdAsserts.assertExecsNotContains(RecordingSshTool.getExecCmds(), ImmutableList.of(
+        assertExecsNotContains(RecordingSshTool.getExecCmds(), ImmutableList.of(
                 "preInstallCommand", "installCommand", "postInstallCommand"));
     }
 
@@ -172,10 +181,10 @@ public class VanillaSoftwareProcessTest extends BrooklynAppUnitTestSupport {
                 .configure(VanillaSoftwareProcess.STOP_COMMAND, "stopCommand"));
         app.start(ImmutableList.of(loc));
 
-        ExecCmdAsserts.assertExecsContain(RecordingSshTool.getExecCmds(), ImmutableList.of(
+        assertExecsContain(RecordingSshTool.getExecCmds(), ImmutableList.of(
                 "checkRunningCommand"));
         
-        ExecCmdAsserts.assertExecsNotContains(RecordingSshTool.getExecCmds(), ImmutableList.of(
+        assertExecsNotContains(RecordingSshTool.getExecCmds(), ImmutableList.of(
                 "launchCommand"));
     }
 
@@ -214,7 +223,7 @@ public class VanillaSoftwareProcessTest extends BrooklynAppUnitTestSupport {
                 .configure(VanillaSoftwareProcess.STOP_COMMAND, "stopCommand"));
         app.start(ImmutableList.of(loc));
 
-        ExecCmdAsserts.assertExecsContain(RecordingSshTool.getExecCmds(), ImmutableList.of(
+        assertExecsContain(RecordingSshTool.getExecCmds(), ImmutableList.of(
                 "checkRunningCommand",
                 "preInstallCommand", "installCommand", "postInstallCommand", 
                 "preCustomizeCommand", "customizeCommand", "postCustomizeCommand", 
@@ -241,7 +250,7 @@ public class VanillaSoftwareProcessTest extends BrooklynAppUnitTestSupport {
 
         Map<String, String> expectedEnv = ImmutableMap.of("KEY1", "VAL1");
         
-        ExecCmdAsserts.assertExecsSatisfy(RecordingSshTool.getExecCmds(), ImmutableList.of(
+        assertExecsSatisfy(RecordingSshTool.getExecCmds(), ImmutableList.of(
                 Predicates.and(ExecCmdPredicates.containsCmd("preInstallCommand"), ExecCmdPredicates.containsEnv(expectedEnv)),
                 Predicates.and(ExecCmdPredicates.containsCmd("installCommand"), ExecCmdPredicates.containsEnv(expectedEnv)),
                 Predicates.and(ExecCmdPredicates.containsCmd("postInstallCommand"), ExecCmdPredicates.containsEnv(expectedEnv)),
@@ -255,8 +264,32 @@ public class VanillaSoftwareProcessTest extends BrooklynAppUnitTestSupport {
         
         app.stop();
 
-        ExecCmdAsserts.assertExecSatisfies(
+        assertExecSatisfies(
                 RecordingSshTool.getLastExecCmd(),
                 Predicates.and(ExecCmdPredicates.containsCmd("stopCommand"), ExecCmdPredicates.containsEnv(expectedEnv)));
+    }
+    
+    @Test
+    public void testCmdNotInheritedByChildrenOfSoftwareProcess() throws Exception {
+        app.createAndManageChild(EntitySpec.create(VanillaSoftwareProcess.class)
+                .configure(VanillaSoftwareProcess.PRE_INSTALL_COMMAND, "preInstallCommand")
+                .configure(VanillaSoftwareProcess.LAUNCH_COMMAND, "parentLaunchCommand")
+                .configure(VanillaSoftwareProcess.CHILDREN_STARTABLE_MODE, ChildStartableMode.FOREGROUND)
+                .child(EntitySpec.create(VanillaSoftwareProcess.class)
+                        .configure(VanillaSoftwareProcess.LAUNCH_COMMAND, "childLaunchCommand")));
+        app.start(ImmutableList.of(loc));
+
+        assertExecHasOnlyOnce(RecordingSshTool.getExecCmds(), "childLaunchCommand");
+        assertExecHasOnlyOnce(RecordingSshTool.getExecCmds(), "preInstallCommand");
+    }
+
+    @Test
+    public void testCmdNotInheritedFromParentOfSoftwareProcess() throws Exception {
+        app.config().set(VanillaSoftwareProcess.PRE_INSTALL_COMMAND, "preInstallCommand");
+        app.createAndManageChild(EntitySpec.create(VanillaSoftwareProcess.class)
+                .configure(VanillaSoftwareProcess.LAUNCH_COMMAND, "launchCommand"));
+        app.start(ImmutableList.of(loc));
+
+        assertExecHasNever(RecordingSshTool.getExecCmds(), "preInstallCommand");
     }
 }
