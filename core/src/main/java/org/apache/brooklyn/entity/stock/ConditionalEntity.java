@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.entity.stock;
 
+import java.util.Collection;
+
 import com.google.common.annotations.Beta;
 import com.google.common.reflect.TypeToken;
 
@@ -44,6 +46,10 @@ import org.apache.brooklyn.util.core.flags.SetFromFlag;
  *         brooklyn.config:
  *           proxy.port: 8080
  *           loadbalancer.serverpool: $brooklyn:entity("servers")
+ *     conditional.entity.propagate: true
+ *     conditional.entity.sensors:
+ *       - $brooklyn:sensor("proxy.http.port")
+ *       - $brooklyn:sensor("main.uri")
  * </pre>
  */
 @Beta
@@ -51,11 +57,22 @@ import org.apache.brooklyn.util.core.flags.SetFromFlag;
 public interface ConditionalEntity extends BasicStartable {
 
     @SetFromFlag("entitySpec")
-    ConfigKey<EntitySpec<?>> CONDITIONAL_ENTITY_SPEC = ConfigKeys.newConfigKey(new TypeToken<EntitySpec<?>>() { }, "conditional.entity.spec", "The entity specification to be created");
+    ConfigKey<EntitySpec<?>> CONDITIONAL_ENTITY_SPEC = ConfigKeys.newConfigKey(new TypeToken<EntitySpec<?>>() { },
+            "conditional.entity.spec", "The entity specification to be created");
 
     @SetFromFlag("create")
-    AttributeSensorAndConfigKey<Boolean, Boolean> CREATE_CONDITIONAL_ENTITY = ConfigKeys.newSensorAndConfigKey(Boolean.class, "conditional.entity.create", "Whether the entity should be created");
+    AttributeSensorAndConfigKey<Boolean, Boolean> CREATE_CONDITIONAL_ENTITY = ConfigKeys.newSensorAndConfigKey(Boolean.class,
+            "conditional.entity.create", "Whether the entity should be created");
 
-    AttributeSensor<Entity> CONDITIONAL_ENTITY = Sensors.newSensor(Entity.class, "conditional.entity", "The created entity");
+    @SetFromFlag("propagateSensors")
+    ConfigKey<Boolean> PROPAGATE_CONDITIONAL_ENTITY_SENSORS = ConfigKeys.newBooleanConfigKey(
+            "conditional.entity.propagate", "Whether sensors are to be propagated from the child entity", Boolean.TRUE);
+
+    @SetFromFlag("sensorsToPropagate")
+    ConfigKey<Collection<AttributeSensor<?>>> CONDITIONAL_ENTITY_SENSOR_LIST = ConfigKeys.newConfigKey(new TypeToken<Collection<AttributeSensor<?>>>() { },
+            "conditional.entity.sensors", "Collection of sensors that are to be propagated from the child entity (all usual sensors if not set, or empty)");
+
+    AttributeSensor<Entity> CONDITIONAL_ENTITY = Sensors.newSensor(Entity.class,
+            "conditional.entity", "The created entity");
 
 }
