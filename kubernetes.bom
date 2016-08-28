@@ -170,7 +170,7 @@ brooklyn.catalog:
   - id: kubernetes-worker
     itemType: entity
     item:
-      type: kubernetes-docker-engine
+      type: centos-software-process
       name: "kubernetes-worker"
       description: |
         Kubernetes worker node
@@ -190,6 +190,32 @@ brooklyn.catalog:
             $brooklyn:entity("kubernetes-master").attributeWhenReady("kubernetes.url")
 
       brooklyn.children:
+        - type: flannel-network-agent
+          id: flannel-network-agent
+          name: "flannel-network-agent"
+          brooklyn.config:
+            flannel.addressRange: $brooklyn:config("flannel.network")
+            etcd.endpoints: $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.urls")
+        - type: docker-engine-with-resilience
+          id: docker-engine
+          name: "docker-engine"
+          brooklyn.config:
+            launch.latch: $brooklyn:sibling("flannel-network-agent").attributeWhenReady("service.isUp")
+            docker.additionaloptions:
+              $brooklyn:formatString:
+                - >-
+                  --mtu=%s
+                  --bip=%s
+                  --ip-masq=false
+                  --iptables=false
+                - $brooklyn:entity("flannel-network-agent").attributeWhenReady("flannel.mtu")
+                - $brooklyn:entity("flannel-network-agent").attributeWhenReady("flannel.subnet")
+        - type: calico-cni-plugin
+          id: calico-cni-plugin
+          name: "calico-cni-plugin"
+          brooklyn.config:
+            launch.latch: $brooklyn:sibling("docker-engine").attributeWhenReady("service.isUp")
+            etcd.endpoints: $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.urls")
         - type: kube-proxy-service
           id: kube-proxy
           name: "kube-proxy"
@@ -211,52 +237,6 @@ brooklyn.catalog:
         memberSpec:
           $brooklyn:entitySpec:
             type: kubernetes-node
-
-  - id: kubernetes-docker-engine
-    name: "Docker Engine with Networking Plugins"
-    description: |
-      A docker-engine customised with networking plugins for Kubernetes
-    itemType: entity
-    item:
-      type: docker-engine-with-resilience
-
-      brooklyn.config:
-        customizers:
-          - $brooklyn:object:
-              type: org.apache.brooklyn.location.jclouds.ChildEntityCustomizer
-              brooklyn.config:
-                child.create: true
-                child.entitySpec:
-                  $brooklyn:entitySpec:
-                    type: flannel-network-agent
-                    id: flannel-network-agent
-                    name: "flannel-network-agent"
-                    brooklyn.config:
-                      flannel.addressRange: $brooklyn:config("flannel.network")
-                      etcd.endpoints: $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.urls")
-
-      docker.additionaloptions:
-        $brooklyn:formatString:
-          - >-
-            --mtu=%s
-            --bip=%s
-            --ip-masq=false
-            --iptables=false
-          - $brooklyn:entity("flannel-network-agent").attributeWhenReady("flannel.mtu")
-          - $brooklyn:entity("flannel-network-agent").attributeWhenReady("flannel.subnet")
-
-      brooklyn.children:
-        - type: conditional-entity
-          id: network-plugin
-          name: "network-plugin"
-          brooklyn.config:
-            conditional.entity.create: true
-            conditional.entity.propagate: true
-            conditional.entity.spec:
-              $brooklyn:entitySpec:
-                type: calico-cni-plugin
-                brooklyn.config:
-                  etcd.endpoints: $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.urls")
 
   - id: kubernetes-service
     name: "Kubernetes Service"
