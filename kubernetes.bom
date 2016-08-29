@@ -27,6 +27,7 @@ brooklyn.catalog:
       type: org.apache.brooklyn.entity.stock.BasicApplication
 
       brooklyn.parameters:
+        # Duplicated parameters for UI visibility
         - name: kubernetes.initial.size
           label: "Kubernetes Cluster Size"
           type: integer
@@ -51,6 +52,14 @@ brooklyn.catalog:
           label: "Kubernetes Cluster Name"
           type: string
           default: "amp"
+        - name: kubernetes.pod.cidr
+          label: "Kubernetes Pod IP Range"
+          type: string
+          default: "172.16.0.0/16"
+        - name: kubernetes.apiserver.port
+          label: "Kubernetes API Server Port"
+          type: port
+          default: 8080
 
       brooklyn.enrichers:
         - type: org.apache.brooklyn.enricher.stock.Propagator
@@ -59,6 +68,8 @@ brooklyn.catalog:
             producer: $brooklyn:entity("kubernetes-manager")
             propagating:
               - $brooklyn:sensor("kubernetes.url")
+              - $brooklyn:sensor("kubernetes.endpoint")
+        # TODO change to dashboard URL
         - type: org.apache.brooklyn.enricher.stock.Propagator
           brooklyn.config:
             uniqueTag: kubernetes-main-uri-propagator
@@ -108,17 +119,29 @@ brooklyn.catalog:
 
       brooklyn.parameters:
         - name: kubernetes.initial.size
-          label: Initial Cluster Size
+          label: "Initial Cluster Size"
           description: |
             Size of the cluster when created initially
           type: integer
           default: 1
         - name: kubernetes.recovery.quarantineFailedEntities
-          label: Quarantine
+          label: "Quarantine"
           description: |
             Quarantine failed entities instead of destroying them
           type: boolean
           default: true
+        - name: kubernetes.service.cidr
+          label: "Kubernetes Service IP Range"
+          type: string
+          default: "192.168.3.0/24"
+        - name: kubernetes.dns.address
+          label: "Kubernetes DNS IP"
+          type: string
+          default: "192.168.3.254"
+        - name: kubernetes.address
+          label: "Kubernetes IP"
+          type: string
+          default: "192.168.3.1"
 
       brooklyn.children:
         - type: kubernetes-manager
@@ -154,6 +177,11 @@ brooklyn.catalog:
           $brooklyn:attributeWhenReady("kubernetes.url")
         kubernetes.endpoint:
           $brooklyn:attributeWhenReady("kubernetes.endpoint")
+
+        shell.env:
+          SERVICE_CLUSTER_IP_RANGE: $brooklyn:config("kubernetes.service.cidr")
+          DNS_SERVICE_IP: $brooklyn:config("kubernetes.dns.address")
+          K8S_SERVICE_IP: $brooklyn:config("kubernetes.address")
 
       brooklyn.children:
         - type: kube-apiserver-service
@@ -202,6 +230,7 @@ brooklyn.catalog:
           KUBERNETES_VERSION: $brooklyn:config("kubernetes.version")
           KUBERNETES_URL: $brooklyn:config("kubernetes.url")
           KUBERNETES_ENDPOINT: $brooklyn:config("kubernetes.endpoint")
+          FLANNEL_NET: $brooklyn:config("kubernetes.pod.cidr")
 
       brooklyn.children:
         - type: flannel-network-agent
@@ -209,6 +238,7 @@ brooklyn.catalog:
           name: "flannel-network-agent"
           brooklyn.config:
             etcd.endpoints: $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.urls")
+            flannel.network: $brooklyn:config("kubernetes.pod.cidr")
         - type: docker-engine-with-resilience
           id: docker-engine
           name: "docker-engine"
@@ -309,7 +339,7 @@ brooklyn.catalog:
           Description=Kubernetes Proxy
           After=network.target
           [Service]
-          ExecStart=/opt/kubernetes/bin/kube-proxy \
+          ExecStart=/usr/bin/kube-proxy \
             --logtostderr=true \
             --v=4 \
             --masquerade-all=true \
@@ -327,14 +357,25 @@ brooklyn.catalog:
     item:
       type: kubernetes-service
 
+      brooklyn.parameters:
+        - name: kubernetes.schedulable
+          label: "Kubernetes Schedulable"
+          type: boolean
+          default: true
+
       brooklyn.config:
         kubernetes.service: "kubelet"
 
         shell.env:
           FLANNEL_SUBNET: $brooklyn:entity("flannel-network-agent").attributeWhenReady("flannel.subnet")
           KUBERNETES_URL: $brooklyn:config("kubernetes.url")
+          SCHEDULABLE: $brooklyn:config("kubernetes.schedulable")
 
         customize.command: |
+          echo "[DEBUG] DOCKER_HOST=${DOCKER_HOST}"
+          echo "[DEBUG] DOCKER_TLS_VERIFY=${DOCKER_TLS_VERIFY}"
+          echo "[DEBUG] DOCKER_CERT_PATH=${DOCKER_CERT_PATH}"
+          # otherwise, source docker_client.rc
           sudo mkdir -p /etc/kubernetes/manifests
           sudo -E tee /etc/kubernetes/kubeconfig <<-EOF
           current-context: default
@@ -359,7 +400,7 @@ brooklyn.catalog:
             --api-servers=${KUBERNETES_URL}\
             --network-plugin-dir=/etc/cni/net.d \
             --network-plugin=cni \
-            ${EXTRA_OPTS} \
+            --register-schedulable=${SCHEDULABLE} \
             --pod-cidr=${FLANNEL_SUBNET} \
             --container-runtime=docker \
             --reconcile-cidr=true \
@@ -372,6 +413,7 @@ brooklyn.catalog:
           [Install]
           WantedBy=multi-user.target
           EOF
+          # --docker-endpoint=${DOCKER_HOST} \
 
   - id: kube-apiserver-service
     name: "Kubernetes API Server"
@@ -386,6 +428,16 @@ brooklyn.catalog:
           label: "Kubernetes API Server Port"
           type: port
           default: 8080
+        - name: kubernetes.admissionControl
+          label: "Kubernetes Admission Control"
+          type: string
+          default: >-
+            NamespaceLifecycle,
+            NamespaceExists,
+            LimitRanger,
+            SecurityContextDeny,
+            ResourceQuota,
+            AlwaysAdmit
 
       brooklyn.enrichers:
         - type: org.apache.brooklyn.enricher.stock.Transformer
@@ -414,19 +466,23 @@ brooklyn.catalog:
       brooklyn.config:
         kubernetes.service: "kube-apiserver"
 
+        shell.env:
+          APISERVER_PORT: $brooklyn:config("kubernetes.apiserver.port")
+          ADMISSION_CONTROL: $brooklyn:config("kubernetes.admissionControl")
+
         customize.command: |
           sudo -E tee /usr/lib/systemd/system/kube-apiserver.service <<-EOF
           [Unit]
           Description=Kubernetes API Server
           Documentation=https://github.com/kubernetes/kubernetes
           [Service]
-          ExecStart=/opt/kubernetes/bin/kube-apiserver \
+          ExecStart=/usr/bin/kube-apiserver \
             --logtostderr=true \
             --v=4 \
-            --etcd-servers=${ETCD_SERVERS} \
+            --etcd-servers=${ETCD_ENDPOINTS} \
             --insecure-bind-address=0.0.0.0 \
-            --insecure-port=8080 \
-            --advertise-address=${MASTER_IP} \
+            --insecure-port=${APISERVER_PORT} \
+            --advertise-address=${HOST_ADDRESS} \
             --allow-privileged=true \
             --service-cluster-ip-range=${SERVICE_CLUSTER_IP_RANGE} \
             --runtime-config=extensions/v1beta1=true,extensions/v1beta1/networkpolicies=true \
@@ -452,7 +508,7 @@ brooklyn.catalog:
           Description=Kubernetes Controller Manager
           Documentation=https://github.com/kubernetes/kubernetes
           [Service]
-          ExecStart=/opt/kubernetes/bin/kube-controller-manager \
+          ExecStart=/usr/bin/kube-controller-manager \
             --logtostderr=true \
             --v=4 \
             --master=${KUBERNETES_ENDPOINT} \
@@ -484,7 +540,7 @@ brooklyn.catalog:
           Description=Kubernetes Scheduler
           Documentation=https://github.com/kubernetes/kubernetes
           [Service]
-          ExecStart=/opt/kubernetes/bin/kube-scheduler \
+          ExecStart=/usr/bin/kube-scheduler \
             --logtostderr=true \
             --v=4 \
             --leader-elect=true \

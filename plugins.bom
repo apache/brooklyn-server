@@ -111,7 +111,7 @@ brooklyn.catalog:
             -etcd-prefix=${FLANNEL_ETCD_PREFIX} \
             --ip-masq \
             --subnet-file=${RUN_DIR}/flannel.env \
-            --public-ip=${HOST_ADDRESS} \
+            --public-ip=${HOST_ADDRESS}
           Type=notify
           [Install]
           WantedBy=multi-user.target
@@ -148,9 +148,6 @@ brooklyn.catalog:
     name: "Calico CNI Plugin"
     description: |
       The Project Calico plugin for CNI
-
-      This plugin does not currently work with TLS certificates that use an
-      IP SAN due to limitations of the downstream Python etcd client.
     itemType: entity
     item:
       type: child-software-process
@@ -193,10 +190,11 @@ brooklyn.catalog:
           chmod +x calicoctl
           sudo mv calicoctl /usr/bin
           sudo mkdir -p /opt/cni/bin
-          sudo wget https://github.com/containernetworking/cni/releases/download/v${CNI_VERSION}/cni-v${CNI_VERSION}.tgz -O /tmp/download/cni.tgz
-          sudo tar --strip-components=1 -xvzf /tmp/download/cni.tgz -C /opt/cni/bin
-          sudo wget -N -P /opt/cni/bin https://github.com/projectcalico/calico-cni/releases/download/v${CALICO_CNI_VERSION}/calico
-          sudo chmod +x /opt/cni/bin/calico
+          wget https://github.com/containernetworking/cni/releases/download/v${CNI_VERSION}/cni-v${CNI_VERSION}.tgz
+          sudo tar --strip-components=1 -xvzf cni-v${CNI_VERSION}.tgz -C /opt/cni/bin
+          wget https://github.com/projectcalico/calico-cni/releases/download/v${CALICO_CNI_VERSION}/calico
+          chmod +x calico
+          sudo mv calico /opt/cni/bin
           docker pull calico/node:v${CALICO_VERSION}
           sudo yum install -y ipset
           sudo modprobe ip6_tables
@@ -216,7 +214,7 @@ brooklyn.catalog:
                   "hostname": "${HOST_ADDRESS}",
                   "policy": {
                       "type": "k8s",
-                      "k8s_api_root": "${MASTER_URL}:8080/api/v1/"
+                      "k8s_api_root": "${KUBERNETES_URL}/api/v1/"
                   },
                   "isDefaultGateway": true
               }
