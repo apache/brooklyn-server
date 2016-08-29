@@ -180,7 +180,7 @@ class CampInternalUtils {
 
     private static void initParameters(List<?> explicitParams, AbstractBrooklynObjectSpec<?, ?> spec, BrooklynClassLoadingContext loader) {
         if (explicitParams != null) {
-            BasicSpecParameter.addParameters(spec, BasicSpecParameter.fromConfigList(explicitParams, loader), loader);
+            BasicSpecParameter.addParameters(spec, BasicSpecParameter.fromConfigList(explicitParams, null, loader), loader);
         } else {
             BasicSpecParameter.addParameters(spec, ImmutableList.<SpecParameter<?>>of(), loader);
         }

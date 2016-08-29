@@ -143,8 +143,8 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
     }
 
     // Not CAMP specific since it's used to get the parameters from catalog items meta which are syntax independent.
-    public static List<SpecParameter<?>> fromConfigList(List<?> obj, BrooklynClassLoadingContext loader) {
-        return ParseYamlInputs.parseParameters(obj, loader);
+    public static List<SpecParameter<?>> fromConfigList(List<?> obj, Function<Object, Object> specialFlagsTransformer, BrooklynClassLoadingContext loader) {
+        return ParseYamlInputs.parseParameters(obj, specialFlagsTransformer, loader);
     }
 
     public static List<SpecParameter<?>> fromClass(ManagementContext mgmt, Class<?> type) {
@@ -204,17 +204,17 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
         private static final Map<String, Predicate<?>> BUILT_IN_CONSTRAINTS = ImmutableMap.<String, Predicate<?>>of(
                 "required", StringPredicates.isNonBlank());
 
-        public static List<SpecParameter<?>> parseParameters(List<?> inputsRaw, BrooklynClassLoadingContext loader) {
+        public static List<SpecParameter<?>> parseParameters(List<?> inputsRaw, Function<Object, Object> specialFlagTransformer, BrooklynClassLoadingContext loader) {
             if (inputsRaw == null) return ImmutableList.of();
             List<SpecParameter<?>> inputs = new ArrayList<>(inputsRaw.size());
             for (Object obj : inputsRaw) {
-                inputs.add(parseParameter(obj, loader));
+                inputs.add(parseParameter(obj, specialFlagTransformer, loader));
             }
             return inputs;
         }
 
         @SuppressWarnings({ "unchecked", "rawtypes" })
-        private static SpecParameter<?> parseParameter(Object obj, BrooklynClassLoadingContext loader) {
+        private static SpecParameter<?> parseParameter(Object obj, Function<Object, Object> specialFlagTransformer, BrooklynClassLoadingContext loader) {
             Map inputDef;
             if (obj instanceof String) {
                 inputDef = ImmutableMap.of("name", obj);
@@ -228,6 +228,9 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
             String description = (String)inputDef.get("description");
             String type = (String)inputDef.get("type");
             Object defaultValue = inputDef.get("default");
+            if (specialFlagTransformer != null) {
+                defaultValue = specialFlagTransformer.apply(defaultValue);
+            }
             Predicate<?> constraints = parseConstraints(inputDef.get("constraints"), loader);
             ConfigInheritance parentInheritance = parseInheritance(inputDef.get("inheritance.parent"), loader);
             ConfigInheritance typeInheritance = parseInheritance(inputDef.get("inheritance.type"), loader);

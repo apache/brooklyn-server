@@ -247,10 +247,10 @@ public class BrooklynComponentTemplateResolver {
     }
 
     private <T extends Entity> void decorateSpec(EntitySpec<T> spec, Set<String> encounteredRegisteredTypeIds) {
-        new BrooklynEntityDecorationResolver.PolicySpecResolver(yamlLoader).decorate(spec, attrs);
-        new BrooklynEntityDecorationResolver.EnricherSpecResolver(yamlLoader).decorate(spec, attrs);
-        new BrooklynEntityDecorationResolver.InitializerResolver(yamlLoader).decorate(spec, attrs);
-        new BrooklynEntityDecorationResolver.SpecParameterResolver(yamlLoader).decorate(spec, attrs);
+        new BrooklynEntityDecorationResolver.PolicySpecResolver(yamlLoader).decorate(spec, attrs, encounteredRegisteredTypeIds);
+        new BrooklynEntityDecorationResolver.EnricherSpecResolver(yamlLoader).decorate(spec, attrs, encounteredRegisteredTypeIds);
+        new BrooklynEntityDecorationResolver.InitializerResolver(yamlLoader).decorate(spec, attrs, encounteredRegisteredTypeIds);
+        new BrooklynEntityDecorationResolver.SpecParameterResolver(yamlLoader).decorate(spec, attrs, encounteredRegisteredTypeIds);
 
         configureEntityConfig(spec, encounteredRegisteredTypeIds);
     }
@@ -398,7 +398,7 @@ public class BrooklynComponentTemplateResolver {
         return result;
     }
 
-    private static class SpecialFlagsTransformer implements Function<Object, Object> {
+    public static class SpecialFlagsTransformer implements Function<Object, Object> {
         protected final ManagementContext mgmt;
         /* TODO find a way to make do without loader here?
          * it is not very nice having to serialize it; but serialization of BLCL is now relatively clean.

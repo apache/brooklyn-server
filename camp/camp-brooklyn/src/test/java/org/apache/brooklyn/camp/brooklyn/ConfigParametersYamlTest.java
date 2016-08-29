@@ -20,23 +20,12 @@ package org.apache.brooklyn.camp.brooklyn;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.location.PortRange;
-import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
-import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts;
-import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
-import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecCmd;
-import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
@@ -45,6 +34,21 @@ import org.testng.annotations.Test;
 import com.google.api.client.repackaged.com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.location.PortRange;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
+import org.apache.brooklyn.entity.stock.BasicApplication;
+import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts;
+import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
+import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecCmd;
+import org.apache.brooklyn.util.time.Duration;
 
 public class ConfigParametersYamlTest extends AbstractYamlTest {
     @SuppressWarnings("unused")
@@ -397,5 +401,36 @@ public class ConfigParametersYamlTest extends AbstractYamlTest {
             String keyName = entry.getKey()+"_key";
             assertEquals(entity.getEntityType().getConfigKey(keyName).getType(), entry.getValue());
         }
+    }
+
+    @Test
+    public void testConfigParameterWithEntitySpecAsDefault() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  items:",
+                "  - id: entity-with-keys",
+                "    item:",
+                "      type: "+TestEntity.class.getName(),
+                "      brooklyn.parameters:",
+                "      - name: my.param.key",
+                "        type: "+EntitySpec.class.getName(),
+                "        default: ",
+                "          $brooklyn:entitySpec:",
+                "          - type: "+BasicApplication.class.getName());
+
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: entity-with-keys");
+
+        Entity app = createStartWaitAndLogApplication(yaml);
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+
+        Object defaultVal = entity.config().get(entity.getEntityType().getConfigKey("my.param.key"));
+        assertTrue(defaultVal instanceof EntitySpec, "defaultVal="+defaultVal);
+        assertEquals(((EntitySpec<?>)defaultVal).getType(), BasicApplication.class, "defaultVal="+defaultVal);
+
+        Entity child = entity.addChild((EntitySpec<?>)defaultVal);
+        assertTrue(child instanceof BasicApplication, "child="+child);
     }
 }

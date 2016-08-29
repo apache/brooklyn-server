@@ -174,7 +174,7 @@ public class BasicSpecParameterFromListTest {
 
     private SpecParameter<?> parse(Object def) {
         BrooklynClassLoadingContext loader = JavaBrooklynClassLoadingContext.create(mgmt);
-        List<SpecParameter<?>> inputs = BasicSpecParameter.fromConfigList(ImmutableList.of(def), loader);
+        List<SpecParameter<?>> inputs = BasicSpecParameter.fromConfigList(ImmutableList.of(def), null, loader);
         return Iterables.getOnlyElement(inputs);
     }
 
