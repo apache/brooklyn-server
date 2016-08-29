@@ -18,32 +18,32 @@ brooklyn.catalog:
 
       brooklyn.parameters:
         - name: flannel.version
-          label: Flannel Version
+          label: "Flannel Version"
           description: |
             The Flannel version to install
           type: string
           default: "0.6.0"
-        - name: flannel.addressRange
-          label: Flannel Address Range
+        - name: flannel.network
+          label: "Flannel Network"
           description: |
-            The default storage driver for containers
+            The Flannel network CIDR
           type: string
           default: "10.0.0.0/8"
-        - name: flannel.subnetSize
-          label: Flannel Subnet Size
+        - name: flannel.subnet.size
+          label: "Flannel Subnet Size"
           description: |
             The size of the subnet CIDRs to be created
           type: integer
           default: 20
         - name: flannel.transport
-          label: Flannel Transport
+          label: "Flannel Transport"
           description: |
             The Flannel backend transport mechanism. Can be any of: 'udp',
             'vxlan', 'host-gw', 'aws-vpc', 'gce' or 'alloc'.
           type: string
           default: "udp"
         - name: etcd.client.version
-          label: Etcd Client Version
+          label: "Etcd Client Version"
           description: |
             The etcd client version to install
           type: string
@@ -59,8 +59,8 @@ brooklyn.catalog:
           ETCD_VERSION: $brooklyn:config("etcd.client.version")
           ETCD_ENDPOINTS: $brooklyn:config("etcd.endpoints")
           FLANNEL_VERSION: $brooklyn:config("flannel.version")
-          FLANNEL_ADDRESS_RANGE: $brooklyn:config("flannel.addressRange")
-          FLANNEL_SUBNET_SIZE: $brooklyn:config("flannel.subnetSize")
+          FLANNEL_ADDRESS_RANGE: $brooklyn:config("flannel.network")
+          FLANNEL_SUBNET_SIZE: $brooklyn:config("flannel.subnet.size")
           FLANNEL_TRANSPORT: $brooklyn:config("flannel.transport")
           RUN_DIR: $brooklyn:parent().attributeWhenReady("run.dir")
           HOST_ADDRESS: $brooklyn:parent().attributeWhenReady("host.address")
@@ -68,7 +68,7 @@ brooklyn.catalog:
 
         install.command: |
           sudo yum install -y wget
-          wget "https://github.com/coreos/flannel/releases/download/v${FLANNEL_VERSION}/flanneld-amd64"
+          wget https://github.com/coreos/flannel/releases/download/v${FLANNEL_VERSION}/flanneld-amd64
           chmod 755 flanneld-amd64
           sudo cp flanneld-amd64 /usr/bin/flanneld
           mkdir -p ${RUN_DIR}
@@ -77,12 +77,21 @@ brooklyn.catalog:
           sudo cp etcd-v${ETCD_VERSION}-linux-amd64/etcdctl /usr/bin
 
         customize.command: |
+          echo "[CLOCKER] Reset bridge and NAT configuration"
+          sudo ip link set dev docker0 down
+          sudo ip link delete docker0
+          sudo iptables -F -t nat
+
+          echo "[CLOCKER] Configure Flannel for ${FLANNEL_TRANSPORT}"
+          if [ "${FLANNEL_TRANSPORT}" == "vxlan" ] ; then
+            FLANNEL_TRANSPORT_OPTS=", \"VNI\":1"
+          fi
           cat > flannel.json <-EOF
           {
             "Network": "${FLANNEL_ADDRESS_RANGE}",
             "SubnetLen": ${FLANNEL_SUBNET_SIZE},
             "Backend": {
-              "Type": "${FLANNEL_TRANSPORT}"
+              "Type": "${FLANNEL_TRANSPORT}"${FLANNEL_TRANSPORT_OPTS}
             }
           }
           EOF
@@ -91,16 +100,49 @@ brooklyn.catalog:
             etcdctl set ${FLANNELD_ETCD_PREFIX} $(cat flannel.json)
           fi
 
+          sudo -E tee /usr/lib/systemd/system/flannel.service <<-EOF
+          [Unit]
+          Description=Flanneld overlay agent
+          After=network.target
+          Before=docker.service
+          [Service]
+          ExecStart=/usr/bin/flanneld \
+            -etcd-endpoints=${ETCD_ENDPOINTS} \
+            -etcd-prefix=${FLANNEL_ETCD_PREFIX} \
+            --ip-masq \
+            --subnet-file=${RUN_DIR}/flannel.env \
+            --public-ip=${HOST_ADDRESS} \
+          Type=notify
+          [Install]
+          WantedBy=multi-user.target
+          RequiredBy=docker.service
+          EOF
+
         launch.command: |
-          sudo nohup flanneld \
-            --etcd-endpoints=${ETCD_ENDPOINTS} \
-            -subnet-file=${RUN_DIR}/flannel.env \
-            -public-ip=${HOST_ADDRESS} \
-            -ip-masq=true \
-            > ${RUN_DIR}/flannel.out 2>&1 < /dev/null &
+          sudo systemctl daemon-reload
+          sudo systemctl enable flannel
+          sudo systemctl start flannel
 
         checkRunning.command: |
-          ps aux | grep -v grep | grep flanneld
+          sudo systemctl status flannel
+
+      brooklyn.initializers:
+        - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
+          brooklyn.config:
+            name: flannel.mtu
+            description: |
+              The MTU for the Flannel network
+            targetType: integer
+            command: |
+              . flannel.env && echo ${FLANNEL_MTU}
+        - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
+          brooklyn.config:
+            name: flannel.subnet
+            description: |
+              The Flannel subnet address range
+            targetType: string
+            command: |
+              . flannel.env && echo ${FLANNEL_SUBNET}
 
   - id: calico-cni-plugin
     name: "Calico CNI Plugin"
