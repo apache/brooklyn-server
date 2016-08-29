@@ -142,6 +142,12 @@ brooklyn.catalog:
       description: |
         Kubernetes master node
 
+      brooklyn.config:
+        kubernetes.url:
+          $brooklyn:attributeWhenReady("kubernetes.url")
+        kubernetes.endpoint:
+          $brooklyn:attributeWhenReady("kubernetes.endpoint")
+
       brooklyn.children:
         - type: kube-apiserver-service
           id: kube-apiserver
@@ -166,6 +172,7 @@ brooklyn.catalog:
             producer: $brooklyn:entity("kube-apiserver")
             propagating:
               - $brooklyn:sensor("kubernetes.url")
+              - $brooklyn:sensor("kubernetes.endpoint")
 
   - id: kubernetes-worker
     itemType: entity
@@ -186,8 +193,8 @@ brooklyn.catalog:
         shell.env:
           ETCD_VERSION: $brooklyn:config("etcd.version")
           KUBERNETES_VERSION: $brooklyn:config("kubernetes.version")
-          KUBERNETES_URL:
-            $brooklyn:entity("kubernetes-master").attributeWhenReady("kubernetes.url")
+          KUBERNETES_URL: $brooklyn:config("kubernetes.url")
+          KUBERNETES_ENDPOINT: $brooklyn:config("kubernetes.endpoint")
 
       brooklyn.children:
         - type: flannel-network-agent
@@ -323,7 +330,7 @@ brooklyn.catalog:
 
         customize.command: |
           sudo mkdir -p /etc/kubernetes/manifests
-          sudo -E too /etc/kubernetes/kubeconfig <<-EOF
+          sudo -E tee /etc/kubernetes/kubeconfig <<-EOF
           current-context: default
           apiVersion: v1
           clusters:
@@ -377,20 +384,166 @@ brooklyn.catalog:
       brooklyn.enrichers:
         - type: org.apache.brooklyn.enricher.stock.Transformer
           brooklyn.config:
-            uniqueTag: cluster-swarm-endpoint-publisher
+            uniqueTag: kubernetes-apiserver-endpoint-publisher
             enricher.triggerSensors:
               - $brooklyn:sensor("host.address")
               - $brooklyn:sensor("kubernetes.apiserver.port")
+            enricher.targetSensor: $brooklyn:sensor("kubernetes.endpoint")
+            enricher.targetValue:
+              $brooklyn:formatString:
+                - "%s:%d"
+                - $brooklyn:attributeWhenReady("host.address")
+                - $brooklyn:attributeWhenReady("kubernetes.apiserver.port")
+        - type: org.apache.brooklyn.enricher.stock.Transformer
+          brooklyn.config:
+            uniqueTag: kubernetes-apiserver-url-publisher
+            enricher.triggerSensors:
+              - $brooklyn:sensor("kubernetes.endpoint")
             enricher.targetSensor: $brooklyn:sensor("kubernetes.url")
             enricher.targetValue:
               $brooklyn:formatString:
-                - "http://%s:%d"
-                - $brooklyn:attributeWhenReady("host.address")
-                - $brooklyn:attributeWhenReady("kubernetes.apiserver.port")
+                - "http://%s"
+                - $brooklyn:attributeWhenReady("kubernetes.endpoint")
 
       brooklyn.config:
         kubernetes.service: "kube-apiserver"
 
         customize.command: |
           sudo -E tee /usr/lib/systemd/system/kube-apiserver.service <<-EOF
+          [Unit]
+          Description=Kubernetes API Server
+          Documentation=https://github.com/kubernetes/kubernetes
+          [Service]
+          ExecStart=/opt/kubernetes/bin/kube-apiserver \
+            --logtostderr=true \
+            --v=4 \
+            --etcd-servers=${ETCD_SERVERS} \
+            --insecure-bind-address=0.0.0.0 \
+            --insecure-port=8080 \
+            --advertise-address=${MASTER_IP} \
+            --allow-privileged=true \
+            --service-cluster-ip-range=${SERVICE_CLUSTER_IP_RANGE} \
+            --runtime-config=extensions/v1beta1=true,extensions/v1beta1/networkpolicies=true \
+            --admission-control=${ADMISSION_CONTROL}
+          Restart=on-failure
+          [Install]
+          WantedBy=multi-user.target
+
+  - id: kube-controller-manager-service
+    name: "Kubernetes Controller"
+    describtion: |
+      The Kubernetes controller-manager service
+    itemType: entity
+    item:
+      type: kubernetes-service
+
+      brooklyn.config:
+        kubernetes.service: "kube-controller-manager"
+
+        customize.command: |
+          sudo -E tee /usr/lib/systemd/system/kube-controller-manager.service <<-EOF
+          [Unit]
+          Description=Kubernetes Controller Manager
+          Documentation=https://github.com/kubernetes/kubernetes
+          [Service]
+          ExecStart=/opt/kubernetes/bin/kube-controller-manager \
+            --logtostderr=true \
+            --v=4 \
+            --master=${KUBERNETES_ENDPOINT} \
+            --kubeconfig=/etc/kubernetes/kubeconfig \
+            --allocate-node-cidrs=true \
+            --configure-cloud-routes=true \
+            --leader-elect=true \
+            --cluster-name=${CLUSTER_NAME} \
+            --cluster-cidr=${FLANNEL_NETWORK}
+          Restart=on-failure
+          [Install]
+          WantedBy=multi-user.target
           EOF
+
+  - id: kube-scheduler-service
+    name: "Kubernetes Scheduler"
+    describtion: |
+      The Kubernetes scheduler service
+    itemType: entity
+    item:
+      type: kubernetes-service
+
+      brooklyn.config:
+        kubernetes.service: "kube-scheduler"
+
+        customize.command: |
+          sudo -E tee /usr/lib/systemd/system/kube-scheduler.service <<-EOF
+          [Unit]
+          Description=Kubernetes Scheduler
+          Documentation=https://github.com/kubernetes/kubernetes
+          [Service]
+          ExecStart=/opt/kubernetes/bin/kube-scheduler \
+            --logtostderr=true \
+            --v=4 \
+            --leader-elect=true \
+            --master=${KUBERNETES_ENDPOINT}
+          Restart=on-failure
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+
+  - id: kubernetes-pod
+    name: "Kubernetes Pod"
+    description: |
+      A Kubernetes pod deployment
+    itemType: entity
+    item:
+      type: child-software-process
+
+      brooklyn.parameters:
+        - name: kubernetes.pod.definition
+          label: "Kubernetes Pod Definition"
+          type: string
+        - name: kubernetes.pod.namespace
+          label: "Kubernetes Pod Namespace"
+          type: string
+          default: "default"
+        - name: kubernetes.pod.name
+          label: "Kubernetes Pod Name"
+          type: string
+
+      brooklyn.config:
+        templates.install:
+          $brooklyn:config("kubernetes.pod.definition"): "pod.yaml"
+
+        shell.env:
+          POD: $brooklyn:config("kubernetes.pod.name")
+          NAMESPACE: $brooklyn:config("kubernetes.pod.namespace")
+
+        launch.command: |
+          kubectl create -f ${INSTALL_DIR}/pod.yaml
+
+        checkRunning.command: |
+          kubectl get pod --namespace=${NAMESPACE} | grep ${POD}
+
+  - id: kube-dns-pod
+    name: "KubeDNS Pod"
+    description: |
+      KubeDNS pod deployment
+    itemType: entity
+    item:
+      type: kubernetes-pod
+
+      brooklyn.config:
+        kubernetes.pod.name: "kubedns"
+        kubernetes.pod.definition: "classpath://kubernetes/kube-dns.yaml"
+        kubernetes.pod.namespace: "kube-system"
+
+  - id: kube-dashboard-pod
+    name: "Kubernetes Dashboard Pod"
+    description: |
+      Kubernetes dashboard pod deployment
+    itemType: entity
+    item:
+      type: kubernetes-pod
+
+      brooklyn.config:
+        kubernetes.pod.name: "kube-dashboard"
+        kubernetes.pod.definition: "classpath://kubernetes/kube-dashboard.yaml"
+        kubernetes.pod.namespace: "kube-system"
