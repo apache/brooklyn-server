@@ -42,6 +42,7 @@ brooklyn.catalog:
           provisioning.properties:
             osFamily: centos
             osVersionRegex: 7
+            loginUser: centos
 
     - id: haproxy-load-balancer-template
       name: "HAProxy Load Balancer"

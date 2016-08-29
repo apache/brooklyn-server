@@ -373,7 +373,7 @@ brooklyn.catalog:
       A docker-engine configured with resilience policies
     itemType: entity
     item:
-      type: docker-engine-with-tls
+      type: docker-engine-tls
 
       brooklyn.parameters:
         - name: swarm.recovery.stabilizationDelay

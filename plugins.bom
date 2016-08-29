@@ -62,31 +62,31 @@ brooklyn.catalog:
           FLANNEL_ADDRESS_RANGE: $brooklyn:config("flannel.network")
           FLANNEL_SUBNET_SIZE: $brooklyn:config("flannel.subnet.size")
           FLANNEL_TRANSPORT: $brooklyn:config("flannel.transport")
-          RUN_DIR: $brooklyn:parent().attributeWhenReady("run.dir")
           HOST_ADDRESS: $brooklyn:parent().attributeWhenReady("host.address")
           FLANNEL_ETCD_PREFIX: "/io.cloudsoft/clocker/flannel"
 
         install.command: |
-          sudo yum install -y wget
           wget https://github.com/coreos/flannel/releases/download/v${FLANNEL_VERSION}/flanneld-amd64
           chmod 755 flanneld-amd64
           sudo cp flanneld-amd64 /usr/bin/flanneld
-          mkdir -p ${RUN_DIR}
           wget https://github.com/coreos/etcd/releases/download/v${ETCD_VERSION}/etcd-v${ETCD_VERSION}-linux-amd64.tar.gz
           tar zxvf etcd-v${ETCD_VERSION}-linux-amd64.tar.gz etcd-v${ETCD_VERSION}-linux-amd64/etcdctl
           sudo cp etcd-v${ETCD_VERSION}-linux-amd64/etcdctl /usr/bin
+          sudo mkdir -p /var/run/flannel
 
         customize.command: |
           echo "[CLOCKER] Reset bridge and NAT configuration"
-          sudo ip link set dev docker0 down
-          sudo ip link delete docker0
+          ip link | grep docker0 && (
+            sudo ip link set dev docker0 down
+            sudo ip link delete docker0
+          )
           sudo iptables -F -t nat
 
           echo "[CLOCKER] Configure Flannel for ${FLANNEL_TRANSPORT}"
           if [ "${FLANNEL_TRANSPORT}" == "vxlan" ] ; then
             FLANNEL_TRANSPORT_OPTS=", \"VNI\":1"
           fi
-          cat > flannel.json <-EOF
+          cat > flannel.json <<-EOF
           {
             "Network": "${FLANNEL_ADDRESS_RANGE}",
             "SubnetLen": ${FLANNEL_SUBNET_SIZE},
@@ -95,9 +95,8 @@ brooklyn.catalog:
             }
           }
           EOF
-          network=$(etcdctl get ${FLANNELD_ETCD_PREFIX}/Network)
-          if [ -z "${network}" ] ; then
-            etcdctl set ${FLANNELD_ETCD_PREFIX} $(cat flannel.json)
+          if ! etcdctl --peers ${ETCD_ENDPOINTS} get ${FLANNEL_ETCD_PREFIX}/config ; then
+            etcdctl --peers ${ETCD_ENDPOINTS} mk ${FLANNEL_ETCD_PREFIX}/config < flannel.json
           fi
 
           sudo -E tee /usr/lib/systemd/system/flannel.service <<-EOF
@@ -110,7 +109,7 @@ brooklyn.catalog:
             -etcd-endpoints=${ETCD_ENDPOINTS} \
             -etcd-prefix=${FLANNEL_ETCD_PREFIX} \
             --ip-masq \
-            --subnet-file=${RUN_DIR}/flannel.env \
+            --subnet-file=/var/run/flannel/subnet.env \
             --public-ip=${HOST_ADDRESS}
           Type=notify
           [Install]
@@ -134,7 +133,7 @@ brooklyn.catalog:
               The MTU for the Flannel network
             targetType: integer
             command: |
-              . flannel.env && echo ${FLANNEL_MTU}
+              source /var/run/flannel/subnet.env && echo ${FLANNEL_MTU}
         - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
           brooklyn.config:
             name: flannel.subnet
@@ -142,7 +141,7 @@ brooklyn.catalog:
               The Flannel subnet address range
             targetType: string
             command: |
-              . flannel.env && echo ${FLANNEL_SUBNET}
+              source /var/run/flannel/subnet.env && echo ${FLANNEL_SUBNET}
 
   - id: calico-cni-plugin
     name: "Calico CNI Plugin"
@@ -184,6 +183,8 @@ brooklyn.catalog:
           CALICO_CNI_VERSION: $brooklyn:config("calico.cni.version")
           CNI_VERSION: $brooklyn:config("cni.version")
           ETCD_ENDPOINTS: $brooklyn:config("etcd.endpoints")
+          HOST_ADDRESS: $brooklyn:parent().attributeWhenReady("host.address")
+          ENTITY_ID: $brooklyn:parent().attributeWhenReady("entity.id")
 
         install.command: |
           wget https://github.com/projectcalico/calico-containers/releases/download/v${CALICO_VERSION}/calicoctl
@@ -202,24 +203,6 @@ brooklyn.catalog:
 
         customize.command: |
           sudo mkdir -p /etc/cni/net.d
-          sudo -E tee /etc/cni/net.d/10-calico.conf <<-EOF
-          {
-              "name": "calico",
-              "type": "flannel",
-              "delegate": {
-                  "type": "calico",
-                  "etcd_endpoints": "${ETCD_ENDPOINTS}"
-                  "log_level": "debug",
-                  "log_level_stderr": "info",
-                  "hostname": "${HOST_ADDRESS}",
-                  "policy": {
-                      "type": "k8s",
-                      "k8s_api_root": "${KUBERNETES_URL}/api/v1/"
-                  },
-                  "isDefaultGateway": true
-              }
-          }
-          EOF
 
         launch.command: |
           sudo -E tee /etc/systemd/system/calico-node.service <<-EOF
@@ -229,13 +212,22 @@ brooklyn.catalog:
           Requires=docker.service
           [Service]
           User=root
-          Environment=ETCD_ENDPOINTS=${ETCD_ENDPOINTS}
-          Environment=CALICO_NETWORKING=false
-          Environment=HOSTNAME=${HOST_ADDRESS}
-          Environment=FELIX_FELIXHOSTNAME=${HOST_ADDRESS}
-          Environment=NO_DEFAULT_POOLS=true
           PermissionsStartOnly=true
-          ExecStart=/usr/bin/calicoctl node --ip=${HOST_ADDRESS} --detach=false
+          ExecStart=/usr/bin/docker run \
+            --restart=always \
+            --net=host \
+            --privileged \
+            --name=calico-node \
+            -e IP=${HOST_ADDRESS} \
+            -e HOSTNAME=${ENTITY_ID} \
+            -e FELIX_FELIXHOSTNAME=${ENTITY_ID} \
+            -e CALICO_NETWORKING=false \
+            -e NO_DEFAULT_POOLS=true \
+            -e ETCD_ENDPOINTS=${ETCD_ENDPOINTS} \
+            -v /var/log/calico:/var/log/calico \
+            -v /lib/modules:/lib/modules \
+            -v /var/run/calico:/var/run/calico \
+            calico/node:v${CALICO_VERSION}
           Restart=always
           RestartSec=10
           [Install]
@@ -246,4 +238,6 @@ brooklyn.catalog:
           sudo systemctl start calico-node
 
         checkRunning.command: |
-          sudo systemctl status calico-node
+          unset DOCKER_HOST
+          sudo systemctl status calico-node &&
+            sudo -E calicoctl status
