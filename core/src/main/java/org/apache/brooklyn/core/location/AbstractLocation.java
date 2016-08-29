@@ -743,7 +743,7 @@ public abstract class AbstractLocation extends AbstractBrooklynObject implements
                 }
             }
         } catch (Exception e) {
-            LOG.error("Location extension can not be loaded {}", e);
+            LOG.error("Location extension can not be loaded (rethrowing): {}", new Object[] {e});
             throw Exceptions.propagate(e);
         }
     }
