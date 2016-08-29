@@ -240,7 +240,7 @@ brooklyn.catalog:
               curl -X POST --data-binary @${INSTALL_DIR}/csr.pem  ${CA_REQUEST_ROOT_URL}/sign > ${RUN_DIR}/cert.pem
               cat ${RUN_DIR}/key.pem >> ${RUN_DIR}/cert.pem
           brooklyn.initializers:
-            - type: org/apache/brooklyn/core/effector/ssh/SshCommandEffector
+            - type: org.apache.brooklyn.core.effector.ssh.SshCommandEffector
               brooklyn.config:
                 name: configureSwarm
                 description: |
@@ -248,7 +248,7 @@ brooklyn.catalog:
                 shell.env:
                   SWARM_ENDPOINTS:
                     $brooklyn:attributeWhenReady("swarm.endpoints")
-                update.command: |
+                command: |
                   cat > servers.conf <<-EOF
                   backend servers
                     balance roundrobin
