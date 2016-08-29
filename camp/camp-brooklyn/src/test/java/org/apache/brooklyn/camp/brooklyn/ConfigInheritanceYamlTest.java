@@ -202,18 +202,6 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                 "  brooklyn.config:",
                 "    shell.env:",
                 "      ENV1: myEnv1",
-                "    templates.preinstall:",
-                "      "+emptyFile.toUri()+": myfile",
-                "    files.preinstall:",
-                "      "+emptyFile.toUri()+": myfile",
-                "    templates.install:",
-                "      "+emptyFile.toUri()+": myfile",
-                "    files.install:",
-                "      "+emptyFile.toUri()+": myfile",
-                "    templates.runtime:",
-                "      "+emptyFile.toUri()+": myfile",
-                "    files.runtime:",
-                "      "+emptyFile.toUri()+": myfile",
                 "    provisioning.properties:",
                 "      mykey: myval",
                 "      templateOptions:",
@@ -227,7 +215,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
         assertEmptySoftwareProcessConfig(
                 entity,
                 ImmutableMap.of("ENV1", "myEnv1"),
-                ImmutableMap.of(emptyFile.toUri().toString(), "myfile"),
+                null,
                 ImmutableMap.of("mykey", "myval", "templateOptions", ImmutableMap.of("myOptionsKey", "myOptionsVal")));
     }
     

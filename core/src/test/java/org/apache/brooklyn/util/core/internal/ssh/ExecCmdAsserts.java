@@ -15,15 +15,16 @@
  */
 package org.apache.brooklyn.util.core.internal.ssh;
 
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 import java.util.List;
 
-import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecCmd;
-
 import com.google.common.annotations.Beta;
 import com.google.common.base.Predicate;
+
+import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecCmd;
 
 @Beta
 public class ExecCmdAsserts {
@@ -81,6 +82,28 @@ public class ExecCmdAsserts {
         if (!expected.apply(actual)) {
             fail(expected + " not matched by " + actual + (errMsg != null ? "; "+errMsg : ""));
         }
+    }
+
+    public static void assertExecHasNever(List<ExecCmd> actuals, String expectedCmd) {
+        assertExecHasExactly(actuals, expectedCmd, 0);
+    }
+
+    public static void assertExecHasOnlyOnce(List<ExecCmd> actuals, String expectedCmd) {
+        assertExecHasExactly(actuals, expectedCmd, 1);
+    }
+
+    public static void assertExecHasExactly(List<ExecCmd> actuals, String expectedCmd, int expectedCount) {
+        String errMsg = "actuals="+actuals+"; expected="+expectedCmd;
+        int count = 0;
+        for (ExecCmd actual : actuals) {
+            for (String subActual : actual.commands) {
+                if (subActual.matches(expectedCmd)) {
+                    count++;
+                    break;
+                }
+            }
+        }
+        assertEquals(count, expectedCount, errMsg);
     }
 
     public static ExecCmd findExecContaining(List<ExecCmd> actuals, String cmdRegex) {
