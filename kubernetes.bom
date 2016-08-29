@@ -70,6 +70,12 @@ brooklyn.catalog:
         start.timeout: 30m
 
       brooklyn.children:
+        - type: brooklyn-dns-etc-hosts-generator
+          id: etc-hosts-generator
+          name: "etc-hosts-generator"
+          brooklyn.config:
+            brooklyn_dns.domain: "brooklyn.local"
+            brooklyn_dns.hosts.address.sensor: $brooklyn:sensor("host.subnet.address")
         - type: ca-server
           id: ca-server
           name: "ca-server"
@@ -89,6 +95,7 @@ brooklyn.catalog:
             ca.request.root.url: $brooklyn:entity("ca-server").attributeWhenReady("main.uri")
             resources.preInstall.latch: $brooklyn:entity("ca-server").attributeWhenReady("service.isUp")
             launch.latch: $brooklyn:entity("etcd-cluster").attributeWhenReady("service.isUp")
+            brooklyn_dns.enabled: true
 
   - id: kubernetes-cluster
     name: "Kubernetes Cluster"
