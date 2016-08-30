@@ -183,7 +183,7 @@ public class BrooklynDslCommon {
         List<Object> factoryMethodArgs = (List<Object>) config.getStringKeyMaybe("factoryMethod.args").or(ImmutableList.of());
         Map<String,Object> objectFields = (Map<String, Object>) config.getStringKeyMaybe("object.fields").or(MutableMap.of());
         Map<String,Object> brooklynConfig = (Map<String, Object>) config.getStringKeyMaybe(BrooklynCampReservedKeys.BROOKLYN_CONFIG).or(MutableMap.of());
-        
+
         String mappedTypeName = DeserializingClassRenamesProvider.findMappedName(typeName);
         Class<?> type;
         try {
@@ -193,9 +193,6 @@ public class BrooklynDslCommon {
             return new DslObject(mappedTypeName, constructorArgs, objectFields, brooklynConfig);
         }
 
-        if (!Reflections.hasNoArgConstructor(type)) {
-            throw new IllegalStateException(String.format("Cannot construct %s bean: No public no-arg constructor available", type));
-        }
         if (resolved(constructorArgs) && resolved(factoryMethodArgs) && resolved(objectFields.values()) && resolved(brooklynConfig.values())) {
             if (factoryMethodName == null) {
                 return DslObject.create(type, constructorArgs, objectFields, brooklynConfig);
