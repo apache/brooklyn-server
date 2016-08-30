@@ -116,7 +116,7 @@ public interface JcloudsLocationConfig extends CloudLocationConfig {
     @Deprecated
     public static final ConfigKey<Boolean> OPEN_IPTABLES = ConfigKeys.newBooleanConfigKey("openIptables", 
             "[DEPRECATED - use openIptables on SoftwareProcess entity] Whether to open the INBOUND_PORTS via iptables rules; " +
-            "if true then ssh in to run iptables commands, as part of machine provisioning", false);
+            "if true then ssh in to run iptables commands, as part of machine provisioning", true);
 
     /**
      * @deprecated since 0.8.0; instead configure this on the entity. See SoftwareProcess.STOP_IPTABLES.
