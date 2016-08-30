@@ -33,7 +33,7 @@ limitations under the License.
     <reference id="configAdmin"
                interface="org.osgi.service.cm.ConfigurationAdmin" />
 
-    <cm:property-placeholder persistent-id="org.apache.brooklyn.osgilauncher" update-strategy="reload">
+    <cm:property-placeholder persistent-id="org.apache.brooklyn.osgilauncher" update-strategy="none">
         <cm:default-properties>
             <cm:property name="ignoreCatalogErrors" value="true" />
             <cm:property name="ignorePersistenceErrors" value="true" />
