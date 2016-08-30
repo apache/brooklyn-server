@@ -1,12 +1,12 @@
 brooklyn.catalog:
   id: brooklyn-kubernetes
-  version: 0.1
+  version: 10.1-SNAPSHOT
 
   items:
   - id: kubernetes-cluster-template
     name: "Kubernetes Cluster"
     description: |
-      TODO
+      "Kubernetes cluster with a master node and worker nodes"
     iconUrl: https://pbs.twimg.com/media/Bt_pEfqCAAAiVyz.png
     itemType: template
     item:
@@ -17,7 +17,7 @@ brooklyn.catalog:
   - id: kubernetes-cluster-application
     name: "Kubernetes Cluster"
     description: |
-      TODO
+      "Kubernetes cluster with a master node and worker nodes"
     iconUrl: https://pbs.twimg.com/media/Bt_pEfqCAAAiVyz.png
     itemType: entity
     item:
@@ -32,6 +32,10 @@ brooklyn.catalog:
           label: "Etcd Cluster Size"
           type: integer
           default: 1
+        - name: etcd.version
+          label: "Etcd Version"
+          type: string
+          default: 3.0.4
         - name: kubernetes.version
           label: "Kubernetes Version"
           type: string
@@ -43,7 +47,7 @@ brooklyn.catalog:
         - name: flannel.version
           label: "Flannel Version"
           type: string
-          default: 0.5.5
+          default: 0.6.0
         - name: docker.version
           label: "Docker Version"
           type: string
@@ -58,50 +62,43 @@ brooklyn.catalog:
           default: 1.3.1
 
       brooklyn.children:
+        - type: brooklyn-dns-etc-hosts-generator
+          id: etc-hosts-generator
+          name: "etc-hosts-generator"
         - type: etcd-cluster
+          id: etcd-cluster
           name: "etcd-cluster"
           brooklyn.config:
             initialSize: $brooklyn:config("etcd.initial.size")
+            etcd.client.port: 4001
+            etcd.cluster.name: "kubernetes"
+            provisioning.properties:
+              loginUser: ubuntu
         - type: kubernetes-master
+          id: kubernetes-master
           name: "kubernetes-master"
         - type: kubernetes-node-cluster
           name: "kubernetes-node-cluster"
 
-  - id: kubernetes-master
-    description: TODO
-    itemType: entity
-    item:
-      type: kubernetes-node
-      id: kubernetes-master
-      name: "kubernetes-master"
-      description: |
-        Kubernetes Master
-
-      brooklyn.config:
-        shell.env:
-          MASTER_IP: $brooklyn:attributeWhenReady("host.address")
-
-        post.install.command: |
-          echo "post install"
-
-        launch.command: |
-          echo "launch"
-
-        checkRunning.command: |
-          echo "checkRunning"
-
   - id: kubernetes-node
-    description: TODO
+    description: "Kubernetes worker node"
     itemType: entity
     item:
-      type: centos-software-process
-      id: kubernetes-node
+      type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
       name: "kubernetes-node"
       description: |
         Kubernetes Node
 
       brooklyn.config:
+        provisioning.properties:
+          osFamily: CentOS
+          osVersionRegex: 7
+          loginUser: centos
+
+        brooklyn_dns.enabled: true
+
         shell.env:
+          ETCD_VERSION: $brooklyn:config("etcd.version")
           KUBERNETES_VERSION: $brooklyn:config("kubernetes.version")
           CNI_VERSION: $brooklyn:config("cni.version")
           FLANNEL_VERSION: $brooklyn:config("flannel.version")
@@ -109,24 +106,576 @@ brooklyn.catalog:
           CALICO_VERSION: $brooklyn:config("calico.version")
           CALICO_CNI_VERSION: $brooklyn:config("calico.cni.version")
 
-          MASTER_IP: $brooklyn:entity("").attributeWhenReady("host.address")
+          CLUSTER_NAME: "amp"
 
-          ETCD_SERVERS: $brooklyn:formatString("http://%s:4001", attributeWhenReady("host.address"))
-          ETCD_AUTHORITY: $brooklyn:formatString("%s:4001", attributeWhenReady("host.address"))
+          MASTER_IP: $brooklyn:entity("kubernetes-master").attributeWhenReady("host.address")
+          NODE_IP: $brooklyn:attributeWhenReady("host.address")
+
+          ETCD_SERVERS: $brooklyn:component("etcd-cluster").attributeWhenReady("etcd.urls")
+          ETCD_AUTHORITY: $brooklyn:component("etcd-cluster").attributeWhenReady("etcd.endpoints")
 
           DOCKER_HOST: "tcp://127.0.0.1:4243"
+          SERVICE_CLUSTER_IP_RANGE: "192.168.3.0/24"
+          DNS_SERVICE_IP: "192.168.3.254"
+          FLANNEL_NET: "172.16.0.0/16"
+          ADMISSION_CONTROL: "NamespaceLifecycle,NamespaceExists,LimitRanger,SecurityContextDeny,ResourceQuota,AlwaysAdmit"
+
+        pre.install.command: |
+          # Install wget
+          sudo yum -y install wget
+
+          # Download
+          DOWNLOAD=/tmp/download
+          mkdir -p ${DOWNLOAD}
+          wget "https://github.com/coreos/flannel/releases/download/v${FLANNEL_VERSION}/flannel-v${FLANNEL_VERSION}-linux-amd64.tar.gz" -O ${DOWNLOAD}/flannel.tar
+          wget "https://github.com/coreos/etcd/releases/download/v${ETCD_VERSION}/etcd-v${ETCD_VERSION}-linux-amd64.tar.gz" -O ${DOWNLOAD}/etcd.tar.gz
+          wget "https://get.docker.com/builds/Linux/x86_64/docker-${DOCKER_VERSION}.tgz" -O ${DOWNLOAD}/docker.tar.gz
+
+          # Install binaries
+          sudo mkdir -p /opt/kubernetes/bin
+          sudo mkdir -p /opt/kubernetes/cfg
+
+          tar xf ${DOWNLOAD}/flannel.tar -C ${DOWNLOAD}
+          sudo cp ${DOWNLOAD}/flanneld /opt/kubernetes/bin
+
+          tar xzf ${DOWNLOAD}/etcd.tar.gz -C ${DOWNLOAD}
+          sudo cp ${DOWNLOAD}/etcd-v${ETCD_VERSION}-linux-amd64/etcd ${DOWNLOAD}/etcd-v${ETCD_VERSION}-linux-amd64/etcdctl /opt/kubernetes/bin
+
+          sudo tar --strip-components=1 -xvzf ${DOWNLOAD}/docker.tar.gz -C /opt/kubernetes/bin
+
+          for k8s_file in kube-apiserver kube-controller-manager kube-scheduler kube-proxy kubelet kubectl ; do
+            sudo wget -N -P /opt/kubernetes/bin https://storage.googleapis.com/kubernetes-release/release/v${KUBERNETES_VERSION}/bin/linux/amd64/${k8s_file}
+            sudo chmod +x /opt/kubernetes/bin/${k8s_file}
+          done
+
+          for file in /opt/kubernetes/bin/* ; do sudo ln -s ${file} /usr/bin/$(basename ${file}) ; done
 
         install.command: |
-          echo "install"
+          set +e
+          set -x
+
+          # Start Flannel
+          sudo iptables -F -t nat
+
+          sudo -E tee /usr/lib/systemd/system/flannel.service <<-EOF
+          [Unit]
+          Description=Flanneld overlay address etcd agent
+          After=network.target
+          Before=docker.service
+          [Service]
+          ExecStart=/opt/kubernetes/bin/flanneld \
+            --ip-masq \
+            --public-ip=${NODE_IP} \
+            -etcd-endpoints=${ETCD_SERVERS} \
+            -etcd-prefix=/coreos.com/network
+          Type=notify
+          [Install]
+          WantedBy=multi-user.target
+          RequiredBy=docker.service
+          EOF
+
+          # Store FLANNEL_NET to etcd.
+          while true; do
+            /opt/kubernetes/bin/etcdctl --no-sync -C ${ETCD_SERVERS} \
+              get /coreos.com/network/config >/dev/null 2>&1
+            if [[ "$?" == 0 ]]; then
+              break
+            else
+              if ((++attempt > 600 )); then
+                echo "timeout for waiting network config" > ~/kube/err.log
+                exit 2
+              fi
+              /opt/kubernetes/bin/etcdctl --no-sync -C ${ETCD_SERVERS} \
+                mk /coreos.com/network/config "{\"Network\":\"${FLANNEL_NET}\",\"Backend\":{\"Type\":\"vxlan\",\"VNI\":1}}" >/dev/null 2>&1
+              sleep 3
+            fi
+          done
+          wait
+
+          sudo systemctl daemon-reload
+          sudo systemctl enable flannel
+          sudo systemctl start flannel
+
+          while [ ! -f /run/flannel/subnet.env ] ; do sleep 10 ; done
+          . /run/flannel/subnet.env
+          export FLANNEL_NETWORK FLANNEL_SUBNET FLANNEL_MTU
+          sudo iptables -t nat -A POSTROUTING ! -d ${FLANNEL_NETWORK} -o eth0 -j MASQUERADE
+
+          # Start Docker
+          sudo -E tee /usr/lib/systemd/system/docker.service <<-EOF
+          [Unit]
+          Description=Docker Application Container Engine
+          Documentation=http://docs.docker.com
+          After=network.target flannel.service
+          Requires=flannel.service
+          [Service]
+          Type=notify
+          EnvironmentFile=-/run/flannel/subnet.env
+          WorkingDirectory=/opt/kubernetes/bin
+          ExecStart=/opt/kubernetes/bin/docker daemon \
+            -H tcp://127.0.0.1:4243 \
+            -H unix:///var/run/docker.sock \
+            --selinux-enabled=false \
+            --mtu=${FLANNEL_MTU} \
+            --bip=${FLANNEL_SUBNET} \
+            --ip-masq=false \
+            --iptables=false
+          LimitNOFILE=1048576
+          LimitNPROC=1048576
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          sudo systemctl daemon-reload
+          sudo systemctl enable docker
+          sudo systemctl start docker
+
+          # Install and Configure calico/node
+          sleep 60
+          sudo wget -N -P /usr/bin https://github.com/projectcalico/calico-containers/releases/download/v${CALICO_VERSION}/calicoctl
+          sudo chmod +x /usr/bin/calicoctl
+          sudo modprobe xt_set
+          sudo modprobe ip6_tables
+          sudo /home/core/calicoctl checksystem --fix
+          sudo -E tee /etc/systemd/system/calico-node.service <<-EOF
+          [Unit]
+          Description=calicoctl node
+          After=docker.service
+          Requires=docker.service
+          [Service]
+          User=root
+          Environment=ETCD_AUTHORITY=${ETCD_AUTHORITY}
+          Environment=CALICO_NETWORKING=false
+          Environment=HOSTNAME=${NODE_IP}
+          Environment=FELIX_FELIXHOSTNAME=${NODE_IP}
+          Environment=NO_DEFAULT_POOLS=true
+          PermissionsStartOnly=true
+          ExecStart=/usr/bin/calicoctl node --ip=${NODE_IP} --detach=false
+          Restart=always
+          RestartSec=10
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          sudo systemctl daemon-reload
+          sudo systemctl enable calico-node
+          sudo systemctl start calico-node
+
+          # Start Proxy
+          sudo -E tee /usr/lib/systemd/system/kube-proxy.service <<-EOF
+          [Unit]
+          Description=Kubernetes Proxy
+          After=network.target
+          [Service]
+          ExecStart=/opt/kubernetes/bin/kube-proxy \
+            --logtostderr=true \
+            --v=4 \
+            --masquerade-all=true \
+            --master=http://${MASTER_IP}:8080
+          Restart=on-failure
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          sudo systemctl daemon-reload
+          sudo systemctl enable kube-proxy
+          sudo systemctl start kube-proxy
+
+          # Install CNI
+          sudo mkdir -p /opt/cni/bin
+          sudo wget https://github.com/containernetworking/cni/releases/download/v${CNI_VERSION}/cni-v${CNI_VERSION}.tgz -O /tmp/download/cni.tgz
+          sudo tar --strip-components=1 -xvzf /tmp/download/cni.tgz -C /opt/cni/bin
+
+          # Configure Kubelet to use CNI Plugin
+          sudo mkdir -p /etc/cni/net.d
+          sudo -E tee /etc/cni/net.d/10-calico.conf <<-EOF
+          {
+              "name": "calico",
+              "type": "flannel",
+              "delegate": {
+                  "type": "calico",
+                  "etcd_authority": "${ETCD_AUTHORITY}",
+                  "log_level": "debug",
+                  "log_level_stderr": "info",
+                  "hostname": "${NODE_IP}",
+                  "policy": {
+                      "type": "k8s",
+                      "k8s_api_root": "http://${MASTER_IP}:8080/api/v1/"
+                  },
+                  "isDefaultGateway": true
+              }
+          }
+          EOF
+
+          sudo wget -N -P /opt/cni/bin https://github.com/projectcalico/calico-cni/releases/download/v${CALICO_CNI_VERSION}/calico
+          sudo chmod +x /opt/cni/bin/calico
+
+          if [ "${NODE_IP}" == "${MASTER_IP}" ] ; then
+              EXTRA_OPTS="--register-schedulable=false"
+          fi
+
+          # Start Kubelet
+          sudo mkdir -p /etc/kubernetes/manifests
+          sudo -E tee /etc/kubernetes/kubeconfig <<-EOF
+          current-context: default
+          apiVersion: v1
+          clusters:
+          - cluster:
+              api-version: v1
+              server: http://${MASTER_IP}:8080
+            name: ${CLUSTER_NAME}
+          EOF
+          sudo -E tee /usr/lib/systemd/system/kubelet.service <<-EOF
+          [Unit]
+          Description=Kubernetes Kubelet
+          After=docker.service
+          Requires=docker.service
+          [Service]
+          ExecStart=/usr/bin/kubelet \
+            --address=0.0.0.0 \
+            --allow-privileged=true \
+            --config=/etc/kubernetes/manifests \
+            --hostname-override=${NODE_IP} \
+            --api-servers=http://${MASTER_IP}:8080 \
+            --network-plugin-dir=/etc/cni/net.d \
+            --network-plugin=cni \
+            ${EXTRA_OPTS} \
+            --pod-cidr=${FLANNEL_SUBNET} \
+            --container-runtime=docker \
+            --reconcile-cidr=true \
+            --serialize-image-pulls=false \
+            --cluster-dns=${DNS_SERVICE_IP} \
+            --cluster-domain=cluster.local \
+            --logtostderr=true
+          Restart=always
+          RestartSec=10
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          sudo systemctl daemon-reload
+          sudo systemctl enable kubelet
+          sudo systemctl start kubelet
+
+          for service in flannel docker calico-node kube-proxy kubelet; do
+              sudo systemctl status ${service}
+          done
+
+          kubectl config set-cluster ${CLUSTER_NAME} --server=http://${MASTER_IP}:8080
+          kubectl config set-context default --cluster=${CLUSTER_NAME}
+          kubectl config use-context default
+          kubectl config view | sudo tee /etc/kubeconfig
 
         launch.command: |
+          # TODO actually launch services here
           echo "launch"
 
         checkRunning.command: |
-          echo "checkRunning"
+          # Check all running services in aggregate
+          sudo systemctl status kubelet
+
+  - id: kubernetes-master
+    description: "Kubernetes master node"
+    itemType: entity
+    item:
+      type: kubernetes-node
+      name: "kubernetes-master"
+      description: |
+        Kubernetes Master
+
+      brooklyn.config:
+        install.latch: $brooklyn:component("etcd-cluster").attributeWhenReady("service.isUp")
+
+        post.install.command: |
+          set +e
+          set -x
+
+          . /run/flannel/subnet.env
+          export FLANNEL_NETWORK FLANNEL_SUBNET
+          sudo -E calicoctl pool add ${FLANNEL_NETWORK} --nat-outgoing
+
+          # Start API Server
+          sudo -E tee /usr/lib/systemd/system/kube-apiserver.service <<-EOF
+          [Unit]
+          Description=Kubernetes API Server
+          Documentation=https://github.com/kubernetes/kubernetes
+          [Service]
+          ExecStart=/opt/kubernetes/bin/kube-apiserver \
+            --logtostderr=true \
+            --v=4 \
+            --etcd-servers=${ETCD_SERVERS} \
+            --insecure-bind-address=0.0.0.0 \
+            --insecure-port=8080 \
+            --advertise-address=${MASTER_IP} \
+            --allow-privileged=true \
+            --service-cluster-ip-range=${SERVICE_CLUSTER_IP_RANGE} \
+            --runtime-config=extensions/v1beta1=true,extensions/v1beta1/networkpolicies=true \
+            --admission-control=${ADMISSION_CONTROL}
+          Restart=on-failure
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          sudo systemctl daemon-reload
+          sudo systemctl enable kube-apiserver
+          sudo systemctl start kube-apiserver
+
+          # Start Controller Manager
+          sudo -E tee /usr/lib/systemd/system/kube-controller-manager.service <<-EOF
+          [Unit]
+          Description=Kubernetes Controller Manager
+          Documentation=https://github.com/kubernetes/kubernetes
+          [Service]
+          ExecStart=/opt/kubernetes/bin/kube-controller-manager \
+            --logtostderr=true \
+            --v=4 \
+            --master=${MASTER_IP}:8080 \
+            --kubeconfig=/etc/kubernetes/kubeconfig \
+            --allocate-node-cidrs=true \
+            --configure-cloud-routes=true \
+            --leader-elect=true \
+            --cluster-name=${CLUSTER_NAME} \
+            --cluster-cidr=${FLANNEL_NETWORK}
+          Restart=on-failure
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          sudo systemctl daemon-reload
+          sudo systemctl enable kube-controller-manager
+          sudo systemctl start kube-controller-manager
+
+          # Start Scheduler
+          sudo -E tee /usr/lib/systemd/system/kube-scheduler.service <<-EOF
+          [Unit]
+          Description=Kubernetes Scheduler
+          Documentation=https://github.com/kubernetes/kubernetes
+          [Service]
+          ExecStart=/opt/kubernetes/bin/kube-scheduler \
+            --logtostderr=true \
+            --v=4 \
+            --leader-elect=true \
+            --master=${MASTER_IP}:8080
+          Restart=on-failure
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          sudo systemctl daemon-reload
+          sudo systemctl enable kube-scheduler
+          sudo systemctl start kube-scheduler
+
+          # Create various system pods
+          sleep 30
+          kubectl create ns calico-system
+          mkdir ~/pods
+
+          # Calico policy controller
+          cat > ~/pods/policy-controller.yaml <<-EOF
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: policy-controller
+            namespace: calico-system
+            labels:
+              version: "latest"
+              projectcalico.org/app: "policy-controller"
+          spec:
+            hostNetwork: true
+            containers:
+              - name: policy-controller
+                image: calico/kube-policy-controller:latest
+                env:
+                  - name: ETCD_ENDPOINTS
+                    value: "${ETCD_SERVERS}"
+                  - name: K8S_API
+                    value: "http://${MASTER_IP}:8080"
+                  - name: LEADER_ELECTION
+                    value: "true"
+              - name: leader-elector
+                image: quay.io/calico/leader-elector:v0.1.0
+                imagePullPolicy: IfNotPresent
+                args:
+                  - "--election=calico-policy-election"
+                  - "--election-namespace=calico-system"
+                  - "--http=127.0.0.1:4040"
+          EOF
+          sudo cp ~/pods/policy-controller.yaml /etc/kubernetes/manifests
+          sleep 10
+          kubectl get pods --namespace=calico-system
+
+          # DNS Add-on
+          cat > ~/pods/dns-addon.yaml <<-EOF
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: kube-dns
+            namespace: kube-system
+            labels:
+              k8s-app: kube-dns
+              kubernetes.io/cluster-service: "true"
+              kubernetes.io/name: "KubeDNS"
+          spec:
+            selector:
+              k8s-app: kube-dns
+            clusterIP: ${DNS_SERVICE_IP}
+            ports:
+            - name: dns
+              port: 53
+              protocol: UDP
+            - name: dns-tcp
+              port: 53
+              protocol: TCP
+          ---
+          apiVersion: v1
+          kind: ReplicationController
+          metadata:
+            name: kube-dns-v17.1
+            namespace: kube-system
+            labels:
+              k8s-app: kube-dns
+              version: v17.1
+              kubernetes.io/cluster-service: "true"
+          spec:
+            replicas: 1
+            selector:
+              k8s-app: kube-dns
+              version: v17.1
+            template:
+              metadata:
+                labels:
+                  k8s-app: kube-dns
+                  version: v17.1
+                  kubernetes.io/cluster-service: "true"
+              spec:
+                containers:
+                - name: kubedns
+                  image: gcr.io/google_containers/kubedns-amd64:1.5
+                  resources:
+                    limits:
+                      cpu: 100m
+                      memory: 170Mi
+                    requests:
+                      cpu: 100m
+                      memory: 70Mi
+                  livenessProbe:
+                    httpGet:
+                      path: /healthz
+                      port: 8080
+                      scheme: HTTP
+                    initialDelaySeconds: 60
+                    timeoutSeconds: 5
+                    successThreshold: 1
+                    failureThreshold: 5
+                  readinessProbe:
+                    httpGet:
+                      path: /readiness
+                      port: 8081
+                      scheme: HTTP
+                    initialDelaySeconds: 30
+                    timeoutSeconds: 5
+                  args:
+                  - --domain=cluster.local.
+                  - --dns-port=10053
+                  - --kube-master-url=http://${MASTER_IP}:8080
+                  ports:
+                  - containerPort: 10053
+                    name: dns-local
+                    protocol: UDP
+                  - containerPort: 10053
+                    name: dns-tcp-local
+                    protocol: TCP
+                - name: dnsmasq
+                  image: gcr.io/google_containers/kube-dnsmasq-amd64:1.3
+                  args:
+                  - --cache-size=1000
+                  - --no-resolv
+                  - --server=127.0.0.1#10053
+                  ports:
+                  - containerPort: 53
+                    name: dns
+                    protocol: UDP
+                  - containerPort: 53
+                    name: dns-tcp
+                    protocol: TCP
+                - name: healthz
+                  image: gcr.io/google_containers/exechealthz-amd64:1.1
+                  resources:
+                    limits:
+                      cpu: 10m
+                      memory: 50Mi
+                    requests:
+                      cpu: 10m
+                      memory: 50Mi
+                  args:
+                  - -cmd=nslookup kubernetes.default.svc.cluster.local 127.0.0.1 >/dev/null && nslookup kubernetes.default.svc.cluster.local 127.0.0.1:10053 >/dev/null
+                  - -port=8080
+                  - -quiet
+                  ports:
+                  - containerPort: 8080
+                    protocol: TCP
+                dnsPolicy: Default  # Don't use cluster DNS.
+          EOF
+          kubectl create -f ~/pods/dns-addon.yaml
+          sleep 10
+          kubectl get pods --namespace=kube-system
+
+          # Dashboard
+          cat > ~/pods/kube-dashboard.yaml <<-EOF
+          kind: Deployment
+          apiVersion: extensions/v1beta1
+          metadata:
+            labels:
+              app: kubernetes-dashboard
+              version: v1.4.0-beta1
+            name: kubernetes-dashboard
+            namespace: kube-system
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: kubernetes-dashboard
+            template:
+              metadata:
+                labels:
+                  app: kubernetes-dashboard
+              spec:
+                containers:
+                - name: kubernetes-dashboard
+                  image: gcr.io/google_containers/kubernetes-dashboard-amd64:v1.4.0-beta1
+                  imagePullPolicy: Always
+                  ports:
+                  - containerPort: 9090
+                    protocol: TCP
+                  args:
+                  - --apiserver-host=http://${MASTER_IP}:8080
+                  livenessProbe:
+                    httpGet:
+                      path: /
+                      port: 9090
+                    initialDelaySeconds: 30
+                    timeoutSeconds: 30
+          ---
+          kind: Service
+          apiVersion: v1
+          metadata:
+            labels:
+              app: kubernetes-dashboard
+            name: kubernetes-dashboard
+            namespace: kube-system
+          spec:
+            type: NodePort
+            ports:
+            - port: 80
+              targetPort: 9090
+            selector:
+              app: kubernetes-dashboard
+          EOF
+          kubectl create -f ~/pods/kube-dashboard.yaml
+          sleep 10
+          kubectl get pods --namespace=kube-system
+          dashboard_pod_id=$(kubectl get pods --namespace=kube-system | grep kubernetes-dashboard | awk '{ print $1; }')
+          kubectl port-forward ${dashboard_pod_id} 9090 --namespace=kube-system
+
+          for service in kube-apiserver kube-controller-manager kube-scheduler ; do
+              sudo systemctl status ${service}
+          done
 
   - id: kubernetes-node-cluster
-    description: TODO
+    description: "Kubernetes cluster with a master node and worker nodes"
     name: "Kubernetes Fabric Cluster"
     item:
       type: cluster
@@ -139,3 +688,6 @@ brooklyn.catalog:
         memberSpec:
           $brooklyn:entitySpec:
             type: kubernetes-node
+
+            brooklyn.config:
+              install.latch: $brooklyn:component("kubernetes-master").attributeWhenReady("service.isUp")
