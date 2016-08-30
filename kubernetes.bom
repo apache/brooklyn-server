@@ -1,12 +1,12 @@
 brooklyn.catalog:
   id: brooklyn-kubernetes
-  version: 10.1-SNAPSHOT
+  version: 2.0.0-SNAPSHOT
 
   items:
   - id: kubernetes-cluster-template
     name: "Kubernetes Cluster"
     description: |
-      "Kubernetes cluster with a master node and worker nodes"
+      Kubernetes cluster with a master node and worker nodes
     iconUrl: https://pbs.twimg.com/media/Bt_pEfqCAAAiVyz.png
     itemType: template
     item:
@@ -17,7 +17,7 @@ brooklyn.catalog:
   - id: kubernetes-cluster-application
     name: "Kubernetes Cluster"
     description: |
-      "Kubernetes cluster with a master node and worker nodes"
+      Kubernetes cluster with a master node and worker nodes
     iconUrl: https://pbs.twimg.com/media/Bt_pEfqCAAAiVyz.png
     itemType: entity
     item:
@@ -27,11 +27,15 @@ brooklyn.catalog:
         - name: kubernetes.initial.size
           label: "Kubernetes Cluster Size"
           type: integer
-          default: 1
+          default: 3
         - name: etcd.initial.size
           label: "Etcd Cluster Size"
           type: integer
-          default: 1
+          default: 3
+        - name: etcd.client.port
+          label: "Etcd Client Port"
+          type: port
+          default: 4001
         - name: etcd.version
           label: "Etcd Version"
           type: string
@@ -61,16 +65,15 @@ brooklyn.catalog:
           type: string
           default: 1.3.1
 
+      brooklyn.config:
+        start.timeout: 30m
+
       brooklyn.children:
-        - type: brooklyn-dns-etc-hosts-generator
-          id: etc-hosts-generator
-          name: "etc-hosts-generator"
         - type: etcd-cluster
           id: etcd-cluster
           name: "etcd-cluster"
           brooklyn.config:
             initialSize: $brooklyn:config("etcd.initial.size")
-            etcd.client.port: 4001
             etcd.cluster.name: "kubernetes"
             provisioning.properties:
               loginUser: ubuntu
@@ -91,11 +94,11 @@ brooklyn.catalog:
 
       brooklyn.config:
         provisioning.properties:
-          osFamily: CentOS
+          osFamily: centos
           osVersionRegex: 7
           loginUser: centos
-
-        brooklyn_dns.enabled: true
+          minRam: 4g
+          minCores: 2
 
         shell.env:
           ETCD_VERSION: $brooklyn:config("etcd.version")
@@ -107,20 +110,21 @@ brooklyn.catalog:
           CALICO_CNI_VERSION: $brooklyn:config("calico.cni.version")
 
           CLUSTER_NAME: "amp"
-
-          MASTER_IP: $brooklyn:entity("kubernetes-master").attributeWhenReady("host.address")
-          NODE_IP: $brooklyn:attributeWhenReady("host.address")
-
-          ETCD_SERVERS: $brooklyn:component("etcd-cluster").attributeWhenReady("etcd.urls")
-          ETCD_AUTHORITY: $brooklyn:component("etcd-cluster").attributeWhenReady("etcd.endpoints")
-
           DOCKER_HOST: "tcp://127.0.0.1:4243"
           SERVICE_CLUSTER_IP_RANGE: "192.168.3.0/24"
           DNS_SERVICE_IP: "192.168.3.254"
           FLANNEL_NET: "172.16.0.0/16"
           ADMISSION_CONTROL: "NamespaceLifecycle,NamespaceExists,LimitRanger,SecurityContextDeny,ResourceQuota,AlwaysAdmit"
 
+          MASTER_IP: $brooklyn:entity("kubernetes-master").attributeWhenReady("host.address")
+          NODE_IP: $brooklyn:attributeWhenReady("host.address")
+
+          ETCD_SERVERS: $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.urls")
+
         pre.install.command: |
+          HOSTNAME=$(hostname)
+          echo "${NODE_IP} ${HOSTNAME}" | sudo tee --append /etc/hosts > /dev/null
+
           # Install wget
           sudo yum -y install wget
 
@@ -154,7 +158,7 @@ brooklyn.catalog:
           set +e
           set -x
 
-          # Start Flannel
+          # Install Flannel
           sudo iptables -F -t nat
 
           sudo -E tee /usr/lib/systemd/system/flannel.service <<-EOF
@@ -191,7 +195,6 @@ brooklyn.catalog:
             fi
           done
           wait
-
           sudo systemctl daemon-reload
           sudo systemctl enable flannel
           sudo systemctl start flannel
@@ -201,7 +204,7 @@ brooklyn.catalog:
           export FLANNEL_NETWORK FLANNEL_SUBNET FLANNEL_MTU
           sudo iptables -t nat -A POSTROUTING ! -d ${FLANNEL_NETWORK} -o eth0 -j MASQUERADE
 
-          # Start Docker
+          # Install Docker
           sudo -E tee /usr/lib/systemd/system/docker.service <<-EOF
           [Unit]
           Description=Docker Application Container Engine
@@ -229,7 +232,7 @@ brooklyn.catalog:
           sudo systemctl enable docker
           sudo systemctl start docker
 
-          # Install and Configure calico/node
+          # Install Calico Node
           sleep 60
           sudo wget -N -P /usr/bin https://github.com/projectcalico/calico-containers/releases/download/v${CALICO_VERSION}/calicoctl
           sudo chmod +x /usr/bin/calicoctl
@@ -243,7 +246,7 @@ brooklyn.catalog:
           Requires=docker.service
           [Service]
           User=root
-          Environment=ETCD_AUTHORITY=${ETCD_AUTHORITY}
+          Environment=ETCD_ENDPOINTS=${ETCD_SERVERS}
           Environment=CALICO_NETWORKING=false
           Environment=HOSTNAME=${NODE_IP}
           Environment=FELIX_FELIXHOSTNAME=${NODE_IP}
@@ -259,7 +262,7 @@ brooklyn.catalog:
           sudo systemctl enable calico-node
           sudo systemctl start calico-node
 
-          # Start Proxy
+          # Install Proxy
           sudo -E tee /usr/lib/systemd/system/kube-proxy.service <<-EOF
           [Unit]
           Description=Kubernetes Proxy
@@ -291,7 +294,7 @@ brooklyn.catalog:
               "type": "flannel",
               "delegate": {
                   "type": "calico",
-                  "etcd_authority": "${ETCD_AUTHORITY}",
+                  "etcd_endpoints": "${ETCD_SERVERS}",
                   "log_level": "debug",
                   "log_level_stderr": "info",
                   "hostname": "${NODE_IP}",
@@ -311,7 +314,7 @@ brooklyn.catalog:
               EXTRA_OPTS="--register-schedulable=false"
           fi
 
-          # Start Kubelet
+          # Install Kubelet
           sudo mkdir -p /etc/kubernetes/manifests
           sudo -E tee /etc/kubernetes/kubeconfig <<-EOF
           current-context: default
@@ -353,22 +356,17 @@ brooklyn.catalog:
           sudo systemctl enable kubelet
           sudo systemctl start kubelet
 
-          for service in flannel docker calico-node kube-proxy kubelet; do
-              sudo systemctl status ${service}
-          done
-
           kubectl config set-cluster ${CLUSTER_NAME} --server=http://${MASTER_IP}:8080
           kubectl config set-context default --cluster=${CLUSTER_NAME}
           kubectl config use-context default
           kubectl config view | sudo tee /etc/kubeconfig
 
         launch.command: |
-          # TODO actually launch services here
-          echo "launch"
+          echo "launch.command"
 
         checkRunning.command: |
-          # Check all running services in aggregate
-          sudo systemctl status kubelet
+          ready=$(kubectl get node ${NODE_IP} -o jsonpath={.status.conditions[?\(@.type==\"Ready\"\)].status})
+          [ "${ready}" == "True" ]
 
   - id: kubernetes-master
     description: "Kubernetes master node"
@@ -380,7 +378,7 @@ brooklyn.catalog:
         Kubernetes Master
 
       brooklyn.config:
-        install.latch: $brooklyn:component("etcd-cluster").attributeWhenReady("service.isUp")
+        install.latch: $brooklyn:entity("etcd-cluster").attributeWhenReady("service.isUp")
 
         post.install.command: |
           set +e
@@ -610,8 +608,6 @@ brooklyn.catalog:
                 dnsPolicy: Default  # Don't use cluster DNS.
           EOF
           kubectl create -f ~/pods/dns-addon.yaml
-          sleep 10
-          kubectl get pods --namespace=kube-system
 
           # Dashboard
           cat > ~/pods/kube-dashboard.yaml <<-EOF
@@ -665,14 +661,6 @@ brooklyn.catalog:
               app: kubernetes-dashboard
           EOF
           kubectl create -f ~/pods/kube-dashboard.yaml
-          sleep 10
-          kubectl get pods --namespace=kube-system
-          dashboard_pod_id=$(kubectl get pods --namespace=kube-system | grep kubernetes-dashboard | awk '{ print $1; }')
-          kubectl port-forward ${dashboard_pod_id} 9090 --namespace=kube-system
-
-          for service in kube-apiserver kube-controller-manager kube-scheduler ; do
-              sudo systemctl status ${service}
-          done
 
   - id: kubernetes-node-cluster
     description: "Kubernetes cluster with a master node and worker nodes"
