@@ -103,7 +103,7 @@ public interface CloudLocationConfig {
         "Whether to require 64-bit OS images (true), 32-bit images (false), or either (null)");
     
     public static final ConfigKey<Object> MIN_RAM = new BasicConfigKey<Object>(Object.class, "minRam",
-        "Minimum amount of RAM, either as string (4gb) or number of MB (4096), for use in selecting the machine/hardware profile", null);
+        "Minimum amount of RAM, either as string (4gb) or number of MB (4096), for use in selecting the machine/hardware profile", "1gb");
     
     public static final ConfigKey<Integer> MIN_CORES = new BasicConfigKey<Integer>(Integer.class, "minCores",
         "Minimum number of cores, for use in selecting the machine/hardware profile", null);
