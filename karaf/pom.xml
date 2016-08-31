@@ -61,6 +61,7 @@
   <modules>
     <module>init</module>
     <module>jetty-config</module>
+    <module>httpcomponent-extension</module>
     <module>features</module>
     <module>commands</module>
   </modules>
