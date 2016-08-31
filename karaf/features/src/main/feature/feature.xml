@@ -220,8 +220,10 @@
         <feature>brooklyn-core</feature>
         <bundle dependency="true">mvn:io.cloudsoft.windows/winrm4j/${winrm4j.version}</bundle>
         <bundle dependency="true">mvn:io.cloudsoft.windows/winrm4j-client/${winrm4j.version}</bundle>
+        <bundle>mvn:org.apache.brooklyn/brooklyn-karaf-httpcomponents-extension/${project.version}</bundle>
         <feature>cxf-jaxws</feature>
         <feature>cxf-http-async</feature>
+        <feature>cxf-ws-addr</feature>
     </feature>
 
     <feature name="brooklyn-policy"  version="${project.version}" description="Brooklyn Policies">
