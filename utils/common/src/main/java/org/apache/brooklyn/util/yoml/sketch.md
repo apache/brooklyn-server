@@ -266,9 +266,6 @@ and the serializations defined for that type specify:
 * If it is a map with no `type` defined, `type: explicit-field` is added
 
 
-
-
-
 This allows the serialization rules defined on the specific type to kick in to handle `.key` or `.value` entries
 introduced but not removed. In the case of `explicit-field` (the default type, as shown in the rules above), 
 this will rename either such key `.value` to `field-name` (and give an error if `field-name` is already present). 
@@ -352,15 +349,28 @@ These are handled as a default set of aliases.
 ### Primitive types
 
 All Java primitive types are known, with their boxed and unboxed names,
-and the key `value` can be used to set a value. This is normally not necessary
-as where a primitive is expected routines will attempt coercion, but in some
-cases it is desired.  So for instance a red square could be defined as:
+along with `string`.  The key `value` can be used to set a value for these.
+It's not normally necessary to do this because the parser can usually detect
+these types and coercion will be applied wherever one is expected;
+it's only needed if the value needs coercing and the target type isn't implicit.
+For instance a red square with size 8 could be defined as:
 
 ```
 - type: shape
-  name:
+  color:
     type: string
     value: red
+  size:
+    type: int
+    value: 8
+```
+
+Or of course the more concise:
+
+```
+- type: shape
+  color: red
+  size: 8
 ```
 
 
@@ -462,7 +472,7 @@ If we have information about the generic types -- supplied e.g. with a type of `
 then coercion will be applied in either of the above syntaxes.
 
 
-### Where the accepted type is unknown
+### Where the expected type is unknown
 
 In some instances an expected type may be explicitly `java.lang.Object`, or it may be
 unknown (eg due to generics).  In these cases if no serialization rules are specified,
