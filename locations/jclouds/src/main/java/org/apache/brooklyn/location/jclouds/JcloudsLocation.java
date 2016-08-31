@@ -1647,10 +1647,11 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
         // Apply the template builder and options properties
         for (Map.Entry<ConfigKey<?>, CustomizeTemplateBuilder> entry : SUPPORTED_TEMPLATE_BUILDER_PROPERTIES.entrySet()) {
-            ConfigKey<?> name = entry.getKey();
-            CustomizeTemplateBuilder code = entry.getValue();
-            if (config.containsKey(name) && config.get(name) != null) {
-                code.apply(templateBuilder, config, config.get(name));
+            ConfigKey<?> key = entry.getKey();
+            Object val = config.containsKey(key) ? config.get(key) : key.getDefaultValue();
+            if (val != null) {
+                CustomizeTemplateBuilder code = entry.getValue();
+                code.apply(templateBuilder, config, val);
             }
         }
 

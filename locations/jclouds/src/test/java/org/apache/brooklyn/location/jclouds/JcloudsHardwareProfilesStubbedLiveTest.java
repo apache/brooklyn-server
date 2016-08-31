@@ -63,6 +63,10 @@ public class JcloudsHardwareProfilesStubbedLiveTest extends AbstractJcloudsStubb
 
     @Test(groups={"Live", "Live-sanity"})
     public void testJcloudsCreateWithHardwareProfiles() throws Exception {
+        // default minRam is 1gb (but default smallest VM in softlayer is 1024mb so not a particularly useful test!)
+        obtainMachine();
+        assertTrue(template.getHardware().getRam() >= 1000, "template="+template);
+        
         obtainMachine(MutableMap.of(JcloudsLocationConfig.MIN_RAM, "4096"));
         assertTrue(template.getHardware().getRam() >= 4096, "template="+template);
         
@@ -76,4 +80,5 @@ public class JcloudsHardwareProfilesStubbedLiveTest extends AbstractJcloudsStubb
         obtainMachine(MutableMap.of(JcloudsLocationConfig.HARDWARE_ID, hardwareId));
         assertEquals(template.getHardware().getId(), hardwareId, "template="+template);
     }
+    
 }
