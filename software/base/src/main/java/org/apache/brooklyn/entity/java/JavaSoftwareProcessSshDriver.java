@@ -278,16 +278,7 @@ public abstract class JavaSoftwareProcessSshDriver extends AbstractSoftwareProce
      * otherwise false.
      */
     protected boolean checkForAndInstallJava(String requiredVersion) {
-        int requiredJavaMinor;
-        if (requiredVersion.contains(".")) {
-            List<String> requiredVersionParts = Splitter.on(".").splitToList(requiredVersion);
-            requiredJavaMinor = Integer.valueOf(requiredVersionParts.get(1));
-        } else if (requiredVersion.length() == 1) {
-            requiredJavaMinor = Integer.valueOf(requiredVersion);
-        } else {
-            log.error("java version required {} is not supported", requiredVersion);
-            throw new IllegalArgumentException("Required java version " + requiredVersion + " not supported");
-        }
+        int requiredJavaMinor = getJavaMinorVersion(requiredVersion);
         Optional<String> installedJavaVersion = getInstalledJavaVersion();
         if (installedJavaVersion.isPresent()) {
             List<String> installedVersionParts = Splitter.on(".").splitToList(installedJavaVersion.get());
@@ -301,7 +292,26 @@ public abstract class JavaSoftwareProcessSshDriver extends AbstractSoftwareProce
         return tryJavaInstall(requiredVersion, BashCommands.installJava(requiredJavaMinor)) == 0;
     }
 
-    protected int tryJavaInstall(String version, String command) {
+    /**
+     * Converts a string java version to an int, so 1.7 becomes 7
+     * @param requiredVersion
+     * @return version
+     */
+    private int getJavaMinorVersion(String requiredVersion){
+        int requiredJavaMinor;
+        if (requiredVersion.contains(".")) {
+            List<String> requiredVersionParts = Splitter.on(".").splitToList(requiredVersion);
+            requiredJavaMinor = Integer.valueOf(requiredVersionParts.get(1));
+        } else if (requiredVersion.length() == 1) {
+            requiredJavaMinor = Integer.valueOf(requiredVersion);
+        } else {
+            log.error("java version required {} is not supported", requiredVersion);
+            throw new IllegalArgumentException("Required java version " + requiredVersion + " not supported");
+        }
+        return requiredJavaMinor;
+    }
+
+    private int tryJavaInstall(String version, String command) {
         getLocation().acquireMutex("installing", "installing Java at " + getLocation());
         try {
             log.debug("Installing Java {} at {}@{}", new Object[]{version, getEntity(), getLocation()});
@@ -378,10 +388,17 @@ public abstract class JavaSoftwareProcessSshDriver extends AbstractSoftwareProce
     public boolean installJava() {
         if (entity instanceof UsesJava) {
             String version = entity.getConfig(UsesJava.JAVA_VERSION_REQUIRED);
-            return checkForAndInstallJava(version);
+            if (checkForAndInstallJava(version)) return true;
+            String incrementedVersion = String.valueOf(getJavaMinorVersion(version)+1);
+
+            log.warn("Java {} install failed, trying Java {}", version, incrementedVersion);
+            return checkForAndInstallJava(incrementedVersion);
         }
         // by default it installs jdk7
-        return checkForAndInstallJava("1.7");
+        if (checkForAndInstallJava("1.7")) return true;
+        // alternatively try jdk8
+        log.warn("Java 1.7 install failed, trying Java 1.8");
+        return (checkForAndInstallJava("1.8"));
     }
 
     public void installJmxSupport() {
