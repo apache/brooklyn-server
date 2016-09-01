@@ -12,22 +12,35 @@ Here's an example:
 location:
   kubernetes:
     endpoint: "https://192.168.99.100:8443/"
-    identity: "test"
-    credential: "test"
 
 services:
 - type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
   name: Simple Netcat Server
-  env: { ROOT_PASS : password }
 
   brooklyn.config:
+    env:
+      ROOT_PASS: password
     provisioning.properties:
       inboundPorts: [22, 4321]
 
-  launch.command: |
-    echo hello | nc -l 4321 &
-    echo $! > $PID_FILE
+    launch.command: |
+      echo hello | nc -l 4321 &
+      echo $! > $PID_FILE
 ```
+
+For each entity AMP will create
+a [deployment](http://kubernetes.io/docs/user-guide/deployments/)
+containing a single [replica](http://kubernetes.io/docs/user-guide/replicasets/)
+of a [pod](http://kubernetes.io/docs/user-guide/pods/) containing a single
+SSHable container based on the `tutum/ubuntu` image. It will install and launch
+the entity in the typical AMP way. Each `inboundPort` will be exposed as a
+[NodePort service](http://kubernetes.io/docs/user-guide/services/#type-nodeport).
+
+To explain the config options:
+* `env` The `tutum/ubuntu` image uses an environment variable named `ROOT_PASS`
+   to assign the SSH login user password.
+* `inboundPorts` The set of ports that should be exposed by the service.
+
 
 ## DockerContainer based blueprints
 
@@ -38,28 +51,24 @@ Here's an example:
 location:
   kubernetes:
     endpoint: "https://192.168.99.100:8443/"
-    identity: "test"
-    credential: "test"
 
 services:
 - type: io.cloudsoft.amp.container.kubernetes.entity.KubernetesPod
   brooklyn.children:
   - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
     id: wordpress-mysql
+    name: MySQL
     brooklyn.config:
       docker.container.imageName: mysql:5.6
-      docker.container.inboundPorts: [ "3306" ]
+      docker.container.inboundPorts: [ 3306 ]
       env: { MYSQL_ROOT_PASSWORD: "password" }
       provisioning.properties:
         kubernetes.deployment: wordpress-mysql
   - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
     id: wordpress
+    name: Wordpress
     brooklyn.config:
       docker.container.imageName: wordpress:4.4-apache
-      docker.container.inboundPorts: [ "80" ]
+      docker.container.inboundPorts: [ 80 ]
       env: { WORDPRESS_DB_HOST: "wordpress-mysql", WORDPRESS_DB_PASSWORD: "password" }
 ```
-
-The implementation is as simple as possible, as you can see in the
-[kubernetes.bom](kubernetes.bom) definition of these entities.
-
