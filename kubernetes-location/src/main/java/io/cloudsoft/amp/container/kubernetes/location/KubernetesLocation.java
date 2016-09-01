@@ -129,7 +129,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         final String service = machine.config().get(SERVICE);
 
         client.extensions().deployments().inNamespace(namespace).withName(deployment).delete();
-        Callable exitCondition = new Callable<Boolean>() {
+        Callable<Boolean> exitCondition = new Callable<Boolean>() {
             @Override
             public Boolean call() {
                 return client.extensions().deployments().inNamespace(namespace).withName(deployment).get() == null;
@@ -153,7 +153,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         if (!namespace.equals("default") && isNamespaceEmpty(namespace)) {
             if (client.namespaces().withName(namespace).get() != null && !client.namespaces().withName(namespace).get().getStatus().getPhase().equals("Terminating")) {
                 client.namespaces().withName(namespace).delete();
-                Callable exitCondition = new Callable<Boolean>() {
+                Callable<Boolean> exitCondition = new Callable<Boolean>() {
                     @Override
                     public Boolean call() {
                         return client.namespaces().withName(namespace).get() == null;
@@ -211,7 +211,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
 
     private synchronized Namespace createOrGetNamespace(final String ns) {
         Namespace namespace = client.namespaces().withName(ns).get();
-        Callable namespaceReady = new Callable<Boolean>() {
+        Callable<Boolean> namespaceReady = new Callable<Boolean>() {
             @Override
             public Boolean call() {
                 return client.namespaces().withName(ns).get().getStatus().getPhase().equals("Active");
@@ -220,7 +220,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         if (namespace != null) {
             log.debug("Found namespace {}, returning it.", namespace);
         } else {
-            client.namespaces().create(new NamespaceBuilder().withNewMetadata().withName(ns).endMetadata().build());
+            namespace = client.namespaces().create(new NamespaceBuilder().withNewMetadata().withName(ns).endMetadata().build());
             log.debug("Created namespace {}.", namespace);
         }
         waitForExitCondition(namespaceReady);
@@ -256,7 +256,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 throw Throwables.propagate(e);
             }
         }
-        Callable exitCondition = new Callable<Boolean>() {
+        Callable<Boolean> exitCondition = new Callable<Boolean>() {
             @Override
             public Boolean call() {
                 return client.secrets().inNamespace(namespace).withName(secretName).get() != null;
@@ -318,7 +318,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 .endSpec()
                 .build();
         client.extensions().deployments().inNamespace(namespace).create(deployment);
-        Callable exitCondition = new Callable<Boolean>() {
+        Callable<Boolean> exitCondition = new Callable<Boolean>() {
             @Override
             public Boolean call() {
                 Deployment dep = client.extensions().deployments().inNamespace(namespace).withName(deploymentName).get();
@@ -343,7 +343,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 .endSpec()
                 .build();
         client.services().inNamespace(namespace).create(service);
-        Callable exitCondition = new Callable<Boolean>() {
+        Callable<Boolean> exitCondition = new Callable<Boolean>() {
             @Override
             public Boolean call() {
                 return client.services().inNamespace(namespace).withName(serviceName).get().getStatus() != null;
