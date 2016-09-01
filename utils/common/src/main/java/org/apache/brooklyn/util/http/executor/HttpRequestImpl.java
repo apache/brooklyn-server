@@ -35,7 +35,6 @@ import com.google.common.collect.Multimaps;
 @Beta
 public class HttpRequestImpl implements HttpRequest {
 
-    protected final boolean isHttps;
     protected final URI uri;
     protected final String method;
     protected final byte[] body;
@@ -44,7 +43,6 @@ public class HttpRequestImpl implements HttpRequest {
     protected final HttpConfig config;
 
     protected HttpRequestImpl(HttpRequest.Builder builder) {
-        this.isHttps = builder.isHttps;
         this.uri = checkNotNull(builder.uri, "uri");
         this.method = checkNotNull(builder.method, "method");
         this.body = builder.body;
@@ -53,10 +51,6 @@ public class HttpRequestImpl implements HttpRequest {
         this.config = builder.config;
     }
     
-    @Override
-    public boolean isHttps() {
-        return isHttps;
-    }
     @Override
     public URI uri() {
         return uri;

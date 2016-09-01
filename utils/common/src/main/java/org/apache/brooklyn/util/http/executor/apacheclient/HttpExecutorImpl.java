@@ -77,7 +77,6 @@ public class HttpExecutorImpl implements HttpExecutor {
         Credentials creds = (request.credentials() != null) ? new UsernamePasswordCredentials(request.credentials().username(), request.credentials().password()) : null;
         HttpClient httpClient = HttpTool.HttpClientBuilder.fromBuilder(baseBuilder)
                 .uri(request.uri())
-                .https(request.isHttps())
                 .credential(Optional.fromNullable(creds))
                 .laxRedirect(config.laxRedirect())
                 .trustSelfSigned(config.trustSelfSigned())

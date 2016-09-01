@@ -55,7 +55,7 @@ public class HttpExecutorFactoryImpl implements HttpExecutorFactory {
                 }
 
                 try {
-                    httpExecutor = (HttpExecutor) new ClassLoaderUtils(HttpExecutorFactoryImpl.class).loadClass(httpExecutorClass).getConstructor(Map.class).newInstance(httpExecutorProps);
+                    httpExecutor = (HttpExecutor) new ClassLoaderUtils(getClass()).loadClass(httpExecutorClass).getConstructor(Map.class).newInstance(httpExecutorProps);
                 } catch (Exception e) {
                     throw Exceptions.propagate(e);
                 }

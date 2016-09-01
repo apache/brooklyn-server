@@ -37,7 +37,6 @@ public interface HttpRequest {
     
     @Beta
     public static class Builder {
-        protected boolean isHttps;
         protected URI uri;
         protected String method;
         protected byte[] body;
@@ -45,11 +44,6 @@ public interface HttpRequest {
         protected Credentials.BasicAuth credentials;
         protected HttpConfig config;
 
-        public Builder isHttps(boolean val) {
-            isHttps = val;
-            return this;
-        }
-        
         public Builder uri(URI val) {
             uri = checkNotNull(val, "uri");
             return this;
@@ -102,8 +96,6 @@ public interface HttpRequest {
             return new HttpRequestImpl(this);
         }
     }
-    
-    boolean isHttps();
     
     URI uri();
 
