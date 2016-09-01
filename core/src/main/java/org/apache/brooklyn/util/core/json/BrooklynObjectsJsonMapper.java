@@ -20,6 +20,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import com.fasterxml.jackson.core.Version;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.datatype.guava.GuavaModule;
 
 public class BrooklynObjectsJsonMapper {
     public static ObjectMapper newMapper(ManagementContext mgmt) {
@@ -28,7 +29,7 @@ public class BrooklynObjectsJsonMapper {
 
         ObjectMapper mapper = new ObjectMapper();
         mapper.setSerializerProvider(sp);
-        mapper.setVisibilityChecker(new PossiblyStrictPreferringFieldsVisibilityChecker());
+        mapper.setVisibility(new PossiblyStrictPreferringFieldsVisibilityChecker());
 
         SimpleModule mapperModule = new SimpleModule("Brooklyn", new Version(0, 0, 0, "ignored", null, null));
 
@@ -36,8 +37,7 @@ public class BrooklynObjectsJsonMapper {
         new BidiSerialization.EntitySerialization(mgmt).install(mapperModule);
         new BidiSerialization.LocationSerialization(mgmt).install(mapperModule);
 
-        mapperModule.addSerializer(new MultimapSerializer());
-        mapper.registerModule(mapperModule);
+        mapper.registerModule(new GuavaModule()).registerModule(mapperModule);
         return mapper;
     }
 }
