@@ -103,7 +103,7 @@
         <kxml2.servicemix.version>2.3.0_3</kxml2.servicemix.version>
         <!-- double-check downstream projects before changing jackson and resteasy versions -->
         <fasterxml.jackson.version>2.7.5</fasterxml.jackson.version>
-        <resteasy.version>3.0.8.Final</resteasy.version>
+        <resteasy.version>3.0.14.Final</resteasy.version>
         <cxf.version>3.1.4</cxf.version>
         <httpclient.version>4.4.1</httpclient.version>
         <commons-lang3.version>3.3.2</commons-lang3.version>
