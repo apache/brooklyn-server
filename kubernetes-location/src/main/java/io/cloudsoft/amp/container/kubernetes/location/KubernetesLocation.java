@@ -434,8 +434,8 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         }
         else {
             Map<String, Object> allConfig = setup.getAllConfig();
-            if (allConfig.containsKey(INBOUND_PORTS)) {
-                return (Iterable<Integer>) allConfig.get(INBOUND_PORTS);
+            if (allConfig.containsKey(INBOUND_PORTS.getName())) {
+                return (Iterable<Integer>) allConfig.get(INBOUND_PORTS.getName());
             } else {
                 return ImmutableList.of(22);
             }
