@@ -32,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
@@ -301,7 +302,7 @@ public class HttpFeed extends AbstractFeed {
         } else {
             HttpExecutorFactory httpExecutorFactory = null;
             Collection<? extends Location> locations = Locations.getLocationsCheckingAncestors(builder.entity.getLocations(), builder.entity);
-            Maybe<Location> location =  Machines.findUniqueElement(locations, Location.class);
+            Maybe<MachineLocation> location =  Machines.findUniqueElement(locations, MachineLocation.class);
             if (location.isPresent() && location.get().hasExtension(HttpExecutorFactory.class)) {
                 httpExecutorFactory = location.get().getExtension(HttpExecutorFactory.class);
                 Map<String, Object> httpExecutorProps = location.get().getAllConfig(true);
@@ -402,7 +403,15 @@ public class HttpFeed extends AbstractFeed {
     @SuppressWarnings("unchecked")
     private HttpToolResponse createHttpToolRespose(HttpResponse response) throws IOException {
         int responseCode = response.code();
-        if (responseCode == 400) { // Unprocessable Entity - https://stackoverflow.com/questions/6123425/rest-response-code-for-invalid-data
+
+        /* From https://tools.ietf.org/html/rfc4918#section-11.2
+        The 422 (Unprocessable Entity) status code means the server
+        understands the content type of the request entity (hence a
+        415(Unsupported Media Type) status code is inappropriate), and the
+        syntax of the request entity is correct (thus a 400 (Bad Request)
+        status code is inappropriate) but was unable to process the contained
+        instructions. */
+        if (responseCode == 422) {
             throw new IOException(" Unprocessable Entity: " + response.reasonPhrase());
         }
         Map<String,? extends List<String>> headers = (Map<String, List<String>>) (Map<?, ?>) response.headers().asMap();
