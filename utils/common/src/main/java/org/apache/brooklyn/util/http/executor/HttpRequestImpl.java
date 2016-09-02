@@ -50,7 +50,16 @@ public class HttpRequestImpl implements HttpRequest {
         this.credentials = builder.credentials;
         this.config = builder.config;
     }
-    
+
+    public HttpRequestImpl(HttpRequestImpl httpRequest) {
+        this.uri = checkNotNull(httpRequest.uri, "uri");
+        this.method = checkNotNull(httpRequest.method, "method");
+        this.body = httpRequest.body;
+        this.headers = Multimaps.unmodifiableMultimap(ArrayListMultimap.create(checkNotNull(httpRequest.headers, "headers")));
+        this.credentials = httpRequest.credentials;
+        this.config = httpRequest.config;
+    }
+
     @Override
     public URI uri() {
         return uri;

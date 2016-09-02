@@ -34,7 +34,7 @@ public interface HttpRequest {
     
     // TODO Should we use InputStream for body (rather than byte[]). That would mean we don't have
     // to hold the entire body in-memory, which might be important for really big payloads!
-    
+
     @Beta
     public static class Builder {
         protected URI uri;
@@ -55,13 +55,13 @@ public interface HttpRequest {
         }
 
         /**
-         * This val must not be modified after being passed in - the object will be used while executing the request. 
+         * This val must not be modified after being passed in - the object will be used while executing the request.
          */
         public Builder body(@Nullable byte[] val) {
             body = val;
             return this;
         }
-        
+
         public Builder headers(Multimap<String, String> val) {
             headers.putAll(checkNotNull(val, "headers"));
             return this;
@@ -92,11 +92,21 @@ public interface HttpRequest {
             return this;
         }
 
+        public Builder from(HttpRequestImpl httpRequest) {
+            this.uri = checkNotNull(httpRequest.uri, "uri");
+            this.method = checkNotNull(httpRequest.method, "method");
+            this.body = httpRequest.body;
+            this.headers = ArrayListMultimap.create(checkNotNull(httpRequest.headers, "headers"));
+            this.credentials = httpRequest.credentials;
+            this.config = httpRequest.config;
+            return this;
+        }
+
         public HttpRequest build() {
             return new HttpRequestImpl(this);
         }
     }
-    
+
     URI uri();
 
     String method();
