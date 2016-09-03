@@ -23,7 +23,6 @@ import java.util.Map.Entry;
 
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
-import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.http.executor.apacheclient.HttpExecutorImpl;
 import org.apache.brooklyn.util.text.StringPredicates;
@@ -44,27 +43,24 @@ public class HttpExecutorFactoryImpl implements HttpExecutorFactory {
     public HttpExecutor getHttpExecutor(Map<?, ?> props) {
         HttpExecutor httpExecutor;
 
-        String httpExecutorClass = (String) props.get(HTTP_EXECUTOR_CLASS);
+        String httpExecutorClass = (String) props.get(HTTP_EXECUTOR_CLASS_CONFIG);
         if (httpExecutorClass != null) {
+            Map<String,Object> httpExecutorProps = MutableMap.of();
             Map<?, ?> executorProps = Maps.filterKeys(props, StringPredicates.isStringStartingWith(HTTP_EXECUTOR_CLASS_CONFIG_PREFIX));
             if (executorProps.size() > 0) {
-                Map<String, String> httpExecutorProps = MutableMap.of();
                 for (Entry<?, ?> entry: executorProps.entrySet()) {
                     String keyName = Strings.removeFromStart((String)entry.getKey(), HTTP_EXECUTOR_CLASS_CONFIG_PREFIX);
-                    httpExecutorProps.put(keyName, TypeCoercions.coerce(entry.getValue(), String.class));
+                    httpExecutorProps.put(keyName, entry.getValue());
                 }
-
-                try {
-                    httpExecutor = (HttpExecutor) new ClassLoaderUtils(getClass()).loadClass(httpExecutorClass).getConstructor(Map.class).newInstance(httpExecutorProps);
-                } catch (Exception e) {
-                    throw Exceptions.propagate(e);
-                }
-            } else {
-                LOG.error("Missing parameters for: " + HTTP_EXECUTOR_CLASS);
-                throw Exceptions.propagate(new IllegalArgumentException("Missing parameters for: " + HTTP_EXECUTOR_CLASS));
             }
+            try {
+                httpExecutor = (HttpExecutor) new ClassLoaderUtils(getClass()).loadClass(httpExecutorClass).getConstructor(Map.class).newInstance(httpExecutorProps);
+            } catch (Exception e) {
+                throw Exceptions.propagate(e);
+            }
+
         } else {
-            LOG.warn(HTTP_EXECUTOR_CLASS + " parameter not provided. Using the default implementation " + HttpExecutorImpl.class.getName());
+            LOG.info(HTTP_EXECUTOR_CLASS_CONFIG + " parameter not provided. Using the default implementation " + HttpExecutorImpl.class.getName());
             httpExecutor = HttpExecutorImpl.newInstance();
         }
 

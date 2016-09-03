@@ -22,7 +22,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.net.URI;
 
-import org.apache.brooklyn.util.http.executor.Credentials.BasicAuth;
+import org.apache.brooklyn.util.http.executor.Credentials;
 
 import com.google.common.annotations.Beta;
 import com.google.common.collect.ArrayListMultimap;
@@ -39,7 +39,7 @@ public class HttpRequestImpl implements HttpRequest {
     protected final String method;
     protected final byte[] body;
     protected final Multimap<String, String> headers;
-    protected final Credentials.BasicAuth credentials;
+    protected final Credentials credentials;
     protected final HttpConfig config;
 
     protected HttpRequestImpl(HttpRequest.Builder builder) {
@@ -81,7 +81,7 @@ public class HttpRequestImpl implements HttpRequest {
     }
     
     @Override
-    public BasicAuth credentials() {
+    public Credentials credentials() {
         return credentials;
     }
     

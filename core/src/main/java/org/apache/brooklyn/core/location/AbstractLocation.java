@@ -730,21 +730,21 @@ public abstract class AbstractLocation extends AbstractBrooklynObject implements
     }
 
     private void loadExtension() {
-        try {
-            Map<String, String> extensions = getConfig(LocationConfigKeys.EXTENSIONS);
-            if (extensions != null) {
-                for (Map.Entry<String, String> extension: extensions.entrySet()) {
+        Map<String, String> extensions = getConfig(LocationConfigKeys.EXTENSIONS);
+        if (extensions != null) {
+            for (Map.Entry<String, String> extension: extensions.entrySet()) {
+                try {
                     Class<?> extensionClassType =  new ClassLoaderUtils(this, getManagementContext()).loadClass(extension.getKey());
 
                     if (!hasExtension(extensionClassType)) {
                         Object extensionClass = new ClassLoaderUtils(this, getManagementContext()).loadClass(extension.getValue()).newInstance();
                         addExtension((Class)extensionClassType, extensionClass);
                     }
+                } catch (Exception e) {
+                    LOG.error("Location extension can not be loaded (rethrowing): {} {} {}", new Object[] {extension.getKey(), extension.getValue(), e});
+                    throw Exceptions.propagate(e);
                 }
             }
-        } catch (Exception e) {
-            LOG.error("Location extension can not be loaded (rethrowing): {}", new Object[] {e});
-            throw Exceptions.propagate(e);
         }
     }
 

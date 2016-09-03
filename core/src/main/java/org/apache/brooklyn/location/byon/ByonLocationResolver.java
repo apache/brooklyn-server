@@ -33,7 +33,6 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.location.AbstractLocationResolver;
-import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.mgmt.internal.LocalLocationManager;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
@@ -109,7 +108,6 @@ public class ByonLocationResolver extends AbstractLocationResolver {
         MutableMap<String, Object> defaultProps = MutableMap.of();
         defaultProps.addIfNotNull("user", user);
         defaultProps.addIfNotNull("port", port);
-        defaultProps.addIfNotNull(LocationConfigKeys.EXTENSIONS.getName(), config.get(LocationConfigKeys.EXTENSIONS));
 
         List<?> hostAddresses;
         

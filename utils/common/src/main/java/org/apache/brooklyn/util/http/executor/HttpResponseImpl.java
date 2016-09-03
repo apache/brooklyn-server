@@ -67,6 +67,7 @@ public class HttpResponseImpl implements HttpResponse {
         return headers;
     }
 
+    // TODO In the streaming case could have Content-Length set in the headers.
     @Override
     public long getContentLength() {
         return contentLength;

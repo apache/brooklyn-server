@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.util.Map;
 
 import org.apache.brooklyn.util.http.HttpTool;
-import org.apache.brooklyn.util.http.HttpTool.HttpClientBuilder;
 import org.apache.brooklyn.util.http.HttpToolResponse;
 import org.apache.brooklyn.util.http.executor.HttpConfig;
 import org.apache.brooklyn.util.http.executor.HttpExecutor;
@@ -47,35 +46,24 @@ public class HttpExecutorImpl implements HttpExecutor {
             .build();
 
     public static HttpExecutorImpl newInstance() {
-        return newInstance(HttpTool.httpClientBuilder());
+        return new HttpExecutorImpl();
     }
-    
-    /**
-     * This {@code baseBuilder} is used to construct a new {@link HttpClient} for each call to {@link #execute(HttpRequest)}.
-     * Callers are strongly discouraged from modifying the baseBuilder after passing it in!
-     */
-    public static HttpExecutorImpl newInstance(HttpTool.HttpClientBuilder baseBuilder) {
-        return new HttpExecutorImpl(baseBuilder);
-    }
-
-    private final HttpClientBuilder baseBuilder;
 
     /**
      * A must have constructor.
      */
     public HttpExecutorImpl(Map<?, ?> props) {
-        this(HttpTool.httpClientBuilder());
+        
     }
     
-    protected HttpExecutorImpl(HttpClientBuilder baseBuilder) {
-        this.baseBuilder = baseBuilder;
+    public HttpExecutorImpl() {
     }
 
     @Override
     public HttpResponse execute(HttpRequest request) throws IOException {
         HttpConfig config = (request.config() != null) ? request.config() : DEFAULT_CONFIG;
-        Credentials creds = (request.credentials() != null) ? new UsernamePasswordCredentials(request.credentials().username(), request.credentials().password()) : null;
-        HttpClient httpClient = HttpTool.HttpClientBuilder.fromBuilder(baseBuilder)
+        Credentials creds = (request.credentials() != null) ? new UsernamePasswordCredentials(request.credentials().getUser(), request.credentials().getPassword()) : null;
+        HttpClient httpClient = HttpTool.httpClientBuilder()
                 .uri(request.uri())
                 .credential(Optional.fromNullable(creds))
                 .laxRedirect(config.laxRedirect())
@@ -85,20 +73,20 @@ public class HttpExecutorImpl implements HttpExecutor {
         
         HttpToolResponse response;
         
-        switch (request.method().toLowerCase()) {
-        case "get":
+        switch (request.method().toUpperCase()) {
+        case HttpExecutor.GET:
             response = HttpTool.httpGet(httpClient, request.uri(), request.headers());
             break;
-        case "head":
+        case HttpExecutor.HEAD:
             response = HttpTool.httpHead(httpClient, request.uri(), request.headers());
             break;
-        case "post":
+        case HttpExecutor.POST:
             response = HttpTool.httpPost(httpClient, request.uri(), request.headers(), orEmpty(request.body()));
             break;
-        case "put":
+        case HttpExecutor.PUT:
             response = HttpTool.httpPut(httpClient, request.uri(), request.headers(), orEmpty(request.body()));
             break;
-        case "delete":
+        case HttpExecutor.DELETE:
             response = HttpTool.httpDelete(httpClient, request.uri(), request.headers());
             break;
         default:

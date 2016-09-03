@@ -20,6 +20,7 @@ package org.apache.brooklyn.feed.http;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URL;
@@ -44,13 +45,14 @@ import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.http.HttpToolResponse;
-import org.apache.brooklyn.util.http.executor.Credentials.BasicAuth;
+import org.apache.brooklyn.util.http.executor.UsernamePassword;
 import org.apache.brooklyn.util.http.executor.HttpConfig;
 import org.apache.brooklyn.util.http.executor.HttpExecutor;
 import org.apache.brooklyn.util.http.executor.HttpExecutorFactory;
 import org.apache.brooklyn.util.http.executor.HttpRequest;
 import org.apache.brooklyn.util.http.executor.HttpResponse;
 import org.apache.brooklyn.util.http.executor.apacheclient.HttpExecutorImpl;
+import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.http.auth.Credentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -61,6 +63,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.base.Throwables;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -370,9 +373,9 @@ public class HttpFeed extends AbstractFeed {
                 public HttpToolResponse call() throws Exception {
                     if (log.isTraceEnabled()) log.trace("http polling for {} sensors at {}", entity, pollInfo);
 
-                    BasicAuth creds = null;
+                    UsernamePassword creds = null;
                     if (pollInfo.credentials.isPresent()) {
-                        creds =  org.apache.brooklyn.util.http.executor.Credentials.basic(
+                        creds =  new UsernamePassword(
                                 pollInfo.credentials.get().getUserPrincipal().getName(),
                                 pollInfo.credentials.get().getPassword());
                     }
@@ -404,24 +407,29 @@ public class HttpFeed extends AbstractFeed {
     private HttpToolResponse createHttpToolRespose(HttpResponse response) throws IOException {
         int responseCode = response.code();
 
-        /* From https://tools.ietf.org/html/rfc4918#section-11.2
-        The 422 (Unprocessable Entity) status code means the server
-        understands the content type of the request entity (hence a
-        415(Unsupported Media Type) status code is inappropriate), and the
-        syntax of the request entity is correct (thus a 400 (Bad Request)
-        status code is inappropriate) but was unable to process the contained
-        instructions. */
-        if (responseCode == 422) {
-            throw new IOException(" Unprocessable Entity: " + response.reasonPhrase());
-        }
         Map<String,? extends List<String>> headers = (Map<String, List<String>>) (Map<?, ?>) response.headers().asMap();
 
-        return new HttpToolResponse(responseCode,
-                headers,
-                ByteStreams.toByteArray(response.getContent()),
-                System.currentTimeMillis(),
-                0,
-                0);
+        byte[] content = null;
+        final long durationMillisOfFirstResponse;
+        final long durationMillisOfFullContent;
+        final long startTime = System.currentTimeMillis();
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        durationMillisOfFirstResponse = Duration.sinceUtc(startTime).toMilliseconds();
+        try {
+            ByteStreams.copy(response.getContent(), out);
+            content = out.toByteArray();
+        } catch (IOException e) {
+            throw Throwables.propagate(e);
+        } finally {
+            Streams.closeQuietly(out);
+        }
+        durationMillisOfFullContent = Duration.sinceUtc(startTime).toMilliseconds();
+
+        return new HttpToolResponse(responseCode, headers, content,
+                startTime,
+                durationMillisOfFirstResponse,
+                durationMillisOfFullContent);
     }
 }
 

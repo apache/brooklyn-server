@@ -59,7 +59,7 @@ public class HttpExecutorImplTest {
         baseUrl = server.getUrl("/");
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun=true)
     public void afterMethod() throws Exception {
         if (server != null) server.shutdown();
     }
@@ -159,7 +159,7 @@ public class HttpExecutorImplTest {
         HttpRequest executorRequest = new HttpRequest.Builder().headers(ImmutableMap.of("RequestHeader", "RequestHeaderValue"))
                 .method("GET")
                 .uri(baseUrl.toURI())
-                .credentials(new Credentials.BasicAuth("brooklyn", "apache"))
+                .credentials(new UsernamePassword("brooklyn", "apache"))
                 .build();
         HttpResponse executorResponse = executor.execute(executorRequest);
 

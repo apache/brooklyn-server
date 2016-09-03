@@ -24,7 +24,19 @@ import java.io.IOException;
  * An abstraction for executing HTTP requests, allowing an appropriate implementation to be chosen.
  */
 public interface HttpExecutor {
-    
+    /**
+     * HTTP methods
+     */
+    static final String GET = "GET";
+
+    static final String HEAD = "HEAD";
+
+    static final String POST = "POST";
+
+    static final String PUT = "PUT";
+
+    static final String DELETE = "DELETE";
+
     /**
      * Synchronously send the request, and return its response.
      * 

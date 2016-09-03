@@ -41,7 +41,7 @@ public interface HttpRequest {
         protected String method;
         protected byte[] body;
         protected Multimap<String, String> headers = ArrayListMultimap.<String, String>create();
-        protected Credentials.BasicAuth credentials;
+        protected Credentials credentials;
         protected HttpConfig config;
 
         public Builder uri(URI val) {
@@ -82,7 +82,7 @@ public interface HttpRequest {
             return this;
         }
 
-        public Builder credentials(@Nullable Credentials.BasicAuth val) {
+        public Builder credentials(@Nullable Credentials val) {
             credentials = val;
             return this;
         }
@@ -120,7 +120,7 @@ public interface HttpRequest {
     Multimap<String, String> headers();
 
     @Nullable
-    Credentials.BasicAuth credentials();
+    Credentials credentials();
 
     /**
      * Additional optional configuration to customize how the call is done.

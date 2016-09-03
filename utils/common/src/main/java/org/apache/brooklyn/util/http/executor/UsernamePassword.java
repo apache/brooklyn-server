@@ -18,12 +18,24 @@
  */
 package org.apache.brooklyn.util.http.executor;
 
-import java.util.Map;
+import com.google.common.annotations.Beta;
 
-public interface HttpExecutorFactory {
-    public static final String HTTP_EXECUTOR_CLASS_CONFIG = "httpExecutorClass";
+@Beta
+public class UsernamePassword implements Credentials {
+    private final String username;
+    private final String password;
 
-    public static final String HTTP_EXECUTOR_CLASS_CONFIG_PREFIX = "httpExecutorClass.";
+    public UsernamePassword(String username, String password) {
+        this.username = username;
+        this.password = password;
+    }
 
-    HttpExecutor getHttpExecutor(Map<?, ?> props);
+    public String getUser() {
+        return username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
 }
+
