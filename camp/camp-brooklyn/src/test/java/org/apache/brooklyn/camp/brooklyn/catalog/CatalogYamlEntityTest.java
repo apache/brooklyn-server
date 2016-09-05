@@ -821,6 +821,28 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
                 "- type: cluster",
                 "- type: vanilla");
     }
+    
+    @Test(groups = "Broken")
+    public void testSameCatalogReferences() {
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  items:",
+            "  - id: referenced-entity",
+            "    item:",
+            "      services:",
+            "      - type: " + BasicEntity.class.getName(),
+            "  - id: referrer-entity",
+            "    item:",
+            "      services:",
+            "      - type: " + BasicApplication.class.getName(),
+            "        brooklyn.children:",
+            "        - type: referenced-entity",
+            "        brooklyn.config:",
+            "          spec: ",
+            "            $brooklyn:entitySpec:",
+            "              type: referenced-entity");
+
+    }
 
     @Test
     public void testItemWithBrooklynParameters() throws Exception {
