@@ -461,4 +461,14 @@ public class Exceptions {
         return appendSeparator(getPrefixText(t), t.getMessage());
     }
 
+    /** Returns true if the root cause is a "boring" CNF, ie a straightforward declaration that the clazz is not found;
+     * this permits callers to include the cause only when it is interesting, ie caused by a dependent class not loadable.
+     */
+    public static boolean isRootBoringClassNotFound(Exception e, String clazz) {
+        Throwable root = Throwables.getRootCause(e);
+        if (!(root instanceof ClassNotFoundException)) return false;
+        if (clazz.equals(root.getMessage())) return true;
+        return false;
+    }
+
 }

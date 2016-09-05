@@ -118,19 +118,24 @@ public class RegisteredTypes {
         return addSuperType(new BasicRegisteredType(RegisteredTypeKind.SPEC, symbolicName, version, plan), superType);
     }
 
-    /** returns the {@link Class} object corresponding to the given java type name,
-     * using the cache on the type and the loader defined on the type
-     * @param mgmt */
+    /** returns the {@link Class} object corresponding to the given java type name and registered type,
+     * using the cache on the type in the first instance, falling back to the loader defined the type and context. */
     @Beta
     // TODO should this be on the AbstractTypePlanTransformer ?
     public static Class<?> loadActualJavaType(String javaTypeName, ManagementContext mgmt, RegisteredType type, RegisteredTypeLoadingContext context) {
-        Class<?> result = ((BasicRegisteredType)type).getCache().get(ACTUAL_JAVA_TYPE);
+        Class<?> result = peekActualJavaType(type);
         if (result!=null) return result;
         
         result = CatalogUtils.newClassLoadingContext(mgmt, type, context==null ? null : context.getLoader()).loadClass( javaTypeName );
         
-        ((BasicRegisteredType)type).getCache().put(ACTUAL_JAVA_TYPE, result);
+        cacheActualJavaType(type, result);
         return result;
+    }
+    @Beta public static Class<?> peekActualJavaType(RegisteredType type) {
+        return ((BasicRegisteredType)type).getCache().get(ACTUAL_JAVA_TYPE);
+    }
+    @Beta public static void cacheActualJavaType(RegisteredType type, Class<?> clazz) {
+        ((BasicRegisteredType)type).getCache().put(ACTUAL_JAVA_TYPE, clazz);
     }
 
     @Beta
@@ -372,7 +377,7 @@ public class RegisteredTypes {
         }
 
         if (context!=null) {
-            if (context.getExpectedKind()!=RegisteredTypeKind.BEAN)
+            if (context.getExpectedKind()!=null && context.getExpectedKind()!=RegisteredTypeKind.BEAN)
                 return Maybe.absent("Validating a bean when constraint expected "+context.getExpectedKind());
             if (context.getExpectedJavaSuperType()!=null && !context.getExpectedJavaSuperType().isInstance(object))
                 return Maybe.absent(object+" is not of the expected java supertype "+context.getExpectedJavaSuperType());

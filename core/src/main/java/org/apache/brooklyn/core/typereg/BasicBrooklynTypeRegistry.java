@@ -247,8 +247,8 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     @Override
     public <T> T createBean(RegisteredType type, RegisteredTypeLoadingContext constraint, Class<T> optionalResultSuperType) {
         Preconditions.checkNotNull(type, "type");
-        if (type.getKind()!=RegisteredTypeKind.SPEC) { 
-            throw new IllegalStateException("Cannot create spec from type "+type+" (kind "+type.getKind()+")");
+        if (type.getKind()!=RegisteredTypeKind.BEAN) { 
+            throw new IllegalStateException("Cannot create bean from type "+type+" (kind "+type.getKind()+")");
         }
         if (constraint!=null) {
             if (constraint.getExpectedKind()!=null && constraint.getExpectedKind()!=RegisteredTypeKind.SPEC) {
@@ -268,9 +268,34 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     }
 
     @Override
-    public <T> T createBeanFromPlan(String planFormat, Object planData, RegisteredTypeLoadingContext optionalConstraint, Class<T> optionalBeanSuperType) {
+    public <T> T createBeanFromPlan(String planFormat, Object planData, RegisteredTypeLoadingContext optionalConstraint, Class<T> optionalSuperType) {
         return createBean(RegisteredTypes.bean(null, null, new BasicTypeImplementationPlan(planFormat, planData), null),
-            optionalConstraint, optionalBeanSuperType);
+            optionalConstraint, optionalSuperType);
+    }
+    
+    @Override
+    public <T> T create(RegisteredType type, RegisteredTypeLoadingContext constraint, Class<T> optionalResultSuperType) {
+        Preconditions.checkNotNull(type, "type");
+        if (type.getKind()==RegisteredTypeKind.BEAN) {
+            return createBean(type, constraint, optionalResultSuperType);
+        }
+        if (type.getKind()==RegisteredTypeKind.SPEC) {
+            @SuppressWarnings({ "unchecked", "rawtypes" })
+            T result = (T) createSpec(type, constraint, (Class)optionalResultSuperType);
+            return result;
+        }
+        throw new IllegalArgumentException("Kind-agnostic create method can only be used when the registered type declares its kind, which "+type+" does not");
+    }
+
+    @Override
+    public <T> T createFromPlan(Class<T> requiredSuperTypeHint, String planFormat, Object planData, RegisteredTypeLoadingContext optionalConstraint) {
+        if (AbstractBrooklynObjectSpec.class.isAssignableFrom(requiredSuperTypeHint)) {
+            @SuppressWarnings({ "unchecked", "rawtypes" })
+            T result = (T) createSpecFromPlan(planFormat, planData, optionalConstraint, (Class)requiredSuperTypeHint);
+            return result;
+        }
+        
+        return createBeanFromPlan(planFormat, planData, optionalConstraint, requiredSuperTypeHint);
     }
 
     @Beta // API is stabilising

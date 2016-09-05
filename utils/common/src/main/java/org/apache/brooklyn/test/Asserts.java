@@ -1113,6 +1113,18 @@ public class Asserts {
         }
     }
     
+    public static void assertStringDoesNotContain(String input, String phrase1ToNotContain, String ...optionalOtherPhrasesToNotContain) {
+        if (input==null) fail("Input is null.");
+        if (phrase1ToNotContain!=null) {
+            assertThat(input, Predicates.not(StringPredicates.containsLiteral(phrase1ToNotContain)));
+        }
+        for (String otherPhrase: optionalOtherPhrasesToNotContain) {
+            if (otherPhrase!=null) {
+                assertThat(input, Predicates.not(StringPredicates.containsLiteral(otherPhrase)));
+            }
+        }
+    }
+    
     public static void assertStringContainsAtLeastOne(String input, String possiblePhrase1ToContain, String ...optionalOtherPossiblePhrasesToContain) {
         if (input==null) fail("Input is null.");
         List<String> missing = MutableList.of();
@@ -1232,7 +1244,20 @@ public class Asserts {
         }
     }
 
-    /** Implements the return beahvior for {@link #expectedFailureOfType(Throwable, Class...)} and others. */
+    /** Tests {@link #expectedFailure(Throwable)} and that the <code>toString</code>
+     * satisfies {@link #assertStringContains(String, String, String...)}.
+     * @return as per {@link #expectedFailureOfType(Throwable, Class...)} */
+    public static void expectedFailureDoesNotContain(Throwable e, String phrase1ToNotContain, String ...optionalOtherPhrasesToNotContain) {
+        if (e instanceof ShouldHaveFailedPreviouslyAssertionError) throw (Error)e;
+        try {
+            assertStringDoesNotContain(e.toString(), phrase1ToNotContain, optionalOtherPhrasesToNotContain);
+        } catch (AssertionError ee) {
+            rethrowPreferredException(e, ee);
+        }
+    }
+    
+    /** Implements the return behavior for {@link #expectedFailureOfType(Throwable, Class...)} and others,
+     * to log interesting earlier errors but to suppress those which are internal or redundant. */
     private static void rethrowPreferredException(Throwable earlierPreferredIfFatalElseLogged, Throwable laterPreferredOtherwise) throws AssertionError {
         if (!(earlierPreferredIfFatalElseLogged instanceof AssertionError)) {
             Exceptions.propagateIfFatal(earlierPreferredIfFatalElseLogged);

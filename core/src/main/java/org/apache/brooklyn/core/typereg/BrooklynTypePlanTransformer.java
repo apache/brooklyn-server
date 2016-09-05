@@ -55,7 +55,10 @@ public interface BrooklynTypePlanTransformer extends ManagementContextInjectable
     /** 
      * Determines how appropriate is this transformer for the {@link RegisteredType#getPlan()} of the type.
      * The framework guarantees arguments are nonnull, and that the {@link RegisteredType#getPlan()} is also not-null.
-     * However the format in that plan may be null. 
+     * However many fields on the {@link RegisteredType} may be null,
+     * including {@link RegisteredType#getId()} for an ad hoc creation
+     * (eg if invoked from {@link BrooklynTypeRegistry#createBeanFromPlan(String, Object, RegisteredTypeLoadingContext, Class)})
+     *  
      * @return A co-ordinated score / confidence value in the range 0 to 1. 
      * 0 means not compatible, 
      * 1 means this is clearly the intended transformer and no others need be tried 
@@ -69,13 +72,13 @@ public interface BrooklynTypePlanTransformer extends ManagementContextInjectable
     /** Creates a new instance of the indicated type, or throws if not supported;
      * this method is used by the {@link BrooklynTypeRegistry} when it creates instances,
      * so implementations must respect the {@link RegisteredTypeKind} semantics and the {@link RegisteredTypeLoadingContext}
-     * if they return an instance.
+     * (or return null / throw).
      * <p>
      * The framework guarantees this will only be invoked when {@link #scoreForType(RegisteredType, RegisteredTypeLoadingContext)} 
-     * has returned a positive value.
+     * has returned a positive value, and the same constraints on the inputs as for that method apply.
      * <p>
      * Implementations should either return null or throw {@link UnsupportedTypePlanException} 
-     * if the {@link RegisteredType#getPlan()} is not supported. */
+     * if they cannot instantiate the given {@link RegisteredType#getPlan()}. */
     @Nullable Object create(@Nonnull RegisteredType type, @Nonnull RegisteredTypeLoadingContext context);
 
     // TODO sketch methods for loading *catalog* definitions.  note some potential overlap
