@@ -35,7 +35,11 @@ import org.slf4j.LoggerFactory;
 
 import static org.apache.brooklyn.location.jclouds.networking.NetworkingEffectors.*;
 
+/**
+ * @deprecated Please use {@link org.apache.brooklyn.location.jclouds.networking.SharedLocationSecurityGroupCustomizer}
+ */
 @Beta
+@Deprecated
 public class InboundPortsJcloudsLocationCustomizer extends BasicJcloudsLocationCustomizer {
     public static final Logger LOG = LoggerFactory.getLogger(InboundPortsJcloudsLocationCustomizer.class);
 

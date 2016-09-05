@@ -41,12 +41,14 @@ import org.jclouds.net.domain.IpPermission;
 import org.jclouds.net.domain.IpProtocol;
 import org.testng.annotations.Test;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 
 import static org.apache.brooklyn.location.jclouds.networking.NetworkingEffectors.INBOUND_PORTS_LIST;
 import static org.apache.brooklyn.location.jclouds.networking.NetworkingEffectors.INBOUND_PORTS_LIST_PROTOCOL;
 import static org.apache.brooklyn.test.Asserts.assertTrue;
+import static org.jclouds.net.domain.IpProtocol.ICMP;
 import static org.jclouds.net.domain.IpProtocol.TCP;
 import static org.jclouds.net.domain.IpProtocol.UDP;
 
@@ -67,37 +69,50 @@ public abstract class NetworkingEffectorsLiveTests extends BrooklynAppLiveTestSu
         String nodeId = ((JcloudsMachineLocation)jcloudsMachineLocation.get()).getNode().getId();
         final SecurityGroupExtension securityApi = computeService.getSecurityGroupExtension().get();
 
-        Effector<Iterable<IpPermission>> openPortsInSecurityGroup = (Effector<Iterable<IpPermission>>)EffectorUtils.findEffectorDeclared(emptySoftwareProcess, "openPortsInSecurityGroup").get();
-        Task<Iterable<IpPermission>> task = EffectorUtils.invokeEffectorAsync(emptySoftwareProcess, openPortsInSecurityGroup,
+        Effector<Collection<SecurityGroup>> openPortsInSecurityGroup = (Effector<Collection<SecurityGroup>>)EffectorUtils.findEffectorDeclared(emptySoftwareProcess, "openPortsInSecurityGroup").get();
+        Task<Collection<SecurityGroup>> task = EffectorUtils.invokeEffectorAsync(emptySoftwareProcess, openPortsInSecurityGroup,
                 ImmutableMap.of(INBOUND_PORTS_LIST.getName(), "234,324,550-1050"));
-        Iterable<IpPermission> effectorResult = task.getUnchecked();
-        for (Predicate<IpPermission> ipPermissionPredicate : ImmutableList.of(ruleExistsPredicate(234, 234, TCP), ruleExistsPredicate(324, 324, TCP), ruleExistsPredicate(550, 1050, TCP))) {
+        Collection<SecurityGroup> effectorResult = task.getUnchecked();
+        for (Predicate<SecurityGroup> ipPermissionPredicate : ImmutableList.of(ruleExistsPredicate(234, 234, TCP), ruleExistsPredicate(324, 324, TCP), ruleExistsPredicate(550, 1050, TCP))) {
             assertTrue(Iterables.tryFind(effectorResult, ipPermissionPredicate).isPresent());
         }
 
         task = EffectorUtils.invokeEffectorAsync(emptySoftwareProcess, openPortsInSecurityGroup,
                 ImmutableMap.of(INBOUND_PORTS_LIST.getName(), "234,324,550-1050", INBOUND_PORTS_LIST_PROTOCOL.getName(), "UDP"));
         effectorResult = task.getUnchecked();
-        for (Predicate<IpPermission> ipPermissionPredicate : ImmutableList.of(ruleExistsPredicate(234, 234, UDP), ruleExistsPredicate(324, 324, UDP), ruleExistsPredicate(550, 1050, UDP))) {
+        for (Predicate<SecurityGroup> ipPermissionPredicate : ImmutableList.of(ruleExistsPredicate(234, 234, UDP), ruleExistsPredicate(324, 324, UDP), ruleExistsPredicate(550, 1050, UDP))) {
             assertTrue(Iterables.tryFind(effectorResult, ipPermissionPredicate).isPresent());
         }
 
         Set<SecurityGroup> groupsOnNode = securityApi.listSecurityGroupsForNode(nodeId);
         SecurityGroup securityGroup = Iterables.getOnlyElement(groupsOnNode);
 
-        assertTrue(Iterables.tryFind(securityGroup.getIpPermissions(), ruleExistsPredicate(234, 234, TCP)).isPresent());
-        assertTrue(Iterables.tryFind(securityGroup.getIpPermissions(), ruleExistsPredicate(324, 324, TCP)).isPresent());
-        assertTrue(Iterables.tryFind(securityGroup.getIpPermissions(), ruleExistsPredicate(550, 1050, TCP)).isPresent());
+        assertTrue(ruleExistsPredicate(234, 234, TCP).apply(securityGroup));
+        assertTrue(ruleExistsPredicate(324, 324, TCP).apply(securityGroup));
+        assertTrue(ruleExistsPredicate(550, 1050, TCP).apply(securityGroup));
 
-        assertTrue(Iterables.tryFind(securityGroup.getIpPermissions(), ruleExistsPredicate(234, 234, UDP)).isPresent());
-        assertTrue(Iterables.tryFind(securityGroup.getIpPermissions(), ruleExistsPredicate(324, 324, UDP)).isPresent());
-        assertTrue(Iterables.tryFind(securityGroup.getIpPermissions(), ruleExistsPredicate(550, 1050, UDP)).isPresent());
+        assertTrue(ruleExistsPredicate(234, 234, UDP).apply(securityGroup));
+        assertTrue(ruleExistsPredicate(324, 324, UDP).apply(securityGroup));
+        assertTrue(ruleExistsPredicate(550, 1050, UDP).apply(securityGroup));
+
+        task = EffectorUtils.invokeEffectorAsync(emptySoftwareProcess, openPortsInSecurityGroup,
+                ImmutableMap.of(INBOUND_PORTS_LIST.getName(), "-1", INBOUND_PORTS_LIST_PROTOCOL.getName(), "ICMP"));
+        effectorResult = task.getUnchecked();
+        assertTrue(Iterables.tryFind(effectorResult, ruleExistsPredicate(-1, -1, ICMP)).isPresent());
+        groupsOnNode = securityApi.listSecurityGroupsForNode(nodeId);
+        securityGroup = Iterables.getOnlyElement(groupsOnNode);
+        assertTrue(ruleExistsPredicate(-1, -1, ICMP).apply(securityGroup));
     }
 
-    protected Predicate<IpPermission> ruleExistsPredicate(final int fromPort, final int toPort, final IpProtocol ipProtocol) {
-        return new Predicate<IpPermission>() {
-            public boolean apply(IpPermission ipPermission) {
-                return ipPermission.getFromPort() == fromPort && ipPermission.getToPort() == toPort && ipPermission.getIpProtocol() == ipProtocol;
+    protected Predicate<SecurityGroup> ruleExistsPredicate(final int fromPort, final int toPort, final IpProtocol ipProtocol) {
+        return new Predicate<SecurityGroup>() {
+            public boolean apply(SecurityGroup scipPermission) {
+                for (IpPermission ipPermission : scipPermission.getIpPermissions()) {
+                    if (ipPermission.getFromPort() == fromPort && ipPermission.getToPort() == toPort && ipPermission.getIpProtocol() == ipProtocol) {
+                        return true;
+                    }
+                }
+                return false;
             }
         };
     }

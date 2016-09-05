@@ -111,6 +111,14 @@ public class SharedLocationSecurityGroupCustomizerTest {
     }
 
     @Test
+    public void testInboundIcmpAddedToPermissions() {
+        customizer.setOpenIcmp(true);
+        when(sgCustomizer.getBrooklynCidrBlock()).thenReturn(Cidr.UNIVERSAL.toString());
+        customizer.customize(jcloudsLocation, computeService, mock(JcloudsMachineLocation.class));
+        assertPermissionsAdded(-1, -1, IpProtocol.ICMP);
+    }
+
+    @Test
     public void testInboundPortsAddedToPermissions() {
         when(mockOptions.getInboundPorts()).thenReturn(new int[]{5});
         when(sgCustomizer.getBrooklynCidrBlock()).thenReturn("10.10.10.10/24");
