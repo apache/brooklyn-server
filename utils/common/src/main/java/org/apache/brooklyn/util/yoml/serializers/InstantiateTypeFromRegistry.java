@@ -53,7 +53,7 @@ public class InstantiateTypeFromRegistry extends YomlSerializerComposition {
             Maybe<Object> resultM = config.getTypeRegistry().newInstanceMaybe((String)type, Yoml.newInstance(config));
             if (resultM.isAbsent()) {
                 Class<?> jt = config.getTypeRegistry().getJavaType((String)type);
-                String message = jt==null ? "Unknown type '"+type+"'" : "Unable to instantiate type '"+type+"' ("+jt+")";
+                String message = jt==null ? "Invalid type '"+type+"'" : "Unable to create type '"+type+"' ("+jt+")";
                 RuntimeException exc = ((Maybe.Absent<?>)resultM).getException();
                 if (exc!=null) message+=": "+Exceptions.collapseText(exc);
                 warn(message);

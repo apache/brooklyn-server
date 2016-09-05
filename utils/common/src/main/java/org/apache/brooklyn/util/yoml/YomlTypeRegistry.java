@@ -30,6 +30,12 @@ public interface YomlTypeRegistry {
     
     Object newInstance(String type, Yoml yoml);
     
+    /** Returns the most-specific Java type implied by the given type in the registry,
+     * or null if the type is not available in the registry.
+     * <p>
+     * This is needed so that the right deserialization strategies can be applied for
+     * things like collections and enums.
+     */
     Class<?> getJavaType(String typeName);
     
     String getTypeName(Object obj);

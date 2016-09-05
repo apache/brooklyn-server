@@ -76,6 +76,7 @@ public class YomlConverter {
             ReadingTypeOnBlackboard.get(blackboard);
         }
         
+System.out.println("YOML now looking at "+context.getJsonPath()+"/ = "+context.getJavaObject()+" <-> "+context.getYamlObject()+" ("+context.getExpectedType()+")");
         while (context.phaseAdvance()) {
             while (context.phaseStepAdvance()<Iterables.size(serializers.getSerializers())) {
                 YomlSerializer s = Iterables.get(serializers.getSerializers(), context.phaseCurrentStep());
@@ -95,6 +96,7 @@ System.out.println("write "+context.getJsonPath()+"/ = "+context.getJavaObject()
             }
         }
         
+System.out.println("YOML done looking at "+context.getJsonPath()+"/ = "+context.getJavaObject()+" <-> "+context.getYamlObject());
         checkCompletion(context, blackboard);
     }
 

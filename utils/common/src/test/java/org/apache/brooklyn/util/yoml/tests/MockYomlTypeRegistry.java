@@ -85,7 +85,7 @@ public class MockYomlTypeRegistry implements YomlTypeRegistry {
     @Override
     public Class<?> getJavaType(String typeName) {
         if (typeName==null) return null;
-        // string generics here
+        // strip generics here
         if (typeName.indexOf('<')>0) typeName = typeName.substring(0, typeName.indexOf('<'));
         return getJavaType(types.get(typeName), typeName);
     }
