@@ -264,7 +264,6 @@ brooklyn.catalog:
         shell.env:
           KUBERNETES_VERSION: $brooklyn:entity("kubernetes-cluster").config("kubernetes.version")
           CLUSTER_NAME: $brooklyn:entity("kubernetes-cluster").config("kubernetes.cluster.name")
-          FLANNEL_NET: $brooklyn:entity("kubernetes-cluster").config("kubernetes.pod.cidr")
           KUBERNETES_USER: $brooklyn:entity("kubernetes-cluster").config("kubernetes.user")
           KUBERNETES_PASSWORD: $brooklyn:entity("kubernetes-cluster").config("kubernetes.password")
           KUBECTL_DOWNLOAD_URL: $brooklyn:config("kubectl.download.url")
@@ -684,6 +683,9 @@ brooklyn.catalog:
       brooklyn.config:
         kubernetes.service: "kube-controller-manager"
 
+        shell.env:
+          FLANNEL_NETWORK: $brooklyn:entity("kubernetes-cluster").config("kubernetes.pod.cidr")
+
         customize.command: |
           sudo -E tee /usr/lib/systemd/system/kube-controller-manager.service <<-EOF
           [Unit]
@@ -751,8 +753,18 @@ brooklyn.catalog:
         - name: kubernetes.pod.name
           label: "Kubernetes Pod Name"
           type: string
+        - name: template.substitutions
+          label: "Template Substitutions"
+          type: java.util.Map
+          default: { }
 
       brooklyn.config:
+        install.unique_label:
+          $brooklyn:formatString:
+            - "pod-%s-%s"
+            - $brooklyn:config("kubernetes.pod.name")
+            - $brooklyn:entity("kubernetes-cluster").config("kubernetes.version")
+
         templates.install:
           $brooklyn:config("kubernetes.pod.file"): "pod.yaml"
 
@@ -760,6 +772,9 @@ brooklyn.catalog:
           POD: $brooklyn:config("kubernetes.pod.name")
           NAMESPACE: $brooklyn:config("kubernetes.pod.namespace")
           INSTALL_DIR: $brooklyn:attributeWhenReady("install.dir")
+
+        pre.install.command: |
+          mkdir -p ${INSTALL_DIR}
 
         launch.command: |
           kubectl create -f ${INSTALL_DIR}/pod.yaml
@@ -776,12 +791,14 @@ brooklyn.catalog:
       type: kubernetes-pod
 
       brooklyn.config:
-        kubernetes.pod.name: "kubedns"
+        kubernetes.pod.name: "kube-dns"
         kubernetes.pod.file: "classpath://io.cloudsoft.amp.containerservice.docker-catalog:kubernetes/kube-dns.yaml"
         kubernetes.pod.namespace: "kube-system"
-        template.dns_service_ip: $brooklyn:entity("kubernetes-cluster").config("kubernetes.dns.address")
-        template.dns_service_domain: $brooklyn:entity("kubernetes-cluster").config("kubernetes.dns.domain")
-        template.kubernetes_url: $brooklyn:entity("kubernetes-cluster").config("kubernetes.url")
+
+        template.substitutions:
+          dns_service_ip: $brooklyn:entity("kubernetes-cluster").config("kubernetes.dns.address")
+          dns_service_domain: $brooklyn:entity("kubernetes-cluster").config("kubernetes.dns.domain")
+          kubernetes_url: $brooklyn:entity("kubernetes-cluster").attributeWhenReady("kubernetes.url")
 
   - id: kube-dashboard-pod
     name: "Kubernetes Dashboard Pod"
@@ -795,4 +812,6 @@ brooklyn.catalog:
         kubernetes.pod.name: "kubernetes-dashboard"
         kubernetes.pod.file: "classpath://io.cloudsoft.amp.containerservice.docker-catalog:kubernetes/kubernetes-dashboard.yaml"
         kubernetes.pod.namespace: "kube-system"
-        template.kubernetes_url: $brooklyn:entity("kubernetes-cluster").config("kubernetes.url")
+
+        template.substitutions:
+          kubernetes_url: $brooklyn:entity("kubernetes-cluster").attributeWhenReady("kubernetes.url")
