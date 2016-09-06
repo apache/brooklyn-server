@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.util.http.executor;
+package org.apache.brooklyn.util.executor;
 
 import static org.testng.AssertJUnit.assertTrue;
 import static org.testng.Assert.assertEquals;
@@ -29,6 +29,12 @@ import com.google.common.base.Function;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Collections2;
 import org.apache.brooklyn.util.core.http.BetterMockWebServer;
+import org.apache.brooklyn.util.executor.HttpExecutorFactoryImpl;
+import org.apache.brooklyn.util.http.executor.HttpExecutor;
+import org.apache.brooklyn.util.http.executor.HttpRequest;
+import org.apache.brooklyn.util.http.executor.HttpRequestImpl;
+import org.apache.brooklyn.util.http.executor.HttpResponse;
+import org.apache.brooklyn.util.http.executor.UsernamePassword;
 import org.apache.commons.codec.binary.Base64;
 import org.bouncycastle.util.Strings;
 import org.testng.annotations.AfterMethod;

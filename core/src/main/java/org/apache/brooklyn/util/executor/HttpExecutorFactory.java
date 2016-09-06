@@ -16,9 +16,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.util.http.executor;
+package org.apache.brooklyn.util.executor;
 
 import java.util.Map;
+
+import org.apache.brooklyn.util.http.executor.HttpExecutor;
 
 public interface HttpExecutorFactory {
     public static final String HTTP_EXECUTOR_CLASS_CONFIG = "httpExecutorClass";
