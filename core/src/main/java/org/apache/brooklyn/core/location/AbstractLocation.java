@@ -65,6 +65,7 @@ import org.apache.brooklyn.core.mgmt.rebind.BasicLocationRebindSupport;
 import org.apache.brooklyn.core.objs.AbstractBrooklynObject;
 import org.apache.brooklyn.core.objs.AbstractConfigurationSupportInternal;
 import org.apache.brooklyn.util.collections.SetFromLiveMap;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
@@ -716,6 +717,35 @@ public abstract class AbstractLocation extends AbstractBrooklynObject implements
         }
         onChanged();
         return removed;
+    }
+
+    public void init() {
+        super.init();
+        loadExtension();
+    }
+
+    public void rebind() {
+        super.rebind();
+        loadExtension();
+    }
+
+    private void loadExtension() {
+        Map<String, String> extensions = getConfig(LocationConfigKeys.EXTENSIONS);
+        if (extensions != null) {
+            for (Map.Entry<String, String> extension: extensions.entrySet()) {
+                try {
+                    Class<?> extensionClassType =  new ClassLoaderUtils(this, getManagementContext()).loadClass(extension.getKey());
+
+                    if (!hasExtension(extensionClassType)) {
+                        Object extensionClass = new ClassLoaderUtils(this, getManagementContext()).loadClass(extension.getValue()).newInstance();
+                        addExtension((Class)extensionClassType, extensionClass);
+                    }
+                } catch (Exception e) {
+                    LOG.error("Location extension can not be loaded (rethrowing): {} {} {}", new Object[] {extension.getKey(), extension.getValue(), e});
+                    throw Exceptions.propagate(e);
+                }
+            }
+        }
     }
 
     protected void onChanged() {

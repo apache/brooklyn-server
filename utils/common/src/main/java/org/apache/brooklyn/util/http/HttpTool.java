@@ -32,10 +32,17 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import com.google.common.base.Throwables;
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLSession;
+
 import org.apache.brooklyn.util.crypto.SslTrustUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.net.URLParamEncoder;
@@ -82,12 +89,9 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
+import com.google.common.base.Throwables;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
-
-import javax.net.ssl.HostnameVerifier;
-import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.SSLSession;
 
 /**
  * A utility tool for HTTP operations.
@@ -250,6 +254,21 @@ public class HttpTool {
         private boolean trustAll;
         private boolean trustSelfSigned;
 
+        public static HttpClientBuilder fromBuilder(HttpClientBuilder other) {
+            HttpClientBuilder result = httpClientBuilder();
+            result.clientConnectionManager = other.clientConnectionManager;
+            result.httpParams = other.httpParams;
+            result.uri = other.uri;
+            result.port = other.port;
+            result.credentials = other.credentials;
+            result.laxRedirect = other.laxRedirect;
+            result.https = other.https;
+            result.socketFactory = other.socketFactory;
+            result.reuseStrategy = other.reuseStrategy;
+            result.trustAll = other.trustAll;
+            result.trustSelfSigned = other.trustSelfSigned;
+            return result;
+        }
         public HttpClientBuilder clientConnectionManager(ClientConnectionManager val) {
             this.clientConnectionManager = checkNotNull(val, "clientConnectionManager");
             return this;
@@ -311,11 +330,17 @@ public class HttpTool {
             return this;
         }
         public HttpClientBuilder trustAll() {
-            this.trustAll = true;
-            return this;
+            return trustAll(true);
         }
         public HttpClientBuilder trustSelfSigned() {
-            this.trustSelfSigned = true;
+            return trustSelfSigned(true);
+        }
+        public HttpClientBuilder trustAll(boolean val) {
+            trustAll = val;
+            return this;
+        }
+        public HttpClientBuilder trustSelfSigned(boolean val) {
+            this.trustSelfSigned = val;
             return this;
         }
         public HttpClient build() {
@@ -468,11 +493,26 @@ public class HttpTool {
         return execAndConsume(httpClient, req);
     }
 
+    public static HttpToolResponse httpGet(HttpClient httpClient, URI uri, Multimap<String,String> headers) {
+        HttpGet req = new HttpGetBuilder(uri).headers(headers).build();
+        return execAndConsume(httpClient, req);
+    }
+
+    public static HttpToolResponse httpPost(HttpClient httpClient, URI uri, Multimap<String,String> headers, byte[] body) {
+        HttpPost req = new HttpPostBuilder(uri).headers(headers).body(body).build();
+        return execAndConsume(httpClient, req);
+    }
+    
     public static HttpToolResponse httpPost(HttpClient httpClient, URI uri, Map<String,String> headers, byte[] body) {
         HttpPost req = new HttpPostBuilder(uri).headers(headers).body(body).build();
         return execAndConsume(httpClient, req);
     }
 
+    public static HttpToolResponse httpPut(HttpClient httpClient, URI uri, Multimap<String, String> headers, byte[] body) {
+        HttpPut req = new HttpPutBuilder(uri).headers(headers).body(body).build();
+        return execAndConsume(httpClient, req);
+    }
+    
     public static HttpToolResponse httpPut(HttpClient httpClient, URI uri, Map<String, String> headers, byte[] body) {
         HttpPut req = new HttpPutBuilder(uri).headers(headers).body(body).build();
         return execAndConsume(httpClient, req);
@@ -483,11 +523,21 @@ public class HttpTool {
         return execAndConsume(httpClient, req);
     }
 
-    public static HttpToolResponse httpDelete(HttpClient httpClient, URI uri, Map<String,String> headers) {
+    public static HttpToolResponse httpDelete(HttpClient httpClient, URI uri, Multimap<String,String> headers) {
         HttpDelete req = new HttpDeleteBuilder(uri).headers(headers).build();
         return execAndConsume(httpClient, req);
     }
     
+    public static HttpToolResponse httpDelete(HttpClient httpClient, URI uri, Map<String,String> headers) {
+        HttpDelete req = new HttpDeleteBuilder(uri).headers(headers).build();
+        return execAndConsume(httpClient, req);
+    }
+
+    public static HttpToolResponse httpHead(HttpClient httpClient, URI uri, Multimap<String,String> headers) {
+        HttpHead req = new HttpHeadBuilder(uri).headers(headers).build();
+        return execAndConsume(httpClient, req);
+    }
+
     public static HttpToolResponse httpHead(HttpClient httpClient, URI uri, Map<String,String> headers) {
         HttpHead req = new HttpHeadBuilder(uri).headers(headers).build();
         return execAndConsume(httpClient, req);

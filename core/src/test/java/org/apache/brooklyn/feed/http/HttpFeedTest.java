@@ -71,12 +71,12 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
 
     private static final long TIMEOUT_MS = 10*1000;
     
-    private BetterMockWebServer server;
-    private URL baseUrl;
+    protected BetterMockWebServer server;
+    protected URL baseUrl;
     
-    private Location loc;
-    private EntityLocal entity;
-    private HttpFeed feed;
+    protected Location loc;
+    protected EntityLocal entity;
+    protected HttpFeed feed;
     
     @BeforeMethod(alwaysRun=true)
     @Override
@@ -89,9 +89,13 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
         server.play();
         baseUrl = server.getUrl("/");
 
-        loc = app.newLocalhostProvisioningLocation();
+        loc = newLocation();
         entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         app.start(ImmutableList.of(loc));
+    }
+
+    protected Location newLocation() {
+        return app.newLocalhostProvisioningLocation();
     }
 
     @AfterMethod(alwaysRun=true)
