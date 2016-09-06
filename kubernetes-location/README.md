@@ -60,7 +60,7 @@ services:
     name: MySQL
     brooklyn.config:
       docker.container.imageName: mysql:5.6
-      docker.container.inboundPorts: [ 3306 ]
+      docker.container.inboundPorts: [ "3306" ]
       env: { MYSQL_ROOT_PASSWORD: "password" }
       provisioning.properties:
         kubernetes.deployment: wordpress-mysql
@@ -69,6 +69,6 @@ services:
     name: Wordpress
     brooklyn.config:
       docker.container.imageName: wordpress:4.4-apache
-      docker.container.inboundPorts: [ 80 ]
+      docker.container.inboundPorts: [ "80" ]
       env: { WORDPRESS_DB_HOST: "wordpress-mysql", WORDPRESS_DB_PASSWORD: "password" }
 ```
