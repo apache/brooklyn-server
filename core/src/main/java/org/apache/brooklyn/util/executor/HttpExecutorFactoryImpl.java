@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.util.http.executor;
+package org.apache.brooklyn.util.executor;
 
 import java.util.Map;
 import java.util.Map.Entry;
@@ -24,6 +24,7 @@ import java.util.Map.Entry;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.http.executor.HttpExecutor;
 import org.apache.brooklyn.util.http.executor.apacheclient.HttpExecutorImpl;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.text.Strings;
