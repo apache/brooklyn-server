@@ -166,6 +166,13 @@ public interface SoftwareProcess extends Entity, Startable {
             "modify the machine so that a tty is not subsequently required.",
             false);
 
+    @SetFromFlag("substitutions")
+    MapConfigKey<Object> TEMPLATE_SUBSTITUTIONS = new MapConfigKey.Builder<Object>(Object.class, "template.substitutions")
+            .description("Map of values to be substituted for the keys in any templated files used by the entity")
+            .defaultValue(ImmutableMap.<String,Object>of())
+            .typeInheritance(ConfigInheritance.DEEP_MERGE)
+            .build();
+
     /**
      * Files to be copied to the server before pre-install.
      * <p>
