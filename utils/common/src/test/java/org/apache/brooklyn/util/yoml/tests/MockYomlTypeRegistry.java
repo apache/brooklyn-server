@@ -46,10 +46,10 @@ public class MockYomlTypeRegistry implements YomlTypeRegistry {
         final Set<String> interfaceTypes;
         
         final Class<?> javaType;
-        final List<YomlSerializer> serializers;
+        final Collection<YomlSerializer> serializers;
         final Object yamlDefinition;
         
-        public MockRegisteredType(String id, String parentType, Class<?> javaType, Collection<String> interfaceTypes, List<? extends YomlSerializer> serializers, Object yamlDefinition) {
+        public MockRegisteredType(String id, String parentType, Class<?> javaType, Collection<String> interfaceTypes, Collection<? extends YomlSerializer> serializers, Object yamlDefinition) {
             super();
             this.id = id;
             this.parentType = parentType;
@@ -126,7 +126,7 @@ public class MockYomlTypeRegistry implements YomlTypeRegistry {
     public void put(String typeName, Class<?> javaType) {
         put(typeName, javaType, null);
     }
-    public void put(String typeName, Class<?> javaType, List<? extends YomlSerializer> serializers) {
+    public void put(String typeName, Class<?> javaType, Collection<? extends YomlSerializer> serializers) {
         types.put(typeName, new MockRegisteredType(typeName, "java:"+javaType.getName(), javaType, MutableSet.<String>of(), serializers, null));
     }
     

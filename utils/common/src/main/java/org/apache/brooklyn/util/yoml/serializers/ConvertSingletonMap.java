@@ -22,6 +22,8 @@ import java.util.Map;
 
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.yoml.YomlContext;
+import org.apache.brooklyn.util.yoml.annotations.Alias;
+import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsAtTopLevel;
 import org.apache.brooklyn.util.yoml.internal.SerializersOnBlackboard;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils;
 
@@ -31,6 +33,8 @@ import org.apache.brooklyn.util.yoml.internal.YomlUtils;
  *    || merge-with-map-value
  * defaults: { type: explicit-field }
  */
+@YomlAllFieldsAtTopLevel
+@Alias("convert-singleton-map")
 public class ConvertSingletonMap extends YomlSerializerComposition {
 
     public ConvertSingletonMap() { }

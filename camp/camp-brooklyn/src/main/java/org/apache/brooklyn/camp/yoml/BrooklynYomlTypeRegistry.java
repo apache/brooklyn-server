@@ -345,7 +345,7 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
             List<YomlSerializer> serializers = ((BasicRegisteredType)type).getCache().get(CACHED_SERIALIZERS);
             if (serializers!=null) {
                 canUpdateCache = false;
-                supers.addAll(serializers);
+                result.addAll(serializers);
             } else {
                 // TODO don't cache if it's a snapshot version
                 // (also should invalidate any subtypes, but actually any subtypes of snapshots

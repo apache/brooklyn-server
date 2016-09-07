@@ -18,16 +18,22 @@
  */
 package org.apache.brooklyn.util.yoml.serializers;
 
+import java.lang.reflect.Field;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yoml.YomlContext;
 import org.apache.brooklyn.util.yoml.YomlContext.StandardPhases;
+import org.apache.brooklyn.util.yoml.annotations.Alias;
+import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsAtTopLevel;
 
 import com.google.common.base.Objects;
 
@@ -37,7 +43,28 @@ import com.google.common.base.Objects;
  * <p>
  * On write, after FieldsInMapUnderFields sets the `fields` map,
  * look for the field name, and rewrite under the preferred alias at the root. */
+@YomlAllFieldsAtTopLevel
+@Alias("explicit-field")
 public class ExplicitField extends YomlSerializerComposition {
+
+    public ExplicitField() {}
+    public ExplicitField(Field f) {
+        fieldName = keyName = f.getName();
+            
+        Alias alias = f.getAnnotation(Alias.class);
+        if (alias!=null) {
+            aliases = MutableList.of();
+            if (Strings.isNonBlank(alias.preferred())) {
+                keyName = alias.preferred();
+                aliases.add(alias.preferred());
+            }
+            aliases.add(f.getName());
+            aliases.addAll(Arrays.asList(alias.value()));
+        }
+        
+        // if there are other things on ytf
+//        YomlFieldAtTopLevel ytf = f.getAnnotation(YomlFieldAtTopLevel.class);
+    }
 
     protected YomlSerializerWorker newWorker() {
         return new Worker();

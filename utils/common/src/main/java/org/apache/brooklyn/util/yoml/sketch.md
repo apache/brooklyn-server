@@ -534,6 +534,7 @@ to be shown.
 
 ### TODO
 
+* annotations (basic is done, but various "if" situations)
 * complex syntax, type as key, etc
 * config/data keys
 
@@ -626,5 +627,3 @@ convert-map-to-list (default-key, default-value)
 * if V is a non-empty map, then the corresponding list entry is the map V with `{ <default-key>: K }` added
 * otherwise, the corresponding list entry is `{ <default-key>: K, <default-value>: V }`
 
-
-OLD
