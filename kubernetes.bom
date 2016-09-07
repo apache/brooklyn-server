@@ -474,6 +474,11 @@ brooklyn.catalog:
           name: "kube-scheduler"
           brooklyn.config:
             start.latch: $brooklyn:sibling("kubelet").attributeWhenReady("service.isUp")
+        - type: calico-policy-controller-pod
+          id: calico-policy-controller
+          name: "calico-policy-controller"
+          brooklyn.config:
+            start.latch: $brooklyn:sibling("kube-apiserver").attributeWhenReady("service.isUp")
         - type: kube-dns-pod
           id: kube-dns
           name: "kube-dns"
@@ -623,6 +628,9 @@ brooklyn.catalog:
                   "policy": {
                       "type": "k8s",
                       "k8s_api_root": "${KUBERNETES_URL}/api/v1/"
+                  },
+                  "kubernetes": {
+                      "kubeconfig": "/etc/kubernetes/kubeconfig"
                   },
                   "isDefaultGateway": true
               }
@@ -825,6 +833,9 @@ brooklyn.catalog:
         pre.install.command: |
           mkdir -p ${INSTALL_DIR}
 
+        install.command: |
+          kubectl get namespace ${NAMESPACE} || kubectl create namespace ${NAMESPACE}
+
         launch.command: |
           kubectl create -f ${INSTALL_DIR}/pod.yaml
 
@@ -864,3 +875,20 @@ brooklyn.catalog:
 
         template.substitutions:
           kubernetes_url: $brooklyn:entity("kubernetes-cluster").attributeWhenReady("kubernetes.url")
+
+  - id: calico-policy-controller-pod
+    name: "Calico Policy Controller Pod"
+    description: |
+      Calico policy controller pod deployment
+    itemType: entity
+    item:
+      type: kubernetes-pod
+
+      brooklyn.config:
+        kubernetes.pod.name: "policy-controller"
+        kubernetes.pod.file: "classpath://io.cloudsoft.amp.containerservice.docker-catalog:kubernetes/policy-controller.yaml"
+        kubernetes.pod.namespace: "calico-system"
+
+        template.substitutions:
+          kubernetes_url: $brooklyn:entity("kubernetes-cluster").attributeWhenReady("kubernetes.url")
+          etcd_endpoints: $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.urls")

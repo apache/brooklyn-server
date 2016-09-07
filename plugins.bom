@@ -172,7 +172,7 @@ brooklyn.catalog:
           description: |
             The Project Calico CNI version
           type: string
-          default: "1.3.1"
+          default: "1.4.0-rc4"
         - name: etcd.endpoints
           label: "Etcd Endpoints"
           description: |
@@ -196,8 +196,9 @@ brooklyn.catalog:
           wget https://github.com/containernetworking/cni/releases/download/v${CNI_VERSION}/cni-v${CNI_VERSION}.tgz
           sudo tar --strip-components=1 -xvzf cni-v${CNI_VERSION}.tgz -C /opt/cni/bin
           wget https://github.com/projectcalico/calico-cni/releases/download/v${CALICO_CNI_VERSION}/calico
-          chmod +x calico
-          sudo mv calico /opt/cni/bin
+          wget https://github.com/projectcalico/calico-cni/releases/download/v${CALICO_CNI_VERSION}/calico-ipam
+          chmod +x calico calico-ipam
+          sudo mv calico calico-ipam /opt/cni/bin
           docker pull calico/node:v${CALICO_VERSION}
           sudo yum install -y ipset
           sudo modprobe ip6_tables
@@ -215,21 +216,16 @@ brooklyn.catalog:
           [Service]
           User=root
           PermissionsStartOnly=true
-          ExecStart=/usr/bin/docker run \
-            --restart=always \
-            --net=host \
-            --privileged \
-            --name=calico-node \
-            -e IP=${HOST_ADDRESS} \
-            -e HOSTNAME=${ENTITY_ID} \
-            -e FELIX_FELIXHOSTNAME=${ENTITY_ID} \
-            -e CALICO_NETWORKING=false \
-            -e NO_DEFAULT_POOLS=true \
-            -e ETCD_ENDPOINTS=${ETCD_ENDPOINTS} \
-            -v /var/log/calico:/var/log/calico \
-            -v /lib/modules:/lib/modules \
-            -v /var/run/calico:/var/run/calico \
-            calico/node:v${CALICO_VERSION}
+          Environment="ETCD_ENDPOINTS=${ETCD_ENDPOINTS}"
+          Environment="CALICO_NETWORKING=false"
+          Environment="HOSTNAME=${ENTITY_ID}"
+          Environment="FELIX_FELIXHOSTNAME=${ENTITY_ID}"
+          Environment="NO_DEFAULT_POOLS=true"
+          ExecStart=/usr/bin/calicoctl node \
+            --ip=${HOST_ADDRESS} \
+            --no-pull \
+            --node-image=calico/node:v${CALICO_VERSION} \
+            --detach=false
           Restart=always
           RestartSec=10
           [Install]
