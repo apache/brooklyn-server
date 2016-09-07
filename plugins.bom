@@ -12,6 +12,7 @@ brooklyn.catalog:
     description: |
       The Flannel virtual network agent
     itemType: entity
+    iconUrl: https://www.tigera.io/wp-content/uploads/flannel-logo@2x.png
     item:
       type: child-software-process
       name: "flannel-network-agent"
@@ -101,7 +102,7 @@ brooklyn.catalog:
 
           sudo -E tee /usr/lib/systemd/system/flannel.service <<-EOF
           [Unit]
-          Description=Flanneld overlay agent
+          Description=Flannel Overlay Agent
           After=network.target
           Before=docker.service
           [Service]
@@ -148,6 +149,7 @@ brooklyn.catalog:
     description: |
       The Project Calico plugin for CNI
     itemType: entity
+    iconUrl: https://www.projectcalico.org/wp-content/uploads/2015/03/Project-Calico-logo-456x456-no-text.png
     item:
       type: child-software-process
       name: "calico-network-plugin"
@@ -207,7 +209,7 @@ brooklyn.catalog:
         launch.command: |
           sudo -E tee /etc/systemd/system/calico-node.service <<-EOF
           [Unit]
-          Description=calicoctl node
+          Description=Calico Node
           After=docker.service
           Requires=docker.service
           [Service]

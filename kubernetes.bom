@@ -277,6 +277,7 @@ brooklyn.catalog:
     description: |
       Kubernetes worker node
     itemType: entity
+    iconUrl: https://pbs.twimg.com/media/Bt_pEfqCAAAiVyz.png
     item:
       type: centos-software-process
 
@@ -430,12 +431,24 @@ brooklyn.catalog:
             command: |
               kubectl get node ${HOST_ADDRESS} \
                 -o jsonpath={.status.conditions[?\(@.type==\"Ready\"\)].status}
+        - type: org.apache.brooklyn.core.effector.ssh.SshCommandEffector
+          brooklyn.config:
+            name: kubectl
+            description: |
+              Kubernetes Command
+            parameters:
+              args:
+                description: |
+                  Command Arguments
+            command: |
+              kubectl ${args}
 
   - id: kubernetes-master
     name: "Kubernetes Master"
     description: |
       Kubernetes master node
     itemType: entity
+    iconUrl: https://pbs.twimg.com/media/Bt_pEfqCAAAiVyz.png
     item:
       type: kubernetes-worker
 
@@ -500,6 +513,7 @@ brooklyn.catalog:
     description: |
       A software process running a Kubernetes service daemon
     itemType: entity
+    iconUrl: https://pbs.twimg.com/media/Bt_pEfqCAAAiVyz.png
     item:
       type: child-software-process
 
@@ -556,7 +570,7 @@ brooklyn.catalog:
         kubernetes.service: "kube-proxy"
 
         customize.command: |
-          sudo -E tee /usr/lib/systemd/system/kube-proxy.service <<-EOF
+          sudo -E tee /etc/systemd/system/kube-proxy.service <<-EOF
           [Unit]
           Description=Kubernetes Proxy
           After=network.target
@@ -615,7 +629,7 @@ brooklyn.catalog:
           }
           EOF
           sudo mkdir -p /etc/kubernetes/manifests
-          sudo -E tee /usr/lib/systemd/system/kubelet.service <<-EOF
+          sudo -E tee /etc/systemd/system/kubelet.service <<-EOF
           [Unit]
           Description=Kubernetes Kubelet
           After=docker.service
@@ -687,10 +701,9 @@ brooklyn.catalog:
           sudo mv ${INSTALL_DIR}/basic_auth.csv /etc/kubernetes
 
         customize.command: |
-          sudo -E tee /usr/lib/systemd/system/kube-apiserver.service <<-EOF
+          sudo -E tee /etc/systemd/system/kube-apiserver.service <<-EOF
           [Unit]
           Description=Kubernetes API Server
-          Documentation=https://github.com/kubernetes/kubernetes
           [Service]
           ExecStart=/usr/bin/kube-apiserver \
             --logtostderr=true \
@@ -724,10 +737,9 @@ brooklyn.catalog:
           FLANNEL_NETWORK: $brooklyn:entity("kubernetes-cluster").config("kubernetes.pod.cidr")
 
         customize.command: |
-          sudo -E tee /usr/lib/systemd/system/kube-controller-manager.service <<-EOF
+          sudo -E tee /etc/systemd/system/kube-controller-manager.service <<-EOF
           [Unit]
           Description=Kubernetes Controller Manager
-          Documentation=https://github.com/kubernetes/kubernetes
           [Service]
           ExecStart=/usr/bin/kube-controller-manager \
             --logtostderr=true \
@@ -756,10 +768,9 @@ brooklyn.catalog:
         kubernetes.service: "kube-scheduler"
 
         customize.command: |
-          sudo -E tee /usr/lib/systemd/system/kube-scheduler.service <<-EOF
+          sudo -E tee /etc/systemd/system/kube-scheduler.service <<-EOF
           [Unit]
           Description=Kubernetes Scheduler
-          Documentation=https://github.com/kubernetes/kubernetes
           [Service]
           ExecStart=/usr/bin/kube-scheduler \
             --logtostderr=true \
@@ -776,6 +787,7 @@ brooklyn.catalog:
     description: |
       A Kubernetes pod deployment
     itemType: entity
+    iconUrl: https://pbs.twimg.com/media/Bt_pEfqCAAAiVyz.png
     item:
       type: child-software-process
 

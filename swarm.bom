@@ -372,6 +372,7 @@ brooklyn.catalog:
     description: |
       A docker-engine configured with resilience policies
     itemType: entity
+    iconUrl: https://raw.githubusercontent.com/docker-library/docs/c350af05d3fac7b5c3f6327ac82fe4d990d8729c/docker/logo.png
     item:
       type: docker-engine-tls
 
@@ -411,6 +412,7 @@ brooklyn.catalog:
     description: |
       A docker-engine customised with TLS and Discovery endpoint
     itemType: entity
+    iconUrl: https://raw.githubusercontent.com/docker-library/docs/c350af05d3fac7b5c3f6327ac82fe4d990d8729c/docker/logo.png
     item:
       type: docker-engine-with-resilience
 
@@ -449,6 +451,7 @@ brooklyn.catalog:
     description:  |
       A Docker Swarm member node
     itemType: entity
+    iconUrl: https://raw.githubusercontent.com/docker-library/docs/471fa6e4cb58062ccbf91afc111980f9c7004981/swarm/logo.png
     item:
       type: docker-engine-with-discovery
 
@@ -522,6 +525,7 @@ brooklyn.catalog:
     name: "Docker Swarm Manager"
     description:  The Swarm manager engine for running Docker containers
     itemType: entity
+    iconUrl: https://raw.githubusercontent.com/docker-library/docs/471fa6e4cb58062ccbf91afc111980f9c7004981/swarm/logo.png
     item:
       type: docker-engine-with-resilience
 
