@@ -43,6 +43,12 @@ brooklyn.catalog:
             'vxlan', 'host-gw', 'aws-vpc', 'gce' or 'alloc'.
           type: string
           default: "udp"
+        - name: flannel.interface
+          label: "Flannel Interface"
+          description: |
+            The Flannel interface for host to host traffic
+          type: string
+          default: "eth0"
         - name: etcd.client.version
           label: "Etcd Client Version"
           description: |
@@ -63,6 +69,7 @@ brooklyn.catalog:
           FLANNEL_ADDRESS_RANGE: $brooklyn:config("flannel.network")
           FLANNEL_SUBNET_SIZE: $brooklyn:config("flannel.subnet.size")
           FLANNEL_TRANSPORT: $brooklyn:config("flannel.transport")
+          FLANNEL_IFACE: $brooklyn:config("flannel.interface")
           HOST_ADDRESS: $brooklyn:parent().attributeWhenReady("host.address")
           FLANNEL_ETCD_PREFIX: "/io.cloudsoft/clocker/flannel"
 
@@ -100,7 +107,7 @@ brooklyn.catalog:
             etcdctl --peers ${ETCD_ENDPOINTS} mk ${FLANNEL_ETCD_PREFIX}/config < flannel.json
           fi
 
-          sudo -E tee /usr/lib/systemd/system/flannel.service <<-EOF
+          sudo -E tee /etc/systemd/system/flannel.service <<-EOF
           [Unit]
           Description=Flannel Overlay Agent
           After=network.target
@@ -109,6 +116,7 @@ brooklyn.catalog:
           ExecStart=/usr/bin/flanneld \
             -etcd-endpoints=${ETCD_ENDPOINTS} \
             -etcd-prefix=${FLANNEL_ETCD_PREFIX} \
+            --iface ${FLANNEL_IFACE} \
             --ip-masq \
             --subnet-file=/var/run/flannel/subnet.env \
             --public-ip=${HOST_ADDRESS}

@@ -25,6 +25,7 @@ services:
       start.timeout: 30m
       kubernetes.initial.size: 3
       etcd.initial.size: 3
+      flannel.interface: "eth1"
       provisioning.properties:
         minRam: 8g
         minCores: 2
