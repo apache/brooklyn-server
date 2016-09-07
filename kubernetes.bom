@@ -319,11 +319,6 @@ brooklyn.catalog:
         pre.install.command: |
           sudo hostname ${ENTITY_ID}
           echo ${ENTITY_ID} | sudo tee /etc/hostname
-          sudo sed -i "/\(${HOST_ADDRESS}\)\|\(${HOST_SUBNET_ADDRESS}\)/d" /etc/hosts
-          sudo tee -a /etc/hosts <<-EOF
-          ${HOST_ADDRESS} $(hostname)
-          ${HOST_SUBNET_ADDRESS} $(hostname)
-          EOF
 
         install.command: |
           sudo yum install -y wget
@@ -427,9 +422,9 @@ brooklyn.catalog:
               Kubernetes node status
             targetType: string
             shell.env:
-              HOST_ADDRESS: $brooklyn:attributeWhenReady("host.address")
+              HOST_SUBNET_ADDRESS: $brooklyn:attributeWhenReady("host.subnet.address")
             command: |
-              kubectl get node ${HOST_ADDRESS} \
+              kubectl get node ${HOST_SUBNET_ADDRESS} \
                 -o jsonpath={.status.conditions[?\(@.type==\"Ready\"\)].status}
         - type: org.apache.brooklyn.core.effector.ssh.SshCommandEffector
           brooklyn.config:
@@ -650,7 +645,7 @@ brooklyn.catalog:
             --address=0.0.0.0 \
             --allow-privileged=true \
             --config=/etc/kubernetes/manifests \
-            --hostname-override=${HOST_ADDRESS} \
+            --hostname-override=${HOST_SUBNET_ADDRESS} \
             --api-servers=${KUBERNETES_URL}\
             --network-plugin-dir=/etc/cni/net.d \
             --network-plugin=cni \
@@ -719,7 +714,7 @@ brooklyn.catalog:
             --etcd-servers=${ETCD_ENDPOINTS} \
             --insecure-bind-address=0.0.0.0 \
             --insecure-port=${APISERVER_PORT} \
-            --advertise-address=${HOST_ADDRESS} \
+            --advertise-address=${HOST_SUBNET_ADDRESS} \
             --basic-auth-file=/etc/kubernetes/basic_auth.csv \
             --allow-privileged=true \
             --service-cluster-ip-range=${SERVICE_CLUSTER_IP_RANGE} \

@@ -71,6 +71,7 @@ brooklyn.catalog:
           FLANNEL_TRANSPORT: $brooklyn:config("flannel.transport")
           FLANNEL_IFACE: $brooklyn:config("flannel.interface")
           HOST_ADDRESS: $brooklyn:parent().attributeWhenReady("host.address")
+          HOST_SUBNET_ADDRESS: $brooklyn:parent().attributeWhenReady("host.subnet.address")
           FLANNEL_ETCD_PREFIX: "/io.cloudsoft/clocker/flannel"
 
         install.command: |
@@ -119,7 +120,7 @@ brooklyn.catalog:
             --iface ${FLANNEL_IFACE} \
             --ip-masq \
             --subnet-file=/var/run/flannel/subnet.env \
-            --public-ip=${HOST_ADDRESS}
+            --public-ip=${HOST_SUBNET_ADDRESS}
           Type=notify
           [Install]
           WantedBy=multi-user.target
@@ -194,6 +195,7 @@ brooklyn.catalog:
           CNI_VERSION: $brooklyn:config("cni.version")
           ETCD_ENDPOINTS: $brooklyn:config("etcd.endpoints")
           HOST_ADDRESS: $brooklyn:parent().attributeWhenReady("host.address")
+          HOST_SUBNET_ADDRESS: $brooklyn:parent().attributeWhenReady("host.subnet.address")
           ENTITY_ID: $brooklyn:parent().attributeWhenReady("entity.id")
 
         install.command: |
@@ -230,7 +232,7 @@ brooklyn.catalog:
           Environment="FELIX_FELIXHOSTNAME=${ENTITY_ID}"
           Environment="NO_DEFAULT_POOLS=true"
           ExecStart=/usr/bin/calicoctl node \
-            --ip=${HOST_ADDRESS} \
+            --ip=${HOST_SUBNET_ADDRESS} \
             --no-pull \
             --node-image=calico/node:v${CALICO_VERSION} \
             --detach=false
