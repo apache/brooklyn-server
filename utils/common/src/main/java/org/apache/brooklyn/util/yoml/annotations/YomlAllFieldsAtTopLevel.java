@@ -26,6 +26,7 @@ import java.lang.annotation.Target;
 
 @Retention(RUNTIME)
 @Target({ TYPE })
-/** Indicates that all fields should be settable at the top-level when reading yoml */
+/** Indicates that all fields should be available at the top-level when reading yoml,
+ * ie none require to be inside a <code>fields</code> block. */
 public @interface YomlAllFieldsAtTopLevel {
 }

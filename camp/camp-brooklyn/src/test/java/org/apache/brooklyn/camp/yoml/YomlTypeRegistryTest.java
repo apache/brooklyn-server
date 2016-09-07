@@ -28,6 +28,8 @@ import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer.JavaCla
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
+import org.apache.brooklyn.util.yoml.annotations.Alias;
+import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsAtTopLevel;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -127,6 +129,23 @@ public class YomlTypeRegistryTest extends BrooklynMgmtUnitTestSupport {
             Asserts.expectedFailureContainsIgnoreCase(e, "yoml.B", "yoml.A", "neither", "registry", "classpath");
             Asserts.expectedFailureDoesNotContain(e, JavaClassNames.simpleClassName(ClassNotFoundException.class));
         }
+    }
+
+    @YomlAllFieldsAtTopLevel
+    @Alias("item-annotated")
+    public static class ItemAn {
+        final static RegisteredType YOML = BrooklynYomlTypeRegistry.newYomlRegisteredType(RegisteredTypeKind.BEAN, 
+            null, "1", ItemAn.class);
+        
+        String name;
+    }
+
+    @Test
+    public void testInstantiateAnnotatedYoml() {
+        add(ItemAn.YOML);
+        Object x = registry().createBeanFromPlan("yoml", "{ type: item-annotated, name: bob }", null, null);
+        Assert.assertTrue(x instanceof ItemAn);
+        Assert.assertEquals( ((ItemAn)x).name, "bob" );
     }
 
 }

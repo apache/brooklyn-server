@@ -28,10 +28,12 @@ import org.apache.brooklyn.core.typereg.AbstractFormatSpecificTypeImplementation
 import org.apache.brooklyn.core.typereg.AbstractTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yoml.Yoml;
+import org.apache.brooklyn.util.yoml.YomlException;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
-import org.apache.brooklyn.util.yoml.YomlTypeRegistry;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -46,22 +48,29 @@ import com.google.common.collect.ImmutableList;
  * - test programmatic addition and parse (beans) with manual objects
  * - figure out supertypes and use that to determine java type
  * - attach custom serializers (on plan)
- * 
- * NEXT
  * - test serializers
  * - support serializers by annotation
- * - support specs from yoml
+ * - set serializers when adding to catalog and test
+ * 
+ * NEXT
  * - $brooklyn:object(format): <object-in-given-format>
+ * - catalog impl supports format
+ * 
+ * (initdish can now be made to work)
+ *   
+ * THEN
+ * - support specs from yoml
  * - type registry api, add arbitrary types via yoml, specifying format
  * - catalog impl in yoml as test?
  * - REST API for deploy accepts specific format, can call yoml (can we test this earlier?)
  * 
- * THEN
+ * AND THEN
  * - generate its own documentation
- * - persist to yoml
+ * - persistence switches to using yoml, warns if any types are not yoml-ized
  * - yoml allows `constructor: [list]` and `constructor: { mode: static, type: factory, method: newInstance, args: ... }`
  *   and maybe even `constructor: { mode: chain, steps: [ { mode: constructor, type: Foo.Builder }, { mode: method, method: bar, args: [ true ] }, { mode: method, method: build } ] }`  
- * - type access control and java instantiation access control ?
+ * - type access control -- ie restrict who can see what types
+ * - java instantiation access control - ie permission required to access java in custom types (deployed or added to catalog)
  */
 public class YomlTypePlanTransformer extends AbstractTypePlanTransformer {
 
@@ -75,17 +84,15 @@ public class YomlTypePlanTransformer extends AbstractTypePlanTransformer {
 
     @Override
     protected double scoreForNullFormat(Object planData, RegisteredType type, RegisteredTypeLoadingContext context) {
-        Maybe<Map<?,?>> plan = RegisteredTypes.getAsYamlMap(planData);
-        if (plan.isAbsent()) return 0;
         int score = 0;
-        if (plan.get().containsKey("type")) score += 5;
-        if (plan.get().containsKey("services")) score += 2;
-        // TODO these should become legacy
-        if (plan.get().containsKey("brooklyn.locations")) score += 1;
-        if (plan.get().containsKey("brooklyn.policies")) score += 1;
-        
-        if (score==0) return 0.1;
-        return (1.0 - 1.0/score);
+        Maybe<Map<?,?>> plan = RegisteredTypes.getAsYamlMap(planData);
+        if (plan.isPresent()) {
+            score += 1;
+            if (plan.get().containsKey("type")) score += 5;
+            if (plan.get().containsKey("services")) score += 2;
+        }
+        if (type instanceof YomlTypeImplementationPlan) score += 100;
+        return (1.0 - 8.0/(score+8));
     }
 
     @Override
@@ -102,7 +109,7 @@ public class YomlTypePlanTransformer extends AbstractTypePlanTransformer {
 
     @Override
     protected Object createBean(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
-        YomlTypeRegistry tr = new BrooklynYomlTypeRegistry(mgmt, context);
+        BrooklynYomlTypeRegistry tr = new BrooklynYomlTypeRegistry(mgmt, context);
         Yoml y = Yoml.newInstance(tr);
         // TODO could cache the parse, could cache the instantiation instructions
         Object data = type.getPlan().getPlanData();
@@ -110,14 +117,27 @@ public class YomlTypePlanTransformer extends AbstractTypePlanTransformer {
         Class<?> expectedSuperType = context.getExpectedJavaSuperType();
         String expectedSuperTypeName = tr.getTypeNameOfClass(expectedSuperType);
         
-        if (data instanceof String) {
+        if (data==null || (data instanceof String)) {
+            if (Strings.isBlank((String)data)) {
+                // blank plan means to use the java type
+                Maybe<Class<?>> jt = tr.getJavaTypeInternal(type, context);
+                if (jt.isAbsent()) throw new YomlException("Type '"+type+"' has no plan or java type in its definition");
+                try {
+                    return jt.get().newInstance();
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    throw new YomlException("Type '"+type+"' has no plan and its java type cannot be instantiated", e);
+                }
+            }
+            
+            // normal processing
             return y.read((String) data, expectedSuperTypeName);
-        } else {
-            // could do this
-//            return y.readFromYamlObject(data, expectedSuperTypeName);
-            // but it should always be a string...
-            throw new IllegalArgumentException("The implementation plan for '"+type+"' should be a string in order to process as YOML");
         }
+        
+        // could do this
+//      return y.readFromYamlObject(data, expectedSuperTypeName);
+        // but we require always a string
+        throw new IllegalArgumentException("The implementation plan for '"+type+"' should be a string in order to process as YOML");
     }
     
     @Override
@@ -140,7 +160,6 @@ public class YomlTypePlanTransformer extends AbstractTypePlanTransformer {
             super(FORMATS.get(0), planData);
             this.javaType = Preconditions.checkNotNull(javaType).getName();
             this.serializers = MutableList.copyOf(serializers);
-//            this.superTypes = (superTypes==null || superTypes.isEmpty() ? MutableList.of(this.javaType) : MutableList.copyOf(superTypes));
         }
     }
 }

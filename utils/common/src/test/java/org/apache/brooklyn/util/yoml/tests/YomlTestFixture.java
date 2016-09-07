@@ -18,22 +18,16 @@
  */
 package org.apache.brooklyn.util.yoml.tests;
 
-import java.lang.reflect.Field;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import org.apache.brooklyn.util.collections.Jsonya;
-import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yoml.Yoml;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
-import org.apache.brooklyn.util.yoml.annotations.Alias;
-import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsAtTopLevel;
-import org.apache.brooklyn.util.yoml.annotations.YomlFieldAtTopLevel;
-import org.apache.brooklyn.util.yoml.serializers.ExplicitField;
+import org.apache.brooklyn.util.yoml.annotations.YomlAnnotations;
 import org.testng.Assert;
 
 public class YomlTestFixture {
@@ -119,43 +113,11 @@ public class YomlTestFixture {
         return addTypeWithAnnotations(null, type);
     }
     public YomlTestFixture addTypeWithAnnotations(String name, Class<?> type) {
-        MutableSet<String> names = MutableSet.of();
-        
-        Alias overallAlias = type.getAnnotation(Alias.class);
-        if (name!=null) {
-            names.addIfNotNull(name);
-        }
-        if (overallAlias!=null) {
-            if (Strings.isNonBlank(overallAlias.preferred())) {
-                names.add( overallAlias.preferred() );
-            }
-            names.addAll( Arrays.asList(overallAlias.value()) );
-        }
-        if (name==null) {
-            names.add(type.getName());
-        }
-        
-        Set<YomlSerializer> serializers = findSerializerAnnotations(type);
-        for (String n: names) {
+        Set<YomlSerializer> serializers = YomlAnnotations.findSerializerAnnotations(type);
+        for (String n: YomlAnnotations.findTypeNamesFromAnnotations(type, name, false)) {
             tr.put(n, type, serializers);
         }
         return this; 
     }
-    
-    public static Set<YomlSerializer> findSerializerAnnotations(Class<?> type) {
-        Set<YomlSerializer> result = MutableSet.of();
-        if (!type.getSuperclass().equals(Object.class)) {
-            result.addAll(findSerializerAnnotations(type.getSuperclass()));
-        }
         
-        YomlAllFieldsAtTopLevel allFields = type.getAnnotation(YomlAllFieldsAtTopLevel.class);
-        for (Field f: type.getDeclaredFields()) {
-            YomlFieldAtTopLevel ytf = f.getAnnotation(YomlFieldAtTopLevel.class);
-            if (ytf!=null || allFields!=null)
-                result.add(new ExplicitField(f));
-        }
-        
-        return result;
-    }
-    
 }

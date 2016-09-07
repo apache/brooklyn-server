@@ -17,10 +17,13 @@
  * under the License.
  */package org.apache.brooklyn.camp.yoml;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
@@ -45,6 +48,7 @@ import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yoml.Yoml;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
 import org.apache.brooklyn.util.yoml.YomlTypeRegistry;
+import org.apache.brooklyn.util.yoml.annotations.YomlAnnotations;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -389,8 +393,23 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
             
         YomlTypeImplementationPlan plan = new YomlTypeImplementationPlan(planData, javaConcreteType, serializers);
         RegisteredType result = kind==RegisteredTypeKind.SPEC ? RegisteredTypes.spec(symbolicName, version, plan) : RegisteredTypes.bean(symbolicName, version, plan);
+        RegisteredTypes.addSuperType(result, javaConcreteType);
         RegisteredTypes.addSuperTypes(result, superTypesAsClassOrRegisteredType);
         return result;
+    }
+
+    public static RegisteredType newYomlRegisteredType(RegisteredTypeKind bean, @Nullable String symbolicName, String version, Class<?> clazz) {
+        Set<String> names = YomlAnnotations.findTypeNamesFromAnnotations(clazz, symbolicName, false);
+        Set<YomlSerializer> serializers = YomlAnnotations.findSerializerAnnotations(clazz);
+        RegisteredType type = BrooklynYomlTypeRegistry.newYomlRegisteredType(RegisteredTypeKind.BEAN, 
+            // symbolicName, version, 
+            names.iterator().next(), version, 
+            // planData - null means just use the java type (could have done this earlier), 
+            null, 
+            // javaConcreteType, superTypesAsClassOrRegisteredType, serializers)
+            clazz, Arrays.asList(clazz), serializers);
+        type = RegisteredTypes.addAliases(type, names);
+        return type;
     }
 
 }
