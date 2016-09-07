@@ -42,7 +42,7 @@ public class InstantiateTypeEnum extends YomlSerializerComposition {
                 value = Maybe.of(getYamlObject());
                 if (!isJsonPrimitiveObject(value.get())) {
                     // warn, but try { type: .., value: ... } syntax
-                    warn("Enum "+getExpectedTypeJava()+" is not a string");
+                    warn("Enum of expected type "+getExpectedTypeJava()+" cannot be created from '"+value.get()+"'");
                     
                 } else {
                     type = getExpectedTypeJava();
@@ -52,7 +52,8 @@ public class InstantiateTypeEnum extends YomlSerializerComposition {
             if (type==null) {
                 String typeName = readingTypeFromFieldOrExpected();
                 if (typeName==null) return;
-                type = config.getTypeRegistry().getJavaType(typeName);
+                type = config.getTypeRegistry().getJavaTypeMaybe(typeName).orNull();
+                // swallow exception in this context, it isn't meant for enum to resolve
                 if (type==null || !type.isEnum()) return;
                 value = readingValueFromTypeValueMap();
                 if (value.isAbsent()) {
@@ -60,7 +61,7 @@ public class InstantiateTypeEnum extends YomlSerializerComposition {
                     return;
                 }
                 if (!isJsonPrimitiveObject(value.get())) {
-                    warn("Enum "+getExpectedTypeJava()+" is not a string");
+                    warn("Enum of type "+getExpectedTypeJava()+" cannot be created from '"+value.get()+"'");
                     return;
                 }
                 
@@ -69,7 +70,6 @@ public class InstantiateTypeEnum extends YomlSerializerComposition {
             
             Maybe<?> enumValue = tryCoerceAndNoteError(value.get(), type);
             if (enumValue.isAbsent()) return;
-//            Maybe<? extends Enum> v = Enums.valueOfIgnoreCase((Class<? extends Enum>)type, Strings.toString(getYamlObject()));
             
             storeReadObjectAndAdvance(enumValue.get(), false);
             if (fromMap) removeTypeAndValueKeys();

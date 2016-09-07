@@ -18,10 +18,13 @@
  */
 package org.apache.brooklyn.util.yoml.serializers;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yoml.YomlContext;
 import org.apache.brooklyn.util.yoml.YomlContextForRead;
@@ -31,7 +34,7 @@ import org.apache.brooklyn.util.yoml.YomlRequirement;
 
 public class ReadingTypeOnBlackboard implements YomlRequirement {
 
-    Set<String> errorNotes = MutableSet.of();
+    Set<Object> errorNotes = MutableSet.of();
 
     public static final String KEY = ReadingTypeOnBlackboard.class.getCanonicalName();
         
@@ -49,10 +52,26 @@ public class ReadingTypeOnBlackboard implements YomlRequirement {
         if (context instanceof YomlContextForRead && context.getJavaObject()!=null) return;
         if (context instanceof YomlContextForWrite && context.getYamlObject()!=null) return;
         if (errorNotes.isEmpty()) throw new YomlException("No means to identify type to instantiate", context);
-        throw new YomlException(Strings.join(errorNotes, "; "), context);
+        List<String> messages = MutableList.of();
+        List<Throwable> throwables = MutableList.of();
+        for (Object errorNote: errorNotes) {
+            if (errorNote instanceof Throwable) {
+                messages.add(Exceptions.collapseText((Throwable)errorNote));
+                throwables.add((Throwable)errorNote);
+            } else {
+                messages.add(Strings.toString(errorNote));
+            }
+        }
+        throw new YomlException(Strings.join(messages, "; "), context, 
+            throwables.isEmpty() ? null :
+                throwables.size()==1 ? throwables.iterator().next() :
+                    Exceptions.create(throwables));
     }
     
     public void addNote(String message) {
+        errorNotes.add(message);
+    }
+    public void addNote(Throwable message) {
         errorNotes.add(message);
     }
 

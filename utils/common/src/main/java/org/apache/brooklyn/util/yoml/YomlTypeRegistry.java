@@ -18,29 +18,30 @@
  */
 package org.apache.brooklyn.util.yoml;
 
-import java.util.Collection;
-import java.util.Set;
-
 import org.apache.brooklyn.util.guava.Maybe;
 
 public interface YomlTypeRegistry {
 
+    Object newInstance(String type, Yoml yoml);
+    
     /** Absent if unknown type; throws if type is ill-defined or incomplete. */
     Maybe<Object> newInstanceMaybe(String type, Yoml yoml);
     
-    Object newInstance(String type, Yoml yoml);
-    
     /** Returns the most-specific Java type implied by the given type in the registry,
-     * or null if the type is not available in the registry.
+     * or a maybe wrapping any explanatory error if the type is not available in the registry.
      * <p>
      * This is needed so that the right deserialization strategies can be applied for
      * things like collections and enums.
      */
-    Class<?> getJavaType(String typeName);
-    
+    Maybe<Class<?>> getJavaTypeMaybe(String typeName);
+
+    /** Return the best known type name to describe the given java instance */
     String getTypeName(Object obj);
+    /** Return the type name to describe the given java class */ 
     <T> String getTypeNameOfClass(Class<T> type);
 
-    void collectSerializers(String typeName, Collection<YomlSerializer> serializers, Set<String> typesVisited);
+    /** Return custom serializers that shoud be used when deserializing something of the given type,
+     * typically also looking at serializers for its supertypes */
+    Iterable<YomlSerializer> getSerializersForType(String typeName);
     
 }

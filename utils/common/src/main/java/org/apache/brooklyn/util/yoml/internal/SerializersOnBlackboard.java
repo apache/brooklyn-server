@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
 
 import com.google.common.base.Preconditions;
@@ -47,13 +48,25 @@ public class SerializersOnBlackboard {
         return peek(blackboard);
     }
     
-    List<YomlSerializer> preSerializers = MutableList.of();
-    List<YomlSerializer> instantiatedTypeSerializers = MutableList.of();
-    List<YomlSerializer> expectedTypeSerializers = MutableList.of();
-    List<YomlSerializer> postSerializers = MutableList.of();
+    private List<YomlSerializer> preSerializers = MutableList.of();
+    private List<YomlSerializer> instantiatedTypeSerializers = MutableList.of();
+    private List<YomlSerializer> expectedTypeSerializers = MutableList.of();
+    private List<YomlSerializer> postSerializers = MutableList.of();
 
-    public void addInstantiatedTypeSerializers(Iterable<? extends YomlSerializer> instantiatedTypeSerializers) {
-        Iterables.addAll(this.instantiatedTypeSerializers, instantiatedTypeSerializers);
+    public void addInstantiatedTypeSerializers(Iterable<? extends YomlSerializer> newInstantiatedTypeSerializers) {
+        addNewSerializers(instantiatedTypeSerializers, newInstantiatedTypeSerializers);
+    }
+    public void addExpectedTypeSerializers(Iterable<YomlSerializer> newExpectedTypeSerializers) {
+        addNewSerializers(expectedTypeSerializers, newExpectedTypeSerializers);
+        
+    }
+    public void addPostSerializers(List<YomlSerializer> newPostSerializers) {
+        addNewSerializers(postSerializers, newPostSerializers);
+    }
+    protected static void addNewSerializers(List<YomlSerializer> addTo, Iterable<? extends YomlSerializer> elementsToAddIfNotPresent) {
+        MutableSet<YomlSerializer> newOnes = MutableSet.copyOf(elementsToAddIfNotPresent);
+        newOnes.removeAll(addTo);
+        addTo.addAll(newOnes);
     }
     
     public Iterable<YomlSerializer> getSerializers() {

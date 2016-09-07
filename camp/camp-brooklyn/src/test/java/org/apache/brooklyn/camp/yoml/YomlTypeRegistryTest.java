@@ -18,8 +18,10 @@
  */
 package org.apache.brooklyn.camp.yoml;
 
+import java.util.Arrays;
+
+import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.RegisteredType;
-import org.apache.brooklyn.camp.yoml.YomlTypePlanTransformer.YomlTypeImplementationPlan;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer.JavaClassNameTypeImplementationPlan;
@@ -64,13 +66,35 @@ public class YomlTypeRegistryTest extends BrooklynMgmtUnitTestSupport {
         Assert.assertEquals( ((ItemA)x).name, "Bob" );
     }
 
-    private final static RegisteredType SAMPLE_TYPE_YOML = RegisteredTypes.bean("yoml.A", "1", 
-        new YomlTypeImplementationPlan("{ type: "+ItemA.class.getName() +" }"), ItemA.class);
+    private static RegisteredType sampleTypeYoml(String typeName, String typeDefName) {
+        return BrooklynYomlTypeRegistry.newYomlRegisteredType(RegisteredTypeKind.BEAN, 
+            // symbolicName, version, 
+            typeName==null ? "yoml.A" : typeName, "1", 
+            // planData, 
+            "{ type: "+ (typeDefName==null ? ItemA.class.getName() : typeDefName) +" }", 
+            // javaConcreteType, superTypesAsClassOrRegisteredType, serializers)
+            ItemA.class, Arrays.asList(ItemA.class), null);
+    }
+    private final static RegisteredType SAMPLE_TYPE_YOML = sampleTypeYoml(null, null);
 
     @Test
     public void testInstantiateYomlBaseType() {
         add(SAMPLE_TYPE_YOML);
         Object x = registry().createBeanFromPlan("yoml", "{ type: yoml.A }", null, null);
+        Assert.assertTrue(x instanceof ItemA);
+    }
+    
+    @Test
+    public void testInstantiateYomlBaseTypeJavaPrefix() {
+        add(sampleTypeYoml(null, "'java:"+ItemA.class.getName()+"'"));
+        Object x = registry().createBeanFromPlan("yoml", "{ type: yoml.A }", null, null);
+        Assert.assertTrue(x instanceof ItemA);
+    }
+    
+    @Test
+    public void testInstantiateYomlBaseTypeSameName() {
+        add(sampleTypeYoml(ItemA.class.getName(), null));
+        Object x = registry().createBeanFromPlan("yoml", "{ type: "+ItemA.class.getName()+" }", null, null);
         Assert.assertTrue(x instanceof ItemA);
     }
     
@@ -89,6 +113,18 @@ public class YomlTypeRegistryTest extends BrooklynMgmtUnitTestSupport {
             Asserts.shouldHaveFailedPreviously("Expected type resolution failure; instead it loaded "+x);
         } catch (Exception e) {
             Asserts.expectedFailureContainsIgnoreCase(e, "yoml.A", "neither", "registry", "classpath");
+            Asserts.expectedFailureDoesNotContain(e, JavaClassNames.simpleClassName(ClassNotFoundException.class));
+        }
+    }
+
+    @Test
+    public void testYomlTypeMissingGiveGoodErrorNested() {
+        add(sampleTypeYoml("yoml.B", "yoml.A"));
+        try {
+            Object x = registry().createBeanFromPlan("yoml", "{ type: yoml.B, fields: { name: Bob } }", null, null);
+            Asserts.shouldHaveFailedPreviously("Expected type resolution failure; instead it loaded "+x);
+        } catch (Exception e) {
+            Asserts.expectedFailureContainsIgnoreCase(e, "yoml.B", "yoml.A", "neither", "registry", "classpath");
             Asserts.expectedFailureDoesNotContain(e, JavaClassNames.simpleClassName(ClassNotFoundException.class));
         }
     }

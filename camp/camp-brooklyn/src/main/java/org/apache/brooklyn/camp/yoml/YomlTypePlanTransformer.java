@@ -1,3 +1,21 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.brooklyn.camp.yoml;
 
 import java.util.List;
@@ -5,16 +23,17 @@ import java.util.Map;
 
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.typereg.RegisteredType;
-import org.apache.brooklyn.api.typereg.RegisteredType.TypeImplementationPlan;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.core.typereg.AbstractFormatSpecificTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.AbstractTypePlanTransformer;
-import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.yoml.Yoml;
+import org.apache.brooklyn.util.yoml.YomlSerializer;
 import org.apache.brooklyn.util.yoml.YomlTypeRegistry;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 /** 
@@ -25,13 +44,15 @@ import com.google.common.collect.ImmutableList;
  * 
  * DONE
  * - test programmatic addition and parse (beans) with manual objects
+ * - figure out supertypes and use that to determine java type
+ * - attach custom serializers (on plan)
  * 
  * NEXT
- * - attach custom serializers
+ * - test serializers
+ * - support serializers by annotation
  * - support specs from yoml
  * - $brooklyn:object(format): <object-in-given-format>
- *   and $brooklyn:yoml(expected-type): <yaml-object>
- * - catalog add arbitrary types via yoml, specifying format
+ * - type registry api, add arbitrary types via yoml, specifying format
  * - catalog impl in yoml as test?
  * - REST API for deploy accepts specific format, can call yoml (can we test this earlier?)
  * 
@@ -111,13 +132,15 @@ public class YomlTypePlanTransformer extends AbstractTypePlanTransformer {
         return null;
     }
 
-    
-    public static class YomlTypeImplementationPlan extends AbstractFormatSpecificTypeImplementationPlan<String> {
-        public YomlTypeImplementationPlan(TypeImplementationPlan otherPlan) {
-            super(FORMATS.get(0), String.class, otherPlan);
-        }
-        public YomlTypeImplementationPlan(String planData) {
-            this(new BasicTypeImplementationPlan(FORMATS.get(0), planData));
+    static class YomlTypeImplementationPlan extends AbstractFormatSpecificTypeImplementationPlan<String> {
+        final String javaType;
+        final List<YomlSerializer> serializers;
+        
+        public YomlTypeImplementationPlan(String planData, Class<?> javaType, Iterable<YomlSerializer> serializers) {
+            super(FORMATS.get(0), planData);
+            this.javaType = Preconditions.checkNotNull(javaType).getName();
+            this.serializers = MutableList.copyOf(serializers);
+//            this.superTypes = (superTypes==null || superTypes.isEmpty() ? MutableList.of(this.javaType) : MutableList.copyOf(superTypes));
         }
     }
 }

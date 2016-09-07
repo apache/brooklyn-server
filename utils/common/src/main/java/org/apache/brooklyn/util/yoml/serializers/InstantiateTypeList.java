@@ -31,6 +31,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.yoml.Yoml;
 import org.apache.brooklyn.util.yoml.YomlContext;
@@ -132,12 +133,19 @@ public class InstantiateTypeList extends YomlSerializerComposition {
                     
                     // get any new generic type set - slightly messy
                     if (!parseExpectedTypeAndDetermineIfNoBadProblems(type)) return;
-                    Class<?> javaType = config.getTypeRegistry().getJavaType(type);
-                    if (javaType==null) { javaType = expectedJavaType; }
+                    Maybe<Class<?>> javaTypeM = config.getTypeRegistry().getJavaTypeMaybe(type);
+                    Class<?> javaType;
+                    if (javaTypeM.isPresent()) javaType = javaTypeM.get();
+                    else {
+                        // the expected java type is now based on inference from `type`
+                        // so if it wasn't recognised we'll bail out below
+                        javaType = expectedJavaType;
+                    }
+
                     expectedJavaType = oldExpectedType;
                     
                     if (javaType==null || value==null || !Collection.class.isAssignableFrom(javaType) || !Iterable.class.isInstance(value)) {
-                        // only apply if it's a list type and a list value
+                        // only apply below if it's a list type and a list value
                         return;
                     }
                     // looks like a list in a type-value map
@@ -207,7 +215,7 @@ public class InstantiateTypeList extends YomlSerializerComposition {
             if (explicitTypeName!=null) {
                 GenericsParse gp = new GenericsParse(explicitTypeName);
                 if (gp.warning!=null) {
-                    warn(gp.warning);
+                    warn(gp.warning+" (creating "+javaType+")");
                     return null;
                 }
                 

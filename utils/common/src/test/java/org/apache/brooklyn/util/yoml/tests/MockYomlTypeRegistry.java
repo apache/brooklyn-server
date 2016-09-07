@@ -74,38 +74,47 @@ public class MockYomlTypeRegistry implements YomlTypeRegistry {
             if (type.parentType==null && type.javaType!=null) parentTypeName = getDefaultTypeNameOfClass(type.javaType);
             return Maybe.of(yoml.readFromYamlObject(type.yamlDefinition, parentTypeName));
         }
-        Class<?> javaType = getJavaType(type, typeName); 
-        if (javaType==null) {
+        Maybe<Class<?>> javaType = getJavaTypeInternal(type, typeName); 
+        if (javaType.isAbsent()) {
             if (type==null) return Maybe.absent("Unknown type `"+typeName+"`");
-            throw new IllegalStateException("Incomplete hierarchy for `"+typeName+"`");
+            return Maybe.absent(new IllegalStateException("Incomplete hierarchy for "+type, ((Maybe.Absent<?>)javaType).getException()));
         }
-        return Reflections.invokeConstructorFromArgsIncludingPrivate(javaType);
+        return Reflections.invokeConstructorFromArgsIncludingPrivate(javaType.get());
+    }
+
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    protected static Maybe<Class<?>> maybeClass(Class<?> clazz) {
+        // restrict unchecked wildcard generic warning/suppression to here
+        return (Maybe) Maybe.ofDisallowingNull(clazz);
     }
     
     @Override
-    public Class<?> getJavaType(String typeName) {
-        if (typeName==null) return null;
+    public Maybe<Class<?>> getJavaTypeMaybe(String typeName) {
+        if (typeName==null) return Maybe.absent();
         // strip generics here
         if (typeName.indexOf('<')>0) typeName = typeName.substring(0, typeName.indexOf('<'));
-        return getJavaType(types.get(typeName), typeName);
+        return getJavaTypeInternal(types.get(typeName), typeName);
     }
     
-    protected Class<?> getJavaType(MockRegisteredType registeredType, String typeName) {
-        Class<?> result = null;
+    protected Maybe<Class<?>> getJavaTypeInternal(MockRegisteredType registeredType, String typeName) {
+        Maybe<Class<?>> result = Maybe.absent();
             
-        if (result==null && registeredType!=null) result = registeredType.javaType;
-        if (result==null && registeredType!=null) result = getJavaType(registeredType.parentType);
+        if (result.isAbsent() && registeredType!=null) result = maybeClass(registeredType.javaType);
+        if (result.isAbsent() && registeredType!=null) result = getJavaTypeMaybe(registeredType.parentType);
         
-        if (result==null && typeName==null) return null;
+        if (result.isAbsent()) {
+            result = Maybe.absent("Unknown type '"+typeName+"' (no match available in mock library)");
+            if (typeName==null) return result; 
+        }
         
-        if (result==null) result = Boxing.boxedType(Boxing.getPrimitiveType(typeName).orNull());
-        if (result==null && YomlUtils.TYPE_STRING.equals(typeName)) result = String.class;
+        if (result.isAbsent()) result = maybeClass(Boxing.boxedType(Boxing.getPrimitiveType(typeName).orNull())).or(result);
+        if (result.isAbsent() && YomlUtils.TYPE_STRING.equals(typeName)) result = maybeClass(String.class);
         
-        if (result==null && typeName.startsWith("java:")) {
+        if (result.isAbsent() && typeName.startsWith("java:")) {
             typeName = Strings.removeFromStart(typeName, "java:");
             try {
-                // TODO use injected loader?
-                result = Class.forName(typeName);
+                // IRL use injected loader
+                result = maybeClass(Class.forName(typeName));
             } catch (ClassNotFoundException e) {
                 // ignore, this isn't a java type
             }
@@ -133,13 +142,14 @@ public class MockYomlTypeRegistry implements YomlTypeRegistry {
         Object type = ((Map<?,?>)yamlObject).remove("type");
         if (!(type instanceof String)) throw new IllegalArgumentException("Mock requires key `type` with string value");
         
-        Class<?> javaType = getJavaType((String)type);
-        if (javaType==null) throw new IllegalArgumentException("Mock cannot resolve parent type `"+type+"` in definition of `"+typeName+"`");
+        Maybe<Class<?>> javaType = getJavaTypeMaybe((String)type);
+        if (javaType.isAbsent()) throw new IllegalArgumentException("Mock cannot resolve parent type `"+type+"` in definition of `"+typeName+"`: "+
+            ((Maybe.Absent<?>)javaType).getException());
         
         Object interfaceTypes = ((Map<?,?>)yamlObject).remove("interfaceTypes");
         if (((Map<?,?>)yamlObject).isEmpty()) yamlObject = null;
         
-        types.put(typeName, new MockRegisteredType(typeName, (String)type, javaType, (Collection<String>)interfaceTypes, serializers, yamlObject));
+        types.put(typeName, new MockRegisteredType(typeName, (String)type, javaType.get(), (Collection<String>)interfaceTypes, serializers, yamlObject));
     }
 
     @Override
@@ -165,11 +175,17 @@ public class MockYomlTypeRegistry implements YomlTypeRegistry {
     }
     
     @Override
-    public void collectSerializers(String typeName, Collection<YomlSerializer> serializers, Set<String> typesVisited) {
+    public Iterable<YomlSerializer> getSerializersForType(String typeName) {
+        Set<YomlSerializer> result = MutableSet.of();
+        collectSerializers(typeName, result, MutableSet.<String>of());
+        return result;
+    }
+    
+    protected void collectSerializers(String typeName, Collection<YomlSerializer> serializers, Set<String> typesVisited) {
         if (typeName==null || !typesVisited.add(typeName)) return;
         MockRegisteredType rt = types.get(typeName);
-        if (rt==null || rt.serializers==null) return;
-        serializers.addAll(rt.serializers);
+        if (rt==null) return;
+        if (rt.serializers!=null) serializers.addAll(rt.serializers);
         if (rt.parentType!=null) {
             collectSerializers(rt.parentType, serializers, typesVisited);
         }

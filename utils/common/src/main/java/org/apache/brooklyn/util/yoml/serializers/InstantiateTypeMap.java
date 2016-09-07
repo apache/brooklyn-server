@@ -121,7 +121,7 @@ public class InstantiateTypeMap extends YomlSerializerComposition {
                 actualBaseTypeName = expectedBaseTypeName;
                 expectedJavaType = oldExpectedJavaType;
                 expectedBaseTypeName = oldExpectedBaseTypeName;
-                if (actualType==null) actualType = config.getTypeRegistry().getJavaType(actualBaseTypeName);
+                if (actualType==null) actualType = config.getTypeRegistry().getJavaTypeMaybe(actualBaseTypeName).orNull();
                 if (actualType==null) return; //we don't recognise the type
                 if (!Map.class.isAssignableFrom(actualType)) return; //it's not a map
                 

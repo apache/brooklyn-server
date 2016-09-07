@@ -229,7 +229,7 @@ public class YomlBasicTests {
             Asserts.shouldHaveFailedPreviously("Got "+ytc.lastReadResult+" when we should have failed due to unknown type shape");
         } catch (Exception e) {
             try {
-                Asserts.expectedFailureContainsIgnoreCase(e, "shape", "unknown type");
+                Asserts.expectedFailureContainsIgnoreCase(e, "no ", "type", "shape", "available");
             } catch (Throwable e2) {
                 log.warn("Failure detail: "+e, e);
                 throw Exceptions.propagate(e2);

@@ -28,7 +28,6 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.yoml.YomlContext;
-import org.apache.brooklyn.util.yoml.YomlSerializer;
 import org.apache.brooklyn.util.yoml.internal.SerializersOnBlackboard;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils;
 import org.apache.brooklyn.util.yoml.serializers.YomlSerializerComposition.YomlSerializerWorker;
@@ -75,9 +74,7 @@ public abstract class InstantiateTypeWorkerAbstract extends YomlSerializerWorker
     
     protected void addSerializers(String type) {
         if (!type.equals(context.getExpectedType())) {
-            Set<YomlSerializer> serializers = MutableSet.of();
-            config.typeRegistry.collectSerializers(type, serializers, MutableSet.<String>of());
-            SerializersOnBlackboard.get(blackboard).addInstantiatedTypeSerializers(serializers);
+            SerializersOnBlackboard.get(blackboard).addInstantiatedTypeSerializers(config.typeRegistry.getSerializersForType(type));
         }
     }
 
@@ -147,6 +144,9 @@ public abstract class InstantiateTypeWorkerAbstract extends YomlSerializerWorker
     }
 
     protected void warn(String message) {
+        ReadingTypeOnBlackboard.get(blackboard).addNote(message);
+    }
+    protected void warn(Throwable message) {
         ReadingTypeOnBlackboard.get(blackboard).addNote(message);
     }
 }

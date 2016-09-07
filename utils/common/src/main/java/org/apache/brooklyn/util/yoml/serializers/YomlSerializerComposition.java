@@ -67,7 +67,7 @@ public abstract class YomlSerializerComposition implements YomlSerializer {
         public Class<?> getExpectedTypeJava() { 
             String et = context.getExpectedType();
             if (Strings.isBlank(et)) return null;
-            Class<?> ett = config.getTypeRegistry().getJavaType(et);
+            Class<?> ett = config.getTypeRegistry().getJavaTypeMaybe(et).orNull();
             if (Object.class.equals(ett)) return null;
             return ett;
         }

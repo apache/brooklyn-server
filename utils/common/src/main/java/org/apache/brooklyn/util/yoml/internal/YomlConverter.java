@@ -21,7 +21,6 @@ package org.apache.brooklyn.util.yoml.internal;
 import java.util.Map;
 
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.yoml.YomlContext;
 import org.apache.brooklyn.util.yoml.YomlContextForRead;
 import org.apache.brooklyn.util.yoml.YomlContextForWrite;
@@ -67,36 +66,34 @@ public class YomlConverter {
         // find the serializers known so far; store on blackboard so they could be edited
         SerializersOnBlackboard serializers = SerializersOnBlackboard.create(blackboard);
         if (context.getExpectedType()!=null) {
-            config.typeRegistry.collectSerializers(context.getExpectedType(), serializers.expectedTypeSerializers, MutableSet.<String>of());
+            serializers.addExpectedTypeSerializers(config.typeRegistry.getSerializersForType(context.getExpectedType()));
         }
-        serializers.postSerializers.addAll(config.serializersPost);
+        serializers.addPostSerializers(config.serializersPost);
         
         if (context instanceof YomlContextForRead) {
             // read needs instantiated so that these errors display before manipulating errors and others
             ReadingTypeOnBlackboard.get(blackboard);
         }
         
-System.out.println("YOML now looking at "+context.getJsonPath()+"/ = "+context.getJavaObject()+" <-> "+context.getYamlObject()+" ("+context.getExpectedType()+")");
+        if (log.isTraceEnabled()) log.trace("YOML now looking at "+context.getJsonPath()+"/ = "+context.getJavaObject()+" <-> "+context.getYamlObject()+" ("+context.getExpectedType()+")");
         while (context.phaseAdvance()) {
             while (context.phaseStepAdvance()<Iterables.size(serializers.getSerializers())) {
                 YomlSerializer s = Iterables.get(serializers.getSerializers(), context.phaseCurrentStep());
                 if (context instanceof YomlContextForRead) {
-System.out.println("read "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" starting ("+context.phaseCurrent()+"."+context.phaseCurrentStep()+") ");
+                    if (log.isTraceEnabled()) log.trace("read "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" starting ("+context.phaseCurrent()+"."+context.phaseCurrentStep()+") ");
                     s.read((YomlContextForRead)context, this, blackboard);
-System.out.println("read "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" ended: "+context.getYamlObject());
+                    if (log.isTraceEnabled()) log.trace("read "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" ended: "+context.getYamlObject());
                 } else {
-                    if (log.isDebugEnabled())
-                        log.debug("write "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" starting ("+context.phaseCurrent()+"."+context.phaseCurrentStep()+") ");
-System.out.println("write "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" starting ("+context.phaseCurrent()+"."+context.phaseCurrentStep()+") ");
+                    if (log.isTraceEnabled()) log.trace("write "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" starting ("+context.phaseCurrent()+"."+context.phaseCurrentStep()+") ");
                     s.write((YomlContextForWrite)context, this, blackboard);
                     if (log.isDebugEnabled())
                         log.debug("write "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" ended: "+context.getYamlObject());
-System.out.println("write "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" ended: "+context.getYamlObject());
+                    if (log.isTraceEnabled()) log.trace("write "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" ended: "+context.getYamlObject());
                 }
             }
         }
         
-System.out.println("YOML done looking at "+context.getJsonPath()+"/ = "+context.getJavaObject()+" <-> "+context.getYamlObject());
+        if (log.isTraceEnabled()) log.trace("YOML done looking at "+context.getJsonPath()+"/ = "+context.getJavaObject()+" <-> "+context.getYamlObject());
         checkCompletion(context, blackboard);
     }
 

@@ -59,7 +59,7 @@ public class InstantiateTypePrimitive extends YomlSerializerComposition {
                 
                 String typeName = readingTypeFromFieldOrExpected();
                 if (typeName==null) return;
-                expectedJavaType = config.getTypeRegistry().getJavaType(typeName);
+                expectedJavaType = config.getTypeRegistry().getJavaTypeMaybe(typeName).orNull();
                 if (expectedJavaType==null) expectedJavaType = getSpecialKnownTypeName(typeName);
                 if (!isJsonPrimitiveType(expectedJavaType) && !isJsonMarkerType(typeName)) return;
                 

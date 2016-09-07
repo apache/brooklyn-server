@@ -19,7 +19,6 @@
 package org.apache.brooklyn.util.yoml.serializers;
 
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
@@ -52,11 +51,16 @@ public class InstantiateTypeFromRegistry extends YomlSerializerComposition {
 
             Maybe<Object> resultM = config.getTypeRegistry().newInstanceMaybe((String)type, Yoml.newInstance(config));
             if (resultM.isAbsent()) {
-                Class<?> jt = config.getTypeRegistry().getJavaType((String)type);
-                String message = jt==null ? "Invalid type '"+type+"'" : "Unable to create type '"+type+"' ("+jt+")";
-                RuntimeException exc = ((Maybe.Absent<?>)resultM).getException();
-                if (exc!=null) message+=": "+Exceptions.collapseText(exc);
-                warn(message);
+                String message = "Unable to create type '"+type+"'";
+                RuntimeException exc = null;
+                
+                Maybe<Class<?>> jt = config.getTypeRegistry().getJavaTypeMaybe((String)type);
+                if (jt.isAbsent()) {
+                    exc = ((Maybe.Absent<?>)jt).getException();
+                } else {
+                    exc = ((Maybe.Absent<?>)resultM).getException();
+                }
+                warn(new IllegalStateException(message, exc));
                 return;
             }
             
