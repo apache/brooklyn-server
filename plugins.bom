@@ -228,8 +228,8 @@ brooklyn.catalog:
           PermissionsStartOnly=true
           Environment="ETCD_ENDPOINTS=${ETCD_ENDPOINTS}"
           Environment="CALICO_NETWORKING=false"
-          Environment="HOSTNAME=${ENTITY_ID}"
-          Environment="FELIX_FELIXHOSTNAME=${ENTITY_ID}"
+          Environment="HOSTNAME=${HOST_SUBNET_ADDRESS}"
+          Environment="FELIX_FELIXHOSTNAME=${HOST_SUBNET_ADDRESS}"
           Environment="NO_DEFAULT_POOLS=true"
           ExecStart=/usr/bin/calicoctl node \
             --ip=${HOST_SUBNET_ADDRESS} \
@@ -247,5 +247,4 @@ brooklyn.catalog:
 
         checkRunning.command: |
           unset DOCKER_HOST
-          sudo systemctl status calico-node &&
-            sudo -E calicoctl status
+          sudo systemctl status calico-node

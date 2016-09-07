@@ -619,7 +619,7 @@ brooklyn.catalog:
                   "etcd_endpoints": "${ETCD_ENDPOINTS}",
                   "log_level": "debug",
                   "log_level_stderr": "info",
-                  "hostname": "${ENTITY_ID}",
+                  "hostname": "${HOST_SUBNET_ADDRESS}",
                   "policy": {
                       "type": "k8s",
                       "k8s_api_root": "${KUBERNETES_URL}/api/v1/"
