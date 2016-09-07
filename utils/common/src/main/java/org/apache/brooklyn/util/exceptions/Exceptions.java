@@ -351,6 +351,8 @@ public class Exceptions {
         return collapseText(t, false);
     }
     
+    /** as {@link #collapseText(Throwable)} but skipping any throwables which implement {@link CanSkipInContext}
+     * and indicate they should be skipped any of the given contexts */
     public static String collapseTextInContext(Throwable t, Object ...contexts) {
         return collapseText(t, false, ImmutableSet.<Throwable>of(), contexts);
     }

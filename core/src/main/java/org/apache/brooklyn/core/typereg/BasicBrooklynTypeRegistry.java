@@ -240,7 +240,7 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
 
     @Override
     public <SpecT extends AbstractBrooklynObjectSpec<?, ?>> SpecT createSpecFromPlan(String planFormat, Object planData, RegisteredTypeLoadingContext optionalConstraint, Class<SpecT> optionalSpecSuperType) {
-        return createSpec(RegisteredTypes.spec(null, null, new BasicTypeImplementationPlan(planFormat, planData), null),
+        return createSpec(RegisteredTypes.anonymousRegisteredType(RegisteredTypeKind.SPEC, new BasicTypeImplementationPlan(planFormat, planData)),
             optionalConstraint, optionalSpecSuperType);
     }
 
@@ -269,7 +269,7 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
 
     @Override
     public <T> T createBeanFromPlan(String planFormat, Object planData, RegisteredTypeLoadingContext optionalConstraint, Class<T> optionalSuperType) {
-        return createBean(RegisteredTypes.bean(null, null, new BasicTypeImplementationPlan(planFormat, planData), null),
+        return createBean(RegisteredTypes.anonymousRegisteredType(RegisteredTypeKind.BEAN, new BasicTypeImplementationPlan(planFormat, planData)),
             optionalConstraint, optionalSuperType);
     }
     

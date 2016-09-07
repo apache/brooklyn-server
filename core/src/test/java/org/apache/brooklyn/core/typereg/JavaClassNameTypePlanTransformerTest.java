@@ -42,7 +42,7 @@ public class JavaClassNameTypePlanTransformerTest extends BrooklynMgmtUnitTestSu
     }
     
     protected RegisteredType newNoArgRegisteredType(String format) {
-        return RegisteredTypes.bean("no-arg", "1.0", new BasicTypeImplementationPlan(format, NoArg.class.getName()), null);
+        return RegisteredTypes.bean("no-arg", "1.0", new BasicTypeImplementationPlan(format, NoArg.class.getName()));
     }
     
     protected BrooklynTypePlanTransformer newTransformer() {
