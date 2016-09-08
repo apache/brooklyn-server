@@ -51,14 +51,16 @@ import com.google.common.collect.ImmutableList;
  * - test serializers
  * - support serializers by annotation
  * - set serializers when adding to catalog and test
+ * - $brooklyn:object-yoml: <object-in-given-format>
  * 
  * NEXT
- * - $brooklyn:object(format): <object-in-given-format>
+ * - support $brooklyn DSL in yoml
  * - catalog impl supports format
  * 
  * (initdish can now be made to work)
  *   
  * THEN
+ * - update docs for above, including $brooklyn:object-yoml, yoml overview
  * - support specs from yoml
  * - type registry api, add arbitrary types via yoml, specifying format
  * - catalog impl in yoml as test?
@@ -134,10 +136,15 @@ public class YomlTypePlanTransformer extends AbstractTypePlanTransformer {
             return y.read((String) data, expectedSuperTypeName);
         }
         
-        // could do this
-//      return y.readFromYamlObject(data, expectedSuperTypeName);
-        // but we require always a string
-        throw new IllegalArgumentException("The implementation plan for '"+type+"' should be a string in order to process as YOML");
+        if (type.getSymbolicName()!=null) {
+            throw new IllegalArgumentException("The implementation plan for '"+type+"' should be a string in order to process as YOML");
+        }
+        
+        // we do this (supporint non-string and pre-parsed plans) in order to support the YAML DSL 
+        // and other limited use cases (see DslYomlObject);
+        // NB this is only for ad hoc plans (code above) and we plan to deprecate as soon as we can 
+        // get the underlying string in the $brooklyn DSL context
+        return y.readFromYamlObject(data, expectedSuperTypeName);
     }
     
     @Override

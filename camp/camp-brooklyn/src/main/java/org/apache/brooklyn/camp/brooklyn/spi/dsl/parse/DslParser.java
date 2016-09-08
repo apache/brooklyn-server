@@ -78,7 +78,7 @@ public class DslParser {
             char c = expression.charAt(index);
             if (Character.isJavaIdentifierPart(c)) ;
             // these chars also permitted
-            else if (".:".indexOf(c)>=0) ;
+            else if (".:-".indexOf(c)>=0) ;
             // other things e.g. whitespace, parentheses, etc, skip
             else break;
             index++;

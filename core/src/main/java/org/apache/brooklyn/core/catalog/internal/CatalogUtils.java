@@ -73,7 +73,7 @@ public class CatalogUtils {
     public static BrooklynClassLoadingContext newClassLoadingContext(ManagementContext mgmt, RegisteredType item) {
         return newClassLoadingContext(mgmt, item.getId(), item.getLibraries(), null);
     }
-    
+
     /** made @Beta in 0.9.0 because we're not sure to what extent to support stacking loaders; 
      * only a couple places currently rely on such stacking, in general the item and the bundles *are* the context,
      * and life gets hard if we support complex stacking! */
