@@ -69,6 +69,10 @@ public class TypeCoercions {
         BrooklynInitialization.initTypeCoercionStandardAdapters(); 
     }
     
+    public static TypeCoercer getInstance() {
+        return coercer;
+    }
+    
     public static void initStandardAdapters() {
         new BrooklynCommonAdaptorTypeCoercions(coercer).registerAllAdapters();
         registerDeprecatedBrooklynAdapters();

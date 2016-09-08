@@ -35,6 +35,7 @@ import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
+import org.apache.brooklyn.util.javalang.coerce.TypeCoercer;
 import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
@@ -301,7 +302,7 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
         if (timerU==null && timeout!=null)
             timerU = timeout.countdownTimer();
         final CountdownTimer timer = timerU;
-        if (timer!=null && !timer.isRunning())
+        if (timer!=null && !timer.isNotPaused())
             timer.start();
         
         checkTypeNotNull();
@@ -471,4 +472,24 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
     public String toString() {
         return JavaClassNames.cleanSimpleClassName(this)+"["+JavaClassNames.cleanSimpleClassName(type)+" "+value+"]";
     }
+    
+    /** Returns a quick resolving type coercer. May allow more underlying {@link ValueResolver} customization in the future. */
+    public static class ResolvingTypeCoercer implements TypeCoercer {
+        @Override
+        public <T> T coerce(Object input, Class<T> type) {
+            return tryCoerce(input, type).get();
+        }
+
+        @Override
+        public <T> Maybe<T> tryCoerce(Object input, Class<T> type) {
+            return new ValueResolver<T>(input, type).timeout(REAL_QUICK_WAIT).getMaybe();
+        }
+
+        @SuppressWarnings({ "unchecked", "rawtypes" })
+        @Override
+        public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type) {
+            return (Maybe) tryCoerce(input, type.getRawType());
+        }
+    }
+    
 }

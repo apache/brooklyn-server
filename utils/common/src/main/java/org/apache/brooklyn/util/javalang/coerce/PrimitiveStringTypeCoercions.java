@@ -22,7 +22,6 @@ import java.lang.reflect.Method;
 
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 
@@ -32,7 +31,7 @@ public class PrimitiveStringTypeCoercions {
 
     public PrimitiveStringTypeCoercions() {}
     
-    @SuppressWarnings({ "unchecked", "rawtypes" })
+    @SuppressWarnings({ "unchecked" })
     public static <T> Maybe<T> tryCoerce(Object value, Class<? super T> targetType) {
         //deal with primitive->primitive casting
         if (isPrimitiveOrBoxer(targetType) && isPrimitiveOrBoxer(value.getClass())) {
