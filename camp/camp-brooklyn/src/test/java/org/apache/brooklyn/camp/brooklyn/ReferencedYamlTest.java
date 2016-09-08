@@ -242,6 +242,31 @@ public class ReferencedYamlTest extends AbstractYamlTest {
     }
 
     @Test
+    public void testCatalogReferenceByMultipleUrls() throws Exception {
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  items:",
+            "  - include: classpath://yaml-ref-simple.bom",
+            "  - include: classpath://yaml-ref-more.bom"
+        );
+
+        assertCatalogReference();
+    }
+
+    @Test
+    public void testCatalogReferenceByMultipleUrlsSimplerSyntax() throws Exception {
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  items:",
+            "  - classpath://yaml-ref-simple.bom",
+            "  - classpath://yaml-ref-more.bom"
+        );
+
+        assertCatalogReference();
+    }
+
+
+    @Test
     public void testCatalogReferenceSeesPreviousItems() throws Exception {
         addCatalogItems(
             "brooklyn.catalog:",
