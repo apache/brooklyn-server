@@ -28,6 +28,7 @@ import org.apache.brooklyn.core.typereg.AbstractFormatSpecificTypeImplementation
 import org.apache.brooklyn.core.typereg.AbstractTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
@@ -113,6 +114,8 @@ public class YomlTypePlanTransformer extends AbstractTypePlanTransformer {
     protected Object createBean(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
         BrooklynYomlTypeRegistry tr = new BrooklynYomlTypeRegistry(mgmt, context);
         Yoml y = Yoml.newInstance(tr);
+        y.getConfig().coercer = new ValueResolver.ResolvingTypeCoercer();
+        
         // TODO could cache the parse, could cache the instantiation instructions
         Object data = type.getPlan().getPlanData();
         

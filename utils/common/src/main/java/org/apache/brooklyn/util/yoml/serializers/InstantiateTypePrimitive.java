@@ -42,7 +42,7 @@ public class InstantiateTypePrimitive extends YomlSerializerComposition {
             if (!canDoRead()) return;
             
             Class<?> expectedJavaType;
-            Maybe<?> value;
+            Maybe<?> value = Maybe.absent();
             
             if (isJsonPrimitiveObject(getYamlObject())) {
                 // pure primitive - we must know the type and then we should simply be able to coerce
@@ -55,19 +55,27 @@ public class InstantiateTypePrimitive extends YomlSerializerComposition {
                 if (value.isAbsent()) return;
                 
             } else {
-                // not primitive; it should be of {type: ..., value: ...} format with type being the primitive
+                // not primitive; either should be coercible or should be of {type: ..., value: ...} format with type being the primitive
                 
-                String typeName = readingTypeFromFieldOrExpected();
-                if (typeName==null) return;
-                expectedJavaType = config.getTypeRegistry().getJavaTypeMaybe(typeName).orNull();
-                if (expectedJavaType==null) expectedJavaType = getSpecialKnownTypeName(typeName);
-                if (!isJsonPrimitiveType(expectedJavaType) && !isJsonMarkerType(typeName)) return;
+                expectedJavaType = getExpectedTypeJava();
+                if (!isJsonComplexObject(getYamlObject()) && (expectedJavaType!=null || isJsonMarkerTypeExpected())) {
+                    // if it's not a json map/list (and not a primitive) than try a coercion;
+                    // maybe a bit odd to call that "primitive" but it is primitive in the sense it is pass-through unparsed
+                    value = tryCoerceAndNoteError(getYamlObject(), expectedJavaType);
+                }
                 
-                value = readingValueFromTypeValueMap();
-                if (value.isAbsent()) return;
-                if (tryCoerceAndNoteError(value.get(), expectedJavaType).isAbsent()) return;
-                
-                removeTypeAndValueKeys();
+                if (value.isAbsent()) {
+                    String typeName = readingTypeFromFieldOrExpected();
+                    if (typeName==null) return;
+                    expectedJavaType = config.getTypeRegistry().getJavaTypeMaybe(typeName).orNull();
+                    if (expectedJavaType==null) expectedJavaType = getSpecialKnownTypeName(typeName);
+                    if (!isJsonPrimitiveType(expectedJavaType) && !isJsonMarkerType(typeName)) return;
+
+                    value = readingValueFromTypeValueMap();
+                    if (value.isAbsent()) return;
+                    if (tryCoerceAndNoteError(value.get(), expectedJavaType).isAbsent()) return;
+                    removeTypeAndValueKeys();
+                }
             }
             
             storeReadObjectAndAdvance(value.get(), false);

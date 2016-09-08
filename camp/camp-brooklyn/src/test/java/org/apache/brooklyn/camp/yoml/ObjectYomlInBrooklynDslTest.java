@@ -23,6 +23,7 @@ import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
@@ -60,7 +61,7 @@ public class ObjectYomlInBrooklynDslTest extends AbstractYamlTest {
     private final static RegisteredType SAMPLE_TYPE = BrooklynYomlTypeRegistry.newYomlRegisteredType(
         RegisteredTypeKind.BEAN, null, "1", ItemA.class);
 
-    void doTest(String ...lines) throws Exception {
+    Entity doDeploy(String ...lines) throws Exception {
         add(SAMPLE_TYPE);
         String yaml = Joiner.on("\n").join(
                 "services:",
@@ -70,8 +71,11 @@ public class ObjectYomlInBrooklynDslTest extends AbstractYamlTest {
         yaml += Joiner.on("\n      ").join("", "", (Object[])lines);
 
         Entity app = createStartWaitAndLogApplication(yaml);
-        Entity entity = Iterables.getOnlyElement( app.getChildren() );
+        return Iterables.getOnlyElement( app.getChildren() );
+    }
         
+    void doTest(String ...lines) throws Exception {
+        Entity entity = doDeploy(lines);
         Object obj = entity.config().get(ConfigKeys.newConfigKey(Object.class, "test.obj"));
         log.info("Object for "+JavaClassNames.callerNiceClassAndMethod(1)+" : "+obj);
         Asserts.assertInstanceOf(obj, ItemA.class);
@@ -93,6 +97,17 @@ public class ObjectYomlInBrooklynDslTest extends AbstractYamlTest {
             "$brooklyn:object-yoml:",
             "  type: "+ItemA.class.getName(),
             "  name: bob");
+    }
+
+    @Test
+    public void testYomlSyntaxUsindDslAgain() throws Exception {
+        Entity entity = doDeploy(
+            "$brooklyn:object-yoml:",
+            "  type: "+ItemA.class.getName(),
+            "  name: $brooklyn:self().attributeWhenReady(\"test.sensor\")");
+        entity.sensors().set(Sensors.newStringSensor("test.sensor"), "bobella");
+        Object obj = entity.config().get(ConfigKeys.newConfigKey(Object.class, "test.obj"));
+        Assert.assertEquals(((ItemA)obj).name, "bobella");
     }
 
 }

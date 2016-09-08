@@ -91,7 +91,8 @@ public abstract class InstantiateTypeWorkerAbstract extends YomlSerializerWorker
         Maybe<?> coerced = config.getCoercer().tryCoerce(value, expectedJavaType);
         if (coerced.isAbsent()) {
             // type present but not coercible - error
-            ReadingTypeOnBlackboard.get(blackboard).addNote("Cannot interpret '"+value+"' as primitive "+expectedJavaType);
+            ReadingTypeOnBlackboard.get(blackboard).addNote("Cannot interpret or coerce '"+value+"' as "+
+                config.getTypeRegistry().getTypeNameOfClass(expectedJavaType));
         }
         return coerced;
     }

@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.yoml.serializers;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 
@@ -33,6 +34,7 @@ import org.apache.brooklyn.util.yoml.YomlSerializer;
 import org.apache.brooklyn.util.yoml.internal.YomlConfig;
 import org.apache.brooklyn.util.yoml.internal.YomlConverter;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils;
+import org.apache.brooklyn.util.yoml.internal.YomlUtils.JsonMarker;
 
 public abstract class YomlSerializerComposition implements YomlSerializer {
 
@@ -130,11 +132,23 @@ public abstract class YomlSerializerComposition implements YomlSerializer {
             return result;
         }
         
+        /** true iff the object is a string or java primitive type */ 
         protected boolean isJsonPrimitiveObject(Object o) {
             if (o==null) return true;
             if (o instanceof String) return true;
             if (Boxing.isPrimitiveOrBoxedObject(o)) return true;
             return false;
+        }
+        
+        /** true iff the object is a map or collection (not recursing; for that see {@link #isJsonPureObject(Object)}  */ 
+        protected boolean isJsonComplexObject(Object o) {
+            return (o instanceof Map || o instanceof Collection);
+        }
+
+        /** true iff the object is a primitive type or a map or collection of pure objects;
+         * see {@link JsonMarker#isPureJson(Object)} (which this simply proxies for convenience) */ 
+        protected boolean isJsonPureObject(Object o) {
+            return YomlUtils.JsonMarker.isPureJson(o);
         }
 
         public abstract void read();
