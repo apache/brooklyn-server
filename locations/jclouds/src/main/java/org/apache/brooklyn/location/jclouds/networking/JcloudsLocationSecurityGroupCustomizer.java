@@ -469,7 +469,9 @@ public class JcloudsLocationSecurityGroupCustomizer extends BasicJcloudsLocation
                 .toPort(65535);
         addPermission(allWithinGroup.ipProtocol(IpProtocol.TCP).build(), group, securityApi);
         addPermission(allWithinGroup.ipProtocol(IpProtocol.UDP).build(), group, securityApi);
-        addPermission(allWithinGroup.ipProtocol(IpProtocol.ICMP).fromPort(-1).toPort(-1).build(), group, securityApi);
+        if (!isAzure(location)) {
+            addPermission(allWithinGroup.ipProtocol(IpProtocol.ICMP).fromPort(-1).toPort(-1).build(), group, securityApi);
+        }
 
         IpPermission sshPermission = IpPermission.builder()
                 .fromPort(22)
@@ -509,6 +511,11 @@ public class JcloudsLocationSecurityGroupCustomizer extends BasicJcloudsLocation
 
     private boolean isOpenstackNova(Location location) {
         Set<String> computeIds = getJcloudsLocationIds(ImmutableList.of("openstack-nova", "openstack-mitaka-nova", "openstack-devtest-compute"));
+        return location.getParent() != null && Iterables.contains(computeIds, location.getParent().getId());
+    }
+    
+    private boolean isAzure(Location location) {
+        Set<String> computeIds = getJcloudsLocationIds("azurecompute");
         return location.getParent() != null && Iterables.contains(computeIds, location.getParent().getId());
     }
     
