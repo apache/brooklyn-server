@@ -20,11 +20,15 @@ package org.apache.brooklyn.util.yoml.annotations;
 
 import java.lang.reflect.Field;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
+import org.apache.brooklyn.util.yoml.internal.YomlUtils;
 import org.apache.brooklyn.util.yoml.serializers.ExplicitField;
 
 public class YomlAnnotations {
@@ -49,18 +53,24 @@ public class YomlAnnotations {
         return names;
     }
     
+    public static List<ExplicitField> findExplicitFieldSerializers(Class<?> t, boolean requireAnnotation) {
+        List<ExplicitField> result = MutableList.of();
+        Map<String,Field> fields = YomlUtils.getAllNonTransientNonStaticFields(t, null);
+        for (Map.Entry<String, Field> f: fields.entrySet()) {
+            if (!requireAnnotation || f.getValue().isAnnotationPresent(YomlFieldAtTopLevel.class))
+            result.add(new ExplicitField(f.getKey(), f.getValue()));
+        }
+        return result;
+    }
+
     public static Set<YomlSerializer> findSerializerAnnotations(Class<?> type) {
         Set<YomlSerializer> result = MutableSet.of();
-        if (!type.getSuperclass().equals(Object.class)) {
-            result.addAll(findSerializerAnnotations(type.getSuperclass()));
-        }
-        
+
+        // explicit fields
         YomlAllFieldsAtTopLevel allFields = type.getAnnotation(YomlAllFieldsAtTopLevel.class);
-        for (Field f: type.getDeclaredFields()) {
-            YomlFieldAtTopLevel ytf = f.getAnnotation(YomlFieldAtTopLevel.class);
-            if (ytf!=null || allFields!=null)
-                result.add(new ExplicitField(f));
-        }
+        result.addAll(findExplicitFieldSerializers(type, allFields==null));
+        
+        // (so far the above is the only type of serializer we pick up from annotations)
         
         return result;
     }

@@ -18,12 +18,9 @@
  */
 package org.apache.brooklyn.util.yoml.serializers;
 
-import java.util.List;
-
-import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.yoml.annotations.Alias;
+import org.apache.brooklyn.util.yoml.annotations.YomlAnnotations;
 import org.apache.brooklyn.util.yoml.internal.SerializersOnBlackboard;
-import org.apache.brooklyn.util.yoml.internal.YomlUtils;
 
 /* Adds ExplicitField instances for all fields declared on the type */
 @Alias("all-fields-explicit")
@@ -48,14 +45,8 @@ public class AllFieldsExplicit extends YomlSerializerComposition {
             // mark done
             blackboard.put(DoneAllFieldsExplicit.class.getName(), new DoneAllFieldsExplicit());
             
-            SerializersOnBlackboard serializers = SerializersOnBlackboard.get(blackboard);
-            
-            List<String> fields = YomlUtils.getAllNonTransientNonStaticFieldNames(getJavaObject().getClass(), null);
-            for (String f: fields) {
-                ExplicitField ef = new ExplicitField();
-                ef.fieldName = f;
-                serializers.addInstantiatedTypeSerializers(MutableList.of(ef));
-            }
+            SerializersOnBlackboard.get(blackboard).addInstantiatedTypeSerializers(
+                YomlAnnotations.findExplicitFieldSerializers(getJavaObject().getClass(), false));
 
             context.phaseRestart();
         }

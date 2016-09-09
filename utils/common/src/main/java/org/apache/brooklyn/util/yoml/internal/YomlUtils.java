@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.javalang.FieldOrderings;
 import org.apache.brooklyn.util.javalang.ReflectionPredicates;
@@ -138,8 +139,8 @@ public class YomlUtils {
         public int subTypeCount() { return subTypes.size(); }
     }
 
-    public static <T> List<String> getAllNonTransientNonStaticFieldNames(Class<T> type, T optionalInstanceToRequireNonNullFieldValue) {
-        List<String> result = MutableList.of();
+    public static <T> Map<String,Field> getAllNonTransientNonStaticFields(Class<T> type, T optionalInstanceToRequireNonNullFieldValue) {
+        Map<String,Field> result = MutableMap.of();
         List<Field> fields = Reflections.findFields(type, 
             null,
             FieldOrderings.ALPHABETICAL_FIELD_THEN_SUB_BEST_FIRST);
@@ -153,12 +154,15 @@ public class YomlUtils {
                         // if field is shadowed use FQN
                         name = f.getDeclaringClass().getCanonicalName()+"."+name;
                     }
-                    result.add(name);
+                    result.put(name, f);
                 }
             }
             lastF = f;
         }
         return result;
+    }
+    public static <T> List<String> getAllNonTransientNonStaticFieldNames(Class<T> type, T optionalInstanceToRequireNonNullFieldValue) {
+        return MutableList.copyOf(getAllNonTransientNonStaticFields(type, optionalInstanceToRequireNonNullFieldValue).keySet());
     }
 
     @SuppressWarnings("unchecked")

@@ -49,7 +49,11 @@ public class ExplicitField extends YomlSerializerComposition {
 
     public ExplicitField() {}
     public ExplicitField(Field f) {
-        fieldName = keyName = f.getName();
+        this(f.getName(), f);
+    }
+    /** preferred constructor for dealing with shadowed fields using superclass.field naming convention */
+    public ExplicitField(String name, Field f) {
+        fieldName = keyName = name;
             
         Alias alias = f.getAnnotation(Alias.class);
         if (alias!=null) {
