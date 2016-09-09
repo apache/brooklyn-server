@@ -32,13 +32,13 @@ import org.apache.brooklyn.camp.spi.resolve.PlanInterpreter.PlanInterpreterAdapt
 import org.apache.brooklyn.camp.spi.resolve.interpret.PlanInterpretationNode;
 import org.apache.brooklyn.camp.spi.resolve.interpret.PlanInterpretationNode.Role;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.CaseFormat;
-import com.google.common.base.Optional;
 
 /**
  * {@link PlanInterpreter} which understands the $brooklyn DSL
@@ -184,7 +184,7 @@ public class BrooklynDslInterpreter extends PlanInterpreterAdapter {
             for (Object arg: f.getArgs()) {
                 args.add( deepEvaluation ? evaluate(arg, true) : arg );
             }
-            Optional<Object> v = Reflections.invokeMethodWithArgs(o, fn, args);
+            Maybe<Object> v = Reflections.invokeMethodFromArgs(o, fn, args);
             if (v.isPresent()) return v.get();
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);

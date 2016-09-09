@@ -24,6 +24,10 @@ import java.util.Map;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslInterpreter;
+import org.apache.brooklyn.camp.spi.resolve.PlanInterpreter;
+import org.apache.brooklyn.camp.spi.resolve.interpret.PlanInterpretationContext;
+import org.apache.brooklyn.camp.spi.resolve.interpret.PlanInterpretationNode;
 import org.apache.brooklyn.core.typereg.AbstractFormatSpecificTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.AbstractTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
@@ -35,6 +39,7 @@ import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yoml.Yoml;
 import org.apache.brooklyn.util.yoml.YomlException;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
+import org.yaml.snakeyaml.Yaml;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -53,9 +58,9 @@ import com.google.common.collect.ImmutableList;
  * - support serializers by annotation
  * - set serializers when adding to catalog and test
  * - $brooklyn:object-yoml: <object-in-given-format>
+ * - support $brooklyn DSL in yoml
  * 
  * NEXT
- * - support $brooklyn DSL in yoml
  * - catalog impl supports format
  * 
  * (initdish can now be made to work)
@@ -65,6 +70,7 @@ import com.google.common.collect.ImmutableList;
  * - support specs from yoml
  * - type registry api, add arbitrary types via yoml, specifying format
  * - catalog impl in yoml as test?
+ * - type registry persistence
  * - REST API for deploy accepts specific format, can call yoml (can we test this earlier?)
  * 
  * AND THEN
@@ -122,6 +128,7 @@ public class YomlTypePlanTransformer extends AbstractTypePlanTransformer {
         Class<?> expectedSuperType = context.getExpectedJavaSuperType();
         String expectedSuperTypeName = tr.getTypeNameOfClass(expectedSuperType);
         
+        Object parsedInput;
         if (data==null || (data instanceof String)) {
             if (Strings.isBlank((String)data)) {
                 // blank plan means to use the java type
@@ -135,19 +142,33 @@ public class YomlTypePlanTransformer extends AbstractTypePlanTransformer {
                 }
             }
             
-            // normal processing
-            return y.read((String) data, expectedSuperTypeName);
+            // else we need to parse to json objects, then translate it (below)
+            parsedInput = new Yaml().load((String) data);
+            
+        } else {
+            // we do this (supporint non-string and pre-parsed plans) in order to support the YAML DSL 
+            // and other limited use cases (see DslYomlObject);
+            // NB this is only for ad hoc plans (code above) and we may deprecate it altogether as soon as we can 
+            // get the underlying string in the $brooklyn DSL context
+            
+            if (type.getSymbolicName()!=null) {
+                throw new IllegalArgumentException("The implementation plan for '"+type+"' should be a string in order to process as YOML");
+            }
+            parsedInput = data;
+            
         }
         
-        if (type.getSymbolicName()!=null) {
-            throw new IllegalArgumentException("The implementation plan for '"+type+"' should be a string in order to process as YOML");
+        // in either case, now run interpreters (dsl) if it's a m=ap, then translate 
+        
+        if (parsedInput instanceof Map) {
+            List<PlanInterpreter> interpreters = MutableList.<PlanInterpreter>of(new BrooklynDslInterpreter());
+            @SuppressWarnings("unchecked")
+            PlanInterpretationNode interpretation = new PlanInterpretationNode(
+                new PlanInterpretationContext((Map<String,?>)parsedInput, interpreters));
+            parsedInput = interpretation.getNewValue();
         }
         
-        // we do this (supporint non-string and pre-parsed plans) in order to support the YAML DSL 
-        // and other limited use cases (see DslYomlObject);
-        // NB this is only for ad hoc plans (code above) and we plan to deprecate as soon as we can 
-        // get the underlying string in the $brooklyn DSL context
-        return y.readFromYamlObject(data, expectedSuperTypeName);
+        return y.readFromYamlObject(parsedInput, expectedSuperTypeName);
     }
     
     @Override

@@ -388,20 +388,21 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
     public static RegisteredType newYomlRegisteredType(RegisteredTypeKind kind,
             String symbolicName, String version, String planData,
             Class<?> javaConcreteType,
-            Iterable<? extends Object> superTypesAsClassOrRegisteredType,
+            Iterable<? extends Object> addlSuperTypesAsClassOrRegisteredType,
             Iterable<YomlSerializer> serializers) {
             
         YomlTypeImplementationPlan plan = new YomlTypeImplementationPlan(planData, javaConcreteType, serializers);
         RegisteredType result = kind==RegisteredTypeKind.SPEC ? RegisteredTypes.spec(symbolicName, version, plan) : RegisteredTypes.bean(symbolicName, version, plan);
         RegisteredTypes.addSuperType(result, javaConcreteType);
-        RegisteredTypes.addSuperTypes(result, superTypesAsClassOrRegisteredType);
+        RegisteredTypes.addSuperTypes(result, addlSuperTypesAsClassOrRegisteredType);
         return result;
     }
 
-    public static RegisteredType newYomlRegisteredType(RegisteredTypeKind bean, @Nullable String symbolicName, String version, Class<?> clazz) {
+    /** null symbolic name means to take it from annotations or the class name */
+    public static RegisteredType newYomlRegisteredType(RegisteredTypeKind kind, @Nullable String symbolicName, String version, Class<?> clazz) {
         Set<String> names = YomlAnnotations.findTypeNamesFromAnnotations(clazz, symbolicName, false);
         Set<YomlSerializer> serializers = YomlAnnotations.findSerializerAnnotations(clazz);
-        RegisteredType type = BrooklynYomlTypeRegistry.newYomlRegisteredType(RegisteredTypeKind.BEAN, 
+        RegisteredType type = BrooklynYomlTypeRegistry.newYomlRegisteredType(kind, 
             // symbolicName, version, 
             names.iterator().next(), version, 
             // planData - null means just use the java type (could have done this earlier), 
