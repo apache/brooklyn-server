@@ -101,9 +101,8 @@
         <xstream.version>1.4.8</xstream.version>
         <xpp3.servicemix.version>1.1.4c_7</xpp3.servicemix.version>
         <kxml2.servicemix.version>2.3.0_3</kxml2.servicemix.version>
-        <!-- double-check downstream projects before changing jackson and resteasy versions -->
+        <!-- double-check downstream projects before changing jackson version -->
         <fasterxml.jackson.version>2.4.5</fasterxml.jackson.version>
-        <resteasy.version>3.0.8.Final</resteasy.version>
         <cxf.version>3.1.4</cxf.version>
         <httpclient.version>4.4.1</httpclient.version>
         <commons-lang3.version>3.3.2</commons-lang3.version>
@@ -216,7 +215,6 @@
         <module>logging/logback-includes</module>
         <module>logging/logback-xml</module>
         <module>rest/rest-api</module>
-        <module>rest/rest-client</module>
         <module>rest/rest-resources</module>
         <module>rest/rest-server</module>
         <module>test-framework</module>
