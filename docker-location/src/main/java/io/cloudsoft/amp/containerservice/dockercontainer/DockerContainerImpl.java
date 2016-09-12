@@ -31,7 +31,7 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcessImpl;
 import org.apache.brooklyn.util.collections.MutableList;
 
-import com.google.api.client.repackaged.com.google.common.base.Strings;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 
 public class DockerContainerImpl extends EmptySoftwareProcessImpl implements DockerContainer {
