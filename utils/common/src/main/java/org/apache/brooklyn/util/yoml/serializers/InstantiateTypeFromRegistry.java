@@ -106,10 +106,14 @@ public class InstantiateTypeFromRegistry extends YomlSerializerComposition {
                 typeName);
                 
             writingPopulateBlackboard();
-                
-            context.phaseInsert(YomlContext.StandardPhases.HANDLING_FIELDS, YomlContext.StandardPhases.MANIPULATING);
+            writingInsertPhases();
+            
             storeWriteObjectAndAdvance(map);
             return;
+        }
+
+        protected void writingInsertPhases() {
+            context.phaseInsert(YomlContext.StandardPhases.HANDLING_FIELDS, YomlContext.StandardPhases.MANIPULATING);
         }
 
         protected void writingPopulateBlackboard() {

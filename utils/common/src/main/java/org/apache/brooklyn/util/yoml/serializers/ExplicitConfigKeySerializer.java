@@ -32,11 +32,11 @@ import org.apache.brooklyn.util.yoml.internal.YomlUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ExplicitConfigKeySerializer extends ExplicitField {
+public class ExplicitConfigKeySerializer extends ExplicitFieldSerializer {
 
     private static final Logger log = LoggerFactory.getLogger(ExplicitConfigKeySerializer.class);
     
-    String keyNameForConfigWhenSerialized = null;
+    final String keyNameForConfigWhenSerialized;
     
     public ExplicitConfigKeySerializer(String keyNameForConfigWhenSerialized, ConfigKey<?> configKey, Field optionalFieldForAnnotations) {
         super(configKey.getName(), optionalFieldForAnnotations);
@@ -117,11 +117,16 @@ public class ExplicitConfigKeySerializer extends ExplicitField {
         return new Worker();
     }
     
-    public class Worker extends ExplicitField.Worker {
+    public class Worker extends ExplicitFieldSerializer.Worker {
         protected boolean canDoRead() { 
             return !hasJavaObject() && context.willDoPhase(InstantiateTypeFromRegistryUsingConfigMap.PHASE_INSTANTIATE_TYPE_DEFERRED);
         }
+        
+        @Override
+        protected void prepareExplicitFields() {
+            super.prepareExplicitFields();
+            getExplicitFieldsBlackboard().setDeclaredTypeIfUnset(fieldName, configKey.getType());
+        }
     }
-
     
 }

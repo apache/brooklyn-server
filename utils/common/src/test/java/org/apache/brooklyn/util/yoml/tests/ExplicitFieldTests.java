@@ -26,7 +26,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
 import org.apache.brooklyn.util.yoml.serializers.AllFieldsExplicit;
-import org.apache.brooklyn.util.yoml.serializers.ExplicitField;
+import org.apache.brooklyn.util.yoml.serializers.ExplicitFieldSerializer;
 import org.apache.brooklyn.util.yoml.tests.YomlBasicTests.Shape;
 import org.apache.brooklyn.util.yoml.tests.YomlBasicTests.ShapeWithSize;
 import org.testng.Assert;
@@ -36,7 +36,7 @@ import org.testng.annotations.Test;
 public class ExplicitFieldTests {
 
     public static YomlSerializer explicitFieldSerializer(String yaml) {
-        return (YomlSerializer) YomlTestFixture.newInstance().read("{ fields: "+yaml+" }", "java:"+ExplicitField.class.getName()).lastReadResult;
+        return (YomlSerializer) YomlTestFixture.newInstance().read("{ fields: "+yaml+" }", "java:"+ExplicitFieldSerializer.class.getName()).lastReadResult;
     }
 
     protected static YomlTestFixture simpleExplicitFieldFixture() {

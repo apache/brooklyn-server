@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.yoml.internal;
 
+import java.util.Collection;
 import java.util.List;
 
 import org.apache.brooklyn.util.collections.MutableList;
@@ -25,6 +26,12 @@ import org.apache.brooklyn.util.javalang.coerce.TypeCoercer;
 import org.apache.brooklyn.util.javalang.coerce.TypeCoercerExtensible;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
 import org.apache.brooklyn.util.yoml.YomlTypeRegistry;
+import org.apache.brooklyn.util.yoml.serializers.FieldsInMapUnderFields;
+import org.apache.brooklyn.util.yoml.serializers.InstantiateTypeEnum;
+import org.apache.brooklyn.util.yoml.serializers.InstantiateTypeFromRegistry;
+import org.apache.brooklyn.util.yoml.serializers.InstantiateTypeList;
+import org.apache.brooklyn.util.yoml.serializers.InstantiateTypeMap;
+import org.apache.brooklyn.util.yoml.serializers.InstantiateTypePrimitive;
 
 import com.google.common.collect.ImmutableList;
 
@@ -38,10 +45,12 @@ public interface YomlConfig {
     public static class BasicYomlConfig implements YomlConfig {
         private BasicYomlConfig() {}
         private BasicYomlConfig(YomlConfig original) {
-            this.typeRegistry = original.getTypeRegistry();
-            this.coercer = original.getCoercer();
-            this.serializersPost = original.getSerializersPost();
-            this.constructionInstruction = original.getConstructionInstruction();
+            if (original!=null) {
+                this.typeRegistry = original.getTypeRegistry();
+                this.coercer = original.getCoercer();
+                this.serializersPost = original.getSerializersPost();
+                this.constructionInstruction = original.getConstructionInstruction();
+            }
         }
 
         private YomlTypeRegistry typeRegistry;
@@ -76,9 +85,21 @@ public interface YomlConfig {
         protected Builder(YomlConfig source) { result = new BasicYomlConfig(source); }
         public Builder typeRegistry(YomlTypeRegistry tr) { result.typeRegistry = tr; return this; }
         public Builder coercer(TypeCoercer x) { result.coercer = x; return this; }
-        public Builder serializersPost(List<YomlSerializer> x) { result.serializersPost = x; return this; }
+        public Builder serializersPostReplace(List<YomlSerializer> x) { result.serializersPost = x; return this; }
+        public Builder serializersPostAdd(Collection<YomlSerializer> x) { result.serializersPost.addAll(x); return this; }
+        public Builder serializersPostAddDefaults() { return serializersPostAdd(getDefaultSerializers()); }
         public Builder constructionInstruction(ConstructionInstruction x) { result.constructionInstruction = x; return this; }
         
         public YomlConfig build() { return new BasicYomlConfig(result); }
+        
+        public static List<YomlSerializer> getDefaultSerializers() {
+            return MutableList.<YomlSerializer>of(
+                new FieldsInMapUnderFields(),
+                new InstantiateTypePrimitive(),
+                new InstantiateTypeEnum(),
+                new InstantiateTypeList(),
+                new InstantiateTypeMap(),
+                new InstantiateTypeFromRegistry() );
+        }
     }
 }

@@ -27,7 +27,6 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
-import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yoml.YomlContext;
 import org.apache.brooklyn.util.yoml.YomlContext.StandardPhases;
 import org.apache.brooklyn.util.yoml.YomlContextForRead;
@@ -56,9 +55,9 @@ public class FieldsInMapUnderFields extends YomlSerializerComposition {
 
     public class Worker extends YomlSerializerWorker {
         
-        protected boolean setKeyValueForJavaObjectOnRead(Object key, Object value)
+        protected boolean setKeyValueForJavaObjectOnRead(String key, Object value)
                 throws IllegalAccessException {
-            Maybe<Field> ffm = Reflections.findFieldMaybe(getJavaObject().getClass(), Strings.toString(key));
+            Maybe<Field> ffm = Reflections.findFieldMaybe(getJavaObject().getClass(), key);
             if (ffm.isAbsentOrNull()) {
                 // just skip (could throw, but leave it in case something else recognises it)
                 return false;
@@ -89,11 +88,12 @@ public class FieldsInMapUnderFields extends YomlSerializerComposition {
             if (fields==null) return;
             
             boolean changed = false;
-            for (Object f: MutableList.copyOf( ((Map<?,?>)fields).keySet() )) {
+            for (Object fo: MutableList.copyOf( ((Map<?,?>)fields).keySet() )) {
+                String f = (String)fo;
                 Object v = ((Map<?,?>)fields).get(f);
                 try {
                     if (setKeyValueForJavaObjectOnRead(f, v)) {
-                        ((Map<?,?>)fields).remove(Strings.toString(f));
+                        ((Map<?,?>)fields).remove(f);
                         changed = true;
                     }
                 } catch (Exception e) { throw Exceptions.propagate(e); }

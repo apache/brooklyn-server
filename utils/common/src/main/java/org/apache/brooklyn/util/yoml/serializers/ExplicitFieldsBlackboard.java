@@ -32,7 +32,7 @@ import org.apache.brooklyn.util.yoml.YomlContext;
 import org.apache.brooklyn.util.yoml.YomlException;
 import org.apache.brooklyn.util.yoml.YomlRequirement;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
-import org.apache.brooklyn.util.yoml.serializers.ExplicitField.FieldConstraint;
+import org.apache.brooklyn.util.yoml.serializers.ExplicitFieldSerializer.FieldConstraint;
 
 public class ExplicitFieldsBlackboard implements YomlRequirement {
 
@@ -55,6 +55,7 @@ public class ExplicitFieldsBlackboard implements YomlRequirement {
     private final Map<String,FieldConstraint> fieldsConstraints = MutableMap.of();
     private final Map<String,YomlSerializer> defaultValueForFieldComesFromSerializer = MutableMap.of();
     private final Map<String,Object> defaultValueOfField = MutableMap.of();
+    private final Map<String,Class<?>> declaredTypeOfFieldsAndAliases = MutableMap.of();
     
     public String getKeyName(String fieldName) {
         return Maybe.ofDisallowingNull(keyNames.get(fieldName)).orNull();
@@ -78,7 +79,7 @@ public class ExplicitFieldsBlackboard implements YomlRequirement {
         aliasesStricts.put(fieldName, aliasesStrict);
     }
     public void addAliasIfNotDisinherited(String fieldName, String alias) {
-        addAliasesIfNotDisinherited(fieldName, MutableList.of(alias));
+        addAliasesIfNotDisinherited(fieldName, MutableList.<String>of().appendIfNotNull(alias));
     }
     public void addAliasesIfNotDisinherited(String fieldName, List<String> aliases) {
         if (Boolean.FALSE.equals(aliasesInheriteds.get(fieldName))) {
@@ -91,7 +92,7 @@ public class ExplicitFieldsBlackboard implements YomlRequirement {
             this.aliases.put(fieldName, aa);
         }
         if (aliases==null) return;
-        for (String alias: aliases) aa.add(alias);
+        for (String alias: aliases) { if (Strings.isNonBlank(alias)) { aa.add(alias); } }
     }
     public Collection<? extends String> getAliases(String fieldName) {
         Set<String> aa = this.aliases.get(fieldName);
@@ -138,6 +139,21 @@ public class ExplicitFieldsBlackboard implements YomlRequirement {
     public Maybe<Object> getDefault(String fieldName) {
         if (!defaultValueOfField.containsKey(fieldName)) return Maybe.absent("no default");
         return Maybe.of(defaultValueOfField.get(fieldName));
+    }
+    
+    /** optional, and must be called after aliases; not used for fields, is used for config keys */
+    public void setDeclaredTypeIfUnset(String fieldName, Class<?> type) {
+        setDeclaredTypeOfItemIfUnset(fieldName, type);
+        for (String alias: getAliases(fieldName)) 
+            setDeclaredTypeOfItemIfUnset(alias, type);
+    }
+    protected void setDeclaredTypeOfItemIfUnset(String fieldName, Class<?> type) {
+        if (declaredTypeOfFieldsAndAliases.get(fieldName)!=null) return;
+        declaredTypeOfFieldsAndAliases.put(fieldName, type);
+    }
+    /** only if {@link #setDeclaredTypeIfUnset(String, Class)} is being used (eg config keys) */
+    public Class<?> getDeclaredType(String key) {
+        return declaredTypeOfFieldsAndAliases.get(key);
     }
     
 }

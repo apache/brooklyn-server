@@ -47,16 +47,16 @@ import com.google.common.base.Objects;
  * look for the field name, and rewrite under the preferred alias at the root. */
 @YomlAllFieldsAtTopLevel
 @Alias("explicit-field")
-public class ExplicitField extends YomlSerializerComposition {
+public class ExplicitFieldSerializer extends YomlSerializerComposition {
 
-    private static final Logger log = LoggerFactory.getLogger(ExplicitField.class);
+    private static final Logger log = LoggerFactory.getLogger(ExplicitFieldSerializer.class);
     
-    public ExplicitField() {}
-    public ExplicitField(Field f) {
+    public ExplicitFieldSerializer() {}
+    public ExplicitFieldSerializer(Field f) {
         this(f.getName(), f);
     }
     /** preferred constructor for dealing with shadowed fields using superclass.field naming convention */
-    public ExplicitField(String name, Field f) {
+    public ExplicitFieldSerializer(String name, Field f) {
         fieldName = keyName = name;
             
         Alias alias = f.getAnnotation(Alias.class);
@@ -117,7 +117,7 @@ public class ExplicitField extends YomlSerializerComposition {
     
     public class Worker extends YomlSerializerWorker {
         
-        String PREPARING_EXPLICIT_FIELDS = "preparing-explicit-fields";
+        final static String PREPARING_EXPLICIT_FIELDS = "preparing-explicit-fields";
         
         protected String getPreferredKeyName() { 
             String result = getExplicitFieldsBlackboard().getKeyName(fieldName);
@@ -151,22 +151,26 @@ public class ExplicitField extends YomlSerializerComposition {
                 }
             }
             if (context.isPhase(PREPARING_EXPLICIT_FIELDS)) {
-                // do the pre-main pass to determine what is required for explicit fields and what the default is 
-                getExplicitFieldsBlackboard().setKeyNameIfUnset(fieldName, keyName);
-                getExplicitFieldsBlackboard().addAliasIfNotDisinherited(fieldName, alias);
-                getExplicitFieldsBlackboard().addAliasesIfNotDisinherited(fieldName, aliases);
-                getExplicitFieldsBlackboard().setAliasesInheritedIfUnset(fieldName, aliasesInherited);
-                getExplicitFieldsBlackboard().setAliasesStrictIfUnset(fieldName, aliasesStrict);
-                getExplicitFieldsBlackboard().setConstraintIfUnset(fieldName, constraint);
-                if (getExplicitFieldsBlackboard().getDefault(fieldName).isAbsent() && defaultValue!=null) {
-                    getExplicitFieldsBlackboard().setUseDefaultFrom(fieldName, ExplicitField.this, defaultValue);
-                }
-                // TODO combine aliases, other items
+                prepareExplicitFields();
                 return false;
             }
             if (getExplicitFieldsBlackboard().isFieldDone(fieldName)) return false;
             if (!context.isPhase(YomlContext.StandardPhases.MANIPULATING)) return false;
             return true;
+        }
+
+        protected void prepareExplicitFields() {
+            // do the pre-main pass to determine what is required for explicit fields and what the default is 
+            getExplicitFieldsBlackboard().setKeyNameIfUnset(fieldName, keyName);
+            getExplicitFieldsBlackboard().addAliasIfNotDisinherited(fieldName, alias);
+            getExplicitFieldsBlackboard().addAliasesIfNotDisinherited(fieldName, aliases);
+            getExplicitFieldsBlackboard().setAliasesInheritedIfUnset(fieldName, aliasesInherited);
+            getExplicitFieldsBlackboard().setAliasesStrictIfUnset(fieldName, aliasesStrict);
+            getExplicitFieldsBlackboard().setConstraintIfUnset(fieldName, constraint);
+            if (getExplicitFieldsBlackboard().getDefault(fieldName).isAbsent() && defaultValue!=null) {
+                getExplicitFieldsBlackboard().setUseDefaultFrom(fieldName, ExplicitFieldSerializer.this, defaultValue);
+            }
+            // TODO combine aliases, other items
         }
         
         protected boolean canDoRead() { return hasJavaObject(); }
@@ -193,7 +197,7 @@ public class ExplicitField extends YomlSerializerComposition {
                     Maybe<Object> value = peekFromYamlKeysOnBlackboard(alias, Object.class);
                     if (value.isAbsent()) continue;
                     if (log.isTraceEnabled()) {
-                        log.trace(ExplicitField.this+": found "+alias+" for "+fieldName);
+                        log.trace(ExplicitFieldSerializer.this+": found "+alias+" for "+fieldName);
                     }
                     boolean fieldAlreadyKnown = fields.containsKey(fieldName);
                     if (value.isPresent() && fieldAlreadyKnown) {

@@ -104,5 +104,9 @@ public abstract class YomlContext {
         if (phaseCurrent!=null) phasesPreceding.add(phaseCurrent);
         phasesFollowing = MutableSet.of(); phaseAdvance(); 
     }
-    
+
+    @Override
+    public String toString() {
+        return super.toString()+"["+getJsonPath()+"]";
+    }
 }

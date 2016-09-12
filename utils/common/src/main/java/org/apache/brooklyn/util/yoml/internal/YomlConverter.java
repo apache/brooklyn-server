@@ -78,8 +78,12 @@ public class YomlConverter {
         
         if (log.isTraceEnabled()) log.trace("YOML now looking at "+context.getJsonPath()+"/ = "+context.getJavaObject()+" <-> "+context.getYamlObject()+" ("+context.getExpectedType()+")");
         while (context.phaseAdvance()) {
-            if (log.isTraceEnabled()) log.trace("read "+context.getJsonPath()+"/ = "+context.getJavaObject()+" entering phase "+context.phaseCurrent()+": "+YamlKeysOnBlackboard.peek(blackboard)+" / "+JavaFieldsOnBlackboard.peek(blackboard)+" / "+JavaFieldsOnBlackboard.peek(blackboard, "config"));
             while (context.phaseStepAdvance()<Iterables.size(serializers.getSerializers())) {
+                if (context.phaseCurrentStep()==0) {
+                    if (log.isTraceEnabled()) { 
+                        log.trace("yoml "+context.getJsonPath()+"/ = "+context.getJavaObject()+" entering phase "+context.phaseCurrent()+": "+YamlKeysOnBlackboard.peek(blackboard)+" / "+JavaFieldsOnBlackboard.peek(blackboard)+" / "+JavaFieldsOnBlackboard.peek(blackboard, "config"));
+                    }
+                }
                 YomlSerializer s = Iterables.get(serializers.getSerializers(), context.phaseCurrentStep());
                 if (context instanceof YomlContextForRead) {
                     if (log.isTraceEnabled()) log.trace("read "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" starting ("+context.phaseCurrent()+"."+context.phaseCurrentStep()+") ");

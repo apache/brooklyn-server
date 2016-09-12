@@ -28,14 +28,24 @@ import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yoml.Yoml;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
 import org.apache.brooklyn.util.yoml.annotations.YomlAnnotations;
+import org.apache.brooklyn.util.yoml.internal.YomlConfig;
+import org.apache.brooklyn.util.yoml.serializers.InstantiateTypeFromRegistryUsingConfigMap;
 import org.testng.Assert;
 
 public class YomlTestFixture {
     
     public static YomlTestFixture newInstance() { return new YomlTestFixture(); }
+    public static YomlTestFixture newInstance(YomlConfig config) { return new YomlTestFixture(config); }
     
-    MockYomlTypeRegistry tr = new MockYomlTypeRegistry();
-    Yoml y = Yoml.newInstance(tr);
+    final MockYomlTypeRegistry tr = new MockYomlTypeRegistry();
+    final Yoml y;
+    
+    public YomlTestFixture() {
+        this(YomlConfig.Builder.builder().serializersPostAddDefaults().build());
+    }
+    public YomlTestFixture(YomlConfig config) {
+        y = Yoml.newInstance(YomlConfig.Builder.builder(config).typeRegistry(tr).build());
+    }
     
     Object writeObject;
     String writeObjectExpectedType;
@@ -112,12 +122,24 @@ public class YomlTestFixture {
     public YomlTestFixture addTypeWithAnnotations(Class<?> type) {
         return addTypeWithAnnotations(null, type);
     }
-    public YomlTestFixture addTypeWithAnnotations(String name, Class<?> type) {
-        Set<YomlSerializer> serializers = YomlAnnotations.findSerializerAnnotations(type, null, null);
-        for (String n: YomlAnnotations.findTypeNamesFromAnnotations(type, name, false)) {
+    public YomlTestFixture addTypeWithAnnotations(String optionalName, Class<?> type) {
+        Set<YomlSerializer> serializers = YomlAnnotations.findSerializerAnnotations(type);
+        for (String n: YomlAnnotations.findTypeNamesFromAnnotations(type, optionalName, false)) {
             tr.put(n, type, serializers);
         }
         return this; 
+    }
+    public YomlTestFixture addTypeWithAnnotationsAndConfig(String optionalName, Class<?> type, 
+            Map<String, String> configFieldsToKeys) {
+        Set<YomlSerializer> serializers = YomlAnnotations.findSerializerAnnotations(type);
+        for (Map.Entry<String,String> entry: configFieldsToKeys.entrySet()) {
+            serializers.addAll( InstantiateTypeFromRegistryUsingConfigMap.newConfigKeyClassScanningSerializers(
+                entry.getKey(), entry.getValue(), true) );
+        }
+        for (String n: YomlAnnotations.findTypeNamesFromAnnotations(type, optionalName, false)) {
+            tr.put(n, type, serializers);
+        }
+        return this;
     }
         
 }

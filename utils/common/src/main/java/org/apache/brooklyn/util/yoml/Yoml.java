@@ -18,17 +18,8 @@
  */
 package org.apache.brooklyn.util.yoml;
 
-import java.util.List;
-
-import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.yoml.internal.YomlConfig;
 import org.apache.brooklyn.util.yoml.internal.YomlConverter;
-import org.apache.brooklyn.util.yoml.serializers.FieldsInMapUnderFields;
-import org.apache.brooklyn.util.yoml.serializers.InstantiateTypeEnum;
-import org.apache.brooklyn.util.yoml.serializers.InstantiateTypeFromRegistry;
-import org.apache.brooklyn.util.yoml.serializers.InstantiateTypeList;
-import org.apache.brooklyn.util.yoml.serializers.InstantiateTypeMap;
-import org.apache.brooklyn.util.yoml.serializers.InstantiateTypePrimitive;
 
 
 public class Yoml {
@@ -42,17 +33,7 @@ public class Yoml {
     }
     
     public static Yoml newInstance(YomlTypeRegistry typeRegistry) {
-        return newInstance(typeRegistry, MutableList.<YomlSerializer>of(
-            new FieldsInMapUnderFields(),
-            new InstantiateTypePrimitive(),
-            new InstantiateTypeEnum(),
-            new InstantiateTypeList(),
-            new InstantiateTypeMap(),
-            new InstantiateTypeFromRegistry() ));
-    }
-    
-    private static Yoml newInstance(YomlTypeRegistry typeRegistry, List<YomlSerializer> serializers) {
-        return new Yoml(YomlConfig.Builder.builder().typeRegistry(typeRegistry).serializersPost(serializers).build());
+        return new Yoml(YomlConfig.Builder.builder().typeRegistry(typeRegistry).serializersPostAddDefaults().build());
     }
     
     public YomlConfig getConfig() {

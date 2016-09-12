@@ -20,12 +20,15 @@ package org.apache.brooklyn.util.yoml.serializers;
 
 import java.util.Map;
 
-import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.yoml.YomlContext;
+import org.apache.brooklyn.util.yoml.YomlContextForRead;
+import org.apache.brooklyn.util.yoml.YomlContextForWrite;
 
 public class ConfigInMapUnderConfigSerializer extends FieldsInMapUnderFields {
 
-    String keyNameForConfigWhenSerialized;
+    final String keyNameForConfigWhenSerialized;
 
     public ConfigInMapUnderConfigSerializer(String keyNameForConfigWhenSerialized) {
         this.keyNameForConfigWhenSerialized = keyNameForConfigWhenSerialized;
@@ -51,7 +54,7 @@ public class ConfigInMapUnderConfigSerializer extends FieldsInMapUnderFields {
         public void read() {
             if (!context.willDoPhase(
                     InstantiateTypeFromRegistryUsingConfigMap.PHASE_INSTANTIATE_TYPE_DEFERRED)) return;
-            if (JavaFieldsOnBlackboard.peek(blackboard, "config")==null) return;
+            if (JavaFieldsOnBlackboard.peek(blackboard, getKeyNameForMapOfGeneralValues())==null) return;
             
             super.read();
         }
@@ -59,16 +62,44 @@ public class ConfigInMapUnderConfigSerializer extends FieldsInMapUnderFields {
         protected boolean shouldHaveJavaObject() { return false; }
         
         @Override
-        protected boolean setKeyValueForJavaObjectOnRead(Object key, Object value) throws IllegalAccessException {
-            JavaFieldsOnBlackboard fib = JavaFieldsOnBlackboard.peek(blackboard, "config");
-            fib.fieldsFromReadToConstructJava.put(Strings.toString(key), value);
+        protected boolean setKeyValueForJavaObjectOnRead(String key, Object value) throws IllegalAccessException {
+            JavaFieldsOnBlackboard fib = JavaFieldsOnBlackboard.peek(blackboard, getKeyNameForMapOfGeneralValues());
+            String optionalType = getType(key, null);
+            Object v2;
+            try {
+                v2 = converter.read( new YomlContextForRead(value, context.getJsonPath()+"/"+key, optionalType) );
+            } catch (Exception e) {
+                // for config we try with the optional type, but don't insist
+                Exceptions.propagateIfFatal(e);
+                if (optionalType!=null) optionalType = null;
+                v2 = converter.read( new YomlContextForRead(value, context.getJsonPath()+"/"+key, optionalType) );
+            }
+            fib.fieldsFromReadToConstructJava.put(key, v2);
             return true;
         }
         
         protected Map<String, Object> writePrepareGeneralMap() {
             JavaFieldsOnBlackboard fib = JavaFieldsOnBlackboard.peek(blackboard);
-            if (fib==null) return null;
-            return fib.configToWriteFromJava;
+            if (fib==null || fib.configToWriteFromJava==null) return null;
+            Map<String,Object> configMap = MutableMap.of();
+            
+            for (Map.Entry<String,Object> entry: fib.configToWriteFromJava.entrySet()) {
+                // NB: won't normally have a type, the explicit config keys will take those
+                String optionalType = getType(entry.getKey(), entry.getValue());
+                Object v = converter.write(new YomlContextForWrite(entry.getValue(), context.getJsonPath()+"/"+entry.getKey(), optionalType) );
+                configMap.put(entry.getKey(), v);
+            }
+            for (String key: configMap.keySet()) fib.configToWriteFromJava.remove(key);
+
+            return configMap;
+        }
+
+        protected String getType(String key, Object value) {
+            ExplicitFieldsBlackboard efb = ExplicitFieldsBlackboard.get(blackboard, getKeyNameForMapOfGeneralValues());
+            Class<?> type = efb.getDeclaredType(key);
+            String optionalType = null;
+            if (type!=null && (value==null || type.isInstance(value))) optionalType = config.getTypeRegistry().getTypeNameOfClass(type);
+            return optionalType;
         }
 
     }
