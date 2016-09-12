@@ -103,6 +103,7 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
                 @Override protected Object visitSpec() {
                     try { 
                         AbstractBrooklynObjectSpec<?, ?> result = createSpec(type, context);
+                        if (result==null) throw new UnsupportedTypePlanException("Transformer returned null for "+type);
                         // see notes on catalogItemIdIfNotNull
                         result.catalogItemIdIfNotNull(type.getId());
                         return result;

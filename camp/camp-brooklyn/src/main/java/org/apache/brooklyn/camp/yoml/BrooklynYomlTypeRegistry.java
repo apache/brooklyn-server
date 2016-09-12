@@ -1,5 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
+
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
  * regarding copyright ownership.  The ASF licenses this file
@@ -15,7 +16,8 @@
  * KIND, either express or implied.  See the License for the
  * specific language governing permissions and limitations
  * under the License.
- */package org.apache.brooklyn.camp.yoml;
+ */
+package org.apache.brooklyn.camp.yoml;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -48,7 +50,7 @@ import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yoml.Yoml;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
 import org.apache.brooklyn.util.yoml.YomlTypeRegistry;
-import org.apache.brooklyn.util.yoml.annotations.YomlAnnotations;
+import org.apache.brooklyn.util.yoml.internal.ConstructionInstruction;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -136,6 +138,8 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
     }
     
     public Maybe<Object> newInstanceMaybe(String typeName, Yoml yoml, RegisteredTypeLoadingContext context) {
+        // yoml may be null, for java type lookups, but we could potentially get rid of that call path
+        
         RegisteredType typeR = registry().get(typeName, context);
         
         if (typeR!=null) {
@@ -153,6 +157,8 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
             if (nextContext==null) {
                 // fall through to path below; we have a circular reference, so need to load java instead
             } else {
+                if (yoml!=null && yoml.getConfig().getConstructionInstruction()!=null)
+                    nextContext = RegisteredTypeLoadingContexts.builder(nextContext).constructorInstruction(yoml.getConfig().getConstructionInstruction()).build();
                 return Maybe.of(registry().create(typeR, nextContext, null));
             }
         }
@@ -174,7 +180,7 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
             }
         }
         try {
-            return Maybe.of((Object)t.get().newInstance());
+            return ConstructionInstruction.Factory.newDefault(t.get(), yoml==null ? null : yoml.getConfig().getConstructionInstruction()).create();
         } catch (Exception e) {
             return Maybe.absent("Error instantiating type "+typeName+": "+Exceptions.collapseText(e));
         }
@@ -366,10 +372,14 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
                 supers.addAll(((RegisteredType) type).getSuperTypes());
             }
         } else if (type instanceof Class) {
-            // TODO result.addAll( ... ); based on annotations on the java class
-            // then do the following if the evaluation above was not recursive
-//            supers.add(((Class<?>) type).getSuperclass());
-//            supers.addAll(Arrays.asList(((Class<?>) type).getInterfaces()));
+            String name = getTypeNameOfClass((Class<?>)type);
+            if (name.startsWith("java:")) {
+                // need to loop through superclasses unless it is a registered type
+                // TODO result.addAll( ... ); based on annotations on the java class
+                // then do the following if the evaluation above was not recursive
+//              supers.add(((Class<?>) type).getSuperclass());
+//              supers.addAll(Arrays.asList(((Class<?>) type).getInterfaces()));
+            }
         } else {
             throw new IllegalStateException("Illegal supertype entry "+type+", visiting "+typesVisited);
         }
@@ -400,8 +410,10 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
 
     /** null symbolic name means to take it from annotations or the class name */
     public static RegisteredType newYomlRegisteredType(RegisteredTypeKind kind, @Nullable String symbolicName, String version, Class<?> clazz) {
-        Set<String> names = YomlAnnotations.findTypeNamesFromAnnotations(clazz, symbolicName, false);
-        Set<YomlSerializer> serializers = YomlAnnotations.findSerializerAnnotations(clazz);
+        Set<String> names = new BrooklynYomlAnnotations().findTypeNamesFromAnnotations(clazz, symbolicName, false);
+        
+        Set<YomlSerializer> serializers = new BrooklynYomlAnnotations().findSerializerAnnotations(clazz, true);
+                
         RegisteredType type = BrooklynYomlTypeRegistry.newYomlRegisteredType(kind, 
             // symbolicName, version, 
             names.iterator().next(), version, 

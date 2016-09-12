@@ -123,23 +123,26 @@ public class YomlTestFixture {
         return addTypeWithAnnotations(null, type);
     }
     public YomlTestFixture addTypeWithAnnotations(String optionalName, Class<?> type) {
-        Set<YomlSerializer> serializers = YomlAnnotations.findSerializerAnnotations(type);
-        for (String n: YomlAnnotations.findTypeNamesFromAnnotations(type, optionalName, false)) {
+        Set<YomlSerializer> serializers = annotationsProvider().findSerializerAnnotations(type, true);
+        for (String n: new YomlAnnotations().findTypeNamesFromAnnotations(type, optionalName, false)) {
             tr.put(n, type, serializers);
         }
         return this; 
     }
     public YomlTestFixture addTypeWithAnnotationsAndConfig(String optionalName, Class<?> type, 
             Map<String, String> configFieldsToKeys) {
-        Set<YomlSerializer> serializers = YomlAnnotations.findSerializerAnnotations(type);
+        Set<YomlSerializer> serializers = annotationsProvider().findSerializerAnnotations(type, true);
         for (Map.Entry<String,String> entry: configFieldsToKeys.entrySet()) {
-            serializers.addAll( InstantiateTypeFromRegistryUsingConfigMap.newConfigKeyClassScanningSerializers(
+            serializers.addAll( new InstantiateTypeFromRegistryUsingConfigMap.Factory().newConfigKeyClassScanningSerializers(
                 entry.getKey(), entry.getValue(), true) );
         }
-        for (String n: YomlAnnotations.findTypeNamesFromAnnotations(type, optionalName, false)) {
+        for (String n: new YomlAnnotations().findTypeNamesFromAnnotations(type, optionalName, false)) {
             tr.put(n, type, serializers);
         }
         return this;
+    }
+    protected YomlAnnotations annotationsProvider() {
+        return new YomlAnnotations();
     }
         
 }

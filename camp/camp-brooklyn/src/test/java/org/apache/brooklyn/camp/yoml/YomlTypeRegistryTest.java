@@ -19,14 +19,18 @@
 package org.apache.brooklyn.camp.yoml;
 
 import java.util.Arrays;
+import java.util.Map;
 
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer.JavaClassNameTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.yoml.annotations.Alias;
 import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsAtTopLevel;
@@ -146,6 +150,45 @@ public class YomlTypeRegistryTest extends BrooklynMgmtUnitTestSupport {
         Object x = registry().createBeanFromPlan("yoml", "{ type: item-annotated, name: bob }", null, null);
         Assert.assertTrue(x instanceof ItemAn);
         Assert.assertEquals( ((ItemAn)x).name, "bob" );
+    }
+
+    
+    @YomlConstructorConfigBag(value="config", writeAsKey="extraConfig")
+    static class ConfigurableExampleFromBag {
+        ConfigBag config = ConfigBag.newInstance();
+        ConfigurableExampleFromBag(ConfigBag bag) { config.putAll(bag); }
+        static ConfigKey<String> S = ConfigKeys.newStringConfigKey("s");
+        static ConfigKey<ConfigurableExampleFromBag> CB = ConfigKeys.newConfigKey(ConfigurableExampleFromBag.class, "bag");
+        @Override
+        public boolean equals(Object obj) {
+            return (getClass().equals(obj.getClass())) && config.getAllConfig().equals(((ConfigurableExampleFromBag)obj).config.getAllConfig());
+        }
+        @Override
+        public String toString() {
+            return super.toString()+"["+config+"]";
+        }
+    }
+    
+    @Test
+    public void testReadWriteAnnotation() {
+        BrooklynYomlTestFixture.newInstance()
+            .addTypeWithAnnotations("bag-example", ConfigurableExampleFromBag.class)
+            .reading("{ type: bag-example, s: foo }").writing(
+                new ConfigurableExampleFromBag(ConfigBag.newInstance().configure(ConfigurableExampleFromBag.S, "foo")))
+            .doReadWriteAssertingJsonMatch();
+    }
+
+    static class ConfigurableExampleFromMap extends ConfigurableExampleFromBag {
+        ConfigurableExampleFromMap(Map<String,Object> bag) { super(ConfigBag.newInstance(bag)); }
+    }
+    
+    @Test
+    public void testReadWriteAnnotationMapConstructorInherited() {
+        BrooklynYomlTestFixture.newInstance()
+            .addTypeWithAnnotations("bag-example", ConfigurableExampleFromMap.class)
+            .reading("{ type: bag-example, s: foo }").writing(
+                new ConfigurableExampleFromMap(ConfigBag.newInstance().configure(ConfigurableExampleFromBag.S, "foo").getAllConfig()))
+            .doReadWriteAssertingJsonMatch();
     }
 
 }

@@ -36,7 +36,7 @@ import org.apache.brooklyn.util.yoml.serializers.InstantiateTypeFromRegistryUsin
 
 public class YomlAnnotations {
 
-    public static Set<String> findTypeNamesFromAnnotations(Class<?> type, String optionalDefaultPreferredTypeName, boolean includeJavaTypeNameEvenIfOthers) {
+    public Set<String> findTypeNamesFromAnnotations(Class<?> type, String optionalDefaultPreferredTypeName, boolean includeJavaTypeNameEvenIfOthers) {
         MutableSet<String> names = MutableSet.of();
         
         Alias overallAlias = type.getAnnotation(Alias.class);
@@ -56,7 +56,7 @@ public class YomlAnnotations {
         return names;
     }
     
-    public static Collection<ExplicitFieldSerializer> findExplicitFieldSerializers(Class<?> t, boolean requireAnnotation) {
+    public Collection<ExplicitFieldSerializer> findExplicitFieldSerializers(Class<?> t, boolean requireAnnotation) {
         List<ExplicitFieldSerializer> result = MutableList.of();
         Map<String,Field> fields = YomlUtils.getAllNonTransientNonStaticFields(t, null);
         for (Map.Entry<String, Field> f: fields.entrySet()) {
@@ -66,19 +66,30 @@ public class YomlAnnotations {
         return result;
     }
     
-    public static Collection<YomlSerializer> findConfigMapSerializers(Class<?> t) {
+    public Collection<YomlSerializer> findConfigMapSerializers(Class<?> t) {
         YomlConstructorConfigMap ann = t.getAnnotation(YomlConstructorConfigMap.class);
         if (ann==null) return Collections.emptyList();
-        return InstantiateTypeFromRegistryUsingConfigMap.newConfigKeySerializersForType(
+        return new InstantiateTypeFromRegistryUsingConfigMap.Factory().newConfigKeySerializersForType(
             t,
             ann.value(), ann.writeAsKey()!=null ? ann.writeAsKey() : ann.value(),
             ann.validateAheadOfTime(), ann.requireStaticKeys());
     }
 
-    public static Set<YomlSerializer> findSerializerAnnotations(Class<?> type) {
-        
+    /** Adds the default set of serializer annotations */
+    public Set<YomlSerializer> findSerializerAnnotations(Class<?> type, boolean recurseUpIfEmpty) {
         Set<YomlSerializer> result = MutableSet.of();
-
+        if (type==null) return result;
+        
+        collectSerializerAnnotationsAtClass(result, type);
+        boolean canRecurse = result.isEmpty();
+        
+        if (recurseUpIfEmpty && canRecurse) {
+            result.addAll(findSerializerAnnotations(type.getSuperclass(), recurseUpIfEmpty));
+        }
+        return result;
+    }
+    
+    protected void collectSerializerAnnotationsAtClass(Set<YomlSerializer> result, Class<?> type) {
         // if it takes a config map
         result.addAll(findConfigMapSerializers(type));
 
@@ -87,8 +98,7 @@ public class YomlAnnotations {
         result.addAll(findExplicitFieldSerializers(type, allFields==null));
         
         // (so far the above is the only type of serializer we pick up from annotations)
-        
-        return result;
+        // subclasses can extend
     }
 
 }

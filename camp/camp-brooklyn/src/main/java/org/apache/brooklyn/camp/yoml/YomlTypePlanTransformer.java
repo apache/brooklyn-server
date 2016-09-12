@@ -20,8 +20,10 @@ package org.apache.brooklyn.camp.yoml;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslInterpreter;
@@ -31,6 +33,7 @@ import org.apache.brooklyn.camp.spi.resolve.interpret.PlanInterpretationNode;
 import org.apache.brooklyn.core.typereg.AbstractFormatSpecificTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.AbstractTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.core.typereg.UnsupportedTypePlanException;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -39,10 +42,12 @@ import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yoml.Yoml;
 import org.apache.brooklyn.util.yoml.YomlException;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
+import org.apache.brooklyn.util.yoml.internal.YomlConfig;
 import org.yaml.snakeyaml.Yaml;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 /** 
  * Makes it possible for Brooklyn to resolve YOML items,
@@ -91,12 +96,19 @@ public class YomlTypePlanTransformer extends AbstractTypePlanTransformer {
         super(FORMAT, "YOML Brooklyn syntax", "Standard YOML adapters for Apache Brooklyn including OASIS CAMP");
     }
 
+    private final static Set<String> IGNORE_SINGLE_KEYS = ImmutableSet.of("name", "version");
+    
     @Override
     protected double scoreForNullFormat(Object planData, RegisteredType type, RegisteredTypeLoadingContext context) {
         int score = 0;
         Maybe<Map<?,?>> plan = RegisteredTypes.getAsYamlMap(planData);
         if (plan.isPresent()) {
-            score += 1;
+            if (plan.get().size()>1 || (plan.get().size()==1 && !IGNORE_SINGLE_KEYS.contains(plan.get().keySet().iterator().next()))) {
+                // weed out obvious bad plans -- in part so that tests pass
+                // TODO in future we should give a tiny score to anything else (once we want to enable this as a popular auto-detetction target)
+//                score += 1;
+                // but for now we require at least one recognised keyword
+            }
             if (plan.get().containsKey("type")) score += 5;
             if (plan.get().containsKey("services")) score += 2;
         }
@@ -113,14 +125,13 @@ public class YomlTypePlanTransformer extends AbstractTypePlanTransformer {
     @Override
     protected AbstractBrooklynObjectSpec<?, ?> createSpec(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
         // TODO
-        return null;
+        throw new UnsupportedTypePlanException("YOML doesn't yet support specs");
     }
 
     @Override
     protected Object createBean(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
         BrooklynYomlTypeRegistry tr = new BrooklynYomlTypeRegistry(mgmt, context);
-        Yoml y = Yoml.newInstance(tr);
-        y.getConfig().coercer = new ValueResolver.ResolvingTypeCoercer();
+        Yoml y = Yoml.newInstance(newYomlConfig(mgmt, tr).build());
         
         // TODO could cache the parse, could cache the instantiation instructions
         Object data = type.getPlan().getPlanData();
@@ -169,6 +180,13 @@ public class YomlTypePlanTransformer extends AbstractTypePlanTransformer {
         }
         
         return y.readFromYamlObject(parsedInput, expectedSuperTypeName);
+    }
+
+    static YomlConfig.Builder newYomlConfig(ManagementContext mgmt, BrooklynYomlTypeRegistry typeRegistry) {
+        return YomlConfig.Builder.builder().typeRegistry(typeRegistry).
+            serializersPostAddDefaults().
+            // TODO any custom serializers?
+            coercer(new ValueResolver.ResolvingTypeCoercer());
     }
     
     @Override

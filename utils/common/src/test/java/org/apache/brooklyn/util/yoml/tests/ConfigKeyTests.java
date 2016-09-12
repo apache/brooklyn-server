@@ -146,7 +146,7 @@ public class ConfigKeyTests {
     @Test
     public void testReadWriteNestedGlobalConfigKeySupport() {
         YomlTestFixture y = YomlTestFixture.newInstance(YomlConfig.Builder.builder()
-            .serializersPostAdd(InstantiateTypeFromRegistryUsingConfigMap.newConfigKeyClassScanningSerializers("keys", "config", true))
+            .serializersPostAdd(new InstantiateTypeFromRegistryUsingConfigMap.Factory().newConfigKeyClassScanningSerializers("keys", "config", true))
             .serializersPostAddDefaults().build());
         y.addTypeWithAnnotations("s1", S1.class)
         .addTypeWithAnnotations("s2", S2.class)

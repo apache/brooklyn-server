@@ -46,7 +46,7 @@ public class AllFieldsExplicit extends YomlSerializerComposition {
             blackboard.put(DoneAllFieldsExplicit.class.getName(), new DoneAllFieldsExplicit());
             
             SerializersOnBlackboard.get(blackboard).addInstantiatedTypeSerializers(
-                YomlAnnotations.findExplicitFieldSerializers(getJavaObject().getClass(), false));
+                new YomlAnnotations().findExplicitFieldSerializers(getJavaObject().getClass(), false));
 
             context.phaseRestart();
         }
