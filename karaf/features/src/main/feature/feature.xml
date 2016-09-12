@@ -208,7 +208,7 @@
     </feature>
 
     <feature name="brooklyn-commands"  version="${project.version}"  description="Brooklyn Shell Commands">
-        <bundle>mvn:org.apache.brooklyn/brooklyn-launcher-common/${project.version}</bundle>
+        <bundle dependency="true">mvn:org.apache.brooklyn/brooklyn-launcher-common/${project.version}</bundle>
         <bundle>mvn:org.apache.brooklyn/brooklyn-commands/${project.version}</bundle>
     </feature>
 
@@ -316,7 +316,7 @@
         <feature>brooklyn-core</feature>
         <feature>brooklyn-server-software-all</feature>
         <feature>brooklyn-locations-jclouds</feature>
-        <bundle>mvn:org.apache.brooklyn/brooklyn-launcher-common/${project.version}</bundle>
+        <bundle dependency="true">mvn:org.apache.brooklyn/brooklyn-launcher-common/${project.version}</bundle>
         <bundle start-level="90">mvn:org.apache.brooklyn/brooklyn-karaf-init/${project.version}</bundle>
     </feature>
 
