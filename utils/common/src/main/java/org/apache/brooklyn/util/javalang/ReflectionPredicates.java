@@ -30,23 +30,28 @@ public class ReflectionPredicates {
     public static Predicate<Integer> MODIFIERS_PRIVATE = new ModifiersPrivate();
     private static class ModifiersPrivate implements Predicate<Integer> {
         @Override public boolean apply(Integer modifiers) { return Modifier.isPrivate(modifiers); }
+        @Override public String toString() { return "private"; }
     }
     public static Predicate<Integer> MODIFIERS_PUBLIC = new ModifiersPublic();
     private static class ModifiersPublic implements Predicate<Integer> {
         @Override public boolean apply(Integer modifiers) { return Modifier.isPublic(modifiers); }
+        @Override public String toString() { return "public"; }
     }
     public static Predicate<Integer> MODIFIERS_PROTECTED = new ModifiersProtected();
     private static class ModifiersProtected implements Predicate<Integer> {
         @Override public boolean apply(Integer modifiers) { return Modifier.isProtected(modifiers); }
+        @Override public String toString() { return "protected"; }
     }
     
     public static Predicate<Integer> MODIFIERS_TRANSIENT = new ModifiersTransient();
     private static class ModifiersTransient implements Predicate<Integer> {
         @Override public boolean apply(Integer modifiers) { return Modifier.isTransient(modifiers); }
+        @Override public String toString() { return "transient"; }
     }
     public static Predicate<Integer> MODIFIERS_STATIC = new ModifiersStatic();
     private static class ModifiersStatic implements Predicate<Integer> {
         @Override public boolean apply(Integer modifiers) { return Modifier.isStatic(modifiers); }
+        @Override public String toString() { return "static"; }
     }
     
     public static Predicate<Field> fieldModifiers(Predicate<Integer> modifiersCheck) { return new FieldModifiers(modifiersCheck); }
@@ -54,6 +59,7 @@ public class ReflectionPredicates {
         private Predicate<Integer> modifiersCheck;
         private FieldModifiers(Predicate<Integer> modifiersCheck) { this.modifiersCheck = modifiersCheck; }
         @Override public boolean apply(Field f) { return modifiersCheck.apply(f.getModifiers()); }
+        @Override public String toString() { return "modifiers["+modifiersCheck+"]"; }
     }
     public static Predicate<Field> IS_FIELD_PUBLIC = fieldModifiers(MODIFIERS_PUBLIC);
     public static Predicate<Field> IS_FIELD_TRANSIENT = fieldModifiers(MODIFIERS_TRANSIENT);

@@ -24,6 +24,8 @@ import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;
 
+import javax.annotation.Nullable;
+
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.javalang.Boxing;
@@ -34,6 +36,8 @@ import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Objects;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 
 public class YomlUtils {
 
@@ -140,19 +144,41 @@ public class YomlUtils {
     }
 
     public static <T> Map<String,Field> getAllNonTransientNonStaticFields(Class<T> type, T optionalInstanceToRequireNonNullFieldValue) {
+        return getAllFields(type, optionalInstanceToRequireNonNullFieldValue,
+            Predicates.and(ReflectionPredicates.IS_FIELD_NON_TRANSIENT, ReflectionPredicates.IS_FIELD_NON_STATIC));
+    }
+    public static <T> Map<String,Field> getAllNonTransientStaticFields(Class<T> type) {
+        return getAllFields(type, null,
+            Predicates.and(ReflectionPredicates.IS_FIELD_NON_TRANSIENT, ReflectionPredicates.IS_FIELD_STATIC));
+    }
+    
+    /** Finds all fields on a type, including inherited, including statics from interfaces, subject to the optional filter,
+     * and optionally requiring a non-null value for the field on a given instant.
+     * These are ordered in {@link FieldOrderings#ALPHABETICAL_FIELD_THEN_SUB_BEST_FIRST} order,
+     * with shadowed fields prefixed by the name of the superclass and ".".
+     * 
+     * @param type Class to scan
+     * @param optionalInstanceToRequireNonNullFieldValue An instance, which if supplied, is used to exclude
+     *   fields for which this instance has a null value
+     * @param filter Filter to apply on fields
+     * @return
+     */
+    public static <T> Map<String,Field> getAllFields(Class<T> type, @Nullable T optionalInstanceToRequireNonNullFieldValue, @Nullable Predicate<Field> filter) {
         Map<String,Field> result = MutableMap.of();
         List<Field> fields = Reflections.findFields(type, 
             null,
             FieldOrderings.ALPHABETICAL_FIELD_THEN_SUB_BEST_FIRST);
         Field lastF = null;
         for (Field f: fields) {
-            if (ReflectionPredicates.IS_FIELD_NON_TRANSIENT.apply(f) && ReflectionPredicates.IS_FIELD_NON_STATIC.apply(f)) {
+            if (filter==null || filter.apply(f)) {
                 if (optionalInstanceToRequireNonNullFieldValue==null || 
                         Reflections.getFieldValueMaybe(optionalInstanceToRequireNonNullFieldValue, f).isPresentAndNonNull()) {
                     String name = f.getName();
                     if (lastF!=null && lastF.getName().equals(f.getName())) {
                         // if field is shadowed use FQN
-                        name = f.getDeclaringClass().getCanonicalName()+"."+name;
+                        String fqn = f.getDeclaringClass().getCanonicalName();
+                        if (Strings.isBlank(fqn)) fqn = f.getDeclaringClass().getName();
+                        name = fqn+"."+name;
                     }
                     result.put(name, f);
                 }

@@ -52,11 +52,7 @@ public class Yoml {
     }
     
     private static Yoml newInstance(YomlTypeRegistry typeRegistry, List<YomlSerializer> serializers) {
-        YomlConfig config = new YomlConfig();
-        config.typeRegistry = typeRegistry;
-        config.serializersPost.addAll(serializers);
-        
-        return new Yoml(config);
+        return new Yoml(YomlConfig.Builder.builder().typeRegistry(typeRegistry).serializersPost(serializers).build());
     }
     
     public YomlConfig getConfig() {

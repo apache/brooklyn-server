@@ -29,52 +29,79 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yoml.YomlContext;
+import org.apache.brooklyn.util.yoml.YomlContext.StandardPhases;
 import org.apache.brooklyn.util.yoml.YomlContextForRead;
 import org.apache.brooklyn.util.yoml.YomlContextForWrite;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class FieldsInMapUnderFields extends YomlSerializerComposition {
 
+    private static final Logger log = LoggerFactory.getLogger(FieldsInMapUnderFields.class);
+    
+    public static String KEY_NAME_FOR_MAP_OF_FIELD_VALUES = "fields";
+    
     protected YomlSerializerWorker newWorker() {
         return new Worker();
     }
     
-    public static class Worker extends YomlSerializerWorker {
+    protected String getKeyNameForMapOfGeneralValues() {
+        return KEY_NAME_FOR_MAP_OF_FIELD_VALUES;
+    }
+    
+    protected String getExpectedPhaseRead() {
+        return YomlContext.StandardPhases.HANDLING_FIELDS;
+    }
+
+    public class Worker extends YomlSerializerWorker {
+        
+        protected boolean setKeyValueForJavaObjectOnRead(Object key, Object value)
+                throws IllegalAccessException {
+            Maybe<Field> ffm = Reflections.findFieldMaybe(getJavaObject().getClass(), Strings.toString(key));
+            if (ffm.isAbsentOrNull()) {
+                // just skip (could throw, but leave it in case something else recognises it)
+                return false;
+            } else {
+                Field ff = ffm.get();
+                if (Modifier.isStatic(ff.getModifiers())) {
+                    // as above
+                    return false;
+                } else {
+                    String fieldType = YomlUtils.getFieldTypeName(ff, config);
+                    Object v2 = converter.read( new YomlContextForRead(value, context.getJsonPath()+"/"+key, fieldType) );
+                    
+                    ff.setAccessible(true);
+                    ff.set(getJavaObject(), v2);
+                    return true;
+                }
+            }
+        }
+
+        protected boolean shouldHaveJavaObject() { return true; }
+        
         public void read() {
-            if (!context.isPhase(YomlContext.StandardPhases.HANDLING_FIELDS)) return;
-            if (!hasJavaObject()) return;
+            if (!context.isPhase(getExpectedPhaseRead())) return;
+            if (hasJavaObject() != shouldHaveJavaObject()) return;
             
             @SuppressWarnings("unchecked")
-            Map<String,Object> fields = peekFromYamlKeysOnBlackboard("fields", Map.class).orNull();
+            Map<String,Object> fields = peekFromYamlKeysOnBlackboard(getKeyNameForMapOfGeneralValues(), Map.class).orNull();
             if (fields==null) return;
             
             boolean changed = false;
             for (Object f: MutableList.copyOf( ((Map<?,?>)fields).keySet() )) {
                 Object v = ((Map<?,?>)fields).get(f);
                 try {
-                    Maybe<Field> ffm = Reflections.findFieldMaybe(getJavaObject().getClass(), Strings.toString(f));
-                    if (ffm.isAbsentOrNull()) {
-                        // just skip (could throw, but leave it in case something else recognises it?)
-                    } else {
-                        Field ff = ffm.get();
-                        if (Modifier.isStatic(ff.getModifiers())) {
-                            // as above
-                        } else {
-                            String fieldType = YomlUtils.getFieldTypeName(ff, config);
-                            Object v2 = converter.read( new YomlContextForRead(v, context.getJsonPath()+"/"+f, fieldType) );
-                            
-                            ff.setAccessible(true);
-                            ff.set(getJavaObject(), v2);
-                            ((Map<?,?>)fields).remove(Strings.toString(f));
-                            changed = true;
-                        }
+                    if (setKeyValueForJavaObjectOnRead(f, v)) {
+                        ((Map<?,?>)fields).remove(Strings.toString(f));
+                        changed = true;
                     }
                 } catch (Exception e) { throw Exceptions.propagate(e); }
             }
             
             if (changed) {
                 if (((Map<?,?>)fields).isEmpty()) {
-                    removeFromYamlKeysOnBlackboard("fields");
+                    removeFromYamlKeysOnBlackboard(getKeyNameForMapOfGeneralValues());
                 }
                 // restart (there is normally nothing after this so could equally continue with rerun)
                 context.phaseRestart();
@@ -82,14 +109,23 @@ public class FieldsInMapUnderFields extends YomlSerializerComposition {
         }
 
         public void write() {
-            if (!context.isPhase(YomlContext.StandardPhases.HANDLING_FIELDS)) return;
+            if (!context.isPhase(StandardPhases.HANDLING_FIELDS)) return;
             if (!isYamlMap()) return;
-            if (getFromYamlMap("fields", Map.class).isPresent()) return;
+            if (getFromYamlMap(getKeyNameForMapOfGeneralValues(), Map.class).isPresent()) return;
+            
+            Map<String, Object> fields = writePrepareGeneralMap();
+            if (fields!=null && !fields.isEmpty()) {
+                setInYamlMap(getKeyNameForMapOfGeneralValues(), fields);
+                // restart in case a serializer moves the `fields` map somewhere else
+                context.phaseRestart();
+            }
+        }
+
+        protected Map<String, Object> writePrepareGeneralMap() {
             JavaFieldsOnBlackboard fib = JavaFieldsOnBlackboard.peek(blackboard);
-            if (fib==null || fib.fieldsToWriteFromJava.isEmpty()) return;
-            
+            if (fib==null || fib.fieldsToWriteFromJava==null || fib.fieldsToWriteFromJava.isEmpty()) return null;
             Map<String,Object> fields = MutableMap.of();
-            
+
             for (String f: MutableList.copyOf(fib.fieldsToWriteFromJava)) {
                 Maybe<Object> v = Reflections.getFieldValueMaybe(getJavaObject(), f);
                 if (v.isPresent()) {
@@ -104,12 +140,10 @@ public class FieldsInMapUnderFields extends YomlSerializerComposition {
                     }
                 }
             }
-            
-            if (!fields.isEmpty()) {
-                setInYamlMap("fields", fields);
-                // restart in case a serializer moves the `fields` map somewhere else
-                context.phaseRestart();
+            if (log.isTraceEnabled()) {
+                log.trace(this+": built fields map "+fields);
             }
+            return fields;
         }
     }
     

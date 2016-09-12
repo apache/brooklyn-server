@@ -26,19 +26,59 @@ import org.apache.brooklyn.util.javalang.coerce.TypeCoercerExtensible;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
 import org.apache.brooklyn.util.yoml.YomlTypeRegistry;
 
-public class YomlConfig {
+import com.google.common.collect.ImmutableList;
 
-    public YomlTypeRegistry typeRegistry;
-    public TypeCoercer coercer = TypeCoercerExtensible.newDefault();
-    
-    public List<YomlSerializer> serializersPost = MutableList.of();
-    
-    public YomlTypeRegistry getTypeRegistry() {
-        return typeRegistry;
+public interface YomlConfig {
+
+    public YomlTypeRegistry getTypeRegistry();
+    public TypeCoercer getCoercer();
+    public List<YomlSerializer> getSerializersPost();
+    public ConstructionInstruction getConstructionInstruction();
+
+    public static class BasicYomlConfig implements YomlConfig {
+        private BasicYomlConfig() {}
+        private BasicYomlConfig(YomlConfig original) {
+            this.typeRegistry = original.getTypeRegistry();
+            this.coercer = original.getCoercer();
+            this.serializersPost = original.getSerializersPost();
+            this.constructionInstruction = original.getConstructionInstruction();
+        }
+
+        private YomlTypeRegistry typeRegistry;
+        private TypeCoercer coercer = TypeCoercerExtensible.newDefault();
+        private List<YomlSerializer> serializersPost = MutableList.of();
+        private ConstructionInstruction constructionInstruction;
+
+        public YomlTypeRegistry getTypeRegistry() {
+            return typeRegistry;
+        }
+
+        public TypeCoercer getCoercer() {
+            return coercer;
+        }
+
+        public List<YomlSerializer> getSerializersPost() {
+            return ImmutableList.copyOf(serializersPost);
+        }
+
+        public ConstructionInstruction getConstructionInstruction() {
+            return constructionInstruction;
+        }
     }
 
-    public TypeCoercer getCoercer() {
-        return coercer;
+
+    public static class Builder {
+        public static Builder builder() { return new Builder(); }
+        public static Builder builder(YomlConfig source) { return new Builder(source); }
+        
+        final BasicYomlConfig result;
+        protected Builder() { result = new BasicYomlConfig(); }
+        protected Builder(YomlConfig source) { result = new BasicYomlConfig(source); }
+        public Builder typeRegistry(YomlTypeRegistry tr) { result.typeRegistry = tr; return this; }
+        public Builder coercer(TypeCoercer x) { result.coercer = x; return this; }
+        public Builder serializersPost(List<YomlSerializer> x) { result.serializersPost = x; return this; }
+        public Builder constructionInstruction(ConstructionInstruction x) { result.constructionInstruction = x; return this; }
+        
+        public YomlConfig build() { return new BasicYomlConfig(result); }
     }
-    
 }

@@ -1,0 +1,227 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.brooklyn.util.yoml.serializers;
+
+import java.lang.reflect.Field;
+import java.util.Map;
+import java.util.Set;
+
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.yoml.Yoml;
+import org.apache.brooklyn.util.yoml.YomlContext;
+import org.apache.brooklyn.util.yoml.YomlSerializer;
+import org.apache.brooklyn.util.yoml.internal.ConstructionInstruction;
+import org.apache.brooklyn.util.yoml.internal.SerializersOnBlackboard;
+import org.apache.brooklyn.util.yoml.internal.YomlConfig;
+
+import com.google.common.base.Preconditions;
+
+public class InstantiateTypeFromRegistryUsingConfigMap extends InstantiateTypeFromRegistry {
+
+    public static final String PHASE_INSTANTIATE_TYPE_DEFERRED = "handling-type-deferred-after-config";
+
+    String keyNameForConfigWhenSerialized = null;
+    String fieldNameForConfigInJavaIfPreset = null;
+    
+    // don't currently fully support inferring setup from annotations; we need the field above.
+    // easily could automate with a YomlConfigMap annotation - but for now make it explicit
+    // (for now this field can be used to load explicit config keys, if the field name is supplied)
+    boolean inferByScanning = false;
+
+    public static Set<YomlSerializer> newConfigKeyClassScanningSerializers(String fieldNameForConfigInJava, String keyNameForConfigWhenSerialized) {
+        Preconditions.checkNotNull(fieldNameForConfigInJava);
+        Preconditions.checkNotNull(keyNameForConfigWhenSerialized);
+        
+        InstantiateTypeFromRegistryUsingConfigMap instantiator = new InstantiateTypeFromRegistryUsingConfigMap();
+        instantiator.keyNameForConfigWhenSerialized = keyNameForConfigWhenSerialized;
+        instantiator.fieldNameForConfigInJavaIfPreset = fieldNameForConfigInJava;
+        instantiator.inferByScanning = true;
+        
+        return MutableSet.<YomlSerializer>of(
+            new ConfigInMapUnderConfigSerializer(keyNameForConfigWhenSerialized),
+            instantiator);
+    }
+    
+    public static Set<YomlSerializer> newConfigKeySerializersForType(
+            String fieldNameForConfigInJava, String keyNameForConfigWhenSerialized, Class<?> type) {
+        Preconditions.checkNotNull(fieldNameForConfigInJava);
+        Preconditions.checkNotNull(keyNameForConfigWhenSerialized);
+        
+        InstantiateTypeFromRegistryUsingConfigMap instantiator = new InstantiateTypeFromRegistryUsingConfigMap();
+        instantiator.keyNameForConfigWhenSerialized = keyNameForConfigWhenSerialized;
+        instantiator.fieldNameForConfigInJavaIfPreset = fieldNameForConfigInJava;
+        instantiator.inferByScanning = false;
+        
+        MutableSet<YomlSerializer> result = MutableSet.<YomlSerializer>of(
+            new ConfigInMapUnderConfigSerializer(keyNameForConfigWhenSerialized),
+            instantiator);
+        result.addAll(ExplicitConfigKeySerializer.findExplicitConfigKeySerializers(keyNameForConfigWhenSerialized, type).values());
+        
+        return result;
+    }
+    
+    protected InstantiateTypeFromRegistryUsingConfigMap() {}
+    
+    protected YomlSerializerWorker newWorker() {
+        return new Worker();
+    }
+    
+    class Worker extends InstantiateTypeFromRegistry.Worker {
+
+        @Override
+        public void read() {
+            if (context.isPhase(PHASE_INSTANTIATE_TYPE_DEFERRED)) {
+                readFinallyCreate();
+            } else {
+                super.read();
+            }
+        }
+
+        @Override
+        protected boolean readType(String type) {
+            Class<?> clazz = config.getTypeRegistry().getJavaTypeMaybe(type).orNull();
+            if (!isConfigurable(clazz)) return false;
+            
+            // prepare blackboard, annotations, then do handling_config
+            JavaFieldsOnBlackboard fib = JavaFieldsOnBlackboard.create(blackboard, keyNameForConfigWhenSerialized);
+            fib.typeNameFromReadToConstructJavaLater = type;
+            fib.typeFromReadToConstructJavaLater = clazz;
+            fib.fieldsFromReadToConstructJava = MutableMap.of();
+            
+            addSerializersForDiscoveredRealType(type);
+            addExtraTypeSerializers(clazz);
+            
+            context.phaseInsert(YomlContext.StandardPhases.MANIPULATING, PHASE_INSTANTIATE_TYPE_DEFERRED);
+            context.phaseAdvance();
+            return true;
+        }
+
+        protected void addExtraTypeSerializers(Class<?> clazz) {
+            if (inferByScanning) {
+                SerializersOnBlackboard.get(blackboard).addInstantiatedTypeSerializers(
+                    ExplicitConfigKeySerializer.findExplicitConfigKeySerializers(keyNameForConfigWhenSerialized, clazz).values());
+            }
+        }
+
+        protected void readFinallyCreate() {
+            if (hasJavaObject()) return;
+            
+            // this is running in a later phase, after the brooklyn.config map has been set up
+            // instantiate with special constructor
+            JavaFieldsOnBlackboard fib = JavaFieldsOnBlackboard.peek(blackboard, keyNameForConfigWhenSerialized);
+            Class<?> type = fib.typeFromReadToConstructJavaLater;
+            if (type==null) return;
+            
+            Preconditions.checkNotNull(keyNameForConfigWhenSerialized);
+
+            YomlConfig newConfig = YomlConfig.Builder.builder(config).constructionInstruction(
+                ConstructionInstruction.Factory.newUsingConstructorWithArgs(
+                    type, MutableList.of(fib.fieldsFromReadToConstructJava), config.getConstructionInstruction()))
+                .build();
+            
+            Maybe<Object> resultM = config.getTypeRegistry().newInstanceMaybe(fib.typeNameFromReadToConstructJavaLater, Yoml.newInstance(newConfig));
+          
+            if (resultM.isAbsent()) {
+                warn(new IllegalStateException("Unable to create type '"+type+"'", ((Maybe.Absent<?>)resultM).getException()));
+                return;
+            }
+
+            fib.fieldsFromReadToConstructJava.clear();
+            storeReadObjectAndAdvance(resultM.get(), true);
+        }
+        
+        @Override
+        protected boolean canDoWrite() {
+            if (!super.canDoWrite()) return false;
+            if (!isConfigurable(getJavaObject().getClass())) return false;
+            if (!hasValidConfigFieldSoWeCanWriteConfigMap()) return false;
+            
+            return true;
+        }
+        
+        protected boolean hasValidConfigFieldSoWeCanWriteConfigMap() {
+            if (fieldNameForConfigInJavaIfPreset!=null) {
+                // check that the given field exists and is usable
+                Maybe<Field> f = Reflections.findFieldMaybe(getJavaObject().getClass(), fieldNameForConfigInJavaIfPreset);
+                if (f.isAbsent()) return false;
+                if (!Map.class.isAssignableFrom( f.get().getType() )) return false;
+            }
+            
+            // support autodetect here (will fail later if not discoverable; could discover here)
+            return true;
+        }
+
+        @Override
+        protected void writingPopulateBlackboard() {
+            super.writingPopulateBlackboard();
+
+            try {
+                String configMapKeyName = fieldNameForConfigInJavaIfPreset;
+                if (configMapKeyName==null) {
+                    if (!inferByScanning) {
+                        throw new IllegalStateException("no config key name set and not allowed to infer; "
+                            + "this serializer should only be used when the config key name is specified");
+                    } else {
+                        // optionally: we could support annotation on the type to learn the key name;
+                        // but without that we just write as fields
+                        throw new UnsupportedOperationException("config key name must be set explicitly");
+                    }
+                }
+                // write clues for ConfigInMapUnder...
+                
+                JavaFieldsOnBlackboard fib = JavaFieldsOnBlackboard.peek(blackboard);
+                Field f = Reflections.findFieldMaybe(getJavaObject().getClass(), fieldNameForConfigInJavaIfPreset).get();
+                f.setAccessible(true);
+                @SuppressWarnings("unchecked")
+                Map<String, Object> configMap = (Map<String,Object>)f.get(getJavaObject());
+                if (configMap!=null) {
+                    fib.configToWriteFromJava = MutableMap.copyOf(configMap);
+                }
+
+                // suppress wherever the config is stored
+                fib.fieldsToWriteFromJava.remove(configMapKeyName);
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                warn(new IllegalStateException("Unable to retieve config map in "+getJavaObject(), e));
+                return;
+            }
+            
+            addExtraTypeSerializers(getJavaObject().getClass());
+        }
+        
+    }
+
+    /** configurable if it has a map constructor and at least one public static config key */
+    protected boolean isConfigurable(Class<?> type) {
+        if (type==null) return false;
+        if (findConstructorMaybe(type).isAbsent()) return false;
+        if (ExplicitConfigKeySerializer.findConfigKeys(type).isEmpty()) return false;
+        return true;
+    }
+
+    protected Maybe<?> findConstructorMaybe(Class<?> type) {
+        return Reflections.findConstructorMaybe(type, Map.class);
+    }
+
+}

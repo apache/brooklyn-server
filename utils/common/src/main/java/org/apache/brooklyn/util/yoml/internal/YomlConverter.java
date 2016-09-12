@@ -26,7 +26,9 @@ import org.apache.brooklyn.util.yoml.YomlContextForRead;
 import org.apache.brooklyn.util.yoml.YomlContextForWrite;
 import org.apache.brooklyn.util.yoml.YomlRequirement;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
+import org.apache.brooklyn.util.yoml.serializers.JavaFieldsOnBlackboard;
 import org.apache.brooklyn.util.yoml.serializers.ReadingTypeOnBlackboard;
+import org.apache.brooklyn.util.yoml.serializers.YamlKeysOnBlackboard;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,7 +37,6 @@ import com.google.common.collect.Iterables;
 public class YomlConverter {
 
     private static final Logger log = LoggerFactory.getLogger(YomlConverter.class);
-    
     private final YomlConfig config;
     
     public YomlConverter(YomlConfig config) {
@@ -66,9 +67,9 @@ public class YomlConverter {
         // find the serializers known so far; store on blackboard so they could be edited
         SerializersOnBlackboard serializers = SerializersOnBlackboard.create(blackboard);
         if (context.getExpectedType()!=null) {
-            serializers.addExpectedTypeSerializers(config.typeRegistry.getSerializersForType(context.getExpectedType()));
+            serializers.addExpectedTypeSerializers(config.getTypeRegistry().getSerializersForType(context.getExpectedType()));
         }
-        serializers.addPostSerializers(config.serializersPost);
+        serializers.addPostSerializers(config.getSerializersPost());
         
         if (context instanceof YomlContextForRead) {
             // read needs instantiated so that these errors display before manipulating errors and others
@@ -77,6 +78,7 @@ public class YomlConverter {
         
         if (log.isTraceEnabled()) log.trace("YOML now looking at "+context.getJsonPath()+"/ = "+context.getJavaObject()+" <-> "+context.getYamlObject()+" ("+context.getExpectedType()+")");
         while (context.phaseAdvance()) {
+            if (log.isTraceEnabled()) log.trace("read "+context.getJsonPath()+"/ = "+context.getJavaObject()+" entering phase "+context.phaseCurrent()+": "+YamlKeysOnBlackboard.peek(blackboard)+" / "+JavaFieldsOnBlackboard.peek(blackboard)+" / "+JavaFieldsOnBlackboard.peek(blackboard, "config"));
             while (context.phaseStepAdvance()<Iterables.size(serializers.getSerializers())) {
                 YomlSerializer s = Iterables.get(serializers.getSerializers(), context.phaseCurrentStep());
                 if (context instanceof YomlContextForRead) {

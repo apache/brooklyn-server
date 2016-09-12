@@ -113,7 +113,7 @@ public class YomlTestFixture {
         return addTypeWithAnnotations(null, type);
     }
     public YomlTestFixture addTypeWithAnnotations(String name, Class<?> type) {
-        Set<YomlSerializer> serializers = YomlAnnotations.findSerializerAnnotations(type);
+        Set<YomlSerializer> serializers = YomlAnnotations.findSerializerAnnotations(type, null, null);
         for (String n: YomlAnnotations.findTypeNamesFromAnnotations(type, name, false)) {
             tr.put(n, type, serializers);
         }

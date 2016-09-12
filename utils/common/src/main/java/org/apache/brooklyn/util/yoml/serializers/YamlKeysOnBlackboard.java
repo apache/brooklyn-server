@@ -59,5 +59,9 @@ public class YamlKeysOnBlackboard implements YomlRequirement {
             throw new YomlException("Incomplete read of YAML keys: "+yamlKeysToReadToJava, context);
         }
     }
-    
+
+    @Override
+    public String toString() {
+        return super.toString()+"("+yamlKeysToReadToJava+")";
+    }
 }

@@ -28,12 +28,12 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
-import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yaml.Yamls;
 import org.apache.brooklyn.util.yoml.Yoml;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
 import org.apache.brooklyn.util.yoml.YomlTypeRegistry;
+import org.apache.brooklyn.util.yoml.internal.ConstructionInstruction;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils;
 
 import com.google.common.collect.Iterables;
@@ -74,12 +74,15 @@ public class MockYomlTypeRegistry implements YomlTypeRegistry {
             if (type.parentType==null && type.javaType!=null) parentTypeName = getDefaultTypeNameOfClass(type.javaType);
             return Maybe.of(yoml.readFromYamlObject(type.yamlDefinition, parentTypeName));
         }
+        
         Maybe<Class<?>> javaType = getJavaTypeInternal(type, typeName); 
-        if (javaType.isAbsent()) {
+        ConstructionInstruction constructor = yoml.getConfig().getConstructionInstruction();
+        if (javaType.isAbsent() && constructor==null) {
             if (type==null) return Maybe.absent("Unknown type `"+typeName+"`");
             return Maybe.absent(new IllegalStateException("Incomplete hierarchy for "+type, ((Maybe.Absent<?>)javaType).getException()));
         }
-        return Reflections.invokeConstructorFromArgsIncludingPrivate(javaType.get());
+        
+        return ConstructionInstruction.Factory.newDefault(javaType.get(), constructor).create();
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })

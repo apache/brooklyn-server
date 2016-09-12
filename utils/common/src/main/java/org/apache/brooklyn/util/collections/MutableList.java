@@ -48,7 +48,7 @@ public class MutableList<V> extends ArrayList<V> {
         return result;
     }
     
-    public static <V> MutableList<V> of(V v1, V v2, V ...vv) {
+    public static <V> MutableList<V> of(V v1, V v2, @SuppressWarnings("unchecked") V ...vv) {
         MutableList<V> result = new MutableList<V>();
         result.add(v1);
         result.add(v2);
@@ -129,7 +129,7 @@ public class MutableList<V> extends ArrayList<V> {
             return this;
         }
 
-        public Builder<V> add(V value1, V value2, V ...values) {
+        public Builder<V> add(V value1, V value2, @SuppressWarnings("unchecked") V ...values) {
             result.add(value1);
             result.add(value2);
             for (V v: values) result.add(v);
@@ -195,7 +195,7 @@ public class MutableList<V> extends ArrayList<V> {
             return ImmutableList.copyOf(result);
         }
 
-        public Builder<V> addLists(Iterable<? extends V> ...items) {
+        public Builder<V> addLists(@SuppressWarnings("unchecked") Iterable<? extends V> ...items) {
             for (Iterable<? extends V> item: items) {
                 addAll(item);
             }
@@ -216,7 +216,7 @@ public class MutableList<V> extends ArrayList<V> {
     }
 
     /** as {@link List#add(Object)} but accepting multiple, and fluent style */
-    public MutableList<V> append(V item1, V item2, V ...items) {
+    public MutableList<V> append(V item1, V item2, @SuppressWarnings("unchecked") V ...items) {
         add(item1);
         add(item2);
         for (V item: items) add(item);
@@ -224,7 +224,7 @@ public class MutableList<V> extends ArrayList<V> {
     }
 
     /** as {@link List#add(Object)} but excluding nulls, accepting multiple, and fluent style */
-    public MutableList<V> appendIfNotNull(V item1, V item2, V ...items) {
+    public MutableList<V> appendIfNotNull(V item1, V item2, @SuppressWarnings("unchecked") V ...items) {
         if (item1!=null) add(item1);
         if (item2!=null) add(item2);
         for (V item: items) 

@@ -37,12 +37,12 @@ import org.apache.brooklyn.util.yoml.serializers.ExplicitField.FieldConstraint;
 public class ExplicitFieldsBlackboard implements YomlRequirement {
 
     public static final String KEY = ExplicitFieldsBlackboard.class.getCanonicalName();
-        
-    public static ExplicitFieldsBlackboard get(Map<Object,Object> blackboard) {
-        Object v = blackboard.get(KEY);
+
+    public static ExplicitFieldsBlackboard get(Map<Object,Object> blackboard, String mode) {
+        Object v = blackboard.get(KEY+":"+mode);
         if (v==null) {
             v = new ExplicitFieldsBlackboard();
-            blackboard.put(KEY, v);
+            blackboard.put(KEY+":"+mode, v);
         }
         return (ExplicitFieldsBlackboard) v;
     }

@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.annotation.Nullable;
+
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -72,10 +74,17 @@ public abstract class InstantiateTypeWorkerAbstract extends YomlSerializerWorker
         return true;
     }
     
-    protected void addSerializers(String type) {
-        if (!type.equals(context.getExpectedType())) {
-            SerializersOnBlackboard.get(blackboard).addInstantiatedTypeSerializers(config.typeRegistry.getSerializersForType(type));
+    /** invoked on read and write to apply the appropriate serializers one the real type is known,
+     * e.g. by looking up in registry. name of type will not be null but if it equals the java type
+     * that may mean that annotation-scanning is appropriate. */
+    protected boolean addSerializersForDiscoveredRealType(@Nullable String type) {
+        if (type!=null) {
+            // (if null, we were writing what was expected, and we'll have added from expected type serializers)
+            if (!type.equals(context.getExpectedType())) {
+                return SerializersOnBlackboard.get(blackboard).addInstantiatedTypeSerializers(config.getTypeRegistry().getSerializersForType(type));
+            }
         }
+        return false;
     }
 
     protected void storeReadObjectAndAdvance(Object result, boolean addPhases) {
@@ -126,13 +135,13 @@ public abstract class InstantiateTypeWorkerAbstract extends YomlSerializerWorker
         removeFromYamlKeysOnBlackboard("type", "value");
     }
 
-    protected MutableMap<Object, Object> writingMapWithType(String typeName) {
+    /** null type-name means we are writing the expected type */
+    protected MutableMap<Object, Object> writingMapWithType(@Nullable String typeName) {
         JavaFieldsOnBlackboard.create(blackboard).fieldsToWriteFromJava = MutableList.of();
         MutableMap<Object, Object> map = MutableMap.of();
         
         if (typeName!=null) {
             map.put("type", typeName);
-            addSerializers(typeName);
         }
         return map;
     }

@@ -30,15 +30,16 @@ import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils;
 import org.apache.brooklyn.util.yoml.serializers.ExplicitField;
+import org.apache.brooklyn.util.yoml.serializers.InstantiateTypeFromRegistryUsingConfigMap;
 
 public class YomlAnnotations {
 
-    public static Set<String> findTypeNamesFromAnnotations(Class<?> type, String optionalDefaultPreferredName, boolean includeJavaTypeNameEvenIfOthers) {
+    public static Set<String> findTypeNamesFromAnnotations(Class<?> type, String optionalDefaultPreferredTypeName, boolean includeJavaTypeNameEvenIfOthers) {
         MutableSet<String> names = MutableSet.of();
         
         Alias overallAlias = type.getAnnotation(Alias.class);
-        if (optionalDefaultPreferredName!=null) {
-            names.addIfNotNull(optionalDefaultPreferredName);
+        if (optionalDefaultPreferredTypeName!=null) {
+            names.addIfNotNull(optionalDefaultPreferredTypeName);
         }
         if (overallAlias!=null) {
             if (Strings.isNonBlank(overallAlias.preferred())) {
@@ -63,8 +64,23 @@ public class YomlAnnotations {
         return result;
     }
 
-    public static Set<YomlSerializer> findSerializerAnnotations(Class<?> type) {
+    public static Set<YomlSerializer> findConfigBagSerializerAnnotations(Class<?> type, 
+            String fieldNameForConfigToAutodetect, String keyNameForConfigWhenSerialized) {
+        
+        // TODO autodetect, add map
+        
+        return MutableSet.copyOf(InstantiateTypeFromRegistryUsingConfigMap.newConfigKeySerializersForType(
+            fieldNameForConfigToAutodetect, keyNameForConfigWhenSerialized, type));
+    }
+    
+    public static Set<YomlSerializer> findSerializerAnnotations(Class<?> type, 
+            String fieldNamesForConfigToAutodetect, String keyNameForConfigWhenSerialized) {
+        
         Set<YomlSerializer> result = MutableSet.of();
+        
+        if (fieldNamesForConfigToAutodetect!=null) {
+            result.addAll(findConfigBagSerializerAnnotations(type, fieldNamesForConfigToAutodetect, keyNameForConfigWhenSerialized));
+        }
 
         // explicit fields
         YomlAllFieldsAtTopLevel allFields = type.getAnnotation(YomlAllFieldsAtTopLevel.class);

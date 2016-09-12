@@ -53,20 +53,20 @@ public class SerializersOnBlackboard {
     private List<YomlSerializer> expectedTypeSerializers = MutableList.of();
     private List<YomlSerializer> postSerializers = MutableList.of();
 
-    public void addInstantiatedTypeSerializers(Iterable<? extends YomlSerializer> newInstantiatedTypeSerializers) {
-        addNewSerializers(instantiatedTypeSerializers, newInstantiatedTypeSerializers);
+    public boolean addInstantiatedTypeSerializers(Iterable<? extends YomlSerializer> newInstantiatedTypeSerializers) {
+        return addNewSerializers(instantiatedTypeSerializers, newInstantiatedTypeSerializers);
     }
-    public void addExpectedTypeSerializers(Iterable<YomlSerializer> newExpectedTypeSerializers) {
-        addNewSerializers(expectedTypeSerializers, newExpectedTypeSerializers);
+    public boolean addExpectedTypeSerializers(Iterable<YomlSerializer> newExpectedTypeSerializers) {
+        return addNewSerializers(expectedTypeSerializers, newExpectedTypeSerializers);
         
     }
-    public void addPostSerializers(List<YomlSerializer> newPostSerializers) {
-        addNewSerializers(postSerializers, newPostSerializers);
+    public boolean addPostSerializers(List<YomlSerializer> newPostSerializers) {
+        return addNewSerializers(postSerializers, newPostSerializers);
     }
-    protected static void addNewSerializers(List<YomlSerializer> addTo, Iterable<? extends YomlSerializer> elementsToAddIfNotPresent) {
+    protected static boolean addNewSerializers(List<YomlSerializer> addTo, Iterable<? extends YomlSerializer> elementsToAddIfNotPresent) {
         MutableSet<YomlSerializer> newOnes = MutableSet.copyOf(elementsToAddIfNotPresent);
         newOnes.removeAll(addTo);
-        addTo.addAll(newOnes);
+        return addTo.addAll(newOnes);
     }
     
     public Iterable<YomlSerializer> getSerializers() {

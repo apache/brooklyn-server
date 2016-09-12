@@ -48,35 +48,42 @@ public class InstantiateTypeFromRegistry extends YomlSerializerComposition {
             }
             
             if (type==null) return;
-
-            Maybe<Object> resultM = config.getTypeRegistry().newInstanceMaybe((String)type, Yoml.newInstance(config));
-            if (resultM.isAbsent()) {
-                String message = "Unable to create type '"+type+"'";
-                RuntimeException exc = null;
-                
-                Maybe<Class<?>> jt = config.getTypeRegistry().getJavaTypeMaybe((String)type);
-                if (jt.isAbsent()) {
-                    exc = ((Maybe.Absent<?>)jt).getException();
-                } else {
-                    exc = ((Maybe.Absent<?>)resultM).getException();
-                }
-                warn(new IllegalStateException(message, exc));
+            if (addSerializersForDiscoveredRealType(type)) {
+                // added new serializers, need to restart phase
+                // in case another serializer wants to create it
+                context.phaseRestart();
                 return;
             }
             
-            addSerializers(type);
-            storeReadObjectAndAdvance(resultM.get(), true);
+            if (!readType(type)) return;
             
             if (isYamlMap()) {
                 removeFromYamlKeysOnBlackboard("type");
             }
         }
 
+        protected boolean readType(String type) {
+            Maybe<Object> resultM = config.getTypeRegistry().newInstanceMaybe(type, Yoml.newInstance(config));
+            if (resultM.isAbsent()) {
+                String message = "Unable to create type '"+type+"'";
+                RuntimeException exc = null;
+                
+                Maybe<Class<?>> jt = config.getTypeRegistry().getJavaTypeMaybe(type);
+                if (jt.isAbsent()) {
+                    exc = ((Maybe.Absent<?>)jt).getException();
+                } else {
+                    exc = ((Maybe.Absent<?>)resultM).getException();
+                }
+                warn(new IllegalStateException(message, exc));
+                return false;
+            }
+            
+            storeReadObjectAndAdvance(resultM.get(), true);
+            return true;
+        }
+        
         public void write() {
-            if (!context.isPhase(YomlContext.StandardPhases.HANDLING_TYPE)) return;
-            if (hasYamlObject()) return;
-            if (!hasJavaObject()) return;
-            if (JavaFieldsOnBlackboard.isPresent(blackboard)) return;
+            if (!canDoWrite()) return;
             
             if (Reflections.hasSpecialSerializationMethods(getJavaObject().getClass())) {
                 warn("Cannot write "+getJavaObject().getClass()+" using default strategy as it has custom serializaton methods");
@@ -84,19 +91,31 @@ public class InstantiateTypeFromRegistry extends YomlSerializerComposition {
             }
             
             // common primitives and maps/lists will have been handled
-            // TODO support osgi
+            
+            // (osgi syntax isn't supported, because we expect items to be in the registry)
+            
+            String typeName = getJavaObject().getClass().equals(getExpectedTypeJava()) ? null : config.getTypeRegistry().getTypeName(getJavaObject());
+            if (addSerializersForDiscoveredRealType(typeName)) {
+                // if new serializers, bail out and we'll re-run
+                context.phaseRestart();
+                return;
+            }
             
             MutableMap<Object, Object> map = writingMapWithType(
-                // explicitly write the type unless it is the expected one
-                getJavaObject().getClass().equals(getExpectedTypeJava()) ? null : config.getTypeRegistry().getTypeName(getJavaObject()));
+                // explicitly write the type (unless it is the expected one)
+                typeName);
                 
-            // collect fields
-            JavaFieldsOnBlackboard fib = JavaFieldsOnBlackboard.peek(blackboard);
-            fib.fieldsToWriteFromJava.addAll(YomlUtils.getAllNonTransientNonStaticFieldNamesUntyped(getJavaObject().getClass(), getJavaObject()));
+            writingPopulateBlackboard();
                 
             context.phaseInsert(YomlContext.StandardPhases.HANDLING_FIELDS, YomlContext.StandardPhases.MANIPULATING);
             storeWriteObjectAndAdvance(map);
             return;
+        }
+
+        protected void writingPopulateBlackboard() {
+            // collect fields
+            JavaFieldsOnBlackboard fib = JavaFieldsOnBlackboard.peek(blackboard);
+            fib.fieldsToWriteFromJava.addAll(YomlUtils.getAllNonTransientNonStaticFieldNamesUntyped(getJavaObject().getClass(), getJavaObject()));
         }
 
     }

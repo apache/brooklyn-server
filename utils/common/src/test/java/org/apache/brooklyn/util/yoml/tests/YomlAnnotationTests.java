@@ -69,7 +69,7 @@ public class YomlAnnotationTests {
         YomlTestFixture.newInstance().
         addTypeWithAnnotations(ExplicitFieldsAtTopLevelExamples.Shape.class).
         read("{ name: nifty_shape, couleur: blue }", "shape").assertResult(shape).
-        write(shape).assertResult("{ type: "+ExplicitFieldsAtTopLevelExamples.Shape.class.getName()+", name: nifty_shape, colour: blue }");
+        write(shape).assertResult("{ type: shape, colour: blue, name: nifty_shape }");
     }
 
     static class ExplicitFieldsAllExamples {
@@ -105,7 +105,7 @@ public class YomlAnnotationTests {
         YomlTestFixture.newInstance().
         addTypeWithAnnotations(ExplicitFieldsAllExamples.Shape.class).
         read("{ name: nifty_shape, couleur: blue }", "shape").assertResult(shape).
-        write(shape).assertResult("{ type: "+ExplicitFieldsAllExamples.Shape.class.getName()+", name: nifty_shape, colour: blue }");
+        write(shape).assertResult("{ type: shape, colour: blue, name: nifty_shape }");
     }
 
 }

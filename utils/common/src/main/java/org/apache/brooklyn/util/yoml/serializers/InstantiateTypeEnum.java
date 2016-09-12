@@ -88,9 +88,14 @@ public class InstantiateTypeEnum extends YomlSerializerComposition {
             Object result = ((Enum<?>)getJavaObject()).name();
 
             if (wrap) {
-                result = writingMapWithTypeAndLiteralValue(
-                    config.getTypeRegistry().getTypeName(getJavaObject()),
-                    result);
+                String typeName = config.getTypeRegistry().getTypeName(getJavaObject());
+                if (addSerializersForDiscoveredRealType(typeName)) {
+                    // if new serializers, bail out and we'll re-run
+                    context.phaseRestart();
+                    return;
+                }
+
+                result = writingMapWithTypeAndLiteralValue(typeName, result);
             }
                 
             context.phaseInsert(YomlContext.StandardPhases.MANIPULATING);

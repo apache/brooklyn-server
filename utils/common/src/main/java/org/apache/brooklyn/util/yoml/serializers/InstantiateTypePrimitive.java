@@ -94,10 +94,14 @@ public class InstantiateTypePrimitive extends YomlSerializerComposition {
             // not expecting a primitive/json; bail out if it's not a primitive (map/list might decide to write `json` as the type)
             if (!isJsonPrimitiveObject(getJavaObject())) return;
             
-            MutableMap<Object, Object> map = writingMapWithTypeAndLiteralValue(
-                config.getTypeRegistry().getTypeName(getJavaObject()),
-                getJavaObject());
-                
+            String typeName = config.getTypeRegistry().getTypeName(getJavaObject());
+            if (addSerializersForDiscoveredRealType(typeName)) {
+                // if new serializers, bail out and we'll re-run
+                context.phaseRestart();
+                return;
+            }
+
+            MutableMap<Object, Object> map = writingMapWithTypeAndLiteralValue(typeName, getJavaObject());
             context.phaseInsert(YomlContext.StandardPhases.MANIPULATING);
             storeWriteObjectAndAdvance(map);
         }

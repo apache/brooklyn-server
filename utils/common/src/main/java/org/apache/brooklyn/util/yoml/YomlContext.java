@@ -38,7 +38,7 @@ public abstract class YomlContext {
     
     String phaseCurrent = null;
     int phaseCurrentStep = -1;
-    Set<String> phasesFollowing = MutableSet.of(StandardPhases.MANIPULATING, StandardPhases.HANDLING_TYPE, StandardPhases.HANDLING_FIELDS);
+    Set<String> phasesFollowing = MutableSet.of(StandardPhases.MANIPULATING, StandardPhases.HANDLING_TYPE, StandardPhases.HANDLING_TYPE, StandardPhases.HANDLING_FIELDS);
     List<String> phasesPreceding = MutableList.of();
     
     public static interface StandardPhases {

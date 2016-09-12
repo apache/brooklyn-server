@@ -227,8 +227,8 @@ public class CollectionMerger {
         
         protected boolean isTrivial(Object o) {
             if (o == null)  return true;
-            if (o instanceof Map && ((Map)o).isEmpty()) return true;
-            if (o instanceof Iterable && Iterables.isEmpty(((Iterable)o))) return true;
+            if (o instanceof Map && ((Map<?,?>)o).isEmpty()) return true;
+            if (o instanceof Iterable && Iterables.isEmpty(((Iterable<?>)o))) return true;
             Class<?> clazz = o.getClass();
             return clazz.isEnum() || clazz.isPrimitive() || TRIVIAL_CLASSES.contains(clazz);
         }

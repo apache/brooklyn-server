@@ -34,6 +34,8 @@ import org.apache.brooklyn.util.yoml.YomlContext;
 import org.apache.brooklyn.util.yoml.YomlContext.StandardPhases;
 import org.apache.brooklyn.util.yoml.annotations.Alias;
 import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsAtTopLevel;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Objects;
 
@@ -47,6 +49,8 @@ import com.google.common.base.Objects;
 @Alias("explicit-field")
 public class ExplicitField extends YomlSerializerComposition {
 
+    private static final Logger log = LoggerFactory.getLogger(ExplicitField.class);
+    
     public ExplicitField() {}
     public ExplicitField(Field f) {
         this(f.getName(), f);
@@ -90,45 +94,54 @@ public class ExplicitField extends YomlSerializerComposition {
     
     /** by default when multiple explicit-field serializers are supplied for the same {@link #fieldName}, all aliases are accepted;
      * set this false to restrict to those in the first such serializer */
-    Boolean aliasesInherited;
+    protected Boolean aliasesInherited;
     /** by default aliases are taken case-insensitive, with mangling supported,
      * and including the {@link #fieldName} as an alias;
      * set false to disallow all these, recognising only the explicitly noted 
      * {@link #keyName} and {@link #aliases} as keys (but still defaulting to {@link #fieldName} if {@link #keyName} is absent) */
-    Boolean aliasesStrict;
+    protected Boolean aliasesStrict;
     
     public static enum FieldConstraint { REQUIRED } 
     /** by default fields can be left null; set {@link FieldConstraint#REQUIRED} to require a value to be supplied (or a default set);
      * other constraints may be introduded, and API may change, but keyword `required` will be coercible to this */
-    FieldConstraint constraint;
+    protected FieldConstraint constraint;
     
     /** a default value to use when reading (and to use to determine whether to omit the field when writing) */
     // TODO would be nice to support maybe here, not hard here, but it makes it hard to set from yaml
     // also keyword `default` as alias
-    Object defaultValue;
+    protected Object defaultValue;
+    
+    protected String getKeyNameForMapOfGeneralValues() {
+        return FieldsInMapUnderFields.KEY_NAME_FOR_MAP_OF_FIELD_VALUES;
+    }
     
     public class Worker extends YomlSerializerWorker {
         
         String PREPARING_EXPLICIT_FIELDS = "preparing-explicit-fields";
         
         protected String getPreferredKeyName() { 
-            String result = ExplicitFieldsBlackboard.get(blackboard).getKeyName(fieldName);
+            String result = getExplicitFieldsBlackboard().getKeyName(fieldName);
             if (result!=null) return result;
             return fieldName; 
+        }
+
+        protected ExplicitFieldsBlackboard getExplicitFieldsBlackboard() {
+            return ExplicitFieldsBlackboard.get(blackboard, getKeyNameForMapOfGeneralValues());
         }
         
         protected Iterable<String> getKeyNameAndAliases() {
             MutableSet<String> keyNameAndAliases = MutableSet.of();
             keyNameAndAliases.addIfNotNull(getPreferredKeyName());
-            if (!ExplicitFieldsBlackboard.get(blackboard).isAliasesStrict(fieldName)) {
+            if (!getExplicitFieldsBlackboard().isAliasesStrict(fieldName)) {
                 keyNameAndAliases.addIfNotNull(fieldName);
             }
-            keyNameAndAliases.addAll(ExplicitFieldsBlackboard.get(blackboard).getAliases(fieldName));
+            keyNameAndAliases.addAll(getExplicitFieldsBlackboard().getAliases(fieldName));
             return keyNameAndAliases; 
         }
 
         protected boolean readyForMainEvent() {
             if (!context.seenPhase(YomlContext.StandardPhases.HANDLING_TYPE)) return false;
+            if (context.willDoPhase(YomlContext.StandardPhases.HANDLING_TYPE)) return false;
             if (!context.seenPhase(PREPARING_EXPLICIT_FIELDS)) {
                 if (context.isPhase(YomlContext.StandardPhases.MANIPULATING)) {
                     // interrupt the manipulating phase to do a preparing phase
@@ -139,44 +152,49 @@ public class ExplicitField extends YomlSerializerComposition {
             }
             if (context.isPhase(PREPARING_EXPLICIT_FIELDS)) {
                 // do the pre-main pass to determine what is required for explicit fields and what the default is 
-                ExplicitFieldsBlackboard.get(blackboard).setKeyNameIfUnset(fieldName, keyName);
-                ExplicitFieldsBlackboard.get(blackboard).addAliasIfNotDisinherited(fieldName, alias);
-                ExplicitFieldsBlackboard.get(blackboard).addAliasesIfNotDisinherited(fieldName, aliases);
-                ExplicitFieldsBlackboard.get(blackboard).setAliasesInheritedIfUnset(fieldName, aliasesInherited);
-                ExplicitFieldsBlackboard.get(blackboard).setAliasesStrictIfUnset(fieldName, aliasesStrict);
-                ExplicitFieldsBlackboard.get(blackboard).setConstraintIfUnset(fieldName, constraint);
-                if (ExplicitFieldsBlackboard.get(blackboard).getDefault(fieldName).isAbsent() && defaultValue!=null) {
-                    ExplicitFieldsBlackboard.get(blackboard).setUseDefaultFrom(fieldName, ExplicitField.this, defaultValue);
+                getExplicitFieldsBlackboard().setKeyNameIfUnset(fieldName, keyName);
+                getExplicitFieldsBlackboard().addAliasIfNotDisinherited(fieldName, alias);
+                getExplicitFieldsBlackboard().addAliasesIfNotDisinherited(fieldName, aliases);
+                getExplicitFieldsBlackboard().setAliasesInheritedIfUnset(fieldName, aliasesInherited);
+                getExplicitFieldsBlackboard().setAliasesStrictIfUnset(fieldName, aliasesStrict);
+                getExplicitFieldsBlackboard().setConstraintIfUnset(fieldName, constraint);
+                if (getExplicitFieldsBlackboard().getDefault(fieldName).isAbsent() && defaultValue!=null) {
+                    getExplicitFieldsBlackboard().setUseDefaultFrom(fieldName, ExplicitField.this, defaultValue);
                 }
                 // TODO combine aliases, other items
                 return false;
             }
-            if (ExplicitFieldsBlackboard.get(blackboard).isFieldDone(fieldName)) return false;
+            if (getExplicitFieldsBlackboard().isFieldDone(fieldName)) return false;
             if (!context.isPhase(YomlContext.StandardPhases.MANIPULATING)) return false;
             return true;
         }
         
+        protected boolean canDoRead() { return hasJavaObject(); }
+        
         public void read() {
-            if (!readyForMainEvent()) return; 
-            if (!hasJavaObject()) return;
+            if (!readyForMainEvent()) return;
+            if (!canDoRead()) return;
             if (!isYamlMap()) return;
             if (!hasYamlKeysOnBlackboard()) return;
             
             @SuppressWarnings("unchecked")
-            Map<String,Object> fields = peekFromYamlKeysOnBlackboard("fields", Map.class).orNull();
+            Map<String,Object> fields = peekFromYamlKeysOnBlackboard(getKeyNameForMapOfGeneralValues(), Map.class).orNull();
             if (fields==null) {
                 // create the fields if needed; FieldsInFieldsMap will remove (even if empty)
                 fields = MutableMap.of();
-                YamlKeysOnBlackboard.getOrCreate(blackboard, null).yamlKeysToReadToJava.put("fields", fields);
+                YamlKeysOnBlackboard.getOrCreate(blackboard, null).yamlKeysToReadToJava.put(getKeyNameForMapOfGeneralValues(), fields);
             }
             
             int keysMatched = 0;
             for (String aliasO: getKeyNameAndAliases()) {
-                Set<String> aliasMangles = ExplicitFieldsBlackboard.get(blackboard).isAliasesStrict(fieldName) ?
+                Set<String> aliasMangles = getExplicitFieldsBlackboard().isAliasesStrict(fieldName) ?
                     Collections.singleton(aliasO) : findAllKeyManglesYamlKeys(aliasO);
                 for (String alias: aliasMangles) {
                     Maybe<Object> value = peekFromYamlKeysOnBlackboard(alias, Object.class);
                     if (value.isAbsent()) continue;
+                    if (log.isTraceEnabled()) {
+                        log.trace(ExplicitField.this+": found "+alias+" for "+fieldName);
+                    }
                     boolean fieldAlreadyKnown = fields.containsKey(fieldName);
                     if (value.isPresent() && fieldAlreadyKnown) {
                         // already present
@@ -193,7 +211,7 @@ public class ExplicitField extends YomlSerializerComposition {
             }
             if (keysMatched==0) {
                 // set a default if there is one
-                Maybe<Object> value = ExplicitFieldsBlackboard.get(blackboard).getDefault(fieldName);
+                Maybe<Object> value = getExplicitFieldsBlackboard().getDefault(fieldName);
                 if (value.isPresentAndNonNull()) {
                     fields.put(fieldName, value.get());
                     keysMatched++;                    
@@ -201,7 +219,7 @@ public class ExplicitField extends YomlSerializerComposition {
             }
             if (keysMatched>0) {
                 // repeat the preparing phase if we set any keys, so that remapping can apply
-                ExplicitFieldsBlackboard.get(blackboard).setFieldDone(fieldName);
+                getExplicitFieldsBlackboard().setFieldDone(fieldName);
                 context.phaseInsert(StandardPhases.MANIPULATING);
             }
         }
@@ -211,22 +229,22 @@ public class ExplicitField extends YomlSerializerComposition {
             if (!isYamlMap()) return;
 
             @SuppressWarnings("unchecked")
-            Map<String,Object> fields = getFromYamlMap("fields", Map.class).orNull();
+            Map<String,Object> fields = getFromYamlMap(getKeyNameForMapOfGeneralValues(), Map.class).orNull();
             /*
-             * if fields is null either we are too early (not yet set by instantiate-type)
+             * if fields is null either we are too early (not yet set by instantiate-type / FieldsInMapUnderFields)
              * or too late (already read in to java), so we bail -- this yaml key cannot be handled at this time
              */
             if (fields==null) return;
             
-            Maybe<Object> dv = ExplicitFieldsBlackboard.get(blackboard).getDefault(fieldName);
+            Maybe<Object> dv = getExplicitFieldsBlackboard().getDefault(fieldName);
             Maybe<Object> valueToSet;
             
             if (!fields.containsKey(fieldName)) {
                 // field not present, so omit (if field is not required and no default, or if default value is present and null) 
                 // else write an explicit null
-                if ((dv.isPresent() && dv.isNull()) || (ExplicitFieldsBlackboard.get(blackboard).getConstraint(fieldName).orNull()!=FieldConstraint.REQUIRED && dv.isAbsent())) {
+                if ((dv.isPresent() && dv.isNull()) || (getExplicitFieldsBlackboard().getConstraint(fieldName).orNull()!=FieldConstraint.REQUIRED && dv.isAbsent())) {
                     // if default is null, or if not required and no default, we can suppress
-                    ExplicitFieldsBlackboard.get(blackboard).setFieldDone(fieldName);
+                    getExplicitFieldsBlackboard().setFieldDone(fieldName);
                     return;
                 }
                 // default is non-null or field is required, so write the explicit null
@@ -236,25 +254,29 @@ public class ExplicitField extends YomlSerializerComposition {
                 valueToSet = Maybe.of(fields.remove(fieldName));
                 if (dv.isPresent() && Objects.equal(dv.get(), valueToSet.get())) {
                     // suppress if it equals the default
-                    ExplicitFieldsBlackboard.get(blackboard).setFieldDone(fieldName);
+                    getExplicitFieldsBlackboard().setFieldDone(fieldName);
                     valueToSet = Maybe.absent();
                 }
             }
             
             if (valueToSet.isPresent()) {
-                ExplicitFieldsBlackboard.get(blackboard).setFieldDone(fieldName);
+                getExplicitFieldsBlackboard().setFieldDone(fieldName);
                 Object oldValue = getYamlMap().put(getPreferredKeyName(), valueToSet.get());
                 if (oldValue!=null && !oldValue.equals(valueToSet.get())) {
                     throw new IllegalStateException("Conflicting values for `"+getPreferredKeyName()+"`");
                 }
                 // and move the `fields` object to the end
-                getYamlMap().remove("fields");
+                getYamlMap().remove(getKeyNameForMapOfGeneralValues());
                 if (!fields.isEmpty())
-                    getYamlMap().put("fields", fields);
+                    getYamlMap().put(getKeyNameForMapOfGeneralValues(), fields);
                 // rerun this phase again, as we've changed it
                 context.phaseInsert(StandardPhases.MANIPULATING);
             }
         }
     }
-    
+
+    @Override
+    public String toString() {
+        return "explicit-field["+fieldName+"->"+keyName+":"+alias+"/"+aliases+"]";
+    }
 }
