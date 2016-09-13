@@ -239,7 +239,7 @@ parameter, field-name, and several optional ones, so a sample usage might look l
     constraint: required      # currently just supports 'required' (and 'null' not allowed) or blank for none (default), but reserved for future use
     description: The color of the shape   # text (markdown) 
     serialization:            # optional additional serialization instructions for this field
-    - convert-primitive-to-map:   # (defined below)
+    - convert-from-primitive:   # (defined below)
         key: field-name
 ```
 
@@ -312,7 +312,7 @@ Serializers available for this include:
 * `convert-singleton-maps-in-list` which gives special behaviour if a list consists
   entirely of single-key-maps, useful where a user might want to supply a concise map 
   syntax but that map would have several keys the same
-* `convert-primitive-to-map` which converts a primitive to a map
+* `convert-from-primitive` which converts a primitive to a map
 
 If no special list serialization is supplied for when expecting a type of `list<x>`,
 the YAML must be a list and the serialization rules for `x` are then applied.  If no
@@ -339,7 +339,7 @@ As a complex example, to define serializations for shape, the basic syntax is as
       description: "The color of the shape" 
     - type: top-level-field
       field-name: name
-    - type: convert-primitive-to-map
+    - type: convert-from-primitive
       key: color
 
 However we can also support these simplifications:
@@ -348,12 +348,12 @@ However we can also support these simplifications:
     - field-name: color
       alias: colour
     - name
-    - convert-primitive-to-map: color
+    - convert-from-primitive: color
 
     serialization:
       name: {}
       color: { alias: colour, description: "The color of the shape", constraint: required } 
-      colour: { type: convert-primitive-to-map }
+      colour: { type: convert-from-primitive }
 
 This works because we've defined the following sets of rules for serializing serializations:
 
@@ -363,12 +363,12 @@ This works because we've defined the following sets of rules for serializing ser
   serialization:
   
   # given `- name` rewrite as `- { top-level-field: name }`, which will then be further rewritten
-  - type: convert-primitive-to-map
+  - type: convert-from-primitive
     key: top-level-field
     
   # alternative implementation of above (more explicit, not relying on singleton map conversion)
   # e.g. transforms `- name` to `- { type: top-level-field, field-name: name }`
-  - type: convert-primitive-to-map
+  - type: convert-from-primitive
     key: field-name
     defaults:
       type: top-level-field
@@ -377,7 +377,7 @@ This works because we've defined the following sets of rules for serializing ser
   # transforms `- x: k` or `- x: { .value: k }` to `- { type: x, .value: k }`
   # (use this one with care as it can be confusing, but useful where type is the only thing
   # always required; it's recommended (although not done in this example) to use alongside 
-  # a rule `convert-primitive-to-map` with `key: type`.)
+  # a rule `convert-from-primitive` with `key: type`.)
   - type: convert-singleton-maps-in-list
     key-for-key: type              # NB skipped if the value is a map containing this key
     # if the value is a map, they will merge
@@ -403,7 +403,7 @@ This works because we've defined the following sets of rules for serializing ser
 ```
 
 We also rely on `top-level-field` having a rule `rename-default-value: field-name`
-and `convert-primitive-to-map` having a rule `rename-default-value: key`
+and `convert-from-primitive` having a rule `rename-default-value: key`
 to convert the `.value` key appropriately for those types.
 
 This can have some surprising side-effects in edge cases; consider:
@@ -532,13 +532,15 @@ either on a global or a per-class basis in the registry.
 * `config-map-constructor` (`@YomlConfigMapConstructor`)
   * indicates that config key static fields should be scanned and passed in a map to the constructor
 
-# TODO13 test the above on their own, and then again in a list
+* `convert-from-primitive` (`@YomlFromPrimitive`)
+  * indicates that a primitive can be used for a complex object if just one non-trivial field is set
+
+
+# TODO13 renames
 # TODO13 bail out on collision rather than attempt to use "any value" in singleton map 
-# TODO13 convert-primitive-to-map 
-# TODO13 convert-singleton-maps-in-list 
-# TODO13 convert-singleton-map applies to list
-# TODO13 list infers from type
 # TODO13 default-map-values
+# TODO13 apply and test the above in a list as well, inferring type
+# TODO13 convert-singleton-maps-in-list 
  
 
 

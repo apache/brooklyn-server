@@ -18,47 +18,17 @@
  */
 package org.apache.brooklyn.util.yoml.serializers;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.yoml.YomlContext;
 import org.apache.brooklyn.util.yoml.internal.SerializersOnBlackboard;
-import org.apache.brooklyn.util.yoml.internal.YomlUtils;
 import org.apache.brooklyn.util.yoml.serializers.YomlSerializerComposition.YomlSerializerWorker;
 
 public abstract class InstantiateTypeWorkerAbstract extends YomlSerializerWorker {
-    
-    protected boolean isJsonPrimitiveType(Class<?> type) {
-        if (type==null) return false;
-        if (String.class.isAssignableFrom(type)) return true;
-        if (Boxing.isPrimitiveOrBoxedClass(type)) return true;
-        return false;
-    }
-    protected boolean isJsonTypeName(String typename) {
-        if (isJsonMarkerType(typename)) return true;
-        return getSpecialKnownTypeName(typename)!=null;
-    }
-    protected boolean isJsonMarkerTypeExpected() {
-        return isJsonMarkerType(context.getExpectedType());
-    }
-    protected boolean isJsonMarkerType(String typeName) {
-        return YomlUtils.TYPE_JSON.equals(typeName);
-    }
-    protected Class<?> getSpecialKnownTypeName(String typename) {
-        if (YomlUtils.TYPE_STRING.equals(typename)) return String.class;
-        if (YomlUtils.TYPE_LIST.equals(typename)) return List.class;
-        if (YomlUtils.TYPE_SET.equals(typename)) return Set.class;
-        if (YomlUtils.TYPE_MAP.equals(typename)) return Map.class;
-        return Boxing.boxedType( Boxing.getPrimitiveType(typename).orNull() );
-    }
     
     protected boolean canDoRead() {
         if (!context.isPhase(YomlContext.StandardPhases.HANDLING_TYPE)) return false;

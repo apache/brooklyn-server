@@ -33,11 +33,14 @@ import org.apache.brooklyn.util.javalang.FieldOrderings;
 import org.apache.brooklyn.util.javalang.ReflectionPredicates;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.yaml.Yamls;
+import org.apache.brooklyn.util.yoml.annotations.DefaultKeyValue;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.Iterables;
 
 public class YomlUtils {
 
@@ -262,4 +265,16 @@ public class YomlUtils {
         return i;
     }
     
+    public  static Map<String, Object> extractDefaultMap(DefaultKeyValue[] defaultValues) {
+        if (defaultValues==null || defaultValues.length==0) return null;
+        MutableMap<String,Object> result = MutableMap.of();
+        for (DefaultKeyValue d: defaultValues) {
+            Object v = d.val();
+            if (d.valNeedsParsing()) {
+                v = Iterables.getOnlyElement( Yamls.parseAll(d.val()) );
+            }
+            result.put(d.key(), v);
+        }
+        return result;
+    }    
 }

@@ -107,7 +107,7 @@ public class ConvertSingletonMapTests {
     @YomlAllFieldsTopLevel
     @YomlSingletonMap(keyForKey="name", keyForListValue="tags", keyForPrimitiveValue="color",
 //        keyForAnyValue="",
-        defaultValues={@DefaultKeyValue(key="size", val="0", valNeedsParsing=true)})
+        defaults={@DefaultKeyValue(key="size", val="0", valNeedsParsing=true)})
     static class ShapeAnn extends ShapeWithTags {}
     
     @Test public void testAnnPrimitiveValue() {

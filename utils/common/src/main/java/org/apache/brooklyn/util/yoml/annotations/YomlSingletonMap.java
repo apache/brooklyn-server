@@ -58,6 +58,6 @@ public @interface YomlSingletonMap {
      * but after more specific types are applied. */
     String keyForAnyValue() default ConvertSingletonMap.DEFAULT_KEY_FOR_VALUE;
 
-    DefaultKeyValue[] defaultValues() default {};
+    DefaultKeyValue[] defaults() default {};
     
 }

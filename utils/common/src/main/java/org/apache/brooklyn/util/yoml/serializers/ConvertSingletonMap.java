@@ -22,16 +22,12 @@ import java.util.Map;
 
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.text.Strings;
-import org.apache.brooklyn.util.yaml.Yamls;
 import org.apache.brooklyn.util.yoml.YomlContext;
 import org.apache.brooklyn.util.yoml.annotations.Alias;
-import org.apache.brooklyn.util.yoml.annotations.DefaultKeyValue;
 import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsTopLevel;
 import org.apache.brooklyn.util.yoml.annotations.YomlSingletonMap;
 import org.apache.brooklyn.util.yoml.internal.SerializersOnBlackboard;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils;
-
-import com.google.common.collect.Iterables;
 
 /*
  * key-for-key: type
@@ -47,20 +43,7 @@ public class ConvertSingletonMap extends YomlSerializerComposition {
 
     public ConvertSingletonMap(YomlSingletonMap ann) { 
         this(ann.keyForKey(), ann.keyForAnyValue(), ann.keyForPrimitiveValue(), ann.keyForListValue(), ann.keyForMapValue(),
-            null, extractDefaultMap(ann.defaultValues()));
-    }
-
-    private static Map<String, Object> extractDefaultMap(DefaultKeyValue[] defaultValues) {
-        if (defaultValues==null || defaultValues.length==0) return null;
-        MutableMap<String,Object> result = MutableMap.of();
-        for (DefaultKeyValue d: defaultValues) {
-            Object v = d.val();
-            if (d.valNeedsParsing()) {
-                v = Iterables.getOnlyElement( Yamls.parseAll(d.val()) );
-            }
-            result.put(d.key(), v);
-        }
-        return result;
+            null, YomlUtils.extractDefaultMap(ann.defaults()));
     }
 
     public ConvertSingletonMap(String keyForKey, String keyForAnyValue, String keyForPrimitiveValue, String keyForListValue,

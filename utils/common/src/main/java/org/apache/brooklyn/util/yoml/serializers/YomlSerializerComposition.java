@@ -19,6 +19,7 @@
 package org.apache.brooklyn.util.yoml.serializers;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -47,7 +48,33 @@ public abstract class YomlSerializerComposition implements YomlSerializer {
         protected YomlContextForRead readContext;
         protected YomlConfig config;
         protected Map<Object, Object> blackboard;
+        
+        
+        protected boolean isJsonPrimitiveType(Class<?> type) {
+            if (type==null) return false;
+            if (String.class.isAssignableFrom(type)) return true;
+            if (Boxing.isPrimitiveOrBoxedClass(type)) return true;
+            return false;
+        }
+        protected boolean isJsonTypeName(String typename) {
+            if (isJsonMarkerType(typename)) return true;
+            return getSpecialKnownTypeName(typename)!=null;
+        }
+        protected boolean isJsonMarkerTypeExpected() {
+            return isJsonMarkerType(context.getExpectedType());
+        }
+        protected boolean isJsonMarkerType(String typeName) {
+            return YomlUtils.TYPE_JSON.equals(typeName);
+        }
+        protected Class<?> getSpecialKnownTypeName(String typename) {
+            if (YomlUtils.TYPE_STRING.equals(typename)) return String.class;
+            if (YomlUtils.TYPE_LIST.equals(typename)) return List.class;
+            if (YomlUtils.TYPE_SET.equals(typename)) return Set.class;
+            if (YomlUtils.TYPE_MAP.equals(typename)) return Map.class;
+            return Boxing.boxedType( Boxing.getPrimitiveType(typename).orNull() );
+        }
 
+        
         private void initRead(YomlContextForRead context, YomlConverter converter, Map<Object, Object> blackboard) {
             if (this.context!=null) throw new IllegalStateException("Already initialized, for "+context);
             this.context = context;
