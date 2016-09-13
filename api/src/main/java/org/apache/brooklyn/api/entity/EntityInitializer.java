@@ -23,19 +23,24 @@ import java.util.Map;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Feed;
+import org.apache.brooklyn.util.yoml.annotations.YomlSingletonMap;
 
 /** 
  * Instances of this class supply logic which can be used to initialize entities. 
  * These can be added to an {@link EntitySpec} programmatically, or declared as part
  * of YAML recipes in a <code>brooklyn.initializers</code> section.
- * In the case of the latter, implementing classes should define a no-arg constructor
- * or a {@link Map} constructor so that YAML parameters can be supplied.
+ * <p>
+ * When intended for use from YAML, implementing classes should define 
+ * a single-argument constructor taking either a {@link Map} or a ConfigBag 
+ * so that YAML parameters can be supplied
+ * (or a no-arg constructor if parameters are not supported).
  * <p>
  * Note that initializers are only invoked on first creation; they are not called 
  * during a rebind. Instead, the typical pattern is that initializers will create
  * {@link EntityAdjunct} instances such as {@link Policy} and {@link Feed}
  * which will be attached during rebind.
  **/ 
+@YomlSingletonMap(keyForPrimitiveValue="type")
 public interface EntityInitializer {
     
     /** Applies initialization logic to a just-built entity.

@@ -18,12 +18,14 @@
  */
 package org.apache.brooklyn.camp.yoml.types;
 
+import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.yoml.BrooklynYomlTypeRegistry;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.effector.ssh.SshCommandEffector;
+import org.apache.brooklyn.core.sensor.StaticSensor;
 import org.apache.brooklyn.core.sensor.ssh.SshCommandSensor;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
@@ -279,10 +281,14 @@ public class YomlInitializers {
         addLocalType(mgmt, BrooklynYomlTypeRegistry.newYomlRegisteredType(RegisteredTypeKind.BEAN, null, BrooklynVersion.get(), 
             planYaml, javaConcreteType, addlSuperTypesAsClassOrRegisteredType, serializers));
     }
-    
+
+    /** Put here until there is a better init mechanism */
+    @Beta
     public static void install(ManagementContext mgmt) {
-        addLocalBean(mgmt, SshCommandEffector.class);
+        addLocalBean(mgmt, EntityInitializer.class);
+        addLocalBean(mgmt, StaticSensor.class);
         addLocalBean(mgmt, SshCommandSensor.class);
+        addLocalBean(mgmt, SshCommandEffector.class);
     }
     
 }

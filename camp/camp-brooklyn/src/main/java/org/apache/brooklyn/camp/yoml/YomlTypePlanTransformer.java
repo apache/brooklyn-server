@@ -43,6 +43,7 @@ import org.apache.brooklyn.util.yoml.Yoml;
 import org.apache.brooklyn.util.yoml.YomlConfig;
 import org.apache.brooklyn.util.yoml.YomlException;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
+import org.apache.brooklyn.util.yoml.internal.ConstructionInstruction;
 import org.yaml.snakeyaml.Yaml;
 
 import com.google.common.base.Preconditions;
@@ -142,15 +143,19 @@ public class YomlTypePlanTransformer extends AbstractTypePlanTransformer {
         Object parsedInput;
         if (data==null || (data instanceof String)) {
             if (Strings.isBlank((String)data)) {
-                // blank plan means to use the java type
-                Maybe<Class<?>> jt = tr.getJavaTypeInternal(type, context);
-                if (jt.isAbsent()) throw new YomlException("Type '"+type+"' has no plan or java type in its definition");
-                try {
-                    return jt.get().newInstance();
-                } catch (Exception e) {
-                    Exceptions.propagateIfFatal(e);
-                    throw new YomlException("Type '"+type+"' has no plan and its java type cannot be instantiated", e);
+                // blank plan means to use the java type / construction instruction
+                Maybe<Class<?>> javaType = tr.getJavaTypeInternal(type, context); 
+                ConstructionInstruction constructor = context.getConstructorInstruction();
+                if (javaType.isAbsent() && constructor==null) {
+                    return Maybe.absent(new IllegalStateException("Type "+type+" has no plan YAML and error in type", ((Maybe.Absent<?>)javaType).getException()));
                 }
+                
+                Maybe<Object> result = ConstructionInstruction.Factory.newDefault(javaType.get(), constructor).create();
+
+                if (result.isAbsent()) {
+                    throw new YomlException("Type '"+type+"' has no plan and its java type cannot be instantiated", ((Maybe.Absent<?>)result).getException());
+                }
+                return result.get();
             }
             
             // else we need to parse to json objects, then translate it (below)

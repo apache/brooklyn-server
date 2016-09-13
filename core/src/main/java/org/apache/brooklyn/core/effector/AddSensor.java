@@ -33,6 +33,7 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.yoml.annotations.Alias;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
@@ -51,6 +52,7 @@ public class AddSensor<T> implements EntityInitializer {
 
     public static final ConfigKey<String> SENSOR_NAME = ConfigKeys.newStringConfigKey("name", "The name of the sensor to create");
     public static final ConfigKey<Duration> SENSOR_PERIOD = ConfigKeys.newConfigKey(Duration.class, "period", "Period, including units e.g. 1m or 5s or 200ms; default 5 minutes", Duration.FIVE_MINUTES);
+    @Alias({"sensor-type","value-type"})
     public static final ConfigKey<String> SENSOR_TYPE = ConfigKeys.newStringConfigKey("targetType", "Target type for the value; default String", "java.lang.String");
 
     protected final String name;

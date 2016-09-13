@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.yoml.internal;
 
+import java.lang.reflect.Modifier;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -142,6 +143,9 @@ public interface ConstructionInstruction {
                 return outerInstruction.create(typeConstraintSoFar, newArgs);
             }
             
+            if (typeConstraintSoFar==null) throw new IllegalStateException("No type information available");
+            if ((typeConstraintSoFar.getModifiers() & (Modifier.ABSTRACT | Modifier.INTERFACE)) != 0) 
+                throw new IllegalStateException("Insufficient type information: expected "+type+" is not directly instantiable");
             return Reflections.invokeConstructorFromArgsIncludingPrivate(typeConstraintSoFar, newArgs.toArray());
         }
     }

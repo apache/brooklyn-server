@@ -38,6 +38,7 @@ public interface RegisteredTypeLoadingContext {
      * for specs, this refers to the target type, not the spec 
      * (eg {@link Entity} not {@link EntitySpec}). 
      * If nothing is specified, this returns {@link Object}'s class. */
+    // TODO extend to offer expected registered super type
     @Nonnull public Class<?> getExpectedJavaSuperType();
     
     /** encountered types, so that during resolution, 

@@ -31,6 +31,9 @@ import java.lang.annotation.Target;
 public @interface Alias {
 
     String[] value() default {};
+    
+    /** Indicates an alias preferred over the name in code, e.g. when serializing an instance.
+     * This will be added to any list in {@link #value()} so there is no need to declare a preferred alias in both places. */
     String preferred() default "";
     
 }

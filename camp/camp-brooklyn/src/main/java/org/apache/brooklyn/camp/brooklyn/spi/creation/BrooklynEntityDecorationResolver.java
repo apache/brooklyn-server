@@ -22,10 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.google.common.base.Function;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -41,8 +37,13 @@ import org.apache.brooklyn.core.objs.BasicSpecParameter;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.guava.Maybe;
+
+import com.google.common.base.Function;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 /**
  * Pattern for resolving "decorations" on service specs / entity specs, such as policies, enrichers, etc.
@@ -70,12 +71,17 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
         if (value==null) { return MutableList.of(); }
         if (value instanceof Iterable) {
             return buildListOfTheseDecorationsFromIterable((Iterable<?>)value);
+        } else if (canBuildFromMap()) {
+            if (value instanceof Map) {
+                return buildListOfTheseDecorationsFromMap((Map<?,?>)value);
+            } else {
+                throw new IllegalArgumentException(getDecorationKind()+" body should be map or iterable, not " + value.getClass());
+            }
         } else {
-            // in future may support types other than iterables here, 
-            // e.g. a map short form where the key is the type
             throw new IllegalArgumentException(getDecorationKind()+" body should be iterable, not " + value.getClass());
         }
     }
+
 
     protected Map<?,?> checkIsMap(Object decorationJson) {
         if (!(decorationJson instanceof Map)) {
@@ -93,6 +99,11 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
         return decorations;
     }
 
+    // optional if syntax supports a map input 
+    // (e.g. where the key is the type or the name)
+    protected boolean canBuildFromMap() { return false; }
+    protected List<DT> buildListOfTheseDecorationsFromMap(Map<?, ?> value) { throw new UnsupportedOperationException(); }
+    
     protected abstract String getDecorationKind();
 
     protected abstract Object getDecorationAttributeJsonValue(ConfigBag attrs);
@@ -193,6 +204,22 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
         @Override
         protected void addDecorationFromJsonMap(Map<?, ?> decorationJson, List<EntityInitializer> decorations) {
             decorations.add(instantiator.from(decorationJson).prefix("initializer").newInstance(EntityInitializer.class));
+        }
+
+        @Override
+        protected boolean canBuildFromMap() {
+            return true;
+        }
+
+        @Override
+        protected List<EntityInitializer> buildListOfTheseDecorationsFromMap(Map<?, ?> value) {
+            ManagementContext mgmt = instantiator.loader.getManagementContext();
+            List<EntityInitializer> result = MutableList.of();
+            for (Map.Entry<?, ?> v: value.entrySet()) {
+                result.add(mgmt.getTypeRegistry().createBeanFromPlan("yoml", MutableMap.of(v.getKey(), v.getValue()), 
+                    RegisteredTypeLoadingContexts.loader(instantiator.loader), EntityInitializer.class));
+            }
+            return result;
         }
     }
 

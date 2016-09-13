@@ -85,7 +85,7 @@ public final class BrooklynClassLoadingContextSequential extends AbstractBrookly
                 errors.add( Maybe.getException(clazz) );
         }
 
-        return Maybe.absent(Exceptions.create("Unable to load "+className+" from "+primaries, errors));
+        return Maybe.absent(Exceptions.create("Unable to load type "+className+" from "+primaries, errors));
     }
 
     @Override

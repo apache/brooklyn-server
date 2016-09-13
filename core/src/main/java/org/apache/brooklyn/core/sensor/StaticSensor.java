@@ -22,7 +22,6 @@ import java.util.concurrent.Callable;
 
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.AddSensor;
@@ -30,9 +29,9 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.enricher.stock.Propagator;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.Tasks;
-import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.yoml.annotations.Alias;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,6 +47,7 @@ import com.google.common.base.Supplier;
  * which can be useful if the supplied value is such a function.
  * However when the source is another sensor,
  * consider using {@link Propagator} which listens for changes instead. */
+@Alias("static-sensor")
 public class StaticSensor<T> extends AddSensor<T> {
 
     private static final Logger log = LoggerFactory.getLogger(StaticSensor.class);

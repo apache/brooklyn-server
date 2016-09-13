@@ -37,7 +37,7 @@ import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsTopLevel;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-public class YomlTypeRegistryTest extends BrooklynMgmtUnitTestSupport {
+public class YomlTypeRegistryBasicTest extends BrooklynMgmtUnitTestSupport {
 
     private BasicBrooklynTypeRegistry registry() {
         return (BasicBrooklynTypeRegistry) mgmt.getTypeRegistry();

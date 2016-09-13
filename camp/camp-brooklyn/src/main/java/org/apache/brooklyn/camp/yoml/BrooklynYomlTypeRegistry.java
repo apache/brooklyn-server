@@ -325,6 +325,7 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
     @Override
     public <T> String getTypeNameOfClass(Class<T> type) {
         if (type==null) return null;
+        log.warn("Returning default for type name of "+type);
         // TODO reverse lookup??
         // look in catalog for something where plan matches and consists only of type
         return getDefaultTypeNameOfClass(type);
@@ -346,8 +347,21 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
     }
     
     protected void collectSerializers(Object type, Collection<YomlSerializer> result, Set<Object> typesVisited) {
-        if (type instanceof String) type = registry().get((String)type);
         if (type==null) return;
+        if (type instanceof String) {
+            // convert string to registered type or class 
+            Object typeR = registry().get((String)type);
+            if (typeR==null) {
+                // TODO context
+                typeR = getJavaTypeInternal((String)type, null).orNull();
+            }
+            if (typeR==null) {
+                // will this ever happen in normal operations?
+                log.warn("Could not find '"+type+" when collecting serializers");
+                return;
+            }
+            type = typeR;
+        }
         boolean canUpdateCache = typesVisited.isEmpty(); 
         if (!typesVisited.add(type)) return; // already seen
         Set<Object> supers = MutableSet.of();
@@ -372,14 +386,15 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
                 supers.addAll(((RegisteredType) type).getSuperTypes());
             }
         } else if (type instanceof Class) {
-            String name = getTypeNameOfClass((Class<?>)type);
-            if (name.startsWith("java:")) {
-                // need to loop through superclasses unless it is a registered type
-                // TODO result.addAll( ... ); based on annotations on the java class
-                // then do the following if the evaluation above was not recursive
-//              supers.add(((Class<?>) type).getSuperclass());
-//              supers.addAll(Arrays.asList(((Class<?>) type).getInterfaces()));
-            }
+            result.addAll(new BrooklynYomlAnnotations().findSerializerAnnotations((Class<?>)type, true));
+//            // could look up the type? but we should be calling this normally with the RT if we have one so probably not necessary
+//            // and could recurse through superclasses and interfaces -- but the above is a better place to do that if needed
+//            String name = getTypeNameOfClass((Class<?>)type);
+//            if (name.startsWith("java:")) {
+//                find...
+////              supers.add(((Class<?>) type).getSuperclass());
+////              supers.addAll(Arrays.asList(((Class<?>) type).getInterfaces()));
+//            }
         } else {
             throw new IllegalStateException("Illegal supertype entry "+type+", visiting "+typesVisited);
         }
