@@ -66,6 +66,8 @@ public class ConvertSingletonMap extends YomlSerializerComposition {
     public final static String DEFAULT_KEY_FOR_VALUE = ".value";
     
     String keyForKey = DEFAULT_KEY_FOR_KEY;
+    /** key to use if type-specific key is not known;
+     * only applies to map if {@link #mergeWithMapValue} is set */
     String keyForAnyValue = DEFAULT_KEY_FOR_VALUE;
     String keyForPrimitiveValue;
     String keyForListValue;
@@ -106,14 +108,14 @@ public class ConvertSingletonMap extends YomlSerializerComposition {
             if (isJsonPrimitiveObject(value) && Strings.isNonBlank(keyForPrimitiveValue)) {
                 newYamlMap.put(keyForPrimitiveValue, value);
             } else if (value instanceof Map) {
-                boolean merge = isForMerging(value);
+                Boolean merge = isForMerging(value);
+                if (merge==null) return;
                 if (merge) {
                     newYamlMap.putAll((Map<?,?>)value);
                 } else {
                     String keyForThisMap = Strings.isNonBlank(keyForMapValue) ? keyForMapValue : keyForAnyValue;
                     if (Strings.isBlank(keyForThisMap)) {
-                        // we can't apply
-                        return;
+                        throw new IllegalStateException("Error in isForMergingLogic");
                     }
                     newYamlMap.put(keyForThisMap, value);
                 }
@@ -129,20 +131,19 @@ public class ConvertSingletonMap extends YomlSerializerComposition {
             context.phaseRestart();
         }
 
-        protected boolean isForMerging(Object value) {
-            boolean merge;
+        /** return true/false whether to merge, or null if need to bail out */
+        protected Boolean isForMerging(Object value) {
             if (mergeWithMapValue==null) {
                 // default merge logic (if null):
                 // * merge if there is no key-for-map-value AND 
-                // * either
-                //   * it's safe, ie there is no collision at the key-for-key key, OR
-                //   * we have to, ie there is no key-for-any-value (default is overridden)
-                merge = Strings.isBlank(keyForMapValue) && 
-                    ( (!((Map<?,?>)value).containsKey(keyForKey)) || (Strings.isBlank(keyForAnyValue)) );
+                // * it's safe, ie there is no collision at the key-for-key key
+                // if not safe, we bail out (collisions may be used by clients to suppress)
+                if (Strings.isNonBlank(keyForMapValue)) return false;
+                if (((Map<?,?>)value).containsKey(keyForKey)) return null;
+                return true;
             } else {
-                merge = mergeWithMapValue;
+                return mergeWithMapValue;
             }
-            return merge;
         }
 
         String OUR_PHASE = "manipulate-convert-singleton";
@@ -219,9 +220,10 @@ public class ConvertSingletonMap extends YomlSerializerComposition {
             // * merging is forced; OR
             // * merging isn't disallowed, and
             // * there is no keyForMapValue, and
-            // * either there is no keyForAnyValue or it wouldn't cause a collision
-            // (if keyFor{Map,Any}Value is in effect it will steal what we want to merge)
-            if (newValue==null && isForMerging(yamlMap)) {
+            // * it wouldn't cause a collision
+            // (if keyForMapValue is in effect, it will steal what we want to merge;
+            // but keyForAnyValue will only be used if merge is set true)
+            if (newValue==null && Boolean.TRUE.equals(isForMerging(yamlMap))) {
                 newValue = yamlMap;
             }
             if (newValue==null) return; // this serializer was cancelled, it doesn't apply
