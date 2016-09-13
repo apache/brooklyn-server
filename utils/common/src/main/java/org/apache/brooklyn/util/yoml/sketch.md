@@ -535,8 +535,13 @@ either on a global or a per-class basis in the registry.
 * `convert-from-primitive` (`@YomlFromPrimitive`)
   * indicates that a primitive can be used for a complex object if just one non-trivial field is set
 
-
-# TODO13 renames
+* `rename-key` (`@YomlRenameKey`)
+  * indicates that a key encountered during read-yaml processing should be renamed
+  * renamed in the reverse direction when writing
+  * also `rename-default-key` (`@YomlRenameDefaultKey`) and `rename-default-key` (`@YomlRenameDefaultValue`)
+    as conveniences for the above when renaming `.key` or `.value` respectively
+    (which are used in some of the other serializers)
+    
 # TODO13 bail out on collision rather than attempt to use "any value" in singleton map 
 # TODO13 default-map-values
 # TODO13 apply and test the above in a list as well, inferring type

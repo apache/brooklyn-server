@@ -29,7 +29,7 @@ import org.apache.brooklyn.util.yoml.tests.YomlBasicTests.Shape;
 import org.apache.brooklyn.util.yoml.tests.YomlBasicTests.ShapeWithSize;
 import org.testng.annotations.Test;
 
-public class ConvertPrimitiveToMapTests {
+public class ConvertFromPrimitiveTests {
     
     YomlTestFixture y = YomlTestFixture.newInstance().
         addType("shape", Shape.class, MutableList.of(
@@ -65,7 +65,7 @@ public class ConvertPrimitiveToMapTests {
 
     @Test 
     public void testFromAnnotation() {
-        y2.reading("red-square", "shape").writing(new ShapeWithSize().name("red-square").size(0), "shape")
+        y3.reading("red-square", "shape").writing(new ShapeAnn().name("red-square").size(0), "shape")
         .doReadWriteAssertingJsonMatch();
     }
 

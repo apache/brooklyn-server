@@ -30,10 +30,16 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
+import org.apache.brooklyn.util.yoml.annotations.YomlRenameKey.YomlRenameDefaultKey;
+import org.apache.brooklyn.util.yoml.annotations.YomlRenameKey.YomlRenameDefaultValue;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils;
+import org.apache.brooklyn.util.yoml.serializers.ConvertFromPrimitive;
 import org.apache.brooklyn.util.yoml.serializers.ConvertSingletonMap;
-import org.apache.brooklyn.util.yoml.serializers.TopLevelFieldSerializer;
 import org.apache.brooklyn.util.yoml.serializers.InstantiateTypeFromRegistryUsingConfigMap;
+import org.apache.brooklyn.util.yoml.serializers.RenameKey;
+import org.apache.brooklyn.util.yoml.serializers.RenameKey.RenameDefaultKey;
+import org.apache.brooklyn.util.yoml.serializers.RenameKey.RenameDefaultValue;
+import org.apache.brooklyn.util.yoml.serializers.TopLevelFieldSerializer;
 
 public class YomlAnnotations {
 
@@ -82,6 +88,23 @@ public class YomlAnnotations {
         return MutableList.of((YomlSerializer) new ConvertSingletonMap(ann));
     }
 
+    public Collection<YomlSerializer> findConvertFromPrimitiveSerializers(Class<?> t) {
+        YomlFromPrimitive ann = t.getAnnotation(YomlFromPrimitive.class);
+        if (ann==null) return Collections.emptyList();
+        return MutableList.of((YomlSerializer) new ConvertFromPrimitive(ann));
+    }
+
+    public Collection<YomlSerializer> findRenameKeySerializers(Class<?> t) {
+        MutableList<YomlSerializer> result = MutableList.of();
+        YomlRenameKey ann1 = t.getAnnotation(YomlRenameKey.class);
+        if (ann1!=null) result.add(new RenameKey(ann1));
+        YomlRenameDefaultKey ann2 = t.getAnnotation(YomlRenameDefaultKey.class);
+        if (ann2!=null) result.add(new RenameDefaultKey(ann2));
+        YomlRenameDefaultValue ann3 = t.getAnnotation(YomlRenameDefaultValue.class);
+        if (ann3!=null) result.add(new RenameDefaultValue(ann3));
+        return result;
+    }
+
     /** Adds the default set of serializer annotations */
     public Set<YomlSerializer> findSerializerAnnotations(Class<?> type, boolean recurseUpIfEmpty) {
         Set<YomlSerializer> result = MutableSet.of();
@@ -97,6 +120,8 @@ public class YomlAnnotations {
     }
     
     protected void collectSerializerAnnotationsAtClass(Set<YomlSerializer> result, Class<?> type) {
+        result.addAll(findConvertFromPrimitiveSerializers(type));
+        result.addAll(findRenameKeySerializers(type));
         result.addAll(findSingletonMapSerializers(type));
         
         result.addAll(findConfigMapConstructorSerializers(type));
