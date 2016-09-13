@@ -31,12 +31,14 @@ import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.yoml.Yoml;
 import org.apache.brooklyn.util.yoml.YomlContext;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
+import org.apache.brooklyn.util.yoml.annotations.Alias;
 import org.apache.brooklyn.util.yoml.internal.ConstructionInstruction;
 import org.apache.brooklyn.util.yoml.internal.SerializersOnBlackboard;
 import org.apache.brooklyn.util.yoml.internal.YomlConfig;
 
 import com.google.common.base.Preconditions;
 
+@Alias("config-map-constructor")
 /** Special instantiator for when the class's constructor takes a Map<String,Object> of config */
 public class InstantiateTypeFromRegistryUsingConfigMap extends InstantiateTypeFromRegistry {
 
@@ -89,7 +91,7 @@ public class InstantiateTypeFromRegistryUsingConfigMap extends InstantiateTypeFr
 
             if (type!=null) {
                 instantiator.inferByScanning = false;
-                Map<String, YomlSerializer> keys = ExplicitConfigKeySerializer.findExplicitConfigKeySerializers(keyNameForConfigWhenSerialized, type);
+                Map<String, YomlSerializer> keys = TopLevelConfigKeySerializer.findConfigKeySerializers(keyNameForConfigWhenSerialized, type);
                 result.addAll(keys.values());
             } else {
                 instantiator.inferByScanning = true;
@@ -145,7 +147,7 @@ public class InstantiateTypeFromRegistryUsingConfigMap extends InstantiateTypeFr
         protected void addExtraTypeSerializers(Class<?> clazz) {
             if (inferByScanning) {
                 SerializersOnBlackboard.get(blackboard).addInstantiatedTypeSerializers(
-                    ExplicitConfigKeySerializer.findExplicitConfigKeySerializers(keyNameForConfigWhenSerialized, clazz).values());
+                    TopLevelConfigKeySerializer.findConfigKeySerializers(keyNameForConfigWhenSerialized, clazz).values());
             }
         }
 
@@ -232,7 +234,7 @@ public class InstantiateTypeFromRegistryUsingConfigMap extends InstantiateTypeFr
         protected void writingInsertPhases() {
             super.writingInsertPhases();
             // for configs, we need to do this to get type info (and preferred aliases)
-            context.phaseInsert(ExplicitFieldSerializer.Worker.PREPARING_EXPLICIT_FIELDS);
+            context.phaseInsert(TopLevelFieldSerializer.Worker.PREPARING_TOP_LEVEL_FIELDS);
         }
 
     }
@@ -247,7 +249,7 @@ public class InstantiateTypeFromRegistryUsingConfigMap extends InstantiateTypeFr
         if (type==null) return false;
         if (findConstructorMaybe(type).isAbsent()) return false;
         if (findFieldMaybe(type).isAbsent()) return false;
-        if (staticKeysRequired && ExplicitConfigKeySerializer.findConfigKeys(type).isEmpty()) return false;
+        if (staticKeysRequired && TopLevelConfigKeySerializer.findConfigKeys(type).isEmpty()) return false;
         return true;
     }
 

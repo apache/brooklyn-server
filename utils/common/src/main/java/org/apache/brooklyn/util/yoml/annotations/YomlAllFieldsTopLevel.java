@@ -18,18 +18,15 @@
  */
 package org.apache.brooklyn.util.yoml.annotations;
 
-import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
 @Retention(RUNTIME)
-@Target({ FIELD })
-/** Indicates that this field should be settable at the top-level when reading yoml */
-public @interface YomlFieldAtTopLevel {
-    
-    // could allow other configuration for the fields in ExplicitField
-    // (that constructor looks at this annotation)
-    
+@Target({ TYPE })
+/** Indicates that all fields should be available at the top-level when reading yoml,
+ * ie none require to be inside a <code>fields</code> block. */
+public @interface YomlAllFieldsTopLevel {
 }

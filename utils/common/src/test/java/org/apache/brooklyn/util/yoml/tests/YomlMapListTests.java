@@ -29,13 +29,13 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
-import org.apache.brooklyn.util.yoml.serializers.AllFieldsExplicit;
+import org.apache.brooklyn.util.yoml.serializers.AllFieldsTopLevel;
 import org.apache.brooklyn.util.yoml.tests.YomlBasicTests.Shape;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-/** Tests that explicit fields can be set at the outer level in yaml. */
-public class MapListTests {
+/** Tests basic map/list parsing */
+public class YomlMapListTests {
 
     YomlTestFixture y = YomlTestFixture.newInstance();
     
@@ -156,7 +156,7 @@ public class MapListTests {
     }
     
     @Test public void testGenericList() {
-        y.tr.put("gf", TestingGenericsOnFields.class, MutableList.of(new AllFieldsExplicit()));
+        y.tr.put("gf", TestingGenericsOnFields.class, MutableList.of(new AllFieldsTopLevel()));
         TestingGenericsOnFields gf;
         
         gf = new TestingGenericsOnFields();
@@ -164,7 +164,7 @@ public class MapListTests {
         y.reading("{ list: [ UP ] }", "gf").writing(gf, "gf").doReadWriteAssertingJsonMatch();
     }
     @Test public void testGenericMap() {
-        y.tr.put("gf", TestingGenericsOnFields.class, MutableList.of(new AllFieldsExplicit()));
+        y.tr.put("gf", TestingGenericsOnFields.class, MutableList.of(new AllFieldsTopLevel()));
         TestingGenericsOnFields gf;
         String json;
         gf = new TestingGenericsOnFields();
@@ -178,7 +178,7 @@ public class MapListTests {
     }
     
     @Test public void testGenericListSet() {
-        y.tr.put("gf", TestingGenericsOnFields.class, MutableList.of(new AllFieldsExplicit()));
+        y.tr.put("gf", TestingGenericsOnFields.class, MutableList.of(new AllFieldsTopLevel()));
         TestingGenericsOnFields gf;
         String json;
         gf = new TestingGenericsOnFields();

@@ -18,30 +18,18 @@
  */
 package org.apache.brooklyn.util.yoml.annotations;
 
-import static java.lang.annotation.ElementType.TYPE;
+import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
-import org.apache.brooklyn.config.ConfigKey;
-
-/** 
- * Indicates that a class should be yoml-serialized using a one-arg constructor taking a map of config.
- * Types will be inferred where possible based on the presence of {@link ConfigKey} static fields in the type.
- */
 @Retention(RUNTIME)
-@Target({ TYPE })
-public @interface YomlConstructorConfigMap {
-    /** YOML needs to know which field contains the config at serialization time. */
-    String value();
-    /** By default YOML reads/writes unrecognised key values against a key with the same name as {@link #value()}.
-     * This can be set to use a different key in the YAML. */
-    String writeAsKey() default "";
+@Target({ FIELD })
+/** Indicates that this field should be settable at the top-level when reading yoml */
+public @interface YomlTopLevelField {
     
-    /** Validate that a suitable field and constructor exist, failing fast if not */
-    boolean validateAheadOfTime() default true;
+    // could allow configuration for the TopLevelField representing the field this annotates
+    // (that constructor looks at this annotation)
     
-    /** Skip if there are no declared config keys (default false) */
-    boolean requireStaticKeys() default false;
 }

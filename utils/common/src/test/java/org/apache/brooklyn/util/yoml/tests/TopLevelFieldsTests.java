@@ -25,23 +25,23 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
-import org.apache.brooklyn.util.yoml.serializers.AllFieldsExplicit;
-import org.apache.brooklyn.util.yoml.serializers.ExplicitFieldSerializer;
+import org.apache.brooklyn.util.yoml.serializers.AllFieldsTopLevel;
+import org.apache.brooklyn.util.yoml.serializers.TopLevelFieldSerializer;
 import org.apache.brooklyn.util.yoml.tests.YomlBasicTests.Shape;
 import org.apache.brooklyn.util.yoml.tests.YomlBasicTests.ShapeWithSize;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-/** Tests that explicit fields can be set at the outer level in yaml. */
-public class ExplicitFieldTests {
+/** Tests that top-level fields can be set at the outer level in yaml. */
+public class TopLevelFieldsTests {
 
-    public static YomlSerializer explicitFieldSerializer(String yaml) {
-        return (YomlSerializer) YomlTestFixture.newInstance().read("{ fields: "+yaml+" }", "java:"+ExplicitFieldSerializer.class.getName()).lastReadResult;
+    public static YomlSerializer topLevelFieldSerializer(String yaml) {
+        return (YomlSerializer) YomlTestFixture.newInstance().read("{ fields: "+yaml+" }", "java:"+TopLevelFieldSerializer.class.getName()).lastReadResult;
     }
 
-    protected static YomlTestFixture simpleExplicitFieldFixture() {
+    protected static YomlTestFixture simpletopLevelFieldFixture() {
         return YomlTestFixture.newInstance().
-            addType("shape", Shape.class, MutableList.of(explicitFieldSerializer("{ fieldName: name }")));
+            addType("shape", Shape.class, MutableList.of(topLevelFieldSerializer("{ fieldName: name }")));
     }
     
     static String SIMPLE_IN_WITHOUT_TYPE = "{ name: diamond, fields: { color: black } }";
@@ -51,27 +51,27 @@ public class ExplicitFieldTests {
     static Shape SIMPLE_OUT_NAME_ONLY = new Shape().name("diamond");
     
     @Test
-    public void testReadExplicitField() {
-        simpleExplicitFieldFixture().
+    public void testReadTopLevelField() {
+        simpletopLevelFieldFixture().
         read( SIMPLE_IN_WITHOUT_TYPE, "shape" ).
         assertResult( SIMPLE_OUT );
     }
     @Test
-    public void testWriteExplicitField() {
-        simpleExplicitFieldFixture().
+    public void testWriteTopLevelField() {
+        simpletopLevelFieldFixture().
         write( SIMPLE_OUT, "shape" ).
         assertResult( SIMPLE_IN_WITHOUT_TYPE );
     }
     
     @Test
-    public void testReadExplicitFieldNameOnly() {
-        simpleExplicitFieldFixture().
+    public void testReadTopLevelFieldNameOnly() {
+        simpletopLevelFieldFixture().
         read( SIMPLE_IN_NAME_ONLY_WITHOUT_TYPE, "shape" ).
         assertResult( SIMPLE_OUT_NAME_ONLY );
     }
     @Test
-    public void testWriteExplicitFieldNameOnly() {
-        simpleExplicitFieldFixture().
+    public void testWriteTopLevelFieldNameOnly() {
+        simpletopLevelFieldFixture().
         write( SIMPLE_OUT_NAME_ONLY, "shape" ).
         assertResult( SIMPLE_IN_NAME_ONLY_WITHOUT_TYPE );
     }
@@ -79,25 +79,25 @@ public class ExplicitFieldTests {
     static String SIMPLE_IN_WITH_TYPE = "{ type: shape, name: diamond, fields: { color: black } }";
 
     @Test
-    public void testReadExplicitFieldNoExpectedType() {
-        simpleExplicitFieldFixture().
+    public void testReadTopLevelFieldNoExpectedType() {
+        simpletopLevelFieldFixture().
         read( SIMPLE_IN_WITH_TYPE, null ).
         assertResult( SIMPLE_OUT);
     }
     @Test
-    public void testWriteExplicitFieldNoExpectedType() {
-        simpleExplicitFieldFixture().
+    public void testWriteTopLevelFieldNoExpectedType() {
+        simpletopLevelFieldFixture().
         write( SIMPLE_OUT, null ).
         assertResult( SIMPLE_IN_WITH_TYPE );
     }
 
-    protected static YomlTestFixture commonExplicitFieldFixtureKeyNameAlias() {
-        return commonExplicitFieldFixtureKeyNameAlias("");
+    protected static YomlTestFixture commonTopLevelFieldFixtureKeyNameAlias() {
+        return commonTopLevelFieldFixtureKeyNameAlias("");
     }
-    protected static YomlTestFixture commonExplicitFieldFixtureKeyNameAlias(String extra) {
+    protected static YomlTestFixture commonTopLevelFieldFixtureKeyNameAlias(String extra) {
         return YomlTestFixture.newInstance().
             addType("shape", Shape.class, MutableList.of(
-                explicitFieldSerializer("{ fieldName: name, keyName: shape-name, alias: my-name"+extra+" }")));
+                topLevelFieldSerializer("{ fieldName: name, keyName: shape-name, alias: my-name"+extra+" }")));
     }
 
     static String COMMON_IN_KEY_NAME = "{ shape-name: diamond, fields: { color: black } }";
@@ -110,7 +110,7 @@ public class ExplicitFieldTests {
 
     @Test
     public void testCommonKeyName() {
-        commonExplicitFieldFixtureKeyNameAlias().
+        commonTopLevelFieldFixtureKeyNameAlias().
         reading( COMMON_IN_KEY_NAME, "shape" ).
         writing( COMMON_OUT, "shape" ).
         doReadWriteAssertingJsonMatch();
@@ -118,14 +118,14 @@ public class ExplicitFieldTests {
 
     @Test
     public void testCommonAlias() {
-        commonExplicitFieldFixtureKeyNameAlias().
+        commonTopLevelFieldFixtureKeyNameAlias().
         read( COMMON_IN_ALIAS, "shape" ).assertResult(COMMON_OUT).
         write( COMMON_OUT, "shape" ).assertResult(COMMON_IN_KEY_NAME);
     }
 
     @Test
     public void testCommonDefault() {
-        commonExplicitFieldFixtureKeyNameAlias(", defaultValue: { type: string, value: bob }").
+        commonTopLevelFieldFixtureKeyNameAlias(", defaultValue: { type: string, value: bob }").
         reading( COMMON_IN_DEFAULT, "shape" ).
         writing( COMMON_OUT_DEFAULT, "shape" ).
         doReadWriteAssertingJsonMatch();
@@ -133,7 +133,7 @@ public class ExplicitFieldTests {
 
     @Test
     public void testNameNotRequired() {
-        commonExplicitFieldFixtureKeyNameAlias().
+        commonTopLevelFieldFixtureKeyNameAlias().
         reading( COMMON_IN_NO_NAME, "shape" ).
         writing( COMMON_OUT_NO_NAME, "shape" ).
         doReadWriteAssertingJsonMatch();
@@ -142,7 +142,7 @@ public class ExplicitFieldTests {
     @Test
     public void testNameRequired() {
         try {
-            YomlTestFixture x = commonExplicitFieldFixtureKeyNameAlias(", constraint: required")
+            YomlTestFixture x = commonTopLevelFieldFixtureKeyNameAlias(", constraint: required")
             .read( COMMON_IN_NO_NAME, "shape" );
             Asserts.shouldHaveFailedPreviously("Returned "+x.lastReadResult+" when should have thrown");
         } catch (Exception e) {
@@ -153,7 +153,7 @@ public class ExplicitFieldTests {
     @Test
     public void testAliasConflictNiceError() {
         try {
-            YomlTestFixture x = commonExplicitFieldFixtureKeyNameAlias().read( 
+            YomlTestFixture x = commonTopLevelFieldFixtureKeyNameAlias().read( 
                 "{ my-name: name-from-alias, shape-name: name-from-key }", "shape" );
             Asserts.shouldHaveFailedPreviously("Returned "+x.lastReadResult+" when should have thrown");
         } catch (Exception e) {
@@ -161,20 +161,20 @@ public class ExplicitFieldTests {
         }
     }
 
-    protected static YomlTestFixture extended0ExplicitFieldFixture(List<? extends YomlSerializer> extras) {
-        return commonExplicitFieldFixtureKeyNameAlias(", defaultValue: { type: string, value: bob }").
+    protected static YomlTestFixture extended0TopLevelFieldFixture(List<? extends YomlSerializer> extras) {
+        return commonTopLevelFieldFixtureKeyNameAlias(", defaultValue: { type: string, value: bob }").
             addType("shape-with-size", "{ type: \"java:"+ShapeWithSize.class.getName()+"\", interfaceTypes: [ shape ] }", 
-                MutableList.copyOf(extras).append(explicitFieldSerializer("{ fieldName: size, alias: shape-size }")) );
+                MutableList.copyOf(extras).append(topLevelFieldSerializer("{ fieldName: size, alias: shape-size }")) );
     }
     
-    protected static YomlTestFixture extended1ExplicitFieldFixture() {
-        return extended0ExplicitFieldFixture( MutableList.of(
-                explicitFieldSerializer("{ fieldName: name, keyName: shape-w-size-name }")) ); 
+    protected static YomlTestFixture extended1TopLevelFieldFixture() {
+        return extended0TopLevelFieldFixture( MutableList.of(
+                topLevelFieldSerializer("{ fieldName: name, keyName: shape-w-size-name }")) ); 
     }
     
     @Test
-    public void testExplicitFieldSerializersAreCollected() {
-        YomlTestFixture ytc = extended1ExplicitFieldFixture();
+    public void testTopLevelFieldSerializersAreCollected() {
+        YomlTestFixture ytc = extended1TopLevelFieldFixture();
         Set<YomlSerializer> serializers = MutableSet.of();
         ytc.tr.collectSerializers("shape-with-size", serializers, MutableSet.<String>of());
         Assert.assertEquals(serializers.size(), 3, "Wrong serializers: "+serializers);
@@ -185,7 +185,7 @@ public class ExplicitFieldTests {
 
     @Test
     public void testExtendedKeyNameIsUsed() {
-        extended1ExplicitFieldFixture().
+        extended1TopLevelFieldFixture().
         reading( EXTENDED_IN_1, null ).
         writing( EXTENDED_OUT_1, "shape").
         doReadWriteAssertingJsonMatch();
@@ -194,7 +194,7 @@ public class ExplicitFieldTests {
     @Test
     public void testInheritedAliasIsUsed() {
         String json = "{ type: shape-with-size, my-name: diamond, size: 2, fields: { color: black } }";
-        extended1ExplicitFieldFixture().
+        extended1TopLevelFieldFixture().
         read( json, null ).assertResult( EXTENDED_OUT_1 ).
         write( EXTENDED_OUT_1, "shape-w-size" ).assertResult(EXTENDED_IN_1);
     }
@@ -204,7 +204,7 @@ public class ExplicitFieldTests {
     @Test
     public void testOverriddenKeyNameNotUsed() {
         try {
-            YomlTestFixture x  = extended1ExplicitFieldFixture().read(EXTENDED_IN_ORIGINAL_KEYNAME, null);
+            YomlTestFixture x  = extended1TopLevelFieldFixture().read(EXTENDED_IN_ORIGINAL_KEYNAME, null);
             Asserts.shouldHaveFailedPreviously("Returned "+x.lastReadResult+" when should have thrown");
         } catch (Exception e) {
             Asserts.expectedFailureContains(e, "shape-name", "diamond");
@@ -215,8 +215,8 @@ public class ExplicitFieldTests {
     
     @Test
     public void testInheritedKeyNameIsUsed() {
-        extended0ExplicitFieldFixture( MutableList.of(
-            explicitFieldSerializer(EXTENDED_TYPEDEF_NEW_ALIAS)) )
+        extended0TopLevelFieldFixture( MutableList.of(
+            topLevelFieldSerializer(EXTENDED_TYPEDEF_NEW_ALIAS)) )
             .read(EXTENDED_IN_ORIGINAL_KEYNAME, null).assertResult(EXTENDED_OUT_1)
             .write(EXTENDED_OUT_1).assertResult(EXTENDED_IN_ORIGINAL_KEYNAME);
     }
@@ -224,8 +224,8 @@ public class ExplicitFieldTests {
     @Test
     public void testOverriddenAliasIsRecognised() {
         String json = "{ type: shape-with-size, new-name: diamond, size: 2, fields: { color: black } }";
-        extended0ExplicitFieldFixture( MutableList.of(
-            explicitFieldSerializer(EXTENDED_TYPEDEF_NEW_ALIAS)) )
+        extended0TopLevelFieldFixture( MutableList.of(
+            topLevelFieldSerializer(EXTENDED_TYPEDEF_NEW_ALIAS)) )
             .read( json, null ).assertResult( EXTENDED_OUT_1 )
             .write( EXTENDED_OUT_1, "shape-w-size" ).assertResult(EXTENDED_IN_ORIGINAL_KEYNAME);
     }
@@ -236,8 +236,8 @@ public class ExplicitFieldTests {
     @Test
     public void testInheritedKeyNameIsUsedWithNewDefault() {
         String json = "{ size: 2, fields: { color: black } }";
-        extended0ExplicitFieldFixture( MutableList.of(
-            explicitFieldSerializer(EXTENDED_TYPEDEF_NEW_DEFAULT)) )
+        extended0TopLevelFieldFixture( MutableList.of(
+            topLevelFieldSerializer(EXTENDED_TYPEDEF_NEW_DEFAULT)) )
             .write(EXTENDED_OUT_NEW_DEFAULT, "shape-with-size").assertResult(json)
             .read(json, "shape-with-size").assertResult(EXTENDED_OUT_NEW_DEFAULT);
     }
@@ -247,8 +247,8 @@ public class ExplicitFieldTests {
         // same as testInheritedAliasIsUsed -- except fails because we say aliases-inherited: false
         String json = "{ type: shape-with-size, my-name: diamond, size: 2, fields: { color: black } }";
         try {
-            YomlTestFixture x  = extended0ExplicitFieldFixture( MutableList.of(
-                explicitFieldSerializer("{ fieldName: name, keyName: shape-w-size-name, aliasesInherited: false }")) )
+            YomlTestFixture x  = extended0TopLevelFieldFixture( MutableList.of(
+                topLevelFieldSerializer("{ fieldName: name, keyName: shape-w-size-name, aliasesInherited: false }")) )
                 .read( json, null );
             Asserts.shouldHaveFailedPreviously("Returned "+x.lastReadResult+" when should have thrown");
         } catch (Exception e) {
@@ -259,8 +259,8 @@ public class ExplicitFieldTests {
     @Test
     public void testFieldNameAsAlias() {
         String json = "{ type: shape-with-size, name: diamond, size: 2, fields: { color: black } }";
-        extended0ExplicitFieldFixture( MutableList.of(
-            explicitFieldSerializer("{ fieldName: name, keyName: shape-w-size-name }")) )
+        extended0TopLevelFieldFixture( MutableList.of(
+            topLevelFieldSerializer("{ fieldName: name, keyName: shape-w-size-name }")) )
             .read( json, null ).assertResult( EXTENDED_OUT_1 )
             .write( EXTENDED_OUT_1 ).assertResult( EXTENDED_IN_1 );
     }
@@ -269,8 +269,8 @@ public class ExplicitFieldTests {
     public void testFieldNameAsAliasExcludedWhenStrict() {
         String json = "{ type: shape-with-size, name: diamond, size: 2, fields: { color: black } }";
         try {
-            YomlTestFixture x  = extended0ExplicitFieldFixture( MutableList.of(
-                explicitFieldSerializer("{ fieldName: name, keyName: shape-w-size-name, aliasesStrict: true }")) )
+            YomlTestFixture x  = extended0TopLevelFieldFixture( MutableList.of(
+                topLevelFieldSerializer("{ fieldName: name, keyName: shape-w-size-name, aliasesStrict: true }")) )
                 .read( json, null );
             Asserts.shouldHaveFailedPreviously("Returned "+x.lastReadResult+" when should have thrown");
         } catch (Exception e) {
@@ -282,8 +282,8 @@ public class ExplicitFieldTests {
     
     @Test
     public void testFieldNameMangled() {
-        extended0ExplicitFieldFixture( MutableList.of(
-            explicitFieldSerializer("{ fieldName: name, keyName: shape-w-size-name }")) )
+        extended0TopLevelFieldFixture( MutableList.of(
+            topLevelFieldSerializer("{ fieldName: name, keyName: shape-w-size-name }")) )
             .read( EXTENDED_IN_1_MANGLED, null ).assertResult( EXTENDED_OUT_1 )
             .write( EXTENDED_OUT_1 ).assertResult( EXTENDED_IN_1 );
     }
@@ -291,8 +291,8 @@ public class ExplicitFieldTests {
     @Test
     public void testFieldNameManglesExcludedWhenStrict() {
         try {
-            YomlTestFixture x  = extended0ExplicitFieldFixture( MutableList.of(
-                explicitFieldSerializer("{ fieldName: name, keyName: shape-w-size-name, aliasesStrict: true }")) )
+            YomlTestFixture x  = extended0TopLevelFieldFixture( MutableList.of(
+                topLevelFieldSerializer("{ fieldName: name, keyName: shape-w-size-name, aliasesStrict: true }")) )
                 .read( EXTENDED_IN_1_MANGLED, null );
             Asserts.shouldHaveFailedPreviously("Returned "+x.lastReadResult+" when should have thrown");
         } catch (Exception e) {
@@ -300,13 +300,13 @@ public class ExplicitFieldTests {
         }
     }
 
-    static String SIMPLE_IN_ALL_FIELDS_EXPLICIT = "{ color: black, name: diamond }";
-    @Test public void testAllFieldsExplicit() {
+    static String SIMPLE_IN_ALL_FIELDS_TOP_LEVEL = "{ color: black, name: diamond }";
+    @Test public void testAllFieldsTopLevel() {
         YomlTestFixture y = YomlTestFixture.newInstance().
-            addType("shape", Shape.class, MutableList.of(new AllFieldsExplicit()));
+            addType("shape", Shape.class, MutableList.of(new AllFieldsTopLevel()));
         
-        y.read( SIMPLE_IN_ALL_FIELDS_EXPLICIT, "shape" ).assertResult( SIMPLE_OUT ).
-        write( SIMPLE_OUT, "shape" ).assertResult( SIMPLE_IN_ALL_FIELDS_EXPLICIT );
+        y.read( SIMPLE_IN_ALL_FIELDS_TOP_LEVEL, "shape" ).assertResult( SIMPLE_OUT ).
+        write( SIMPLE_OUT, "shape" ).assertResult( SIMPLE_IN_ALL_FIELDS_TOP_LEVEL );
     }
     
 }

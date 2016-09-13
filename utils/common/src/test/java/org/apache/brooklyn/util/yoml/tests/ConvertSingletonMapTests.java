@@ -24,14 +24,16 @@ import java.util.Map;
 
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.yoml.serializers.AllFieldsExplicit;
+import org.apache.brooklyn.util.yoml.annotations.DefaultKeyValue;
+import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsTopLevel;
+import org.apache.brooklyn.util.yoml.annotations.YomlSingletonMap;
+import org.apache.brooklyn.util.yoml.serializers.AllFieldsTopLevel;
 import org.apache.brooklyn.util.yoml.serializers.ConvertSingletonMap;
 import org.apache.brooklyn.util.yoml.tests.YomlBasicTests.ShapeWithSize;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Objects;
 
-/** Tests that explicit fields can be set at the outer level in yaml. */
 public class ConvertSingletonMapTests {
 
     static class ShapeWithTags extends ShapeWithSize {
@@ -59,12 +61,12 @@ public class ConvertSingletonMapTests {
      */
     YomlTestFixture y = YomlTestFixture.newInstance().
         addType("shape", ShapeWithTags.class, MutableList.of(
-            new AllFieldsExplicit(),
+            new AllFieldsTopLevel(),
             new ConvertSingletonMap("name", null, "color", "tags", null, null, MutableMap.of("size", 0))));
     
     YomlTestFixture y2 = YomlTestFixture.newInstance().
         addType("shape", ShapeWithTags.class, MutableList.of(
-            new AllFieldsExplicit(),
+            new AllFieldsTopLevel(),
             new ConvertSingletonMap("name", "size", "color", "tags", "metadata", null, MutableMap.of("size", 42))));
     
     
@@ -98,5 +100,48 @@ public class ConvertSingletonMapTests {
         y.write(new ShapeWithTags().name("red-square").color("red"), null)
         .assertResult("{ type: shape, color: red, name: red-square, size: 0 }");
     }
+
+    YomlTestFixture y3 = YomlTestFixture.newInstance().
+        addTypeWithAnnotations("shape", ShapeAnn.class);
+
+    @YomlAllFieldsTopLevel
+    @YomlSingletonMap(keyForKey="name", keyForListValue="tags", keyForPrimitiveValue="color",
+//        keyForAnyValue="",
+        defaultValues={@DefaultKeyValue(key="size", val="0", valNeedsParsing=true)})
+    static class ShapeAnn extends ShapeWithTags {}
     
+    @Test public void testAnnPrimitiveValue() {
+        y3.reading("{ red-square: red }", "shape").writing(new ShapeAnn().name("red-square").color("red"), "shape")
+        .doReadWriteAssertingJsonMatch();
+    }
+    
+    @Test public void testAnnListValue() {
+        y3.reading("{ good-square: [ good ] }", "shape").writing(new ShapeAnn().tags("good").name("good-square"), "shape")
+        .doReadWriteAssertingJsonMatch();
+    }
+    
+    @Test public void testAnnMapValueMerge() {
+        y3.reading("{ merge-square: { size: 12 } }", "shape").writing(new ShapeAnn().size(12).name("merge-square"), "shape")
+        .doReadWriteAssertingJsonMatch();
+    }
+    
+    @Test public void testAnnNothingExtra() {
+        y3.reading("{ merge-square: { } }", "shape").writing(new ShapeAnn().name("merge-square"), "shape")
+        .doReadWriteAssertingJsonMatch();
+    }
+    
+    @Test public void testAnnList() {
+        y3.reading("[ { one: { size: 1 } }, { two: { size: 2 } } ]", "list<shape>").writing(
+            MutableList.of(new ShapeAnn().name("one").size(1), new ShapeAnn().name("two").size(2)), "list<shape>") 
+        .doReadWriteAssertingJsonMatch();
+    }
+    
+    // TODO
+    @Test(enabled=false) public void testAnnListCompressed() {
+        y3.reading("{ one: { size: 1 }, two: { size: 2 } }", "list<shape>").writing(
+            MutableList.of(new ShapeAnn().name("one").size(1), new ShapeAnn().name("two").size(2)), "list<shape>") 
+        .doReadWriteAssertingJsonMatch();
+    }
+    
+
 }

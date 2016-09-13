@@ -27,7 +27,7 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.Jsonya;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.yoml.annotations.YomlConstructorConfigMap;
+import org.apache.brooklyn.util.yoml.annotations.YomlConfigMapConsructor;
 import org.apache.brooklyn.util.yoml.internal.YomlConfig;
 import org.apache.brooklyn.util.yoml.serializers.InstantiateTypeFromRegistryUsingConfigMap;
 import org.slf4j.Logger;
@@ -41,10 +41,10 @@ import com.google.common.reflect.TypeToken;
  * <p>
  * And shows how to use them at a low level.
  */
-public class ConfigKeyTests {
+public class TopLevelConfigKeysTests {
 
     @SuppressWarnings("unused")
-    private static final Logger log = LoggerFactory.getLogger(ConfigKeyTests.class);
+    private static final Logger log = LoggerFactory.getLogger(TopLevelConfigKeysTests.class);
     
     static class MockConfigKey<T> implements ConfigKey<T> {
         String name;
@@ -154,7 +154,7 @@ public class ConfigKeyTests {
         .doReadWriteAssertingJsonMatch();
     }
     
-    @YomlConstructorConfigMap(value="keys", writeAsKey="extraConfig")
+    @YomlConfigMapConsructor(value="keys", writeAsKey="extraConfig")
     static class S3 extends S1 {
         S3(Map<String,?> keys) { super(keys); }
         static ConfigKey<String> K2 = new MockConfigKey<String>(String.class, "k2");

@@ -113,11 +113,11 @@ public class InstantiateTypeList extends YomlSerializerComposition {
             if (expectedJavaType!=null && !Iterable.class.isAssignableFrom(expectedJavaType)) {
                 // expecting something other than a collection
                 if (!(yo instanceof Iterable)) {
-                    // and not given a collection -- just exit
+                    // and not given a collection -- we do nothing
                     return;
                 } else {
                     // but we have a collection
-                    // spawn manipulate-convert-from-list phase
+                    // spawn manipulate-from-list phase
                     if (!context.seenPhase(YomlContext.StandardPhases.MANIPULATING_FROM_LIST)) {
                         context.phaseInsert(YomlContext.StandardPhases.MANIPULATING_FROM_LIST, YomlContext.StandardPhases.HANDLING_TYPE);
                         context.phaseAdvance();
@@ -145,19 +145,19 @@ public class InstantiateTypeList extends YomlSerializerComposition {
                     expectedJavaType = oldExpectedType;
                     
                     if (javaType==null || value==null || !Collection.class.isAssignableFrom(javaType) || !Iterable.class.isInstance(value)) {
-                        // only apply below if it's a list type and a list value
+                        // don't let this run, try something else
+                    } else {
+                        // looks like a list in a type-value map
+                        Object jo = newInstance(expectedJavaType, type);
+                        if (jo==null) return;
+                        
+                        context.setJavaObject(jo);
+                        
+                        readIterableInto((Collection<?>)jo, (Iterable<?>)value);
+                        context.phaseAdvance();
+                        removeTypeAndValueKeys();
                         return;
                     }
-                    // looks like a list in a type-value map
-                    Object jo = newInstance(expectedJavaType, type);
-                    if (jo==null) return;
-                    
-                    context.setJavaObject(jo);
-                    
-                    readIterableInto((Collection<?>)jo, (Iterable<?>)value);
-                    context.phaseAdvance();
-                    removeTypeAndValueKeys();
-                    return;
                 }
                 if (expectedJavaType!=null) {
                     // collection definitely expected but not received
@@ -167,7 +167,7 @@ public class InstantiateTypeList extends YomlSerializerComposition {
                     }
                     return;
                 }
-                // otherwise standard InstantiateType will do it
+                // otherwise standard InstantiateType will try it
                 return;
             } else {
                 // given a collection, when expecting a collection or no expectation -- read as list

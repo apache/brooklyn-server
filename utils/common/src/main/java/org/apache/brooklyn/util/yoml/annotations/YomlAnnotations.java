@@ -31,7 +31,8 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils;
-import org.apache.brooklyn.util.yoml.serializers.ExplicitFieldSerializer;
+import org.apache.brooklyn.util.yoml.serializers.ConvertSingletonMap;
+import org.apache.brooklyn.util.yoml.serializers.TopLevelFieldSerializer;
 import org.apache.brooklyn.util.yoml.serializers.InstantiateTypeFromRegistryUsingConfigMap;
 
 public class YomlAnnotations {
@@ -56,23 +57,29 @@ public class YomlAnnotations {
         return names;
     }
     
-    public Collection<ExplicitFieldSerializer> findExplicitFieldSerializers(Class<?> t, boolean requireAnnotation) {
-        List<ExplicitFieldSerializer> result = MutableList.of();
+    public Collection<TopLevelFieldSerializer> findTopLevelFieldSerializers(Class<?> t, boolean requireAnnotation) {
+        List<TopLevelFieldSerializer> result = MutableList.of();
         Map<String,Field> fields = YomlUtils.getAllNonTransientNonStaticFields(t, null);
         for (Map.Entry<String, Field> f: fields.entrySet()) {
-            if (!requireAnnotation || f.getValue().isAnnotationPresent(YomlFieldAtTopLevel.class))
-            result.add(new ExplicitFieldSerializer(f.getKey(), f.getValue()));
+            if (!requireAnnotation || f.getValue().isAnnotationPresent(YomlTopLevelField.class))
+            result.add(new TopLevelFieldSerializer(f.getKey(), f.getValue()));
         }
         return result;
     }
     
-    public Collection<YomlSerializer> findConfigMapSerializers(Class<?> t) {
-        YomlConstructorConfigMap ann = t.getAnnotation(YomlConstructorConfigMap.class);
+    public Collection<YomlSerializer> findConfigMapConstructorSerializers(Class<?> t) {
+        YomlConfigMapConsructor ann = t.getAnnotation(YomlConfigMapConsructor.class);
         if (ann==null) return Collections.emptyList();
         return new InstantiateTypeFromRegistryUsingConfigMap.Factory().newConfigKeySerializersForType(
             t,
             ann.value(), ann.writeAsKey()!=null ? ann.writeAsKey() : ann.value(),
             ann.validateAheadOfTime(), ann.requireStaticKeys());
+    }
+
+    public Collection<YomlSerializer> findSingletonMapSerializers(Class<?> t) {
+        YomlSingletonMap ann = t.getAnnotation(YomlSingletonMap.class);
+        if (ann==null) return Collections.emptyList();
+        return MutableList.of((YomlSerializer) new ConvertSingletonMap(ann));
     }
 
     /** Adds the default set of serializer annotations */
@@ -90,15 +97,14 @@ public class YomlAnnotations {
     }
     
     protected void collectSerializerAnnotationsAtClass(Set<YomlSerializer> result, Class<?> type) {
-        // if it takes a config map
-        result.addAll(findConfigMapSerializers(type));
-
-        // explicit fields
-        YomlAllFieldsAtTopLevel allFields = type.getAnnotation(YomlAllFieldsAtTopLevel.class);
-        result.addAll(findExplicitFieldSerializers(type, allFields==null));
+        result.addAll(findSingletonMapSerializers(type));
         
-        // (so far the above is the only type of serializer we pick up from annotations)
+        result.addAll(findConfigMapConstructorSerializers(type));
+
+        YomlAllFieldsTopLevel allFields = type.getAnnotation(YomlAllFieldsTopLevel.class);
+        result.addAll(findTopLevelFieldSerializers(type, allFields==null));
+        
         // subclasses can extend
     }
-
+    
 }

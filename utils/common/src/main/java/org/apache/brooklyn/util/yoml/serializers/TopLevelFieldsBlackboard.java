@@ -32,19 +32,19 @@ import org.apache.brooklyn.util.yoml.YomlContext;
 import org.apache.brooklyn.util.yoml.YomlException;
 import org.apache.brooklyn.util.yoml.YomlRequirement;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
-import org.apache.brooklyn.util.yoml.serializers.ExplicitFieldSerializer.FieldConstraint;
+import org.apache.brooklyn.util.yoml.serializers.TopLevelFieldSerializer.FieldConstraint;
 
-public class ExplicitFieldsBlackboard implements YomlRequirement {
+public class TopLevelFieldsBlackboard implements YomlRequirement {
 
-    public static final String KEY = ExplicitFieldsBlackboard.class.getCanonicalName();
+    public static final String KEY = TopLevelFieldsBlackboard.class.getCanonicalName();
 
-    public static ExplicitFieldsBlackboard get(Map<Object,Object> blackboard, String mode) {
+    public static TopLevelFieldsBlackboard get(Map<Object,Object> blackboard, String mode) {
         Object v = blackboard.get(KEY+":"+mode);
         if (v==null) {
-            v = new ExplicitFieldsBlackboard();
+            v = new TopLevelFieldsBlackboard();
             blackboard.put(KEY+":"+mode, v);
         }
-        return (ExplicitFieldsBlackboard) v;
+        return (TopLevelFieldsBlackboard) v;
     }
     
     private final Map<String,String> keyNames = MutableMap.of();
@@ -129,12 +129,12 @@ public class ExplicitFieldsBlackboard implements YomlRequirement {
         fieldsDone.add(fieldName);
     }
 
-    public void setUseDefaultFrom(String fieldName, YomlSerializer explicitField, Object defaultValue) {
-        defaultValueForFieldComesFromSerializer.put(fieldName, explicitField);
+    public void setUseDefaultFrom(String fieldName, YomlSerializer topLevelField, Object defaultValue) {
+        defaultValueForFieldComesFromSerializer.put(fieldName, topLevelField);
         defaultValueOfField.put(fieldName, defaultValue);
     }
-    public boolean shouldUseDefaultFrom(String fieldName, YomlSerializer explicitField) {
-        return explicitField.equals(defaultValueForFieldComesFromSerializer.get(fieldName));
+    public boolean shouldUseDefaultFrom(String fieldName, YomlSerializer topLevelField) {
+        return topLevelField.equals(defaultValueForFieldComesFromSerializer.get(fieldName));
     }
     public Maybe<Object> getDefault(String fieldName) {
         if (!defaultValueOfField.containsKey(fieldName)) return Maybe.absent("no default");

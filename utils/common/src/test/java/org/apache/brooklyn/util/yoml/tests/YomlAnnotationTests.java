@@ -19,8 +19,8 @@
 package org.apache.brooklyn.util.yoml.tests;
 
 import org.apache.brooklyn.util.yoml.annotations.Alias;
-import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsAtTopLevel;
-import org.apache.brooklyn.util.yoml.annotations.YomlFieldAtTopLevel;
+import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsTopLevel;
+import org.apache.brooklyn.util.yoml.annotations.YomlTopLevelField;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
@@ -36,12 +36,12 @@ public class YomlAnnotationTests {
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(YomlAnnotationTests.class);
     
-    static class ExplicitFieldsAtTopLevelExamples {
+    static class TopLevelFieldsExample {
         @Alias("shape")
         static class Shape {
-            @YomlFieldAtTopLevel
+            @YomlTopLevelField
             String name;
-            @YomlFieldAtTopLevel
+            @YomlTopLevelField
             @Alias(value={"kolor","couleur"}, preferred="colour")
             String color;
             
@@ -65,19 +65,19 @@ public class YomlAnnotationTests {
         
     @Test
     public void testYomlFieldsAtTopLevel() {
-        ExplicitFieldsAtTopLevelExamples.Shape shape = new ExplicitFieldsAtTopLevelExamples.Shape().name("nifty_shape").color("blue");
+        TopLevelFieldsExample.Shape shape = new TopLevelFieldsExample.Shape().name("nifty_shape").color("blue");
         YomlTestFixture.newInstance().
-        addTypeWithAnnotations(ExplicitFieldsAtTopLevelExamples.Shape.class).
+        addTypeWithAnnotations(TopLevelFieldsExample.Shape.class).
         read("{ name: nifty_shape, couleur: blue }", "shape").assertResult(shape).
         write(shape).assertResult("{ type: shape, colour: blue, name: nifty_shape }");
     }
 
-    static class ExplicitFieldsAllExamples {
-        @YomlAllFieldsAtTopLevel
+    static class AllFieldsTopLevelExample {
+        @YomlAllFieldsTopLevel
         @Alias("shape")
         static class Shape {
             String name;
-            @YomlFieldAtTopLevel
+            @YomlTopLevelField
             @Alias(value={"kolor","couleur"}, preferred="colour")
             String color;
             
@@ -101,9 +101,9 @@ public class YomlAnnotationTests {
         
     @Test
     public void testYomlAllFields() {
-        ExplicitFieldsAllExamples.Shape shape = new ExplicitFieldsAllExamples.Shape().name("nifty_shape").color("blue");
+        AllFieldsTopLevelExample.Shape shape = new AllFieldsTopLevelExample.Shape().name("nifty_shape").color("blue");
         YomlTestFixture.newInstance().
-        addTypeWithAnnotations(ExplicitFieldsAllExamples.Shape.class).
+        addTypeWithAnnotations(AllFieldsTopLevelExample.Shape.class).
         read("{ name: nifty_shape, couleur: blue }", "shape").assertResult(shape).
         write(shape).assertResult("{ type: shape, colour: blue, name: nifty_shape }");
     }

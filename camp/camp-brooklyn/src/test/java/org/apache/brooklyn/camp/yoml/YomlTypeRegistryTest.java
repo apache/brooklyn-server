@@ -33,7 +33,7 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.yoml.annotations.Alias;
-import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsAtTopLevel;
+import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsTopLevel;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -135,7 +135,7 @@ public class YomlTypeRegistryTest extends BrooklynMgmtUnitTestSupport {
         }
     }
 
-    @YomlAllFieldsAtTopLevel
+    @YomlAllFieldsTopLevel
     @Alias("item-annotated")
     public static class ItemAn {
         final static RegisteredType YOML = BrooklynYomlTypeRegistry.newYomlRegisteredType(RegisteredTypeKind.BEAN, 
@@ -153,7 +153,7 @@ public class YomlTypeRegistryTest extends BrooklynMgmtUnitTestSupport {
     }
 
     
-    @YomlConstructorConfigBag(value="config", writeAsKey="extraConfig")
+    @YomlConfigBagConstructor(value="config", writeAsKey="extraConfig")
     static class ConfigurableExampleFromBag {
         ConfigBag config = ConfigBag.newInstance();
         ConfigurableExampleFromBag(ConfigBag bag) { config.putAll(bag); }

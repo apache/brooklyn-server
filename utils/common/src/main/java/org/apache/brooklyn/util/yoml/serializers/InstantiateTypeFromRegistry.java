@@ -69,6 +69,9 @@ public class InstantiateTypeFromRegistry extends YomlSerializerComposition {
                 RuntimeException exc = null;
                 
                 Maybe<Class<?>> jt = config.getTypeRegistry().getJavaTypeMaybe(type);
+                if (context.seenPhase(YomlContext.StandardPhases.MANIPULATING_TO_LIST)) {
+                    message += ": Failed to manipulate it to be a collection, and error instatiating directly";
+                }
                 if (jt.isAbsent()) {
                     exc = ((Maybe.Absent<?>)jt).getException();
                 } else {

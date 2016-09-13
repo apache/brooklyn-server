@@ -28,8 +28,8 @@ import org.apache.brooklyn.util.yoml.annotations.YomlAnnotations;
 
 public class BrooklynYomlAnnotations extends YomlAnnotations {
 
-    public Collection<YomlSerializer> findConfigBagSerializers(Class<?> t) {
-        YomlConstructorConfigBag ann = t.getAnnotation(YomlConstructorConfigBag.class);
+    public Collection<YomlSerializer> findConfigBagConstructorSerializers(Class<?> t) {
+        YomlConfigBagConstructor ann = t.getAnnotation(YomlConfigBagConstructor.class);
         if (ann==null) return Collections.emptyList();
         return new InstantiateTypeFromRegistryUsingConfigBag.Factory().newConfigKeySerializersForType(
             t,
@@ -39,7 +39,7 @@ public class BrooklynYomlAnnotations extends YomlAnnotations {
 
     @Override
     protected void collectSerializerAnnotationsAtClass(Set<YomlSerializer> result, Class<?> type) {
-        result.addAll(findConfigBagSerializers(type));
+        result.addAll(findConfigBagConstructorSerializers(type));
         super.collectSerializerAnnotationsAtClass(result, type);
     }
 

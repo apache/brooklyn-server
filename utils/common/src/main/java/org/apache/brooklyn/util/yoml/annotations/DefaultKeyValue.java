@@ -26,7 +26,14 @@ import java.lang.annotation.Target;
 
 @Retention(RUNTIME)
 @Target({ TYPE })
-/** Indicates that all fields should be available at the top-level when reading yoml,
- * ie none require to be inside a <code>fields</code> block. */
-public @interface YomlAllFieldsAtTopLevel {
+/** Indicates that default key-value pair should be supplied, e.g. for YomlSingletonMap */
+public @interface DefaultKeyValue {
+
+    String key();
+    String val();
+    
+    /** Whether the value should be treated as a string, set directly as the value (the default),
+     * or whether it should be parsed as YAML and the resulting JSON map/list/primitive used as the value. */
+    boolean valNeedsParsing() default false;
+    
 }

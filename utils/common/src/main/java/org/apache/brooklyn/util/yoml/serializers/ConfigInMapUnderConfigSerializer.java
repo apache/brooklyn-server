@@ -95,7 +95,7 @@ public class ConfigInMapUnderConfigSerializer extends FieldsInMapUnderFields {
         }
 
         protected String getType(String key, Object value) {
-            ExplicitFieldsBlackboard efb = ExplicitFieldsBlackboard.get(blackboard, getKeyNameForMapOfGeneralValues());
+            TopLevelFieldsBlackboard efb = TopLevelFieldsBlackboard.get(blackboard, getKeyNameForMapOfGeneralValues());
             Class<?> type = efb.getDeclaredType(key);
             String optionalType = null;
             if (type!=null && (value==null || type.isInstance(value))) optionalType = config.getTypeRegistry().getTypeNameOfClass(type);

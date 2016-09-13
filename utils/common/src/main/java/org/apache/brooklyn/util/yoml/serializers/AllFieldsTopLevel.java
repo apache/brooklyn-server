@@ -22,16 +22,16 @@ import org.apache.brooklyn.util.yoml.annotations.Alias;
 import org.apache.brooklyn.util.yoml.annotations.YomlAnnotations;
 import org.apache.brooklyn.util.yoml.internal.SerializersOnBlackboard;
 
-/* Adds ExplicitField instances for all fields declared on the type */
-@Alias("all-fields-explicit")
-public class AllFieldsExplicit extends YomlSerializerComposition {
+/** Adds {@link TopLevelFieldSerializer} instances for all fields declared on the type */
+@Alias("all-fields-top-level")
+public class AllFieldsTopLevel extends YomlSerializerComposition {
 
     protected YomlSerializerWorker newWorker() {
         return new Worker();
     }
     
     /** marker on blackboard indicating that we have run */ 
-    static class DoneAllFieldsExplicit {}
+    static class DoneAllFieldsTopLevel {}
     
     public class Worker extends YomlSerializerWorker {
         
@@ -40,13 +40,13 @@ public class AllFieldsExplicit extends YomlSerializerComposition {
         
         protected void run() {
             if (!hasJavaObject()) return;
-            if (blackboard.containsKey(DoneAllFieldsExplicit.class.getName())) return;
+            if (blackboard.containsKey(DoneAllFieldsTopLevel.class.getName())) return;
             
             // mark done
-            blackboard.put(DoneAllFieldsExplicit.class.getName(), new DoneAllFieldsExplicit());
+            blackboard.put(DoneAllFieldsTopLevel.class.getName(), new DoneAllFieldsTopLevel());
             
             SerializersOnBlackboard.get(blackboard).addInstantiatedTypeSerializers(
-                new YomlAnnotations().findExplicitFieldSerializers(getJavaObject().getClass(), false));
+                new YomlAnnotations().findTopLevelFieldSerializers(getJavaObject().getClass(), false));
 
             context.phaseRestart();
         }

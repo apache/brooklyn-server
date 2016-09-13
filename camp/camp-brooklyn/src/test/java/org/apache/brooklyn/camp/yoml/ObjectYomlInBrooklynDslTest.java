@@ -27,7 +27,7 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
-import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsAtTopLevel;
+import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsTopLevel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -51,7 +51,7 @@ public class ObjectYomlInBrooklynDslTest extends AbstractYamlTest {
         registry().addToLocalUnpersistedTypeRegistry(type, canForce);
     }
     
-    @YomlAllFieldsAtTopLevel
+    @YomlAllFieldsTopLevel
     public static class ItemA {
         String name;
         /* required for 'object.fields' */ public void setName(String name) { this.name = name; }

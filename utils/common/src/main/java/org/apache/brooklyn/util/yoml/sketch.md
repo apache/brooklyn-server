@@ -186,13 +186,13 @@ Although this would be more sensible:
 ### Allowing fields at root
 
 Type definitions also support specifying additional "serializers", the workers which provide
-alternate syntaxes. One common one is the `explicit-field` serializer, allowing fields at
+alternate syntaxes. One common one is the `top-level-field` serializer, allowing fields at
 the root of an instance definition.  With this type defined:
  
 - id: ez-square
   type: square
   serialization:
-  - type: explicit-field
+  - type: top-level-field
     field-name: color
 
 You could skip the `fields` item altogether and write:
@@ -209,9 +209,9 @@ These are inherited, so we'd probably prefer to have these type definitions:
   definition:
     type: java:org.acme.Shape  # where `class Shape { String name; String color; }`
   serialization:
-  - type: explicit-field
+  - type: top-level-field
     field-name: name
-  - type: explicit-field
+  - type: top-level-field
     field-name: color
 - id: square
   definition:
@@ -224,16 +224,16 @@ These are inherited, so we'd probably prefer to have these type definitions:
 Serialization takes a list of serializer types.  These are applied in order, both for serialization 
 and deserialization, and re-run from the beginning if any are applied.
 
-`explicit-field` says to look at the root as well as in the 'fields' block.  It has one required
+`top-level-field` says to look at the root as well as in the 'fields' block.  It has one required
 parameter, field-name, and several optional ones, so a sample usage might look like:
 
 ```
-  - type: explicit-field
+  - type: top-level-field
     field-name: color
     key-name: color           # this is used in yaml
     aliases: [ colour ]       # things to accept in yaml as synonyms for key-name; `alias` also accepted
     aliases-strict: false     # if true, means only exact matches on key-name and aliases are accepted, otherwise a set of mangles are applied
-    aliases-inherited: true   # if false, means only take aliases from the first explicit-field serializer for this field-name, otherwise any can be used 
+    aliases-inherited: true   # if false, means only take aliases from the first top-level-field serializer for this field-name, otherwise any can be used 
     # TODO items below here are still WIP/planned
     field-type: string        # inferred from java field, but you can constrain further to yaml types
     constraint: required      # currently just supports 'required' (and 'null' not allowed) or blank for none (default), but reserved for future use
@@ -263,17 +263,17 @@ and the serializations defined for that type specify:
 * If it is a map of size exactly one, it is converted to a map as done with `convert-map-to-list` above
 * If the key `.key` is present and `type` is not defined, that key is renamed to `type` (ignored if `type` is already present)
 * If the item is a primitive V, it is converted to `{ .value: V }`
-* If it is a map with no `type` defined, `type: explicit-field` is added
+* If it is a map with no `type` defined, `type: top-level-field` is added
 
 
 This allows the serialization rules defined on the specific type to kick in to handle `.key` or `.value` entries
-introduced but not removed. In the case of `explicit-field` (the default type, as shown in the rules above), 
+introduced but not removed. In the case of `top-level-field` (the default type, as shown in the rules above), 
 this will rename either such key `.value` to `field-name` (and give an error if `field-name` is already present). 
 
 Thus we can write:
 
     serialization:
-      # explicit fields
+      # top-level fields
       color: { alias: colour, description: "The color of the shape", constraint: required } 
       name
 
@@ -298,7 +298,7 @@ This can have some surprising side-effects in occasional edge cases; consider:
     color: {}
   # or
   serialization:
-    color: explicit-field
+    color: top-level-field
 
   # BAD: this would try to load a type called 'field-name' 
   serialization:
@@ -308,14 +308,14 @@ This can have some surprising side-effects in occasional edge cases; consider:
   - field-name: color
     alias: colour  
 
-  # BAD: this ultimately takes "explicit-field" as the "field-name", giving a conflict
+  # BAD: this ultimately takes "top-level-field" as the "field-name", giving a conflict
   serialization:
-    explicit-field: { field-name: color }
+    top-level-field: { field-name: color }
   # GOOD options (in addition to those in previous section, but assuming you wanted to say the type explicitly)
   serialization:
-  - explicit-field: { field-name: color }
+  - top-level-field: { field-name: color }
   # or 
-  - explicit-field: color
+  - top-level-field: color
 ```
 
 It does the right thing in most cases, and it serves to illustrate the flexibility of this approach. 
@@ -328,7 +328,7 @@ Of course if you have any doubt, simply use the long-winded syntax and avoid any
 
 ```
   serialization:
-  - type: explicit-field
+  - type: top-level-field
     field-name: color
 ```
 
@@ -386,7 +386,7 @@ Where the java object is a list, this can correspond to YAML in many ways.
 New serializations we introduce include `convert-map-to-map-list` (which allows
 a map value to be supplied), `apply-defaults-in-list` (which ensures a set of keys
 are present in every entry, using default values wherever the key is absent),
-`convert-single-key-maps-in-list` (which gives special behaviour if the list consists
+`convert-singleton-maps-in-list` (which gives special behaviour if the list consists
 entirely of single-key-maps, useful where a map would normally be supplied but there
 might be key collisions), `if-string-in-list` (which applies `if-string` to every
 element in the list), and `convert-map-to-singleton-list` (which puts a map into
@@ -408,27 +408,27 @@ schema:
   field-type: list<serialization>
   serialization:
   
-  # transforms `- color` to `- { explicit-field: color }` which will be interpreted again
+  # transforms `- color` to `- { top-level-field: color }` which will be interpreted again
   - type: if-string-in-list
-    set-key: explicit-field
+    set-key: top-level-field
     
   # alternative implementation of above (more explicit, not relying on `apply-defaults-in-list`)
-  # transforms `- color` to `- { type: explicit-field, field-name: color }`
+  # transforms `- color` to `- { type: top-level-field, field-name: color }`
   - type: if-string-in-list
     set-key: field-name
     default:
-      type: explicit-field
+      type: top-level-field
 
   # describes how a yaml map can correspond to a list
   # in this example `k: { type: x }` in a map (not a list)
   # becomes an entry `{ field-name: k, type: x}` in a list
   # (and same for shorthand `k: x`; however if just `k` is supplied it
-  # takes a default type `explicit-field`)
+  # takes a default type `top-level-field`)
   - type: convert-map-to-map-list
     key-for-key: field-name
     key-for-string-value: type   # note, only applies if x non-blank
     default:
-      type: explicit-field       # note: needed to prevent collision with `convert-single-key-in-list` 
+      type: top-level-field       # note: needed to prevent collision with `convert-single-key-in-list` 
 
   # if yaml is a list containing all maps swith a single key, treat the key specially
   # transforms `- x: k` or `- x: { field-name: k }` to `- { type: x, field-name: k }`
@@ -440,10 +440,10 @@ schema:
   
   # applies any listed unset "default keys" to the given default values,
   # for every map entry in a list
-  # here this essentially makes `explicit-field` the default type
+  # here this essentially makes `top-level-field` the default type
   - type: apply-defaults-in-list
     default:
-      type: explicit-field
+      type: top-level-field
 ```
 
 ### Accepting maps, including generics
@@ -490,19 +490,40 @@ Note that if interfacing with the existing defaults you wil need to understand t
 in detail; see implementation notes below. 
 
 
-## Even more further behaviours (not part of MVP)
+## Behaviors which are **not** supported (yet)
 
-* preventing fields from being set
-* type overloading, if string, if number, if map, if list...  inferring type, or setting diff fields
-* super-types and abstract types (underlying java of `supertypes` must be assignable from underying java of `type`)
-* merging ... deep? field-based?
-* setting in java class with annotation
-* if-list, if-map, if-key-present, etc
-* fields fetched by getters, written by setters
+* multiple references to the same object
 * include/exclude if null/empty/default
+* controlling deep merge behaviour (currently collisions at keys are not merged)
+* preventing fields from being set
+* more type overloading, conditionals on patterns and types, setting multiple fields from multiple words
+* super-types and abstract types (underlying java of `supertypes` must be assignable from underying java of `type`)
+* fields fetched by getters, written by setters
+* passing arguments to constructors (besides the single maps)
+ 
+
+## Serializers reference
+
+We currently support the following manual serializers, in addition to many which are lower-level built-ins.
+These can be set as annotations on the java class, or as serializers parsed and noted in the config,
+either on a global or a per-class basis in the registry.
+
+* `top-level-field` (`@YomlFieldAtTopLevel`)
+  * means that a field is accepted at the top level (it does not need to be in a `field` block)
+  * TODO rename this `top-level-field`
+  
+* `all-fields-top-level` (`@YomlAllFieldsAtTopLevel`)
+  * applies the above to all fields
+
+* `convert-singleton-map` (`@YomlSingletonMap`)
+  * reads/writes an item as a single-key map where a field value is the key
+  * particularly useful when working with a list of items to allow a concise multi-entry map syntax
+
+* `config-map-constructor` (`@YomlConfigMapConstructor`)
+  * indicates that config key static fields should be scanned and passed in a map to the constructor
 
 
-## Implementation Notes
+## Implementation notes
 
 We have a `Converter` which runs through phases, running through all `Serializer` instances on each phase.
 Each `Serializer` exposes methods to `read`, `write`, and `document`, and the appropriate method is invoked
@@ -532,13 +553,13 @@ Afterwards, a completion check runs across all blackboard items to enable the mo
 to be shown.
 
 
+
+
 ### TODO
 
-* annotations (basic is done, but various "if" situations)
+* list/map conversion, and tidy up notes above
+* rename-key
 * complex syntax, type as key, etc
-* config/data keys
-
-* defining serializers and linking to brooklyn
 
 * infinite loop detection: in serialize loop
 * handle references, solve infinite loop detection in self-referential writes, with `.reference: ../../OBJ`
@@ -549,9 +570,9 @@ to be shown.
 
 
 
-## Real World Use Cases
+## Old notes
 
-### An Init.d-style entity/effector language 
+### Draft Use Case: An Init.d-style entity/effector language 
 
 ```
 - id: print-all
@@ -571,20 +592,10 @@ to be shown.
       effector: launch
       parameters:
         ...
-
-- type: entity
-  fields:
-  - key: effectors
-    yamlType: list
-    yamlGenericType: effector
-    serializer:
-    - type: write-list-field
-      field: effectors
-- type: effector
 ```
 
 
-
+### Random thoughts (ignore)
 
 First, if the `serialization` field (which expects a list) is given a map, 
 the `convert-map-to-list` serializer converts each <K,V> pair in that map to a list entry as follows:
@@ -595,13 +606,13 @@ the `convert-map-to-list` serializer converts each <K,V> pair in that map to a l
             key-for-primitive-value: type,  || key-for-any-value: ... || key-for-list-value: || key-for-map-value
               || merge-with-map-value
             apply-to-singleton-maps: true
-            defaults: { type: explicit-field }
-  # explicit-field sets key-for-list-value as aliases
+            defaults: { type: top-level-field }
+  # top-level-field sets key-for-list-value as aliases
 # on serializer
   convert-singleton-map: { key-for-key: type
             key-for-primitive-value: type,  || key-for-any-value: ... || key-for-list-value: || key-for-map-value
               || merge-with-map-value
-            defaults: { type: explicit-field }
+            defaults: { type: top-level-field }
 
 Next, each entry in the list is interpreted as a `serialization` instance, 
 and the serializations defined for that type specify:
@@ -616,8 +627,8 @@ and the serializations defined for that type specify:
   primitive-to-kv-pair
   primitive-to-kv-pair: { key: .value || value: foo } 
 
-* If it is a map with no `type` defined, `type: explicit-field` is added
-  defaults: { type: explicit-field }
+* If it is a map with no `type` defined, `type: top-level-field` is added
+  defaults: { type: top-level-field }
   # serializer declares convert-singleton-map ( merge-with-map-value )  
 
 NOTES

@@ -32,13 +32,13 @@ import org.apache.brooklyn.util.yoml.internal.YomlUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ExplicitConfigKeySerializer extends ExplicitFieldSerializer {
+public class TopLevelConfigKeySerializer extends TopLevelFieldSerializer {
 
-    private static final Logger log = LoggerFactory.getLogger(ExplicitConfigKeySerializer.class);
+    private static final Logger log = LoggerFactory.getLogger(TopLevelConfigKeySerializer.class);
     
     final String keyNameForConfigWhenSerialized;
     
-    public ExplicitConfigKeySerializer(String keyNameForConfigWhenSerialized, ConfigKey<?> configKey, Field optionalFieldForAnnotations) {
+    public TopLevelConfigKeySerializer(String keyNameForConfigWhenSerialized, ConfigKey<?> configKey, Field optionalFieldForAnnotations) {
         super(configKey.getName(), optionalFieldForAnnotations);
         this.keyNameForConfigWhenSerialized = keyNameForConfigWhenSerialized;
         this.configKey = configKey;
@@ -86,7 +86,7 @@ public class ExplicitConfigKeySerializer extends ExplicitFieldSerializer {
     }
     
     /** only useful in conjuction with {@link InstantiateTypeFromRegistryUsingConfigMap} static serializer factory methods */
-    public static Map<String,YomlSerializer> findExplicitConfigKeySerializers(String keyNameForConfigWhenSerialized, Class<?> clazz) {
+    public static Map<String,YomlSerializer> findConfigKeySerializers(String keyNameForConfigWhenSerialized, Class<?> clazz) {
         MutableMap<String, YomlSerializer> result = MutableMap.of();
         
         for (Field f: YomlUtils.getAllNonTransientStaticFields(clazz).values()) {
@@ -101,7 +101,7 @@ public class ExplicitConfigKeySerializer extends ExplicitFieldSerializer {
                 if (ck==null) continue;
                 if (result.containsKey(ck.getName())) continue;
                 
-                result.put(ck.getName(), new ExplicitConfigKeySerializer(keyNameForConfigWhenSerialized, ck, f));
+                result.put(ck.getName(), new TopLevelConfigKeySerializer(keyNameForConfigWhenSerialized, ck, f));
                 
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
@@ -117,15 +117,15 @@ public class ExplicitConfigKeySerializer extends ExplicitFieldSerializer {
         return new Worker();
     }
     
-    public class Worker extends ExplicitFieldSerializer.Worker {
+    public class Worker extends TopLevelFieldSerializer.Worker {
         protected boolean canDoRead() { 
             return !hasJavaObject() && context.willDoPhase(InstantiateTypeFromRegistryUsingConfigMap.PHASE_INSTANTIATE_TYPE_DEFERRED);
         }
         
         @Override
-        protected void prepareExplicitFields() {
-            super.prepareExplicitFields();
-            getExplicitFieldsBlackboard().setDeclaredTypeIfUnset(fieldName, configKey.getType());
+        protected void prepareTopLevelFields() {
+            super.prepareTopLevelFields();
+            getTopLevelFieldsBlackboard().setDeclaredTypeIfUnset(fieldName, configKey.getType());
         }
     }
     

@@ -26,11 +26,12 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.yoml.annotations.Alias;
 import org.apache.brooklyn.util.yoml.internal.ConstructionInstruction;
 import org.apache.brooklyn.util.yoml.serializers.InstantiateTypeFromRegistryUsingConfigMap;
 
+@Alias("config-bag-constructor")
 public class InstantiateTypeFromRegistryUsingConfigBag extends InstantiateTypeFromRegistryUsingConfigMap {
-
 
     public static class Factory extends InstantiateTypeFromRegistryUsingConfigMap.Factory {
         protected InstantiateTypeFromRegistryUsingConfigBag newInstance() {
