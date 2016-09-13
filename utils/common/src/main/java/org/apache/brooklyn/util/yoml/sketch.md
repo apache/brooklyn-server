@@ -542,12 +542,9 @@ either on a global or a per-class basis in the registry.
     as conveniences for the above when renaming `.key` or `.value` respectively
     (which are used in some of the other serializers)
     
-# TODO13 bail out on collision rather than attempt to use "any value" in singleton map 
-# TODO13 default-map-values
 # TODO13 apply and test the above in a list as well, inferring type
 # TODO13 convert-singleton-maps-in-list 
  
-
 
 ## Implementation notes
 

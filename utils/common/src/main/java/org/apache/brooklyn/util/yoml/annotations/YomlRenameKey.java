@@ -24,12 +24,12 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
-import org.apache.brooklyn.util.yoml.serializers.RenameKey;
+import org.apache.brooklyn.util.yoml.serializers.RenameKeySerializer;
 
 /** 
  * Indicates that a key should be renamed when reading yaml.
  * <p>
- * See {@link RenameKey}.
+ * See {@link RenameKeySerializer}.
  */
 @Retention(RUNTIME)
 @Target({ TYPE })

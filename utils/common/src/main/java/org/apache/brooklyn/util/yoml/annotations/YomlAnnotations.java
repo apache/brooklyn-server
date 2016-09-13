@@ -35,10 +35,11 @@ import org.apache.brooklyn.util.yoml.annotations.YomlRenameKey.YomlRenameDefault
 import org.apache.brooklyn.util.yoml.internal.YomlUtils;
 import org.apache.brooklyn.util.yoml.serializers.ConvertFromPrimitive;
 import org.apache.brooklyn.util.yoml.serializers.ConvertSingletonMap;
+import org.apache.brooklyn.util.yoml.serializers.DefaultMapValuesSerializer;
 import org.apache.brooklyn.util.yoml.serializers.InstantiateTypeFromRegistryUsingConfigMap;
-import org.apache.brooklyn.util.yoml.serializers.RenameKey;
-import org.apache.brooklyn.util.yoml.serializers.RenameKey.RenameDefaultKey;
-import org.apache.brooklyn.util.yoml.serializers.RenameKey.RenameDefaultValue;
+import org.apache.brooklyn.util.yoml.serializers.RenameKeySerializer;
+import org.apache.brooklyn.util.yoml.serializers.RenameKeySerializer.RenameDefaultKey;
+import org.apache.brooklyn.util.yoml.serializers.RenameKeySerializer.RenameDefaultValue;
 import org.apache.brooklyn.util.yoml.serializers.TopLevelFieldSerializer;
 
 public class YomlAnnotations {
@@ -74,7 +75,7 @@ public class YomlAnnotations {
     }
     
     public Collection<YomlSerializer> findConfigMapConstructorSerializers(Class<?> t) {
-        YomlConfigMapConsructor ann = t.getAnnotation(YomlConfigMapConsructor.class);
+        YomlConfigMapConstructor ann = t.getAnnotation(YomlConfigMapConstructor.class);
         if (ann==null) return Collections.emptyList();
         return new InstantiateTypeFromRegistryUsingConfigMap.Factory().newConfigKeySerializersForType(
             t,
@@ -94,10 +95,16 @@ public class YomlAnnotations {
         return MutableList.of((YomlSerializer) new ConvertFromPrimitive(ann));
     }
 
+    public Collection<YomlSerializer> findDefaultMapValuesSerializers(Class<?> t) {
+        YomlDefaultMapValues ann = t.getAnnotation(YomlDefaultMapValues.class);
+        if (ann==null) return Collections.emptyList();
+        return MutableList.of((YomlSerializer) new DefaultMapValuesSerializer(ann));
+    }
+
     public Collection<YomlSerializer> findRenameKeySerializers(Class<?> t) {
         MutableList<YomlSerializer> result = MutableList.of();
         YomlRenameKey ann1 = t.getAnnotation(YomlRenameKey.class);
-        if (ann1!=null) result.add(new RenameKey(ann1));
+        if (ann1!=null) result.add(new RenameKeySerializer(ann1));
         YomlRenameDefaultKey ann2 = t.getAnnotation(YomlRenameDefaultKey.class);
         if (ann2!=null) result.add(new RenameDefaultKey(ann2));
         YomlRenameDefaultValue ann3 = t.getAnnotation(YomlRenameDefaultValue.class);
@@ -123,6 +130,7 @@ public class YomlAnnotations {
         result.addAll(findConvertFromPrimitiveSerializers(type));
         result.addAll(findRenameKeySerializers(type));
         result.addAll(findSingletonMapSerializers(type));
+        result.addAll(findDefaultMapValuesSerializers(type));
         
         result.addAll(findConfigMapConstructorSerializers(type));
 

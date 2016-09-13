@@ -28,7 +28,7 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.Jsonya;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.yoml.annotations.YomlConfigMapConsructor;
+import org.apache.brooklyn.util.yoml.annotations.YomlConfigMapConstructor;
 import org.apache.brooklyn.util.yoml.internal.YomlConfig;
 import org.apache.brooklyn.util.yoml.serializers.InstantiateTypeFromRegistryUsingConfigMap;
 import org.slf4j.Logger;
@@ -157,7 +157,7 @@ public class TopLevelConfigKeysTests {
         .doReadWriteAssertingJsonMatch();
     }
     
-    @YomlConfigMapConsructor(value="keys", writeAsKey="extraConfig")
+    @YomlConfigMapConstructor(value="keys", writeAsKey="extraConfig")
     static class S3 extends S1 {
         S3(Map<String,?> keys) { super(keys); }
         static ConfigKey<String> K2 = new MockConfigKey<String>(String.class, "k2");

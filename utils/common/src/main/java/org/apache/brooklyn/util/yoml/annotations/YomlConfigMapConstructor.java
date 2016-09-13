@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.camp.yoml;
+package org.apache.brooklyn.util.yoml.annotations;
 
 import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
@@ -24,20 +24,20 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
-import org.apache.brooklyn.util.yoml.annotations.YomlConfigMapConstructor;
+import org.apache.brooklyn.config.ConfigKey;
 
 /** 
- * Indicates that a class should be yoml-serialized using a one-arg constructor taking a map or bag of config.
- * Similar to {@link YomlConfigMapConstructor} but accepting config-bag constructors
- * and defaulting to `brooklyn.config` as the key for unknown config.
+ * Indicates that a class should be yoml-serialized using a one-arg constructor taking a map of config.
+ * Types will be inferred where possible based on the presence of {@link ConfigKey} static fields in the type.
  */
 @Retention(RUNTIME)
 @Target({ TYPE })
-public @interface YomlConfigBagConstructor {
+public @interface YomlConfigMapConstructor {
     /** YOML needs to know which field contains the config at serialization time. */
     String value();
-    /** By default here reads/writes unrecognised key values against `brooklyn.config`. */
-    String writeAsKey() default "brooklyn.config";
+    /** By default YOML reads/writes unrecognised key values against a key with the same name as {@link #value()}.
+     * This can be set to use a different key in the YAML. */
+    String writeAsKey() default "";
     
     /** Validate that a suitable field and constructor exist, failing fast if not */
     boolean validateAheadOfTime() default true;

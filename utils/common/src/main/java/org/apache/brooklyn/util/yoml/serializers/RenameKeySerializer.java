@@ -30,15 +30,15 @@ import org.apache.brooklyn.util.yoml.internal.YomlUtils;
 
 @YomlAllFieldsTopLevel
 @Alias("rename-key")
-public class RenameKey extends YomlSerializerComposition {
+public class RenameKeySerializer extends YomlSerializerComposition {
 
-    RenameKey() { }
+    RenameKeySerializer() { }
 
-    public RenameKey(YomlRenameKey ann) { 
+    public RenameKeySerializer(YomlRenameKey ann) { 
         this(ann.oldKeyName(), ann.newKeyName(), YomlUtils.extractDefaultMap(ann.defaults()));
     }
 
-    public RenameKey(String oldKeyName, String newKeyName, Map<String,? extends Object> defaults) {
+    public RenameKeySerializer(String oldKeyName, String newKeyName, Map<String,? extends Object> defaults) {
         super();
         this.oldKeyName = oldKeyName;
         this.newKeyName = newKeyName;
@@ -88,7 +88,7 @@ public class RenameKey extends YomlSerializerComposition {
 
     @YomlAllFieldsTopLevel
     @Alias("rename-default-key")
-    public static class RenameDefaultKey extends RenameKey {
+    public static class RenameDefaultKey extends RenameKeySerializer {
         public RenameDefaultKey(YomlRenameDefaultKey ann) { 
             this(ann.value(), YomlUtils.extractDefaultMap(ann.defaults()));
         }
@@ -100,7 +100,7 @@ public class RenameKey extends YomlSerializerComposition {
     
     @YomlAllFieldsTopLevel
     @Alias("rename-default-value")
-    public static class RenameDefaultValue extends RenameKey {
+    public static class RenameDefaultValue extends RenameKeySerializer {
         public RenameDefaultValue(YomlRenameDefaultValue ann) { 
             this(ann.value(), YomlUtils.extractDefaultMap(ann.defaults()));
         }
