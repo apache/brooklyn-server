@@ -28,11 +28,11 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.text.Strings;
-import org.apache.brooklyn.util.yoml.YomlContext;
-import org.apache.brooklyn.util.yoml.YomlContextForRead;
-import org.apache.brooklyn.util.yoml.YomlContextForWrite;
+import org.apache.brooklyn.util.yoml.YomlConfig;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
-import org.apache.brooklyn.util.yoml.internal.YomlConfig;
+import org.apache.brooklyn.util.yoml.internal.YomlContext;
+import org.apache.brooklyn.util.yoml.internal.YomlContextForRead;
+import org.apache.brooklyn.util.yoml.internal.YomlContextForWrite;
 import org.apache.brooklyn.util.yoml.internal.YomlConverter;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils.JsonMarker;
@@ -49,6 +49,14 @@ public abstract class YomlSerializerComposition implements YomlSerializer {
         protected YomlConfig config;
         protected Map<Object, Object> blackboard;
         
+        
+        protected void warn(String message) {
+            ReadingTypeOnBlackboard.get(blackboard).addNote(message);
+        }
+        protected void warn(Throwable message) {
+            ReadingTypeOnBlackboard.get(blackboard).addNote(message);
+        }
+
         
         protected boolean isJsonPrimitiveType(Class<?> type) {
             if (type==null) return false;
@@ -75,21 +83,21 @@ public abstract class YomlSerializerComposition implements YomlSerializer {
         }
 
         
-        private void initRead(YomlContextForRead context, YomlConverter converter, Map<Object, Object> blackboard) {
+        private void initRead(YomlContextForRead context, YomlConverter converter) {
             if (this.context!=null) throw new IllegalStateException("Already initialized, for "+context);
             this.context = context;
             this.readContext = context;
             this.converter = converter;
             this.config = converter.getConfig();
-            this.blackboard = blackboard;
+            this.blackboard = context.getBlackboard();
         }
         
-        private void initWrite(YomlContextForWrite context, YomlConverter converter, Map<Object,Object> blackboard) {
+        private void initWrite(YomlContextForWrite context, YomlConverter converter) {
             if (this.context!=null) throw new IllegalStateException("Already initialized, for "+context);
             this.context = context;
             this.converter = converter;
             this.config = converter.getConfig();
-            this.blackboard = blackboard;
+            this.blackboard = context.getBlackboard();
         }
 
         /** If there is an expected type -- other than "Object"! -- return the java instance. Otherwise null. */ 
@@ -183,22 +191,22 @@ public abstract class YomlSerializerComposition implements YomlSerializer {
     }
     
     @Override
-    public void read(YomlContextForRead context, YomlConverter converter, Map<Object,Object> blackboard) {
+    public void read(YomlContextForRead context, YomlConverter converter) {
         YomlSerializerWorker worker;
         try {
             worker = newWorker();
         } catch (Exception e) { throw Exceptions.propagate(e); }
-        worker.initRead(context, converter, blackboard);
+        worker.initRead(context, converter);
         worker.read();
     }
 
     @Override
-    public void write(YomlContextForWrite context, YomlConverter converter, Map<Object,Object> blackboard) {
+    public void write(YomlContextForWrite context, YomlConverter converter) {
         YomlSerializerWorker worker;
         try {
             worker = newWorker();
         } catch (Exception e) { throw Exceptions.propagate(e); }
-        worker.initWrite(context, converter, blackboard);
+        worker.initWrite(context, converter);
         worker.write();
     }
 

@@ -18,16 +18,27 @@
  */
 package org.apache.brooklyn.util.yoml.serializers;
 
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.text.Strings;
-import org.apache.brooklyn.util.yoml.YomlContext;
+import org.apache.brooklyn.util.yoml.YomlSerializer;
 import org.apache.brooklyn.util.yoml.annotations.Alias;
 import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsTopLevel;
 import org.apache.brooklyn.util.yoml.annotations.YomlSingletonMap;
 import org.apache.brooklyn.util.yoml.internal.SerializersOnBlackboard;
+import org.apache.brooklyn.util.yoml.internal.YomlContext;
+import org.apache.brooklyn.util.yoml.internal.YomlContextForRead;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils;
+import org.apache.brooklyn.util.yoml.internal.YomlUtils.GenericsParse;
+
+import com.google.common.collect.Iterables;
 
 /*
  * key-for-key: type
@@ -39,21 +50,24 @@ import org.apache.brooklyn.util.yoml.internal.YomlUtils;
 @Alias("convert-singleton-map")
 public class ConvertSingletonMap extends YomlSerializerComposition {
 
+    public static enum SingletonMapMode { LIST_AS_MAP, LIST_AS_LIST, NON_LIST }
+    
     public ConvertSingletonMap() { }
 
     public ConvertSingletonMap(YomlSingletonMap ann) { 
         this(ann.keyForKey(), ann.keyForAnyValue(), ann.keyForPrimitiveValue(), ann.keyForListValue(), ann.keyForMapValue(),
-            null, YomlUtils.extractDefaultMap(ann.defaults()));
+            null, null, YomlUtils.extractDefaultMap(ann.defaults()));
     }
 
-    public ConvertSingletonMap(String keyForKey, String keyForAnyValue, String keyForPrimitiveValue, String keyForListValue,
-        String keyForMapValue, Boolean mergeWithMapValue, Map<String, ? extends Object> defaults) {
+    public ConvertSingletonMap(String keyForKey, String keyForAnyValue, String keyForPrimitiveValue, String keyForListValue, String keyForMapValue, 
+        Collection<SingletonMapMode> modes, Boolean mergeWithMapValue, Map<String, ? extends Object> defaults) {
         super();
         this.keyForKey = keyForKey;
         this.keyForAnyValue = keyForAnyValue;
         this.keyForPrimitiveValue = keyForPrimitiveValue;
         this.keyForListValue = keyForListValue;
         this.keyForMapValue = keyForMapValue;
+        this.onlyInModes = MutableSet.copyOf(modes);
         this.mergeWithMapValue = mergeWithMapValue;
         this.defaults = defaults;
     }
@@ -73,6 +87,10 @@ public class ConvertSingletonMap extends YomlSerializerComposition {
     String keyForListValue;
     /** if the value against the single key is itself a map, treat it as a value for a key wit this name */
     String keyForMapValue;
+    /** conveniences for {@link #onlyInModes} when just supplying one */
+    SingletonMapMode onlyInMode = null;
+    /** if non-empty, restrict the modes where this serializer can run */
+    Set<SingletonMapMode> onlyInModes = null;
     /** if the value against the single key is itself a map, should we put the {@link #keyForKey} as another entry in the map 
      * to get the result; the default (if null) and usual behaviour is to do so but not if {@link #keyForMapValue} is set (because we'd use that), and not if there would be a collision
      * (ie {@link #keyForKey} is already present) and we have a value for {@link #keyForAnyValue} (so we can use that);
@@ -80,23 +98,33 @@ public class ConvertSingletonMap extends YomlSerializerComposition {
      * (which will prevent this serializer from applying unless {@link #keyForMapValue} or {@link #keyForAnyValue} is set) */
     Boolean mergeWithMapValue;
     Map<String,? extends Object> defaults;
-    
-    public static class ConvertSingletonApplied {}
-    
+
     public class Worker extends YomlSerializerWorker {
         public void read() {
-            if (!context.isPhase(YomlContext.StandardPhases.MANIPULATING)) return;
             // runs before type instantiated
             if (hasJavaObject()) return;
             
+            if (context.isPhase(InstantiateTypeList.MANIPULATING_TO_LIST)) {
+                if (isYamlMap() && enterModeRead(SingletonMapMode.LIST_AS_MAP)) {
+                    readManipulatingMapToList();
+                } else if (getYamlObject() instanceof Collection && enterModeRead(SingletonMapMode.LIST_AS_LIST)) {
+                    // this would also be done by instantiate-type-list, but it wouldn't know to
+                    // pass this serializer through
+                    readManipulatingInList();
+                }
+                
+                return;
+            }
+            
+            if (!context.isPhase(YomlContext.StandardPhases.MANIPULATING)) return;
+            
             if (!isYamlMap()) return;
             if (getYamlMap().size()!=1) return;
-            // don't run multiple times
-            if (blackboard.put(ConvertSingletonMap.class.getName(), new ConvertSingletonApplied())!=null) return;
             
-            // it *is* a singleton map
-            Object key = getYamlMap().keySet().iterator().next();
-            Object value = getYamlMap().values().iterator().next();
+            if (!enterModeRead(SingletonMapMode.NON_LIST)) return;
+            
+            Object key = Iterables.getOnlyElement(getYamlMap().keySet());
+            Object value = Iterables.getOnlyElement(getYamlMap().values());
             
             // key should always be primitive
             if (!isJsonPrimitiveObject(key)) return;
@@ -131,6 +159,81 @@ public class ConvertSingletonMap extends YomlSerializerComposition {
             context.phaseRestart();
         }
 
+        protected boolean enterModeRead(SingletonMapMode newMode) {
+            SingletonMapMode currentMode = (SingletonMapMode) blackboard.get(ConvertSingletonMap.this);
+            if (currentMode==null) {
+                if (!allowInMode(newMode)) return false;
+            } else if (currentMode == SingletonMapMode.NON_LIST) {
+                // cannot transition from non-list mode others
+                return false;
+            } else {
+                // current mode is one of the list modes;
+                // only allowed to transition to non-list (in recursive call)
+                if (newMode == SingletonMapMode.NON_LIST) /* fine */;
+                else if (currentMode == SingletonMapMode.LIST_AS_MAP && newMode == SingletonMapMode.LIST_AS_LIST) ;
+                else {
+                    return false;
+                } 
+            }
+            // set the new mode
+            blackboard.put(ConvertSingletonMap.this, newMode);
+            return true;
+        }
+
+        protected void readManipulatingInList() {
+            // go through a list, applying to each
+            List<Object> result = readManipulatingInList((Collection<?>)getYamlObject(), SingletonMapMode.LIST_AS_LIST);
+            if (result==null) return;
+            
+            context.setYamlObject(result);
+            context.phaseAdvance();
+        }
+
+        protected List<Object> readManipulatingInList(Collection<?> list, SingletonMapMode mode) {
+            // go through a list, applying to each
+            GenericsParse gp = new GenericsParse(context.getExpectedType());
+            if (gp.warning!=null) {
+                warn(gp.warning);
+                return null;
+            }
+            String genericSubType = null;
+            if (gp.isGeneric()) {
+                if (gp.subTypeCount()!=1) {
+                    // not a list
+                    return null;
+                }
+                genericSubType = Iterables.getOnlyElement(gp.subTypes);
+            }
+
+            List<Object> result = MutableList.of();
+            int index = 0;
+            for (Object item: list) {
+                YomlContextForRead newContext = new YomlContextForRead(item, context.getJsonPath()+"["+index+"]", genericSubType, context);
+                // add this serializer and set mode in the new context
+                SerializersOnBlackboard.create(newContext.getBlackboard()).addExpectedTypeSerializers(MutableList.of((YomlSerializer) ConvertSingletonMap.this));
+                newContext.getBlackboard().put(ConvertSingletonMap.this, mode);
+                
+                Object newItem = converter.read(newContext);
+                result.add( newItem );
+                index++;
+            }
+            return result;
+        }
+
+        protected void readManipulatingMapToList() {
+            // convert from a map to a list; then manipulate in list
+            List<Object> result = MutableList.of();
+            for (Map.Entry<Object,Object> entry: getYamlMap().entrySet()) {
+                result.add(MutableMap.of(entry.getKey(), entry.getValue()));
+            }
+            result = readManipulatingInList(result, SingletonMapMode.LIST_AS_MAP);
+            if (result==null) return;
+            
+            context.setYamlObject(result);
+            YamlKeysOnBlackboard.getOrCreate(blackboard, null).yamlKeysToReadToJava.clear();
+            context.phaseAdvance();
+        }
+
         /** return true/false whether to merge, or null if need to bail out */
         protected Boolean isForMerging(Object value) {
             if (mergeWithMapValue==null) {
@@ -159,9 +262,22 @@ public class ConvertSingletonMap extends YomlSerializerComposition {
                 return;
             }
             if (!context.isPhase(OUR_PHASE)) return;
-            
+
             // don't run multiple times
-            if (blackboard.put(ConvertSingletonMap.class.getName(), new ConvertSingletonApplied())!=null) return;
+            if (blackboard.put(ConvertSingletonMap.this, SingletonMapMode.NON_LIST)!=null) return;
+            
+            if (!allowInMode(SingletonMapMode.NON_LIST)) {
+                if (!allowInMode(SingletonMapMode.LIST_AS_LIST)) {
+                    // we can only write in one of the above two modes currently
+                    // (list-as-map is difficult to reverse-engineer, and not necessary)
+                    return;
+                }
+                YomlContext parent = context.getParent();
+                if (parent==null || !(parent.getJavaObject() instanceof Collection)) {
+                    // parent is not a list; disallow
+                    return;
+                }
+            }
 
             if (!getYamlMap().containsKey(keyForKey)) return;
             Object newKey = getYamlMap().get(keyForKey);
@@ -231,6 +347,18 @@ public class ConvertSingletonMap extends YomlSerializerComposition {
             context.setYamlObject(MutableMap.of(newKey, newValue));
             context.phaseRestart();
         }
+    }
+
+    public boolean allowInMode(SingletonMapMode currentMode) {
+        return getAllowedModes().contains(currentMode);
+    }
+
+    protected Collection<SingletonMapMode> getAllowedModes() {
+        MutableSet<SingletonMapMode> modes = MutableSet.of();
+        modes.addIfNotNull(onlyInMode);
+        modes.putAll(onlyInModes);
+        if (modes.isEmpty()) return Arrays.asList(SingletonMapMode.values());
+        return modes;
     }
     
 }

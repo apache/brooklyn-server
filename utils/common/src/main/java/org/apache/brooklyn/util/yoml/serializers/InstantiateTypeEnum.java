@@ -19,7 +19,7 @@
 package org.apache.brooklyn.util.yoml.serializers;
 
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.yoml.YomlContext;
+import org.apache.brooklyn.util.yoml.internal.YomlContext;
 
 public class InstantiateTypeEnum extends YomlSerializerComposition {
 

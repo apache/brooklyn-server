@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.util.yoml;
 
+import org.apache.brooklyn.util.yoml.internal.YomlContext;
+
 public class YomlException extends RuntimeException {
 
     private static final long serialVersionUID = 7825908737102292499L;

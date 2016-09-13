@@ -28,8 +28,8 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.yoml.Yoml;
-import org.apache.brooklyn.util.yoml.YomlContextForRead;
-import org.apache.brooklyn.util.yoml.YomlContextForWrite;
+import org.apache.brooklyn.util.yoml.internal.YomlContextForRead;
+import org.apache.brooklyn.util.yoml.internal.YomlContextForWrite;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils.GenericsParse;
 
@@ -165,9 +165,9 @@ public class InstantiateTypeMap extends YomlSerializerComposition {
                             ev1 = m.get("value");
                         }
                         if (ek2==null) {
-                            ek2 = converter.read(new YomlContextForRead(ek1, newPath+"/key", genericKeySubType));
+                            ek2 = converter.read(new YomlContextForRead(ek1, newPath+"/@key", genericKeySubType, context));
                         }
-                        ev2 = converter.read(new YomlContextForRead(ev1, newPath+"/value", genericValueSubType));
+                        ev2 = converter.read(new YomlContextForRead(ev1, newPath+"/@value", genericValueSubType, context));
                         jom.put(ek2, ev2);
                     } else {
                         // must be an entry set, so invalid
@@ -180,7 +180,7 @@ public class InstantiateTypeMap extends YomlSerializerComposition {
                 
             } else if (value instanceof Map) {
                 for (Map.Entry<?,?> me: ((Map<?,?>)value).entrySet()) {
-                    Object v = converter.read(new YomlContextForRead(me.getValue(), context.getJsonPath()+"/"+me.getKey(), genericValueSubType));
+                    Object v = converter.read(new YomlContextForRead(me.getValue(), context.getJsonPath()+"/"+me.getKey(), genericValueSubType, context));
                     jom.put(me.getKey(), v);
                 }
                 
@@ -294,7 +294,7 @@ public class InstantiateTypeMap extends YomlSerializerComposition {
                 
                 MutableMap<Object, Object> out = MutableMap.of();
                 for (Map.Entry<?,?> me: jo.entrySet()) {
-                    Object v = converter.write(new YomlContextForWrite(me.getValue(), context.getJsonPath()+"/"+me.getKey(), genericValueSubType));
+                    Object v = converter.write(new YomlContextForWrite(me.getValue(), context.getJsonPath()+"/"+me.getKey(), genericValueSubType, context));
                     out.put(me.getKey(), v);
                 }
                 isEmpty = out.isEmpty();
@@ -304,12 +304,12 @@ public class InstantiateTypeMap extends YomlSerializerComposition {
                 int i=0;
                 MutableList<Object> out = MutableList.of();
                 for (Map.Entry<?,?> me: jo.entrySet()) {
-                    Object v = converter.write(new YomlContextForWrite(me.getValue(), context.getJsonPath()+"["+i+"]/value", genericValueSubType));
+                    Object v = converter.write(new YomlContextForWrite(me.getValue(), context.getJsonPath()+"["+i+"]/value", genericValueSubType, context));
                     
                     if (me.getKey() instanceof String) {
                         out.add(MutableMap.of(me.getKey(), v));
                     } else {
-                        Object k = converter.write(new YomlContextForWrite(me.getKey(), context.getJsonPath()+"["+i+"]/key", genericValueSubType));
+                        Object k = converter.write(new YomlContextForWrite(me.getKey(), context.getJsonPath()+"["+i+"]/key", genericValueSubType, context));
                         out.add(MutableMap.of("key", k, "value", v));
                     }
                     i++;

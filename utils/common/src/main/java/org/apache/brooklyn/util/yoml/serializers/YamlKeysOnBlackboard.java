@@ -21,9 +21,9 @@ package org.apache.brooklyn.util.yoml.serializers;
 import java.util.Map;
 
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.yoml.YomlContext;
 import org.apache.brooklyn.util.yoml.YomlException;
 import org.apache.brooklyn.util.yoml.YomlRequirement;
+import org.apache.brooklyn.util.yoml.internal.YomlContext;
 
 /** Keys from a YAML map that still need to be handled */
 public class YamlKeysOnBlackboard implements YomlRequirement {

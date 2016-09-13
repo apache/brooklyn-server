@@ -40,9 +40,9 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yoml.Yoml;
+import org.apache.brooklyn.util.yoml.YomlConfig;
 import org.apache.brooklyn.util.yoml.YomlException;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
-import org.apache.brooklyn.util.yoml.internal.YomlConfig;
 import org.yaml.snakeyaml.Yaml;
 
 import com.google.common.base.Preconditions;

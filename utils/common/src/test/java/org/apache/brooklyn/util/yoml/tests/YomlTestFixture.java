@@ -26,9 +26,9 @@ import java.util.Set;
 import org.apache.brooklyn.util.collections.Jsonya;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yoml.Yoml;
+import org.apache.brooklyn.util.yoml.YomlConfig;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
 import org.apache.brooklyn.util.yoml.annotations.YomlAnnotations;
-import org.apache.brooklyn.util.yoml.internal.YomlConfig;
 import org.apache.brooklyn.util.yoml.serializers.InstantiateTypeFromRegistryUsingConfigMap;
 import org.testng.Assert;
 

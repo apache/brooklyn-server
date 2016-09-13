@@ -34,10 +34,12 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.yoml.Yoml;
-import org.apache.brooklyn.util.yoml.YomlContext;
-import org.apache.brooklyn.util.yoml.YomlContextForRead;
-import org.apache.brooklyn.util.yoml.YomlContextForWrite;
+import org.apache.brooklyn.util.yoml.internal.SerializersOnBlackboard;
+import org.apache.brooklyn.util.yoml.internal.YomlContext;
+import org.apache.brooklyn.util.yoml.internal.YomlContextForRead;
+import org.apache.brooklyn.util.yoml.internal.YomlContextForWrite;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils;
+import org.apache.brooklyn.util.yoml.internal.YomlContext.StandardPhases;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils.GenericsParse;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils.JsonMarker;
 import org.slf4j.Logger;
@@ -62,6 +64,9 @@ import com.google.common.collect.Iterables;
  * repeat with value
  */
 public class InstantiateTypeList extends YomlSerializerComposition {
+
+    public static final String MANIPULATING_FROM_LIST = "manipulating-from-list";
+    public static final String MANIPULATING_TO_LIST = "manipulating-to-list";
 
     private static final Logger log = LoggerFactory.getLogger(InstantiateTypeList.class);
     
@@ -118,8 +123,8 @@ public class InstantiateTypeList extends YomlSerializerComposition {
                 } else {
                     // but we have a collection
                     // spawn manipulate-from-list phase
-                    if (!context.seenPhase(YomlContext.StandardPhases.MANIPULATING_FROM_LIST)) {
-                        context.phaseInsert(YomlContext.StandardPhases.MANIPULATING_FROM_LIST, YomlContext.StandardPhases.HANDLING_TYPE);
+                    if (!context.seenPhase(MANIPULATING_FROM_LIST)) {
+                        context.phaseInsert(MANIPULATING_FROM_LIST, YomlContext.StandardPhases.HANDLING_TYPE);
                         context.phaseAdvance();
                     }
                     return;
@@ -145,7 +150,7 @@ public class InstantiateTypeList extends YomlSerializerComposition {
                     expectedJavaType = oldExpectedType;
                     
                     if (javaType==null || value==null || !Collection.class.isAssignableFrom(javaType) || !Iterable.class.isInstance(value)) {
-                        // don't let this run, try something else
+                        // we don't apply, at least not yet, but may need to manipulate *to* a list
                     } else {
                         // looks like a list in a type-value map
                         Object jo = newInstance(expectedJavaType, type);
@@ -160,10 +165,14 @@ public class InstantiateTypeList extends YomlSerializerComposition {
                     }
                 }
                 if (expectedJavaType!=null) {
-                    // collection definitely expected but not received
-                    if (!context.seenPhase(YomlContext.StandardPhases.MANIPULATING_TO_LIST)) {
-                        context.phaseInsert(YomlContext.StandardPhases.MANIPULATING_TO_LIST, YomlContext.StandardPhases.HANDLING_TYPE);
+                    // collection definitely expected but not received, schedule manipulation phase
+                    if (!context.seenPhase(MANIPULATING_TO_LIST)) {
+                        // and add converters for the generic subtype
+                        SerializersOnBlackboard.get(blackboard).addExpectedTypeSerializers( config.getTypeRegistry().getSerializersForType(genericSubType) );
+                        context.phaseInsert(MANIPULATING_TO_LIST, YomlContext.StandardPhases.HANDLING_TYPE);
                         context.phaseAdvance();
+                    } else {
+                        warn("Unable to manipulate input to be a list when a list is expected");
                     }
                     return;
                 }
@@ -171,6 +180,16 @@ public class InstantiateTypeList extends YomlSerializerComposition {
                 return;
             } else {
                 // given a collection, when expecting a collection or no expectation -- read as list
+                
+                if (!context.seenPhase(MANIPULATING_TO_LIST)) {
+                    // first apply manipulations,
+                    // and add converters for the generic subtype
+                    SerializersOnBlackboard.get(blackboard).addExpectedTypeSerializers( config.getTypeRegistry().getSerializersForType(genericSubType) );
+                    context.phaseInsert(MANIPULATING_TO_LIST, StandardPhases.MANIPULATING, YomlContext.StandardPhases.HANDLING_TYPE);
+                    context.phaseAdvance();
+                    return;
+                }
+                
                 Object jo;
                 if (hasJavaObject()) {
                     // populating previous java object
@@ -286,7 +305,7 @@ public class InstantiateTypeList extends YomlSerializerComposition {
             int index = 0;
             
             for (Object yi: yo) {
-                jo.add(converter.read( new YomlContextForRead(yi, context.getJsonPath()+"["+index+"]", genericSubType) ));
+                jo.add(converter.read( new YomlContextForRead(yi, context.getJsonPath()+"["+index+"]", genericSubType, context) ));
 
                 index++;
             }
@@ -388,7 +407,7 @@ public class InstantiateTypeList extends YomlSerializerComposition {
 
             int index = 0;
             for (Object ji: (Iterable<?>)getJavaObject()) {
-                list.add(converter.write( new YomlContextForWrite(ji, context.getJsonPath()+"["+index+"]", genericSubType) ));
+                list.add(converter.write( new YomlContextForWrite(ji, context.getJsonPath()+"["+index+"]", genericSubType, context) ));
                 index++;
             }
             

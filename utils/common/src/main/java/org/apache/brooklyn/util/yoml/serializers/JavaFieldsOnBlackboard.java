@@ -22,9 +22,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.util.text.Strings;
-import org.apache.brooklyn.util.yoml.YomlContext;
 import org.apache.brooklyn.util.yoml.YomlException;
 import org.apache.brooklyn.util.yoml.YomlRequirement;
+import org.apache.brooklyn.util.yoml.internal.YomlContext;
 
 /** Indicates that something has handled the type 
  * (on read, creating the java object, and on write, setting the `type` field in the yaml object)

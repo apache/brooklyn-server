@@ -30,10 +30,10 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
-import org.apache.brooklyn.util.yoml.YomlContext;
-import org.apache.brooklyn.util.yoml.YomlContext.StandardPhases;
 import org.apache.brooklyn.util.yoml.annotations.Alias;
 import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsTopLevel;
+import org.apache.brooklyn.util.yoml.internal.YomlContext;
+import org.apache.brooklyn.util.yoml.internal.YomlContext.StandardPhases;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

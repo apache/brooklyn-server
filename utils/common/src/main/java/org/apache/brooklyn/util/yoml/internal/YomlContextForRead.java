@@ -16,25 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.camp.yoml;
+package org.apache.brooklyn.util.yoml.internal;
 
-import org.apache.brooklyn.util.yoml.YomlConfig;
-import org.apache.brooklyn.util.yoml.annotations.YomlAnnotations;
-import org.apache.brooklyn.util.yoml.tests.YomlTestFixture;
+import org.apache.brooklyn.util.text.Strings;
 
-public class BrooklynYomlTestFixture extends YomlTestFixture {
+public class YomlContextForRead extends YomlContext {
 
-    public static YomlTestFixture newInstance() { return new BrooklynYomlTestFixture(); }
-    public static YomlTestFixture newInstance(YomlConfig config) { return new BrooklynYomlTestFixture(config); }
-
-    public BrooklynYomlTestFixture() {}
-    public BrooklynYomlTestFixture(YomlConfig config) {
-        super(config);
+    public YomlContextForRead(Object yamlObject, String jsonPath, String expectedType, YomlContext parent) {
+        super(jsonPath, expectedType, parent);
+        setYamlObject(yamlObject);
     }
+    
+    String origin;
+    int offset;
+    int length;
     
     @Override
-    protected YomlAnnotations annotationsProvider() {
-        return new BrooklynYomlAnnotations();
+    public String toString() {
+        return "reading"+(expectedType!=null ? " "+expectedType : "")+" at "+(Strings.isNonBlank(jsonPath) ? jsonPath : "root");
     }
-    
 }

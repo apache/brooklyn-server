@@ -18,11 +18,25 @@
  */
 package org.apache.brooklyn.util.yoml;
 
-public class YomlContextForWrite extends YomlContext {
+import java.util.List;
 
-    public YomlContextForWrite(Object javaObject, String jsonPath, String expectedType) {
-        super(jsonPath, expectedType);
-        setJavaObject(javaObject);
+import org.apache.brooklyn.util.javalang.coerce.TypeCoercer;
+import org.apache.brooklyn.util.yoml.internal.ConstructionInstruction;
+import org.apache.brooklyn.util.yoml.internal.YomlConfigs;
+
+public interface YomlConfig {
+
+    public YomlTypeRegistry getTypeRegistry();
+    public TypeCoercer getCoercer();
+    public List<YomlSerializer> getSerializersPost();
+    public ConstructionInstruction getConstructionInstruction();
+
+    public static class Builder extends YomlConfigs.Builder<Builder> {
+        public static Builder builder() { return new Builder(); }
+        public static Builder builder(YomlConfig source) { return new Builder(source); }
+        
+        protected Builder() { }
+        protected Builder(YomlConfig source) { super(source); }
     }
     
 }

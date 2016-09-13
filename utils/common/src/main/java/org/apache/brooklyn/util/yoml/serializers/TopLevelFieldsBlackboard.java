@@ -28,10 +28,10 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
-import org.apache.brooklyn.util.yoml.YomlContext;
 import org.apache.brooklyn.util.yoml.YomlException;
 import org.apache.brooklyn.util.yoml.YomlRequirement;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
+import org.apache.brooklyn.util.yoml.internal.YomlContext;
 import org.apache.brooklyn.util.yoml.serializers.TopLevelFieldSerializer.FieldConstraint;
 
 public class TopLevelFieldsBlackboard implements YomlRequirement {

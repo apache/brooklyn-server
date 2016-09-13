@@ -27,11 +27,11 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
-import org.apache.brooklyn.util.yoml.YomlContext;
-import org.apache.brooklyn.util.yoml.YomlContext.StandardPhases;
-import org.apache.brooklyn.util.yoml.YomlContextForRead;
-import org.apache.brooklyn.util.yoml.YomlContextForWrite;
+import org.apache.brooklyn.util.yoml.internal.YomlContext;
+import org.apache.brooklyn.util.yoml.internal.YomlContextForRead;
+import org.apache.brooklyn.util.yoml.internal.YomlContextForWrite;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils;
+import org.apache.brooklyn.util.yoml.internal.YomlContext.StandardPhases;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,7 +68,7 @@ public class FieldsInMapUnderFields extends YomlSerializerComposition {
                     return false;
                 } else {
                     String fieldType = YomlUtils.getFieldTypeName(ff, config);
-                    Object v2 = converter.read( new YomlContextForRead(value, context.getJsonPath()+"/"+key, fieldType) );
+                    Object v2 = converter.read( new YomlContextForRead(value, context.getJsonPath()+"/"+key, fieldType, context) );
                     
                     ff.setAccessible(true);
                     ff.set(getJavaObject(), v2);
@@ -135,7 +135,7 @@ public class FieldsInMapUnderFields extends YomlSerializerComposition {
                     } else {
                         Field ff = Reflections.findFieldMaybe(getJavaObject().getClass(), f).get();
                         String fieldType = YomlUtils.getFieldTypeName(ff, config);
-                        Object v2 = converter.write(new YomlContextForWrite(v.get(), context.getJsonPath()+"/"+f, fieldType) );
+                        Object v2 = converter.write(new YomlContextForWrite(v.get(), context.getJsonPath()+"/"+f, fieldType, context) );
                         fields.put(f, v2);
                     }
                 }

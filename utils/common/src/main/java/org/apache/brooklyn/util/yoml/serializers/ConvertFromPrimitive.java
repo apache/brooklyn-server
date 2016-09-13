@@ -21,11 +21,11 @@ package org.apache.brooklyn.util.yoml.serializers;
 import java.util.Map;
 
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.yoml.YomlContext;
 import org.apache.brooklyn.util.yoml.annotations.Alias;
 import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsTopLevel;
 import org.apache.brooklyn.util.yoml.annotations.YomlFromPrimitive;
 import org.apache.brooklyn.util.yoml.internal.SerializersOnBlackboard;
+import org.apache.brooklyn.util.yoml.internal.YomlContext;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils;
 
 @YomlAllFieldsTopLevel

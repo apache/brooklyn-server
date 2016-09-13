@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.yoml.annotations.DefaultKeyValue;
@@ -29,13 +30,18 @@ import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsTopLevel;
 import org.apache.brooklyn.util.yoml.annotations.YomlSingletonMap;
 import org.apache.brooklyn.util.yoml.serializers.AllFieldsTopLevel;
 import org.apache.brooklyn.util.yoml.serializers.ConvertSingletonMap;
+import org.apache.brooklyn.util.yoml.serializers.ConvertSingletonMap.SingletonMapMode;
 import org.apache.brooklyn.util.yoml.tests.YomlBasicTests.ShapeWithSize;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Objects;
 
 public class ConvertSingletonMapTests {
 
+    private static final Logger log = LoggerFactory.getLogger(ConvertSingletonMapTests.class);
+    
     static class ShapeWithTags extends ShapeWithSize {
         List<String> tags;
         Map<String,String> metadata;
@@ -62,12 +68,12 @@ public class ConvertSingletonMapTests {
     YomlTestFixture y = YomlTestFixture.newInstance().
         addType("shape", ShapeWithTags.class, MutableList.of(
             new AllFieldsTopLevel(),
-            new ConvertSingletonMap("name", null, "color", "tags", null, null, MutableMap.of("size", 0))));
+            new ConvertSingletonMap("name", null, "color", "tags", null, null, null, MutableMap.of("size", 0))));
     
     YomlTestFixture y2 = YomlTestFixture.newInstance().
         addType("shape", ShapeWithTags.class, MutableList.of(
             new AllFieldsTopLevel(),
-            new ConvertSingletonMap("name", "size", "color", "tags", "metadata", null, MutableMap.of("size", 42))));
+            new ConvertSingletonMap("name", "size", "color", "tags", "metadata", null, null, MutableMap.of("size", 42))));
     
     
     @Test public void testPrimitiveValue() {
@@ -101,14 +107,13 @@ public class ConvertSingletonMapTests {
         .assertResult("{ type: shape, color: red, name: red-square, size: 0 }");
     }
 
-    YomlTestFixture y3 = YomlTestFixture.newInstance().
-        addTypeWithAnnotations("shape", ShapeAnn.class);
-
     @YomlAllFieldsTopLevel
     @YomlSingletonMap(keyForKey="name", keyForListValue="tags", keyForPrimitiveValue="color",
-//        keyForAnyValue="",
         defaults={@DefaultKeyValue(key="size", val="0", valNeedsParsing=true)})
     static class ShapeAnn extends ShapeWithTags {}
+    
+    YomlTestFixture y3 = YomlTestFixture.newInstance().
+        addTypeWithAnnotations("shape", ShapeAnn.class);
     
     @Test public void testAnnPrimitiveValue() {
         y3.reading("{ red-square: red }", "shape").writing(new ShapeAnn().name("red-square").color("red"), "shape")
@@ -136,12 +141,46 @@ public class ConvertSingletonMapTests {
         .doReadWriteAssertingJsonMatch();
     }
     
-    // TODO
-    @Test(enabled=false) public void testAnnListCompressed() {
-        y3.reading("{ one: { size: 1 }, two: { size: 2 } }", "list<shape>").writing(
-            MutableList.of(new ShapeAnn().name("one").size(1), new ShapeAnn().name("two").size(2)), "list<shape>") 
-        .doReadWriteAssertingJsonMatch();
+    @Test public void testAnnListCompressed() {
+        // read list-as-map, will write out as list-as-list, and can read that back too
+        List<?> obj = MutableList.of(new ShapeAnn().name("one").size(1), new ShapeAnn().name("two").size(2));
+        y3.read("{ one: { size: 1 }, two: { size: 2 } }", "list<shape>").assertResult(obj);
+        y3.reading("[ { one: { size: 1 } }, { two: { size: 2 } } ]", "list<shape>")
+          .writing(obj, "list<shape>")
+          .doReadWriteAssertingJsonMatch();
     }
-    
+
+    /* perverse example where we parse differently depending whether it is a list or a map */ 
+    YomlTestFixture y4 = YomlTestFixture.newInstance().
+        addType("shape", ShapeAnn.class, MutableList.of(
+            new AllFieldsTopLevel(),
+            // in map, we take <name>: <color>
+            new ConvertSingletonMap("name", null, "color", null, null, 
+                MutableList.of(SingletonMapMode.LIST_AS_MAP), null, MutableMap.of("size", 0)),            
+            // in list, we take <color>: <name>
+            new ConvertSingletonMap("color", null, "name", null, null, 
+                MutableList.of(SingletonMapMode.LIST_AS_LIST), null, MutableMap.of("size", 0)) )            
+            );
+
+    @Test public void testAnnListPerverseOrders() {
+        // read list-as-map, will write out as list-as-list, and can read that back too
+        List<?> obj = MutableList.of(new ShapeAnn().name("blue").color("bleu"));
+        String listJson = "[ { bleu: blue } ]";
+        
+        y4.read("{ blue: bleu }", "list<shape>").assertResult(obj);
+        y4.write(y4.lastReadResult, "list<shape>").assertResult(listJson);
+        y4.read(listJson, "list<shape>").assertResult(obj);
+    }
+
+    @Test public void testAnnDisallowedAtRoot() {
+        try {
+            y4.read("{ blue: bleu }", "shape");
+            Asserts.shouldHaveFailedPreviously("but got "+y4.lastReadResult);
+        } catch (Exception e) {
+            log.info("got expected error: "+e);
+            Asserts.expectedFailureContainsIgnoreCase(e, "blue", "incomplete");
+        }
+    }
+
 
 }

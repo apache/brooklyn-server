@@ -47,6 +47,13 @@ public class SerializersOnBlackboard {
         blackboard.put(KEY, new SerializersOnBlackboard());
         return peek(blackboard);
     }
+    public static SerializersOnBlackboard getOrCreate(Map<Object,Object> blackboard) {
+        SerializersOnBlackboard result = peek(blackboard);
+        if (result!=null) return result;
+        result = new SerializersOnBlackboard();
+        blackboard.put(KEY, result);
+        return result;
+    }
     
     private List<YomlSerializer> preSerializers = MutableList.of();
     private List<YomlSerializer> instantiatedTypeSerializers = MutableList.of();

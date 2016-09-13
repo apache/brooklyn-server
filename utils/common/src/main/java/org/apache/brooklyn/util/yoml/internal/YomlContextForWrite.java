@@ -16,23 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.util.yoml;
+package org.apache.brooklyn.util.yoml.internal;
 
-import org.apache.brooklyn.util.text.Strings;
+public class YomlContextForWrite extends YomlContext {
 
-public class YomlContextForRead extends YomlContext {
-
-    public YomlContextForRead(Object yamlObject, String jsonPath, String expectedType) {
-        super(jsonPath, expectedType);
-        setYamlObject(yamlObject);
+    public YomlContextForWrite(Object javaObject, String jsonPath, String expectedType, YomlContext parent) {
+        super(jsonPath, expectedType, parent);
+        setJavaObject(javaObject);
     }
     
-    String origin;
-    int offset;
-    int length;
-    
-    @Override
-    public String toString() {
-        return "reading"+(expectedType!=null ? " "+expectedType : "")+" at "+(Strings.isNonBlank(jsonPath) ? jsonPath : "root");
-    }
 }

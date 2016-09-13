@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.util.yoml;
 
+import org.apache.brooklyn.util.yoml.internal.YomlContext;
+
 public interface YomlRequirement {
 
     void checkCompletion(YomlContext context);

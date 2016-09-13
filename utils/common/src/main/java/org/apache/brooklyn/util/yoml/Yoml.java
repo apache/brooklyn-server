@@ -18,7 +18,8 @@
  */
 package org.apache.brooklyn.util.yoml;
 
-import org.apache.brooklyn.util.yoml.internal.YomlConfig;
+import org.apache.brooklyn.util.yoml.internal.YomlContextForRead;
+import org.apache.brooklyn.util.yoml.internal.YomlContextForWrite;
 import org.apache.brooklyn.util.yoml.internal.YomlConverter;
 
 
@@ -47,14 +48,14 @@ public class Yoml {
         return readFromYamlObject(new org.yaml.snakeyaml.Yaml().load(yaml), expectedType);
     }
     public Object readFromYamlObject(Object yamlObject, String type) {
-        return new YomlConverter(config).read( new YomlContextForRead(yamlObject, "", type) );
+        return new YomlConverter(config).read( new YomlContextForRead(yamlObject, "", type, null) );
     }
 
     public Object write(Object java) {
         return write(java, null);
     }
     public Object write(Object java, String expectedType) {
-        return new YomlConverter(config).write( new YomlContextForWrite(java, "", expectedType) );
+        return new YomlConverter(config).write( new YomlContextForWrite(java, "", expectedType, null) );
     }
     
 //    public <T> T read(String yaml, Class<T> type) {

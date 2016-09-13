@@ -34,6 +34,7 @@ import org.apache.brooklyn.util.javalang.ReflectionPredicates;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yaml.Yamls;
+import org.apache.brooklyn.util.yoml.YomlConfig;
 import org.apache.brooklyn.util.yoml.annotations.DefaultKeyValue;
 
 import com.google.common.annotations.Beta;

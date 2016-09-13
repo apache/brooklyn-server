@@ -22,9 +22,9 @@ import java.util.Map;
 
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.yoml.YomlContext;
-import org.apache.brooklyn.util.yoml.YomlContextForRead;
-import org.apache.brooklyn.util.yoml.YomlContextForWrite;
+import org.apache.brooklyn.util.yoml.internal.YomlContext;
+import org.apache.brooklyn.util.yoml.internal.YomlContextForRead;
+import org.apache.brooklyn.util.yoml.internal.YomlContextForWrite;
 
 public class ConfigInMapUnderConfigSerializer extends FieldsInMapUnderFields {
 
@@ -67,12 +67,12 @@ public class ConfigInMapUnderConfigSerializer extends FieldsInMapUnderFields {
             String optionalType = getType(key, null);
             Object v2;
             try {
-                v2 = converter.read( new YomlContextForRead(value, context.getJsonPath()+"/"+key, optionalType) );
+                v2 = converter.read( new YomlContextForRead(value, context.getJsonPath()+"/"+key, optionalType, context) );
             } catch (Exception e) {
                 // for config we try with the optional type, but don't insist
                 Exceptions.propagateIfFatal(e);
                 if (optionalType!=null) optionalType = null;
-                v2 = converter.read( new YomlContextForRead(value, context.getJsonPath()+"/"+key, optionalType) );
+                v2 = converter.read( new YomlContextForRead(value, context.getJsonPath()+"/"+key, optionalType, context) );
             }
             fib.fieldsFromReadToConstructJava.put(key, v2);
             return true;
@@ -86,7 +86,7 @@ public class ConfigInMapUnderConfigSerializer extends FieldsInMapUnderFields {
             for (Map.Entry<String,Object> entry: fib.configToWriteFromJava.entrySet()) {
                 // NB: won't normally have a type, the explicit config keys will take those
                 String optionalType = getType(entry.getKey(), entry.getValue());
-                Object v = converter.write(new YomlContextForWrite(entry.getValue(), context.getJsonPath()+"/"+entry.getKey(), optionalType) );
+                Object v = converter.write(new YomlContextForWrite(entry.getValue(), context.getJsonPath()+"/"+entry.getKey(), optionalType, context) );
                 configMap.put(entry.getKey(), v);
             }
             for (String key: configMap.keySet()) fib.configToWriteFromJava.remove(key);

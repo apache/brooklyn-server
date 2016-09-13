@@ -373,27 +373,29 @@ This works because we've defined the following sets of rules for serializing ser
     defaults:
       type: top-level-field
 
-  # if yaml is a list containing maps with a single key, treat the key specially
-  # transforms `- x: k` or `- x: { .value: k }` to `- { type: x, .value: k }`
-  # (use this one with care as it can be confusing, but useful where type is the only thing
-  # always required; it's recommended (although not done in this example) to use alongside 
-  # a rule `convert-from-primitive` with `key: type`.)
-  - type: convert-singleton-maps-in-list
+  # convert-singleton-map allows a key to be promoted as a primary key
+  # for a more convenient representation, especially when a list is expected;
+  # in this example `k: { type: x }` becomes `{ field-name: k, type: x}`
+  # (and same for shorthand `k: x`; however if just `k: {}` is supplied it
+  # takes a default type `top-level-field`); here it is restricted to being inside
+  # a larger map so as not to conflict with the next rule 
+  - type: convert-singleton-map
+    only-in-mode: map
+    key-for-key: .value          # as above, will be converted later
+    key-for-string-value: type   # note, only applies if x non-blank
+
+  # sometimes it is convenient to have lists containing maps with a single key, 
+  # for cases where the above rule might be wanted but the keys would conflict; 
+  # this transforms `- x: k` or `- x: { .value: k }` to `- { type: x, .value: k }`
+  # (use `only-apply-in` restrictions with care; the example here shows how it
+  # can quickly become confusing; also note it's handy to use alongside a rule 
+  # `convert-from-primitive` to introduce the same `key`)
+  - type: convert-singleton-map
+    only-in-mode: list
     key-for-key: type              # NB skipped if the value is a map containing this key
     # if the value is a map, they will merge
     # otherwise the value is set as `.value` for conversion later
 
-  # describes how a yaml map can correspond to a list
-  # in this example `k: { type: x }` in a map (not a list)
-  # becomes an entry `{ field-name: k, type: x}` in a list
-  # (and same for shorthand `k: x`; however if just `k: {}` is supplied it
-  # takes a default type `top-level-field`)
-  - type: convert-singleton-map
-    key-for-key: .value          # as above, will be converted later
-    key-for-string-value: type   # note, only applies if x non-blank
-    defaults:
-      type: top-level-field      # note: this is needed to prevent collision with rule above 
-  
   # applies any listed unset default keys to the given default values,
   # either on a map, or if a list then for every map entry in the list;
   # here this essentially makes `top-level-field` the default type
@@ -541,10 +543,10 @@ either on a global or a per-class basis in the registry.
   * also `rename-default-key` (`@YomlRenameDefaultKey`) and `rename-default-key` (`@YomlRenameDefaultValue`)
     as conveniences for the above when renaming `.key` or `.value` respectively
     (which are used in some of the other serializers)
-    
-# TODO13 apply and test the above in a list as well, inferring type
-# TODO13 convert-singleton-maps-in-list 
- 
+
+* `default-map-values` (`@YomlDefaultMapValues`)
+  * allows default key-value pairs to be added on read and removed on write
+
 
 ## Implementation notes
 
@@ -586,10 +588,6 @@ and to enable the most appropriate error to be returned to the user if there are
 
 
 ### TODO
-
-* list/map conversion, and tidy up notes above
-* rename-key
-* complex syntax, type as key, etc
 
 * infinite loop detection: in serialize loop
 * handle references, solve infinite loop detection in self-referential writes, with `.reference: ../../OBJ`

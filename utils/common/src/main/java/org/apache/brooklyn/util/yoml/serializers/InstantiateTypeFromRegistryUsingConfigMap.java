@@ -29,12 +29,12 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.yoml.Yoml;
-import org.apache.brooklyn.util.yoml.YomlContext;
+import org.apache.brooklyn.util.yoml.YomlConfig;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
 import org.apache.brooklyn.util.yoml.annotations.Alias;
 import org.apache.brooklyn.util.yoml.internal.ConstructionInstruction;
 import org.apache.brooklyn.util.yoml.internal.SerializersOnBlackboard;
-import org.apache.brooklyn.util.yoml.internal.YomlConfig;
+import org.apache.brooklyn.util.yoml.internal.YomlContext;
 
 import com.google.common.base.Preconditions;
 

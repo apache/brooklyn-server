@@ -16,25 +16,28 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.util.yoml;
+package org.apache.brooklyn.util.yoml.internal;
 
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 
 import com.google.common.base.Objects;
 
 public abstract class YomlContext {
 
+    final YomlContext parent;
     final String jsonPath;
     final String expectedType;
     Object javaObject;
     Object yamlObject;
-    
+    Map<Object,Object> blackboard;
     
     String phaseCurrent = null;
     int phaseCurrentStep = -1;
@@ -45,15 +48,17 @@ public abstract class YomlContext {
         String MANIPULATING = "manipulating";
         String HANDLING_TYPE = "handling-type";
         String HANDLING_FIELDS = "handling-fields";
-        String MANIPULATING_FROM_LIST = "manipulating-from-list";
-        String MANIPULATING_TO_LIST = "manipulating-to-list";
     }
     
-    public YomlContext(String jsonPath, String expectedType) {
+    public YomlContext(String jsonPath, String expectedType, YomlContext parent) {
         this.jsonPath = jsonPath;
         this.expectedType = expectedType;
+        this.parent = parent;
     }
     
+    public YomlContext getParent() {
+        return parent;
+    }
     public String getJsonPath() {
         return jsonPath;
     }
@@ -109,4 +114,10 @@ public abstract class YomlContext {
     public String toString() {
         return super.toString()+"["+getJsonPath()+"]";
     }
+
+    public Map<Object, Object> getBlackboard() {
+        if (blackboard==null) blackboard = MutableMap.of();
+        return blackboard; 
+    }
+    
 }

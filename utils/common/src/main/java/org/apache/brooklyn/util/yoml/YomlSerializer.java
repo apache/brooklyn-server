@@ -18,8 +18,8 @@
  */
 package org.apache.brooklyn.util.yoml;
 
-import java.util.Map;
-
+import org.apache.brooklyn.util.yoml.internal.YomlContextForRead;
+import org.apache.brooklyn.util.yoml.internal.YomlContextForWrite;
 import org.apache.brooklyn.util.yoml.internal.YomlConverter;
 import org.apache.brooklyn.util.yoml.serializers.YomlSerializerComposition;
 
@@ -37,7 +37,7 @@ public interface YomlSerializer {
      * returning true if it did anything (and so should restart the cycle).
      * implementations must NOT return true indefinitely if passed the same instances!
      */ 
-    public void read(YomlContextForRead context, YomlConverter converter, Map<Object,Object> blackboard);
+    public void read(YomlContextForRead context, YomlConverter converter);
 
     /**
      * modifies java object and/or yaml object and/or blackboard as appropriate,
@@ -45,7 +45,7 @@ public interface YomlSerializer {
      * returning true if it did anything (and so should restart the cycle).
      * implementations must NOT return true indefinitely if passed the same instances!
      */   
-    public void write(YomlContextForWrite context, YomlConverter converter, Map<Object,Object> blackboard);
+    public void write(YomlContextForWrite context, YomlConverter converter);
 
     /**
      * generates human-readable schema for a type using this schema.

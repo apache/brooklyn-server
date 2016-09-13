@@ -24,8 +24,8 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.yoml.YomlContext;
 import org.apache.brooklyn.util.yoml.internal.SerializersOnBlackboard;
+import org.apache.brooklyn.util.yoml.internal.YomlContext;
 import org.apache.brooklyn.util.yoml.serializers.YomlSerializerComposition.YomlSerializerWorker;
 
 public abstract class InstantiateTypeWorkerAbstract extends YomlSerializerWorker {
@@ -123,10 +123,4 @@ public abstract class InstantiateTypeWorkerAbstract extends YomlSerializerWorker
         return map;
     }
 
-    protected void warn(String message) {
-        ReadingTypeOnBlackboard.get(blackboard).addNote(message);
-    }
-    protected void warn(Throwable message) {
-        ReadingTypeOnBlackboard.get(blackboard).addNote(message);
-    }
 }

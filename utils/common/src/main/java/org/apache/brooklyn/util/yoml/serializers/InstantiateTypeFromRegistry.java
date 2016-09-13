@@ -23,7 +23,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yoml.Yoml;
-import org.apache.brooklyn.util.yoml.YomlContext;
+import org.apache.brooklyn.util.yoml.internal.YomlContext;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils;
 
 public class InstantiateTypeFromRegistry extends YomlSerializerComposition {
@@ -69,9 +69,6 @@ public class InstantiateTypeFromRegistry extends YomlSerializerComposition {
                 RuntimeException exc = null;
                 
                 Maybe<Class<?>> jt = config.getTypeRegistry().getJavaTypeMaybe(type);
-                if (context.seenPhase(YomlContext.StandardPhases.MANIPULATING_TO_LIST)) {
-                    message += ": Failed to manipulate it to be a collection, and error instatiating directly";
-                }
                 if (jt.isAbsent()) {
                     exc = ((Maybe.Absent<?>)jt).getException();
                 } else {
