@@ -359,11 +359,6 @@
                 <version>${jopt.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.googlecode.concurrentlinkedhashmap</groupId>
-                <artifactId>concurrentlinkedhashmap-lru</artifactId>
-                <version>${concurrentlinkedhashmap.version}</version>
-            </dependency>
-            <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>airline</artifactId>
                 <version>${airline.version}</version>
