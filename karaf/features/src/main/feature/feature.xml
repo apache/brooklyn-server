@@ -154,7 +154,6 @@
         <bundle dependency="true">mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.kxml2/${kxml2.servicemix.version}</bundle>
 
         <!-- TODO: don't use wrap -->
-        <bundle dependency="true">wrap:mvn:com.google.http-client/google-http-client/1.18.0-rc</bundle> <!-- from geoip -->
         <bundle dependency="true">wrap:mvn:com.maxmind.geoip2/geoip2/${maxmind.version}</bundle> <!-- from geoip2 -->
         <bundle dependency="true">wrap:mvn:com.maxmind.db/maxmind-db/${maxmind-db.version}</bundle>
 
