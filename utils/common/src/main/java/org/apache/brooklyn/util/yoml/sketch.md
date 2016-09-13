@@ -239,97 +239,8 @@ parameter, field-name, and several optional ones, so a sample usage might look l
     constraint: required      # currently just supports 'required' (and 'null' not allowed) or blank for none (default), but reserved for future use
     description: The color of the shape   # text (markdown) 
     serialization:            # optional additional serialization instructions for this field
-    - if-string:              # (defined below)
-        set-key: field-name
-```
-
-
-### On overloading (really can skip!)
-
-At the heart of this YAML serialization is the idea of heavily overloading to permit the most
-natural way of writing in different situations. We go a bit overboard in 'serialization' to illustrate
-below the different strategies. (Feel free to ignore, if you're comfortable with the simple examples.)
-
-First, if the `serialization` field (which expects a list) is given a map, 
-the `convert-map-to-list` serializer converts each <K,V> pair in that map to a list entry as follows:
-
-* if V is a non-empty map, then the corresponding list entry is the map V with `{ .key: K }` added
-* otherwise, the corresponding list entry is `{ .key: K, .value: V }`
- 
-Next, each entry in the list is interpreted as a `serialization` instance, 
-and the serializations defined for that type specify:
-
-* If the key `.value` is present and `type` is not defined, that key is renamed to `type` (ignored if `type` is already present)
-* If it is a map of size exactly one, it is converted to a map as done with `convert-map-to-list` above
-* If the key `.key` is present and `type` is not defined, that key is renamed to `type` (ignored if `type` is already present)
-* If the item is a primitive V, it is converted to `{ .value: V }`
-* If it is a map with no `type` defined, `type: top-level-field` is added
-
-
-This allows the serialization rules defined on the specific type to kick in to handle `.key` or `.value` entries
-introduced but not removed. In the case of `top-level-field` (the default type, as shown in the rules above), 
-this will rename either such key `.value` to `field-name` (and give an error if `field-name` is already present). 
-
-Thus we can write:
-
-    serialization:
-      # top-level fields
-      color: { alias: colour, description: "The color of the shape", constraint: required } 
-      name
-
-Or
-
-    serialization:
-    - field-name: color
-      alias: colour
-    - name
-
-This can have some surprising side-effects in occasional edge cases; consider:
-
-```
-  # BAD: this would try to load a type called 'color' 
-  serialization:
-  - color: {}
-  # GOOD options
-  serialization:
-  - color
-  # or
-  serialization:
-    color: {}
-  # or
-  serialization:
-    color: top-level-field
-
-  # BAD: this would try to load a type called 'field-name' 
-  serialization:
-  - field-name: color
-  # GOOD options are those in the previous block or to add another field
-  serialization:
-  - field-name: color
-    alias: colour  
-
-  # BAD: this ultimately takes "top-level-field" as the "field-name", giving a conflict
-  serialization:
-    top-level-field: { field-name: color }
-  # GOOD options (in addition to those in previous section, but assuming you wanted to say the type explicitly)
-  serialization:
-  - top-level-field: { field-name: color }
-  # or 
-  - top-level-field: color
-```
-
-It does the right thing in most cases, and it serves to illustrate the flexibility of this approach. 
-Of course in most cases it's probably a bad idea to do this much overloading!
-However the descriptions here will normally be taken from java annotations and not written by hand,
-so emphasis is on making type definitions easy-to-read (which overloading does nicely), and 
-instance definitions both easy-to-read and -write, rather than type definitions easy-to-write.
-
-Of course if you have any doubt, simply use the long-winded syntax and avoid any convenience syntax:
-
-```
-  serialization:
-  - type: top-level-field
-    field-name: color
+    - convert-primitive-to-map:   # (defined below)
+        key: field-name
 ```
 
 
@@ -383,68 +294,167 @@ method. These are detected and applied as one of the default strategies (below).
 ### Accepting lists, including generics
 
 Where the java object is a list, this can correspond to YAML in many ways.
-New serializations we introduce include `convert-map-to-map-list` (which allows
-a map value to be supplied), `apply-defaults-in-list` (which ensures a set of keys
-are present in every entry, using default values wherever the key is absent),
-`convert-singleton-maps-in-list` (which gives special behaviour if the list consists
-entirely of single-key-maps, useful where a map would normally be supplied but there
-might be key collisions), `if-string-in-list` (which applies `if-string` to every
-element in the list), and `convert-map-to-singleton-list` (which puts a map into
-a list).
+The simplest is where the YAML is a list, in which case each item is parsed,
+including serializers for the generic type of the list if available.
+
+Because lists are common in object representation, and because the context
+might have additional knowledge about how to intepret them, a list field
+(or any context where a list is expected) can declare additional serializers.
+This can result in much nicer YOML representations.
+
+Serializers available for this include:
+
+* `convert-singleton-map` which can specify how to convert a map to a list,
+  by taking each <K,V> pair and treating it as a list of f(<K,V>) where
+  f maps the K and V into a new map, e.g. embedding K with a default key 
+* `default-map-values` which ensures a set of keys are present in every entry, 
+  using default values wherever the key is absent
+* `convert-singleton-maps-in-list` which gives special behaviour if a list consists
+  entirely of single-key-maps, useful where a user might want to supply a concise map 
+  syntax but that map would have several keys the same
+* `convert-primitive-to-map` which converts a primitive to a map
 
 If no special list serialization is supplied for when expecting a type of `list<x>`,
 the YAML must be a list and the serialization rules for `x` are then applied.  If no
 generic type is available for a list and no serialization is specified, an explicit
 type is required on all entries.
 
-Serializations that apply to lists or map entries are applied to each entry, and if
-any apply the serialization is then continued from the beginning.
+Serializations that apply to lists are applied to each entry, and if any apply the 
+serialization is then continued from the beginning (unless otherwise noted).
 
-As a complex example, the `serialization` list we described above has the following formal
-schema:
+
+#### Complex list serializers (skip on first read!)
+
+At the heart of this YAML serialization is the idea of heavily overloading to permit the most
+natural way of writing in different situations. We go a bit overboard in some of the `serialization` 
+examples to illustrate the different strategies and some of the subtleties. (Feel free to ignore 
+until and unless you need to know details of complex strategies.)
+
+As a complex example, to define serializations for shape, the basic syntax is as follows:
+
+    serialization:
+    - type: top-level-field
+      field-name: color
+      alias: colour
+      description: "The color of the shape" 
+    - type: top-level-field
+      field-name: name
+    - type: convert-primitive-to-map
+      key: color
+
+However we can also support these simplifications:
+ 
+    serialization:
+    - field-name: color
+      alias: colour
+    - name
+    - convert-primitive-to-map: color
+
+    serialization:
+      name: {}
+      color: { alias: colour, description: "The color of the shape", constraint: required } 
+      colour: { type: convert-primitive-to-map }
+
+This works because we've defined the following sets of rules for serializing serializations:
 
 ```
 - field-name: serialization
-  field-type: list<serialization>
+  field-type: list<serializer>
   serialization:
   
-  # transforms `- color` to `- { top-level-field: color }` which will be interpreted again
-  - type: if-string-in-list
-    set-key: top-level-field
+  # given `- name` rewrite as `- { top-level-field: name }`, which will then be further rewritten
+  - type: convert-primitive-to-map
+    key: top-level-field
     
-  # alternative implementation of above (more explicit, not relying on `apply-defaults-in-list`)
-  # transforms `- color` to `- { type: top-level-field, field-name: color }`
-  - type: if-string-in-list
-    set-key: field-name
-    default:
+  # alternative implementation of above (more explicit, not relying on singleton map conversion)
+  # e.g. transforms `- name` to `- { type: top-level-field, field-name: name }`
+  - type: convert-primitive-to-map
+    key: field-name
+    defaults:
       type: top-level-field
+
+  # if yaml is a list containing maps with a single key, treat the key specially
+  # transforms `- x: k` or `- x: { .value: k }` to `- { type: x, .value: k }`
+  # (use this one with care as it can be confusing, but useful where type is the only thing
+  # always required; it's recommended (although not done in this example) to use alongside 
+  # a rule `convert-primitive-to-map` with `key: type`.)
+  - type: convert-singleton-maps-in-list
+    key-for-key: type              # NB skipped if the value is a map containing this key
+    # if the value is a map, they will merge
+    # otherwise the value is set as `.value` for conversion later
 
   # describes how a yaml map can correspond to a list
   # in this example `k: { type: x }` in a map (not a list)
   # becomes an entry `{ field-name: k, type: x}` in a list
-  # (and same for shorthand `k: x`; however if just `k` is supplied it
+  # (and same for shorthand `k: x`; however if just `k: {}` is supplied it
   # takes a default type `top-level-field`)
-  - type: convert-map-to-map-list
-    key-for-key: field-name
+  - type: convert-singleton-map
+    key-for-key: .value          # as above, will be converted later
     key-for-string-value: type   # note, only applies if x non-blank
-    default:
-      type: top-level-field       # note: needed to prevent collision with `convert-single-key-in-list` 
-
-  # if yaml is a list containing all maps swith a single key, treat the key specially
-  # transforms `- x: k` or `- x: { field-name: k }` to `- { type: x, field-name: k }`
-  # (use this one with care as it can be confusing, but useful where type is the only thing
-  # always required! typically only use in conjunction with `if-string-in-list` where `set-key: type`.)
-  - type: convert-single-key-maps-in-list
-    key-for-key: type              # NB fails if this key is present in the value which is a map
-    key-for-string-value: field-name
+    defaults:
+      type: top-level-field      # note: this is needed to prevent collision with rule above 
   
-  # applies any listed unset "default keys" to the given default values,
-  # for every map entry in a list
+  # applies any listed unset default keys to the given default values,
+  # either on a map, or if a list then for every map entry in the list;
   # here this essentially makes `top-level-field` the default type
-  - type: apply-defaults-in-list
-    default:
+  - type: default-map-values
+    defaults:
       type: top-level-field
 ```
+
+We also rely on `top-level-field` having a rule `rename-default-value: field-name`
+and `convert-primitive-to-map` having a rule `rename-default-value: key`
+to convert the `.value` key appropriately for those types.
+
+This can have some surprising side-effects in edge cases; consider:
+
+```
+  # BAD: this would try to load a type called 'color' 
+  serialization:
+  - color: {}
+  # GOOD options
+  serialization:
+  - color
+  # or
+  serialization:
+    color: {}
+  # or
+  serialization:
+    color: top-level-field
+
+  # BAD: this would try to load a type called 'field-name' 
+  serialization:
+  - field-name: color
+  # GOOD options are those in the previous block or to add another field
+  serialization:
+  - field-name: color
+    alias: colour  
+
+  # BAD: this ultimately takes "top-level-field" as the "field-name", giving a conflict
+  serialization:
+    top-level-field: { field-name: color }
+  # GOOD options (in addition to those in previous section, but assuming you wanted to say the type explicitly)
+  serialization:
+  - top-level-field: { field-name: color }
+  # or 
+  - top-level-field: color
+```
+
+In most cases it's probably a bad idea to do this much overloading!
+But here it does the right thing in most cases, and it serves to illustrate the flexibility of this approach.
+
+The serializer definitions will normally be taken from java annotations and not written by hand,
+so emphasis should be on making type definitions easy-to-read (which overloading does nicely), and 
+instance definitions both easy-to-read and -write, rather than type definitions easy-to-write.
+
+Of course if you have any doubt, simply use the long-winded syntax:
+
+```
+  serialization:
+  - type: top-level-field
+    field-name: color
+```
+
 
 ### Accepting maps, including generics
 
@@ -510,7 +520,6 @@ either on a global or a per-class basis in the registry.
 
 * `top-level-field` (`@YomlFieldAtTopLevel`)
   * means that a field is accepted at the top level (it does not need to be in a `field` block)
-  * TODO rename this `top-level-field`
   
 * `all-fields-top-level` (`@YomlAllFieldsAtTopLevel`)
   * applies the above to all fields
@@ -518,22 +527,39 @@ either on a global or a per-class basis in the registry.
 * `convert-singleton-map` (`@YomlSingletonMap`)
   * reads/writes an item as a single-key map where a field value is the key
   * particularly useful when working with a list of items to allow a concise multi-entry map syntax
+  * defaults `.key` and `.value` facilitate working with `rename-...` serializers
 
 * `config-map-constructor` (`@YomlConfigMapConstructor`)
   * indicates that config key static fields should be scanned and passed in a map to the constructor
 
+# TODO13 test the above on their own, and then again in a list
+# TODO13 bail out on collision rather than attempt to use "any value" in singleton map 
+# TODO13 convert-primitive-to-map 
+# TODO13 convert-singleton-maps-in-list 
+# TODO13 convert-singleton-map applies to list
+# TODO13 list infers from type
+# TODO13 default-map-values
+ 
+
 
 ## Implementation notes
 
-We have a `Converter` which runs through phases, running through all `Serializer` instances on each phase.
-Each `Serializer` exposes methods to `read`, `write`, and `document`, and the appropriate method is invoked
-depending on what the `Converter` is doing.
+The `Yoml` entry point starts by invoking the `YamlConverter` which holds the input and 
+output objects and instructions in a `YomlContext`, and runs through phases, applying  
+`Serializer` instances on each phase.
 
-A `Serializer` can detect the phase and bail out if it isn't appropriate;
-or they can end the current phase, and/or insert one or more phases to follow the current phase.
-In addition, they use a shared blackboard to store local information and communicate state.
-These are the mechanisms by which serializers do the right things in the right order,
-whilst allowing them to be extended.
+Each `Serializer` exposes methods to `read`, `write`, and `document`, with the appropriate method 
+invoked depending on what the `Converter` is doing.  A `Serializer` will typically check the phase 
+and do nothing if it isn't appropriate; or if appropriate, they can:
+
+* modify the objects in the context
+* change the phases (restarting, ending, and/or inserting new ones to follow the current phase)
+* add new serializers (e.g. once the type has been discovered, it may bring new serializers)
+
+In addition, they can use a shared blackboard to store local information and communicate state.  
+This loosely coupled mechanism gives a lot of flexibility for serializers do the right things in 
+the right order whilst allowing them to be extended, but care does need to be taken.  
+(The use of special phases and blackboards makes it easier to control what is done when.)
 
 The general phases are:
 
@@ -549,8 +575,8 @@ The general phases are:
     * `handling-fields` (collect the fields to write from the java object)
     * `manipulating` (custom serializers again, now with the type set and other serializers loaded)
 
-Afterwards, a completion check runs across all blackboard items to enable the most appropriate error 
-to be shown.
+Afterwards, a completion check runs across all blackboard items to confirm everything has been used
+and to enable the most appropriate error to be returned to the user if there are any problems.
 
 
 
@@ -595,46 +621,29 @@ to be shown.
 ```
 
 
-### Random thoughts (ignore)
+### Alternate serialization approach (ignore)
 
-First, if the `serialization` field (which expects a list) is given a map, 
-the `convert-map-to-list` serializer converts each <K,V> pair in that map to a list entry as follows:
+(relying on sequencing and lots of defaults)
 
-* if V is a non-empty map, then the corresponding list entry is the map V with `{ field-name: K }` added
-* otherwise, the corresponding list entry is `{ field-name: K, type: V }`
-  convert-map-to-list: { key-for-key: field-name
-            key-for-primitive-value: type,  || key-for-any-value: ... || key-for-list-value: || key-for-map-value
-              || merge-with-map-value
-            apply-to-singleton-maps: true
-            defaults: { type: top-level-field }
-  # top-level-field sets key-for-list-value as aliases
-# on serializer
-  convert-singleton-map: { key-for-key: type
-            key-for-primitive-value: type,  || key-for-any-value: ... || key-for-list-value: || key-for-map-value
-              || merge-with-map-value
-            defaults: { type: top-level-field }
+If the `serialization` field (which expects a list) is given a map, the `convert-singleton-map` 
+serializer converts each <K,V> pair in that map to a list entry as follows:
 
+* if V is a map, then the corresponding list entry is the map V with `{ .key: K }` added
+* otherwise, the corresponding list entry is `{ .key: K, .value: V }`
+ 
 Next, each entry in the list is interpreted as a `serialization` instance, 
 and the serializations defined for that type specify:
 
-* If the key `.key` is present and `type` is not defined, that key is renamed to `type` (ignored if `type` is already present)
-  rename-key: { from: .key, to: type, fail-if-present: true }
-  rename-default-key: type  (as above but .value)
-  rename-default-value: to
-  # above two serializers have special rules to need their own 
-
-* If the item is a primitive V, it is converted to `{ .value: V }`
-  primitive-to-kv-pair
-  primitive-to-kv-pair: { key: .value || value: foo } 
-
+* If the key `.value` is present and `type` is not defined, that key is renamed to `type` (ignored if `type` is already present)
+  (code `rename-default-value: type`, handling `{ color: top-level-field }`)
+* If the key `.key` is present and `.value` is not defined, that key is renamed to `.value`
+* If it is a map of size exactly one, it is converted to a map with `convert-singleton-map` above, and phases not restarted
+  (code `convert-singleton-maps-in-list`, handling `[ { top-level-field: color } ]`)
+* If the key `.key` is present and `type` is not defined, that key is renamed to `type`
+* If the item is a primitive V, it is converted to `{ .value: V }`, and phases not restarted
 * If it is a map with no `type` defined, `type: top-level-field` is added
-  defaults: { type: top-level-field }
-  # serializer declares convert-singleton-map ( merge-with-map-value )  
 
-NOTES
-
-convert-map-to-list (default-key, default-value)
-
-* if V is a non-empty map, then the corresponding list entry is the map V with `{ <default-key>: K }` added
-* otherwise, the corresponding list entry is `{ <default-key>: K, <default-value>: V }`
+This allows the serialization rules defined on the specific type to kick in to handle `.key` or `.value` entries
+introduced but not removed. In the case of `top-level-field` (the default type, as shown in the rules above), 
+this will rename either such key `.value` to `field-name` (and give an error if `field-name` is already present). 
 
