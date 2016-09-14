@@ -147,7 +147,7 @@ brooklyn.catalog:
 
   - id: test-docker-client
     item:
-      type: software-process
+      type: centos-software-process
       name: "test-docker-client"
 
       brooklyn.config:
