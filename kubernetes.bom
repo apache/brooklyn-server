@@ -92,6 +92,9 @@ brooklyn.catalog:
           brooklyn.config:
             cluster.initial.size: $brooklyn:parent().config("etcd.initial.size")
             etcd.cluster.name: "kubernetes"
+            provisioning.properties:
+              osFamily: centos
+              osVersionRegex: 7
         - type: kubernetes-cluster
           id: kubernetes-cluster
           name: "kubernetes-cluster"
