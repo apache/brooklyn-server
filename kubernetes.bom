@@ -253,7 +253,7 @@ brooklyn.catalog:
           brooklyn.enrichers:
             - type: org.apache.brooklyn.enricher.stock.Aggregator
               brooklyn.config:
-                uniqueTag: swarm-cluster-cpu-averageing
+                uniqueTag: kubernetes-cluster-cpu-averageing
                 enricher.sourceSensor:
                   $brooklyn:sensor("org.apache.brooklyn.entity.machine.MachineAttributes", "machine.cpu")
                 enricher.targetSensor:
@@ -374,6 +374,7 @@ brooklyn.catalog:
               $brooklyn:formatString:
                 - >-
                   %s
+                  --selinux-enabled=false
                   --mtu=%s
                   --bip=%s
                   --ip-masq=false
@@ -413,6 +414,19 @@ brooklyn.catalog:
               $brooklyn:config("kubernetes.recovery.stabilizationDelay")
             entityRecovered.stabilizationDelay:
               $brooklyn:config("kubernetes.recovery.stabilizationDelay")
+        - type: org.apache.brooklyn.enricher.stock.Propagator
+          brooklyn.config:
+            uniqueTag: docker-machine-stats-propagator
+            producer: $brooklyn:child("docker-engine")
+            propagating:
+              - $brooklyn:sensor("org.apache.brooklyn.entity.machine.MachineAttributes", "machine.cpu")
+              - $brooklyn:sensor("org.apache.brooklyn.entity.machine.MachineAttributes", "machine.loadAverage")
+              - $brooklyn:sensor("org.apache.brooklyn.entity.machine.MachineAttributes", "machine.uptime")
+              - $brooklyn:sensor("org.apache.brooklyn.entity.machine.MachineAttributes", "machine.memory.free")
+              - $brooklyn:sensor("org.apache.brooklyn.entity.machine.MachineAttributes", "machine.memory.used")
+              - $brooklyn:sensor("org.apache.brooklyn.entity.machine.MachineAttributes", "machine.memory.total")
+              - $brooklyn:sensor("org.apache.brooklyn.entity.machine.MachineAttributes", "memory.used.delta")
+              - $brooklyn:sensor("org.apache.brooklyn.entity.machine.MachineAttributes", "memory.used.percent")
 
       brooklyn.initializers:
         - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
