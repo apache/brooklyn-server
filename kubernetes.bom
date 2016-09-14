@@ -270,7 +270,7 @@ brooklyn.catalog:
                 id: kubernetes-worker
                 name: "kubernetes-worker"
                 brooklyn.config:
-                  install.latch: $brooklyn:entity("kubernetes-master").attributeWhenReady("service.isUp")
+                  launch.latch: $brooklyn:entity("kubernetes-master").attributeWhenReady("service.isUp")
 
   - id: kubernetes-worker
     name: "Kubernetes Worker"
@@ -463,12 +463,12 @@ brooklyn.catalog:
           id: kube-controller-manager
           name: "kube-controller-manager"
           brooklyn.config:
-            start.latch: $brooklyn:sibling("kubelet").attributeWhenReady("service.isUp")
+            start.latch: $brooklyn:sibling("kube-apiserver").attributeWhenReady("service.isUp")
         - type: kube-scheduler-service
           id: kube-scheduler
           name: "kube-scheduler"
           brooklyn.config:
-            start.latch: $brooklyn:sibling("kubelet").attributeWhenReady("service.isUp")
+            start.latch: $brooklyn:sibling("kube-apiserver").attributeWhenReady("service.isUp")
         - type: calico-policy-controller-pod
           id: calico-policy-controller
           name: "calico-policy-controller"
@@ -646,7 +646,8 @@ brooklyn.catalog:
             --allow-privileged=true \
             --config=/etc/kubernetes/manifests \
             --hostname-override=${HOST_SUBNET_ADDRESS} \
-            --api-servers=${KUBERNETES_URL}\
+            --api-servers=${KUBERNETES_URL} \
+            --kubeconfig=/etc/kubernetes/kubeconfig \
             --network-plugin-dir=/etc/cni/net.d \
             --network-plugin=cni \
             --register-schedulable=${SCHEDULABLE} \
@@ -684,9 +685,10 @@ brooklyn.catalog:
             NamespaceLifecycle,
             NamespaceExists,
             LimitRanger,
-            SecurityContextDeny,
+            SecurityContextAllow,
             ResourceQuota,
-            AlwaysAdmit
+            AlwaysAdmit,
+            ServiceAccount
 
       brooklyn.config:
         kubernetes.service: "kube-apiserver"
@@ -808,7 +810,6 @@ brooklyn.catalog:
         - name: template.substitutions
           label: "Template Substitutions"
           type: java.util.Map
-          default: { }
 
       brooklyn.config:
         install.unique_label:
@@ -829,7 +830,7 @@ brooklyn.catalog:
           mkdir -p ${INSTALL_DIR}
 
         install.command: |
-          kubectl get namespace ${NAMESPACE} || kubectl create namespace ${NAMESPACE}
+          kubectl get namespace ${NAMESPACE} || ( kubectl create namespace ${NAMESPACE} || true )
 
         launch.command: |
           kubectl create -f ${INSTALL_DIR}/pod.yaml
@@ -851,9 +852,9 @@ brooklyn.catalog:
         kubernetes.pod.namespace: "kube-system"
 
         template.substitutions:
+          kubernetes_url: $brooklyn:entity("kubernetes-cluster").attributeWhenReady("kubernetes.url")
           dns_service_ip: $brooklyn:entity("kubernetes-cluster").config("kubernetes.dns.address")
           dns_service_domain: $brooklyn:entity("kubernetes-cluster").config("kubernetes.dns.domain")
-          kubernetes_url: $brooklyn:entity("kubernetes-cluster").attributeWhenReady("kubernetes.url")
 
   - id: kube-dashboard-pod
     name: "Kubernetes Dashboard Pod"
