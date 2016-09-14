@@ -454,6 +454,18 @@ brooklyn.catalog:
           default: 8080
 
       brooklyn.children:
+        - type: child-software-process
+          id: calico-pool
+          name: "calico-pool"
+          brooklyn.config:
+            start.latch: $brooklyn:sibling("calico-cni-plugin").attributeWhenReady("service.isUp")
+            shell.env:
+              ETCD_ENDPOINTS: $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.urls")
+              FLANNEL_NETWORK: $brooklyn:sibling("flannel-network-agent").config("flannel.network")
+            launch.command: |
+              sudo -E calicoctl pool add ${FLANNEL_NETWORK} --nat-outgoing
+            checkRunning.command: |
+              sudo -E calicoctl pool show --ipv4 | grep "${FLANNEL_NETWORK}"
         - type: kube-apiserver-service
           id: kube-apiserver
           name: "kube-apiserver"
@@ -888,3 +900,6 @@ brooklyn.catalog:
         template.substitutions:
           kubernetes_url: $brooklyn:entity("kubernetes-cluster").attributeWhenReady("kubernetes.url")
           etcd_endpoints: $brooklyn:entity("etcd-cluster").attributeWhenReady("etcd.urls")
+
+        launch.command: |
+          sudo mv ${INSTALL_DIR}/pod.yaml /etc/kubernetes/manifests
