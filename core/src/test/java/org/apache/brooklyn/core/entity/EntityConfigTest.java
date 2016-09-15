@@ -45,7 +45,6 @@ import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.task.BasicTask;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
-import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.testng.Assert;
@@ -285,6 +284,13 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testConfigureFromKey() throws Exception {
+        MyBaseEntity entity = app.addChild(EntitySpec.create(MyBaseEntity.class)
+                .configure(MyBaseEntity.SUPER_KEY_1, "changed"));
+        assertEquals(entity.getConfig(MyBaseEntity.SUPER_KEY_1), "changed");
+    }
+
+    @Test
+    public void testConfigureFromOverriddenKey() throws Exception {
         MySubEntity entity = app.addChild(EntitySpec.create(MySubEntity.class)
                 .configure(MySubEntity.SUPER_KEY_1, "changed"));
         assertEquals(entity.getConfig(MySubEntity.SUPER_KEY_1), "changed");
@@ -292,11 +298,35 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testConfigureFromSuperKey() throws Exception {
+        // use parent key to set
         MySubEntity entity = app.addChild(EntitySpec.create(MySubEntity.class)
                 .configure(MyBaseEntity.SUPER_KEY_1, "changed"));
         assertEquals(entity.getConfig(MySubEntity.SUPER_KEY_1), "changed");
     }
 
+    @Test
+    public void testConfigureFromStringGetByKey() throws Exception {
+        MySubEntity entity = app.addChild(EntitySpec.create(MySubEntity.class)
+            .configure(MySubEntity.SUPER_KEY_1.getName(), "changed"));
+        assertEquals(entity.getConfig(MySubEntity.SUPER_KEY_1), "changed");
+    }
+    
+    @Test
+    public void testConfigureFromStringGetByExternalKey() throws Exception {
+        // config key is not present on the entity
+        MyBaseEntity entity = app.addChild(EntitySpec.create(MyBaseEntity.class)
+            .configure(MySubEntity.SUB_KEY_2.getName(), "changed"));
+        assertEquals(entity.getConfig(MySubEntity.SUB_KEY_2), "changed");
+        assertEquals(entity.getConfig(ConfigKeys.newConfigKey(Object.class, MySubEntity.SUB_KEY_2.getName())), "changed");
+    }
+    
+    @Test
+    public void testConfigureFromStringGetBySuperKey() throws Exception {
+        MySubEntity entity = app.addChild(EntitySpec.create(MySubEntity.class)
+            .configure(MySubEntity.SUPER_KEY_2.getName(), "changed"));
+        assertEquals(entity.getConfig(MySubEntity.SUPER_KEY_2), "changed");
+    }
+    
     @Test
     public void testConfigSubMap() throws Exception {
         MySubEntity entity = app.addChild(EntitySpec.create(MySubEntity.class));
