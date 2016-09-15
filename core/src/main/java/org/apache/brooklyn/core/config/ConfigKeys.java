@@ -23,6 +23,7 @@ import java.util.Map;
 import javax.annotation.Nonnull;
 
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.config.ConfigInheritance.ConfigInheritanceContext;
 import org.apache.brooklyn.core.config.BasicConfigKey.BasicConfigKeyOverwriting;
 import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensorAndConfigKey;
@@ -46,6 +47,9 @@ public class ConfigKeys {
 
     private static final Logger log = LoggerFactory.getLogger(ConfigKeys.class);
     
+    public enum InheritanceContext implements ConfigInheritanceContext
+    { TYPE_DEFINITION, RUNTIME_MANAGEMENT } 
+
     public static <T> ConfigKey<T> newConfigKey(Class<T> type, String name) {
         return new BasicConfigKey<T>(type, name);
     }

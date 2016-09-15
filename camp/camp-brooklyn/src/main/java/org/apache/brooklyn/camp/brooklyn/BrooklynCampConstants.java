@@ -34,12 +34,12 @@ public class BrooklynCampConstants {
     public static final ConfigKey<String> PLAN_ID = ConfigKeys.builder(String.class, "camp.plan.id")
             .description("Identifier supplied in the deployment plan for component to which this entity corresponds "
                         + "(human-readable, for correlating across plan, template, and instance)")
-            .parentInheritance(ConfigInheritance.NONE)
+            .runtimeInheritance(ConfigInheritance.NONE)
             .build();
 
     public static final ConfigKey<String> TEMPLATE_ID = ConfigKeys.builder(String.class, "camp.template.id")
             .description("UID of the component in the CAMP template from which this entity was created")
-            .parentInheritance(ConfigInheritance.NONE)
+            .runtimeInheritance(ConfigInheritance.NONE)
             .build();
 
     public static final ConfigKey<CampPlatform> CAMP_PLATFORM = ConfigKeys.newConfigKey(CampPlatform.class, "brooklyn.camp.platform",

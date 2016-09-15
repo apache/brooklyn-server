@@ -36,7 +36,7 @@ public interface TestCase extends TargetableTestComponent {
     ConfigKey<EntitySpec<?>> ON_ERROR_SPEC = ConfigKeys.builder(new TypeToken<EntitySpec<?>>() {})
             .name("on.error.spec")
             .description("Spec of entity to instantiate (and start, if startable) if the test-case fails")
-            .parentInheritance(ConfigInheritance.NONE)
+            .runtimeInheritance(ConfigInheritance.NONE)
             .typeInheritance(ConfigInheritance.ALWAYS)
             .build();
 }

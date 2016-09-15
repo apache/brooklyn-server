@@ -156,7 +156,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     /**
      * The default name to use for this entity, if not explicitly overridden.
      */
-    public static final ConfigKey<String> DEFAULT_DISPLAY_NAME = BasicConfigKey.builder(String.class).name("defaultDisplayName").parentInheritance(ConfigInheritance.NONE).build();
+    public static final ConfigKey<String> DEFAULT_DISPLAY_NAME = BasicConfigKey.builder(String.class).name("defaultDisplayName").runtimeInheritance(ConfigInheritance.NONE).build();
 
     public static final BasicNotificationSensor<Location> LOCATION_ADDED = new BasicNotificationSensor<Location>(
             Location.class, "entity.location.added", "Location dynamically added to entity");

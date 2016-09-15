@@ -26,6 +26,9 @@ import com.google.common.annotations.Beta;
 
 @SuppressWarnings("serial")
 public abstract class ConfigInheritance implements Serializable {
+    
+    /** marker interface for inheritance contexts, for keys which can define one or more inheritance patterns */
+    public interface ConfigInheritanceContext {}
 
     @Beta
     public enum InheritanceMode {

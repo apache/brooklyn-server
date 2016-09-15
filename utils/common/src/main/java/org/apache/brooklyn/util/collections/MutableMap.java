@@ -131,9 +131,9 @@ public class MutableMap<K,V> extends LinkedHashMap<K,V> {
         return this;
     }
 
-    /** as {@link #put(Object, Object)} but excluding null values, and fluent style */
+    /** as {@link #put(Object, Object)} but excluding null keys and values, and fluent style */
     public MutableMap<K,V> addIfNotNull(K key, V value) {
-        if (value!=null) add(key, value);
+        if (key!=null && value!=null) add(key, value);
         return this;
     }
 

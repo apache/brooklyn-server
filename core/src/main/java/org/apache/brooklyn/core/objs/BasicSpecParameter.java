@@ -248,7 +248,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
                 .description(description)
                 .defaultValue(defaultValue)
                 .constraint(constraints)
-                .parentInheritance(parentInheritance)
+                .runtimeInheritance(parentInheritance)
                 .typeInheritance(typeInheritance);
             
             if (PortRange.class.equals(typeToken.getRawType())) {

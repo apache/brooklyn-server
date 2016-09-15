@@ -82,7 +82,7 @@ public class ConfigKeysTest {
         ConfigKey<String> key = ConfigKeys.builder(String.class, "mykey")
             .description("my descr")
             .defaultValue("my default val")
-            .parentInheritance(ConfigInheritance.NONE)
+            .runtimeInheritance(ConfigInheritance.NONE)
             .reconfigurable(true)
             .build();
         

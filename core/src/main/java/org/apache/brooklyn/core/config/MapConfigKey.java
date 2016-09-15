@@ -79,7 +79,7 @@ public class MapConfigKey<V> extends AbstractStructuredConfigKey<Map<String,V>,M
             description(key.getDescription());
             defaultValue(key.getDefaultValue());
             reconfigurable(key.isReconfigurable());
-            parentInheritance(key.getParentInheritance());
+            runtimeInheritance(key.getParentInheritance());
             typeInheritance(key.getTypeInheritance());
             constraint(key.getConstraint());
         }
@@ -121,7 +121,7 @@ public class MapConfigKey<V> extends AbstractStructuredConfigKey<Map<String,V>,M
                 builder.description,
                 builder.defaultValue);
         this.reconfigurable = builder.reconfigurable;
-        this.parentInheritance = builder.parentInheritance;
+        this.runtimeInheritance = builder.runtimeInheritance;
         this.typeInheritance = builder.typeInheritance;
         // Note: it's intentionally possible to have default values that are not valid
         // per the configured constraint. If validity were checked here any class that

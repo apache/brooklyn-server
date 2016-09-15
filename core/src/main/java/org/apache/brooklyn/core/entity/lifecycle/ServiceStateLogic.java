@@ -390,12 +390,12 @@ public class ServiceStateLogic {
         public static final ConfigKey<QuorumCheck> UP_QUORUM_CHECK = ConfigKeys.builder(QuorumCheck.class, "enricher.service_state.children_and_members.quorum.up")
             .description("Logic for checking whether this service is up, based on children and/or members, defaulting to allowing none but if there are any requiring at least one to be up")
             .defaultValue(QuorumCheck.QuorumChecks.atLeastOneUnlessEmpty())
-            .parentInheritance(ConfigInheritance.NONE)
+            .runtimeInheritance(ConfigInheritance.NONE)
             .build();
         public static final ConfigKey<QuorumCheck> RUNNING_QUORUM_CHECK = ConfigKeys.builder(QuorumCheck.class, "enricher.service_state.children_and_members.quorum.running") 
             .description("Logic for checking whether this service is healthy, based on children and/or members running, defaulting to requiring none to be ON-FIRE")
             .defaultValue(QuorumCheck.QuorumChecks.all())
-            .parentInheritance(ConfigInheritance.NONE)
+            .runtimeInheritance(ConfigInheritance.NONE)
             .build();
         // TODO items below should probably also have inheritance NONE ?
         public static final ConfigKey<Boolean> DERIVE_SERVICE_NOT_UP = ConfigKeys.newBooleanConfigKey("enricher.service_state.children_and_members.service_up.publish", "Whether to derive a service-not-up indicator from children", true);

@@ -19,9 +19,12 @@
 package org.apache.brooklyn.config;
 
 import java.util.Collection;
+import java.util.Map;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
+import org.apache.brooklyn.config.ConfigInheritance.ConfigInheritanceContext;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Predicate;
@@ -85,20 +88,25 @@ public interface ConfigKey<T> {
 
     /**
      * @return The sub-typing inheritance model, or <code>null</code> for the default in any context.
-     */
-    @Nullable ConfigInheritance getTypeInheritance();
+     * @deprecated since 0.10.0 use {@link #getInheritanceByContext()} */
+    @Deprecated @Nullable
+    ConfigInheritance getTypeInheritance();
 
     /**
      * @return The inheritance-from-parent-entities model, or <code>null</code> for the default in any context.
-     */
-    @Nullable ConfigInheritance getParentInheritance();
+     * @deprecated since 0.10.0 use {@link #getInheritanceByContext()} */ 
+    @Deprecated @Nullable
+    ConfigInheritance getParentInheritance();
 
     /**
      * @return The inheritance model, or <code>null</code> for the default in any context.
-     * @deprecated since 0.10.0; use {@link #getParentInheritance()}.
-     */
-    @Deprecated
-    @Nullable ConfigInheritance getInheritance();
+     * @deprecated since 0.10.0 use {@link #getInheritanceByContext()} */ 
+    @Deprecated @Nullable
+    ConfigInheritance getInheritance();
+    
+    // TODO javadoc
+    @Nullable ConfigInheritance getInheritanceByContext(ConfigInheritanceContext context);
+    Map<ConfigInheritanceContext,ConfigInheritance> getInheritanceByContext();
 
     /**
      * @return The predicate constraining the key's value.
