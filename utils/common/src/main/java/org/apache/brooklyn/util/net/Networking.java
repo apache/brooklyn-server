@@ -38,6 +38,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeSet;
 import com.google.common.collect.TreeRangeSet;
@@ -537,6 +538,12 @@ public class Networking {
             return false;
         }
     }
+
+    public static class IsReachablePredicate implements Predicate<HostAndPort> {
+        @Override public boolean apply(HostAndPort input) {
+            return Networking.isReachable(input);
+        }
+    };
 
     public static void closeQuietly(Socket s) {
         if (s != null) {

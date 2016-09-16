@@ -33,7 +33,9 @@ import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.config.WrappedConfigKey;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
+import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -125,5 +127,21 @@ public class ConfigUtils {
             }
         }
         return Collections.unmodifiableSet(result);
+    }
+
+    /**
+     * Look for keys with <code>configPrefix</code> in <code>configBag</code> and
+     * those which have <code>configPrefix</code> are added in <code>destinationBucket</code> but without <code>configPrefix</code>.
+     * @param configPrefix prefix to look for
+     * @param configBag keys to look in
+     * @param destinationBucket should not be an ImmutableMap
+     */
+    public static void addUnprefixedConfigKeyInConfigBack(String configPrefix, ConfigBag configBag, Map<String, Object> destinationBucket) {
+        for (Map.Entry<ConfigKey<?>, ?> entry : configBag.getAllConfigAsConfigKeyMap().entrySet()) {
+            String keyName = entry.getKey().getName();
+            if (keyName.startsWith(configPrefix)) {
+                destinationBucket.put(Strings.removeFromStart(keyName, configPrefix), entry.getValue());
+            }
+        }
     }
 }

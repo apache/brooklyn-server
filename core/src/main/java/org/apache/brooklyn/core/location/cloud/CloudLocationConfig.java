@@ -21,6 +21,8 @@ package org.apache.brooklyn.core.location.cloud;
 import java.util.Collection;
 
 import com.google.common.annotations.Beta;
+import com.google.common.base.Predicate;
+import com.google.common.net.HostAndPort;
 import com.google.common.reflect.TypeToken;
 
 import org.apache.brooklyn.api.location.MachineLocationCustomizer;
@@ -30,6 +32,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
+import org.apache.brooklyn.util.net.Networking;
 
 public interface CloudLocationConfig {
 
@@ -79,7 +82,15 @@ public interface CloudLocationConfig {
             + "if 'false', will default to the node's first public IP (or privae if no public IPs); "
             + "if 'true' uses default duration; otherwise accepts a time string e.g. '5m' (the default) or a number of milliseconds", "5m");
 
-    public static final ConfigKey<String> WAIT_FOR_SSHABLE = ConfigKeys.newStringConfigKey("waitForSshable", 
+    ConfigKey<Predicate<HostAndPort>> POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE = ConfigKeys.newConfigKey(new TypeToken<Predicate<HostAndPort>>(){}, "pollForFirstReachableAddress.predicate",
+            "Predicate<HostAndPort> implementation which checks whether machine is up or not.");
+
+    ConfigKey<Class<? extends Predicate<HostAndPort>>> POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE_TYPE = ConfigKeys.newConfigKey(new TypeToken<Class<? extends Predicate<HostAndPort>>>(){}, "pollForFirstReachableAddress.predicate.type",
+            "Predicate<HostAndPort> class. " +
+            "Other keys prefixed with pollForFirstReachableAddress.predicate.<property> will be passed to the Map constructor of the Predicate<HostAndPort> implementation.",
+            Networking.IsReachablePredicate.class);
+
+    public static final ConfigKey<String> WAIT_FOR_SSHABLE = ConfigKeys.newStringConfigKey("waitForSshable",
             "Whether and how long to wait for a newly provisioned VM to be accessible via ssh; " +
             "if 'false', won't check; if 'true' uses default duration; otherwise accepts a time string e.g. '5m' (the default) or a number of milliseconds", "5m");
 
