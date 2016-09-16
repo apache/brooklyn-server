@@ -22,6 +22,8 @@ import static com.google.common.base.Preconditions.checkState;
 
 import java.util.Map;
 
+import javax.annotation.Nullable;
+
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ManagementContext.PropertiesReloadListener;
 import org.apache.brooklyn.camp.AggregatingCampPlatform;
@@ -31,8 +33,8 @@ import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslInterpreter;
 import org.apache.brooklyn.camp.brooklyn.spi.platform.BrooklynImmutableCampPlatform;
 import org.apache.brooklyn.camp.spi.PlatformRootSummary;
 import org.apache.brooklyn.core.mgmt.HasBrooklynManagementContext;
-import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.internal.CampYamlParser;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -61,6 +63,11 @@ public class BrooklynCampPlatform extends AggregatingCampPlatform implements Has
         });
     }
 
+    /** finds and returns the {@link CampPlatform} registered for the management context, or null if none */
+    @Nullable public static CampPlatform findPlatform(ManagementContext mgmt) {
+        return mgmt.getConfig().getConfig(BrooklynCampConstants.CAMP_PLATFORM);
+    }
+    
     // --- brooklyn setup
     
     @Override
