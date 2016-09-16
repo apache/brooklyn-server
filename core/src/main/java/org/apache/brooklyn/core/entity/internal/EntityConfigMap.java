@@ -22,22 +22,21 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.brooklyn.util.groovy.GroovyJavaMethods.elvis;
 
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Predicate;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
-
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigInheritance;
+import org.apache.brooklyn.config.ConfigInheritance.ContainerAndKeyValue;
+import org.apache.brooklyn.config.ConfigInheritance.ContainerAndValue;
 import org.apache.brooklyn.config.ConfigInheritance.InheritanceMode;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys.InheritanceContext;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.config.StructuredConfigKey;
 import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
@@ -50,6 +49,12 @@ import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.internal.ConfigKeySelfExtracting;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Predicate;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 public class EntityConfigMap extends AbstractConfigMapImpl {
 
@@ -94,15 +99,6 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
         //           but that example doesn't have a default...
         ConfigKey<T> ownKey = entity!=null ? (ConfigKey<T>)elvis(entity.getEntityType().getConfigKey(key.getName()), key) : key;
         
-        // TODO Confirm desired behaviour: I switched this around to get ownKey.getParentInheritance first.
-        ConfigInheritance inheritance = ownKey.getParentInheritance();
-        if (inheritance==null) inheritance = key.getParentInheritance();
-        if (inheritance==null) {
-            // TODO we could warn by introducing a temporary "ALWAYS_BUT_WARNING" instance
-            inheritance = getDefaultParentInheritance(); 
-        }
-        InheritanceMode parentInheritanceMode = inheritance.isInherited(ownKey, entity.getParent(), entity);
-        
         // TODO We're notifying of config-changed because currently persistence needs to know when the
         // attributeWhenReady is complete (so it can persist the result).
         // Long term, we'll just persist tasks properly so the call to onConfigChanged will go!
@@ -110,7 +106,8 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
         // Don't use groovy truth: if the set value is e.g. 0, then would ignore set value and return default!
         if (ownKey instanceof ConfigKeySelfExtracting) {
             Object rawval = ownConfig.get(key);
-            Maybe<T> result = getConfigImpl((ConfigKeySelfExtracting<T>)ownKey, parentInheritanceMode);
+            // TODO this no longer looks at key's inheritance
+            Maybe<T> result = getConfigImpl((ConfigKeySelfExtracting<T>)ownKey);
 
             if (rawval instanceof Task) {
                 entity.getManagementSupport().getEntityChangeListener().onConfigChanged(key);
@@ -125,8 +122,8 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
     }
     
     @SuppressWarnings("unchecked")
-    private <T> Maybe<T> getConfigImpl(ConfigKeySelfExtracting<T> key, InheritanceMode parentInheritance) {
-        ExecutionContext exec = entity.getExecutionContext();
+    private <T> Maybe<T> getConfigImpl(final ConfigKeySelfExtracting<T> key) {
+        final ExecutionContext exec = entity.getExecutionContext();
         Maybe<T> ownValue;
         Maybe<T> parentValue;
 
@@ -145,76 +142,75 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
         } else {
             ownValue = Maybe.<T>absent();
         }
+        final Maybe<T> ownValueF = ownValue;
 
-        // Get the parent-inheritance value (but only if we'll need it)
-        switch (parentInheritance) {
-        case IF_NO_EXPLICIT_VALUE:
-            if (ownValue.isAbsent()) {
-                if (((ConfigKeySelfExtracting<T>)key).isSet(inheritedConfig)) {
-                    parentValue = Maybe.of(((ConfigKeySelfExtracting<T>)key).extractValue(inheritedConfig, exec));
-                } else if (inheritedConfigBag.containsKey(key)) {
-                    parentValue = Maybe.of(inheritedConfigBag.get(key));
-                } else {
-                    parentValue = Maybe.absent();
+        ContainerAndValue<T> result = getDefaultRuntimeInheritance().resolveInheriting(new Iterator<ContainerAndKeyValue<T>>() {
+            int count = 0;
+            @Override
+            public boolean hasNext() {
+                return count < 2;
+            }
+            @Override
+            public ContainerAndKeyValue<T> next() {
+                if (count >= 2) throw new NoSuchElementException();
+                final boolean isLookingAtInheritedBag = (count==1);
+                try {
+                    return new ContainerAndKeyValue<T>() {
+                        @Override
+                        public Object getContainer() {
+                            // TODO the current inheritedConfigBag is not good enough to detect the ancestor container
+                            return !isLookingAtInheritedBag ? entity : entity.getParent();
+                        }
+                        @Override
+                        public T getValue() {
+                            return peekValue().orNull();
+                        }
+                        protected Maybe<T> peekValue() {
+                            if (!isLookingAtInheritedBag) return ownValueF;
+                            if (((ConfigKeySelfExtracting<T>)key).isSet(inheritedConfig)) {
+                                return Maybe.of( ((ConfigKeySelfExtracting<T>)key).extractValue(inheritedConfig, exec) );
+                            } else if (inheritedConfigBag.containsKey(key)) {
+                                return Maybe.of(inheritedConfigBag.get(key));
+                            } else {
+                                return Maybe.absent();
+                            }
+                        }
+    
+                        @Override
+                        public boolean isValueSet() {
+                            return peekValue().isPresent();
+                        }
+    
+                        @Override
+                        public ConfigKey<T> getKey() {
+                            return key;
+                        }
+    
+                        @Override
+                        public T getDefaultValue() {
+                            return key.getDefaultValue();
+                        }
+                    };
+                } finally {
+                    count++;
                 }
-            } else {
-                parentValue = Maybe.absent();
             }
-            break;
-        case DEEP_MERGE:
-            if (((ConfigKeySelfExtracting<T>)key).isSet(inheritedConfig)) {
-                parentValue = Maybe.of(((ConfigKeySelfExtracting<T>)key).extractValue(inheritedConfig, exec));
-            } else if (inheritedConfigBag.containsKey(key)) {
-                parentValue = Maybe.of(inheritedConfigBag.get(key));
-            } else {
-                parentValue = Maybe.absent();
-            }
-            break;
-        case NONE:
-            parentValue = Maybe.absent();
-            break;
-        default:
-            throw new IllegalStateException("Unsupported parent-inheritance mode for "+key.getName()+": "+parentInheritance);
-        }
-
-        // Merge or override, as appropriate
-        switch (parentInheritance) {
-        case IF_NO_EXPLICIT_VALUE:
-            return ownValue.isPresent() ? ownValue : parentValue;
-        case DEEP_MERGE:
-            return (Maybe<T>) deepMerge(ownValue, parentValue, key);
-        case NONE:
-            return ownValue;
-        default:
-            throw new IllegalStateException("Unsupported parent-inheritance mode for "+key.getName()+": "+parentInheritance);
-        }
+            @Override public void remove() { throw new UnsupportedOperationException(); }
+        }, InheritanceContext.RUNTIME_MANAGEMENT);
+        
+        if (result.isValueSet()) return Maybe.of(result.getValue());
+        return Maybe.absent();
     }
     
-    private <T> Maybe<?> deepMerge(Maybe<? extends T> val1, Maybe<? extends T> val2, ConfigKey<?> keyForLogging) {
-        if (val2.isAbsent() || val2.isNull()) {
-            return val1;
-        } else if (val1.isAbsent()) {
-            return val2;
-        } else if (val1.isNull()) {
-            return val1; // an explicit null means an override; don't merge
-        } else if (val1.get() instanceof Map && val2.get() instanceof Map) {
-            return Maybe.of(CollectionMerger.builder().build().merge((Map<?,?>)val1.get(), (Map<?,?>)val2.get()));
-        } else {
-            // cannot merge; just return val1
-            LOG.debug("Cannot merge values for "+keyForLogging.getName()+", because values are not maps: "+val1.get().getClass()+", and "+val2.get().getClass());
-            return val1;
-        }
-    }
-
     private <T> boolean isInherited(ConfigKey<T> key) {
         return isInherited(key, key.getParentInheritance());
     }
     private <T> boolean isInherited(ConfigKey<T> key, ConfigInheritance inheritance) {
-        if (inheritance==null) inheritance = getDefaultParentInheritance();
+        if (inheritance==null) inheritance = getDefaultRuntimeInheritance();
         InheritanceMode mode = inheritance.isInherited(key, entity.getParent(), entity);
         return mode != null && mode != InheritanceMode.NONE;
     }
-    private ConfigInheritance getDefaultParentInheritance() {
+    private ConfigInheritance getDefaultRuntimeInheritance() {
         return ConfigInheritance.ALWAYS; 
     }
 
