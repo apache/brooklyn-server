@@ -116,7 +116,7 @@
         <ivy.version>2.2.0</ivy.version>
         <mx4j.version>3.0.1</mx4j.version>
         <bouncycastle.version>1.49</bouncycastle.version>
-        <sshj.version>0.8.1</sshj.version>
+        <sshj.version>0.12.0</sshj.version>
         <felix.framework.version>5.4.0</felix.framework.version>
         <reflections.version>0.9.9-RC1</reflections.version>
         <jetty.version>9.2.13.v20150730</jetty.version>
