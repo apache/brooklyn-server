@@ -20,7 +20,11 @@ package org.apache.brooklyn.util.javalang;
 
 import java.lang.ref.SoftReference;
 import java.lang.ref.WeakReference;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
+
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -44,7 +48,9 @@ public class MemoryUsageTracker {
      * the amount of used memory which is reclaimable by collecting soft references.
      * <p>
      * This is particularly handy for tracking {@link SoftReference}s, because otherwise you can quickly get to a state
-     * where {@link Runtime#freeMemory()} looks very low.
+     * where {@link Runtime#freeMemory()} <i>looks</i> very low.
+     * <p>
+     * Also consider {@link #forceClearSoftReferences()} to get useful information.
      **/
     public static final MemoryUsageTracker SOFT_REFERENCES = new MemoryUsageTracker();
     
@@ -68,5 +74,40 @@ public class MemoryUsageTracker {
         memoryTrackedReferences.cleanUp();
         return bytesUsed.get();
     }
-    
+
+    /** forces all soft references to be cleared by trying to allocate an enormous chunk of memory,
+     * returns a description of what was done 
+     * (tune with with {@link #forceClearSoftReferences(long, int)} 
+     * for greater than 200M precision in the output message, if you really care about that) */
+    public static String forceClearSoftReferences() {
+        return forceClearSoftReferences(1000*1000, Integer.MAX_VALUE);
+    }
+    /** as {@link #forceClearSoftReferences()} but gives control over headroom and max chunk size.
+     * it tries to undershoot by headroom as it approaches maximum (and then overshoot)
+     * to minimize the chance we take exactly all the memory and starve another thread;
+     * and it uses the given max chunk size in cases where the caller wants more precision
+     * (the available memory will be fragmented so the smaller the chunks the more it can
+     * fill in, but at the expense of time and actual memory provisioned) */
+    public static String forceClearSoftReferences(long headroom, int maxChunk) {
+        final long HEADROOM = 1000*1000;  
+        long lastAmount = 0;
+        long nextAmount = 0;
+        try {
+            List<byte[]> dd = MutableList.of();
+            while (true) {
+                int size = (int)Math.min(Runtime.getRuntime().freeMemory()-HEADROOM, maxChunk);
+                if (size<HEADROOM) {
+                    // do this to minimize the chance another thread gets an OOME
+                    // due to us leaving just a tiny amount of memory 
+                    size = (int) Math.min(size + 2*HEADROOM, maxChunk);
+                }
+                nextAmount += size;
+                dd.add(new byte[size]);
+                lastAmount = nextAmount;
+            }
+        } catch (OutOfMemoryError e) { /* expected */ }
+        return "allocated " + Strings.makeSizeString((lastAmount+nextAmount)/2) +
+                (lastAmount<nextAmount ? " +- "+Strings.makeSizeString((nextAmount-lastAmount)/2) : "")
+                +" really free memory in "+Strings.makeSizeString(maxChunk)+" chunks";
+    }
 }

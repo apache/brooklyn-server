@@ -81,7 +81,39 @@ public class MemoryUsageTrackerTest {
         }
         return size;
     }
-    
+
+    @Test(groups="Integration")
+    public void testSoftUsageAndClearance() {
+        long totalMemory = Runtime.getRuntime().totalMemory();
+        long freeMemory = Runtime.getRuntime().freeMemory();
+        
+        List<Maybe<?>> dump = MutableList.of();
+        Maybe<byte[]> first = Maybe.soft(new byte[1000*1000]);
+        dump.add(first);
+        for (int i=0; i<1000*1000; i++) {
+            totalMemory = Runtime.getRuntime().totalMemory();
+            freeMemory = Runtime.getRuntime().freeMemory();
+            
+            dump.add(Maybe.soft(new byte[1000*1000]));
+            if (first.isAbsent()) break;
+        }
+        int cleared = 0;
+        for (Maybe<?> m: dump) { if (m.isAbsent()) cleared++; }
+        LOG.info("First soft reference cleared after "+dump.size()+" 1M blocks created; "+cleared+" of them cleared");
+        
+        Assert.assertTrue(1.0*freeMemory/totalMemory < 0.10, 
+            "Should have had less than 10% free memory before clearance, had "+Strings.makeSizeString(freeMemory)+" / "+Strings.makeSizeString(totalMemory));
+        
+        LOG.info("Forcing memory eviction: "+
+            MemoryUsageTracker.forceClearSoftReferences(100*1000, 10*1000*1000));
+        
+        System.gc(); System.gc();
+        totalMemory = Runtime.getRuntime().totalMemory();
+        freeMemory = Runtime.getRuntime().freeMemory();
+        Assert.assertTrue(1.0*freeMemory/totalMemory > 0.90, 
+            "Should now have more than 90% free memory, had "+Strings.makeSizeString(freeMemory)+" / "+Strings.makeSizeString(totalMemory));
+    }
+        
     private static void assertLessThan(long lhs, long rhs) {
         Assert.assertTrue(lhs<rhs, "Expected "+lhs+" < "+rhs);
     }

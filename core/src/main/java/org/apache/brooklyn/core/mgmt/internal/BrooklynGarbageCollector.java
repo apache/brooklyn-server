@@ -60,8 +60,8 @@ import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Objects;
 import com.google.common.annotations.Beta;
+import com.google.common.base.Objects;
 import com.google.common.collect.Iterables;
 
 /**
@@ -92,8 +92,17 @@ public class BrooklynGarbageCollector {
             Duration.minutes(1));
     
     public static final ConfigKey<Boolean> DO_SYSTEM_GC = ConfigKeys.newBooleanConfigKey(
-            "brooklyn.gc.doSystemGc", "whether to periodically call System.gc()", false);
-    
+        "brooklyn.gc.doSystemGc", "whether to periodically call System.gc()", false);
+
+    public static final ConfigKey<Double> FORCE_CLEAR_SOFT_REFERENCES_ON_MEMORY_USAGE_LEVEL = 
+        ConfigKeys.newDoubleConfigKey("brooklyn.gc.clearSoftReferencesOnMemoryUsageLevel", 
+            "force clearance of soft references (by generating a deliberate OOME) "
+            + "if memory usage gets higher than this percentage of available memory; "
+            + "Brooklyn will use up to the max, or this percentage, with soft references,"
+            + "so if using any high-memory-usage alerts they should be pegged quite a bit"
+            + "higher than this threshhold "
+            + "(default >1 means never)", 2.0);
+
     /** 
      * should we check for tasks which are submitted by another but backgrounded, i.e. not a child of that task?
      * default to yes, despite it can be some extra loops, to make sure we GC them promptly.
@@ -142,6 +151,7 @@ public class BrooklynGarbageCollector {
     };
     
     private final BasicExecutionManager executionManager;
+    @SuppressWarnings("unused")  // TODO remove BrooklynStorage altogether?
     private final BrooklynStorage storage;
     private final BrooklynProperties brooklynProperties;
     private final ScheduledExecutorService executor;
@@ -149,7 +159,6 @@ public class BrooklynGarbageCollector {
     private Map<Entity,Task<?>> unmanagedEntitiesNeedingGc = new LinkedHashMap<Entity, Task<?>>();
     
     private Duration gcPeriod;
-    private final boolean doSystemGc;
     private volatile boolean running = true;
     
     public BrooklynGarbageCollector(BrooklynProperties brooklynProperties, BasicExecutionManager executionManager, BrooklynStorage storage) {
@@ -157,7 +166,6 @@ public class BrooklynGarbageCollector {
         this.storage = storage;
         this.brooklynProperties = brooklynProperties;
 
-        doSystemGc = brooklynProperties.getConfig(DO_SYSTEM_GC);
         
         executor = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
                 @Override public Thread newThread(Runnable r) {
@@ -196,7 +204,13 @@ public class BrooklynGarbageCollector {
             gcTasks();
             logUsage("brooklyn gc (after)");
             
-            if (doSystemGc) {
+            double memUsage = 1.0 - 1.0*Runtime.getRuntime().freeMemory() / Runtime.getRuntime().totalMemory();
+            if (memUsage > brooklynProperties.getConfig(FORCE_CLEAR_SOFT_REFERENCES_ON_MEMORY_USAGE_LEVEL)) {
+                LOG.info("Forcing brooklyn gc including soft references due to memory usage: "+getUsageString());
+                MemoryUsageTracker.forceClearSoftReferences();
+                System.gc(); System.gc();
+                LOG.info("Forced thorough brooklyn gc, usage now: "+getUsageString());
+            } else if (brooklynProperties.getConfig(DO_SYSTEM_GC)) {
                 // Can be very useful when tracking down OOMEs etc, where a lot of tasks are executing
                 // Empirically observed that (on OS X jvm at least) calling twice blocks - logs a significant
                 // amount of memory having been released, as though a full-gc had been run. But this is highly
@@ -219,13 +233,17 @@ public class BrooklynGarbageCollector {
     public static String makeBasicUsageString() {
         return Strings.makeSizeString(Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory())+" / "+
             Strings.makeSizeString(Runtime.getRuntime().totalMemory()) + " memory" +
-            " ("+Strings.makeSizeString(MemoryUsageTracker.SOFT_REFERENCES.getBytesUsed()) + " soft); "+
+            // don't mention soft references; they're not very accurate
+            // TODO would be nice to give an indication of soft usage or expiry rate;
+            // a sampling of Maybe instances could be useful for that
+//            " ("+Strings.makeSizeString(MemoryUsageTracker.SOFT_REFERENCES.getBytesUsed()) + " soft); "+
             Thread.activeCount()+" threads";
     }
     
     public String getUsageString() {
         return makeBasicUsageString()+"; "+
-            "storage: " + storage.getStorageMetrics() + "; " +
+            // ignore storage
+//            "storage: " + storage.getStorageMetrics() + "; " +
             "tasks: " +
             executionManager.getNumActiveTasks()+" active, "+
             executionManager.getNumIncompleteTasks()+" unfinished; "+
