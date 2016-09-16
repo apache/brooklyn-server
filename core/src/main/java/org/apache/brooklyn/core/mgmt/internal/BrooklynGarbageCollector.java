@@ -54,6 +54,7 @@ import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.apache.brooklyn.util.core.task.ExecutionListener;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe.SoftlyPresent;
 import org.apache.brooklyn.util.javalang.MemoryUsageTracker;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
@@ -103,14 +104,17 @@ public class BrooklynGarbageCollector {
             + "higher than this threshhold "
             + "(default >1 means never)", 2.0);
 
+    public static final ConfigKey<Boolean> TRACK_SOFT_MAYBE_USAGE = ConfigKeys.newBooleanConfigKey(
+        "brooklyn.gc.trackSoftMaybeUsage", "whether to track each maybe soft-reference and report usage", true);
+
     /** 
      * should we check for tasks which are submitted by another but backgrounded, i.e. not a child of that task?
      * default to yes, despite it can be some extra loops, to make sure we GC them promptly.
      * @since 0.7.0 */
-    // work offender is {@link DynamicSequentialTask} internal job tracker, but it is marked 
+    // worst offender is {@link DynamicSequentialTask} internal job tracker, but it is marked 
     // transient so it is destroyed prompty; there may be others, however;
-    // but OTOH it might be expensive to check for these all the time!
-    // TODO probably we can set this false (remove this and related code),
+    // it doesn't seem to be expensive in practise, but if it becomes so (which seems plausible)
+    // then probably we can set this false (or even remove this and related code),
     // and just rely on usual GC to pick up background tasks; the lifecycle of background task
     // should normally be independent of the submitter. (DST was the exception, and marking 
     // transient there fixes the main problem, which is when the submitter is GC'd but the submitted is not,
@@ -166,6 +170,8 @@ public class BrooklynGarbageCollector {
         this.storage = storage;
         this.brooklynProperties = brooklynProperties;
 
+        if (brooklynProperties.getConfig(TRACK_SOFT_MAYBE_USAGE))
+            SoftlyPresent.getUsageTracker().enable();
         
         executor = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
                 @Override public Thread newThread(Runnable r) {
@@ -206,10 +212,10 @@ public class BrooklynGarbageCollector {
             
             double memUsage = 1.0 - 1.0*Runtime.getRuntime().freeMemory() / Runtime.getRuntime().totalMemory();
             if (memUsage > brooklynProperties.getConfig(FORCE_CLEAR_SOFT_REFERENCES_ON_MEMORY_USAGE_LEVEL)) {
-                LOG.info("Forcing brooklyn gc including soft references due to memory usage: "+getUsageString());
+                LOG.info("Forcing brooklyn gc including soft-reference cleansing due to memory usage: "+getUsageString());
                 MemoryUsageTracker.forceClearSoftReferences();
                 System.gc(); System.gc();
-                LOG.info("Forced thorough brooklyn gc, usage now: "+getUsageString());
+                LOG.info("Forced cleansing brooklyn gc, usage now: "+getUsageString());
             } else if (brooklynProperties.getConfig(DO_SYSTEM_GC)) {
                 // Can be very useful when tracking down OOMEs etc, where a lot of tasks are executing
                 // Empirically observed that (on OS X jvm at least) calling twice blocks - logs a significant
@@ -221,7 +227,6 @@ public class BrooklynGarbageCollector {
         } catch (Throwable t) {
             Exceptions.propagateIfFatal(t);
             LOG.warn("Error during management-context GC: "+t, t);
-            // previously we bailed on all errors, but I don't think we should do that -Alex
         }
     }
 
@@ -231,12 +236,10 @@ public class BrooklynGarbageCollector {
     }
 
     public static String makeBasicUsageString() {
+        int present = (int)Math.round(100.0*SoftlyPresent.getUsageTracker().getPercentagePresent());
         return Strings.makeSizeString(Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory())+" / "+
-            Strings.makeSizeString(Runtime.getRuntime().totalMemory()) + " memory" +
-            // don't mention soft references; they're not very accurate
-            // TODO would be nice to give an indication of soft usage or expiry rate;
-            // a sampling of Maybe instances could be useful for that
-//            " ("+Strings.makeSizeString(MemoryUsageTracker.SOFT_REFERENCES.getBytesUsed()) + " soft); "+
+            Strings.makeSizeString(Runtime.getRuntime().totalMemory()) + " memory; " +
+            (present>=0 ? present+"% soft-reference maybe retention (of "+SoftlyPresent.getUsageTracker().getTotalEntries()+"); " : "") +
             Thread.activeCount()+" threads";
     }
     
