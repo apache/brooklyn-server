@@ -349,6 +349,11 @@ public class TypeCoercionsTest {
         assertEquals(coerce("1.0", Number.class), (Number) Double.valueOf(1.0));
     }
 
+    @Test
+    public void testCoerceStringToByteArray() {
+        assertEquals(coerce("abc", byte[].class), "abc".getBytes());
+    }
+
     @Test(expectedExceptions = org.apache.brooklyn.util.javalang.coerce.ClassCoercionException.class)
     public void testInvalidCoercionThrowsClassCoercionException() {
         coerce(new Object(), TypeToken.of(Integer.class));
