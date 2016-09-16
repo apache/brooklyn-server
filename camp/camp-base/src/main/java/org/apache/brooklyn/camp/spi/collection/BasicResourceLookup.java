@@ -24,9 +24,13 @@ import java.util.Map;
 
 import org.apache.brooklyn.camp.spi.AbstractResource;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class BasicResourceLookup<T extends AbstractResource> extends AbstractResourceLookup<T> {
 
+    private static final Logger log = LoggerFactory.getLogger(BasicResourceLookup.class);
+    
     Map<String,T> items = new MutableMap<String,T>();
     Map<String,ResolvableLink<T>> links = new MutableMap<String,ResolvableLink<T>>();
     
@@ -43,6 +47,11 @@ public class BasicResourceLookup<T extends AbstractResource> extends AbstractRes
         if (old!=null) {
             items.put(old.getId(), old);
             throw new IllegalStateException("Already contains item for "+item.getId()+": "+old+" (adding "+item+")");
+        } else {
+            if (!items.isEmpty() && items.size()%100==0) {
+                // useful for monitoring any leaks here
+                log.debug("Creating new CAMP item in "+this+" (had "+(items.size())+"): "+item);
+            }
         }
         links.put(item.getId(), newLink(item.getId(), item.getName()));
     }
