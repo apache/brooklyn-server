@@ -207,7 +207,7 @@
     </feature>
 
     <feature name="brooklyn-commands"  version="${project.version}"  description="Brooklyn Shell Commands">
-        <bundle>mvn:org.apache.brooklyn/brooklyn-launcher-common/${project.version}</bundle>
+        <bundle dependency="true">mvn:org.apache.brooklyn/brooklyn-launcher-common/${project.version}</bundle>
         <bundle>mvn:org.apache.brooklyn/brooklyn-commands/${project.version}</bundle>
     </feature>
 
@@ -245,6 +245,9 @@
     </feature>
 
     <feature name="brooklyn-locations-jclouds" version="${project.version}" description="Brooklyn Jclouds Location Targets">
+        <!--  Override jclouds provided 0.3_1 dependency - jclouds already depends on 1.1, but jclouds-karaf is not updated yet. -->
+        <bundle dependency="true">mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.java-xmlbuilder/1.1_1</bundle>
+
         <!--
             OkHttp had OSGi support shortly in 3.0.0, but was immediately reverted in 3.0.1
             https://github.com/square/okhttp/pull/2192
@@ -312,7 +315,7 @@
         <feature>brooklyn-core</feature>
         <feature>brooklyn-server-software-all</feature>
         <feature>brooklyn-locations-jclouds</feature>
-        <bundle>mvn:org.apache.brooklyn/brooklyn-launcher-common/${project.version}</bundle>
+        <bundle dependency="true">mvn:org.apache.brooklyn/brooklyn-launcher-common/${project.version}</bundle>
         <bundle start-level="90">mvn:org.apache.brooklyn/brooklyn-karaf-init/${project.version}</bundle>
     </feature>
 
