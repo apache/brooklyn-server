@@ -37,7 +37,7 @@ import org.apache.brooklyn.util.core.file.ArchiveBuilder;
 import org.apache.brooklyn.util.core.file.ArchiveUtils;
 import org.apache.brooklyn.util.os.Os;
 
-import com.google.api.client.repackaged.com.google.common.base.Joiner;
+import com.google.common.base.Joiner;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
