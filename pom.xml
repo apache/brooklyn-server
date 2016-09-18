@@ -46,9 +46,9 @@
     </developers>
 
     <scm>
-        <connection>scm:git:https://git-wip-us.apache.org/repos/asf/incubator-brooklyn.git</connection>
-        <developerConnection>scm:git:https://git-wip-us.apache.org/repos/asf/incubator-brooklyn.git</developerConnection>
-        <url>https://git-wip-us.apache.org/repos/asf?p=incubator-brooklyn.git</url>
+        <connection>scm:git:https://git-wip-us.apache.org/repos/asf/brooklyn-server.git</connection>
+        <developerConnection>scm:git:https://git-wip-us.apache.org/repos/asf/brooklyn-server.git</developerConnection>
+        <url>https://git-wip-us.apache.org/repos/asf?p=brooklyn-server.git</url>
         <tag>HEAD</tag>
     </scm>
 
@@ -58,7 +58,7 @@
     </issueManagement>
     <ciManagement>
         <system>Jenkins</system>
-        <url>https://builds.apache.org/job/incubator-brooklyn-master-build/</url>
+        <url>https://builds.apache.org/view/Brooklyn/job/brooklyn-server-master/</url>
     </ciManagement>
     <mailingLists>
         <mailingList>
