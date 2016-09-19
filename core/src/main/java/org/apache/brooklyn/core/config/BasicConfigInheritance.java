@@ -36,6 +36,7 @@ public class BasicConfigInheritance implements ConfigInheritance {
 
     // TODO javadoc
     public static BasicConfigInheritance NOT_REINHERITED = new BasicConfigInheritance(false,"overwrite",false);
+    public static BasicConfigInheritance NOT_REINHERITED_ELSE_DEEP_MERGE = new BasicConfigInheritance(false,"deep_merge",false);
     public static BasicConfigInheritance NEVER_INHERITED = new BasicConfigInheritance(false,"overwrite",true);
     public static BasicConfigInheritance OVERWRITE = new BasicConfigInheritance(true,"overwrite",false);
     public static BasicConfigInheritance DEEP_MERGE = new BasicConfigInheritance(true,"deep_merge",false);

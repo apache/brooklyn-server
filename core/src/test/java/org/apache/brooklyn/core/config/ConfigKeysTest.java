@@ -21,8 +21,9 @@ package org.apache.brooklyn.core.config;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
-import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys.InheritanceContext;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import com.google.common.base.CaseFormat;
@@ -82,7 +83,7 @@ public class ConfigKeysTest {
         ConfigKey<String> key = ConfigKeys.builder(String.class, "mykey")
             .description("my descr")
             .defaultValue("my default val")
-            .runtimeInheritance(ConfigInheritance.NONE)
+            .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED)
             .reconfigurable(true)
             .build();
         
@@ -98,7 +99,8 @@ public class ConfigKeysTest {
         assertEquals(key.getDescription(), "my descr");
         assertEquals(key.getDefaultValue(), "my default val");
         assertEquals(key.isReconfigurable(), true);
-        assertEquals(key.getParentInheritance(), ConfigInheritance.NONE);
+        assertEquals(key.getInheritanceByContext(InheritanceContext.RUNTIME_MANAGEMENT), BasicConfigInheritance.NOT_REINHERITED);
+        Assert.assertNull(key.getInheritanceByContext(InheritanceContext.TYPE_DEFINITION));
     }
 
 }

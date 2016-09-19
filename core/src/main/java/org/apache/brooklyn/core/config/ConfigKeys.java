@@ -22,7 +22,6 @@ import java.util.Map;
 
 import javax.annotation.Nonnull;
 
-import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigInheritance.ConfigInheritanceContext;
 import org.apache.brooklyn.config.ConfigInheritance.ContainerAndKeyValue;
 import org.apache.brooklyn.config.ConfigInheritance.ContainerAndValue;
@@ -290,8 +289,11 @@ public class ConfigKeys {
 
     }
 
-    /** determine whether a key is reinherited, ie its value is exported to container's descendants  */
-    public static <T> boolean isRehinherited(final ConfigKey<T> key, final InheritanceContext context) {
+    /** determine whether a key is reinherited, ie its value is exported to container's descendants  
+     * @deprecated since 0.10.0 In order to determine whether a key is inherited we might need to know whether
+     * it was explicitly defined as a key on a parent; callers should be refactored. */
+    @Deprecated
+    public static <T> boolean isReinherited(final ConfigKey<T> key, final InheritanceContext context) {
         // evaluate by faking a parent who sets a value and seeing if it's reinherited
         Iterable<? extends ContainerAndKeyValue<T>> ckvi = MutableList.of(
             new BasicContainerAndKeyValue<Void,T>(key, null, new Function<Void,Maybe<T>>() {
@@ -301,7 +303,7 @@ public class ConfigKeys {
                 }
             }));
         
-        ContainerAndValue<T> combinedVal = ConfigInheritance.ALWAYS.resolveInheriting(
+        ContainerAndValue<T> combinedVal = BasicConfigInheritance.OVERWRITE.resolveInheriting(
             key, Maybe.<T>absent(), null,
             ckvi.iterator(), InheritanceContext.TYPE_DEFINITION);
         return combinedVal.isValueSet();

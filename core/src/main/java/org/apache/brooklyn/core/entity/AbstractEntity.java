@@ -27,24 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.brooklyn.config.ConfigInheritance;
-import org.apache.brooklyn.core.config.BasicConfigKey;
-import org.apache.commons.lang3.builder.EqualsBuilder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.annotations.Beta;
-import com.google.common.base.Function;
-import com.google.common.base.Objects;
-import com.google.common.base.Objects.ToStringHelper;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
-
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
@@ -76,8 +58,9 @@ import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.BrooklynLogging;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
+import org.apache.brooklyn.core.config.BasicConfigInheritance;
+import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.config.ConfigConstraints;
-import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.render.RendererHints;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.internal.EntityConfigMap;
@@ -118,6 +101,21 @@ import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Equals;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.commons.lang3.builder.EqualsBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.annotations.Beta;
+import com.google.common.base.Function;
+import com.google.common.base.Objects;
+import com.google.common.base.Objects.ToStringHelper;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 /**
  * Default {@link Entity} implementation, which should be extended whenever implementing an entity.
@@ -156,7 +154,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     /**
      * The default name to use for this entity, if not explicitly overridden.
      */
-    public static final ConfigKey<String> DEFAULT_DISPLAY_NAME = BasicConfigKey.builder(String.class).name("defaultDisplayName").runtimeInheritance(ConfigInheritance.NONE).build();
+    public static final ConfigKey<String> DEFAULT_DISPLAY_NAME = BasicConfigKey.builder(String.class).name("defaultDisplayName").runtimeInheritance(BasicConfigInheritance.NEVER_INHERITED).build();
 
     public static final BasicNotificationSensor<Location> LOCATION_ADDED = new BasicNotificationSensor<Location>(
             Location.class, "entity.location.added", "Location dynamically added to entity");

@@ -44,13 +44,14 @@ import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigInheritance;
-import org.apache.brooklyn.config.ConfigInheritance.InheritanceMode;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
+import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.config.ConfigConstraints;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.config.ConfigKeys.InheritanceContext;
 import org.apache.brooklyn.core.internal.storage.BrooklynStorage;
 import org.apache.brooklyn.core.internal.storage.Reference;
 import org.apache.brooklyn.core.internal.storage.impl.BasicReference;
@@ -390,6 +391,7 @@ public abstract class AbstractLocation extends AbstractBrooklynObject implements
 
         @Override
         public <T> T get(ConfigKey<T> key) {
+            // TODO support merging
             Object result = null;
             if (hasConfig(key, false)) {
                 result = getLocalBag().getAllConfigRaw().get(key.getName());
@@ -488,14 +490,11 @@ public abstract class AbstractLocation extends AbstractBrooklynObject implements
         }
         
         private boolean isInherited(ConfigKey<?> key) {
-            ConfigInheritance inheritance = key.getInheritance();
-            if (inheritance==null) inheritance = getDefaultInheritance();
-            InheritanceMode mode = inheritance.isInherited(key, getParent(), AbstractLocation.this);
-            return mode != null && mode != InheritanceMode.NONE;
+            return ConfigKeys.isReinherited(key, InheritanceContext.RUNTIME_MANAGEMENT);
         }
 
         private ConfigInheritance getDefaultInheritance() {
-            return ConfigInheritance.ALWAYS;
+            return BasicConfigInheritance.OVERWRITE;
         }
 
         @Override

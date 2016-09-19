@@ -50,6 +50,7 @@ import org.apache.brooklyn.config.ConfigInheritance.ContainerAndKeyValue;
 import org.apache.brooklyn.config.ConfigInheritance.ContainerAndValue;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
+import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.BasicConfigInheritance.BasicContainerAndKeyValue;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.ConfigKeys.InheritanceContext;
@@ -338,7 +339,7 @@ public class BrooklynComponentTemplateResolver {
                 continue;
             }
             ConfigKey<?> key = entry.getValue();
-            if (!ConfigKeys.isRehinherited(key, InheritanceContext.TYPE_DEFINITION)) {
+            if (!ConfigKeys.isReinherited(key, InheritanceContext.TYPE_DEFINITION)) {
                 spec.removeConfig(key);
                 spec.removeFlag(key.getName());
             }
@@ -358,7 +359,7 @@ public class BrooklynComponentTemplateResolver {
     }
 
     protected ConfigInheritance getDefaultConfigInheritance() {
-        return ConfigInheritance.ALWAYS;
+        return BasicConfigInheritance.OVERWRITE;
     }
 
     /**

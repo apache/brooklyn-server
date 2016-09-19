@@ -20,10 +20,9 @@ package org.apache.brooklyn.core.entity;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.EntityConfigTest.MyOtherEntity;
 import org.apache.brooklyn.core.entity.EntityConfigTest.MyOtherEntityImpl;
 import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
@@ -167,9 +166,9 @@ public class ConfigEntityInheritanceTest extends BrooklynAppUnitTestSupport {
     
     public static class MyEntityWithPartiallyHeritableConfig extends AbstractEntity {
         public static final ConfigKey<String> HERITABLE = ConfigKeys.builder(String.class, "herit.default").build();
-        public static final ConfigKey<String> UNINHERITABLE = ConfigKeys.builder(String.class, "herit.none").runtimeInheritance(ConfigInheritance.NONE).build();
+        public static final ConfigKey<String> UNINHERITABLE = ConfigKeys.builder(String.class, "herit.none").runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED).build();
         // i find a strange joy in words where the prefix "in-" does not mean not, like inflammable 
-        public static final ConfigKey<String> ALWAYS_HERITABLE = ConfigKeys.builder(String.class, "herit.always").runtimeInheritance(ConfigInheritance.ALWAYS).build();
+        public static final ConfigKey<String> ALWAYS_HERITABLE = ConfigKeys.builder(String.class, "herit.always").runtimeInheritance(BasicConfigInheritance.OVERWRITE).build();
     }
 
 }

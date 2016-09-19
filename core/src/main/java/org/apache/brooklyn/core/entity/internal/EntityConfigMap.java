@@ -22,10 +22,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.brooklyn.util.groovy.GroovyJavaMethods.elvis;
 
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Set;
 
 import org.apache.brooklyn.api.entity.Entity;
@@ -34,9 +32,10 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigInheritance.ContainerAndKeyValue;
 import org.apache.brooklyn.config.ConfigInheritance.ContainerAndValue;
-import org.apache.brooklyn.config.ConfigInheritance.InheritanceMode;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.BasicConfigInheritance.BasicContainerAndKeyValue;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.ConfigKeys.InheritanceContext;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.config.StructuredConfigKey;
@@ -166,17 +165,19 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
         if (result.isValueSet()) return Maybe.of(result.getValue());
         return Maybe.absent();
     }
-    
+
     private <T> boolean isInherited(ConfigKey<T> key) {
-        return isInherited(key, key.getParentInheritance());
+        // TODO
+        return ConfigKeys.isReinherited(key, InheritanceContext.RUNTIME_MANAGEMENT);
     }
-    private <T> boolean isInherited(ConfigKey<T> key, ConfigInheritance inheritance) {
-        if (inheritance==null) inheritance = getDefaultRuntimeInheritance();
-        InheritanceMode mode = inheritance.isInherited(key, entity.getParent(), entity);
-        return mode != null && mode != InheritanceMode.NONE;
-    }
+//    private <T> boolean isInherited(ConfigKey<T> key, ConfigInheritance inheritance) {
+//        if (inheritance==null) inheritance = getDefaultRuntimeInheritance();
+//        InheritanceMode mode = inheritance.isInherited(key, entity.getParent(), entity);
+//        return mode != null && mode != InheritanceMode.NONE;
+//    }
+    
     private ConfigInheritance getDefaultRuntimeInheritance() {
-        return ConfigInheritance.ALWAYS; 
+        return BasicConfigInheritance.OVERWRITE; 
     }
 
     @Override
