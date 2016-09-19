@@ -36,12 +36,13 @@ import org.apache.brooklyn.config.ConfigInheritance.ContainerAndKeyValue;
 import org.apache.brooklyn.config.ConfigInheritance.ContainerAndValue;
 import org.apache.brooklyn.config.ConfigInheritance.InheritanceMode;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.BasicConfigInheritance.BasicContainerAndKeyValue;
 import org.apache.brooklyn.core.config.ConfigKeys.InheritanceContext;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.config.StructuredConfigKey;
 import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
 import org.apache.brooklyn.core.entity.AbstractEntity;
-import org.apache.brooklyn.util.collections.CollectionMerger;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
@@ -52,6 +53,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -121,11 +123,9 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
         return TypeCoercions.coerce((defaultValue != null) ? defaultValue : ownKey.getDefaultValue(), key.getTypeToken());
     }
     
-    @SuppressWarnings("unchecked")
     private <T> Maybe<T> getConfigImpl(final ConfigKeySelfExtracting<T> key) {
         final ExecutionContext exec = entity.getExecutionContext();
         Maybe<T> ownValue;
-        Maybe<T> parentValue;
 
         // Get own value
         if (((ConfigKeySelfExtracting<T>)key).isSet(ownConfig)) {
@@ -142,61 +142,26 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
         } else {
             ownValue = Maybe.<T>absent();
         }
-        final Maybe<T> ownValueF = ownValue;
-
-        ContainerAndValue<T> result = getDefaultRuntimeInheritance().resolveInheriting(new Iterator<ContainerAndKeyValue<T>>() {
-            int count = 0;
-            @Override
-            public boolean hasNext() {
-                return count < 2;
-            }
-            @Override
-            public ContainerAndKeyValue<T> next() {
-                if (count >= 2) throw new NoSuchElementException();
-                final boolean isLookingAtInheritedBag = (count==1);
-                try {
-                    return new ContainerAndKeyValue<T>() {
-                        @Override
-                        public Object getContainer() {
-                            // TODO the current inheritedConfigBag is not good enough to detect the ancestor container
-                            return !isLookingAtInheritedBag ? entity : entity.getParent();
-                        }
-                        @Override
-                        public T getValue() {
-                            return peekValue().orNull();
-                        }
-                        protected Maybe<T> peekValue() {
-                            if (!isLookingAtInheritedBag) return ownValueF;
-                            if (((ConfigKeySelfExtracting<T>)key).isSet(inheritedConfig)) {
-                                return Maybe.of( ((ConfigKeySelfExtracting<T>)key).extractValue(inheritedConfig, exec) );
-                            } else if (inheritedConfigBag.containsKey(key)) {
-                                return Maybe.of(inheritedConfigBag.get(key));
-                            } else {
-                                return Maybe.absent();
-                            }
-                        }
-    
-                        @Override
-                        public boolean isValueSet() {
-                            return peekValue().isPresent();
-                        }
-    
-                        @Override
-                        public ConfigKey<T> getKey() {
-                            return key;
-                        }
-    
-                        @Override
-                        public T getDefaultValue() {
-                            return key.getDefaultValue();
-                        }
-                    };
-                } finally {
-                    count++;
+        
+        // TODO the current inheritedConfigBag is not good enough to detect the ancestor container
+        // (only goes up one level in hierarchy)
+        Iterable<? extends ContainerAndKeyValue<T>> ckvi = MutableList.of(
+            new BasicContainerAndKeyValue<Entity,T>(key, entity.getParent(), new Function<Entity,Maybe<T>>() {
+                @Override
+                public Maybe<T> apply(Entity input) {
+                    if (((ConfigKeySelfExtracting<T>)key).isSet(inheritedConfig)) {
+                        return Maybe.of( ((ConfigKeySelfExtracting<T>)key).extractValue(inheritedConfig, exec) );
+                    } else if (inheritedConfigBag.containsKey(key)) {
+                        return Maybe.of(inheritedConfigBag.get(key));
+                    } else {
+                        return Maybe.absent();
+                    }
                 }
-            }
-            @Override public void remove() { throw new UnsupportedOperationException(); }
-        }, InheritanceContext.RUNTIME_MANAGEMENT);
+            }));
+
+        ContainerAndValue<T> result = getDefaultRuntimeInheritance().resolveInheriting(key,
+            ownValue, entity,
+            ckvi.iterator(), InheritanceContext.RUNTIME_MANAGEMENT);
         
         if (result.isValueSet()) return Maybe.of(result.getValue());
         return Maybe.absent();

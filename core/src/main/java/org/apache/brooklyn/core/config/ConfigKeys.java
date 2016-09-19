@@ -22,20 +22,27 @@ import java.util.Map;
 
 import javax.annotation.Nonnull;
 
-import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigInheritance.ConfigInheritanceContext;
+import org.apache.brooklyn.config.ConfigInheritance.ContainerAndKeyValue;
+import org.apache.brooklyn.config.ConfigInheritance.ContainerAndValue;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.BasicConfigInheritance.BasicContainerAndKeyValue;
 import org.apache.brooklyn.core.config.BasicConfigKey.BasicConfigKeyOverwriting;
 import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.sensor.PortAttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.sensor.TemplatedStringAttributeSensorAndConfigKey;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.CaseFormat;
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.reflect.TypeToken;
 
@@ -281,6 +288,23 @@ public class ConfigKeys {
             return newInstance(defs);
         }
 
+    }
+
+    /** determine whether a key is reinherited, ie its value is exported to container's descendants  */
+    public static <T> boolean isRehinherited(final ConfigKey<T> key, final InheritanceContext context) {
+        // evaluate by faking a parent who sets a value and seeing if it's reinherited
+        Iterable<? extends ContainerAndKeyValue<T>> ckvi = MutableList.of(
+            new BasicContainerAndKeyValue<Void,T>(key, null, new Function<Void,Maybe<T>>() {
+                @Override
+                public Maybe<T> apply(Void input) {
+                    return Maybe.ofAllowingNull(null);
+                }
+            }));
+        
+        ContainerAndValue<T> combinedVal = ConfigInheritance.ALWAYS.resolveInheriting(
+            key, Maybe.<T>absent(), null,
+            ckvi.iterator(), InheritanceContext.TYPE_DEFINITION);
+        return combinedVal.isValueSet();
     }
 
 }

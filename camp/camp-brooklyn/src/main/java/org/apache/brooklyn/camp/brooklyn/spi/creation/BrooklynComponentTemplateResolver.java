@@ -46,17 +46,19 @@ import org.apache.brooklyn.camp.spi.ApplicationComponentTemplate;
 import org.apache.brooklyn.camp.spi.AssemblyTemplate;
 import org.apache.brooklyn.camp.spi.PlatformComponentTemplate;
 import org.apache.brooklyn.config.ConfigInheritance;
-import org.apache.brooklyn.config.ConfigInheritance.InheritanceMode;
+import org.apache.brooklyn.config.ConfigInheritance.ContainerAndKeyValue;
+import org.apache.brooklyn.config.ConfigInheritance.ContainerAndValue;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
+import org.apache.brooklyn.core.config.BasicConfigInheritance.BasicContainerAndKeyValue;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.config.ConfigKeys.InheritanceContext;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.resolve.entity.EntitySpecResolver;
-import org.apache.brooklyn.util.collections.CollectionMerger;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -256,7 +258,7 @@ public class BrooklynComponentTemplateResolver {
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    private void configureEntityConfig(EntitySpec<?> spec, Set<String> encounteredRegisteredTypeIds) {
+    private void configureEntityConfig(final EntitySpec<?> spec, Set<String> encounteredRegisteredTypeIds) {
         // first take *recognised* flags and config keys from the top-level, and put them in the bag (of brooklyn.config)
         // attrs will contain only brooklyn.xxx properties when coming from BrooklynEntityMatcher.
         // Any top-level flags will go into "brooklyn.flags". When resolving a spec from $brooklyn:entitySpec
@@ -288,31 +290,55 @@ public class BrooklynComponentTemplateResolver {
         Set<String> keyNamesUsed = new LinkedHashSet<String>();
         for (FlagConfigKeyAndValueRecord r: records) {
             if (r.getFlagMaybeValue().isPresent()) {
-                String flag = r.getFlagName();
-                Object ownVal = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getFlagMaybeValue().get());
-                Maybe<?> superVal = spec.getFlags().containsKey(flag) ? Maybe.of(spec.getFlags().get(flag)) : Maybe.absent();
-                Object combinedVal = combineValues(entityConfigKeys.get(flag), spec, Maybe.of(ownVal), superVal).get();
-                spec.configure(flag, combinedVal);
+                final String flag = r.getFlagName();
+                final ConfigKey<Object> key = ConfigKeys.newConfigKey(Object.class, flag);
+                final Object ownValueF = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getFlagMaybeValue().get());
+
+                Iterable<? extends ContainerAndKeyValue<Object>> ckvi = MutableList.of(
+                    new BasicContainerAndKeyValue<Void,Object>(key, null, new Function<Void,Maybe<Object>>() {
+                        @Override
+                        public Maybe<Object> apply(Void input) {
+                            return spec.getFlags().containsKey(flag) ? Maybe.of((Object)spec.getFlags().get(flag)) : Maybe.absent();
+                        }
+                    }));
+                
+                ContainerAndValue<Object> combinedVal = getDefaultConfigInheritance().resolveInheriting(
+                    key, Maybe.ofAllowingNull(ownValueF), null,
+                    ckvi.iterator(), InheritanceContext.TYPE_DEFINITION);
+                
+                spec.configure(flag, combinedVal.getValue());
                 keyNamesUsed.add(flag);
             }
+            
             if (r.getConfigKeyMaybeValue().isPresent()) {
-                ConfigKey<Object> key = (ConfigKey<Object>) r.getConfigKey();
-                Object ownVal = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getConfigKeyMaybeValue().get());
-                Maybe<?> superVal = spec.getConfig().containsKey(key) ? Maybe.of(spec.getConfig().get(key)) : Maybe.absent();
-                Object combinedVal = combineValues(entityConfigKeys.get(key.getName()), spec, Maybe.of(ownVal), superVal).get();
-                spec.configure(key, combinedVal);
+                final ConfigKey<Object> key = (ConfigKey<Object>) r.getConfigKey();
+                final Object ownValueF = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getConfigKeyMaybeValue().get());
+                Iterable<? extends ContainerAndKeyValue<Object>> ckvi = MutableList.of(
+                    new BasicContainerAndKeyValue<Void,Object>(key, null, new Function<Void,Maybe<Object>>() {
+                        @Override
+                        public Maybe<Object> apply(Void input) {
+                            return spec.getConfig().containsKey(key) ? Maybe.of(spec.getConfig().get(key)) : Maybe.absent();
+                        }
+                    }));
+                
+                ContainerAndValue<Object> combinedVal = getDefaultConfigInheritance().resolveInheriting(
+                    key, Maybe.ofAllowingNull(ownValueF), null,
+                    ckvi.iterator(), InheritanceContext.TYPE_DEFINITION);
+                
+                spec.configure(key, combinedVal.getValue());
                 keyNamesUsed.add(key.getName());
             }
         }
+        
+        // TODO clean up above
 
-        // For anything that should not be inherited, clear if from the spec
+        // For anything that should not be inherited, clear it from the spec (if not set above)
         for (Map.Entry<String, ConfigKey<?>> entry : entityConfigKeys.entrySet()) {
             if (keyNamesUsed.contains(entry.getKey())) {
                 continue;
             }
             ConfigKey<?> key = entry.getValue();
-            InheritanceMode mode = getInheritanceMode(key, spec);
-            if (mode == InheritanceMode.NONE) {
+            if (!ConfigKeys.isRehinherited(key, InheritanceContext.TYPE_DEFINITION)) {
                 spec.removeConfig(key);
                 spec.removeFlag(key.getName());
             }
@@ -331,41 +357,8 @@ public class BrooklynComponentTemplateResolver {
         }
     }
 
-    // TODO Duplicates some logic in EntityConfigMap.getConfig()
-    private Maybe<?> combineValues(ConfigKey<?> key, EntitySpec<?> spec, Maybe<?> ownVal, Maybe<?> superVal) {
-        InheritanceMode mode = getInheritanceMode(key, spec);
-        switch (mode) {
-        case IF_NO_EXPLICIT_VALUE:
-            return ownVal.isPresent() ? ownVal : superVal;
-        case DEEP_MERGE:
-            return deepMerge(ownVal, superVal, key);
-        case NONE:
-            return ownVal;
-        default:
-            throw new IllegalStateException("Unsupported type-inheritance mode for "+key.getName()+": "+mode);
-        }
-    }
-
-    private InheritanceMode getInheritanceMode(ConfigKey<?> key, EntitySpec<?> spec) {
-        ConfigInheritance inheritance = (key != null && key.getTypeInheritance() != null) ? key.getTypeInheritance() : ConfigInheritance.ALWAYS;
-        return inheritance.isInherited(key, spec, attrs);
-    }
-
-    // TODO Duplicate of EntityConfigMap.deepMerge
-    private <T> Maybe<?> deepMerge(Maybe<? extends T> val1, Maybe<? extends T> val2, ConfigKey<?> keyForLogging) {
-        if (val2.isAbsent() || val2.isNull()) {
-            return val1;
-        } else if (val1.isAbsent()) {
-            return val2;
-        } else if (val1.isNull()) {
-            return val1; // an explicit null means an override; don't merge
-        } else if (val1.get() instanceof Map && val2.get() instanceof Map) {
-            return Maybe.of(CollectionMerger.builder().build().merge((Map<?,?>)val1.get(), (Map<?,?>)val2.get()));
-        } else {
-            // cannot merge; just return val1
-            log.debug("Cannot merge values for "+keyForLogging.getName()+", because values are not maps: "+val1.get().getClass()+", and "+val2.get().getClass());
-            return val1;
-        }
+    protected ConfigInheritance getDefaultConfigInheritance() {
+        return ConfigInheritance.ALWAYS;
     }
 
     /**
