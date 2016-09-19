@@ -31,13 +31,6 @@ import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-/**
- * There is a bug where:
- *    class XI extends SI implements X
- *    class SI implements S  
- *    interface X extends Y
- *    config C is declared on S and overwritten at Y
- */
 public class ConfigEntityInheritanceTest extends BrooklynAppUnitTestSupport {
 
     protected void checkKeys(Entity entity2, Integer value) {
@@ -155,20 +148,55 @@ public class ConfigEntityInheritanceTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testConfigKeysInheritance() throws Exception {
         app.config().set(MyEntityWithPartiallyHeritableConfig.HERITABLE, "heritable");
-        app.config().set(MyEntityWithPartiallyHeritableConfig.UNINHERITABLE, "uninheritable");
         app.config().set(MyEntityWithPartiallyHeritableConfig.ALWAYS_HERITABLE, "always_heritable");
+        app.config().set(MyEntityWithPartiallyHeritableConfig.UNINHERITABLE, "uninheritable");
+        app.config().set(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE, "maybe");
         Entity child = app.addChild(EntitySpec.create(MyEntityWithPartiallyHeritableConfig.class));
         
         Assert.assertNotNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.HERITABLE));
-        Assert.assertNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.UNINHERITABLE), null);
         Assert.assertNotNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.ALWAYS_HERITABLE));
+        Assert.assertNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.UNINHERITABLE), null);
+        
+        // it's reinheritable unless explicitly declared
+        Assert.assertNotNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE));
+        app.getMutableEntityType().addConfigKey(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE);
+        Assert.assertNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE), null);
     }
     
     public static class MyEntityWithPartiallyHeritableConfig extends AbstractEntity {
         public static final ConfigKey<String> HERITABLE = ConfigKeys.builder(String.class, "herit.default").build();
-        public static final ConfigKey<String> UNINHERITABLE = ConfigKeys.builder(String.class, "herit.none").runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED).build();
+        public static final ConfigKey<String> UNINHERITABLE = ConfigKeys.builder(String.class, "herit.never").runtimeInheritance(BasicConfigInheritance.NEVER_INHERITED).build();
+        public static final ConfigKey<String> NOT_REINHERITABLE = ConfigKeys.builder(String.class, "herit.not_re").runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED).build();
         // i find a strange joy in words where the prefix "in-" does not mean not, like inflammable 
         public static final ConfigKey<String> ALWAYS_HERITABLE = ConfigKeys.builder(String.class, "herit.always").runtimeInheritance(BasicConfigInheritance.OVERWRITE).build();
     }
 
+    public static class WeirdInheritanceCase {
+        public interface Y {
+            public static final ConfigKey<String> WHERE = ConfigKeys.newStringConfigKey("where", null, "y");
+        }
+        public interface X extends Y {}
+        public interface S {
+            public static final ConfigKey<String> WHERE = ConfigKeys.newStringConfigKey("where", null, "s");
+        }
+        public static class SI extends AbstractEntity implements S {}
+        public static class XI extends SI implements X {}
+    }
+    /** There is a special case reported (in the main javadoc of this class, before this commit) where:
+     *    class XI extends SI implements X
+     *    class SI implements S  
+     *    interface X extends Y
+     *    config C is declared on S and overwritten at Y.
+     * <p>
+     * This was described as a bug. This case confirms it correctly get S.
+     * The description should read that C (aka WHERE) is declared at both S and Y.
+     * Its value should be read from the most proximal interface ie S.
+     * (At runtime it will generate warnings.)
+     */
+    @Test
+    public void testWeirdInheritanceCase() {
+        Entity child = app.addChild(EntitySpec.create(Entity.class, WeirdInheritanceCase.XI.class));
+        Assert.assertEquals(child.getConfig(ConfigKeys.newStringConfigKey("where", null, "local")), "s");
+    }
+    
 }
