@@ -636,8 +636,8 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         Entity app = createAndStartApplication(yaml);
         Entity entity = app.getChildren().iterator().next();
 
-        // Fails
-        assertEquals(entity.getCatalogItemId(), ver(symbolicNameInner));
+        assertEquals(entity.getCatalogItemId(), ver(symbolicNameOuter));
+        // TODO check nested ids
 
         deleteCatalogEntity(symbolicNameInner);
         deleteCatalogEntity(symbolicNameOuter);

@@ -22,9 +22,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.io.Serializable;
 import java.lang.reflect.Modifier;
+import java.util.ArrayDeque;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 
 import org.apache.brooklyn.api.mgmt.EntityManager;
@@ -65,7 +68,7 @@ public abstract class AbstractBrooklynObjectSpec<T,SpecT extends AbstractBrookly
     
     private final Class<? extends T> type;
     private String displayName;
-    private String catalogItemId;
+    private Deque<String> catalogItemIdStack = new ArrayDeque<>();
     private Set<Object> tags = MutableSet.of();
     private List<SpecParameter<?>> parameters = ImmutableList.of();
 
@@ -103,7 +106,23 @@ public abstract class AbstractBrooklynObjectSpec<T,SpecT extends AbstractBrookly
     // if that behaviour is desired, the child should be refactored to be its own item in the catalog BOM
     // (or TODO we add a separate field to record other catalog item IDs that could be applied for searching, see below)
     public SpecT catalogItemId(String val) {
-        catalogItemId = val;
+        catalogItemIdStack.clear();
+        return nestCatalogItemId(val);
+    }
+
+    /**
+     * Adds (stacks) the catalog item id of a wrapping specification.
+     * Does nothing if the value is null.
+     *
+     * Used when we to collect nested item ID's so that *all* can be searched.
+     * e.g. if R3 references R2 which references R1 any one of these might supply config keys
+     * referencing resources or types in their local bundles.
+     */
+    @Beta
+    public SpecT nestCatalogItemId(String val) {
+        if (null != val) {
+            catalogItemIdStack.addFirst(val);
+        }
         return self();
     }
     // TODO in many places (callers to this method) we prefer a wrapper item ID;
@@ -119,7 +138,7 @@ public abstract class AbstractBrooklynObjectSpec<T,SpecT extends AbstractBrookly
         return self();
     }
 
-    
+
     public SpecT tag(Object tag) {
         tags.add(tag);
         return self();
@@ -192,7 +211,24 @@ public abstract class AbstractBrooklynObjectSpec<T,SpecT extends AbstractBrookly
     }
     
     public final String getCatalogItemId() {
-        return catalogItemId;
+        if (catalogItemIdStack.size() != 0) {
+            return catalogItemIdStack.getFirst();
+        }
+        return null;
+    }
+
+    /**
+     * Get immutable list of ids of this object's catalog item and its nested catalog items.
+     * e.g. if the catalog item is defined as
+     * <pre>
+     *     items:
+     *     - id: X
+     *       item: Y
+     * </pre>
+     * then the list will contain X, Y.
+     */
+    public final List<String> getNestedCatalogItemIds() {
+        return ImmutableList.copyOf(catalogItemIdStack);
     }
 
     public final Set<Object> getTags() {
