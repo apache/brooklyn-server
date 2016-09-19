@@ -29,6 +29,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.annotations.Beta;
+import com.google.common.base.Supplier;
 
 @SuppressWarnings("serial")
 public interface ConfigInheritance extends Serializable {
@@ -53,6 +54,20 @@ public interface ConfigInheritance extends Serializable {
     
     @Deprecated
     InheritanceMode isInherited(ConfigKey<?> key, Object from, Object to);
+
+//    // TODO
+//    interface ConfigKeyValueInContext<TContainer,TValue> extends Supplier<TValue> {
+//        TValue get();
+//        Maybe<TValue> asMaybe();
+//        
+//        TContainer getContainer();
+//        
+//        /** if false, the contents of {@link #getValue()} will have come from the default */
+//        boolean isValueExplicitlySet();
+//        
+//        ConfigKey<TValue> getKey();
+//        TValue getDefaultValue();
+//    }
 
     interface ContainerAndValue<T> {
         Object getContainer();
@@ -160,7 +175,7 @@ public interface ConfigInheritance extends Serializable {
                 v.container = container;
                 if (v2==null || !v2.isValueSet()) {
                     v.isValueSet = localValue.isPresent();
-                    v.value = v.isValueSet() ? localValue.get() : key.getDefaultValue(); 
+                    v.value = v.isValueSet() ? localValue.get() : key!=null ? key.getDefaultValue() : null; 
                 } else {
                     v.value = resolveConflict(key, localValue, Maybe.ofAllowingNull(v2.getValue()));
                     v.isValueSet = true;

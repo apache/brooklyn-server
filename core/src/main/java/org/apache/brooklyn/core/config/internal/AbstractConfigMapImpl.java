@@ -30,6 +30,7 @@ import org.apache.brooklyn.core.config.StructuredConfigKey;
 import org.apache.brooklyn.core.entity.internal.ConfigMapViewWithStringKeys;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,6 +64,11 @@ public abstract class AbstractConfigMapImpl implements ConfigMap {
         return getConfigRaw(key, true).orNull();
     }
     
+    @Override
+    public Maybe<Object> getConfigLocalRaw(ConfigKey<?> key) {
+        return getConfigRaw(key, false);
+    }
+
     protected Object coerceConfigVal(ConfigKey<?> key, Object v) {
         Object val;
         if ((v instanceof Future) || (v instanceof DeferredSupplier)) {

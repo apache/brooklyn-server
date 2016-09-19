@@ -159,7 +159,7 @@ public class EntityAsserts {
         try {
             Asserts.succeedsEventually(new Runnable() {
                 @Override public void run() {
-                    Asserts.assertTrue(changed.get(), entity + " -> " + attribute + " not changed");
+                    Asserts.assertTrue(changed.get(), entity + " -> " + attribute + " not changed from "+origValue);
                 }});
         } finally {
             entity.subscriptions().unsubscribe(entity, handle);

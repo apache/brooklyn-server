@@ -19,9 +19,12 @@
 package org.apache.brooklyn.core.entity;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.brooklyn.util.groovy.GroovyJavaMethods.elvis;
 
 import java.util.Collection;
 import java.util.Map;
+
+import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
@@ -347,7 +350,8 @@ public class EntityFunctions {
     private static class LocationMatching implements Function<Entity, Location> {
         private Predicate<? super Location> filter;
         
-        private LocationMatching() { /* for xstream */
+        @SuppressWarnings("unused")
+        private LocationMatching() { /* for xstream */ 
         }
         public LocationMatching(Predicate<? super Location> filter) {
             this.filter = filter;
@@ -356,4 +360,42 @@ public class EntityFunctions {
             return Iterables.find(input.getLocations(), filter);
         }
     }
+    
+    public static Function<Entity, Entity> parent() {
+        return new EntityParent();
+    }
+    
+    private static class EntityParent implements Function<Entity, Entity> {
+        @Override public Entity apply(Entity input) {
+            return input==null ? null : input.getParent();
+        }
+    }
+
+    /** Returns a function that finds the best match for the given config key on an entity */
+    public static <T> Function<Entity, ConfigKey<T>> configKeyFinder(ConfigKey<T> queryKey, @Nullable ConfigKey<T> defaultValue) {
+        return new EntityKeyFinder<T>(queryKey, defaultValue);
+    }
+
+    /** As {@link #configKeyFinder(ConfigKey,ConfigKey)} using the query key as the default value */
+    public static <T> Function<Entity, ConfigKey<T>> configKeyFinder(ConfigKey<T> queryKey) {
+        return new EntityKeyFinder<T>(queryKey, queryKey);
+    }
+
+    private static class EntityKeyFinder<T> implements Function<Entity, ConfigKey<T>> {
+        private ConfigKey<T> queryKey;
+        private ConfigKey<T> defaultValue;
+
+        @SuppressWarnings("unused")
+        private EntityKeyFinder() { /* for xstream */ }
+        public EntityKeyFinder(ConfigKey<T> queryKey, ConfigKey<T> defaultValue) {
+            this.queryKey = queryKey;
+            this.defaultValue = defaultValue;
+        }
+
+        @SuppressWarnings("unchecked")
+        @Override public ConfigKey<T> apply(Entity entity) {
+            return entity!=null ? (ConfigKey<T>)elvis(entity.getEntityType().getConfigKey(queryKey.getName()), defaultValue) : defaultValue;
+        }
+    }
+
 }

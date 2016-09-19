@@ -137,6 +137,11 @@ public class DeferredBrooklynProperties implements BrooklynProperties {
         Maybe<Object> result = delegate.getConfigRaw(key, includeInherited);
         return (result.isPresent()) ? Maybe.of(transform(key, result.get())) : Maybe.absent();
     }
+    
+    @Override
+    public Maybe<Object> getConfigLocalRaw(ConfigKey<?> key) {
+        return getConfigRaw(key, false);
+    }
 
     @Override
     public Map<ConfigKey<?>, Object> getAllConfig() {

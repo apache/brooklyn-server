@@ -66,7 +66,18 @@ public interface ConfigMap {
      * @return raw, unresolved, uncoerced value of key in map,  
      *         but <b>not</b> any default on the key
      */
+    // TODO behaviour of this is undefined if the key specifies a merge
     public Maybe<Object> getConfigRaw(ConfigKey<?> key, boolean includeInherited);
+    
+    /** returns the value stored against the given key, 
+     * <b>not</b> any default,
+     * <b>not</b> inherited (if there is an inheritance hierarchy),
+     * <b>not</b> type-coerced or further resolved (eg a task or supplier, if such rules are applicable)
+     * @param key  key to look up
+     * @return raw, unresolved, uncoerced value of key explicitly in map
+     */
+    // TODO deprecate other methods?  getRaw won't be able to merge for instance
+    public Maybe<Object> getConfigLocalRaw(ConfigKey<?> key);
 
     /** returns a map of all config keys to their raw (unresolved+uncoerced) contents */
     public Map<ConfigKey<?>,Object> getAllConfig();

@@ -68,7 +68,7 @@ public class SoftwareProcessEntityFeedRebindTest extends RebindTestFixtureWithAp
         runFeedsDoNotPollUntilManaged(1, Duration.millis(250));
     }
 
-    @Test(groups="Integeration")
+    @Test(groups="Integration")
     public void testFeedsDoNotPollUntilManagedManyEntities() throws Exception {
         runFeedsDoNotPollUntilManaged(100, Duration.ONE_SECOND);
     }

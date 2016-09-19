@@ -450,6 +450,11 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
     }
 
     @Override
+    public Maybe<Object> getConfigLocalRaw(ConfigKey<?> key) {
+        return getConfigRaw(key, false);
+    }
+    
+    @Override
     public Map<ConfigKey<?>, Object> getAllConfig() {
         Map<ConfigKey<?>, Object> result = new LinkedHashMap<ConfigKey<?>, Object>();
         for (Object entry: entrySet())

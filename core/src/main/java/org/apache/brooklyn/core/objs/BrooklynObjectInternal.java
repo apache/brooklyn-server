@@ -26,6 +26,7 @@ import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
+import org.apache.brooklyn.config.ConfigMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.guava.Maybe;
 
@@ -51,10 +52,16 @@ public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
          * Returns a read-only view of all the config key/value pairs on this entity, backed by a string-based map,
          * including config names that did not match anything on this entity.
          *
-         * TODO This method gives no information about which config is inherited versus local;
-         * this means {@link ConfigKey#getInheritance()} cannot be respected. This is an unsolvable problem
-         * for "config names that did not match anything on this entity". Therefore consider using
-         * alternative getters.
+         * This method gives no information about which config is inherited versus local;
+         * this means {@link ConfigKey#getInheritanceByContext()} cannot be respected
+         * if an anonymous key (not matching a declared config key) is set but the
+         * strongly typed key is accessed.
+         * <p> 
+         * It does not identify the container where it is defined, meaning URLs and deferred config values 
+         * cannot be resolved in the context of the appropriate ancestor.
+         * <p>
+         * For these reasons it is recommended to use a different accessor,
+         * and callers should be advised this beta method may be removed. 
          */
         @Beta
         ConfigBag getBag();
@@ -128,6 +135,9 @@ public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
 
         @Beta
         void refreshInheritedConfigOfChildren();
+        
+        @Beta
+        ConfigMap getInternalConfigMap();
     }
     
     @Beta

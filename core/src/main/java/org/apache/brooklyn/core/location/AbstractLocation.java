@@ -45,6 +45,7 @@ import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.config.ConfigMap;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.config.BasicConfigInheritance;
@@ -500,6 +501,11 @@ public abstract class AbstractLocation extends AbstractBrooklynObject implements
         @Override
         protected ExecutionContext getContext() {
             return AbstractLocation.this.getManagementContext().getServerExecutionContext();
+        }
+        
+        @Override
+        public ConfigMap getInternalConfigMap() {
+            throw new UnsupportedOperationException("location does not use config map");
         }
     }
     

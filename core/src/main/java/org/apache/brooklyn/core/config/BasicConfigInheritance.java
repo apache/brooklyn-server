@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.config;
 
 import java.util.Iterator;
 import java.util.Map;
+import java.util.NoSuchElementException;
 
 import javax.annotation.Nullable;
 
@@ -80,12 +81,12 @@ public class BasicConfigInheritance implements ConfigInheritance {
             // check whether parent allows us to get inherited value
             ContainerAndKeyValue<T> c = ancestorContainerKeyValues.next();
             ConfigInheritance inh2 = c.getKey()==null ? null : c.getKey().getInheritanceByContext(context);
-            if (inh2==null) inh2 = this;
-            if (!this.isReinherited) {
+            if (inh2!=null && !ConfigKeys.isReinherited(c.getKey(), context)) {
                 // can't inherit
             } else {
                 // get inherited value
-                v2 = inh2.resolveInheriting(c.getKey(), 
+                if (inh2==null) inh2=this;
+                v2 = inh2.resolveInheriting(c.getKey()!=null ? c.getKey() : null, 
                     c.isValueSet() ? Maybe.of(c.getValue()) : Maybe.<T>absent(), c.getContainer(), 
                         ancestorContainerKeyValues, context);
             }
@@ -99,7 +100,7 @@ public class BasicConfigInheritance implements ConfigInheritance {
         v.container = container;
         if (v2==null || !v2.isValueSet()) {
             v.isValueSet = localValue.isPresent();
-            v.value = v.isValueSet() ? localValue.get() : key.getDefaultValue(); 
+            v.value = v.isValueSet() ? localValue.get() : key!=null ? key.getDefaultValue() : null; 
         } else {
             v.value = resolveConflict(key, localValue, Maybe.ofAllowingNull(v2.getValue()));
             v.isValueSet = true;
@@ -190,6 +191,41 @@ public class BasicConfigInheritance implements ConfigInheritance {
         public TValue getDefaultValue() {
             return key.getDefaultValue();
         }
-        
     }
+    
+    public static class AncestorContainerAndKeyValueIterator<TContainer,TValue> implements Iterator<ContainerAndKeyValue<TValue>> {
+        private TContainer lastContainer;
+        private final Function<TContainer, ConfigKey<TValue>> keyFindingFunction; 
+        private final Function<TContainer, Maybe<TValue>> localEvaluationFunction; 
+        private final Function<TContainer, TContainer> parentFunction;
+        
+        public AncestorContainerAndKeyValueIterator(TContainer childContainer, 
+                Function<TContainer, ConfigKey<TValue>> keyFindingFunction, 
+                Function<TContainer, Maybe<TValue>> localEvaluationFunction, 
+                Function<TContainer, TContainer> parentFunction) {
+            this.lastContainer = childContainer;
+            this.keyFindingFunction = keyFindingFunction;
+            this.localEvaluationFunction = localEvaluationFunction;
+            this.parentFunction = parentFunction;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return parentFunction.apply(lastContainer)!=null;
+        }
+        
+        @Override
+        public ContainerAndKeyValue<TValue> next() {
+            TContainer nextContainer = parentFunction.apply(lastContainer);
+            if (nextContainer==null) throw new NoSuchElementException("Cannot search ancestors further than "+lastContainer);
+            lastContainer = nextContainer;
+            return new BasicContainerAndKeyValue<TContainer,TValue>(keyFindingFunction.apply(lastContainer), lastContainer, localEvaluationFunction);
+        }
+
+        @Override
+        public void remove() {
+            throw new UnsupportedOperationException("This iterator does not support removal");
+        }
+    }
+    
 }

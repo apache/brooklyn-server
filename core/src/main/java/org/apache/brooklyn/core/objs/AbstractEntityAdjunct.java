@@ -359,6 +359,11 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
         protected ExecutionContext getContext() {
             return AbstractEntityAdjunct.this.execution;
         }
+        
+        @Override
+        public ConfigMap getInternalConfigMap() {
+            return configsInternal;
+        }
     }
 
     @Override

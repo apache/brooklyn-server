@@ -54,6 +54,7 @@ import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.config.ConfigMap;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.BrooklynLogging;
@@ -1254,12 +1255,8 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
 
         @Override
         public void refreshInheritedConfig() {
-            if (getParent() != null) {
-                configsInternal.setInheritedConfig(((EntityInternal)getParent()).getAllConfig(), ((EntityInternal)getParent()).config().getBag());
-            } else {
-                configsInternal.clearInheritedConfig();
-            }
-
+            // no-op, for now, because the impl always looks at ancestors
+            // but in a distributed impl it will need to clear any local cache
             refreshInheritedConfigOfChildren();
         }
         
@@ -1289,6 +1286,11 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         @Override
         protected ExecutionContext getContext() {
             return AbstractEntity.this.getExecutionContext();
+        }
+        
+        @Override
+        public ConfigMap getInternalConfigMap() {
+            return configsInternal;
         }
     }
     

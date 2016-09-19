@@ -22,6 +22,7 @@ import java.util.Map;
 
 import javax.annotation.Nonnull;
 
+import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigInheritance.ConfigInheritanceContext;
 import org.apache.brooklyn.config.ConfigInheritance.ContainerAndKeyValue;
 import org.apache.brooklyn.config.ConfigInheritance.ContainerAndValue;
@@ -290,10 +291,17 @@ public class ConfigKeys {
     }
 
     /** determine whether a key is reinherited, ie its value is exported to container's descendants  
-     * @deprecated since 0.10.0 In order to determine whether a key is inherited we might need to know whether
+     * @deprecated since introduction in 0.10.0 In order to determine whether a key is inherited we might need to know whether
      * it was explicitly defined as a key on a parent; callers should be refactored. */
     @Deprecated
-    public static <T> boolean isReinherited(final ConfigKey<T> key, final InheritanceContext context) {
+    public static <T> boolean isReinherited(final ConfigKey<T> key, final ConfigInheritanceContext context) {
+        if (key==null) return true;
+        ConfigInheritance inh = key.getInheritanceByContext(context);
+        if (inh==null) return true;
+        if (inh instanceof BasicConfigInheritance) {
+            return ((BasicConfigInheritance)inh).isReinherited;
+        }
+        
         // evaluate by faking a parent who sets a value and seeing if it's reinherited
         Iterable<? extends ContainerAndKeyValue<T>> ckvi = MutableList.of(
             new BasicContainerAndKeyValue<Void,T>(key, null, new Function<Void,Maybe<T>>() {
