@@ -931,6 +931,7 @@ public abstract class RebindIteration {
 
         protected void setCatalogItemId(BrooklynObject item, String catalogItemId) {
             if (catalogItemId!=null) {
+                // TODO add support for nested catalog superids here.
                 ((BrooklynObjectInternal)item).setCatalogItemId(catalogItemId);
             }
         }
