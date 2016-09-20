@@ -28,18 +28,23 @@ public class LazyContainerAndKeyValue<TContainer,TValue> implements ConfigValueA
     
     private final TContainer container;
     private final ConfigKey<TValue> key;
-    private final Function<TContainer,Maybe<TValue>> evaluationFunction;
+    private final Function<TContainer,Maybe<Object>> lookupResolutionFunction;
+    private final Function<Maybe<Object>,Maybe<TValue>> conversionFunction;
     private Maybe<TValue> resolved;
     
-    public LazyContainerAndKeyValue(ConfigKey<TValue> key, TContainer container, Function<TContainer, Maybe<TValue>> evaluationFunction) {
+    public LazyContainerAndKeyValue(ConfigKey<TValue> key, TContainer container, 
+            Function<TContainer, Maybe<Object>> lookupResolutionFunction,
+            Function<Maybe<Object>, Maybe<TValue>> conversionFunction) {
         this.key = key;
         this.container = container;
-        this.evaluationFunction = evaluationFunction;
+        this.lookupResolutionFunction = lookupResolutionFunction;
+        this.conversionFunction = conversionFunction;
     }
 
     protected synchronized Maybe<TValue> resolve() {
         if (resolved==null) { 
-            resolved = evaluationFunction.apply(getContainer());
+            resolved = conversionFunction.apply(
+                lookupResolutionFunction.apply(getContainer()));
         }
         return resolved;
     }
@@ -52,13 +57,13 @@ public class LazyContainerAndKeyValue<TContainer,TValue> implements ConfigValueA
     @Override
     public TValue get() {
         if (resolve().isPresent()) return resolve().get();
-        return getDefaultValue();
+        return getDefaultValue().orNull();
     }
     
     @Override
     public Maybe<TValue> asMaybe() {
         if (resolve().isPresent()) return resolve();
-        return getDefaultValueMaybe();
+        return getDefaultValue();
     }
 
     @Override
@@ -72,12 +77,8 @@ public class LazyContainerAndKeyValue<TContainer,TValue> implements ConfigValueA
     }
 
     @Override
-    public TValue getDefaultValue() {
-        return getDefaultValueMaybe().orNull();
-    }
-    
-    public Maybe<TValue> getDefaultValueMaybe() {
+    public Maybe<TValue> getDefaultValue() {
         if (key==null || !key.hasDefaultValue()) return Maybe.absent();
-        return Maybe.of(key.getDefaultValue());
+        return conversionFunction.apply(Maybe.of((Object)key.getDefaultValue()));
     }
 }

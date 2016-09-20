@@ -143,13 +143,18 @@ public class DeferredBrooklynProperties implements BrooklynProperties {
     }
 
     @Override
-    public Map<ConfigKey<?>, Object> getAllConfig() {
+    public Map<ConfigKey<?>,Object> getAllConfigLocalRaw() {
         Map<ConfigKey<?>, Object> raw = delegate.getAllConfig();
         Map<ConfigKey<?>, Object> result = Maps.newLinkedHashMap();
         for (Map.Entry<ConfigKey<?>, Object> entry : raw.entrySet()) {
             result.put(entry.getKey(), transform(entry.getKey(), entry.getValue()));
         }
         return result;
+    }
+
+    @Override @Deprecated
+    public Map<ConfigKey<?>, Object> getAllConfig() {
+        return getAllConfigLocalRaw();
     }
 
     @Override
@@ -196,6 +201,10 @@ public class DeferredBrooklynProperties implements BrooklynProperties {
     public BrooklynProperties submap(Predicate<ConfigKey<?>> filter) {
         BrooklynProperties submap = delegate.submap(filter);
         return new DeferredBrooklynProperties(submap, mgmt);
+    }
+    @Override
+    public Set<ConfigKey<?>> findKeys(Predicate<ConfigKey<?>> filter) {
+        return delegate.findKeys(filter);
     }
 
     @Override

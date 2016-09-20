@@ -24,17 +24,20 @@ import com.google.common.base.Supplier;
 
 public interface ConfigValueAtContainer<TContainer,TValue> extends Supplier<TValue> {
     
-    /** Returns the value, or null */
+    /** Returns the value for this key, or null.  Technically this returns {@link #asMaybe()} or null. */
     TValue get();
-    /** Absent if no value can be found, typically including no default value. */ 
-    Maybe<TValue> asMaybe();
-    /** If false, the contents of {@link #get()} will have come from {@link #getDefaultValue()}. */
+    /** Absent if no value can be found, typically meaning no default value, but in raw value lookups it may ignore default values. */ 
+    Maybe<? extends TValue> asMaybe();
+    /** If false, any contents of {@link #get()} will have come from {@link #getDefaultValue()}. */
     boolean isValueExplicitlySet();
     
     /** The container where the value was found (possibly an ancestor of the queried object) */
     TContainer getContainer();
     
-    ConfigKey<TValue> getKey();
-    TValue getDefaultValue();
-    
+    ConfigKey<? extends TValue> getKey();
+    /** The default value on the key, if available and permitted, 
+     * possibly coerced or resolved in the scope of {@link #getContainer()},
+     * and possibly absent e.g. in raw value lookups */
+    Maybe<TValue> getDefaultValue();
+
 }

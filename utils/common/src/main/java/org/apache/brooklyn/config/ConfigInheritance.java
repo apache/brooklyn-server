@@ -19,12 +19,14 @@
 package org.apache.brooklyn.config;
 
 import java.io.Serializable;
-import java.util.Iterator;
 import java.util.Map;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import org.apache.brooklyn.config.ConfigInheritances.BasicConfigValueAtContainer;
 import org.apache.brooklyn.util.collections.CollectionMerger;
+import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 
@@ -33,7 +35,8 @@ import com.google.common.annotations.Beta;
 @SuppressWarnings("serial")
 public interface ConfigInheritance extends Serializable {
     
-    /** marker interface for inheritance contexts, for keys which can define one or more inheritance patterns */
+    /** marker interface for inheritance contexts, for keys which can define one or more inheritance patterns;
+     * implementers can define their own, e.g. in an enum */
     public interface ConfigInheritanceContext {}
 
     /** @deprecated since 0.10.0 see implementations of this interface */ @Deprecated
@@ -54,40 +57,64 @@ public interface ConfigInheritance extends Serializable {
     @Deprecated
     InheritanceMode isInherited(ConfigKey<?> key, Object from, Object to);
 
-    /** 
-     * given a key and local value, together with an optional record of ancestor containers (eg an entity) and associated data,
-     * this finds the value for a config key <b>applying the appropriate inheritance strategies</b>.
-     * for instance this may merge a map throughout a container hierarchy, 
-     * or this may traverse up until a non-reinheritable key definition is found and in the absence of values lower
-     * in the hierarchy this will return the default value of the key 
+    /** Returns whether any value from the given node or ancestors can be considered 
+     * for inheritance by descendants, according to the {@link ConfigInheritance} defined there.
+     * Implementations should not normally consider the value here
+     * as there may be other ancestors whose values have not yet been considered and are not supplied.
+     * <p> 
+     * If there is a {@link ConfigInheritance} defined at this node,
+     * this method must be called on that instance and that instance only.
+     * In that case it is an error to invoke this method on any other {@link ConfigInheritance} instance. 
+     * If there is not one, the config generally should be considered reinheritable.
      * <p>
-     * this uses an interface on the input so that:
-     * - the caller can supply the hierarchy
-     * - hierarchy is only traversed as far as needed
-     * - caller can do full resolution as required for local values
-     * <p>
-     * this returns in interface so that caller can get the value, 
-     * and if needed also find the container where the key is defined.
-     * that can be useful for when the value needs to be further resolved,
-     * e.g. a DSL function or a URL. the returned value may be evaluated lazily,
-     * i.e. the actual traversal and evaluation may be deferred until a method on
-     * the returned object is invoked.
-     * <p>
-     * this object is taken as the default inheritance and used if no inheritance is
-     * defined on the key.
-     * <p>
-     * so that the caller can determine if a key/value is to be exported to children from a container,
-     * this method should accept an iterable whose first entry has a null container
-     * and whose second entry gives the container, key, and potential value to be exported.
-     * if null is returned the caller knows nothing is to be exported to children.
-     */
-    <TContainer,TValue> ConfigValueAtContainer<TContainer,TValue> resolveInheriting(
-        ConfigKey<TValue> key,
-        @Nullable Maybe<TValue> localValue,
-        @Nullable TContainer container,
-        Iterator<? extends ConfigValueAtContainer<TContainer,TValue>> ancestorContainerKeyValues,
+     * Consumers will typically find the methods in {@link ConfigInheritances} more convenient. */
+    public <TContainer,TValue> boolean isReinheritable(
+        @Nullable ConfigValueAtContainer<TContainer,TValue> parent,
         ConfigInheritanceContext context);
     
+    /** Returns whether any value from the parent or its ancestors should be considered 
+     * by the given local container, according to the {@link ConfigInheritance} defined there.
+     * This defines the {@link ConfigInheritance} of the local container typically considering
+     * the value of the key there. 
+     * Implementations should not normally consider the value of the parent
+     * as there may be other ancestors whose values have not yet been considered and are not supplied,
+     * but it may determine that a local value is sufficient to render it unnecessary to consider the parent.
+     * <p>
+     * If there is a {@link ConfigInheritance} defined at the local container,
+     * this method must be called on that instance and that instance only.
+     * In that case it is an error to invoke this method on any other {@link ConfigInheritance} instance. 
+     * <p>
+     * Consumers should consider this in conjuction with the 
+     * {@link #isReinheritable(ConfigValueAtContainer, ConfigInheritanceContext)}
+     * status of the parent (if present).
+     * Implementers need not duplicate a call to that method. 
+     * Consumers will typically find the methods in {@link ConfigInheritances} more convenient. */
+    public <TContainer,TValue> boolean considerParent(
+        @Nonnull ConfigValueAtContainer<TContainer,TValue> local,
+        @Nullable ConfigValueAtContainer<TContainer,TValue> parent,
+        ConfigInheritanceContext context);
+
+    /** Returns the result after inheritance between the local container and a "resolveParent" 
+     * representation of the parent's evaluation of the key considering its ancestors.
+     * The parent here can be assumed to be the result of resolution with its ancestors,
+     * and reinheritance can be assumed to be permitted. 
+     * Consumers should invoke this only after checking 
+     * {@link #considerParent(ConfigValueAtContainer, ConfigValueAtContainer, ConfigInheritanceContext)}
+     * on the local node and {@link #isReinheritable(ConfigValueAtContainer, ConfigInheritanceContext)}
+     * on the original parent node, 
+     * and then {@link #resolveWithParent(ConfigValueAtContainer, ConfigValueAtContainer, ConfigInheritanceContext)}
+     * on the original parent node with its respective resolvedParent.
+     * <p>
+     * If there is a {@link ConfigInheritance} defined at the local container,
+     * this method must be called on that instance and that instance only.
+     * In that case it is an error to invoke this method on any other {@link ConfigInheritance} instance. 
+     * <p>
+     * Consumers will typically find the methods in {@link ConfigInheritances} more convenient. */
+    public <TContainer,TValue> ReferenceWithError<ConfigValueAtContainer<TContainer,TValue>> resolveWithParent(
+        @Nonnull ConfigValueAtContainer<TContainer,TValue> local,
+        @Nonnull ConfigValueAtContainer<TContainer,TValue> resolvedParent,
+        ConfigInheritanceContext context);
+
     /** @deprecated since 0.10.0 see implementations of this interface */ @Deprecated
     public static class Legacy {
         public static ConfigInheritance fromString(String val) {
@@ -105,71 +132,43 @@ public interface ConfigInheritance extends Serializable {
             }
         }
         private abstract static class LegacyAbstractConversion implements ConfigInheritance {
-            private static class Result<TContainer,TValue> implements ConfigValueAtContainer<TContainer,TValue> {
-                TContainer container = null;
-                Maybe<TValue> value = Maybe.absent();
-                boolean isValueSet = false;
-                ConfigKey<TValue> key = null;
-                @Override public TContainer getContainer() { return container; }
-                @Override public TValue get() { return value.orNull(); }
-                @Override public Maybe<TValue> asMaybe() { return value; }
-                @Override public boolean isValueExplicitlySet() { return isValueSet; }
-                @Override public ConfigKey<TValue> getKey() { return key; }
-                @Override public TValue getDefaultValue() { return key==null ? null : key.getDefaultValue(); }
-            }
 
-            // close copy of method in BasicConfigInheritance for this legacy compatibility evaluation
             @Override
-            public <TContainer,TValue> ConfigValueAtContainer<TContainer,TValue> resolveInheriting(
-                    @Nullable ConfigKey<TValue> key, Maybe<TValue> localValue, TContainer container,
-                    Iterator<? extends ConfigValueAtContainer<TContainer,TValue>> ancestorContainerKeyValues, ConfigInheritanceContext context) {
-                ConfigInheritance inh = key==null ? null : key.getInheritanceByContext(context);
-                if (inh==null) inh = this;
-                if (inh!=this) return inh.resolveInheriting(key, localValue, container, ancestorContainerKeyValues, context);
-                
-                ConfigValueAtContainer<TContainer,TValue> v2 = null;
-                if (getMode()==InheritanceMode.IF_NO_EXPLICIT_VALUE && localValue.isPresent()) {
-                    // don't inherit
-                } else if (ancestorContainerKeyValues==null || !ancestorContainerKeyValues.hasNext()) {
-                    // nothing to inherit
-                } else {
-                    // check whether parent allows us to get inherited value
-                    ConfigValueAtContainer<TContainer,TValue> c = ancestorContainerKeyValues.next();
-                    ConfigInheritance inh2 = c.getKey()==null ? null : c.getKey().getInheritanceByContext(context);
-                    if (inh2==null) inh2 = this;
-                    if (getMode()==InheritanceMode.NONE) {
-                        // can't inherit
-                    } else {
-                        // get inherited value
-                        v2 = inh2.resolveInheriting(c.getKey(), 
-                            c.isValueExplicitlySet() ? c.asMaybe() : Maybe.<TValue>absent(), c.getContainer(), 
-                                ancestorContainerKeyValues, context);
-                    }
-                }
-
-                if (v2!=null && v2.isValueExplicitlySet() && !localValue.isPresent()) return v2;
-                Result<TContainer,TValue> v = new Result<TContainer,TValue>();
-                v.container = container;
-                if (v2==null || !v2.isValueExplicitlySet()) {
-                    v.isValueSet = localValue.isPresent();
-                    v.value = v.isValueExplicitlySet() ? localValue : 
-                        key!=null && key.hasDefaultValue() ? Maybe.of(key.getDefaultValue()) : Maybe.<TValue>absent(); 
-                } else {
-                    v.value = Maybe.of(resolveConflict(key, localValue, v2.asMaybe()));
-                    v.isValueSet = true;
-                }
-                return v;
+            public <TContainer, TValue> boolean isReinheritable(ConfigValueAtContainer<TContainer, TValue> parent, ConfigInheritanceContext context) {
+                return getMode()!=InheritanceMode.NONE;
             }
-            /** only invoked if there is an ancestor value; custom strategies can overwrite */
-            protected <T> T resolveConflict(ConfigKey<T> key, Maybe<T> localValue, Maybe<T> ancestorValue) {
-                if (getMode()==InheritanceMode.IF_NO_EXPLICIT_VALUE) {
-                    if (localValue.isPresent()) return localValue.get();
-                    return ancestorValue.orNull();
-                }
+            
+            @Override
+            public <TContainer,TValue> boolean considerParent(
+                    ConfigValueAtContainer<TContainer,TValue> local,
+                    @Nullable ConfigValueAtContainer<TContainer,TValue> parent,
+                    ConfigInheritanceContext context) {
+                if (parent==null) return false;
+                if (getMode()==InheritanceMode.NONE) return false;
+                if (getMode()==InheritanceMode.IF_NO_EXPLICIT_VALUE) return !local.isValueExplicitlySet();
+                return true;
+            }
+
+            @Override
+            public <TContainer,TValue> ReferenceWithError<ConfigValueAtContainer<TContainer,TValue>> resolveWithParent(
+                    ConfigValueAtContainer<TContainer,TValue> local,
+                    ConfigValueAtContainer<TContainer,TValue> parent,
+                    ConfigInheritanceContext context) {
+                // parent can be assumed to be set, but might not have a value
+                if (!parent.isValueExplicitlySet())
+                    return ReferenceWithError.newInstanceWithoutError(new BasicConfigValueAtContainer<TContainer,TValue>(local));
+                    
+                if (!local.isValueExplicitlySet()) 
+                    return ReferenceWithError.newInstanceWithoutError(new BasicConfigValueAtContainer<TContainer,TValue>(parent));
+
+                // both explicitly set, and not overwrite or none
                 if (getMode()==InheritanceMode.DEEP_MERGE) {
-                    return deepMerge(localValue, ancestorValue).orNull();
+                    BasicConfigValueAtContainer<TContainer, TValue> result = new BasicConfigValueAtContainer<TContainer,TValue>(local);
+                    result.setValue( deepMerge(local.asMaybe(), parent.asMaybe()) );
+                    return ReferenceWithError.newInstanceWithoutError(result);
                 }
-                throw new IllegalStateException("Unknown config conflict resolution strategy '"+getMode()+"' evaluating "+key);
+                
+                throw new IllegalStateException("Unknown config conflict resolution strategy '"+getMode()+"' evaluating "+local+"/"+parent);
             }
             private static <T> Maybe<? extends T> deepMerge(Maybe<? extends T> val1, Maybe<? extends T> val2) {
                 if (val2.isAbsent() || val2.isNull()) {
@@ -187,6 +186,7 @@ public interface ConfigInheritance extends Serializable {
                     return val1;
                 }
             }
+            
             @Override
             public InheritanceMode isInherited(ConfigKey<?> key, Object from, Object to) {
                 return getMode();

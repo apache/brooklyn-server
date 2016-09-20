@@ -26,28 +26,20 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.BrooklynObject;
-import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.config.ConfigValueAtContainer;
-import org.apache.brooklyn.core.config.BasicConfigInheritance;
-import org.apache.brooklyn.core.config.BasicConfigInheritance.AncestorContainerAndKeyValueIterator;
-import org.apache.brooklyn.core.config.ConfigKeys.InheritanceContext;
 import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
-import org.apache.brooklyn.core.entity.EntityFunctions;
 import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal.ConfigurationSupportInternal;
-import org.apache.brooklyn.util.core.internal.ConfigKeySelfExtracting;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Maps;
 
-public class EntityConfigMap extends AbstractConfigMapImpl {
+public class EntityConfigMap extends AbstractConfigMapImpl<Entity> {
 
+    @SuppressWarnings("unused")
     private static final Logger LOG = LoggerFactory.getLogger(EntityConfigMap.class);
 
     public EntityConfigMap(EntityInternal entity) {
@@ -62,17 +54,17 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
      * @deprecated since 0.10.0 kept for serialization */ @Deprecated
     private EntityInternal entity;
     @Override
-    public BrooklynObjectInternal getBrooklynObject() {
-        BrooklynObjectInternal result = super.getBrooklynObject();
-        if (result!=null) return result;
+    public EntityInternal getContainer() {
+        Entity result = super.getContainer();
+        if (result!=null) return (EntityInternal) result;
 
         synchronized (this) {
-            result = super.getBrooklynObject();
-            if (result!=null) return result;
+            result = super.getContainer();
+            if (result!=null) return (EntityInternal) result;
             bo = entity;
             entity = null;
         }
-        return super.getBrooklynObject();
+        return (EntityInternal) super.getBrooklynObject();
     }
 
     protected EntityInternal getEntity() {
@@ -99,45 +91,19 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
             ((EntityInternal)bo).getManagementSupport().getEntityChangeListener().onConfigChanged(key);
         }
     }
-    
+        
     @Override
-    protected <T> Maybe<T> getConfigImpl(ConfigKey<T> key) {
-        Function<Entity, ConfigKey<T>> keyFn = EntityFunctions.configKeyFinder(key, null);
-        
-        // In case this entity class has overridden the given key (e.g. to set default), then retrieve this entity's key
-        ConfigKey<T> ownKey = keyFn.apply(getEntity());
-        if (ownKey==null) ownKey = key;
-        
-        LocalEvaluateKeyValue<Entity,T> evalFn = new LocalEvaluateKeyValue<Entity,T>(ownKey);
-
-        if (ownKey instanceof ConfigKeySelfExtracting) {
-            Maybe<T> ownExplicitValue = evalFn.apply(getEntity());
-            
-            AncestorContainerAndKeyValueIterator<Entity, T> ckvi = new AncestorContainerAndKeyValueIterator<Entity,T>(
-                getEntity(), keyFn, evalFn, EntityFunctions.parent());
-            
-            ConfigValueAtContainer<Entity,T> result = getDefaultRuntimeInheritance().resolveInheriting(ownKey,
-                ownExplicitValue, getEntity(),
-                ckvi, InheritanceContext.RUNTIME_MANAGEMENT);
-        
-            return result.asMaybe();
-        } else {
-            LOG.warn("Config key {} of {} is not a ConfigKeySelfExtracting; cannot retrieve value; returning default", ownKey, getBrooklynObject());
-            return Maybe.absent();
-        }
-    }
-
-    private ConfigInheritance getDefaultRuntimeInheritance() {
-        return BasicConfigInheritance.OVERWRITE; 
+    protected Entity getParentOfContainer(Entity container) {
+        if (container==null) return null;
+        return container.getParent();
     }
 
     @Override
-    protected BrooklynObjectInternal getParent() {
-        return (EntityInternal) getEntity().getParent();
+    protected <T> ConfigKey<?> getKeyAtContainerImpl(Entity container, ConfigKey<T> queryKey) {
+        return container.getEntityType().getConfigKey(queryKey.getName());
     }
-    
-    @Override
-    // TODO deprecate or clarify syntax 
+
+    @Override @Deprecated
     public EntityConfigMap submap(Predicate<ConfigKey<?>> filter) {
         EntityConfigMap m = new EntityConfigMap(getEntity(), Maps.<ConfigKey<?>, Object>newLinkedHashMap());
         synchronized (ownConfig) {
@@ -153,9 +119,10 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
         return m;
     }
 
+    @Deprecated
     private void merge(EntityConfigMap local, EntityConfigMap parent) {
         for (ConfigKey<?> k: parent.ownConfig.keySet()) {
-            // TODO apply inheritance
+            // should apply inheritance; but only used in submap which is deprecated
             if (!local.ownConfig.containsKey(k)) {
                 local.ownConfig.put(k, parent.ownConfig.get(k));
             }

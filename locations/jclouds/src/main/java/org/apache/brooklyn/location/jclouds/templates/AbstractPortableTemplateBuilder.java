@@ -453,7 +453,7 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
         if (this == obj) return true;
         if (obj == null) return false;
         if (getClass() != obj.getClass()) return false;
-        AbstractPortableTemplateBuilder other = (AbstractPortableTemplateBuilder) obj;
+        AbstractPortableTemplateBuilder<?> other = (AbstractPortableTemplateBuilder<?>) obj;
         if (!Objects.equal(additionalOptions, other.additionalOptions)) return false;
         if (!Objects.equal(commands, other.commands)) return false;
         if (!Objects.equal(locationId, other.locationId)) return false;

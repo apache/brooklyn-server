@@ -22,26 +22,20 @@ import java.util.Map;
 
 import javax.annotation.Nonnull;
 
-import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigInheritance.ConfigInheritanceContext;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.config.ConfigValueAtContainer;
 import org.apache.brooklyn.core.config.BasicConfigKey.BasicConfigKeyOverwriting;
-import org.apache.brooklyn.core.config.internal.LazyContainerAndKeyValue;
 import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.sensor.PortAttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.sensor.TemplatedStringAttributeSensorAndConfigKey;
-import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.CaseFormat;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.reflect.TypeToken;
 
@@ -287,37 +281,6 @@ public class ConfigKeys {
             return newInstance(defs);
         }
 
-    }
-
-    /** determine whether a key is reinheritable from the point in the given inheritance hierarchy where it is introduced;
-     * default is true, but some keys may define not being reinherited or may have that effective result
-     * <p>
-     * note that this does not mean a value should never be *inherited*; 
-     * callers should query with the key defined at a given point in a hierarchy,
-     * so if a key is not defined at some point in the hierarchy
-     * (eg not on a type in the type hierarchy, or not an an entity in the runtime management hierarchy)
-     * then null should be passed and values will be reinheritable */
-    public static <T> boolean isKeyReinheritable(final ConfigKey<T> key, final ConfigInheritanceContext context) {
-        if (key==null) return true;
-        ConfigInheritance inh = key.getInheritanceByContext(context);
-        if (inh==null) return true;
-        if (inh instanceof BasicConfigInheritance) {
-            return ((BasicConfigInheritance)inh).isReinherited;
-        }
-        
-        // evaluate by faking a parent who sets a value and seeing if it's reinherited
-        Iterable<? extends ConfigValueAtContainer<Void,T>> ckvi = MutableList.of(
-            new LazyContainerAndKeyValue<Void,T>(key, null, new Function<Void,Maybe<T>>() {
-                @Override
-                public Maybe<T> apply(Void input) {
-                    return Maybe.ofAllowingNull(null);
-                }
-            }));
-        
-        ConfigValueAtContainer<Void,T> combinedVal = BasicConfigInheritance.OVERWRITE.resolveInheriting(
-            key, Maybe.<T>absent(), null,
-            ckvi.iterator(), InheritanceContext.TYPE_DEFINITION);
-        return combinedVal.isValueExplicitlySet();
     }
 
 }

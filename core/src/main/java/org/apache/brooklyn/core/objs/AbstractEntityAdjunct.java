@@ -40,7 +40,6 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.config.ConfigMap;
 import org.apache.brooklyn.core.config.ConfigConstraints;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
@@ -311,7 +310,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
         }
         
         @Override
-        protected AbstractConfigMapImpl getConfigsInternal() {
+        protected AbstractConfigMapImpl<?> getConfigsInternal() {
             return configsInternal;
         }
 
@@ -342,14 +341,6 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
     @Deprecated
     public <T> T setConfig(ConfigKey<T> key, T val) {
         return config().set(key, val);
-    }
-    
-    // TODO make immutable
-    /** for inspection only */
-    @Beta
-    @Deprecated
-    public ConfigMap getConfigMap() {
-        return configsInternal;
     }
     
     /**

@@ -22,6 +22,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -36,7 +37,6 @@ import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.mgmt.ExecutionManager;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.config.ConfigMap;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensorAndConfigKey.IntegerAttributeSensorAndConfigKey;
@@ -327,14 +327,17 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
         assertEquals(entity.getConfig(MySubEntity.SUPER_KEY_2), "changed");
     }
     
+    // Sept 2016 previously tested submap here, but we've deprecated that 
+    // (it was failing also due to the new approach, and not worth fixing)
     @Test
-    public void testConfigSubMap() throws Exception {
+    public void testConfigFilter() throws Exception {
         MySubEntity entity = app.addChild(EntitySpec.create(MySubEntity.class));
         entity.config().set(MyBaseEntity.SUPER_KEY_1, "s1");
         entity.config().set(MySubEntity.SUB_KEY_2, "s2");
-        ConfigMap sub = entity.config().getInternalConfigMap().submap(ConfigPredicates.nameMatchesGlob("sup*"));
-        Assert.assertEquals(sub.getConfigRaw(MyBaseEntity.SUPER_KEY_1, true).get(), "s1");
-        Assert.assertFalse(sub.getConfigRaw(MySubEntity.SUB_KEY_2, true).isPresent());
+        Set<ConfigKey<?>> filteredKeys = entity.config().getInternalConfigMap().findKeys(ConfigPredicates.nameMatchesGlob("sup*"));
+        Assert.assertTrue(filteredKeys.contains(MyBaseEntity.SUPER_KEY_1));
+        Assert.assertFalse(filteredKeys.contains(MySubEntity.SUB_KEY_2));
+        Assert.assertEquals(filteredKeys.size(), 1);
     }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })

@@ -107,7 +107,7 @@ public class ClassLoaderUtils {
         checkNotNull(callingClass, "callingClass");
         this.classLoader = getValidClassLoader(callingClass.getClassLoader());
         this.entity = null;
-        this.mgmt = checkNotNull(mgmt, "mgmt");
+        this.mgmt = mgmt;
     }
 
     // class.getClassLoader() could return null for classes on the boot class path,

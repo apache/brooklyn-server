@@ -35,7 +35,6 @@ import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.SubscriptionContext;
 import org.apache.brooklyn.api.mgmt.SubscriptionHandle;
-import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.LocationMemento;
 import org.apache.brooklyn.api.objs.BrooklynObject;
@@ -44,7 +43,6 @@ import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
-import org.apache.brooklyn.config.ConfigMap;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.config.ConfigConstraints;
@@ -70,7 +68,6 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.stream.Streams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -227,8 +224,8 @@ public abstract class AbstractLocation extends AbstractBrooklynObject implements
             }
 
             configMap = new LocationConfigMap(this, managementContext.getStorage().<ConfigKey<?>,Object>getMap(getId()+"-config"));
-            if (oldConfig.size() > 0) {
-                configMap.setLocalConfig(oldConfig.getLocalConfig());
+            if (!oldConfig.isEmpty()) {
+                configMap.setLocalConfig(oldConfig.getAllConfigLocalRaw());
             }
         }
     }
@@ -245,7 +242,7 @@ public abstract class AbstractLocation extends AbstractBrooklynObject implements
         
         boolean firstTime = !configured.getAndSet(true);
             
-        config().set(properties);
+        config().putAll(properties);
         
         if (properties.containsKey(PARENT_LOCATION.getName())) {
             // need to ensure parent's list of children is also updated
@@ -420,7 +417,7 @@ public abstract class AbstractLocation extends AbstractBrooklynObject implements
         }
 
         @Override
-        protected AbstractConfigMapImpl getConfigsInternal() {
+        protected AbstractConfigMapImpl<Location> getConfigsInternal() {
             return configMap;
         }
         
@@ -499,7 +496,7 @@ public abstract class AbstractLocation extends AbstractBrooklynObject implements
     @Override
     @Deprecated
     public boolean hasConfig(ConfigKey<?> key, boolean includeInherited) {
-        return config().getInternalConfigMap().getConfigRaw(key, includeInherited).isPresent();
+        return config().getInternalConfigMap().getConfigInheritedRaw(key).getWithoutError().asMaybe().isPresent();
     }
 
     @Override

@@ -18,25 +18,18 @@
  */
 package org.apache.brooklyn.core.location.internal;
 
-import static org.apache.brooklyn.util.groovy.GroovyJavaMethods.elvis;
-
 import java.util.Map;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
-import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.config.ConfigMap;
-import org.apache.brooklyn.config.ConfigValueAtContainer;
-import org.apache.brooklyn.core.config.BasicConfigInheritance;
-import org.apache.brooklyn.core.config.BasicConfigInheritance.AncestorContainerAndKeyValueIterator;
-import org.apache.brooklyn.core.config.ConfigKeys.InheritanceContext;
 import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
 import org.apache.brooklyn.core.location.AbstractLocation;
-import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
-import org.apache.brooklyn.util.core.internal.ConfigKeySelfExtracting;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,8 +37,9 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 
-public class LocationConfigMap extends AbstractConfigMapImpl {
+public class LocationConfigMap extends AbstractConfigMapImpl<Location> {
 
+    @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(LocationConfigMap.class);
     
     public LocationConfigMap(AbstractLocation loc) {
@@ -54,61 +48,6 @@ public class LocationConfigMap extends AbstractConfigMapImpl {
 
     public LocationConfigMap(AbstractLocation loc, Map<ConfigKey<?>, Object> storage) {
         super(loc, storage);
-    }
-
-    protected AbstractLocation getLocation() {
-        return (AbstractLocation) getBrooklynObject();
-    }
-    
-    @Override
-    protected BrooklynObjectInternal getParent() {
-        return (BrooklynObjectInternal) getLocation().getParent();
-    }
-    
-    @Override
-    protected <T> Maybe<T> getConfigImpl(final ConfigKey<T> key) {
-        Function<Location, ConfigKey<T>> keyFn = new Function<Location, ConfigKey<T>>() {
-            @SuppressWarnings("unchecked")
-            @Override
-            public ConfigKey<T> apply(Location input) {
-                if (input instanceof AbstractLocation) {
-                    return (ConfigKey<T>) elvis( ((AbstractLocation)input).getLocationTypeInternal().getConfigKey(key.getName()), key );
-                }
-                return key;
-            }
-        };
-        
-        // In case this entity class has overridden the given key (e.g. to set default), then retrieve this entity's key
-        ConfigKey<T> ownKey = keyFn.apply(getLocation());
-        if (ownKey==null) ownKey = key;
-        
-        LocalEvaluateKeyValue<Location,T> evalFn = new LocalEvaluateKeyValue<Location,T>(ownKey);
-
-        if (ownKey instanceof ConfigKeySelfExtracting) {
-            Maybe<T> ownExplicitValue = evalFn.apply(getLocation());
-            
-            AncestorContainerAndKeyValueIterator<Location, T> ckvi = new AncestorContainerAndKeyValueIterator<Location,T>(
-                getLocation(), keyFn, evalFn, new Function<Location,Location>() {
-                    @Override
-                    public Location apply(Location input) {
-                        if (input==null) return null;
-                        return input.getParent();
-                    }
-                });
-            
-            ConfigValueAtContainer<Location,T> result = getDefaultRuntimeInheritance().resolveInheriting(ownKey,
-                ownExplicitValue, getLocation(),
-                ckvi, InheritanceContext.RUNTIME_MANAGEMENT);
-        
-            return result.asMaybe();
-        } else {
-            log.warn("Config key {} of {} is not a ConfigKeySelfExtracting; cannot retrieve value; returning default", ownKey, getBrooklynObject());
-            return Maybe.absent();
-        }
-    }
-    
-    private ConfigInheritance getDefaultRuntimeInheritance() {
-        return BasicConfigInheritance.OVERWRITE; 
     }
 
     @Override
@@ -128,18 +67,33 @@ public class LocationConfigMap extends AbstractConfigMapImpl {
     }
 
     @Override
-    public ConfigMap submap(Predicate<ConfigKey<?>> filter) {
+    public LocationConfigMap submap(Predicate<ConfigKey<?>> filter) {
         throw new UnsupportedOperationException("Location does not support submap");
     }
 
     @Override
     protected Object coerceConfigVal(ConfigKey<?> key, Object v) {
         if ((Class.class.isAssignableFrom(key.getType()) || Function.class.isAssignableFrom(key.getType())) && v instanceof String) {
-            // strings can be written where classes/functions are permitted; this is a common pattern when configuring locations
-            // (bit sloppy to allow this; tests catch it, eg ImageChooser in jclouds)
+            // strings can be written where classes/functions are permitted; 
+            // this because an occasional pattern only for locations because validation wasn't enforced there
+            // (and locations do a lot more config in brooklyn.properties) - eg ImageChooser in jclouds
+            // TODO slowly warn on this then phase it out
             return v;
         }
         
         return super.coerceConfigVal(key, v);
     }
+
+    @Override
+    protected Location getParentOfContainer(Location container) {
+        if (container==null) return null;
+        return container.getParent();
+    }
+
+    @Override @Nullable protected <T> ConfigKey<?> getKeyAtContainerImpl(@Nonnull Location container, ConfigKey<T> queryKey) {
+        return ((AbstractLocation)container).getLocationTypeInternal().getConfigKey(queryKey.getName());
+    }
+    
 }
+
+

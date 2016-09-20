@@ -46,6 +46,7 @@ import org.apache.brooklyn.camp.spi.ApplicationComponentTemplate;
 import org.apache.brooklyn.camp.spi.AssemblyTemplate;
 import org.apache.brooklyn.camp.spi.PlatformComponentTemplate;
 import org.apache.brooklyn.config.ConfigInheritance;
+import org.apache.brooklyn.config.ConfigInheritances;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigValueAtContainer;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
@@ -73,6 +74,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
@@ -289,25 +291,27 @@ public class BrooklynComponentTemplateResolver {
         Collection<FlagConfigKeyAndValueRecord> records = findAllFlagsAndConfigKeyValues(spec, bag);
         Set<String> keyNamesUsed = new LinkedHashSet<String>();
         for (FlagConfigKeyAndValueRecord r: records) {
-            // run through flags *and* config keys (may be overkill, but...)
+            // flags and config keys tracked separately, look at each (may be overkill but it's what we've always done)
             
+            Function<Maybe<Object>, Maybe<Object>> rawConvFn = Functions.identity();
             if (r.getFlagMaybeValue().isPresent()) {
                 final String flag = r.getFlagName();
                 final ConfigKey<Object> key = (ConfigKey<Object>) r.getConfigKey();
                 if (key==null) ConfigKeys.newConfigKey(Object.class, flag);
                 final Object ownValueF = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getFlagMaybeValue().get());
 
+                Function<EntitySpec<?>, Maybe<Object>> rawEvalFn = new Function<EntitySpec<?>,Maybe<Object>>() {
+                    @Override
+                    public Maybe<Object> apply(EntitySpec<?> input) {
+                        return spec.getFlags().containsKey(flag) ? Maybe.of((Object)spec.getFlags().get(flag)) : Maybe.absent();
+                    }
+                };
                 Iterable<? extends ConfigValueAtContainer<EntitySpec<?>,Object>> ckvi = MutableList.of(
-                    new LazyContainerAndKeyValue<EntitySpec<?>,Object>(key, null, new Function<EntitySpec<?>,Maybe<Object>>() {
-                        @Override
-                        public Maybe<Object> apply(EntitySpec<?> input) {
-                            return spec.getFlags().containsKey(flag) ? Maybe.of((Object)spec.getFlags().get(flag)) : Maybe.absent();
-                        }
-                    }));
+                    new LazyContainerAndKeyValue<EntitySpec<?>,Object>(key, null, rawEvalFn, rawConvFn));
                 
-                ConfigValueAtContainer<EntitySpec<?>,Object> combinedVal = getDefaultConfigInheritance().resolveInheriting(
-                    key, Maybe.ofAllowingNull(ownValueF), null,
-                    ckvi.iterator(), InheritanceContext.TYPE_DEFINITION);
+                ConfigValueAtContainer<EntitySpec<?>,Object> combinedVal = ConfigInheritances.resolveInheriting(
+                    null, key, Maybe.ofAllowingNull(ownValueF), Maybe.<Object>absent(),
+                    ckvi.iterator(), InheritanceContext.TYPE_DEFINITION, getDefaultConfigInheritance()).getWithoutError();
                 
                 spec.configure(flag, combinedVal.get());
                 keyNamesUsed.add(flag);
@@ -316,17 +320,19 @@ public class BrooklynComponentTemplateResolver {
             if (r.getConfigKeyMaybeValue().isPresent()) {
                 final ConfigKey<Object> key = (ConfigKey<Object>) r.getConfigKey();
                 final Object ownValueF = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getConfigKeyMaybeValue().get());
-                Iterable<? extends ConfigValueAtContainer<EntitySpec<?>,Object>> ckvi = MutableList.of(
-                    new LazyContainerAndKeyValue<EntitySpec<?>,Object>(key, null, new Function<EntitySpec<?>,Maybe<Object>>() {
-                        @Override
-                        public Maybe<Object> apply(EntitySpec<?> input) {
-                            return spec.getConfig().containsKey(key) ? Maybe.of(spec.getConfig().get(key)) : Maybe.absent();
-                        }
-                    }));
                 
-                ConfigValueAtContainer<EntitySpec<?>,Object> combinedVal = getDefaultConfigInheritance().resolveInheriting(
-                    key, Maybe.ofAllowingNull(ownValueF), null,
-                    ckvi.iterator(), InheritanceContext.TYPE_DEFINITION);
+                Function<EntitySpec<?>, Maybe<Object>> rawEvalFn = new Function<EntitySpec<?>,Maybe<Object>>() {
+                    @Override
+                    public Maybe<Object> apply(EntitySpec<?> input) {
+                        return spec.getConfig().containsKey(key) ? Maybe.of(spec.getConfig().get(key)) : Maybe.absent();
+                    }
+                };
+                Iterable<? extends ConfigValueAtContainer<EntitySpec<?>,Object>> ckvi = MutableList.of(
+                    new LazyContainerAndKeyValue<EntitySpec<?>,Object>(key, null, rawEvalFn, rawConvFn));
+                
+                ConfigValueAtContainer<EntitySpec<?>,Object> combinedVal = ConfigInheritances.resolveInheriting(
+                    null, key, Maybe.ofAllowingNull(ownValueF), Maybe.<Object>absent(),
+                    ckvi.iterator(), InheritanceContext.TYPE_DEFINITION, getDefaultConfigInheritance()).getWithoutError();
                 
                 spec.configure(key, combinedVal.get());
                 keyNamesUsed.add(key.getName());
@@ -341,7 +347,7 @@ public class BrooklynComponentTemplateResolver {
                 continue;
             }
             ConfigKey<?> key = entry.getValue();
-            if (!ConfigKeys.isKeyReinheritable(key, InheritanceContext.TYPE_DEFINITION)) {
+            if (!ConfigInheritances.isKeyReinheritable(key, InheritanceContext.TYPE_DEFINITION)) {
                 spec.removeConfig(key);
                 spec.removeFlag(key.getName());
             }

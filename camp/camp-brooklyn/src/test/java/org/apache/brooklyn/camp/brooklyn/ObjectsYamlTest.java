@@ -21,6 +21,7 @@ package org.apache.brooklyn.camp.brooklyn;
 import static org.testng.Assert.assertEquals;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.brooklyn.api.entity.Entity;
@@ -33,6 +34,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
@@ -42,6 +44,8 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Charsets;
+import com.google.common.base.Predicate;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
@@ -181,6 +185,11 @@ public class ObjectsYamlTest extends AbstractYamlTest {
             @Override
             public <T> T set(HasConfigKey<T> key, Task<T> val) {
                 return set(key.getConfigKey(), val);
+            }
+
+            @Override
+            public Set<ConfigKey<?>> findKeys(Predicate<ConfigKey<?>> predicate) {
+                return MutableSet.copyOf(Iterables.filter(bag.getAllConfigAsConfigKeyMap().keySet(), predicate));
             }
         }
     }

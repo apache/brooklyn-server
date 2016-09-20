@@ -408,7 +408,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         
         if (!flags.isEmpty()) {
             LOG.warn("Unsupported flags when configuring {}; storing: {}", this, flags);
-            configsInternal.addToLocalBag(flags);
+            configsInternal.putAll(flags);
         }
 
         return this;
@@ -542,8 +542,8 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
             if (iconUrl.isNull()) iconUrl.set(oldIconUrl);
 
             configsInternal = new EntityConfigMap(this, managementContext.getStorage().<ConfigKey<?>, Object>getMap(getId()+"-config"));
-            if (oldConfig.getLocalConfig().size() > 0) {
-                configsInternal.setLocalConfig(oldConfig.getLocalConfig());
+            if (!oldConfig.isEmpty()) {
+                configsInternal.setLocalConfig(oldConfig.getAllConfigLocalRaw());
             }
             config().refreshInheritedConfig();
 
@@ -1212,7 +1212,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
             ConfigConstraints.assertValid(AbstractEntity.this, key, val);
         }
         
-        protected AbstractConfigMapImpl getConfigsInternal() {
+        protected AbstractConfigMapImpl<?> getConfigsInternal() {
             return configsInternal;
         }
 

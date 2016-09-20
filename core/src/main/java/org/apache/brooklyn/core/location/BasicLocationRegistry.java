@@ -40,7 +40,7 @@ import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.RegisteredType;
-import org.apache.brooklyn.config.ConfigMap;
+import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
@@ -274,7 +274,7 @@ public class BasicLocationRegistry implements LocationRegistry {
             // we need ability/format for persisting named locations, and better support for adding+saving via REST/GUI)
             int count = 0; 
             String NAMED_LOCATION_PREFIX = "brooklyn.location.named.";
-            ConfigMap namedLocationProps = mgmt.getConfig().submap(ConfigPredicates.nameStartsWith(NAMED_LOCATION_PREFIX));
+            StringConfigMap namedLocationProps = mgmt.getConfig().submap(ConfigPredicates.nameStartsWith(NAMED_LOCATION_PREFIX));
             for (String k: namedLocationProps.asMapWithStringKeys().keySet()) {
                 String name = k.substring(NAMED_LOCATION_PREFIX.length());
                 // If has a dot, then is a sub-property of a named location (e.g. brooklyn.location.named.prod1.user=bob)

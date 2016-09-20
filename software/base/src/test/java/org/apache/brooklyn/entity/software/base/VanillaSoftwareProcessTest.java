@@ -289,8 +289,7 @@ public class VanillaSoftwareProcessTest extends BrooklynAppUnitTestSupport {
         app.start(ImmutableList.of(loc));
 
         // since app does not define it, the child *should* run it
-        // TODO the following line should execute, when we fix not_reinherited semantics
-//        assertExecHasOnlyOnce(RecordingSshTool.getExecCmds(), "preInstallCommand");
+        assertExecHasOnlyOnce(RecordingSshTool.getExecCmds(), "preInstallCommand");
         assertExecHasOnlyOnce(RecordingSshTool.getExecCmds(), "launchCommand");
     }
 }

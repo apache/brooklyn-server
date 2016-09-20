@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.effector.ssh;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -30,17 +31,16 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.effector.EffectorBody;
 import org.apache.brooklyn.core.effector.EffectorTasks;
 import org.apache.brooklyn.core.effector.EffectorTasks.EffectorTaskFactory;
-import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -53,7 +53,10 @@ import org.apache.brooklyn.util.core.task.ssh.internal.AbstractSshExecTaskFactor
 import org.apache.brooklyn.util.core.task.ssh.internal.PlainSshExecTaskFactory;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskFactory;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.ssh.BashCommands;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
@@ -291,42 +294,42 @@ public class SshEffectorTasks {
      * the SshTool is created or re-used by the SshMachineLocation making use of these properties */
     @Beta
     public static Map<String, Object> getSshFlags(Entity entity, Location optionalLocation) {
-        ConfigBag allConfig = ConfigBag.newInstance();
+        Set<ConfigKey<?>> sshConfig = MutableSet.of();
         
-        StringConfigMap globalConfig = ((EntityInternal)entity).getManagementContext().getConfig();
-        allConfig.putAll(globalConfig.getAllConfig());
+        sshConfig.addAll(((EntityInternal)entity).config().findKeys(ConfigPredicates.nameStartsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)));
         
         if (optionalLocation!=null)
-            allConfig.putAll(((LocationInternal)optionalLocation).config().getBag());
+            sshConfig.addAll(optionalLocation.config().findKeys(ConfigPredicates.nameStartsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)));
         
-        allConfig.putAll(((EntityInternal)entity).config().getBag());
+        StringConfigMap globalConfig = ((EntityInternal)entity).getManagementContext().getConfig();
+        sshConfig.addAll(globalConfig.findKeys(ConfigPredicates.nameStartsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)));
         
         Map<String, Object> result = Maps.newLinkedHashMap();
-        for (String keyS : allConfig.getAllConfig().keySet()) {
-            if (keyS.startsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)) {
-                ConfigKey<?> key = ConfigKeys.newConfigKey(Object.class, keyS);
-                
-                Object val = allConfig.getStringKey(keyS);
-                
-                /*
-                 * NOV 2013 changing this to rely on config above being inserted in the right order,
-                 * so entity config will be preferred over location, and location over global.
-                 * If that is consistent then remove the lines below.
-                 * (We can also accept null entity and so combine with SshTasks.getSshFlags.)
-                 */
-                
-//                // have to use raw config to test whether the config is set
-//                Object val = ((EntityInternal)entity).getConfigMap().getRawConfig(key);
-//                if (val!=null) {
-//                    val = entity.getConfig(key);
-//                } else {
-//                    val = globalConfig.getRawConfig(key);
-//                    if (val!=null) val = globalConfig.getConfig(key);
-//                }
-//                if (val!=null) {
-                    result.put(ConfigUtils.unprefixedKey(SshTool.BROOKLYN_CONFIG_KEY_PREFIX, key).getName(), val);
-//                }
+        for (ConfigKey<?> key : sshConfig) {
+            /*
+             * Rely on config in the right order:
+             * entity config will be preferred over location, and location over global.
+             * (We can also accept null entity and so combine with SshTasks.getSshFlags.)
+             */
+            
+            Maybe<Object> mv = ((EntityInternal)entity).config().getRaw(key);
+            Object v = null;
+            if (v==null && mv.isPresent()) {
+                v = entity.config().get(key);
             }
+            
+            if (mv.isAbsent() && optionalLocation!=null) {
+                mv = ((LocationInternal)optionalLocation).config().getRaw(key);
+            }
+            if (v==null && mv.isPresent()) {
+                v = optionalLocation.config().get(key);
+            }
+
+            if (mv.isAbsent()) {
+                v = globalConfig.getConfig(key);
+            }
+            
+            result.put(ConfigUtils.unprefixedKey(SshTool.BROOKLYN_CONFIG_KEY_PREFIX, key).getName(), v);
         }
         return result;
     }

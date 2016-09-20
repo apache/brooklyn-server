@@ -103,9 +103,13 @@ public interface ConfigKey<T> {
      * @deprecated since 0.10.0 use {@link #getInheritanceByContext()} */ 
     @Deprecated @Nullable
     ConfigInheritance getInheritance();
-    
-    // TODO javadoc
+
+    /** @return The inheritance model for this key in the given {@link ConfigInheritanceContext} */ 
     @Nullable ConfigInheritance getInheritanceByContext(ConfigInheritanceContext context);
+    /** @return A summary of the inheritance models for this key in various {@link ConfigInheritanceContext} instances.
+     * Implementations may have a simple map, whereas others could be more sophisticated. 
+     * {@link #getInheritanceByContext(ConfigInheritanceContext)} may be preferred if inheritance contexts are complex
+     * (but usually, and in brooklyn, they aren't). */
     Map<ConfigInheritanceContext,ConfigInheritance> getInheritanceByContext();
 
     /**

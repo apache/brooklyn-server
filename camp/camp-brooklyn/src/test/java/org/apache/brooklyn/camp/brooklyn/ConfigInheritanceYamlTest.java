@@ -32,7 +32,6 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
-import org.apache.brooklyn.core.entity.internal.EntityConfigMap;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
@@ -221,16 +220,9 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                 ImmutableMap.of("mykey", "myval", "templateOptions", ImmutableMap.of("myOptionsKey", "myOptionsVal")));
     }
     
-    /**
-     * TODO This hangs because the attributeWhenReady self-reference is resolved against the entity
-     * looking up the config value (i.e. the child). Therefore it waits for the TestEntity to have
-     * a value for that sensor, but this never happens. The way to avoid this is to explicitly set
-     * the component that the attributeWhenReady should apply to (e.g. see {@link #testInheritsParentConfigTask()}.
-     * 
-     * Do we want to just exclude this test? Or do we want to "fix" it? Which entity should the
-     * attributeWhenReady apply to?
-     */
-    @Test(groups={"Broken", "WIP"}, enabled=false)
+    // Fixed Sept 2016, attributeWhenReady self-reference is now resolved against the entity defining the config value.
+    // Prior to this it was resolved against the caller's scope.
+    @Test
     public void testInheritsParentConfigTaskWithSelfScope() throws Exception {
         String yaml = Joiner.on("\n").join(
                 "services:",
@@ -758,12 +750,8 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                 ImmutableMap.of("mykey1", "myval1", "mykey2", "myval2", "mykey3", "myval3"));
     }
 
-    /**
-     * TODO Has always failed, and probably hard to fix?! This is due to the way 
-     * {@link EntityConfigMap#setInheritedConfig(Map, org.apache.brooklyn.util.core.config.ConfigBag)} works:
-     * the parent overrides the grandparent's config. So we only get mykey2+mykey3.
-     */
-    @Test(groups={"Broken", "WIP"})
+    // Fixed Sept 2016, inheritance is now computed with respect to defined keys and propagated upwards when traversing ancestors
+    @Test
     public void testExtendsParentMultipleLevels() throws Exception {
         addCatalogItems(
                 "brooklyn.catalog:",

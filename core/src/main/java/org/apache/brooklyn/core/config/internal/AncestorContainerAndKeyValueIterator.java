@@ -30,16 +30,19 @@ import com.google.common.base.Function;
 public class AncestorContainerAndKeyValueIterator<TContainer,TValue> implements Iterator<ConfigValueAtContainer<TContainer,TValue>> {
     private TContainer lastContainer;
     private final Function<TContainer, ConfigKey<TValue>> keyFindingFunction; 
-    private final Function<TContainer, Maybe<TValue>> localEvaluationFunction; 
+    private final Function<TContainer, Maybe<Object>> lookupResolutionFunction; 
+    private final Function<Maybe<Object>, Maybe<TValue>> coercionFunction; 
     private final Function<TContainer, TContainer> parentFunction;
     
     public AncestorContainerAndKeyValueIterator(TContainer childContainer, 
             Function<TContainer, ConfigKey<TValue>> keyFindingFunction, 
-            Function<TContainer, Maybe<TValue>> localEvaluationFunction, 
+            Function<TContainer, Maybe<Object>> lookupResolutionFunction, 
+            Function<Maybe<Object>, Maybe<TValue>> coercionFunction, 
             Function<TContainer, TContainer> parentFunction) {
         this.lastContainer = childContainer;
         this.keyFindingFunction = keyFindingFunction;
-        this.localEvaluationFunction = localEvaluationFunction;
+        this.lookupResolutionFunction = lookupResolutionFunction;
+        this.coercionFunction = coercionFunction;
         this.parentFunction = parentFunction;
     }
 
@@ -53,7 +56,8 @@ public class AncestorContainerAndKeyValueIterator<TContainer,TValue> implements 
         TContainer nextContainer = parentFunction.apply(lastContainer);
         if (nextContainer==null) throw new NoSuchElementException("Cannot search ancestors further than "+lastContainer);
         lastContainer = nextContainer;
-        return new LazyContainerAndKeyValue<TContainer,TValue>(keyFindingFunction.apply(lastContainer), lastContainer, localEvaluationFunction);
+        return new LazyContainerAndKeyValue<TContainer,TValue>(keyFindingFunction.apply(lastContainer), lastContainer, 
+            lookupResolutionFunction, coercionFunction);
     }
 
     @Override

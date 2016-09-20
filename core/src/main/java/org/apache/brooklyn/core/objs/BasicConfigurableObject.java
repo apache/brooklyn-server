@@ -18,18 +18,24 @@
  */
 package org.apache.brooklyn.core.objs;
 
+import java.util.Set;
+
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.api.objs.Identifiable;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.config.ConfigMap;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
+import org.apache.brooklyn.config.ConfigMap;
 import org.apache.brooklyn.core.mgmt.HasBrooklynManagementContext;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.text.Identifiers;
+
+import com.google.common.base.Predicate;
+import com.google.common.collect.Iterables;
 
 /**
  * A parent class for ancilliary objects that do not require the full heavy lifting of {@link AbstractBrooklynObject}
@@ -114,6 +120,11 @@ public class BasicConfigurableObject implements Configurable, Identifiable, Mana
         @Override
         public <T> T set(HasConfigKey<T> key, Task<T> val) {
             return set(key.getConfigKey(), val);
+        }
+        
+        @Override
+        public Set<ConfigKey<?>> findKeys(Predicate<ConfigKey<?>> predicate) {
+            return MutableSet.copyOf(Iterables.filter(config.getAllConfigAsConfigKeyMap().keySet(), predicate));
         }
     }
 }

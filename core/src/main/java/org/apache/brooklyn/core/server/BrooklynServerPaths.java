@@ -57,7 +57,7 @@ public class BrooklynServerPaths {
     /** @see BrooklynServerPaths#getMgmtBaseDir(ManagementContext) */
     @SuppressWarnings("deprecation")
     public static String getMgmtBaseDir(StringConfigMap brooklynProperties) {
-        String base = (String) brooklynProperties.getConfigRaw(BrooklynServerConfig.MGMT_BASE_DIR, true).orNull();
+        String base = (String) brooklynProperties.getConfigLocalRaw(BrooklynServerConfig.MGMT_BASE_DIR).orNull();
         if (base==null) {
             base = brooklynProperties.getConfig(BrooklynServerConfig.BROOKLYN_DATA_DIR);
             if (base!=null)
@@ -199,7 +199,7 @@ public class BrooklynServerPaths {
         }
         @Override
         protected String getDefaultPathFromConfig() {
-            Maybe<Object> result = brooklynProperties.getConfigRaw(BrooklynServerConfig.PERSISTENCE_BACKUPS_DIR, true);
+            Maybe<Object> result = brooklynProperties.getConfigLocalRaw(BrooklynServerConfig.PERSISTENCE_BACKUPS_DIR);
             if (result.isPresent()) return Strings.toString(result.get());
             if (isBackupSameLocation()) {
                 return backupContainerFor(brooklynProperties.getConfig(BrooklynServerConfig.PERSISTENCE_DIR));

@@ -18,18 +18,15 @@
  */
 package org.apache.brooklyn.core.objs;
 
-import static org.apache.brooklyn.util.groovy.GroovyJavaMethods.elvis;
-
 import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
 import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.util.core.flags.TypeCoercions;
-import org.apache.brooklyn.util.core.internal.ConfigKeySelfExtracting;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,8 +34,9 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 
-public class AdjunctConfigMap extends AbstractConfigMapImpl {
+public class AdjunctConfigMap extends AbstractConfigMapImpl<EntityAdjunct> {
 
+    @SuppressWarnings("unused")
     private static final Logger LOG = LoggerFactory.getLogger(AdjunctConfigMap.class);
 
     public AdjunctConfigMap(AbstractEntityAdjunct adjunct) {
@@ -49,28 +47,19 @@ public class AdjunctConfigMap extends AbstractConfigMapImpl {
      * @deprecated since 0.10.0 kept for serialization */ @Deprecated
     private AbstractEntityAdjunct adjunct;
     @Override
-    public BrooklynObjectInternal getBrooklynObject() {
-        BrooklynObjectInternal result = super.getBrooklynObject();
+    public EntityAdjunct getContainer() {
+        EntityAdjunct result = super.getContainer();
         if (result!=null) return result;
 
         synchronized (this) {
-            result = super.getBrooklynObject();
+            result = super.getContainer();
             if (result!=null) return result;
             bo = adjunct;
             adjunct = null;
         }
-        return super.getBrooklynObject();
+        return super.getContainer();
     }
 
-    protected AbstractEntityAdjunct getAdjunct() {
-        return (AbstractEntityAdjunct) getBrooklynObject();
-    }
-
-    @Override
-    protected BrooklynObjectInternal getParent() {
-        return null;
-    }
-    
     @Override
     protected void postLocalEvaluate(ConfigKey<?> key, BrooklynObject bo, Maybe<?> rawValue, Maybe<?> resolvedValue) { /* noop */ }
 
@@ -84,31 +73,23 @@ public class AdjunctConfigMap extends AbstractConfigMapImpl {
         return (entity != null) ? ((EntityInternal)entity).getExecutionContext() : null;
     }
     
-    protected <T> Maybe<T> getConfigImpl(ConfigKey<T> key) {
-        // tasks won't resolve if we aren't yet connected to an entity
-        
-        // no need for inheritance, so much simpler than other impls
-        
-        @SuppressWarnings("unchecked")
-        ConfigKey<T> ownKey = getAdjunct()!=null ? (ConfigKey<T>)elvis(getAdjunct().getAdjunctType().getConfigKey(key.getName()), key) : key;
-        
-        if (ownKey instanceof ConfigKeySelfExtracting) {
-            if (((ConfigKeySelfExtracting<T>)ownKey).isSet(ownConfig)) {
-                return Maybe.ofAllowingNull( ((ConfigKeySelfExtracting<T>)ownKey).extractValue(ownConfig, getExecutionContext(getAdjunct())) );
-            }
-        } else {
-            LOG.warn("Config key {} of {} is not a ConfigKeySelfExtracting; cannot retrieve value; returning default", ownKey, this);
-        }
-        return Maybe.ofAllowingNull( TypeCoercions.coerce(ownKey.getDefaultValue(), key.getTypeToken()) );
-    }
-    
     @Override
     public AdjunctConfigMap submap(Predicate<ConfigKey<?>> filter) {
-        AdjunctConfigMap m = new AdjunctConfigMap(getAdjunct());
+        AdjunctConfigMap m = new AdjunctConfigMap((AbstractEntityAdjunct)getContainer());
         for (Map.Entry<ConfigKey<?>,Object> entry: ownConfig.entrySet())
             if (filter.apply(entry.getKey()))
                 m.ownConfig.put(entry.getKey(), entry.getValue());
         return m;
+    }
+
+    @Override
+    protected EntityAdjunct getParentOfContainer(EntityAdjunct container) {
+        return null;
+    }
+
+    @Override
+    protected <T> ConfigKey<?> getKeyAtContainerImpl(EntityAdjunct container, ConfigKey<T> queryKey) {
+        return ((AbstractEntityAdjunct)container).getAdjunctType().getConfigKey(queryKey.getName());
     }
 
 }

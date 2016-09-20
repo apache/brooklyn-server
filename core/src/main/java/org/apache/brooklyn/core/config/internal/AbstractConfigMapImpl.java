@@ -20,31 +20,46 @@ package org.apache.brooklyn.core.config.internal;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Future;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.config.ConfigInheritance;
+import org.apache.brooklyn.config.ConfigInheritances;
+import org.apache.brooklyn.config.ConfigInheritances.BasicConfigValueAtContainer;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
-import org.apache.brooklyn.config.ConfigMap;
+import org.apache.brooklyn.config.ConfigMap.ConfigMapWithInheritance;
+import org.apache.brooklyn.config.ConfigValueAtContainer;
+import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.config.ConfigKeys.InheritanceContext;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.config.StructuredConfigKey;
-import org.apache.brooklyn.core.entity.internal.ConfigMapViewWithStringKeys;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.internal.ConfigKeySelfExtracting;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
+import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
+import com.google.common.base.Predicate;
+import com.google.common.collect.Iterables;
 
-public abstract class AbstractConfigMapImpl implements ConfigMap {
+public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> implements ConfigMapWithInheritance<TContainer> {
 
     /*
      * Changed Sept 2016 so that keys can determine inheritance strategy at every level in the hierarchy,
@@ -53,9 +68,10 @@ public abstract class AbstractConfigMapImpl implements ConfigMap {
 
     private static final Logger LOG = LoggerFactory.getLogger(AbstractConfigMapImpl.class);
     
-    protected final ConfigMapViewWithStringKeys mapViewWithStringKeys = new ConfigMapViewWithStringKeys(this);
+    @SuppressWarnings("deprecation")
+    protected final transient org.apache.brooklyn.core.entity.internal.ConfigMapViewWithStringKeys mapViewWithStringKeys = new org.apache.brooklyn.core.entity.internal.ConfigMapViewWithStringKeys(this);
 
-    protected BrooklynObjectInternal bo;
+    protected TContainer bo;
     
     /**
      * Map of configuration information that is defined at start-up time for the entity. These
@@ -64,27 +80,30 @@ public abstract class AbstractConfigMapImpl implements ConfigMap {
      */
     protected final Map<ConfigKey<?>,Object> ownConfig;
     
-    protected AbstractConfigMapImpl(BrooklynObject bo) {
+    protected AbstractConfigMapImpl(TContainer bo) {
         // Not using ConcurrentMap, because want to (continue to) allow null values.
         // Could use ConcurrentMapAcceptingNullVals (with the associated performance hit on entrySet() etc).
         this(bo, Collections.synchronizedMap(new LinkedHashMap<ConfigKey<?>, Object>()));
     }
-    protected AbstractConfigMapImpl(BrooklynObject bo, Map<ConfigKey<?>, Object> storage) {
-        this.bo = (BrooklynObjectInternal) bo;
+    protected AbstractConfigMapImpl(TContainer bo, Map<ConfigKey<?>, Object> storage) {
+        this.bo = bo;
         this.ownConfig = storage;
     }
 
-    public BrooklynObjectInternal getBrooklynObject() {
+    public TContainer getContainer() {
         return bo;
     }
     
-    public <T> T getConfig(ConfigKey<T> key) {
-        return getConfigImpl(key).orNull();
+    protected final BrooklynObjectInternal getBrooklynObject() {
+        return (BrooklynObjectInternal)bo;
     }
     
-
+    public <T> T getConfig(ConfigKey<T> key) {
+        return getConfigImpl(key, false).getWithoutError().get();
+    }
+    
     public <T> T getConfig(HasConfigKey<T> key) {
-        return getConfigImpl(key.getConfigKey()).orNull();
+        return getConfigImpl(key.getConfigKey(), false).getWithoutError().get();
     }
     
     @Override
@@ -92,58 +111,38 @@ public abstract class AbstractConfigMapImpl implements ConfigMap {
         return getConfigRaw(key, false);
     }
 
-    protected abstract <T> Maybe<T> getConfigImpl(ConfigKey<T> key);
-    
     protected abstract ExecutionContext getExecutionContext(BrooklynObject bo);
     protected abstract void postLocalEvaluate(ConfigKey<?> key, BrooklynObject bo, Maybe<?> rawValue, Maybe<?> resolvedValue);
     
-    protected class LocalEvaluateKeyValue<TContainer extends BrooklynObject, TValue> implements Function<TContainer,Maybe<TValue>> {
-        ConfigKey<TValue> keyIgnoringInheritance;
-        
-        public LocalEvaluateKeyValue(ConfigKey<TValue> keyIgnoringInheritance) {
-            this.keyIgnoringInheritance = keyIgnoringInheritance;
-        }
-        
-        @Override
-        public Maybe<TValue> apply(TContainer bo) {
-            ExecutionContext exec = getExecutionContext(bo);
-            
-            ConfigMap configMap = ((BrooklynObjectInternal)bo).config().getInternalConfigMap();
-            Map<ConfigKey<?>,Object> ownConfig = ((AbstractConfigMapImpl)configMap).ownConfig;
-            Maybe<Object> rawValue = configMap.getConfigLocalRaw(keyIgnoringInheritance);
-            Maybe<TValue> ownValue;
-            
-            // Get own value
-            if (keyIgnoringInheritance instanceof ConfigKeySelfExtracting) {
-                if (((ConfigKeySelfExtracting<TValue>)keyIgnoringInheritance).isSet(ownConfig)) {
-                    Map<ConfigKey<?>, ?> ownCopy;
-                    synchronized (ownConfig) {
-                        // wasteful to make a copy to look up; maybe try once opportunistically?
-                        ownCopy = MutableMap.copyOf(ownConfig);
-                    }
-                    ownValue = Maybe.of(((ConfigKeySelfExtracting<TValue>) keyIgnoringInheritance).extractValue(ownCopy, exec));
-                } else {
-                    ownValue = Maybe.<TValue>absent();
-                }
-            } else {
-                // all our keys are self-extracting
-                LOG.warn("Unexpected key type "+keyIgnoringInheritance+" ("+keyIgnoringInheritance.getClass()+") in "+bo+"; ignoring value");
-                ownValue = Maybe.<TValue>absent();
-            }
-
-            postLocalEvaluate(keyIgnoringInheritance, bo, rawValue, ownValue);
-            return ownValue;
-        }
-    }
-    
-    /** an immutable copy of the config defined at this entity, ie not inherited */
-    public Map<ConfigKey<?>,Object> getLocalConfig() {
-        Map<ConfigKey<?>,Object> result = new LinkedHashMap<ConfigKey<?>,Object>(ownConfig.size());
+    @Override
+    public Map<ConfigKey<?>,Object> getAllConfigLocalRaw() {
+        Map<ConfigKey<?>,Object> result = new LinkedHashMap<ConfigKey<?>,Object>();
         result.putAll(ownConfig);
         return Collections.unmodifiableMap(result);
     }
     
-    /** Creates an immutable copy of the config defined at this entity, ie not inherited, including those that did not match config keys */
+    /** an immutable copy of the config visible at this entity, local and inherited (preferring local) */
+    @Override @Deprecated
+    public Map<ConfigKey<?>,Object> getAllConfig() {
+        Map<ConfigKey<?>,Object> result = new LinkedHashMap<ConfigKey<?>,Object>();
+        if (getParent()!=null)
+            result.putAll( getParentInternal().config().getInternalConfigMap().getAllConfig() );
+        result.putAll(ownConfig);
+        return Collections.unmodifiableMap(result);
+    }
+
+    /** Creates an immutable copy of the config visible at this entity, local and inherited (preferring local), including those that did not match config keys */
+    @Deprecated
+    public ConfigBag getAllConfigBag() {
+        ConfigBag result = ConfigBag.newInstance().putAll(ownConfig);
+        if (getParent()!=null) {
+            result.putIfAbsent(
+                ((AbstractConfigMapImpl<?>)getParentInternal().config().getInternalConfigMap()).getAllConfigBag() );
+        }
+        return result.seal();
+    }
+
+    /** As {@link #getLocalConfigRaw()} but in a {@link ConfigBag} for convenience */
     public ConfigBag getLocalConfigBag() {
         return ConfigBag.newInstance().putAll(ownConfig).seal();
     }
@@ -170,7 +169,7 @@ public abstract class AbstractConfigMapImpl implements ConfigMap {
     }
  
     @SuppressWarnings("unchecked")
-    public void addToLocalBag(Map<?,?> vals) {
+    public void putAll(Map<?,?> vals) {
 //        ConfigBag ownConfigBag = ConfigBag.newInstance().putAll(vals);
 //        ownConfig.putAll(ownConfigBag.getAllConfigAsConfigKeyMap());
         // below seems more straightforward; should be the same.
@@ -188,45 +187,30 @@ public abstract class AbstractConfigMapImpl implements ConfigMap {
         }
     }
     
-    public void removeFromLocalBag(String key) {
-        // previously removed the string (?)
+    public void removeKey(String key) {
         ownConfig.remove(ConfigKeys.newConfigKey(Object.class, key));
     }
 
-    public void removeFromLocalBag(ConfigKey<?> key) {
+    public void removeKey(ConfigKey<?> key) {
         ownConfig.remove(key);
     }
 
-    protected abstract BrooklynObjectInternal getParent();
-    
-    @Override
+    protected final TContainer getParent() {
+        return getParentOfContainer(getContainer());
+    }
+
+    protected final BrooklynObjectInternal getParentInternal() {
+        return (BrooklynObjectInternal) getParent();
+    }
+
+    @Override @Deprecated
     public Maybe<Object> getConfigRaw(ConfigKey<?> key, boolean includeInherited) {
-        // TODO does not currently respect inheritance modes
+        // does not currently respect inheritance modes
         if (ownConfig.containsKey(key)) return Maybe.of(ownConfig.get(key));
         if (!includeInherited || getParent()==null) return Maybe.absent();
-        return getParent().config().getInternalConfigMap().getConfigRaw(key, includeInherited);
+        return getParentInternal().config().getInternalConfigMap().getConfigRaw(key, includeInherited);
     }
     
-    /** an immutable copy of the config visible at this entity, local and inherited (preferring local) */
-    // TODO deprecate because key inheritance not respected
-    public Map<ConfigKey<?>,Object> getAllConfig() {
-        Map<ConfigKey<?>,Object> result = new LinkedHashMap<ConfigKey<?>,Object>();
-        if (getParent()!=null)
-            result.putAll( getParent().config().getInternalConfigMap().getAllConfig() );
-        result.putAll(ownConfig);
-        return Collections.unmodifiableMap(result);
-    }
-    
-    /** Creates an immutable copy of the config visible at this entity, local and inherited (preferring local), including those that did not match config keys */
-    // TODO deprecate because key inheritance not respected
-    public ConfigBag getAllConfigBag() {
-        ConfigBag result = ConfigBag.newInstance().putAll(ownConfig);
-        if (getParent()!=null) {
-            result.putIfAbsent(
-                ((AbstractConfigMapImpl)getParent().config().getInternalConfigMap()).getAllConfigBag() );
-        }
-        return result.seal();
-    }
     protected Object coerceConfigVal(ConfigKey<?> key, Object v) {
         if ((v instanceof Future) || (v instanceof DeferredSupplier)) {
             // no coercion for these (coerce on exit)
@@ -267,6 +251,219 @@ public abstract class AbstractConfigMapImpl implements ConfigMap {
     @Override
     public boolean isEmpty() {
         return ownConfig.isEmpty();
+    }
+    
+    protected ConfigInheritance getDefaultRuntimeInheritance() {
+        return BasicConfigInheritance.OVERWRITE; 
+    }
+
+    public <T> ReferenceWithError<ConfigValueAtContainer<TContainer,T>> getConfigAndContainer(ConfigKey<T> key) {
+        return getConfigImpl(key, false);
+    }
+
+    protected abstract TContainer getParentOfContainer(TContainer container);
+    
+    @Nullable protected final <T> ConfigKey<T> getKeyAtContainer(TContainer container, ConfigKey<T> queryKey) {
+        if (container==null) return null;
+        @SuppressWarnings("unchecked")
+        ConfigKey<T> candidate = (ConfigKey<T>) getKeyAtContainerImpl(container, queryKey);
+        return candidate;
+    }
+    
+    @Nullable protected abstract <T> ConfigKey<?> getKeyAtContainerImpl(@Nonnull TContainer container, ConfigKey<T> queryKey);
+
+    protected Maybe<Object> getRawValueAtContainer(TContainer container, ConfigKey<? extends Object> configKey) {
+        return ((BrooklynObjectInternal)container).config().getInternalConfigMap().getConfigLocalRaw(configKey);
+    }
+    protected Maybe<Object> resolveRawValueFromContainer(TContainer container, ConfigKey<?> key, Object value) {
+        Map<ConfigKey<?>, Object> oc = ((AbstractConfigMapImpl<?>) ((BrooklynObjectInternal)container).config().getInternalConfigMap()).ownConfig;
+        if (key instanceof ConfigKeySelfExtracting) {
+            if (((ConfigKeySelfExtracting<?>)key).isSet(oc)) {
+                Map<ConfigKey<?>, ?> ownCopy;
+                synchronized (oc) {
+                    // wasteful to make a copy to look up; maybe try once opportunistically?
+                    ownCopy = MutableMap.copyOf(oc);
+                }
+                return Maybe.of((Object) ((ConfigKeySelfExtracting<?>) key).extractValue(ownCopy, getExecutionContext(container)) );
+            } else {
+                return Maybe.absent();
+            }
+        } else {
+            // all our keys are self-extracting
+            LOG.warn("Unexpected key type "+key+" ("+key.getClass()+") in "+bo+"; ignoring value");
+            return Maybe.absent();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    protected <T> T coerce(Object value, Class<T> type) {
+        if (type==null || value==null) return (T) value;
+        return (T) TypeCoercions.coerce(value, type);
+    }
+    
+    protected <T> ReferenceWithError<ConfigValueAtContainer<TContainer,T>> getConfigImpl(final ConfigKey<T> queryKey, final boolean raw) {
+        // In case this entity class has overridden the given key (e.g. to set default), then retrieve this entity's key
+        Function<TContainer, ConfigKey<T>> keyFn = new Function<TContainer, ConfigKey<T>>() {
+            @Override public ConfigKey<T> apply(TContainer input) {
+                // should return null if the key is not known, to indicate selected inheritance rules from base key should take effect
+                return getKeyAtContainer(input, queryKey);
+            }
+        };
+        ConfigKey<T> ownKey = keyFn.apply(getContainer());
+        if (ownKey==null) ownKey = queryKey;
+        @SuppressWarnings("unchecked")
+        final Class<T> type = (Class<T>) ownKey.getType();
+        
+        // takes type of own key (or query key if own key not available)
+        // takes default of own key if available and has default, else of query key
+        
+        Function<Maybe<Object>, Maybe<T>> coerceFn = new Function<Maybe<Object>, Maybe<T>>() {
+            @SuppressWarnings("unchecked") @Override public Maybe<T> apply(Maybe<Object> input) {
+                if (raw || input==null || input.isAbsent()) return (Maybe<T>)input;
+                return Maybe.ofAllowingNull(coerce(input.get(), type));
+            }
+        };
+        // prefer default and type of ownKey
+        Maybe<T> defaultValue = raw ? Maybe.<T>absent() :
+            ownKey.hasDefaultValue() ? coerceFn.apply(Maybe.of((Object)ownKey.getDefaultValue())) : 
+            queryKey.hasDefaultValue() ? coerceFn.apply(Maybe.of((Object)queryKey.getDefaultValue())) :
+                Maybe.<T>absent();
+            
+        if (ownKey instanceof ConfigKeySelfExtracting) {
+            
+            Function<TContainer, Maybe<Object>> lookupFn = new Function<TContainer, Maybe<Object>>() {
+                @Override public Maybe<Object> apply(TContainer input) {
+                    Maybe<Object> result = getRawValueAtContainer(input, queryKey);
+                    if (!raw) result = resolveRawValueFromContainer(input, queryKey, result);
+                    return result;
+                }
+            };
+            Function<TContainer, TContainer> parentFn = new Function<TContainer, TContainer>() {
+                @Override public TContainer apply(TContainer input) {
+                    return getParentOfContainer(input);
+                }
+            };
+            AncestorContainerAndKeyValueIterator<TContainer, T> ckvi = new AncestorContainerAndKeyValueIterator<TContainer,T>(
+                getContainer(), keyFn, lookupFn, coerceFn, parentFn);
+            
+            return ConfigInheritances.resolveInheriting(
+                getContainer(), ownKey, coerceFn.apply(lookupFn.apply(getContainer())), defaultValue, 
+                ckvi, InheritanceContext.RUNTIME_MANAGEMENT, getDefaultRuntimeInheritance());
+            
+        } else {
+            String message = "Config key "+ownKey+" of "+getBrooklynObject()+" is not a ConfigKeySelfExtracting; cannot retrieve value; returning default";
+            LOG.warn(message);
+            return ReferenceWithError.newInstanceThrowingError(new BasicConfigValueAtContainer<TContainer,T>(getContainer(), ownKey, null, false,
+                    defaultValue),
+                new IllegalStateException(message));
+        }
+    }
+    
+    public List<ConfigValueAtContainer<TContainer,?>> getConfigAllInheritedRaw(ConfigKey<?> queryKey) {
+        List<ConfigValueAtContainer<TContainer, ?>> result = MutableList.of();
+        TContainer c = getContainer();
+        int count=0;
+
+        final InheritanceContext context = InheritanceContext.RUNTIME_MANAGEMENT;
+        ConfigInheritance currentInheritance = ConfigInheritances.findInheritance(queryKey, context, getDefaultRuntimeInheritance());
+        
+        BasicConfigValueAtContainer<TContainer, Object> last = null;
+        
+        while (c!=null) {
+            Maybe<Object> v = getRawValueAtContainer(c, queryKey);
+            BasicConfigValueAtContainer<TContainer, Object> next = new BasicConfigValueAtContainer<TContainer, Object>(c, getKeyAtContainer(c, queryKey), v);
+            
+            if (last!=null && !currentInheritance.considerParent(last, next, context)) break;
+            
+            currentInheritance = ConfigInheritances.findInheritance(next.getKey(), InheritanceContext.RUNTIME_MANAGEMENT, currentInheritance);
+            if (count>0 && !currentInheritance.isReinheritable(next, context)) break;
+            
+            if (next.isValueExplicitlySet()) result.add(0, next);
+
+            last = next;
+            c = getParentOfContainer(c);
+        }
+        
+        return result;
+    }
+    
+    @Override
+    public Set<ConfigKey<?>> findKeys(Predicate<ConfigKey<?>> filter) {
+        MutableSet<ConfigKey<?>> result = MutableSet.of();
+        result.addAll(Iterables.filter(ownConfig.keySet(), filter));
+        // due to set semantics local should be added first, it prevents equal items from parent from being added on top
+        if (getParent()!=null) {
+            result.addAll( getParentInternal().config().getInternalConfigMap().findKeys(filter) );
+        }
+        return result;
+    }
+    
+    @SuppressWarnings("unchecked")
+    public ReferenceWithError<ConfigValueAtContainer<TContainer,?>> getConfigInheritedRaw(ConfigKey<?> key) {
+        return (ReferenceWithError<ConfigValueAtContainer<TContainer,?>>) (ReferenceWithError<?>) getConfigImpl(key, true);
+    }
+    
+    @Override
+    public Map<ConfigKey<?>, Object> getAllConfigInheritedRawValuesIgnoringErrors() {
+        Map<ConfigKey<?>, ReferenceWithError<ConfigValueAtContainer<TContainer, ?>>> input = getAllConfigInheritedRawWithErrors();
+        Map<ConfigKey<?>, Object> result = MutableMap.of();
+        for (Map.Entry<ConfigKey<?>, ReferenceWithError<ConfigValueAtContainer<TContainer, ?>>> pair: input.entrySet()) {
+            result.put(pair.getKey(), pair.getValue().getWithoutError().get());
+        }
+        return result;
+    }
+    @Override
+    public Map<ConfigKey<?>, ReferenceWithError<ConfigValueAtContainer<TContainer, ?>>> getAllConfigInheritedRawWithErrors() {
+        return getSelectedConfigInheritedRaw(false);
+    }
+    
+    public Map<ConfigKey<?>,ReferenceWithError<ConfigValueAtContainer<TContainer,?>>> getAllReinheritableConfigRaw() {
+        return getSelectedConfigInheritedRaw(true);
+    }
+
+    protected Map<ConfigKey<?>,ReferenceWithError<ConfigValueAtContainer<TContainer,?>>> getSelectedConfigInheritedRaw(boolean onlyReinheritable) {
+        Map<ConfigKey<?>,ReferenceWithError<ConfigValueAtContainer<TContainer,?>>> parents = MutableMap.of();
+        if (getParent()!=null) {
+            @SuppressWarnings("unchecked")
+            Map<ConfigKey<?>,ReferenceWithError<ConfigValueAtContainer<TContainer,?>>> po = (Map<ConfigKey<?>,ReferenceWithError<ConfigValueAtContainer<TContainer,?>>>) (Map<?,?>)
+                getParentInternal().config().getInternalConfigMap().getAllReinheritableConfigRaw();
+            parents.putAll(po);
+        }
+        
+        Map<ConfigKey<?>, Object> local = getAllConfigLocalRaw();
+        
+        Map<ConfigKey<?>,ReferenceWithError<ConfigValueAtContainer<TContainer,?>>> result = MutableMap.of();
+
+        for (ConfigKey<?> k: local.keySet()) {
+            Object v = local.get(k);
+            ReferenceWithError<ConfigValueAtContainer<TContainer, ?>> vpr = parents.remove(k);
+            @SuppressWarnings("unchecked")
+            ConfigValueAtContainer<TContainer, Object> vp = vpr==null ? null : (ConfigValueAtContainer<TContainer,Object>) vpr.getWithoutError();
+            ConfigInheritance inh = ConfigInheritances.findInheritance(k, InheritanceContext.RUNTIME_MANAGEMENT, getDefaultRuntimeInheritance());
+            ConfigValueAtContainer<TContainer,Object> vl = new BasicConfigValueAtContainer<TContainer,Object>(getContainer(), k, Maybe.ofAllowingNull(v));
+            ReferenceWithError<ConfigValueAtContainer<TContainer, Object>> vlr = null;
+            if (inh.considerParent(vl, vp, InheritanceContext.RUNTIME_MANAGEMENT)) {
+                vlr = inh.resolveWithParent(vl, vp, InheritanceContext.RUNTIME_MANAGEMENT);
+            } else {
+                // no need to consider parent, just take vl
+                vlr = ReferenceWithError.newInstanceWithoutError(vl);
+            }
+            if (onlyReinheritable) {
+                if (ConfigInheritances.findInheritance(k, InheritanceContext.RUNTIME_MANAGEMENT, getDefaultRuntimeInheritance())
+                        .isReinheritable(vl, InheritanceContext.RUNTIME_MANAGEMENT)) {
+                    // continue
+                } else {
+                    // skip this one
+                    continue;
+                }
+            }
+            @SuppressWarnings("unchecked")
+            ReferenceWithError<ConfigValueAtContainer<TContainer, ?>> vlro = (ReferenceWithError<ConfigValueAtContainer<TContainer, ?>>) (ReferenceWithError<?>) vlr;
+            result.put(k, vlro);
+        }
+        result.putAll(parents);
+        
+        return result;
     }
     
     @Override

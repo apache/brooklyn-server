@@ -176,21 +176,20 @@ public class LocationTransformer {
             if (ll!=null) specId = ll.getId();
         }
         
-        Map<String, Object> configOrig;
+        ConfigBag configOrig = ConfigBag.newInstance();
         if (level == LocationDetailLevel.LOCAL_EXCLUDING_SECRET) {
-            configOrig = MutableMap.copyOf(((LocationInternal)l).config().getLocalBag().getAllConfig());
+            configOrig.putAll( ((LocationInternal)l).config().getInternalConfigMap().getAllConfigLocalRaw() );
         } else {
-            configOrig = MutableMap.copyOf(((LocationInternal)l).config().getBag().getAllConfig());
+            configOrig.putAll( ((LocationInternal)l).config().getInternalConfigMap().getAllConfigInheritedRawValuesIgnoringErrors() );
         }
         if (level==LocationDetailLevel.LOCAL_EXCLUDING_SECRET) {
-            // for LOCAL, also get the display name
-            if (!configOrig.containsKey(LocationConfigKeys.DISPLAY_NAME.getName())) {
-                Map<String, Object> configExtra = ((LocationInternal)l).config().getBag().getAllConfig();
-                if (configExtra.containsKey(LocationConfigKeys.DISPLAY_NAME.getName()))
-                    configOrig.put(LocationConfigKeys.DISPLAY_NAME.getName(), configExtra.get(LocationConfigKeys.DISPLAY_NAME.getName()));
+            // for LOCAL, also get an inherited display name
+            if (!configOrig.containsKey(LocationConfigKeys.DISPLAY_NAME)) {
+                Maybe<Object> dn = ((LocationInternal)l).config().getRaw(LocationConfigKeys.DISPLAY_NAME);
+                if (dn.isPresent()) configOrig.configure(LocationConfigKeys.DISPLAY_NAME, l.config().get(LocationConfigKeys.DISPLAY_NAME));
             }
         }
-        Map<String, ?> config = level==LocationDetailLevel.NONE ? null : copyConfig(configOrig, level);
+        Map<String, ?> config = level==LocationDetailLevel.NONE ? null : copyConfig(configOrig.getAllConfig(), level);
         
         URI selfUri = serviceUriBuilder(ub, LocationApi.class, "get").build(l.getId());
         URI parentUri = l.getParent() == null ? null : serviceUriBuilder(ub, LocationApi.class, "get").build(l.getParent().getId());

@@ -26,7 +26,7 @@ import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
-import org.apache.brooklyn.config.ConfigMap;
+import org.apache.brooklyn.config.ConfigMap.ConfigMapWithInheritance;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.guava.Maybe;
 
@@ -64,7 +64,7 @@ public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
          * and callers should be advised this beta method may be removed. 
          */
         @Beta
-        // TODO deprecate
+        // TODO deprecate. used fairly extensively, mostly in tests. a bit more care will be needed to refactor.
         ConfigBag getBag();
 
         /**
@@ -72,7 +72,7 @@ public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
          * backed by a string-based map, including config names that did not match anything on this entity.
          */
         @Beta
-        // TODO deprecate
+        // TODO deprecate. used extensively in tests but should be easy (if tedious) to refactor.
         ConfigBag getLocalBag();
         
         /** Returns all config defined here, in {@link #getLocalRaw(ConfigKey)} format */
@@ -131,6 +131,10 @@ public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
 
         /** Adds keys or strings, making anonymous keys from strings; throws on other keys */
         @Beta
+        void putAll(Map<?, ?> vals);
+        
+        /** @deprecated since 0.10.0 use {@link #putAll(Map)} instead */
+        @Deprecated  // and confirmed no uses
         void set(Map<?, ?> vals);
 
         @Beta
@@ -145,8 +149,13 @@ public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
         @Beta
         void refreshInheritedConfigOfChildren();
         
-        @Beta
-        ConfigMap getInternalConfigMap();
+        /** This is currently the only way to get some rolled up collections and raw,
+         * and also to test for the presence of a value (without any default).
+         * As more accessors are added callers may be asked to migrate. 
+         * Callers may also consider using {@link #findKeys(com.google.common.base.Predicate)}
+         * if that isn't too inefficient. */
+        @Beta  // TODO provide more accessors and deprecate this
+        ConfigMapWithInheritance<? extends BrooklynObject> getInternalConfigMap();
 
         /** Clears all local config, e.g. on tear-down */
         void removeAllLocalConfig();

@@ -329,7 +329,7 @@ public class MementosGenerators {
         // current code will lose the ConfigKey type on rebind for anything not defined on class.
         // Whereas entities support that.
         // TODO Do we need the "nonPersistableFlagNames" that locations use?
-        Map<ConfigKey<?>, Object> config = ((AbstractPolicy)policy).getConfigMap().getAllConfig();
+        Map<ConfigKey<?>, Object> config = ((AbstractPolicy)policy).config().getInternalConfigMap().getAllConfigLocalRaw();
         for (Map.Entry<ConfigKey<?>, Object> entry : config.entrySet()) {
             ConfigKey<?> key = checkNotNull(entry.getKey(), "config=%s", config);
             Object value = configValueToPersistable(entry.getValue(), policy, key.getName());
@@ -372,7 +372,7 @@ public class MementosGenerators {
         // current code will lose the ConfigKey type on rebind for anything not defined on class.
         // Whereas entities support that.
         // TODO Do we need the "nonPersistableFlagNames" that locations use?
-        Map<ConfigKey<?>, Object> config = ((AbstractEnricher)enricher).getConfigMap().getAllConfig();
+        Map<ConfigKey<?>, Object> config = ((AbstractEnricher)enricher).config().getInternalConfigMap().getAllConfigLocalRaw();
         for (Map.Entry<ConfigKey<?>, Object> entry : config.entrySet()) {
             ConfigKey<?> key = checkNotNull(entry.getKey(), "config=%s", config);
             Object value = configValueToPersistable(entry.getValue(), enricher, key.getName());
@@ -402,7 +402,7 @@ public class MementosGenerators {
         // current code will lose the ConfigKey type on rebind for anything not defined on class.
         // Whereas entities support that.
         // TODO Do we need the "nonPersistableFlagNames" that locations use?
-        Map<ConfigKey<?>, Object> config = ((AbstractFeed)feed).getConfigMap().getAllConfig();
+        Map<ConfigKey<?>, Object> config = ((AbstractFeed)feed).config().getInternalConfigMap().getAllConfigLocalRaw();
         for (Map.Entry<ConfigKey<?>, Object> entry : config.entrySet()) {
             ConfigKey<?> key = checkNotNull(entry.getKey(), "config=%s", config);
             Object value = configValueToPersistable(entry.getValue(), feed, key.getName());

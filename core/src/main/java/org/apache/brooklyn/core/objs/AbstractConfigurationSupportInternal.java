@@ -20,6 +20,7 @@
 package org.apache.brooklyn.core.objs;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
@@ -31,7 +32,7 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
-import org.apache.brooklyn.config.ConfigMap;
+import org.apache.brooklyn.config.ConfigMap.ConfigMapWithInheritance;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.config.StructuredConfigKey;
 import org.apache.brooklyn.core.config.SubElementConfigKey;
@@ -47,6 +48,8 @@ import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Predicate;
 
 public abstract class AbstractConfigurationSupportInternal implements BrooklynObjectInternal.ConfigurationSupportInternal {
 
@@ -155,7 +158,7 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
         return set(key.getConfigKey(), val);
     }
 
-    protected abstract AbstractConfigMapImpl getConfigsInternal();
+    protected abstract AbstractConfigMapImpl<? extends BrooklynObject> getConfigsInternal();
     protected abstract <T> void assertValid(ConfigKey<T> key, T val);
     protected abstract BrooklynObject getContainer();
     protected abstract <T> void onConfigChanging(ConfigKey<T> key, Object val);
@@ -187,32 +190,38 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
 
     @Override
     public ConfigBag getLocalBag() {
-        return getConfigsInternal().getLocalConfigBag();
+        return ConfigBag.newInstance(getConfigsInternal().getAllConfigLocalRaw());
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public Maybe<Object> getRaw(ConfigKey<?> key) {
-        return getConfigsInternal().getConfigRaw(key, true);
+        return (Maybe<Object>) getConfigsInternal().getConfigInheritedRaw(key).getWithoutError().asMaybe();
     }
 
     @Override
     public Maybe<Object> getLocalRaw(ConfigKey<?> key) {
-        return getConfigsInternal().getConfigRaw(key, false);
+        return getConfigsInternal().getConfigLocalRaw(key);
     }
 
     @Override
+    public void putAll(Map<?, ?> vals) {
+        getConfigsInternal().putAll(vals);
+    }
+    
+    @Override @Deprecated
     public void set(Map<?, ?> vals) {
-        getConfigsInternal().addToLocalBag(vals);
+        putAll(vals);
     }
 
     @Override
     public void removeKey(String key) {
-        getConfigsInternal().removeFromLocalBag(key);
+        getConfigsInternal().removeKey(key);
     }
     
     @Override
     public void removeKey(ConfigKey<?> key) {
-        getConfigsInternal().removeFromLocalBag(key);
+        getConfigsInternal().removeKey(key);
     }
     
     @Override
@@ -221,7 +230,12 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
     }
     
     @Override
-    public ConfigMap getInternalConfigMap() {
+    public Set<ConfigKey<?>> findKeys(Predicate<ConfigKey<?>> filter) {
+        return getConfigsInternal().findKeys(filter);
+    }
+    
+    @Override
+    public ConfigMapWithInheritance<? extends BrooklynObject> getInternalConfigMap() {
         return getConfigsInternal();
     }
 
@@ -229,8 +243,9 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
         return getConfigsInternal().getAllConfigLocalRaw();
     }
     
+    @SuppressWarnings("deprecation")
     @Override
-    // TODO deprecate because key inheritance not respected
+    // see super; we aspire to depreate this due to poor treatment of inheritance
     public ConfigBag getBag() {
         return getConfigsInternal().getAllConfigBag();
     }

@@ -88,7 +88,7 @@ public class BasicExternalConfigSupplierRegistry implements ExternalConfigSuppli
         //     brooklyn.external.<name>.<key> : <value>
 
         String EXTERNAL_PROVIDER_PREFIX = "brooklyn.external.";
-        Map<String, Object> externalProviderProperties = mgmt.getConfig().submap(ConfigPredicates.startingWith(EXTERNAL_PROVIDER_PREFIX)).asMapWithStringKeys();
+        Map<String, Object> externalProviderProperties = mgmt.getConfig().submap(ConfigPredicates.nameStartsWith(EXTERNAL_PROVIDER_PREFIX)).asMapWithStringKeys();
         ClassLoader classloader = mgmt.getCatalogClassLoader();
         List<Exception> exceptions = new LinkedList<Exception>();
 

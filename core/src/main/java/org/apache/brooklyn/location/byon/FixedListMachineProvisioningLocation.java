@@ -385,7 +385,7 @@ implements MachineProvisioningLocation<T>, Closeable {
         origConfigs.put(machine, origConfig);
         requestPersist();
         
-        ((ConfigurationSupportInternal)machine.config()).set(strFlags);
+        ((ConfigurationSupportInternal)machine.config()).putAll(strFlags);
     }
     
     protected void restoreMachineConfig(MachineLocation machine) {
@@ -402,7 +402,7 @@ implements MachineProvisioningLocation<T>, Closeable {
         for (String key : newKeys) {
             ((ConfigurationSupportInternal)machine.config()).removeKey(key);
         }
-        ((ConfigurationSupportInternal)machine.config()).set(origConfig);
+        ((ConfigurationSupportInternal)machine.config()).putAll(origConfig);
     }
     
     @SuppressWarnings("unchecked")

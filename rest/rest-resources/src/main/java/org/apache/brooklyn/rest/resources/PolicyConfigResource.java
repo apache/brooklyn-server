@@ -34,6 +34,7 @@ import org.apache.brooklyn.rest.filter.HaHotStateRequired;
 import org.apache.brooklyn.rest.transform.PolicyTransformer;
 import org.apache.brooklyn.rest.util.BrooklynRestResourceUtils;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
+import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 
 import com.google.common.collect.Lists;
@@ -61,7 +62,8 @@ public class PolicyConfigResource extends AbstractBrooklynRestResource implement
     public Map<String, Object> batchConfigRead(String application, String entityToken, String policyToken) {
         // TODO: add test
         Policy policy = brooklyn().getPolicy(application, entityToken, policyToken);
-        Map<String, Object> source = ((BrooklynObjectInternal)policy).config().getBag().getAllConfig();
+        Map<String, Object> source = ConfigBag.newInstance(
+            ((BrooklynObjectInternal)policy).config().getInternalConfigMap().getAllConfigInheritedRawValuesIgnoringErrors() ).getAllConfig();
         Map<String, Object> result = Maps.newLinkedHashMap();
         for (Map.Entry<String, Object> ek : source.entrySet()) {
             result.put(ek.getKey(), getStringValueForDisplay(brooklyn(), policy, ek.getValue()));
