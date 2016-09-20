@@ -74,7 +74,7 @@ public abstract class AbstractConfigMapImpl implements ConfigMap {
         this.ownConfig = storage;
     }
 
-    protected BrooklynObjectInternal getBrooklynObject() {
+    public BrooklynObjectInternal getBrooklynObject() {
         return bo;
     }
     
@@ -189,8 +189,8 @@ public abstract class AbstractConfigMapImpl implements ConfigMap {
     }
     
     public void removeFromLocalBag(String key) {
-        // FIXME probably never worked, config key vs string ?
-        ownConfig.remove(key);
+        // previously removed the string (?)
+        ownConfig.remove(ConfigKeys.newConfigKey(Object.class, key));
     }
 
     public void removeFromLocalBag(ConfigKey<?> key) {
@@ -228,21 +228,20 @@ public abstract class AbstractConfigMapImpl implements ConfigMap {
         return result.seal();
     }
     protected Object coerceConfigVal(ConfigKey<?> key, Object v) {
-        Object val;
         if ((v instanceof Future) || (v instanceof DeferredSupplier)) {
             // no coercion for these (coerce on exit)
-            val = v;
+            return v;
         } else if (key instanceof StructuredConfigKey) {
             // no coercion for these structures (they decide what to do)
-            val = v;
+            return v;
         } else if ((v instanceof Map || v instanceof Iterable) && key.getType().isInstance(v)) {
             // don't do coercion on put for these, if the key type is compatible, 
             // because that will force resolution deeply
-            val = v;
+            return v;
         } else {
             try {
                 // try to coerce on input, to detect errors sooner
-                val = TypeCoercions.coerce(v, key.getTypeToken());
+                return TypeCoercions.coerce(v, key.getTypeToken());
             } catch (Exception e) {
                 throw new IllegalArgumentException("Cannot coerce or set "+v+" to "+key, e);
                 // if can't coerce, we could just log as below and *throw* the error when we retrieve the config
@@ -253,7 +252,6 @@ public abstract class AbstractConfigMapImpl implements ConfigMap {
 //                val = v;
             }
         }
-        return val;
     }
     
     @Override

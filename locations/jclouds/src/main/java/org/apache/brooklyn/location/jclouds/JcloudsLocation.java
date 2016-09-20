@@ -258,8 +258,6 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                    (groovyTruth(getEndpoint()) ? ":"+getEndpoint() : ""));
         }
 
-        setCreationString(config().getLocalBag());
-
         if (getConfig(MACHINE_CREATION_SEMAPHORE) == null) {
             Integer maxConcurrent = getConfig(MAX_CONCURRENT_MACHINE_CREATIONS);
             if (maxConcurrent == null || maxConcurrent < 1) {
@@ -583,13 +581,14 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         killMachine(m.getId());
     }
 
-    /** attaches a string describing where something is being created
-     * (provider, region/location and/or endpoint, callerContext) */
-    protected void setCreationString(ConfigBag config) {
-        config.setDescription(elvis(config.get(CLOUD_PROVIDER), "unknown")+
+    /** can generate a string describing where something is being created
+     * (provider, region/location and/or endpoint, callerContext);
+     * previously set on the config bag, but not any longer (Sept 2016) as config is treated like entities */
+    protected String getCreationString(ConfigBag config) {
+        return elvis(config.get(CLOUD_PROVIDER), "unknown")+
                 (config.containsKey(CLOUD_REGION_ID) ? ":"+config.get(CLOUD_REGION_ID) : "")+
                 (config.containsKey(CLOUD_ENDPOINT) ? ":"+config.get(CLOUD_ENDPOINT) : "")+
-                (config.containsKey(CALLER_CONTEXT) ? "@"+config.get(CALLER_CONTEXT) : ""));
+                (config.containsKey(CALLER_CONTEXT) ? "@"+config.get(CALLER_CONTEXT) : "");
     }
 
     // ----------------- obtaining a new machine ------------------------
@@ -651,7 +650,6 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             throw new IllegalStateException("Access controller forbids provisioning in "+this+": "+access.getMsg());
         }
 
-        setCreationString(setup);
         boolean waitForSshable = !"false".equalsIgnoreCase(setup.get(WAIT_FOR_SSHABLE));
         boolean waitForWinRmable = !"false".equalsIgnoreCase(setup.get(WAIT_FOR_WINRM_AVAILABLE));
         boolean usePortForwarding = setup.get(USE_PORT_FORWARDING);
@@ -728,10 +726,11 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 LOG.debug("jclouds using template {} / options {} to provision machine in {}",
                         new Object[] {template, template.getOptions(), setup.getDescription()});
 
-                if (!setup.getUnusedConfig().isEmpty())
-                    if (LOG.isDebugEnabled())
-                        LOG.debug("NOTE: unused flags passed to obtain VM in "+setup.getDescription()+": "
-                                + Sanitizer.sanitize(setup.getUnusedConfig()));
+                // no longer supported because config is sealed, we use an underlying config map
+//                if (!setup.getUnusedConfig().isEmpty())
+//                    if (LOG.isDebugEnabled())
+//                        LOG.debug("NOTE: unused flags passed to obtain VM in "+setup.getDescription()+": "
+//                                + Sanitizer.sanitize(setup.getUnusedConfig()));
                 nodes = computeService.createNodesInGroup(groupId, 1, template);
                 provisionTimestamp = Duration.of(provisioningStopwatch);
             } finally {
@@ -2275,9 +2274,6 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
      * @return
      */
     protected NodeMetadata findNodeOrThrow(ConfigBag config) {
-        if (config.getDescription() == null) {
-            setCreationString(config);
-        }
         String user = checkNotNull(getUser(config), "user");
         String rawId = (String) config.getStringKey("id");
         String rawHostname = (String) config.getStringKey("hostname");

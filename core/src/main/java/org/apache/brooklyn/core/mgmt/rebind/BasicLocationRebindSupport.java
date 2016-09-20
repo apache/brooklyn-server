@@ -35,8 +35,6 @@ import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.Sets;
-
 public class BasicLocationRebindSupport extends AbstractBrooklynObjectRebindSupport<LocationMemento> {
 
     private static final Logger LOG = LoggerFactory.getLogger(BasicLocationRebindSupport.class);
@@ -70,11 +68,9 @@ public class BasicLocationRebindSupport extends AbstractBrooklynObjectRebindSupp
         // FIXME Treat config like we do for entities; this code will disappear when locations become entities.
         
         // Note that the flags have been set in the constructor
-        // FIXME Relies on location.config().getLocalBag() being mutable (to modify the location's own config)
+        // Sept 2016 - now ignores unused and config description
         
-        location.config().getLocalBag().putAll(memento.getLocationConfig()).markAll(
-                Sets.difference(memento.getLocationConfig().keySet(), memento.getLocationConfigUnused())).
-                setDescription(memento.getLocationConfigDescription());
+        location.config().addToLocalBag(memento.getLocationConfig());
 
         for (Map.Entry<String, Object> entry : memento.getLocationConfig().entrySet()) {
             String flagName = entry.getKey();

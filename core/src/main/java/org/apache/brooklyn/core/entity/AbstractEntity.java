@@ -56,7 +56,6 @@ import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
-import org.apache.brooklyn.config.ConfigMap;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.BrooklynLogging;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
@@ -100,7 +99,6 @@ import org.apache.brooklyn.util.collections.SetFromLiveMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
-import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Equals;
 import org.apache.brooklyn.util.text.Strings;
@@ -1209,65 +1207,13 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     // TODO revert to private when config() is reverted to return ConfigurationSupportInternal
     public class BasicConfigurationSupport extends AbstractConfigurationSupportInternal {
 
+        @Override
+        protected <T> void assertValid(ConfigKey<T> key, T val) {
+            ConfigConstraints.assertValid(AbstractEntity.this, key, val);
+        }
+        
         protected AbstractConfigMapImpl getConfigsInternal() {
             return configsInternal;
-        }
-        
-        @Override
-        public <T> T get(ConfigKey<T> key) {
-            return getConfigsInternal().getConfig(key);
-        }
-
-        @Override
-        public <T> T set(ConfigKey<T> key, T val) {
-            ConfigConstraints.assertValid(AbstractEntity.this, key, val);
-            return setConfigInternal(key, val);
-        }
-
-        @Override
-        public <T> T set(ConfigKey<T> key, Task<T> val) {
-            return setConfigInternal(key, val);
-        }
-
-        @Override
-        public ConfigBag getLocalBag() {
-            return getConfigsInternal().getLocalConfigBag();
-        }
-
-        @Override
-        public Maybe<Object> getRaw(ConfigKey<?> key) {
-            return getConfigsInternal().getConfigRaw(key, true);
-        }
-
-        @Override
-        public Maybe<Object> getLocalRaw(ConfigKey<?> key) {
-            return getConfigsInternal().getConfigRaw(key, false);
-        }
-
-        @Override
-        public void addToLocalBag(Map<?, ?> vals) {
-            getConfigsInternal().addToLocalBag(vals);
-        }
-
-        @Override
-        public void removeFromLocalBag(String key) {
-            getConfigsInternal().removeFromLocalBag(key);
-        }
-        
-        @Override
-        public void removeFromLocalBag(ConfigKey<?> key) {
-            getConfigsInternal().removeFromLocalBag(key);
-        }
-        
-        @Override
-        public ConfigMap getInternalConfigMap() {
-            return getConfigsInternal();
-        }
-
-        @Override
-        // TODO deprecate because key inheritance not respected
-        public ConfigBag getBag() {
-            return ((EntityConfigMap)getConfigsInternal()).getAllConfigBag();
         }
 
         @Override
@@ -1284,22 +1230,23 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
             }
         }
         
-        @SuppressWarnings("unchecked")
-        private <T> T setConfigInternal(ConfigKey<T> key, Object val) {
+        @Override
+        protected <T> void onConfigChanging(ConfigKey<T> key, Object val) {
             if (!inConstruction && getManagementSupport().isDeployed()) {
                 // previously we threw, then warned, but it is still quite common;
                 // so long as callers don't expect miracles, it should be fine.
                 // i (Alex) think the way to be stricter about this (if that becomes needed) 
                 // would be to introduce a 'mutable' field on config keys
                 LOG.debug("configuration being made to {} after deployment: {} = {}; change may not be visible in other contexts", 
-                        new Object[] { getContainer(), key, val });
+                    new Object[] { getContainer(), key, val });
             }
-            T result = (T) getConfigsInternal().setConfig(key, val);
-            
+        }
+        
+        protected <T> void onConfigChanged(ConfigKey<T> key, Object val) {
             getManagementSupport().getEntityChangeListener().onConfigChanged(key);
-            return result;
         }
 
+        @Override
         protected BrooklynObject getContainer() {
             return AbstractEntity.this;
         }
@@ -1351,14 +1298,6 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         return config().set(key, val);
     }
 
-    /**
-     * @deprecated since 0.7.0; use {@code config().set(key, task)}, with {@link Task} instead of {@link DeferredSupplier}
-     */
-    @Deprecated
-    public <T> T setConfig(ConfigKey<T> key, DeferredSupplier val) {
-        return config.setConfigInternal(key, val);
-    }
-
     @Override
     @Deprecated
     public <T> T setConfig(HasConfigKey<T> key, T val) {
@@ -1369,14 +1308,6 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     @Deprecated
     public <T> T setConfig(HasConfigKey<T> key, Task<T> val) {
         return (T) config().set(key, val);
-    }
-
-    /**
-     * @deprecated since 0.7.0; use {@code config().set(key, task)}, with {@link Task} instead of {@link DeferredSupplier}
-     */
-    @Deprecated
-    public <T> T setConfig(HasConfigKey<T> key, DeferredSupplier val) {
-        return setConfig(key.getConfigKey(), val);
     }
 
     @SuppressWarnings("unchecked")

@@ -33,7 +33,6 @@ import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.SubscriptionHandle;
-import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
@@ -44,6 +43,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigMap;
 import org.apache.brooklyn.core.config.ConfigConstraints;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
@@ -52,7 +52,6 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
-import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,11 +86,8 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
     /**
      * The config values of this entity. Updating this map should be done
      * via {@link #config()}.
-     * 
-     * @deprecated since 0.7.0; use {@link #config()} instead; this field may be made private or deleted in a future release.
      */
-    @Deprecated
-    protected final AdjunctConfigMap configsInternal = new AdjunctConfigMap(this);
+    private final AdjunctConfigMap configsInternal = new AdjunctConfigMap(this);
 
     /**
      * @deprecated since 0.7.0; use {@link #getAdjunctType()} instead; this field may be made private or deleted in a future release.
@@ -286,78 +282,27 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
     
     private class BasicConfigurationSupport extends AbstractConfigurationSupportInternal {
 
-        @Override
-        public <T> T get(ConfigKey<T> key) {
-            return configsInternal.getConfig(key);
-        }
-
         @SuppressWarnings("unchecked")
         @Override
-        public <T> T set(ConfigKey<T> key, T val) {
-            ConfigConstraints.assertValid(entity, key, val);
+        protected <T> void onConfigChanging(ConfigKey<T> key, Object val) {
             if (entity != null && isRunning()) {
-                doReconfigureConfig(key, val);
+                doReconfigureConfig(key, (T)val);
             }
-            T result = (T) configsInternal.setConfig(key, val);
-            onChanged();
-            return result;
-        }
-
-        @SuppressWarnings("unchecked")
-        @Override
-        public <T> T set(ConfigKey<T> key, Task<T> val) {
-            if (entity != null && isRunning()) {
-                // TODO Support for AbstractEntityAdjunct
-                throw new UnsupportedOperationException();
-            }
-            T result = (T) configsInternal.setConfig(key, val);
-            onChanged();
-            return result;
-        }
-
-        @Override
-        public ConfigBag getBag() {
-            return getLocalBag();
-        }
-
-        @Override
-        public ConfigBag getLocalBag() {
-            return ConfigBag.newInstance(configsInternal.getAllConfig());
-        }
-
-        @Override
-        public Maybe<Object> getRaw(ConfigKey<?> key) {
-            return configsInternal.getConfigRaw(key, true);
-        }
-
-        @Override
-        public Maybe<Object> getLocalRaw(ConfigKey<?> key) {
-            return configsInternal.getConfigRaw(key, false);
-        }
-
-        @Override
-        public void addToLocalBag(Map<?, ?> vals) {
-            configsInternal.addToLocalBag(vals);
         }
         
         @Override
-        public void removeFromLocalBag(String key) {
-            configsInternal.removeFromLocalBag(key);
+        protected <T> void onConfigChanged(ConfigKey<T> key, Object val) {
+            onChanged();
         }
 
-        @Override
-        public void removeFromLocalBag(ConfigKey<?> key) {
-            configsInternal.removeFromLocalBag(key);
-        }
-        
         @Override
         public void refreshInheritedConfig() {
-            // no-op for location
+            // no-op here
         }
         
         @Override
         public void refreshInheritedConfigOfChildren() {
-            // no-op for location
+            // no-op here
         }
 
         @Override
@@ -366,8 +311,18 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
         }
         
         @Override
-        public ConfigMap getInternalConfigMap() {
+        protected AbstractConfigMapImpl getConfigsInternal() {
             return configsInternal;
+        }
+
+        @Override
+        protected <T> void assertValid(ConfigKey<T> key, T val) {
+            ConfigConstraints.assertValid(entity, key, val);
+        }
+
+        @Override
+        protected BrooklynObject getContainer() {
+            return AbstractEntityAdjunct.this;
         }
     }
 

@@ -132,5 +132,14 @@ public class LocationConfigMap extends AbstractConfigMapImpl {
         throw new UnsupportedOperationException("Location does not support submap");
     }
 
-
+    @Override
+    protected Object coerceConfigVal(ConfigKey<?> key, Object v) {
+        if ((Class.class.isAssignableFrom(key.getType()) || Function.class.isAssignableFrom(key.getType())) && v instanceof String) {
+            // strings can be written where classes/functions are permitted; this is a common pattern when configuring locations
+            // (bit sloppy to allow this; tests catch it, eg ImageChooser in jclouds)
+            return v;
+        }
+        
+        return super.coerceConfigVal(key, v);
+    }
 }

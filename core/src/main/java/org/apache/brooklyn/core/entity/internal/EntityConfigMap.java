@@ -62,7 +62,7 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
      * @deprecated since 0.10.0 kept for serialization */ @Deprecated
     private EntityInternal entity;
     @Override
-    protected BrooklynObjectInternal getBrooklynObject() {
+    public BrooklynObjectInternal getBrooklynObject() {
         BrooklynObjectInternal result = super.getBrooklynObject();
         if (result!=null) return result;
 

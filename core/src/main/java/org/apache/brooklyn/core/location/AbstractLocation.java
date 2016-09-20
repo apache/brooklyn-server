@@ -38,6 +38,7 @@ import org.apache.brooklyn.api.mgmt.SubscriptionHandle;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.LocationMemento;
+import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
@@ -48,6 +49,7 @@ import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.config.ConfigConstraints;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
 import org.apache.brooklyn.core.internal.storage.BrooklynStorage;
 import org.apache.brooklyn.core.internal.storage.Reference;
 import org.apache.brooklyn.core.internal.storage.impl.BasicReference;
@@ -387,72 +389,21 @@ public abstract class AbstractLocation extends AbstractBrooklynObject implements
 
         // Sept 2016 now uses AbstractConfigMapImpl like the other ConfigurationSupport implementations
         // (now gives us inheritance correctly -- for free!)
-        
-        protected LocationConfigMap getConfigMap() {
-            return configMap;
-        }
-        
-        @Override
-        public <T> T get(ConfigKey<T> key) {
-            return getConfigMap().getConfig(key);
-
-        }
 
         @Override
-        public <T> T set(ConfigKey<T> key, T val) {
+        protected <T> void assertValid(ConfigKey<T> key, T val) {
             ConfigConstraints.assertValid(AbstractLocation.this, key, val);
-            @SuppressWarnings("unchecked")
-            T result = (T) getConfigMap().setConfig(key, val);
-            onChanged();
-            return result;
         }
 
         @Override
-        public <T> T set(ConfigKey<T> key, Task<T> val) {
-            // TODO Support for locations
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public ConfigBag getBag() {
-            ConfigBag result = getLocalBag();
-            Location p = getParent();
-            if (p!=null) result.putIfAbsent(((LocationInternal)p).config().getBag());
-            return result;
-        }
-
-        @Override
-        public ConfigBag getLocalBag() {
-            ConfigBag result = ConfigBag.newInstance();
-            result.putAll(getConfigMap().getLocalConfig());
-            return result;
-        }
-
-        @Override
-        public Maybe<Object> getRaw(ConfigKey<?> key) {
-            return getConfigMap().getConfigRaw(key, true);
-        }
-
-        @Override
-        public Maybe<Object> getLocalRaw(ConfigKey<?> key) {
-            return getConfigMap().getConfigLocalRaw(key);
-        }
-
-        @Override
-        public void addToLocalBag(Map<?, ?> vals) {
-            getConfigMap().addToLocalBag(vals);
-        }
-
-        @Override
-        public void removeFromLocalBag(String key) {
-            getConfigMap().removeFromLocalBag(key);
+        protected <T> void onConfigChanging(ConfigKey<T> key, Object val) {
         }
         
         @Override
-        public void removeFromLocalBag(ConfigKey<?> key) {
-            getConfigMap().removeFromLocalBag(key);
+        protected <T> void onConfigChanged(ConfigKey<T> key, Object val) {
+            onChanged();
         }
-
+        
         @Override
         public void refreshInheritedConfig() {
             // no-op for location
@@ -467,10 +418,15 @@ public abstract class AbstractLocation extends AbstractBrooklynObject implements
         protected ExecutionContext getContext() {
             return AbstractLocation.this.getManagementContext().getServerExecutionContext();
         }
+
+        @Override
+        protected AbstractConfigMapImpl getConfigsInternal() {
+            return configMap;
+        }
         
         @Override
-        public ConfigMap getInternalConfigMap() {
-            return getConfigMap();
+        protected BrooklynObject getContainer() {
+            return AbstractLocation.this;
         }
     }
     

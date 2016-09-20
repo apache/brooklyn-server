@@ -142,6 +142,9 @@ public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
         
         @Beta
         ConfigMap getInternalConfigMap();
+
+        /** Clears all local config, e.g. on tear-down */
+        void removeAllLocalConfig();
     }
     
     @Beta
