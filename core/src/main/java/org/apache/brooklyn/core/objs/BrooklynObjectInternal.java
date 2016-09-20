@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.objs;
 
+import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
@@ -37,6 +38,9 @@ import com.google.common.annotations.Beta;
 public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
     
     void setCatalogItemId(String id);
+    void setCatalogItemIds(List<String> id);
+
+    void nestCatalogItemId(String id);
     
     // subclasses typically apply stronger typing
     @Override

@@ -118,7 +118,7 @@ public class InternalLocationFactory extends InternalFactory {
                 ((AbstractLocation)loc).setDisplayName(spec.getDisplayName());
             
             if (spec.getCatalogItemId()!=null) {
-                ((AbstractLocation)loc).setCatalogItemId(spec.getCatalogItemId());
+                ((AbstractLocation)loc).setCatalogItemIds(spec.getCatalogItemSuperIds());
             }
             
             loc.tags().addTags(spec.getTags());

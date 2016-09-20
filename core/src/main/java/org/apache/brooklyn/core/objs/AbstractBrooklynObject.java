@@ -18,9 +18,21 @@
  */
 package org.apache.brooklyn.core.objs;
 
+import java.util.ArrayDeque;
 import java.util.Collections;
+import java.util.Deque;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import com.google.common.collect.ImmutableList;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 import org.apache.brooklyn.api.internal.ApiObjectsFactory;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -50,7 +62,7 @@ public abstract class AbstractBrooklynObject implements BrooklynObjectInternal {
     @SetFromFlag("id")
     private String id = Identifiers.makeRandomLowercaseId(10);
 
-    private String catalogItemId;
+    private Deque<String> catalogItemIdStack = new ArrayDeque<>();
 
     /** callers (only in TagSupport) should synchronize on this for all access */
     @SetFromFlag("tags")
@@ -83,7 +95,7 @@ public abstract class AbstractBrooklynObject implements BrooklynObjectInternal {
         // correct behaviour should be to inherit context's search path, perhaps, though maybe that's better done as spec?
         // in any case, should not define it as _the_ catalog item ID; also see assignment based on parent
         // in CatalogUtils.setCatalogItemIdOnAddition
-        catalogItemId = ApiObjectsFactory.get().getCatalogItemIdFromContext();
+        setCatalogItemId(ApiObjectsFactory.get().getCatalogItemIdFromContext());
 
         // rely on sub-class to call configure(properties), because otherwise its fields will not have been initialised
     }
@@ -190,12 +202,33 @@ public abstract class AbstractBrooklynObject implements BrooklynObjectInternal {
 
     @Override
     public void setCatalogItemId(String id) {
-        this.catalogItemId = id;
+        catalogItemIdStack.clear();
+        nestCatalogItemId(id);
+    }
+
+    @Override
+    public void setCatalogItemIds(List<String> ids) {
+        catalogItemIdStack.clear();
+        catalogItemIdStack.addAll(ids);
+    }
+
+        @Override
+    public void nestCatalogItemId(String id) {
+        if (null != id) {
+            catalogItemIdStack.addFirst(id);
+        }
+    }
+
+    public List<String> getCatalogItemSuperIds() {
+        return ImmutableList.copyOf(catalogItemIdStack);
     }
 
     @Override
     public String getCatalogItemId() {
-        return catalogItemId;
+        if (catalogItemIdStack.size() != 0) {
+            return catalogItemIdStack.getFirst();
+        }
+        return null;
     }
 
     protected void onTagsChanged() {
