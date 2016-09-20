@@ -31,9 +31,6 @@ import com.google.common.annotations.Beta;
  */
 public interface Configurable {
 
-    // FIXME Moved from core project to api project, as part of moving EntityLocal.
-    // (though maybe it's fine here?)
-
     /**
      * @return the old value, or null if there was not one
      * @deprecated since 0.7.0; use {@link ConfigurationSupport#set(ConfigKey, Object)}, such as {@code config().set(key, val)} 
@@ -76,7 +73,7 @@ public interface Configurable {
         /**
          * Sets the config to the given value.
          */
-        <T> T set(ConfigKey<T> key, T val);
+        <T> T set(ConfigKey<T> key, T val); 
         
         /**
          * @see {@link #setConfig(HasConfigKey, Object)}

@@ -150,27 +150,35 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
     }
     
     @Test
-    public void testRestoresEntityDependentConfigCompleted() throws Exception {
+    public void testRestoresEntityLowLevelDependentConfigCompletedStoresValue() throws Exception {
         MyEntity origE = origApp.createAndManageChild(EntitySpec.create(MyEntity.class)
                 .configure("myconfig", DependentConfiguration.attributeWhenReady(origApp, TestApplication.MY_ATTRIBUTE)));
         origApp.sensors().set(TestApplication.MY_ATTRIBUTE, "myval");
         origE.getConfig(MyEntity.MY_CONFIG); // wait for it to be done
-        
+
+        // note it does not change; this is by design using DependentConfig (as opposed to DSL methods)
+        origApp.sensors().set(TestApplication.MY_ATTRIBUTE, "myval2");
+        assertEquals(origE.getConfig(MyEntity.MY_CONFIG), "myval");
+
         newApp = rebind();
         MyEntity newE = (MyEntity) Iterables.find(newApp.getChildren(), Predicates.instanceOf(MyEntity.class));
         assertEquals(newE.getConfig(MyEntity.MY_CONFIG), "myval");
+        
+        origApp.sensors().set(TestApplication.MY_ATTRIBUTE, "myval3");
+        assertEquals(newE.getConfig(MyEntity.MY_CONFIG), "myval");
     }
     
-    @Test(enabled=false) // not yet supported
+    @Test
     public void testRestoresEntityDependentConfigUncompleted() throws Exception {
         origApp.createAndManageChild(EntitySpec.create(MyEntity.class)
                 .configure("myconfig", DependentConfiguration.attributeWhenReady(origApp, TestApplication.MY_ATTRIBUTE)));
         
         newApp = rebind();
         MyEntity newE = (MyEntity) Iterables.find(newApp.getChildren(), Predicates.instanceOf(MyEntity.class));
+
+        // because Task is not persisted; should log a warning above
         newApp.sensors().set(TestApplication.MY_ATTRIBUTE, "myval");
-        
-        assertEquals(newE.getConfig(MyEntity.MY_CONFIG), "myval");
+        assertEquals(newE.getConfig(MyEntity.MY_CONFIG), null);
     }
     
     @Test
