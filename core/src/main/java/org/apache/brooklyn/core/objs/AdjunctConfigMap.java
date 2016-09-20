@@ -23,11 +23,10 @@ import static org.apache.brooklyn.util.groovy.GroovyJavaMethods.elvis;
 import java.util.Collections;
 import java.util.Map;
 
-import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
+import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.config.StructuredConfigKey;
 import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
@@ -44,48 +43,60 @@ public class AdjunctConfigMap extends AbstractConfigMapImpl {
 
     private static final Logger LOG = LoggerFactory.getLogger(AdjunctConfigMap.class);
 
-    /** policy against which config resolution / task execution will occur */
-    private final AbstractEntityAdjunct adjunct;
-
-    /*
-     * TODO An alternative implementation approach would be to have:
-     *   setParent(Entity o, Map<ConfigKey,Object> inheritedConfig=[:])
-     * The idea is that the parent could in theory decide explicitly what in its config
-     * would be shared.
-     * I (Aled) am undecided as to whether that would be better...
-     * 
-     * (Alex) i lean toward the config key getting to make the decision
-     */
-
     public AdjunctConfigMap(AbstractEntityAdjunct adjunct) {
-        this.adjunct = Preconditions.checkNotNull(adjunct, "AbstractEntityAdjunct must be specified");
+        super( Preconditions.checkNotNull(adjunct, "AbstractEntityAdjunct must be specified") );
     }
 
-    @SuppressWarnings("unchecked")
-    protected <T> T getConfig(ConfigKey<T> key, T defaultValue) {
-        // FIXME What about inherited task in config?!
-        //              alex says: think that should work, no?
-        // FIXME What if someone calls getConfig on a task, before setting parent app?
-        //              alex says: not supported (throw exception, or return the task)
+    /** policy against which config resolution / task execution will occur 
+     * @deprecated since 0.10.0 kept for serialization */ @Deprecated
+    private AbstractEntityAdjunct adjunct;
+    @Override
+    protected BrooklynObjectInternal getBrooklynObject() {
+        BrooklynObjectInternal result = super.getBrooklynObject();
+        if (result!=null) return result;
+
+        synchronized (this) {
+            result = super.getBrooklynObject();
+            if (result!=null) return result;
+            bo = adjunct;
+            adjunct = null;
+        }
+        return super.getBrooklynObject();
+    }
+
+    protected AbstractEntityAdjunct getAdjunct() {
+        return (AbstractEntityAdjunct) getBrooklynObject();
+    }
+
+    @Override
+    protected void postLocalEvaluate(ConfigKey<?> key, BrooklynObject bo, Maybe<?> rawValue, Maybe<?> resolvedValue) { /* noop */ }
+
+    @Override
+    protected void postSetConfig() { /* noop */ }
+
+    @Override
+    protected ExecutionContext getExecutionContext(BrooklynObject bo) {
+        // TODO expose ((AbstractEntityAdjunct)bo).execution ?
+        Entity entity = ((AbstractEntityAdjunct)bo).entity;
+        return (entity != null) ? ((EntityInternal)entity).getExecutionContext() : null;
+    }
+    
+    protected <T> T getConfigImpl(ConfigKey<T> key) {
+        // tasks won't resolve if we aren't yet connected to an entity
         
-        // In case this entity class has overridden the given key (e.g. to set default), then retrieve this entity's key
-        // TODO If ask for a config value that's not in our configKeys, should we really continue with rest of method and return key.getDefaultValue?
-        //      e.g. SshBasedJavaAppSetup calls setAttribute(JMX_USER), which calls getConfig(JMX_USER)
-        //           but that example doesn't have a default...
-        ConfigKey<T> ownKey = adjunct!=null ? (ConfigKey<T>)elvis(adjunct.getAdjunctType().getConfigKey(key.getName()), key) : key;
+        // no need for inheritance, so much simpler than other impls
         
-        // Don't use groovy truth: if the set value is e.g. 0, then would ignore set value and return default!
+        @SuppressWarnings("unchecked")
+        ConfigKey<T> ownKey = getAdjunct()!=null ? (ConfigKey<T>)elvis(getAdjunct().getAdjunctType().getConfigKey(key.getName()), key) : key;
+        
         if (ownKey instanceof ConfigKeySelfExtracting) {
             if (((ConfigKeySelfExtracting<T>)ownKey).isSet(ownConfig)) {
-                // FIXME Should we support config from futures? How to get execution context before setEntity?
-                EntityLocal entity = adjunct.entity;
-                ExecutionContext exec = (entity != null) ? ((EntityInternal)entity).getExecutionContext() : null;
-                return ((ConfigKeySelfExtracting<T>)ownKey).extractValue(ownConfig, exec);
+                return ((ConfigKeySelfExtracting<T>)ownKey).extractValue(ownConfig, getExecutionContext(getAdjunct()));
             }
         } else {
             LOG.warn("Config key {} of {} is not a ConfigKeySelfExtracting; cannot retrieve value; returning default", ownKey, this);
         }
-        return TypeCoercions.coerce((defaultValue != null) ? defaultValue : ownKey.getDefaultValue(), key.getTypeToken());
+        return TypeCoercions.coerce(ownKey.getDefaultValue(), key.getTypeToken());
     }
     
     @Override
@@ -101,28 +112,9 @@ public class AdjunctConfigMap extends AbstractConfigMapImpl {
         return Collections.unmodifiableMap(Maps.newLinkedHashMap(ownConfig));
     }
 
-    public Object setConfig(ConfigKey<?> key, Object v) {
-        Object val = coerceConfigVal(key, v);
-        if (key instanceof StructuredConfigKey) {
-            return ((StructuredConfigKey)key).applyValueToMap(val, ownConfig);
-        } else {
-            return ownConfig.put(key, val);
-        }
-    }
-    
-    public void addToLocalBag(Map<String, ?> vals) {
-        for (Map.Entry<String, ?> entry : vals.entrySet()) {
-            setConfig(ConfigKeys.newConfigKey(Object.class, entry.getKey()), entry.getValue());
-        }
-    }
-
-    public void removeFromLocalBag(String key) {
-        ownConfig.remove(key);
-    }
-
     @Override
     public AdjunctConfigMap submap(Predicate<ConfigKey<?>> filter) {
-        AdjunctConfigMap m = new AdjunctConfigMap(adjunct);
+        AdjunctConfigMap m = new AdjunctConfigMap(getAdjunct());
         for (Map.Entry<ConfigKey<?>,Object> entry: ownConfig.entrySet())
             if (filter.apply(entry.getKey()))
                 m.ownConfig.put(entry.getKey(), entry.getValue());

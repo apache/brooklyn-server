@@ -90,11 +90,6 @@ public interface EntityLocal extends Entity {
      * @deprecated since 0.8.0; use {@link SensorSupport#emit(Sensor, Object)} via code like {@code sensors().emit(sensor, val)}.
      */
     <T> void emit(Sensor<T> sensor, T value);
-    
-    /**
-     * @deprecated in 0.5; use {@link #getConfig(ConfigKey)}
-     */
-    <T> T getConfig(ConfigKey<T> key, T defaultValue);
 
     /**
      * Allow us to subscribe to data from a {@link Sensor} on another entity.

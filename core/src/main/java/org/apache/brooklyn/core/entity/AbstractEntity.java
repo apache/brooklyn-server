@@ -1303,12 +1303,12 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     public <T> T getConfig(HasConfigKey<T> key) {
         return config().get(key);
     }
-    
-    //don't use groovy defaults for defaultValue as that doesn't implement the contract; we need the above
-    @Override
-    @Deprecated
-    public <T> T getConfig(ConfigKey<T> key, T defaultValue) {
-        return configsInternal.getConfig(key, defaultValue);
+
+    // kept for internal use, for convenience
+    protected <T> T getConfig(ConfigKey<T> key, T defaultValue) {
+        T result = configsInternal.getConfig(key);
+        if (result==null) return defaultValue;
+        return result;
     }
     
     @Override
