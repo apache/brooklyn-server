@@ -110,6 +110,12 @@ public abstract class AbstractBrooklynObjectSpec<T,SpecT extends AbstractBrookly
         return nestCatalogItemId(val);
     }
 
+    public SpecT catalogItemIds(List<String> ids) {
+        catalogItemIdStack.clear();
+        catalogItemIdStack.addAll(ids);
+        return self();
+    }
+
     /**
      * Adds (stacks) the catalog item id of a wrapping specification.
      * Does nothing if the value is null.
@@ -120,7 +126,7 @@ public abstract class AbstractBrooklynObjectSpec<T,SpecT extends AbstractBrookly
      */
     @Beta
     public SpecT nestCatalogItemId(String val) {
-        if (null != val) {
+        if (null != val && (catalogItemIdStack.isEmpty() || !catalogItemIdStack.element().equals(val))) {
             catalogItemIdStack.addFirst(val);
         }
         return self();
