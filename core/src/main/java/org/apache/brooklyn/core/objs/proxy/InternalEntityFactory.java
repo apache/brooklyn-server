@@ -33,6 +33,7 @@ import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.EntityTypeRegistry;
 import org.apache.brooklyn.api.entity.Group;
+import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.api.policy.Policy;
@@ -246,7 +247,7 @@ public class InternalEntityFactory extends InternalFactory {
                 ((AbstractEntity)entity).setDisplayName(spec.getDisplayName());
             
             if (spec.getCatalogItemId()!=null) {
-                ((AbstractEntity)entity).setCatalogItemId(spec.getCatalogItemId());
+                ((AbstractEntity)entity).setCatalogItemIds(spec.getCatalogItemSuperIds());
             }
             
             entity.tags().addTags(spec.getTags());
@@ -334,7 +335,7 @@ public class InternalEntityFactory extends InternalFactory {
                     // are already accessible through the REST API.
                     LocationSpec<?> taggedSpec = LocationSpec.create(locationSpec)
                             .tag(BrooklynTags.newOwnerEntityTag(entity.getId()));
-                    ((AbstractEntity)entity).addLocations(MutableList.of(
+                    ((AbstractEntity)entity).addLocations(MutableList.<Location>of(
                         managementContext.getLocationManager().createLocation(taggedSpec)));
                 }
                 ((AbstractEntity)entity).addLocations(spec.getLocations());

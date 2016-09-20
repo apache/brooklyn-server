@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.catalog.internal;
 
 import java.util.Collection;
+import java.util.List;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -128,6 +129,21 @@ public class CatalogItemDo<T,SpecT> implements CatalogItem<T,SpecT>, BrooklynObj
     @Override
     public void setCatalogItemId(String id) {
         itemDto.setCatalogItemId(id);
+    }
+
+    @Override
+    public void setCatalogItemIds(List<String> ids) {
+        itemDto.setCatalogItemIds(ids);
+    }
+
+    @Override
+    public List<String> getCatalogItemSuperIds() {
+        return itemDto.getCatalogItemSuperIds();
+    }
+
+    @Override
+    public void nestCatalogItemId(String id) {
+        itemDto.nestCatalogItemId(id);
     }
 
     @Override

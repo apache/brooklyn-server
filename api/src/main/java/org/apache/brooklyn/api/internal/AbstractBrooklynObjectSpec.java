@@ -213,7 +213,7 @@ public abstract class AbstractBrooklynObjectSpec<T,SpecT extends AbstractBrookly
     }
 
     /**
-     * Get immutable list of ids of this object's catalog item and its nested catalog items.
+     * An immutable list of ids of this object's catalog item and its defining catalog items.
      * e.g. if the catalog item is defined as
      * <pre>
      *     items:
@@ -222,7 +222,7 @@ public abstract class AbstractBrooklynObjectSpec<T,SpecT extends AbstractBrookly
      * </pre>
      * then the list will contain X, Y.
      */
-    public final List<String> getNestedCatalogItemIds() {
+    public final List<String> getCatalogItemSuperIds() {
         return ImmutableList.copyOf(catalogItemIdStack);
     }
 

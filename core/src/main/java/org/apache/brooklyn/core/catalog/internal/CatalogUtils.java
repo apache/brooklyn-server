@@ -20,9 +20,11 @@ package org.apache.brooklyn.core.catalog.internal;
 
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.ListIterator;
 
 import javax.annotation.Nullable;
 
+import com.google.common.collect.Lists;
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
@@ -189,7 +191,7 @@ public class CatalogUtils {
                 if (log.isDebugEnabled())
                     BrooklynLogging.log(log, BrooklynLogging.levelDebugOrTraceIfReadOnly(entity),
                         "Catalog item addition: "+entity+" from "+entity.getCatalogItemId()+" applying its catalog item ID to "+itemBeingAdded);
-                ((BrooklynObjectInternal)itemBeingAdded).setCatalogItemId(entity.getCatalogItemId());
+                ((BrooklynObjectInternal)itemBeingAdded).setCatalogItemIds(entity.getCatalogItemSuperIds());
             } else {
                 if (!itemBeingAdded.getCatalogItemId().equals(entity.getCatalogItemId())) {
                     // not a problem, but something to watch out for

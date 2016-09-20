@@ -107,7 +107,7 @@ public class InternalPolicyFactory extends InternalFactory {
                 ((AbstractPolicy)pol).setDisplayName(spec.getDisplayName());
             }
             if (spec.getCatalogItemId()!=null) {
-                ((AbstractPolicy)pol).setCatalogItemId(spec.getCatalogItemId());
+                ((AbstractPolicy)pol).setCatalogItemIds(spec.getCatalogItemSuperIds());
             }
             
             pol.tags().addTags(spec.getTags());
@@ -148,7 +148,7 @@ public class InternalPolicyFactory extends InternalFactory {
                 ((AbstractEnricher)enricher).setDisplayName(spec.getDisplayName());
             
             if (spec.getCatalogItemId()!=null) {
-                ((AbstractEnricher)enricher).setCatalogItemId(spec.getCatalogItemId());
+                ((AbstractEnricher)enricher).setCatalogItemIds(spec.getCatalogItemSuperIds());
             }
             
             enricher.tags().addTags(spec.getTags());
