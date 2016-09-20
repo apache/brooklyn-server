@@ -169,13 +169,22 @@ public abstract class AbstractConfigMapImpl implements ConfigMap {
         }
     }
  
-    public void addToLocalBag(Map<String,?> vals) {
+    @SuppressWarnings("unchecked")
+    public void addToLocalBag(Map<?,?> vals) {
 //        ConfigBag ownConfigBag = ConfigBag.newInstance().putAll(vals);
 //        ownConfig.putAll(ownConfigBag.getAllConfigAsConfigKeyMap());
         // below seems more straightforward; should be the same.
         // potential problem if clash of config key types?
-        for (Map.Entry<String, ?> entry : vals.entrySet()) {
-            setConfig(ConfigKeys.newConfigKey(Object.class, entry.getKey()), entry.getValue());
+        for (Map.Entry<?, ?> entry : vals.entrySet()) {
+            if (entry.getKey()==null)
+                throw new IllegalArgumentException("Cannot put null key into "+this);
+            else if (entry.getKey() instanceof String)
+                setConfig(ConfigKeys.newConfigKey(Object.class, (String)entry.getKey()), entry.getValue());
+            else if (entry.getKey() instanceof ConfigKey)
+                setConfig((ConfigKey<Object>)entry.getKey(), entry.getValue());
+            else if (entry.getKey() instanceof HasConfigKey)
+                setConfig( ((HasConfigKey<Object>)entry.getKey()).getConfigKey(), entry.getValue() );
+            else throw new IllegalArgumentException("Cannot put key "+entry.getKey()+" (unknown type "+entry.getKey().getClass()+") into "+this);
         }
     }
     
@@ -184,6 +193,40 @@ public abstract class AbstractConfigMapImpl implements ConfigMap {
         ownConfig.remove(key);
     }
 
+    public void removeFromLocalBag(ConfigKey<?> key) {
+        ownConfig.remove(key);
+    }
+
+    protected abstract BrooklynObjectInternal getParent();
+    
+    @Override
+    public Maybe<Object> getConfigRaw(ConfigKey<?> key, boolean includeInherited) {
+        // TODO does not currently respect inheritance modes
+        if (ownConfig.containsKey(key)) return Maybe.of(ownConfig.get(key));
+        if (!includeInherited || getParent()==null) return Maybe.absent();
+        return getParent().config().getInternalConfigMap().getConfigRaw(key, includeInherited);
+    }
+    
+    /** an immutable copy of the config visible at this entity, local and inherited (preferring local) */
+    // TODO deprecate because key inheritance not respected
+    public Map<ConfigKey<?>,Object> getAllConfig() {
+        Map<ConfigKey<?>,Object> result = new LinkedHashMap<ConfigKey<?>,Object>();
+        if (getParent()!=null)
+            result.putAll( getParent().config().getInternalConfigMap().getAllConfig() );
+        result.putAll(ownConfig);
+        return Collections.unmodifiableMap(result);
+    }
+    
+    /** Creates an immutable copy of the config visible at this entity, local and inherited (preferring local), including those that did not match config keys */
+    // TODO deprecate because key inheritance not respected
+    public ConfigBag getAllConfigBag() {
+        ConfigBag result = ConfigBag.newInstance().putAll(ownConfig);
+        if (getParent()!=null) {
+            result.putIfAbsent(
+                ((AbstractConfigMapImpl)getParent().config().getInternalConfigMap()).getAllConfigBag() );
+        }
+        return result.seal();
+    }
     protected Object coerceConfigVal(ConfigKey<?> key, Object v) {
         Object val;
         if ((v instanceof Future) || (v instanceof DeferredSupplier)) {
@@ -212,7 +255,6 @@ public abstract class AbstractConfigMapImpl implements ConfigMap {
         }
         return val;
     }
-
     
     @Override
     public Map<String,Object> asMapWithStringKeys() {

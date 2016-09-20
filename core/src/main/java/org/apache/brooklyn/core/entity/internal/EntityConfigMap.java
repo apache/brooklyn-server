@@ -20,8 +20,6 @@ package org.apache.brooklyn.core.entity.internal;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
@@ -39,7 +37,6 @@ import org.apache.brooklyn.core.entity.EntityFunctions;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal.ConfigurationSupportInternal;
-import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.internal.ConfigKeySelfExtracting;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
@@ -125,7 +122,7 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
         
             if (result.getValue()!=null) return result.getValue();
         } else {
-            LOG.warn("Config key {} of {} is not a ConfigKeySelfExtracting; cannot retrieve value; returning default", ownKey, this);
+            LOG.warn("Config key {} of {} is not a ConfigKeySelfExtracting; cannot retrieve value; returning default", ownKey, getBrooklynObject());
         }
         return null;
     }
@@ -135,31 +132,8 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
     }
 
     @Override
-    public Maybe<Object> getConfigRaw(ConfigKey<?> key, boolean includeInherited) {
-        if (ownConfig.containsKey(key)) return Maybe.of(ownConfig.get(key));
-        if (!includeInherited || getEntity().getParent()==null) return Maybe.absent(); 
-        return ((EntityInternal)getEntity().getParent()).config().getRaw(key);
-    }
-    
-    /** an immutable copy of the config visible at this entity, local and inherited (preferring local) */
-    // TODO deprecate because key inheritance not respected
-    public Map<ConfigKey<?>,Object> getAllConfig() {
-        Map<ConfigKey<?>,Object> result = new LinkedHashMap<ConfigKey<?>,Object>();
-        if (getEntity().getParent()!=null)
-            result.putAll( ((BrooklynObjectInternal)getEntity().getParent()).config().getInternalConfigMap().getAllConfig() );
-        result.putAll(ownConfig);
-        return Collections.unmodifiableMap(result);
-    }
-    
-    /** Creates an immutable copy of the config visible at this entity, local and inherited (preferring local), including those that did not match config keys */
-    // TODO deprecate because key inheritance not respected
-    public ConfigBag getAllConfigBag() {
-        ConfigBag result = ConfigBag.newInstance().putAll(ownConfig);
-        if (getEntity().getParent()!=null) {
-            result.putIfAbsent(
-                ((EntityConfigMap) ((BrooklynObjectInternal)getEntity().getParent()).config().getInternalConfigMap()).getAllConfigBag() );
-        }
-        return result.seal();
+    protected BrooklynObjectInternal getParent() {
+        return (EntityInternal) getEntity().getParent();
     }
     
     @Override

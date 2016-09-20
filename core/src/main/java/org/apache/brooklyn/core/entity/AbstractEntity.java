@@ -43,6 +43,7 @@ import org.apache.brooklyn.api.mgmt.SubscriptionHandle;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.EntityMemento;
+import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
@@ -54,14 +55,15 @@ import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.config.ConfigMap;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
+import org.apache.brooklyn.config.ConfigMap;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.BrooklynLogging;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.config.ConfigConstraints;
+import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
 import org.apache.brooklyn.core.config.render.RendererHints;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.internal.EntityConfigMap;
@@ -1207,9 +1209,13 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     // TODO revert to private when config() is reverted to return ConfigurationSupportInternal
     public class BasicConfigurationSupport extends AbstractConfigurationSupportInternal {
 
+        protected AbstractConfigMapImpl getConfigsInternal() {
+            return configsInternal;
+        }
+        
         @Override
         public <T> T get(ConfigKey<T> key) {
-            return configsInternal.getConfig(key);
+            return getConfigsInternal().getConfig(key);
         }
 
         @Override
@@ -1224,33 +1230,44 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         }
 
         @Override
-        public ConfigBag getBag() {
-            return configsInternal.getAllConfigBag();
-        }
-
-        @Override
         public ConfigBag getLocalBag() {
-            return configsInternal.getLocalConfigBag();
+            return getConfigsInternal().getLocalConfigBag();
         }
 
         @Override
         public Maybe<Object> getRaw(ConfigKey<?> key) {
-            return configsInternal.getConfigRaw(key, true);
+            return getConfigsInternal().getConfigRaw(key, true);
         }
 
         @Override
         public Maybe<Object> getLocalRaw(ConfigKey<?> key) {
-            return configsInternal.getConfigRaw(key, false);
+            return getConfigsInternal().getConfigRaw(key, false);
         }
 
         @Override
-        public void addToLocalBag(Map<String, ?> vals) {
-            configsInternal.addToLocalBag(vals);
+        public void addToLocalBag(Map<?, ?> vals) {
+            getConfigsInternal().addToLocalBag(vals);
         }
 
         @Override
         public void removeFromLocalBag(String key) {
-            configsInternal.removeFromLocalBag(key);
+            getConfigsInternal().removeFromLocalBag(key);
+        }
+        
+        @Override
+        public void removeFromLocalBag(ConfigKey<?> key) {
+            getConfigsInternal().removeFromLocalBag(key);
+        }
+        
+        @Override
+        public ConfigMap getInternalConfigMap() {
+            return getConfigsInternal();
+        }
+
+        @Override
+        // TODO deprecate because key inheritance not respected
+        public ConfigBag getBag() {
+            return ((EntityConfigMap)getConfigsInternal()).getAllConfigBag();
         }
 
         @Override
@@ -1275,22 +1292,21 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
                 // i (Alex) think the way to be stricter about this (if that becomes needed) 
                 // would be to introduce a 'mutable' field on config keys
                 LOG.debug("configuration being made to {} after deployment: {} = {}; change may not be visible in other contexts", 
-                        new Object[] { AbstractEntity.this, key, val });
+                        new Object[] { getContainer(), key, val });
             }
-            T result = (T) configsInternal.setConfig(key, val);
+            T result = (T) getConfigsInternal().setConfig(key, val);
             
             getManagementSupport().getEntityChangeListener().onConfigChanged(key);
             return result;
         }
 
-        @Override
-        protected ExecutionContext getContext() {
-            return AbstractEntity.this.getExecutionContext();
+        protected BrooklynObject getContainer() {
+            return AbstractEntity.this;
         }
         
         @Override
-        public ConfigMap getInternalConfigMap() {
-            return configsInternal;
+        protected ExecutionContext getContext() {
+            return AbstractEntity.this.getExecutionContext();
         }
     }
     

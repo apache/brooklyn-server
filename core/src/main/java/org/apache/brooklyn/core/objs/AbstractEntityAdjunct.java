@@ -336,12 +336,17 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
         }
 
         @Override
-        public void addToLocalBag(Map<String, ?> vals) {
+        public void addToLocalBag(Map<?, ?> vals) {
             configsInternal.addToLocalBag(vals);
         }
         
         @Override
         public void removeFromLocalBag(String key) {
+            configsInternal.removeFromLocalBag(key);
+        }
+
+        @Override
+        public void removeFromLocalBag(ConfigKey<?> key) {
             configsInternal.removeFromLocalBag(key);
         }
         

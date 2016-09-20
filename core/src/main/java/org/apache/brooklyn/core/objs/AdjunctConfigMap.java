@@ -20,7 +20,6 @@ package org.apache.brooklyn.core.objs;
 
 import static org.apache.brooklyn.util.groovy.GroovyJavaMethods.elvis;
 
-import java.util.Collections;
 import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
@@ -37,7 +36,6 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.collect.Maps;
 
 public class AdjunctConfigMap extends AbstractConfigMapImpl {
 
@@ -69,6 +67,11 @@ public class AdjunctConfigMap extends AbstractConfigMapImpl {
     }
 
     @Override
+    protected BrooklynObjectInternal getParent() {
+        return null;
+    }
+    
+    @Override
     protected void postLocalEvaluate(ConfigKey<?> key, BrooklynObject bo, Maybe<?> rawValue, Maybe<?> resolvedValue) { /* noop */ }
 
     @Override
@@ -99,19 +102,6 @@ public class AdjunctConfigMap extends AbstractConfigMapImpl {
         return TypeCoercions.coerce(ownKey.getDefaultValue(), key.getTypeToken());
     }
     
-    @Override
-    public Maybe<Object> getConfigRaw(ConfigKey<?> key, boolean includeInherited) {
-        if (ownConfig.containsKey(key)) return Maybe.of(ownConfig.get(key));
-        return Maybe.absent();
-    }
-    
-    /** returns the config of this policy */
-    @Override
-    public Map<ConfigKey<?>,Object> getAllConfig() {
-        // Don't use ImmutableMap because valide for values to be null
-        return Collections.unmodifiableMap(Maps.newLinkedHashMap(ownConfig));
-    }
-
     @Override
     public AdjunctConfigMap submap(Predicate<ConfigKey<?>> filter) {
         AdjunctConfigMap m = new AdjunctConfigMap(getAdjunct());

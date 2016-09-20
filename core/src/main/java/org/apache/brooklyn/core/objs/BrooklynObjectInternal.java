@@ -124,12 +124,16 @@ public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
         @Beta
         <T> Maybe<T> getNonBlocking(HasConfigKey<T> key);
 
+        /** Adds keys or strings, making anonymous keys from strings; throws on other keys */
         @Beta
-        void addToLocalBag(Map<String, ?> vals);
+        void addToLocalBag(Map<?, ?> vals);
 
         @Beta
         void removeFromLocalBag(String key);
 
+        @Beta
+        void removeFromLocalBag(ConfigKey<?> key);
+        
         @Beta
         void refreshInheritedConfig();
 
