@@ -1273,18 +1273,6 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         if (result==null) return defaultValue;
         return result;
     }
-    
-    @Override
-    @Deprecated
-    public Maybe<Object> getConfigRaw(ConfigKey<?> key, boolean includeInherited) {
-        return (includeInherited) ? config().getRaw(key) : config().getLocalRaw(key);
-    }
-    
-    @Override
-    @Deprecated
-    public Maybe<Object> getConfigRaw(HasConfigKey<?> key, boolean includeInherited) {
-        return (includeInherited) ? config().getRaw(key) : config().getLocalRaw(key);
-    }
 
     @Override
     @Deprecated
@@ -1336,50 +1324,6 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     protected void setConfigIfValNonNull(HasConfigKey key, Object val) {
         if (val != null) config().set(key, val);
     }
-
-    /**
-     * @deprecated since 0.7.0; see {@code config().refreshInheritedConfig()}
-     */
-    @Override
-    @Deprecated
-    public void refreshInheritedConfig() {
-        config().refreshInheritedConfig();
-    }
-
-    /**
-     * @deprecated since 0.7.0; see {@code config().refreshInheritedConfigOfChildren()}
-     */
-    @Deprecated
-    void refreshInheritedConfigOfChildren() {
-        config().refreshInheritedConfigOfChildren();
-    }
-
-    @Override
-    @Deprecated
-    public EntityConfigMap getConfigMap() {
-        return configsInternal;
-    }
-    
-    @Override
-    @Deprecated
-    public Map<ConfigKey<?>,Object> getAllConfig() {
-        return configsInternal.getAllConfig();
-    }
-
-    @Beta
-    @Override
-    @Deprecated
-    public ConfigBag getAllConfigBag() {
-        return config().getBag();
-    }
-
-    @Beta
-    @Override
-    @Deprecated
-    public ConfigBag getLocalConfigBag() {
-        return config().getLocalBag();
-    }
-
     
     // -------- SUBSCRIPTIONS --------------
 

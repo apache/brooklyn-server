@@ -43,8 +43,6 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityInternal.FeedSupport;
 import org.apache.brooklyn.core.mgmt.internal.EntityManagementSupport;
 import org.apache.brooklyn.core.objs.proxy.EntityProxyImpl;
-import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.guava.Maybe;
 
 import com.google.common.annotations.Beta;
 
@@ -79,18 +77,11 @@ public interface EntityTransientCopyInternal {
     <T> T getAttribute(AttributeSensor<T> sensor);
     <T> T getConfig(ConfigKey<T> key);
     <T> T getConfig(HasConfigKey<T> key);
-    Maybe<Object> getConfigRaw(ConfigKey<?> key, boolean includeInherited);
-    Maybe<Object> getConfigRaw(HasConfigKey<?> key, boolean includeInherited);
     TagSupport tags();
     String getCatalogItemId();
 
     // from EntityInternal:
     
-    @Deprecated EntityConfigMap getConfigMap();
-    @Deprecated Map<ConfigKey<?>,Object> getAllConfig();
-    // for rebind mainly:
-    @Deprecated ConfigBag getAllConfigBag();
-    @Deprecated ConfigBag getLocalConfigBag();
     @SuppressWarnings("rawtypes")
     Map<AttributeSensor, Object> getAllAttributes();
     EntityManagementSupport getManagementSupport();

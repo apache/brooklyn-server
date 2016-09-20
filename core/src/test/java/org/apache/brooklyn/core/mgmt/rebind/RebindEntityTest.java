@@ -55,6 +55,7 @@ import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.entity.trait.Resizable;
 import org.apache.brooklyn.core.entity.trait.Startable;
@@ -556,13 +557,13 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
         MyEntity origE = origApp.createAndManageChild(EntitySpec.create(MyEntity.class));
 
         assertNull(origE.getConfig(MyEntity.MY_CONFIG));
-        assertEquals(origE.getConfigRaw(MyEntity.MY_CONFIG, true).or("mydefault"), "mydefault");
+        assertEquals(((EntityInternal)origE).config().getRaw(MyEntity.MY_CONFIG).or("mydefault"), "mydefault");
         
         newApp = rebind();
         MyEntity newE = (MyEntity) Iterables.find(newApp.getChildren(), Predicates.instanceOf(MyEntity.class));
         
         assertNull(newE.getConfig(MyEntity.MY_CONFIG));
-        assertEquals(newE.getConfigRaw(MyEntity.MY_CONFIG, true).or("mydefault"), "mydefault");
+        assertEquals(((EntityInternal)newE).config().getRaw(MyEntity.MY_CONFIG).or("mydefault"), "mydefault");
     }
 
     @Test

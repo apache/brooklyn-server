@@ -245,14 +245,14 @@ public abstract class AbstractLocation extends AbstractBrooklynObject implements
         
         boolean firstTime = !configured.getAndSet(true);
             
-        config().addToLocalBag(properties);
+        config().set(properties);
         
         if (properties.containsKey(PARENT_LOCATION.getName())) {
             // need to ensure parent's list of children is also updated
             setParent(config().get(PARENT_LOCATION));
             
             // don't include parentLocation in configBag, as breaks rebind
-            config().removeFromLocalBag(PARENT_LOCATION);
+            config().removeKey(PARENT_LOCATION);
         }
 
         // NB: flag-setting done here must also be done in BasicLocationRebindSupport

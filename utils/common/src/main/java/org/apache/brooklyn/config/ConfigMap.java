@@ -75,10 +75,10 @@ public interface ConfigMap {
      * @param key  key to look up
      * @return raw, unresolved, uncoerced value of key explicitly in map
      */
-    // TODO deprecate other methods?  getRaw won't be able to merge for instance
     public Maybe<Object> getConfigLocalRaw(ConfigKey<?> key);
 
     /** returns a map of all config keys to their raw (unresolved+uncoerced) contents */
+    // TODO deprecate
     public Map<ConfigKey<?>,Object> getAllConfig();
 
     /** returns submap matching the given filter predicate; see ConfigPredicates for common predicates */

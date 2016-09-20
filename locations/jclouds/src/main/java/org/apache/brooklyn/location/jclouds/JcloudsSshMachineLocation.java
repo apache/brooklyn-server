@@ -203,7 +203,7 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
 
     protected void setNode(NodeMetadata node) {
         this.node = null;
-        config().removeFromLocalBag("node");
+        config().removeKey("node");
         nodeId = node.getId();
         imageId = node.getImageId();
         privateAddresses = node.getPrivateAddresses();
@@ -213,7 +213,7 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
 
     protected void setTemplate(Template template) {
         this.template = null;
-        config().removeFromLocalBag("template");
+        config().removeKey("template");
         _template = Optional.of(template);
         _image = Optional.fromNullable(template.getImage());
     }

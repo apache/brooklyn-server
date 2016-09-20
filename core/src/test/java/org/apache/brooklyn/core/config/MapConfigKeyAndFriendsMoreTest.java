@@ -21,8 +21,6 @@ package org.apache.brooklyn.core.config;
 import java.util.List;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.core.config.SetConfigKey;
-import org.apache.brooklyn.core.config.SubElementConfigKey;
 import org.apache.brooklyn.core.config.ListConfigKey.ListModifications;
 import org.apache.brooklyn.core.config.MapConfigKey.MapModifications;
 import org.apache.brooklyn.core.config.SetConfigKey.SetModifications;
@@ -65,25 +63,25 @@ public class MapConfigKeyAndFriendsMoreTest extends BrooklynAppUnitTestSupport {
 
     public void testMapModUsage() throws Exception {
         entity.config().set(TestEntity.CONF_MAP_OBJ_THING, MapModifications.add(MutableMap.<String,Object>of("a", 1)));
-        log.info("Map-Mod: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
+        log.info("Map-Mod: "+MutableMap.copyOf(entity.config().getLocalBag().getAllConfig()));
         Assert.assertEquals(entity.getConfig(TestEntity.CONF_MAP_OBJ_THING), ImmutableMap.<String,Object>of("a", 1));
     }
 
     public void testMapSubkeyUsage() throws Exception {
         entity.config().set(TestEntity.CONF_MAP_OBJ_THING.subKey("a"), 1);
-        log.info("Map-SubKey: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
+        log.info("Map-SubKey: "+MutableMap.copyOf(entity.config().getLocalBag().getAllConfig()));
         Assert.assertEquals(entity.getConfig(TestEntity.CONF_MAP_OBJ_THING), ImmutableMap.<String,Object>of("a", 1));
     }
 
     public void testMapDirectUsage() throws Exception {
         entity.config().set(ConfigKeys.newConfigKey(Object.class, TestEntity.CONF_MAP_OBJ_THING.getName()), ImmutableMap.<String,Object>of("a", 1));
-        log.info("Map-Direct: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
+        log.info("Map-Direct: "+MutableMap.copyOf(entity.config().getLocalBag().getAllConfig()));
         Assert.assertEquals(entity.getConfig(TestEntity.CONF_MAP_OBJ_THING), ImmutableMap.<String,Object>of("a", 1));
     }
     
     public void testMapDotExtensionUsage() throws Exception {
         entity.config().set(ConfigKeys.newConfigKey(Object.class, TestEntity.CONF_MAP_OBJ_THING.getName()+".a"), 1);
-        log.info("Map-DotExt: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
+        log.info("Map-DotExt: "+MutableMap.copyOf(entity.config().getLocalBag().getAllConfig()));
         Assert.assertEquals(entity.getConfig(TestEntity.CONF_MAP_OBJ_THING), ImmutableMap.<String,Object>of("a", 1));
     }
     
@@ -92,42 +90,42 @@ public class MapConfigKeyAndFriendsMoreTest extends BrooklynAppUnitTestSupport {
         entity.config().set(ConfigKeys.newConfigKey(Object.class, TestEntity.CONF_MAP_OBJ_THING.getName()+".dotext"), 1);
         entity.config().set(TestEntity.CONF_MAP_OBJ_THING.subKey("subkey"), 1);
         
-        log.info("Map-ManyWays: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
+        log.info("Map-ManyWays: "+MutableMap.copyOf(entity.config().getLocalBag().getAllConfig()));
         Assert.assertEquals(entity.getConfig(TestEntity.CONF_MAP_OBJ_THING), ImmutableMap.<String,Object>of("map", 1, "subkey", 1, "dotext", 1));
     }
     
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public void testMapEmpty() throws Exception {
         // ensure it is null before we pass something in, and passing an empty collection makes it be empty
-        log.info("Map-Empty-1: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
+        log.info("Map-Empty-1: "+MutableMap.copyOf(entity.config().getLocalBag().getAllConfig()));
         Assert.assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING), null);
         entity.config().set((MapConfigKey)TestEntity.CONF_MAP_THING, MutableMap.of());
-        log.info("Map-Empty-2: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
+        log.info("Map-Empty-2: "+MutableMap.copyOf(entity.config().getLocalBag().getAllConfig()));
         Assert.assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING), ImmutableMap.of());
     }
 
     
     public void testSetModUsage() throws Exception {
         entity.config().set(TestEntity.CONF_SET_THING, SetModifications.addItem("x"));
-        log.info("Set-Mod: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
+        log.info("Set-Mod: "+MutableMap.copyOf(entity.config().getLocalBag().getAllConfig()));
         Assert.assertEquals(entity.getConfig(TestEntity.CONF_SET_THING), ImmutableSet.of("x"));
     }
 
     public void testSetSubKeyUsage() throws Exception {
         entity.config().set(TestEntity.CONF_SET_THING.subKey(), "x");
-        log.info("Set-SubKey: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
+        log.info("Set-SubKey: "+MutableMap.copyOf(entity.config().getLocalBag().getAllConfig()));
         Assert.assertEquals(entity.getConfig(TestEntity.CONF_SET_THING), ImmutableSet.of("x"));
     }
 
     public void testSetPutDirectUsage() throws Exception {
         entity.config().set(ConfigKeys.newConfigKey(Object.class, TestEntity.CONF_SET_THING.getName()), ImmutableSet.of("x"));
-        log.info("Set-Direct: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
+        log.info("Set-Direct: "+MutableMap.copyOf(entity.config().getLocalBag().getAllConfig()));
         Assert.assertEquals(entity.getConfig(TestEntity.CONF_SET_THING), ImmutableSet.of("x"));
     }
     
     public void testSetDotExtensionUsage() throws Exception {
         entity.config().set(ConfigKeys.newConfigKey(Object.class, TestEntity.CONF_SET_THING.getName()+".a"), "x");
-        log.info("Set-DotExt: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
+        log.info("Set-DotExt: "+MutableMap.copyOf(entity.config().getLocalBag().getAllConfig()));
         Assert.assertEquals(entity.getConfig(TestEntity.CONF_SET_THING), ImmutableSet.of("x"));
     }
     
@@ -136,7 +134,7 @@ public class MapConfigKeyAndFriendsMoreTest extends BrooklynAppUnitTestSupport {
         entity.config().set(ConfigKeys.newConfigKey(Object.class, TestEntity.CONF_SET_THING.getName()+".dotext"), "dotextX");
         entity.config().set(TestEntity.CONF_SET_THING.subKey(), "subkeyX");
         
-        log.info("Set-ManyWays: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
+        log.info("Set-ManyWays: "+MutableMap.copyOf(entity.config().getLocalBag().getAllConfig()));
         Assert.assertEquals(entity.getConfig(TestEntity.CONF_SET_THING), ImmutableSet.of("directX", "subkeyX", "dotextX"));
     }
     
@@ -151,7 +149,7 @@ public class MapConfigKeyAndFriendsMoreTest extends BrooklynAppUnitTestSupport {
         entity.config().set(TestEntity.CONF_SET_OBJ_THING, SetModifications.addItem("z"));
         entity.config().set(TestEntity.CONF_SET_OBJ_THING, SetModifications.addItem(MutableSet.of("c", "d")));
         entity.config().set(TestEntity.CONF_SET_OBJ_THING, MutableSet.of(MutableSet.of("e", "f")));
-        log.info("Set-Coll: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
+        log.info("Set-Coll: "+MutableMap.copyOf(entity.config().getLocalBag().getAllConfig()));
         Assert.assertEquals(entity.getConfig(TestEntity.CONF_SET_OBJ_THING), ImmutableSet.of(
             "a", "b", "w", "x", "y", "z", ImmutableSet.of("c", "d"), ImmutableSet.of("e", "f")));
     }
@@ -159,37 +157,37 @@ public class MapConfigKeyAndFriendsMoreTest extends BrooklynAppUnitTestSupport {
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public void testSetEmpty() throws Exception {
         // ensure it is null before we pass something in, and passing an empty collection makes it be empty
-        log.info("Set-Empty-1: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
+        log.info("Set-Empty-1: "+MutableMap.copyOf(entity.config().getLocalBag().getAllConfig()));
         Assert.assertEquals(entity.getConfig(TestEntity.CONF_SET_THING), null);
         entity.config().set((SetConfigKey)TestEntity.CONF_SET_THING, MutableSet.of());
-        log.info("Set-Empty-2: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
+        log.info("Set-Empty-2: "+MutableMap.copyOf(entity.config().getLocalBag().getAllConfig()));
         Assert.assertEquals(entity.getConfig(TestEntity.CONF_SET_THING), ImmutableSet.of());
     }
 
 
     public void testListModUsage() throws Exception {
         entity.config().set(TestEntity.CONF_LIST_THING, ListModifications.add("x", "x"));
-        log.info("List-Mod: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
+        log.info("List-Mod: "+MutableMap.copyOf(entity.config().getLocalBag().getAllConfig()));
         Assert.assertEquals(entity.getConfig(TestEntity.CONF_LIST_THING), ImmutableList.of("x", "x"));
     }
     
     public void testListSubKeyUsage() throws Exception {
         entity.config().set(TestEntity.CONF_LIST_THING.subKey(), "x");
         entity.config().set(TestEntity.CONF_LIST_THING.subKey(), "x");
-        log.info("List-SubKey: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
+        log.info("List-SubKey: "+MutableMap.copyOf(entity.config().getLocalBag().getAllConfig()));
         Assert.assertEquals(entity.getConfig(TestEntity.CONF_LIST_THING), ImmutableList.of("x", "x"));
     }
 
     public void testListPutDirectUsage() throws Exception {
         entity.config().set(ConfigKeys.newConfigKey(Object.class, TestEntity.CONF_LIST_THING.getName()), ImmutableList.of("x", "x"));
-        log.info("List-Direct: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
+        log.info("List-Direct: "+MutableMap.copyOf(entity.config().getLocalBag().getAllConfig()));
         Assert.assertEquals(entity.getConfig(TestEntity.CONF_LIST_THING), ImmutableList.of("x", "x"));
     }
     
     public void testListDotExtensionUsage() throws Exception {
         entity.config().set(ConfigKeys.newConfigKey(Object.class, TestEntity.CONF_LIST_THING.getName()+".a"), "x");
         entity.config().set(ConfigKeys.newConfigKey(Object.class, TestEntity.CONF_LIST_THING.getName()+".b"), "x");
-        log.info("List-DotExt: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
+        log.info("List-DotExt: "+MutableMap.copyOf(entity.config().getLocalBag().getAllConfig()));
         Assert.assertEquals(entity.getConfig(TestEntity.CONF_LIST_THING), ImmutableList.of("x", "x"));
     }
     
@@ -199,7 +197,7 @@ public class MapConfigKeyAndFriendsMoreTest extends BrooklynAppUnitTestSupport {
     @Test(enabled=false)
     public void testListModUsageMultiValues() throws Exception {
         entity.config().set(TestEntity.CONF_LIST_THING, ListModifications.add("x", "w", "x"));
-        log.info("List-Mod: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
+        log.info("List-Mod: "+MutableMap.copyOf(entity.config().getLocalBag().getAllConfig()));
         Assert.assertEquals(entity.getConfig(TestEntity.CONF_LIST_THING), ImmutableList.of("x", "w", "x"));
     }
     
@@ -208,14 +206,14 @@ public class MapConfigKeyAndFriendsMoreTest extends BrooklynAppUnitTestSupport {
         entity.config().set(TestEntity.CONF_LIST_THING.subKey(), "x");
         entity.config().set(TestEntity.CONF_LIST_THING.subKey(), "w");
         entity.config().set(TestEntity.CONF_LIST_THING.subKey(), "x");
-        log.info("List-SubKey: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
+        log.info("List-SubKey: "+MutableMap.copyOf(entity.config().getLocalBag().getAllConfig()));
         Assert.assertEquals(entity.getConfig(TestEntity.CONF_LIST_THING), ImmutableList.of("x", "w", "x"));
     }
 
     @Test(enabled=false)
     public void testListPutDirectUsageMultiValues() throws Exception {
         entity.config().set(ConfigKeys.newConfigKey(Object.class, TestEntity.CONF_LIST_THING.getName()), ImmutableList.of("x", "w", "x"));
-        log.info("List-Direct: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
+        log.info("List-Direct: "+MutableMap.copyOf(entity.config().getLocalBag().getAllConfig()));
         Assert.assertEquals(entity.getConfig(TestEntity.CONF_LIST_THING), ImmutableList.of("x", "w", "x"));
     }
     
@@ -224,7 +222,7 @@ public class MapConfigKeyAndFriendsMoreTest extends BrooklynAppUnitTestSupport {
         entity.config().set(ConfigKeys.newConfigKey(Object.class, TestEntity.CONF_LIST_THING.getName()+".a"), "x");
         entity.config().set(ConfigKeys.newConfigKey(Object.class, TestEntity.CONF_LIST_THING.getName()+".c"), "w");
         entity.config().set(ConfigKeys.newConfigKey(Object.class, TestEntity.CONF_LIST_THING.getName()+".b"), "x");
-        log.info("List-DotExt: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
+        log.info("List-DotExt: "+MutableMap.copyOf(entity.config().getLocalBag().getAllConfig()));
         Assert.assertEquals(entity.getConfig(TestEntity.CONF_LIST_THING), ImmutableList.of("x", "w", "x"));
     }
     
@@ -236,7 +234,7 @@ public class MapConfigKeyAndFriendsMoreTest extends BrooklynAppUnitTestSupport {
         entity.config().set(TestEntity.CONF_LIST_THING.subKey(), "x3");
         entity.config().set(TestEntity.CONF_LIST_THING.subKey(), "w3");
         
-        log.info("List-ManyWays: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
+        log.info("List-ManyWays: "+MutableMap.copyOf(entity.config().getLocalBag().getAllConfig()));
         Assert.assertEquals(entity.getConfig(TestEntity.CONF_LIST_THING), ImmutableList.of("x1", "w1", "x2", "x2", "x3", "w3"));
     }
     
@@ -251,7 +249,7 @@ public class MapConfigKeyAndFriendsMoreTest extends BrooklynAppUnitTestSupport {
         entity.config().set(TestEntity.CONF_LIST_OBJ_THING, ListModifications.addItem("z"));
         entity.config().set(TestEntity.CONF_LIST_OBJ_THING, ListModifications.addItem(MutableList.of("c", "d")));
         entity.config().set(TestEntity.CONF_LIST_OBJ_THING, MutableList.of(MutableList.of("e", "f")));
-        log.info("List-Coll: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
+        log.info("List-Coll: "+MutableMap.copyOf(entity.config().getLocalBag().getAllConfig()));
         List<? extends Object> list = entity.getConfig(TestEntity.CONF_LIST_OBJ_THING);
         Assert.assertEquals(list.size(), 8, "list is: "+list);
         // "a", "b", "w", "x", "y", "z", ImmutableList.of("c", "d"), ImmutableList.of("e", "f"))
@@ -260,10 +258,10 @@ public class MapConfigKeyAndFriendsMoreTest extends BrooklynAppUnitTestSupport {
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public void testListEmpty() throws Exception {
         // ensure it is null before we pass something in, and passing an empty collection makes it be empty
-        log.info("List-Empty-1: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
+        log.info("List-Empty-1: "+MutableMap.copyOf(entity.config().getLocalBag().getAllConfig()));
         Assert.assertEquals(entity.getConfig(TestEntity.CONF_LIST_THING), null);
         entity.config().set((ListConfigKey)TestEntity.CONF_LIST_THING, MutableList.of());
-        log.info("List-Empty-2: "+MutableMap.copyOf(entity.getConfigMap().asMapWithStringKeys()));
+        log.info("List-Empty-2: "+MutableMap.copyOf(entity.config().getLocalBag().getAllConfig()));
         Assert.assertEquals(entity.getConfig(TestEntity.CONF_LIST_THING), ImmutableList.of());
     }
     

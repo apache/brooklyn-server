@@ -154,7 +154,7 @@ public class JcloudsByonLocationResolver extends AbstractLocationResolver implem
                 JcloudsLocation jcloudsLocation = (JcloudsLocation) managementContext.getLocationManager().createLocation(jcloudsLocationSpec.get());
                 for (Map<?,?> machineFlags : machinesFlags) {
                     try {
-                        jcloudsLocation.config().addToLocalBag(machineFlags);
+                        jcloudsLocation.config().set(machineFlags);
                         JcloudsMachineLocation machine = jcloudsLocation.registerMachine(jcloudsLocation.config().getBag());
                         result.add(machine);
                     } catch (NoMachinesAvailableException e) {

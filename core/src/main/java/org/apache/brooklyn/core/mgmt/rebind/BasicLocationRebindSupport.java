@@ -70,7 +70,7 @@ public class BasicLocationRebindSupport extends AbstractBrooklynObjectRebindSupp
         // Note that the flags have been set in the constructor
         // Sept 2016 - now ignores unused and config description
         
-        location.config().addToLocalBag(memento.getLocationConfig());
+        location.config().set(memento.getLocationConfig());
 
         for (Map.Entry<String, Object> entry : memento.getLocationConfig().entrySet()) {
             String flagName = entry.getKey();
@@ -90,7 +90,7 @@ public class BasicLocationRebindSupport extends AbstractBrooklynObjectRebindSupp
                 } else {
                     value = TypeCoercions.coerce(entry.getValue(), fieldType);
                     if (value != null) {
-                        location.config().addToLocalBag(MutableMap.of(flagName, value));
+                        location.config().set(MutableMap.of(flagName, value));
                         FlagUtils.setFieldFromFlag(location, flagName, value);
                     }
                 }

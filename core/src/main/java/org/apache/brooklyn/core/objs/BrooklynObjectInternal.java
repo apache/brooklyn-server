@@ -64,6 +64,7 @@ public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
          * and callers should be advised this beta method may be removed. 
          */
         @Beta
+        // TODO deprecate
         ConfigBag getBag();
 
         /**
@@ -71,7 +72,11 @@ public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
          * backed by a string-based map, including config names that did not match anything on this entity.
          */
         @Beta
+        // TODO deprecate
         ConfigBag getLocalBag();
+        
+        /** Returns all config defined here, in {@link #getLocalRaw(ConfigKey)} format */
+        Map<ConfigKey<?>,Object> getAllLocalRaw();
 
         /**
          * Returns the uncoerced value for this config key, if available, not taking any default.
@@ -126,13 +131,13 @@ public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
 
         /** Adds keys or strings, making anonymous keys from strings; throws on other keys */
         @Beta
-        void addToLocalBag(Map<?, ?> vals);
+        void set(Map<?, ?> vals);
 
         @Beta
-        void removeFromLocalBag(String key);
+        void removeKey(String key);
 
         @Beta
-        void removeFromLocalBag(ConfigKey<?> key);
+        void removeKey(ConfigKey<?> key);
         
         @Beta
         void refreshInheritedConfig();

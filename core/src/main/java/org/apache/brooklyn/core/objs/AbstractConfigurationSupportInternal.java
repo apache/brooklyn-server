@@ -201,17 +201,17 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
     }
 
     @Override
-    public void addToLocalBag(Map<?, ?> vals) {
+    public void set(Map<?, ?> vals) {
         getConfigsInternal().addToLocalBag(vals);
     }
 
     @Override
-    public void removeFromLocalBag(String key) {
+    public void removeKey(String key) {
         getConfigsInternal().removeFromLocalBag(key);
     }
     
     @Override
-    public void removeFromLocalBag(ConfigKey<?> key) {
+    public void removeKey(ConfigKey<?> key) {
         getConfigsInternal().removeFromLocalBag(key);
     }
     
@@ -225,6 +225,10 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
         return getConfigsInternal();
     }
 
+    public Map<ConfigKey<?>,Object> getAllLocalRaw() {
+        return getConfigsInternal().getAllConfigLocalRaw();
+    }
+    
     @Override
     // TODO deprecate because key inheritance not respected
     public ConfigBag getBag() {

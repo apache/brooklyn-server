@@ -178,14 +178,14 @@ public class MementosGenerators {
         
         builder.isTopLevelApp = (entity instanceof Application && entity.getParent() == null);
 
-        Map<ConfigKey<?>, Object> localConfig = entity.getConfigMap().getLocalConfig();
-        for (Map.Entry<ConfigKey<?>, Object> entry : localConfig.entrySet()) {
+        Map<ConfigKey<?>, ?> localConfig = entity.config().getAllLocalRaw();
+        for (Map.Entry<ConfigKey<?>, ?> entry : localConfig.entrySet()) {
             ConfigKey<?> key = checkNotNull(entry.getKey(), localConfig);
             Object value = configValueToPersistable(entry.getValue(), entityRaw, key.getName());
             builder.config.put(key, value); 
         }
         
-        Map<String, Object> localConfigUnmatched = MutableMap.copyOf(entity.getConfigMap().getLocalConfigBag().getAllConfig());
+        Map<String, Object> localConfigUnmatched = MutableMap.copyOf(entity.config().getLocalBag().getAllConfig());
         for (ConfigKey<?> key : localConfig.keySet()) {
             localConfigUnmatched.remove(key.getName());
         }

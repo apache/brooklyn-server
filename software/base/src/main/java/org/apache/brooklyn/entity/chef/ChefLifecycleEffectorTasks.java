@@ -183,7 +183,7 @@ public class ChefLifecycleEffectorTasks extends MachineLifecycleEffectorTasks im
         Navigator<MutableMap<Object, Object>> attrs = Jsonya.newInstancePrimitive().at("brooklyn");
         if (Strings.isNonBlank(primary)) attrs.at(primary);
         attrs.at("config");
-        attrs.put( entity().getAllConfigBag().getAllConfig() );
+        attrs.put( entity().config().getBag().getAllConfig() );
         // and put launch attrs at root
         try {
             attrs.root().put((Map<?,?>)Tasks.resolveDeepValue(entity().getConfig(CHEF_LAUNCH_ATTRIBUTES), Object.class, entity().getExecutionContext()));
@@ -215,7 +215,7 @@ public class ChefLifecycleEffectorTasks extends MachineLifecycleEffectorTasks im
         Navigator<MutableMap<Object, Object>> attrs = Jsonya.newInstancePrimitive().at("brooklyn");
         if (Strings.isNonBlank(primary)) attrs.at(primary);
         attrs.at("config");
-        attrs.put( entity().getAllConfigBag().getAllConfig() );
+        attrs.put( entity().config().getBag().getAllConfig() );
         // and put launch attrs at root
         try {
             attrs.root().put((Map<?,?>)Tasks.resolveDeepValue(entity().getConfig(CHEF_LAUNCH_ATTRIBUTES), Object.class, entity().getExecutionContext()));

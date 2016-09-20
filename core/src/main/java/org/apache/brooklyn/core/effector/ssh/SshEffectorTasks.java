@@ -299,7 +299,7 @@ public class SshEffectorTasks {
         if (optionalLocation!=null)
             allConfig.putAll(((LocationInternal)optionalLocation).config().getBag());
         
-        allConfig.putAll(((EntityInternal)entity).getAllConfig());
+        allConfig.putAll(((EntityInternal)entity).config().getBag());
         
         Map<String, Object> result = Maps.newLinkedHashMap();
         for (String keyS : allConfig.getAllConfig().keySet()) {
