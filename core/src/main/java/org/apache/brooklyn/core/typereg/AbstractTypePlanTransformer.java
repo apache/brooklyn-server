@@ -104,7 +104,7 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
                     try { 
                         AbstractBrooklynObjectSpec<?, ?> result = createSpec(type, context);
                         // see notes on catalogItemIdIfNotNull
-                        result.catalogItemIdIfNotNull(type.getId());
+                        result.nestCatalogItemId(type.getId());
                         return result;
                     } catch (Exception e) { throw Exceptions.propagate(e); }
                 }
