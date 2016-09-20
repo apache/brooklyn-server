@@ -84,7 +84,7 @@ public class AdjunctConfigMap extends AbstractConfigMapImpl {
         return (entity != null) ? ((EntityInternal)entity).getExecutionContext() : null;
     }
     
-    protected <T> T getConfigImpl(ConfigKey<T> key) {
+    protected <T> Maybe<T> getConfigImpl(ConfigKey<T> key) {
         // tasks won't resolve if we aren't yet connected to an entity
         
         // no need for inheritance, so much simpler than other impls
@@ -94,12 +94,12 @@ public class AdjunctConfigMap extends AbstractConfigMapImpl {
         
         if (ownKey instanceof ConfigKeySelfExtracting) {
             if (((ConfigKeySelfExtracting<T>)ownKey).isSet(ownConfig)) {
-                return ((ConfigKeySelfExtracting<T>)ownKey).extractValue(ownConfig, getExecutionContext(getAdjunct()));
+                return Maybe.ofAllowingNull( ((ConfigKeySelfExtracting<T>)ownKey).extractValue(ownConfig, getExecutionContext(getAdjunct())) );
             }
         } else {
             LOG.warn("Config key {} of {} is not a ConfigKeySelfExtracting; cannot retrieve value; returning default", ownKey, this);
         }
-        return TypeCoercions.coerce(ownKey.getDefaultValue(), key.getTypeToken());
+        return Maybe.ofAllowingNull( TypeCoercions.coerce(ownKey.getDefaultValue(), key.getTypeToken()) );
     }
     
     @Override

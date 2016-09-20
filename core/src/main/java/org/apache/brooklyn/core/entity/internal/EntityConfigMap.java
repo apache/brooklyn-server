@@ -27,8 +27,8 @@ import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.config.ConfigInheritance;
-import org.apache.brooklyn.config.ConfigInheritance.ContainerAndValue;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.config.ConfigValueAtContainer;
 import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.BasicConfigInheritance.AncestorContainerAndKeyValueIterator;
 import org.apache.brooklyn.core.config.ConfigKeys.InheritanceContext;
@@ -101,7 +101,7 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
     }
     
     @Override
-    protected <T> T getConfigImpl(ConfigKey<T> key) {
+    protected <T> Maybe<T> getConfigImpl(ConfigKey<T> key) {
         Function<Entity, ConfigKey<T>> keyFn = EntityFunctions.configKeyFinder(key, null);
         
         // In case this entity class has overridden the given key (e.g. to set default), then retrieve this entity's key
@@ -116,15 +116,15 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
             AncestorContainerAndKeyValueIterator<Entity, T> ckvi = new AncestorContainerAndKeyValueIterator<Entity,T>(
                 getEntity(), keyFn, evalFn, EntityFunctions.parent());
             
-            ContainerAndValue<T> result = getDefaultRuntimeInheritance().resolveInheriting(ownKey,
+            ConfigValueAtContainer<Entity,T> result = getDefaultRuntimeInheritance().resolveInheriting(ownKey,
                 ownExplicitValue, getEntity(),
                 ckvi, InheritanceContext.RUNTIME_MANAGEMENT);
         
-            if (result.getValue()!=null) return result.getValue();
+            return result.asMaybe();
         } else {
             LOG.warn("Config key {} of {} is not a ConfigKeySelfExtracting; cannot retrieve value; returning default", ownKey, getBrooklynObject());
+            return Maybe.absent();
         }
-        return null;
     }
 
     private ConfigInheritance getDefaultRuntimeInheritance() {

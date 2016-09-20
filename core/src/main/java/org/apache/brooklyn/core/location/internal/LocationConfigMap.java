@@ -27,9 +27,9 @@ import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.config.ConfigInheritance;
-import org.apache.brooklyn.config.ConfigInheritance.ContainerAndValue;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigMap;
+import org.apache.brooklyn.config.ConfigValueAtContainer;
 import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.BasicConfigInheritance.AncestorContainerAndKeyValueIterator;
 import org.apache.brooklyn.core.config.ConfigKeys.InheritanceContext;
@@ -66,7 +66,7 @@ public class LocationConfigMap extends AbstractConfigMapImpl {
     }
     
     @Override
-    protected <T> T getConfigImpl(final ConfigKey<T> key) {
+    protected <T> Maybe<T> getConfigImpl(final ConfigKey<T> key) {
         Function<Location, ConfigKey<T>> keyFn = new Function<Location, ConfigKey<T>>() {
             @SuppressWarnings("unchecked")
             @Override
@@ -96,15 +96,15 @@ public class LocationConfigMap extends AbstractConfigMapImpl {
                     }
                 });
             
-            ContainerAndValue<T> result = getDefaultRuntimeInheritance().resolveInheriting(ownKey,
+            ConfigValueAtContainer<Location,T> result = getDefaultRuntimeInheritance().resolveInheriting(ownKey,
                 ownExplicitValue, getLocation(),
                 ckvi, InheritanceContext.RUNTIME_MANAGEMENT);
         
-            if (result.getValue()!=null) return result.getValue();
+            return result.asMaybe();
         } else {
             log.warn("Config key {} of {} is not a ConfigKeySelfExtracting; cannot retrieve value; returning default", ownKey, getBrooklynObject());
+            return Maybe.absent();
         }
-        return null;
     }
     
     private ConfigInheritance getDefaultRuntimeInheritance() {

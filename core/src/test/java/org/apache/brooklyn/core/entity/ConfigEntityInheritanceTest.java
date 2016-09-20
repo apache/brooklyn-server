@@ -147,25 +147,25 @@ public class ConfigEntityInheritanceTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testConfigKeysInheritance() throws Exception {
-        app.config().set(MyEntityWithPartiallyHeritableConfig.HERITABLE, "heritable");
+        app.config().set(MyEntityWithPartiallyHeritableConfig.HERITABLE_BY_DEFAULT, "heritable");
         app.config().set(MyEntityWithPartiallyHeritableConfig.ALWAYS_HERITABLE, "always_heritable");
-        app.config().set(MyEntityWithPartiallyHeritableConfig.UNINHERITABLE, "uninheritable");
+        app.config().set(MyEntityWithPartiallyHeritableConfig.NEVER_INHERIT, "uninheritable");
         app.config().set(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE, "maybe");
         Entity child = app.addChild(EntitySpec.create(MyEntityWithPartiallyHeritableConfig.class));
         
-        Assert.assertNotNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.HERITABLE));
+        Assert.assertNotNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.HERITABLE_BY_DEFAULT));
         Assert.assertNotNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.ALWAYS_HERITABLE));
-        Assert.assertNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.UNINHERITABLE), null);
+        Assert.assertNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.NEVER_INHERIT));
         
         // it's reinheritable unless explicitly declared
         Assert.assertNotNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE));
         app.getMutableEntityType().addConfigKey(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE);
-        Assert.assertNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE), null);
+        Assert.assertNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE));
     }
     
     public static class MyEntityWithPartiallyHeritableConfig extends AbstractEntity {
-        public static final ConfigKey<String> HERITABLE = ConfigKeys.builder(String.class, "herit.default").build();
-        public static final ConfigKey<String> UNINHERITABLE = ConfigKeys.builder(String.class, "herit.never").runtimeInheritance(BasicConfigInheritance.NEVER_INHERITED).build();
+        public static final ConfigKey<String> HERITABLE_BY_DEFAULT = ConfigKeys.builder(String.class, "herit.default").build();
+        public static final ConfigKey<String> NEVER_INHERIT = ConfigKeys.builder(String.class, "herit.never").runtimeInheritance(BasicConfigInheritance.NEVER_INHERITED).build();
         public static final ConfigKey<String> NOT_REINHERITABLE = ConfigKeys.builder(String.class, "herit.not_re").runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED).build();
         // i find a strange joy in words where the prefix "in-" does not mean not, like inflammable 
         public static final ConfigKey<String> ALWAYS_HERITABLE = ConfigKeys.builder(String.class, "herit.always").runtimeInheritance(BasicConfigInheritance.OVERWRITE).build();

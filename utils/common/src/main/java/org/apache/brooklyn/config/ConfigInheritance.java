@@ -29,7 +29,6 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.annotations.Beta;
-import com.google.common.base.Supplier;
 
 @SuppressWarnings("serial")
 public interface ConfigInheritance extends Serializable {
@@ -55,32 +54,6 @@ public interface ConfigInheritance extends Serializable {
     @Deprecated
     InheritanceMode isInherited(ConfigKey<?> key, Object from, Object to);
 
-//    // TODO
-//    interface ConfigKeyValueInContext<TContainer,TValue> extends Supplier<TValue> {
-//        TValue get();
-//        Maybe<TValue> asMaybe();
-//        
-//        TContainer getContainer();
-//        
-//        /** if false, the contents of {@link #getValue()} will have come from the default */
-//        boolean isValueExplicitlySet();
-//        
-//        ConfigKey<TValue> getKey();
-//        TValue getDefaultValue();
-//    }
-
-    interface ContainerAndValue<T> {
-        Object getContainer();
-        T getValue();
-        /** if false, the contents of {@link #getValue()} will have come from the default */
-        boolean isValueSet();
-    }
-    
-    interface ContainerAndKeyValue<T> extends ContainerAndValue<T> {
-        ConfigKey<T> getKey();
-        T getDefaultValue();
-    }
-    
     /** 
      * given a key and local value, together with an optional record of ancestor containers (eg an entity) and associated data,
      * this finds the value for a config key <b>applying the appropriate inheritance strategies</b>.
@@ -108,11 +81,11 @@ public interface ConfigInheritance extends Serializable {
      * and whose second entry gives the container, key, and potential value to be exported.
      * if null is returned the caller knows nothing is to be exported to children.
      */
-    <T> ContainerAndValue<T> resolveInheriting(
-        ConfigKey<T> key,
-        @Nullable Maybe<T> localValue,
-        @Nullable Object container,
-        Iterator<? extends ContainerAndKeyValue<T>> ancestorContainerKeyValues,
+    <TContainer,TValue> ConfigValueAtContainer<TContainer,TValue> resolveInheriting(
+        ConfigKey<TValue> key,
+        @Nullable Maybe<TValue> localValue,
+        @Nullable TContainer container,
+        Iterator<? extends ConfigValueAtContainer<TContainer,TValue>> ancestorContainerKeyValues,
         ConfigInheritanceContext context);
     
     /** @deprecated since 0.10.0 see implementations of this interface */ @Deprecated
@@ -132,32 +105,36 @@ public interface ConfigInheritance extends Serializable {
             }
         }
         private abstract static class LegacyAbstractConversion implements ConfigInheritance {
-            private static class Result<T> implements ContainerAndValue<T> {
-                Object container = null;
-                T value = null;
+            private static class Result<TContainer,TValue> implements ConfigValueAtContainer<TContainer,TValue> {
+                TContainer container = null;
+                Maybe<TValue> value = Maybe.absent();
                 boolean isValueSet = false;
-                @Override public Object getContainer() { return container; }
-                @Override public T getValue() { return value; }
-                @Override public boolean isValueSet() { return isValueSet; }
+                ConfigKey<TValue> key = null;
+                @Override public TContainer getContainer() { return container; }
+                @Override public TValue get() { return value.orNull(); }
+                @Override public Maybe<TValue> asMaybe() { return value; }
+                @Override public boolean isValueExplicitlySet() { return isValueSet; }
+                @Override public ConfigKey<TValue> getKey() { return key; }
+                @Override public TValue getDefaultValue() { return key==null ? null : key.getDefaultValue(); }
             }
 
             // close copy of method in BasicConfigInheritance for this legacy compatibility evaluation
             @Override
-            public <T> ContainerAndValue<T> resolveInheriting(
-                    @Nullable ConfigKey<T> key, Maybe<T> localValue, Object container,
-                    Iterator<? extends ContainerAndKeyValue<T>> ancestorContainerKeyValues, ConfigInheritanceContext context) {
+            public <TContainer,TValue> ConfigValueAtContainer<TContainer,TValue> resolveInheriting(
+                    @Nullable ConfigKey<TValue> key, Maybe<TValue> localValue, TContainer container,
+                    Iterator<? extends ConfigValueAtContainer<TContainer,TValue>> ancestorContainerKeyValues, ConfigInheritanceContext context) {
                 ConfigInheritance inh = key==null ? null : key.getInheritanceByContext(context);
                 if (inh==null) inh = this;
                 if (inh!=this) return inh.resolveInheriting(key, localValue, container, ancestorContainerKeyValues, context);
                 
-                ContainerAndValue<T> v2 = null;
+                ConfigValueAtContainer<TContainer,TValue> v2 = null;
                 if (getMode()==InheritanceMode.IF_NO_EXPLICIT_VALUE && localValue.isPresent()) {
                     // don't inherit
                 } else if (ancestorContainerKeyValues==null || !ancestorContainerKeyValues.hasNext()) {
                     // nothing to inherit
                 } else {
                     // check whether parent allows us to get inherited value
-                    ContainerAndKeyValue<T> c = ancestorContainerKeyValues.next();
+                    ConfigValueAtContainer<TContainer,TValue> c = ancestorContainerKeyValues.next();
                     ConfigInheritance inh2 = c.getKey()==null ? null : c.getKey().getInheritanceByContext(context);
                     if (inh2==null) inh2 = this;
                     if (getMode()==InheritanceMode.NONE) {
@@ -165,19 +142,20 @@ public interface ConfigInheritance extends Serializable {
                     } else {
                         // get inherited value
                         v2 = inh2.resolveInheriting(c.getKey(), 
-                            c.isValueSet() ? Maybe.of(c.getValue()) : Maybe.<T>absent(), c.getContainer(), 
+                            c.isValueExplicitlySet() ? c.asMaybe() : Maybe.<TValue>absent(), c.getContainer(), 
                                 ancestorContainerKeyValues, context);
                     }
                 }
 
-                if (v2!=null && v2.isValueSet() && !localValue.isPresent()) return v2;
-                Result<T> v = new Result<T>();
+                if (v2!=null && v2.isValueExplicitlySet() && !localValue.isPresent()) return v2;
+                Result<TContainer,TValue> v = new Result<TContainer,TValue>();
                 v.container = container;
-                if (v2==null || !v2.isValueSet()) {
+                if (v2==null || !v2.isValueExplicitlySet()) {
                     v.isValueSet = localValue.isPresent();
-                    v.value = v.isValueSet() ? localValue.get() : key!=null ? key.getDefaultValue() : null; 
+                    v.value = v.isValueExplicitlySet() ? localValue : 
+                        key!=null && key.hasDefaultValue() ? Maybe.of(key.getDefaultValue()) : Maybe.<TValue>absent(); 
                 } else {
-                    v.value = resolveConflict(key, localValue, Maybe.ofAllowingNull(v2.getValue()));
+                    v.value = Maybe.of(resolveConflict(key, localValue, v2.asMaybe()));
                     v.isValueSet = true;
                 }
                 return v;
@@ -209,78 +187,11 @@ public interface ConfigInheritance extends Serializable {
                     return val1;
                 }
             }
-//            @Override
-//            public <T> ContainerAndValue<T> resolveInheriting(ConfigKey<T> key, Maybe<T> localValue, Object container,
-//                    Iterator<ContainerAndKeyValue<T>> ancestorContainerKeyValues, ConfigInheritanceContext context) {
-//                if (ancestorContainerKeyValues.hasNext()) {
-//                    
-//                    ContainerAndKeyValue<T> c = ancestorContainerKeyValues.next();
-//                    if (c==null) return resolveInheriting(ancestorContainerKeyValues, context);
-//                    
-//                    ConfigKey<T> key = c.getKey();
-//                    ConfigInheritance ci = null;
-//                    if (key!=null) ci = key.getInheritanceByContext(context);
-//                    if (ci==null) ci = this;
-//                    
-//                    if (getMode()==InheritanceMode.NONE) {
-//                        // don't inherit, fall through to below
-//                    } else if (!c.isValueSet()) {
-//                        // no value here, try to inherit
-//                        ContainerAndValue<T> ri = ci.resolveInheriting(ancestorContainerKeyValues, context);
-//                        if (ri.isValueSet()) {
-//                            // value found, return it
-//                            return ri;
-//                        }
-//                        // else no inherited, fall through to below
-//                    } else {
-//                        if (getMode()==InheritanceMode.IF_NO_EXPLICIT_VALUE) {
-//                            // don't inherit, fall through to below
-//                        } else {
-//                            // merging
-//                            Maybe<?> mr = deepMerge(asMaybe(c), 
-//                                asMaybe(ci.resolveInheriting(ancestorContainerKeyValues, context)));
-//                            if (mr.isPresent()) {
-//                                Result<T> r = new Result<T>();
-//                                r.container = c.getContainer();
-//                                r.isValueSet = true;
-//                                @SuppressWarnings("unchecked")
-//                                T vt = (T) mr.get();
-//                                r.value = vt;
-//                                return r;
-//                            }
-//                        }
-//                    }
-//                    Result<T> r = new Result<T>();
-//                    r.container = c.getContainer();
-//                    r.isValueSet = c.isValueSet();
-//                    r.value = r.isValueSet ? c.getValue() : c.getDefaultValue();
-//                    return r;
-//                }
-//                return new Result<T>();
-//            }
             @Override
             public InheritanceMode isInherited(ConfigKey<?> key, Object from, Object to) {
                 return getMode();
             }
             protected abstract InheritanceMode getMode();
-            private static <T> Maybe<T> asMaybe(ContainerAndValue<T> cv) {
-                if (cv.isValueSet()) return Maybe.of(cv.getValue());
-                return Maybe.absent();
-            }
-//            private static <T> Maybe<?> deepMerge(Maybe<? extends T> val1, Maybe<? extends T> val2) {
-//                if (val2.isAbsent() || val2.isNull()) {
-//                    return val1;
-//                } else if (val1.isAbsent()) {
-//                    return val2;
-//                } else if (val1.isNull()) {
-//                    return val1; // an explicit null means an override; don't merge
-//                } else if (val1.get() instanceof Map && val2.get() instanceof Map) {
-//                    return Maybe.of(CollectionMerger.builder().build().merge((Map<?,?>)val1.get(), (Map<?,?>)val2.get()));
-//                } else {
-//                    // cannot merge; just return val1
-//                    return val1;
-//                }
-//            }
         }
         private static class Always extends LegacyAbstractConversion {
             @Override

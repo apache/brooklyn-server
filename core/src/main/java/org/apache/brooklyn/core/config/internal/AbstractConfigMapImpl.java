@@ -79,12 +79,12 @@ public abstract class AbstractConfigMapImpl implements ConfigMap {
     }
     
     public <T> T getConfig(ConfigKey<T> key) {
-        return getConfigImpl(key);
+        return getConfigImpl(key).orNull();
     }
     
 
     public <T> T getConfig(HasConfigKey<T> key) {
-        return getConfigImpl(key.getConfigKey());
+        return getConfigImpl(key.getConfigKey()).orNull();
     }
     
     @Override
@@ -92,7 +92,7 @@ public abstract class AbstractConfigMapImpl implements ConfigMap {
         return getConfigRaw(key, false);
     }
 
-    protected abstract <T> T getConfigImpl(ConfigKey<T> key);
+    protected abstract <T> Maybe<T> getConfigImpl(ConfigKey<T> key);
     
     protected abstract ExecutionContext getExecutionContext(BrooklynObject bo);
     protected abstract void postLocalEvaluate(ConfigKey<?> key, BrooklynObject bo, Maybe<?> rawValue, Maybe<?> resolvedValue);
