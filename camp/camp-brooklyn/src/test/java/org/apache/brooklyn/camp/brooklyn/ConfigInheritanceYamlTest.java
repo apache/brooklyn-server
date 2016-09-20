@@ -648,11 +648,9 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
         EntityAsserts.assertConfigEquals(entity, EmptySoftwareProcess.SHELL_ENVIRONMENT, expectedEnv);
     }
     
-    // TODO Has never worked, and probably hard to fix?! We need to figure out that "env" corresponds to the
-    // config key. Maybe FlagUtils could respect SetFromFlags when returning Map<String,ConfigKey>?
-    // TODO should be able to fix in this phase of work
-    @Test(groups={"WIP", "Broken"})
+    @Test
     public void testExtendsSuperTypeConfigMixingShortOverridingShortName() throws Exception {
+        // fixed Sept 2016
         ImmutableMap<String, Object> expectedEnv = ImmutableMap.<String, Object>of("ENV1", "myEnv1", "ENV2", "myEnv2");
 
         // super-type has env; sub-type env

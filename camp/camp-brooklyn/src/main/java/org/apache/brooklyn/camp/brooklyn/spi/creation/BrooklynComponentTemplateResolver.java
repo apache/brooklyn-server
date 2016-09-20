@@ -292,7 +292,8 @@ public class BrooklynComponentTemplateResolver {
         for (FlagConfigKeyAndValueRecord r: records) {
             if (r.getFlagMaybeValue().isPresent()) {
                 final String flag = r.getFlagName();
-                final ConfigKey<Object> key = ConfigKeys.newConfigKey(Object.class, flag);
+                final ConfigKey<Object> key = (ConfigKey<Object>) r.getConfigKey();
+                if (key==null) ConfigKeys.newConfigKey(Object.class, flag);
                 final Object ownValueF = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getFlagMaybeValue().get());
 
                 Iterable<? extends ContainerAndKeyValue<Object>> ckvi = MutableList.of(
