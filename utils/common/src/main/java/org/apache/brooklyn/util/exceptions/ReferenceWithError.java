@@ -41,7 +41,7 @@ public class ReferenceWithError<T> implements Supplier<T> {
         return new ReferenceWithError<T>(object, error, true);
     }
     
-    /** returns a reference which includes an error, but attempts to get the content do not cause the error to throw */
+    /** returns a reference which does not have any error; attempts to get the content are safe */
     public static <T> ReferenceWithError<T> newInstanceWithoutError(T object) {
         return new ReferenceWithError<T>(object, null, false);
     }

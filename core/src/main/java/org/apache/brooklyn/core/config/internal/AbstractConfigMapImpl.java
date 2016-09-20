@@ -24,8 +24,9 @@ import java.util.Map;
 import java.util.concurrent.Future;
 
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.config.ConfigMap;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
+import org.apache.brooklyn.config.ConfigMap;
+import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.config.StructuredConfigKey;
 import org.apache.brooklyn.core.entity.internal.ConfigMapViewWithStringKeys;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
@@ -51,17 +52,10 @@ public abstract class AbstractConfigMapImpl implements ConfigMap {
         return getConfig(key, null);
     }
     
+    protected abstract <T> T getConfig(ConfigKey<T> key, T defaultValue);
+
     public <T> T getConfig(HasConfigKey<T> key) {
         return getConfig(key.getConfigKey(), null);
-    }
-    
-    public <T> T getConfig(HasConfigKey<T> key, T defaultValue) {
-        return getConfig(key.getConfigKey(), defaultValue);
-    }
-    
-    @Override @Deprecated
-    public Object getRawConfig(ConfigKey<?> key) {
-        return getConfigRaw(key, true).orNull();
     }
     
     @Override
@@ -113,4 +107,14 @@ public abstract class AbstractConfigMapImpl implements ConfigMap {
     public boolean isEmpty() {
         return ownConfig.isEmpty();
     }
+    
+    @Override
+    public String toString() {
+        Map<ConfigKey<?>, Object> sanitizeConfig;
+        synchronized (ownConfig) {
+            sanitizeConfig = Sanitizer.sanitize(ownConfig);
+        }
+        return super.toString()+"[local="+sanitizeConfig+"]";
+    }
+
 }

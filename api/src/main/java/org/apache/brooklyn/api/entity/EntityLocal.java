@@ -95,11 +95,6 @@ public interface EntityLocal extends Entity {
      * @deprecated in 0.5; use {@link #getConfig(ConfigKey)}
      */
     <T> T getConfig(ConfigKey<T> key, T defaultValue);
-    
-    /**
-     * @deprecated in 0.5; use {@link #getConfig(HasConfigKey)}
-     */
-    <T> T getConfig(HasConfigKey<T> key, T defaultValue);
 
     /**
      * Allow us to subscribe to data from a {@link Sensor} on another entity.

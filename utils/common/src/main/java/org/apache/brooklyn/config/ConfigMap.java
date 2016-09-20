@@ -32,30 +32,7 @@ public interface ConfigMap {
     
     /** @see #getConfig(ConfigKey, Object), with default value as per the key, or null */
     public <T> T getConfig(HasConfigKey<T> key);
-    
-    /**
-     * @see #getConfig(ConfigKey, Object), with provided default value if not set
-     * @deprecated since 0.7.0; use {@link #getConfig(HasConfigKey)}
-     */
-    @Deprecated
-    public <T> T getConfig(HasConfigKey<T> key, T defaultValue);
-    
-    /**
-     * Returns value stored against the given key,
-     * resolved (if it is a Task, possibly blocking), and coerced to the appropriate type, 
-     * or given default value if not set, 
-     * unless the default value is null in which case it returns the default.
-     * 
-     * @deprecated since 0.7.0; use {@link #getConfig(ConfigKey)}
-     */
-    @Deprecated
-    public <T> T getConfig(ConfigKey<T> key, T defaultValue);
 
-    /** as {@link #getConfigRaw(ConfigKey)} but returning null if not present 
-     * @deprecated since 0.7.0 use {@link #getConfigRaw(ConfigKey)} */
-    @Deprecated
-    public Object getRawConfig(ConfigKey<?> key);
-    
     /** returns the value stored against the given key, 
      * <b>not</b> any default,
      * <b>not</b> resolved (and guaranteed non-blocking),
@@ -68,6 +45,28 @@ public interface ConfigMap {
      */
     // TODO behaviour of this is undefined if the key specifies a merge
     public Maybe<Object> getConfigRaw(ConfigKey<?> key, boolean includeInherited);
+
+    // TODO sketch of new/better implementations
+//    /** As {@link #getConfigLocalRaw(ConfigKey)} but respecting the inheritance rules.
+//     * Because inheritance may not be applicable when working with raw values the result
+//     * is wrapped in a {@link ReferenceWithError}, and if any aspect of inheritance 
+//     * could not be applied, calls to {@link ReferenceWithError#get()} will throw
+//     * (but {@link ReferenceWithError#getWithoutError()} will not).
+//     * <p>
+//     * Note that most modes (eg overwrite, not-inherit) will not cause issues during inheritance
+//     * so this method is ordinarily fine to use.  Problems arise when a merge inheritance mode
+//     * is specified and it is attempting to merge a raw value which is not mergeable.
+//     * <p>
+//     * See also {@link #getConfigAllInheritedRaw(ConfigKey)} which returns the complete set
+//     * of inherited values.
+//     * 
+//     * @param key  key to look up
+//     */    
+//    public ReferenceWithError<ContainerAndValue<Object>> getConfigInheritedRaw(ConfigKey<?> key);
+//
+//    /** As {@link #getConfigLocalRaw(ConfigKey)} but returning all containers through the inheritance
+//     * hierarchy where a value is set (but stopping if it encounters a key is not inheritable from a container). */
+//    public List<ContainerAndValue<Object>> getConfigAllInheritedRaw(ConfigKey<?> key);
     
     /** returns the value stored against the given key, 
      * <b>not</b> any default,

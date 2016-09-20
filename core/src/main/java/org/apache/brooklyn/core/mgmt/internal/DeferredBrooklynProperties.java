@@ -126,10 +126,9 @@ public class DeferredBrooklynProperties implements BrooklynProperties {
         return resolve(key, raw);
     }
 
-    @Deprecated
     @Override
-    public Object getRawConfig(ConfigKey<?> key) {
-        return transform(key, delegate.getRawConfig(key));
+    public Maybe<Object> getConfigRaw(ConfigKey<?> key) {
+        return getConfigRaw(key, true);
     }
     
     @Override

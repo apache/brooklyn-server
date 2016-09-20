@@ -439,19 +439,19 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
     }
 
     @Override
-    public Object getRawConfig(ConfigKey<?> key) {
-        return get(key.getName());
+    public Maybe<Object> getConfigRaw(ConfigKey<?> key) {
+        if (containsKey(key.getName())) return Maybe.of(get(key.getName()));
+        return Maybe.absent();
     }
     
     @Override
     public Maybe<Object> getConfigRaw(ConfigKey<?> key, boolean includeInherited) {
-        if (containsKey(key.getName())) return Maybe.of(get(key.getName()));
-        return Maybe.absent();
+        return getConfigRaw(key);
     }
 
     @Override
     public Maybe<Object> getConfigLocalRaw(ConfigKey<?> key) {
-        return getConfigRaw(key, false);
+        return getConfigRaw(key);
     }
     
     @Override

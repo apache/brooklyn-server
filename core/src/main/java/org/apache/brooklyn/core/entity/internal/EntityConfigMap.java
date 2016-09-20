@@ -60,9 +60,6 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
 
     /** entity against which config resolution / task execution will occur */
     private final AbstractEntity entity;
-    /** config bag cache for local anonymous key lookup */
-    // TODO this could be removed and everything made more like AdjunctConfigMap
-    private final ConfigBag ownConfigBag;
 
     public EntityConfigMap(AbstractEntity entity) {
         // Not using ConcurrentMap, because want to (continue to) allow null values.
@@ -73,21 +70,8 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
     public EntityConfigMap(AbstractEntity entity, Map<ConfigKey<?>, Object> storage) {
         this.entity = checkNotNull(entity, "entity must be specified");
         this.ownConfig = checkNotNull(storage, "storage map must be specified");
-        this.ownConfigBag = ConfigBag.newInstance();
     }
     
-    /* These flags are included for documentation.
-     * Changes will require testing.
-     * Note that trying to get a raw inherited value can be problematic
-     * if it is merging resolved values.
-     */
-    final static boolean RESOLVE_AND_COERCE_EXTRACTING_KEYS = true;
-    final static boolean COERCE_DEFAULT_VALUES = true;
-    // TODO We're notifying of config-changed because currently persistence needs to know when the
-    // attributeWhenReady is complete (so it can persist the result).
-    // Long term, we'll just persist tasks properly so the call to onConfigChanged will go!
-    final static boolean NOTIFY_ON_TASK_RESOLUTION = true;
-
     protected static class LocalEvaluateKeyValue<T> implements Function<Entity,Maybe<T>> {
         ConfigKey<T> keyIgnoringInheritance;
         
@@ -100,28 +84,32 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
             ExecutionContext exec = ((EntityInternal)entity).getExecutionContext();
             ConfigMap configMap = ((ConfigurationSupportInternal)entity.config()).getInternalConfigMap();
             Map<ConfigKey<?>,Object> ownConfig = ((EntityConfigMap)configMap).ownConfig;
-            ConfigBag ownConfigBag = ((EntityConfigMap)configMap).ownConfigBag;
             Maybe<Object> rawValue = configMap.getConfigLocalRaw(keyIgnoringInheritance);
             Maybe<T> ownValue;
             
             // Get own value
-            if (RESOLVE_AND_COERCE_EXTRACTING_KEYS && keyIgnoringInheritance instanceof ConfigKeySelfExtracting && ((ConfigKeySelfExtracting<T>)keyIgnoringInheritance).isSet(ownConfig)) {
-                Map<ConfigKey<?>, ?> ownCopy;
-                synchronized (ownConfig) {
-                    // TODO wasteful to make a copy to look up; maybe try once opportunistically?
-                    ownCopy = MutableMap.copyOf(ownConfig);
+            if (keyIgnoringInheritance instanceof ConfigKeySelfExtracting) {
+                if (((ConfigKeySelfExtracting<T>)keyIgnoringInheritance).isSet(ownConfig)) {
+                    Map<ConfigKey<?>, ?> ownCopy;
+                    synchronized (ownConfig) {
+                        // TODO wasteful to make a copy to look up; maybe try once opportunistically?
+                        ownCopy = MutableMap.copyOf(ownConfig);
+                    }
+                    ownValue = Maybe.of(((ConfigKeySelfExtracting<T>) keyIgnoringInheritance).extractValue(ownCopy, exec));
+                } else {
+                    ownValue = Maybe.<T>absent();
                 }
-                ownValue = Maybe.of(((ConfigKeySelfExtracting<T>) keyIgnoringInheritance).extractValue(ownCopy, exec));
-            } else if (ownConfigBag.containsKey(keyIgnoringInheritance)) {
-                // TODO configBag.get doesn't handle tasks/attributeWhenReady - it only uses TypeCoercions
-                // Precedence ordering has changed; previously we'd prefer an explicit isSet(inheritedConfig)
-                // over the localConfigBag.get(key).
-                ownValue = Maybe.of(ownConfigBag.get(keyIgnoringInheritance));
             } else {
+                // all our keys are self-extracting
+                LOG.warn("Unexpected key type "+keyIgnoringInheritance+" ("+keyIgnoringInheritance.getClass()+") in "+entity+"; ignoring value");
                 ownValue = Maybe.<T>absent();
             }
-            
-            if (NOTIFY_ON_TASK_RESOLUTION && rawValue.isPresent() && (rawValue.get() instanceof Task)) {
+
+            // TEMPORARY CODE
+            // We're notifying of config-changed because currently persistence needs to know when the
+            // attributeWhenReady is complete (so it can persist the result).
+            // Long term, we'll just persist tasks properly so the call to onConfigChanged will go!
+            if (rawValue.isPresent() && (rawValue.get() instanceof Task)) {
                 ((EntityInternal)entity).getManagementSupport().getEntityChangeListener().onConfigChanged(keyIgnoringInheritance);
             }
             
@@ -152,7 +140,7 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
         } else {
             LOG.warn("Config key {} of {} is not a ConfigKeySelfExtracting; cannot retrieve value; returning default", ownKey, this);
         }
-        return COERCE_DEFAULT_VALUES ? TypeCoercions.coerce(defaultValue, key.getTypeToken()) : defaultValue;
+        return TypeCoercions.coerce(defaultValue, key.getTypeToken());
     }
 
     private ConfigInheritance getDefaultRuntimeInheritance() {
@@ -186,8 +174,7 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
     /** Creates an immutable copy of the config visible at this entity, local and inherited (preferring local), including those that did not match config keys */
     // TODO deprecate because key inheritance not respected
     public ConfigBag getAllConfigBag() {
-        ConfigBag result = ConfigBag.newInstanceCopying(ownConfigBag)
-                .putAll(ownConfig);
+        ConfigBag result = ConfigBag.newInstance().putAll(ownConfig);
         if (entity.getParent()!=null) {
             result.putIfAbsent(
                 ((EntityConfigMap) ((BrooklynObjectInternal)entity.getParent()).config().getInternalConfigMap()).getAllConfigBag() );
@@ -197,9 +184,7 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
 
     /** Creates an immutable copy of the config defined at this entity, ie not inherited, including those that did not match config keys */
     public ConfigBag getLocalConfigBag() {
-        return ConfigBag.newInstanceCopying(ownConfigBag)
-                .putAll(ownConfig)
-                .seal();
+        return ConfigBag.newInstance().putAll(ownConfig).seal();
     }
 
     @SuppressWarnings("unchecked")
@@ -208,13 +193,8 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
         Object oldVal;
         if (key instanceof StructuredConfigKey) {
             oldVal = ((StructuredConfigKey)key).applyValueToMap(val, ownConfig);
-            // TODO ConfigBag does not handle structured config keys; quick fix is to remove (and should also remove any subkeys;
-            // as it stands if someone set string a.b.c in the config bag then removed structured key a.b, then got a.b.c they'd get a vale);
-            // long term fix is to support structured config keys in ConfigBag, at which point i think we could remove ownConfig altogether
-            ownConfigBag.remove(key);
         } else {
             oldVal = ownConfig.put(key, val);
-            ownConfigBag.put((ConfigKey<Object>)key, v);
         }
         entity.config().refreshInheritedConfigOfChildren();
         return oldVal;
@@ -223,20 +203,17 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
     public void setLocalConfig(Map<ConfigKey<?>, ?> vals) {
         synchronized (ownConfig) {
             ownConfig.clear();
-            ownConfigBag.clear();
             ownConfig.putAll(vals);
-            ownConfigBag.putAll(vals);
         }
     }
  
     public void addToLocalBag(Map<String,?> vals) {
-        ownConfigBag.putAll(vals);
+        ConfigBag ownConfigBag = ConfigBag.newInstance().putAll(vals);
         // TODO quick fix for problem that ownConfig can get out of synch
         ownConfig.putAll(ownConfigBag.getAllConfigAsConfigKeyMap());
     }
 
     public void removeFromLocalBag(String key) {
-        ownConfigBag.remove(key);
         ownConfig.remove(key);
     }
 
@@ -254,7 +231,6 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
         if (entity.getParent()!=null) {
             merge(m, ((EntityConfigMap) ((ConfigurationSupportInternal)entity.getParent().config()).getInternalConfigMap()).submap(filter));
         }
-        m.ownConfigBag.putAll(ownConfig);
         return m;
     }
 
@@ -267,13 +243,4 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
         }
     }
 
-    @Override
-    public String toString() {
-        Map<ConfigKey<?>, Object> sanitizeConfig;
-        synchronized (ownConfig) {
-            sanitizeConfig = Sanitizer.sanitize(ownConfig);
-        }
-        return super.toString()+"[local="+sanitizeConfig+"]";
-    }
-    
 }

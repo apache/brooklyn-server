@@ -27,7 +27,6 @@ import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.config.StructuredConfigKey;
 import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
 import org.apache.brooklyn.core.entity.EntityInternal;
@@ -63,8 +62,7 @@ public class AdjunctConfigMap extends AbstractConfigMapImpl {
     }
 
     @SuppressWarnings("unchecked")
-    @Override
-    public <T> T getConfig(ConfigKey<T> key, T defaultValue) {
+    protected <T> T getConfig(ConfigKey<T> key, T defaultValue) {
         // FIXME What about inherited task in config?!
         //              alex says: think that should work, no?
         // FIXME What if someone calls getConfig on a task, before setting parent app?
@@ -129,11 +127,6 @@ public class AdjunctConfigMap extends AbstractConfigMapImpl {
             if (filter.apply(entry.getKey()))
                 m.ownConfig.put(entry.getKey(), entry.getValue());
         return m;
-    }
-
-    @Override
-    public String toString() {
-        return super.toString()+"[own="+Sanitizer.sanitize(ownConfig)+"]";
     }
 
 }

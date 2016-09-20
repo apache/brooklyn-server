@@ -84,13 +84,6 @@ public interface EntityTransientCopyInternal {
     TagSupport tags();
     String getCatalogItemId();
 
-    
-    // from entity local
-    
-    @Deprecated <T> T getConfig(ConfigKey<T> key, T defaultValue);
-    @Deprecated <T> T getConfig(HasConfigKey<T> key, T defaultValue);
-
-    
     // from EntityInternal:
     
     @Deprecated EntityConfigMap getConfigMap();
