@@ -41,6 +41,7 @@ import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.net.Protocol;
 import org.apache.brooklyn.util.net.ReachableSocketFinder;
 import org.apache.brooklyn.util.ssh.BashCommands;
@@ -354,6 +355,10 @@ public class JcloudsUtil implements JcloudsLocationConfig {
     }
     
     public static String getFirstReachableAddress(NodeMetadata node, Duration timeout) {
+        return getFirstReachableAddress(node, timeout, new Networking.IsReachablePredicate());
+    }
+
+    public static String getFirstReachableAddress(NodeMetadata node, Duration timeout, Predicate<HostAndPort> socketTester) {
         final int port = node.getLoginPort();
         List<HostAndPort> sockets = FluentIterable
                 .from(Iterables.concat(node.getPublicAddresses(), node.getPrivateAddresses()))
@@ -365,7 +370,7 @@ public class JcloudsUtil implements JcloudsLocationConfig {
         
         ListeningExecutorService executor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool());
         try {
-            ReachableSocketFinder finder = new ReachableSocketFinder(executor);
+            ReachableSocketFinder finder = new ReachableSocketFinder(socketTester, executor);
             HostAndPort result = finder.findOpenSocketOnNode(sockets, timeout);
             return result.getHostText();
         } catch (Exception e) {

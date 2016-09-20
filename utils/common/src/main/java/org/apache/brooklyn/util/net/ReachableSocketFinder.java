@@ -91,7 +91,7 @@ public class ReachableSocketFinder {
                 .backoffTo(Duration.FIVE_SECONDS)
                 .until(new Callable<Boolean>() {
                         public Boolean call() {
-                            Optional<HostAndPort> reachableSocket = tryReachable(sockets, Duration.seconds(2));
+                            Optional<HostAndPort> reachableSocket = tryReachable(sockets, Duration.FIVE_SECONDS);
                             if (reachableSocket.isPresent()) {
                                 result.compareAndSet(null, reachableSocket.get());
                                 return true;

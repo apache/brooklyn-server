@@ -28,6 +28,7 @@ import static org.jclouds.util.Throwables2.getFirstThrowableOfType;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.security.KeyPair;
@@ -2862,7 +2863,39 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         String result;
         if (enabled) {
             Duration timeout = "true".equals(pollForFirstReachable) ? Duration.FIVE_MINUTES : Duration.of(pollForFirstReachable);
-            result = JcloudsUtil.getFirstReachableAddress(node, timeout);
+
+            Predicate<HostAndPort> pollForFirstReachableHostAndPortPredicate;
+            if (setup.get(POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE) != null) {
+                LOG.debug("Using pollForFirstReachableAddress.predicate supplied from config for location " + this + " "
+                        + POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE.getName() + " : " + setup.get(POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE));
+                pollForFirstReachableHostAndPortPredicate = setup.get(POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE);
+            } else {
+                LOG.debug("Using pollForFirstReachableAddress.predicate.type supplied from config for location " + this + " " + POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE_TYPE.getName()
+                        + " : " + setup.get(POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE_TYPE));
+
+                Class<? extends Predicate<HostAndPort>> predicateType = setup.get(POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE_TYPE);
+
+                Map<String, Object> args = MutableMap.of();
+                ConfigUtils.addUnprefixedConfigKeyInConfigBack(POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE.getName() + ".", setup, args);
+                try {
+                    pollForFirstReachableHostAndPortPredicate = predicateType.getConstructor(Map.class).newInstance(args);
+                } catch (NoSuchMethodException|IllegalAccessException e) {
+                    try {
+                        pollForFirstReachableHostAndPortPredicate = predicateType.newInstance();
+                    } catch (IllegalAccessException|InstantiationException newInstanceException) {
+                        throw Exceptions.propagate("Instantiating " + predicateType + " failed.", newInstanceException);
+                    }
+                } catch (InvocationTargetException|InstantiationException e) {
+                    throw Exceptions.propagate("Problem trying to instantiate " + predicateType + " with Map constructor.", e);
+                }
+            }
+
+            try {
+                result = JcloudsUtil.getFirstReachableAddress(node, timeout, pollForFirstReachableHostAndPortPredicate);
+            } catch (Exception e) {
+                throw Exceptions.propagate("Problem instantiating reachability checker for " + this
+                        + " pollForFirstReachableHostAndPortPredicate: " + pollForFirstReachableHostAndPortPredicate, e);
+            }
             LOG.debug("Using first-reachable address "+result+" for node "+node+" in "+this);
         } else {
             result = Iterables.getFirst(Iterables.concat(node.getPublicAddresses(), node.getPrivateAddresses()), null);
