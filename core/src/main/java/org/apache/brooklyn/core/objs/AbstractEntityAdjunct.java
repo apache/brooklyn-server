@@ -42,6 +42,7 @@ import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigMap;
+import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.config.ConfigConstraints;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
@@ -423,7 +424,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
         this.entity = entity;
         this.execution = ((EntityInternal) entity).getExecutionContext();
         if (entity!=null && getCatalogItemId() == null) {
-            setCatalogItemId(entity.getCatalogItemId());
+            setCatalogItemIds(entity.getCatalogItemSuperIds());
         }
     }
     

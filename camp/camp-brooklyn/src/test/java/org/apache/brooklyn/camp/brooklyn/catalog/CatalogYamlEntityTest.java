@@ -43,6 +43,7 @@ import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
@@ -976,10 +977,13 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
                 "  - serviceType: "+ver(symbolicNameOuter);
 
         Entity app = createAndStartApplication(yaml);
+
         Entity entity = app.getChildren().iterator().next();
 
-        // Fails
-        assertEquals(entity.getCatalogItemId(), ver(symbolicNameInner));
+        assertEquals(entity.getCatalogItemId(), ver(symbolicNameOuter));
+        assertEquals(entity.getCatalogItemSuperIds().size(), 2);
+        assertEquals(entity.getCatalogItemSuperIds().get(0), ver(symbolicNameOuter));
+        assertEquals(entity.getCatalogItemSuperIds().get(1), ver(symbolicNameInner));
 
         deleteCatalogEntity(symbolicNameInner);
         deleteCatalogEntity(symbolicNameOuter);

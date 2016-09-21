@@ -116,7 +116,7 @@ class CampResolver {
             throw new IllegalStateException("Creating spec from "+item+", got "+spec.getType()+" which is incompatible with expected "+expectedType);                
         }
 
-        spec.catalogItemIdIfNotNull(item.getId());
+        spec.nestCatalogItemId(item.getId());
 
         if (spec instanceof EntitySpec) {
             String name = spec.getDisplayName();

@@ -258,8 +258,7 @@ public class EntityManagementUtils {
         if (!wrapperParent.getParameters().isEmpty())
             wrappedChild.parametersReplace(wrapperParent.getParameters());
 
-        // prefer the wrapper ID (change in 2016-01); see notes on the catalogItemIdIfNotNull method
-        wrappedChild.catalogItemIdIfNotNull(wrapperParent.getCatalogItemId());
+        wrappedChild.nestCatalogItemId(wrapperParent.getCatalogItemId());
 
         // NB: this clobber's child config wherever they conflict; might prefer to deeply merge maps etc
         // (or maybe even prevent the merge in these cases; 
