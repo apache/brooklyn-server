@@ -337,8 +337,13 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
                             }
                         } };
                     String description = getDescription();
-                    TaskBuilder<Object> tb = Tasks.<Object>builder().body(callable).displayName("Resolving dependent value").description(description);
+                    TaskBuilder<Object> tb = Tasks.<Object>builder()
+                            .body(callable)
+                            .displayName("Resolving dependent value")
+                            .description(description)
+                            .tagIfNotNull(BrooklynTaskTags.getTargetOrContextEntityTag(Tasks.current()));
                     if (isTransientTask) tb.tag(BrooklynTaskTags.TRANSIENT_TASK_TAG);
+                    
                     Task<Object> vt = exec.submit(tb.build());
                     // TODO to handle immediate resolution, it would be nice to be able to submit 
                     // so it executes in the current thread,

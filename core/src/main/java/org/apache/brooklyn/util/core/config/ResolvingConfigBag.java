@@ -31,6 +31,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 /**
  * As for {@link ConfigBag}, but resolves values that are of type {@link DeferredSupplier}.
@@ -82,7 +83,32 @@ public class ResolvingConfigBag extends ConfigBag {
         if (parentBag!=null)
             parentBag.markUsed(key);
     }
-    
+
+    // If copying from another {@link ResolvingConfigBag}, avoid resolving the config while doing 
+    // that copy.
+    @Override
+    protected ConfigBag copyWhileSynched(ConfigBag otherRaw) {
+        if (otherRaw instanceof ResolvingConfigBag) {
+            ResolvingConfigBag other = (ResolvingConfigBag) otherRaw;
+            if (isSealed()) 
+                throw new IllegalStateException("Cannot copy "+other+" to "+this+": this config bag has been sealed and is now immutable.");
+            putAll(other.getAllConfigUntransformed());
+            markAll(Sets.difference(other.getAllConfigUntransformed().keySet(), other.getUnusedConfigUntransformed().keySet()));
+            setDescription(other.getDescription());
+            return this;
+        } else {
+            return super.copyWhileSynched(otherRaw);
+        }
+    }
+
+    protected Map<String,Object> getAllConfigUntransformed() {
+        return super.getAllConfig();
+    }
+
+    protected Map<String,Object> getUnusedConfigUntransformed() {
+        return super.getUnusedConfig();
+    }
+
     @SuppressWarnings("unchecked")
     protected <T> T get(ConfigKey<T> key, boolean markUsed) {
         return (T) getTransformer().apply(super.get(key, markUsed));

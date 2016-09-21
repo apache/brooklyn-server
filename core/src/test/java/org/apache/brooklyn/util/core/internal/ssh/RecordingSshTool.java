@@ -180,6 +180,10 @@ public class RecordingSshTool implements SshTool {
         return execScriptCmds.get(execScriptCmds.size()-1);
     }
     
+    public static Map<?,?> getLastConstructorProps() {
+        return constructorProps.get(constructorProps.size()-1);
+    }
+    
     public RecordingSshTool(Map<?,?> props) {
         constructorProps.add(props);
     }
