@@ -20,6 +20,7 @@ package org.apache.brooklyn.config;
 
 import java.util.Iterator;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.config.ConfigInheritance.ConfigInheritanceContext;
@@ -116,28 +117,38 @@ public class ConfigInheritances {
     
     public static class BasicConfigValueAtContainer<TContainer,TValue> implements ConfigValueAtContainer<TContainer,TValue> {
         
-        TContainer container = null;
-        Maybe<? extends TValue> value = Maybe.absent();
+        @Nullable TContainer container = null;
+        @Nonnull Maybe<? extends TValue> value = Maybe.absent();
         boolean valueWasExplicitlySet = false;
-        ConfigKey<? extends TValue> key = null;
-        Maybe<TValue> defaultValue = null;
+        @Nullable ConfigKey<? extends TValue> key = null;
+        @Nullable Maybe<TValue> defaultValue = null;
         
         public BasicConfigValueAtContainer() {}
         public BasicConfigValueAtContainer(ConfigValueAtContainer<TContainer,TValue> toCopy) {
             this(toCopy.getContainer(), toCopy.getKey(), toCopy.asMaybe(), toCopy.isValueExplicitlySet(), toCopy.getDefaultValue());
         }
-        public BasicConfigValueAtContainer(TContainer container, ConfigKey<? extends TValue> key, Maybe<? extends TValue> value) {
+        public BasicConfigValueAtContainer(@Nullable TContainer container, @Nullable ConfigKey<? extends TValue> key, 
+            @Nullable Maybe<? extends TValue> value) {
             this(container, key, value, value.isPresent());
         }
-        public BasicConfigValueAtContainer(TContainer container, ConfigKey<? extends TValue> key, Maybe<? extends TValue> value, boolean isValueSet) {
+        public BasicConfigValueAtContainer(@Nullable TContainer container, @Nullable ConfigKey<? extends TValue> key, @Nullable Maybe<? extends TValue> value, boolean isValueSet) {
             this(container, key, value, isValueSet, null);
         }
-        public BasicConfigValueAtContainer(TContainer container, ConfigKey<? extends TValue> key, Maybe<? extends TValue> value, boolean isValueSet, Maybe<TValue> defaultValue) {
+        /** Creates an instance, configuring all parameters.
+         * 
+         * @param container May be null as per contract.
+         * @param key May be null as per contract.
+         * @param value Null means always to take {@link #getDefaultValue()}; if absent and isValueSet is false, it will also take {@link #getDefaultValue()}.
+         * @param isValueSet
+         * @param defaultValue Null means to take a default value from the key ({@link #getKey()}), otherwise this {@link Maybe} will be preferred to that value
+         * (even if absent).
+         */
+        public BasicConfigValueAtContainer(@Nullable TContainer container, @Nullable ConfigKey<? extends TValue> key, @Nullable Maybe<? extends TValue> value, boolean isValueSet, @Nullable Maybe<TValue> defaultValue) {
             this.container = container;
             this.key = key;
             this.valueWasExplicitlySet = isValueSet;
             this.defaultValue = defaultValue;
-            this.value = value!=null && (value.isPresent() || isValueSet || key==null || !key.hasDefaultValue()) ? value 
+            this.value = value!=null && (value.isPresent() || isValueSet || getDefaultValue().isPresent()) ? value 
                 : getDefaultValue();
         }
 
@@ -166,6 +177,10 @@ public class ConfigInheritances {
             return key!=null && key.hasDefaultValue() ? Maybe.ofAllowingNull((TValue) key.getDefaultValue()) : Maybe.<TValue>absent(); 
         }
         
+        @Override
+        public String toString() {
+            return super.toString()+"[key="+key+"; value="+value+"; container="+container+"]";
+        }
     }
     
     /** determine whether a key is reinheritable from the point in the given inheritance hierarchy where it is introduced;

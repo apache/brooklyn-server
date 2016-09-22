@@ -47,8 +47,7 @@ public class ConfigKeys {
 
     private static final Logger log = LoggerFactory.getLogger(ConfigKeys.class);
     
-    public enum InheritanceContext implements ConfigInheritanceContext
-    { TYPE_DEFINITION, RUNTIME_MANAGEMENT } 
+    public enum InheritanceContext implements ConfigInheritanceContext { TYPE_DEFINITION, RUNTIME_MANAGEMENT } 
 
     public static <T> ConfigKey<T> newConfigKey(Class<T> type, String name) {
         return new BasicConfigKey<T>(type, name);

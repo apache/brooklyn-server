@@ -98,6 +98,6 @@ public interface Configurable {
          */
         <T> T set(HasConfigKey<T> key, Task<T> val);
         
-        Set<ConfigKey<?>> findKeys(Predicate<ConfigKey<?>> predicate);
+        Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> predicate);
     }
 }

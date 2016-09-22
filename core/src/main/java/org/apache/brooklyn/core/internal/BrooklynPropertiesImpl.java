@@ -471,7 +471,7 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
     }
 
     @Override
-    public Set<ConfigKey<?>> findKeys(Predicate<ConfigKey<?>> filter) {
+    public Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> filter) {
         Set<ConfigKey<?>> result = new LinkedHashSet<ConfigKey<?>>();
         for (Object entry: entrySet()) {
             ConfigKey<?> k = new BasicConfigKey<Object>(Object.class, ""+((Map.Entry)entry).getKey());

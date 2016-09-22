@@ -407,7 +407,7 @@ public class FlagUtilsTest {
             }
 
             @Override
-            public Set<ConfigKey<?>> findKeys(Predicate<ConfigKey<?>> predicate) {
+            public Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> predicate) {
                 return MutableSet.copyOf(Iterables.filter(bag.getAllConfigAsConfigKeyMap().keySet(), predicate));
             }
         }

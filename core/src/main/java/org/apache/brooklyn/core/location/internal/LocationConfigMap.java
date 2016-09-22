@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.location.internal;
 
+import java.util.Collection;
 import java.util.Map;
 
 import javax.annotation.Nonnull;
@@ -92,6 +93,11 @@ public class LocationConfigMap extends AbstractConfigMapImpl<Location> {
 
     @Override @Nullable protected <T> ConfigKey<?> getKeyAtContainerImpl(@Nonnull Location container, ConfigKey<T> queryKey) {
         return ((AbstractLocation)container).getLocationTypeInternal().getConfigKey(queryKey.getName());
+    }
+    
+    @Override
+    protected Collection<ConfigKey<?>> getKeysAtContainer(Location container) {
+        return ((AbstractLocation)container).getLocationTypeInternal().getConfigKeys().values();
     }
     
 }

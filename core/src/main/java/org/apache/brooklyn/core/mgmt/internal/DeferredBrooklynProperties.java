@@ -131,7 +131,7 @@ public class DeferredBrooklynProperties implements BrooklynProperties {
         return getConfigRaw(key, true);
     }
     
-    @Override
+    @Override @Deprecated
     public Maybe<Object> getConfigRaw(ConfigKey<?> key, boolean includeInherited) {
         Maybe<Object> result = delegate.getConfigRaw(key, includeInherited);
         return (result.isPresent()) ? Maybe.of(transform(key, result.get())) : Maybe.absent();
@@ -203,7 +203,7 @@ public class DeferredBrooklynProperties implements BrooklynProperties {
         return new DeferredBrooklynProperties(submap, mgmt);
     }
     @Override
-    public Set<ConfigKey<?>> findKeys(Predicate<ConfigKey<?>> filter) {
+    public Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> filter) {
         return delegate.findKeys(filter);
     }
 

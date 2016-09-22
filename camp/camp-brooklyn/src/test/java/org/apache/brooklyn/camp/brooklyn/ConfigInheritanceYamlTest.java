@@ -20,8 +20,7 @@ package org.apache.brooklyn.camp.brooklyn;
 
 import static org.testng.Assert.assertEquals;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.io.File;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -38,6 +37,7 @@ import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
+import org.apache.brooklyn.util.os.Os;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
@@ -57,9 +57,9 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
     @SuppressWarnings("unused")
     private static final Logger LOG = LoggerFactory.getLogger(ConfigInheritanceYamlTest.class);
 
-    private Path emptyFile;
-    private Path emptyFile2;
-    private Path emptyFile3;
+    private File emptyFile;
+    private File emptyFile2;
+    private File emptyFile3;
     
     private ExecutorService executor;
 
@@ -70,9 +70,9 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
         
         executor = Executors.newCachedThreadPool();
         
-        emptyFile = Files.createTempFile("ConfigInheritanceYamlTest", ".txt");
-        emptyFile2 = Files.createTempFile("ConfigInheritanceYamlTest2", ".txt");
-        emptyFile3 = Files.createTempFile("ConfigInheritanceYamlTest3", ".txt");
+        emptyFile = Os.newTempFile("ConfigInheritanceYamlTest", ".txt");
+        emptyFile2 = Os.newTempFile("ConfigInheritanceYamlTest2", ".txt");
+        emptyFile3 = Os.newTempFile("ConfigInheritanceYamlTest3", ".txt");
         
         addCatalogItems(
                 "brooklyn.catalog:",
@@ -84,17 +84,17 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                 "      shell.env:",
                 "        ENV1: myEnv1",
                 "      templates.preinstall:",
-                "        "+emptyFile.toUri()+": myfile",
+                "        "+emptyFile.getAbsolutePath()+": myfile",
                 "      files.preinstall:",
-                "        "+emptyFile.toUri()+": myfile",
+                "        "+emptyFile.getAbsolutePath()+": myfile",
                 "      templates.install:",
-                "        "+emptyFile.toUri()+": myfile",
+                "        "+emptyFile.getAbsolutePath()+": myfile",
                 "      files.install:",
-                "        "+emptyFile.toUri()+": myfile",
+                "        "+emptyFile.getAbsolutePath()+": myfile",
                 "      templates.runtime:",
-                "        "+emptyFile.toUri()+": myfile",
+                "        "+emptyFile.getAbsolutePath()+": myfile",
                 "      files.runtime:",
-                "        "+emptyFile.toUri()+": myfile",
+                "        "+emptyFile.getAbsolutePath()+": myfile",
                 "      provisioning.properties:",
                 "        mykey: myval",
                 "        templateOptions:",
@@ -136,8 +136,9 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
     public void tearDown() throws Exception {
         super.tearDown();
         if (executor != null) executor.shutdownNow();
-        if (emptyFile != null) Files.deleteIfExists(emptyFile);
-        if (emptyFile2 != null) Files.deleteIfExists(emptyFile2);
+        if (emptyFile != null) emptyFile.delete();
+        if (emptyFile2 != null) emptyFile2.delete();
+        if (emptyFile3 != null) emptyFile3.delete();
     }
     
     @Test
@@ -153,7 +154,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
         assertEmptySoftwareProcessConfig(
                 entity,
                 ImmutableMap.of("ENV1", "myEnv1"),
-                ImmutableMap.of(emptyFile.toUri().toString(), "myfile"),
+                ImmutableMap.of(emptyFile.getAbsolutePath(), "myfile"),
                 ImmutableMap.of("mykey", "myval", "templateOptions", ImmutableMap.of("myOptionsKey", "myOptionsVal")));
     }
     
@@ -167,17 +168,17 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                 "    shell.env:",
                 "      ENV2: myEnv2",
                 "    templates.preinstall:",
-                "      "+emptyFile2.toUri()+": myfile2",
+                "      "+emptyFile2.getAbsolutePath()+": myfile2",
                 "    files.preinstall:",
-                "      "+emptyFile2.toUri()+": myfile2",
+                "      "+emptyFile2.getAbsolutePath()+": myfile2",
                 "    templates.install:",
-                "      "+emptyFile2.toUri()+": myfile2",
+                "      "+emptyFile2.getAbsolutePath()+": myfile2",
                 "    files.install:",
-                "      "+emptyFile2.toUri()+": myfile2",
+                "      "+emptyFile2.getAbsolutePath()+": myfile2",
                 "    templates.runtime:",
-                "      "+emptyFile2.toUri()+": myfile2",
+                "      "+emptyFile2.getAbsolutePath()+": myfile2",
                 "    files.runtime:",
-                "      "+emptyFile2.toUri()+": myfile2",
+                "      "+emptyFile2.getAbsolutePath()+": myfile2",
                 "    provisioning.properties:",
                 "      mykey2: myval2",
                 "      templateOptions:",
@@ -189,7 +190,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
         assertEmptySoftwareProcessConfig(
                 entity,
                 ImmutableMap.of("ENV1", "myEnv1", "ENV2", "myEnv2"),
-                ImmutableMap.of(emptyFile.toUri().toString(), "myfile", emptyFile2.toUri().toString(), "myfile2"),
+                ImmutableMap.of(emptyFile.getAbsolutePath(), "myfile", emptyFile2.getAbsolutePath(), "myfile2"),
                 ImmutableMap.of("mykey", "myval", "mykey2", "myval2", "templateOptions", 
                         ImmutableMap.of("myOptionsKey", "myOptionsVal", "myOptionsKey2", "myOptionsVal2")));
     }
@@ -323,23 +324,23 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                 "      ENV: myEnv",
                 "      ENV3: myEnv",
                 "    templates.preinstall:",
-                "      "+emptyFile.toUri()+": myfile",
-                "      "+emptyFile3.toUri()+": myfile",
+                "      "+emptyFile.getAbsolutePath()+": myfile",
+                "      "+emptyFile3.getAbsolutePath()+": myfile3",
                 "    files.preinstall:",
-                "      "+emptyFile.toUri()+": myfile",
-                "      "+emptyFile3.toUri()+": myfile",
+                "      "+emptyFile.getAbsolutePath()+": myfile",
+                "      "+emptyFile3.getAbsolutePath()+": myfile3",
                 "    templates.install:",
-                "      "+emptyFile.toUri()+": myfile",
-                "      "+emptyFile3.toUri()+": myfile",
+                "      "+emptyFile.getAbsolutePath()+": myfile",
+                "      "+emptyFile3.getAbsolutePath()+": myfile3",
                 "    files.install:",
-                "      "+emptyFile.toUri()+": myfile",
-                "      "+emptyFile3.toUri()+": myfile",
+                "      "+emptyFile.getAbsolutePath()+": myfile",
+                "      "+emptyFile3.getAbsolutePath()+": myfile3",
                 "    templates.runtime:",
-                "      "+emptyFile.toUri()+": myfile",
-                "      "+emptyFile3.toUri()+": myfile",
+                "      "+emptyFile.getAbsolutePath()+": myfile",
+                "      "+emptyFile3.getAbsolutePath()+": myfile3",
                 "    files.runtime:",
-                "      "+emptyFile.toUri()+": myfile",
-                "      "+emptyFile3.toUri()+": myfile",
+                "      "+emptyFile.getAbsolutePath()+": myfile",
+                "      "+emptyFile3.getAbsolutePath()+": myfile3",
                 "    provisioning.properties:",
                 "      mykey: myval",
                 "      mykey3: myval",
@@ -351,41 +352,41 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                 "    brooklyn.config:",
                 "      shell.env:",
                 "        ENV2: myEnv2",
-                "        ENV3: myEnv2",
+                "        ENV3: myEnv3",
                 "      templates.preinstall:",
-                "        "+emptyFile2.toUri()+": myfile2",
-                "        "+emptyFile3.toUri()+": myfile2",
+                "        "+emptyFile2.getAbsolutePath()+": myfile2",
+                "        "+emptyFile3.getAbsolutePath()+": myfile3",
                 "      files.preinstall:",
-                "        "+emptyFile2.toUri()+": myfile2",
-                "        "+emptyFile3.toUri()+": myfile2",
+                "        "+emptyFile2.getAbsolutePath()+": myfile2",
+                "        "+emptyFile3.getAbsolutePath()+": myfile3",
                 "      templates.install:",
-                "        "+emptyFile2.toUri()+": myfile2",
-                "        "+emptyFile3.toUri()+": myfile2",
+                "        "+emptyFile2.getAbsolutePath()+": myfile2",
+                "        "+emptyFile3.getAbsolutePath()+": myfile3",
                 "      files.install:",
-                "        "+emptyFile2.toUri()+": myfile2",
-                "        "+emptyFile3.toUri()+": myfile2",
+                "        "+emptyFile2.getAbsolutePath()+": myfile2",
+                "        "+emptyFile3.getAbsolutePath()+": myfile3",
                 "      templates.runtime:",
-                "        "+emptyFile2.toUri()+": myfile2",
-                "        "+emptyFile3.toUri()+": myfile2",
+                "        "+emptyFile2.getAbsolutePath()+": myfile2",
+                "        "+emptyFile3.getAbsolutePath()+": myfile3",
                 "      files.runtime:",
-                "        "+emptyFile2.toUri()+": myfile2",
-                "        "+emptyFile3.toUri()+": myfile2",
+                "        "+emptyFile2.getAbsolutePath()+": myfile2",
+                "        "+emptyFile3.getAbsolutePath()+": myfile3",
                 "      provisioning.properties:",
                 "        mykey2: myval2",
-                "        mykey3: myval2",
+                "        mykey3: myval3",
                 "        templateOptions:",
                 "          myOptionsKey2: myOptionsVal2",
-                "          myOptionsKey3: myOptionsVal2");
+                "          myOptionsKey3: myOptionsVal3");
         
         Entity app = createStartWaitAndLogApplication(yaml);
         Entity entity = Iterables.getOnlyElement(app.getChildren());
         
         assertEmptySoftwareProcessConfig(
                 entity,
-                ImmutableMap.of("ENV", "myEnv", "ENV2", "myEnv2", "ENV3", "myEnv2"),
-                ImmutableMap.of(emptyFile.toUri().toString(), "myfile", emptyFile2.toUri().toString(), "myfile2", emptyFile3.toUri().toString(), "myfile2"),
-                ImmutableMap.of("mykey", "myval", "mykey2", "myval2", "mykey3", "myval2", 
-                    "templateOptions", ImmutableMap.of("myOptionsKey", "myOptionsVal", "myOptionsKey2", "myOptionsVal2", "myOptionsKey3", "myOptionsVal2")));
+                ImmutableMap.of("ENV", "myEnv", "ENV2", "myEnv2", "ENV3", "myEnv3"),
+                ImmutableMap.of(emptyFile.getAbsolutePath(), "myfile", emptyFile2.getAbsolutePath(), "myfile2", emptyFile3.getAbsolutePath(), "myfile3"),
+                ImmutableMap.of("mykey", "myval", "mykey2", "myval2", "mykey3", "myval3", 
+                    "templateOptions", ImmutableMap.of("myOptionsKey", "myOptionsVal", "myOptionsKey2", "myOptionsVal2", "myOptionsKey3", "myOptionsVal3")));
     }
     
     @Test

@@ -54,6 +54,7 @@ public interface ConfigInheritance extends Serializable {
     /** @deprecated since 0.10.0 see implementations of this interface */ @Deprecated
     public static final ConfigInheritance DEEP_MERGE = new Legacy.Merged();
     
+    /** @deprecated since 0.10.0 more complex inheritance conditions now require other methods */
     @Deprecated
     InheritanceMode isInherited(ConfigKey<?> key, Object from, Object to);
 
@@ -65,7 +66,8 @@ public interface ConfigInheritance extends Serializable {
      * If there is a {@link ConfigInheritance} defined at this node,
      * this method must be called on that instance and that instance only.
      * In that case it is an error to invoke this method on any other {@link ConfigInheritance} instance. 
-     * If there is not one, the config generally should be considered reinheritable.
+     * If there is not one, the config generally should be considered reinheritable;
+     * callers will typically not invoke this method from a descendant inheritance context.
      * <p>
      * Consumers will typically find the methods in {@link ConfigInheritances} more convenient. */
     public <TContainer,TValue> boolean isReinheritable(

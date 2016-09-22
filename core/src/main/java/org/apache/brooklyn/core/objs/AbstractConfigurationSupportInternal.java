@@ -230,7 +230,7 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
     }
     
     @Override
-    public Set<ConfigKey<?>> findKeys(Predicate<ConfigKey<?>> filter) {
+    public Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> filter) {
         return getConfigsInternal().findKeys(filter);
     }
     

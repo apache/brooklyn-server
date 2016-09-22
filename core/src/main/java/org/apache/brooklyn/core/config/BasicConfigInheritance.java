@@ -20,6 +20,8 @@ package org.apache.brooklyn.core.config;
 
 import java.util.Map;
 
+import javax.annotation.Nullable;
+
 import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigInheritances;
 import org.apache.brooklyn.config.ConfigInheritances.BasicConfigValueAtContainer;
@@ -56,43 +58,47 @@ public class BasicConfigInheritance implements ConfigInheritance {
      * (and often the descendant's value will simply overwrite). */
     public static BasicConfigInheritance DEEP_MERGE = new BasicConfigInheritance(true,CONFLICT_RESOLUTION_STRATEGY_DEEP_MERGE,false);
     
-    // reinheritable? true/false; if false, children/descendants/inheritors will never see it; default true
+    /** reinheritable? true/false; if false, children/descendants/inheritors will never see it; default true */
     protected final boolean isReinherited;
-    // conflict-resolution-strategy? overwrite or deep_merge or null; default null meaning caller supplies
-    // (overriding resolveConflict)
-    protected final String conflictResolutionStrategy;
-    // use-local-default-value? true/false; if true, overwrite above means "always ignore (even if null)"; default false
-    // whereas merge means "use local default (if non-null)"
+    /** conflict-resolution-strategy? in {@link BasicConfigInheritance} supported values are
+     * {@link #CONFLICT_RESOLUTION_STRATEGY_DEEP_MERGE} and {@link #CONFLICT_RESOLUTION_STRATEGY_OVERWRITE}.
+     * subclasses may pass null if they provide a custom implementaton of {@link #resolveWithParentCustomStrategy(ConfigValueAtContainer, ConfigValueAtContainer, org.apache.brooklyn.config.ConfigInheritance.ConfigInheritanceContext)} */
+    @Nullable protected final String conflictResolutionStrategy;
+    /** use-local-default-value? true/false; if true, overwrite above means "always ignore (even if null)"; default false
+     * whereas merge means "use local default (if non-null)" */
     protected final boolean useLocalDefaultValue;
 
-    protected BasicConfigInheritance(boolean isReinherited, String conflictResolutionStrategy, boolean useLocalDefaultValue) {
+    protected BasicConfigInheritance(boolean isReinherited, @Nullable String conflictResolutionStrategy, boolean useLocalDefaultValue) {
         super();
         this.isReinherited = isReinherited;
         this.conflictResolutionStrategy = conflictResolutionStrategy;
         this.useLocalDefaultValue = useLocalDefaultValue;
     }
 
-    @SuppressWarnings("deprecation")
-    @Override
+    @Override @Deprecated
     public InheritanceMode isInherited(ConfigKey<?> key, Object from, Object to) {
         return null;
     }
     
+    protected <TContainer, TValue> void checkInheritanceContext(ConfigValueAtContainer<TContainer, TValue> local, ConfigInheritanceContext context) {
+        ConfigInheritance rightInheritance = ConfigInheritances.findInheritance(local, context, this);
+        if (!equals(rightInheritance)) 
+            throw new IllegalStateException("Low level inheritance computation error: caller should invoke on "+rightInheritance+" "
+                + "(the inheritance at "+local+"), not "+this);
+    }
 
     @Override
     public <TContainer, TValue> boolean isReinheritable(ConfigValueAtContainer<TContainer, TValue> parent, ConfigInheritanceContext context) {
-        if (!equals(ConfigInheritances.findInheritance(parent, context, this))) 
-            throw new IllegalStateException("Method can only be invoked on inheritance at "+parent);
+        checkInheritanceContext(parent, context);
         return isReinherited();
     }
-    
+
     @Override
     public <TContainer,TValue> boolean considerParent(
             ConfigValueAtContainer<TContainer,TValue> local,
             ConfigValueAtContainer<TContainer,TValue> parent,
             ConfigInheritanceContext context) {
-        if (!equals(ConfigInheritances.findInheritance(local, context, this))) 
-            throw new IllegalStateException("Method can only be invoked on inheritance at "+local);
+        checkInheritanceContext(local, context);
         if (parent==null) return false;
         if (CONFLICT_RESOLUTION_STRATEGY_OVERWRITE.equals(conflictResolutionStrategy)) {
             // overwrite means ignore if there's an explicit value, or we're using the local default
@@ -107,6 +113,8 @@ public class BasicConfigInheritance implements ConfigInheritance {
             ConfigValueAtContainer<TContainer,TValue> parent,
             ConfigInheritanceContext context) {
         
+        checkInheritanceContext(local, context);
+        
         if (!parent.isValueExplicitlySet() && !getUseLocalDefaultValue()) 
             return ReferenceWithError.newInstanceWithoutError(new BasicConfigValueAtContainer<TContainer,TValue>(local));
         
@@ -115,12 +123,13 @@ public class BasicConfigInheritance implements ConfigInheritance {
         if (!local.isValueExplicitlySet() && !getUseLocalDefaultValue())
             return ReferenceWithError.newInstanceWithoutError(new BasicConfigValueAtContainer<TContainer,TValue>(parent));
 
-        // both explicitly set or defaults applicable, and not overwriting; it should be merge
+        // both explicitly set or defaults applicable, and not overwriting; it should be merge, or something from child
+        
         if (CONFLICT_RESOLUTION_STRATEGY_DEEP_MERGE.equals(conflictResolutionStrategy)) {
             BasicConfigValueAtContainer<TContainer, TValue> result = new BasicConfigValueAtContainer<TContainer,TValue>(local);
             ReferenceWithError<Maybe<? extends TValue>> resolvedValue = deepMerge(
                 local.isValueExplicitlySet() ? local.asMaybe() : local.getDefaultValue(), 
-                parent.isValueExplicitlySet() ? parent.asMaybe() : parent.getDefaultValue());
+                    parent.isValueExplicitlySet() ? parent.asMaybe() : parent.getDefaultValue());
             result.setValue(resolvedValue.getWithoutError());
             return ReferenceWithError.newInstanceThrowingError(result, resolvedValue.getError());
         }
@@ -128,6 +137,8 @@ public class BasicConfigInheritance implements ConfigInheritance {
         return resolveWithParentCustomStrategy(local, parent, context);
     }
     
+    /** Provided for subclasses to override.  Invoked by {@link #resolveWithParent(ConfigValueAtContainer, ConfigValueAtContainer, org.apache.brooklyn.config.ConfigInheritance.ConfigInheritanceContext)}
+     * if there is a value for the parent and the child. Default implementation throws {@link IllegalStateException}. */
     protected <TContainer, TValue> ReferenceWithError<ConfigValueAtContainer<TContainer, TValue>> resolveWithParentCustomStrategy(
             ConfigValueAtContainer<TContainer, TValue> local, ConfigValueAtContainer<TContainer, TValue> parent,
             ConfigInheritanceContext context) {
@@ -162,5 +173,9 @@ public class BasicConfigInheritance implements ConfigInheritance {
     public boolean getUseLocalDefaultValue() {
         return useLocalDefaultValue;
     }
-    
+
+    @Override
+    public String toString() {
+        return super.toString()+"[reinherit="+isReinherited()+"; strategy="+getConflictResolutionStrategy()+"; useLocal="+getUseLocalDefaultValue()+"]";
+    }
 }

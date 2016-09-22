@@ -311,11 +311,13 @@ public interface BrooklynProperties extends Map, StringConfigMap {
 
     public Maybe<Object> getConfigRaw(ConfigKey<?> key);
 
-    /** Inheritance is ignored here. Preferable to use {@link #getConfigRaw(ConfigKey)}. */
+    /** Inheritance is ignored here. Preferable to use {@link #getConfigRaw(ConfigKey)}. 
+     * @deprecated since 0.10.0 the second parameter is ignored for {@link BrooklynProperties}; use {@link #getConfigLocalRaw(ConfigKey)}. */
+    @Deprecated // and confirmed no usages apart from internal
     @Override
     public Maybe<Object> getConfigRaw(ConfigKey<?> key, boolean includeInherited);
 
-    @Override
+    @Override @Deprecated
     public Map<ConfigKey<?>, Object> getAllConfig();
 
     @Override

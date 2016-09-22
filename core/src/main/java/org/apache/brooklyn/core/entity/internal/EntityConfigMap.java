@@ -21,14 +21,17 @@ package org.apache.brooklyn.core.entity.internal;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal.ConfigurationSupportInternal;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
@@ -101,6 +104,11 @@ public class EntityConfigMap extends AbstractConfigMapImpl<Entity> {
     @Override
     protected <T> ConfigKey<?> getKeyAtContainerImpl(Entity container, ConfigKey<T> queryKey) {
         return container.getEntityType().getConfigKey(queryKey.getName());
+    }
+
+    @Override
+    protected Set<ConfigKey<?>> getKeysAtContainer(Entity container) {
+        return container.getEntityType().getConfigKeys();
     }
 
     @Override @Deprecated

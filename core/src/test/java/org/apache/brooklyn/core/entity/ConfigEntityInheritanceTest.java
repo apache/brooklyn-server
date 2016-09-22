@@ -18,9 +18,14 @@
  */
 package org.apache.brooklyn.core.entity;
 
+import java.util.List;
+import java.util.Map;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.config.ConfigMap.ConfigMapWithInheritance;
+import org.apache.brooklyn.config.ConfigValueAtContainer;
 import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityConfigTest.MyOtherEntity;
@@ -28,8 +33,13 @@ import org.apache.brooklyn.core.entity.EntityConfigTest.MyOtherEntityImpl;
 import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensorAndConfigKey.IntegerAttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.testng.Assert;
 import org.testng.annotations.Test;
+
+import com.google.common.collect.Iterables;
 
 public class ConfigEntityInheritanceTest extends BrooklynAppUnitTestSupport {
 
@@ -144,14 +154,23 @@ public class ConfigEntityInheritanceTest extends BrooklynAppUnitTestSupport {
     }
 
     // --------------------
+    
+    @Override
+    protected Boolean shouldSkipOnBoxBaseDirResolution() {
+        return null;  //because it adds extra config we do not want to test for
+    }
 
-    @Test
-    public void testConfigKeysInheritance() throws Exception {
+    protected Entity setupBasicInheritanceTest() {
         app.config().set(MyEntityWithPartiallyHeritableConfig.HERITABLE_BY_DEFAULT, "heritable");
         app.config().set(MyEntityWithPartiallyHeritableConfig.ALWAYS_HERITABLE, "always_heritable");
         app.config().set(MyEntityWithPartiallyHeritableConfig.NEVER_INHERIT, "uninheritable");
         app.config().set(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE, "maybe");
-        Entity child = app.addChild(EntitySpec.create(MyEntityWithPartiallyHeritableConfig.class));
+        return app.addChild(EntitySpec.create(MyEntityWithPartiallyHeritableConfig.class));
+    }
+    
+    @Test
+    public void testConfigKeysInheritance() throws Exception {
+        Entity child = setupBasicInheritanceTest();
         
         Assert.assertNotNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.HERITABLE_BY_DEFAULT));
         Assert.assertNotNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.ALWAYS_HERITABLE));
@@ -161,6 +180,50 @@ public class ConfigEntityInheritanceTest extends BrooklynAppUnitTestSupport {
         Assert.assertNotNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE));
         app.getMutableEntityType().addConfigKey(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE);
         Assert.assertNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE));
+    }
+    
+    @SuppressWarnings("unchecked")
+    @Test
+    public void testConfigKeysAllInheritanceMethods() throws Exception {
+        Entity child = setupBasicInheritanceTest();
+        
+        Assert.assertEquals( ((EntityInternal)child).config().getInternalConfigMap().getAllConfigLocalRaw(), MutableMap.of() );
+        
+        Assert.assertEquals( ((EntityInternal)child).config().getInternalConfigMap().getAllConfigInheritedRawValuesIgnoringErrors(), 
+            MutableMap.of().add(MyEntityWithPartiallyHeritableConfig.HERITABLE_BY_DEFAULT, "heritable")
+                .add(MyEntityWithPartiallyHeritableConfig.ALWAYS_HERITABLE, "always_heritable")
+                .add(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE, "maybe") );
+        
+        Map<ConfigKey<?>, ?> rawReinherit = ((EntityInternal)child).config().getInternalConfigMap().getAllReinheritableConfigRaw();
+        Assert.assertEquals(rawReinherit.keySet(), MutableSet.of(
+            MyEntityWithPartiallyHeritableConfig.HERITABLE_BY_DEFAULT,
+            MyEntityWithPartiallyHeritableConfig.ALWAYS_HERITABLE));
+
+        
+        // check the hierarchical list of values is correct
+        
+        List<ConfigValueAtContainer<Entity, ?>> rawHierarchy = ((ConfigMapWithInheritance<Entity>)((EntityInternal)child).config().getInternalConfigMap()).
+            getConfigAllInheritedRaw(MyEntityWithPartiallyHeritableConfig.ALWAYS_HERITABLE);
+        Assert.assertEquals(rawHierarchy.size(), 1);
+        Assert.assertEquals(Iterables.getOnlyElement(rawHierarchy).getContainer(), app);
+        
+        rawHierarchy = ((ConfigMapWithInheritance<Entity>)((EntityInternal)child).config().getInternalConfigMap()).
+            getConfigAllInheritedRaw(MyEntityWithPartiallyHeritableConfig.NEVER_INHERIT);
+        Assert.assertEquals(rawHierarchy, MutableList.of());
+        
+        
+        // and try with and without NOT_RE declared at the app
+        
+        rawHierarchy = ((ConfigMapWithInheritance<Entity>)((EntityInternal)child).config().getInternalConfigMap()).
+            getConfigAllInheritedRaw(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE);
+        Assert.assertEquals(rawHierarchy.size(), 1);
+        Assert.assertEquals(Iterables.getOnlyElement(rawHierarchy).getContainer(), app);
+        
+        app.getMutableEntityType().addConfigKey(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE);
+        
+        rawHierarchy = ((ConfigMapWithInheritance<Entity>)((EntityInternal)child).config().getInternalConfigMap()).
+            getConfigAllInheritedRaw(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE);
+        Assert.assertEquals(rawHierarchy, MutableList.of());
     }
     
     public static class MyEntityWithPartiallyHeritableConfig extends AbstractEntity {

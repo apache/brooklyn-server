@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.objs;
 
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
@@ -90,6 +91,11 @@ public class AdjunctConfigMap extends AbstractConfigMapImpl<EntityAdjunct> {
     @Override
     protected <T> ConfigKey<?> getKeyAtContainerImpl(EntityAdjunct container, ConfigKey<T> queryKey) {
         return ((AbstractEntityAdjunct)container).getAdjunctType().getConfigKey(queryKey.getName());
+    }
+    
+    @Override
+    protected Set<ConfigKey<?>> getKeysAtContainer(EntityAdjunct container) {
+        return ((AbstractEntityAdjunct)container).getAdjunctType().getConfigKeys();
     }
 
 }

@@ -81,7 +81,7 @@ public interface ConfigMap {
     public ConfigMap submap(Predicate<ConfigKey<?>> filter);
     
     /** returns all keys matching the given filter predicate; see ConfigPredicates for common predicates */
-    public Set<ConfigKey<?>> findKeys(Predicate<ConfigKey<?>> filter);
+    public Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> filter);
 
     /** returns a read-only map view which has string keys (corresponding to the config key names);
      * callers encouraged to use the typed keys (and so not use this method),

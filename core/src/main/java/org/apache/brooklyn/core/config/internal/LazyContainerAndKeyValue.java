@@ -18,27 +18,30 @@
  */
 package org.apache.brooklyn.core.config.internal;
 
+import javax.annotation.Nullable;
+
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigValueAtContainer;
 import org.apache.brooklyn.util.guava.Maybe;
 
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 
 public class LazyContainerAndKeyValue<TContainer,TValue> implements ConfigValueAtContainer<TContainer,TValue> {
     
-    private final TContainer container;
-    private final ConfigKey<TValue> key;
+    @Nullable private final TContainer container;
+    @Nullable private final ConfigKey<TValue> key;
     private final Function<TContainer,Maybe<Object>> lookupResolutionFunction;
     private final Function<Maybe<Object>,Maybe<TValue>> conversionFunction;
     private Maybe<TValue> resolved;
     
-    public LazyContainerAndKeyValue(ConfigKey<TValue> key, TContainer container, 
+    public LazyContainerAndKeyValue(@Nullable ConfigKey<TValue> key, @Nullable TContainer container, 
             Function<TContainer, Maybe<Object>> lookupResolutionFunction,
             Function<Maybe<Object>, Maybe<TValue>> conversionFunction) {
         this.key = key;
         this.container = container;
-        this.lookupResolutionFunction = lookupResolutionFunction;
-        this.conversionFunction = conversionFunction;
+        this.lookupResolutionFunction = Preconditions.checkNotNull(lookupResolutionFunction);
+        this.conversionFunction = Preconditions.checkNotNull(conversionFunction);
     }
 
     protected synchronized Maybe<TValue> resolve() {
@@ -81,4 +84,10 @@ public class LazyContainerAndKeyValue<TContainer,TValue> implements ConfigValueA
         if (key==null || !key.hasDefaultValue()) return Maybe.absent();
         return conversionFunction.apply(Maybe.of((Object)key.getDefaultValue()));
     }
+    
+    @Override
+    public String toString() {
+        return super.toString()+"[key="+key+"; container="+container+"]";
+    }
+
 }

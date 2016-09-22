@@ -123,7 +123,7 @@ public class BasicConfigurableObject implements Configurable, Identifiable, Mana
         }
         
         @Override
-        public Set<ConfigKey<?>> findKeys(Predicate<ConfigKey<?>> predicate) {
+        public Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> predicate) {
             return MutableSet.copyOf(Iterables.filter(config.getAllConfigAsConfigKeyMap().keySet(), predicate));
         }
     }
