@@ -81,12 +81,14 @@ public class RebindJmxFeedTest extends RebindTestFixtureWithApp {
         super.tearDown();
     }
 
-    @Test
+    // Integration because the expected port might not be available
+    @Test(groups="Integration")
     public void testJmxFeedIsPersisted() throws Exception {
         runJmxFeedIsPersisted(false);
     }
 
-    @Test
+    // Integration because the expected port might not be available
+    @Test(groups="Integration")
     public void testJmxFeedIsPersistedWithPreCreatedJmxHelper() throws Exception {
         runJmxFeedIsPersisted(true);
     }

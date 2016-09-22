@@ -75,7 +75,7 @@ public class JmxHelperTest {
     public void setUp() throws Exception {
         jmxObjectName = new ObjectName(objectName);
         jmxObjectNameWithWildcard = new ObjectName(objectNameWithWildcard);
-        jmxService = newJmxServiceRetrying(LOCALHOST_NAME, 5);
+        jmxService = JmxService.newJmxServiceRetrying(LOCALHOST_NAME, 5);
         jmxHelper = new JmxHelper(jmxService.getUrl());
         jmxHelper.setMinTimeBetweenReconnectAttempts(0);
         jmxHelper.connect(TIMEOUT_MS);
@@ -169,7 +169,9 @@ public class JmxHelperTest {
         assertEquals(jmxHelper.operation(objectName, opName, opParam1), opReturnPrefix+opParam1);
     }
 
-    @Test
+    // Integration because another process could take the port in between us stopping jmxService 
+    // and starting it again. 
+    @Test(groups="Integration")
     public void testReconnectsOnJmxServerTemporaryFailure() throws Exception {
         int port = jmxService.getJmxPort();
         GeneralisedDynamicMBean mbean = jmxService.registerMBean(MutableMap.of("myattr", "myval"), objectName);
@@ -271,7 +273,7 @@ public class JmxHelperTest {
         jmxService.shutdown();
         jmxHelper.disconnect();
         
-        jmxService = newJmxServiceRetrying(LOCALHOST_NAME, 5);
+        jmxService = JmxService.newJmxServiceRetrying(LOCALHOST_NAME, 5);
         jmxHelper = new JmxHelper(jmxService.getUrl());
         jmxHelper.connect();
         
@@ -280,19 +282,6 @@ public class JmxHelperTest {
         for (int i = 0; i < 10; i++) {
             jmxHelper.findMBean(wrongObjectName);
         }
-    }
-
-    private JmxService newJmxServiceRetrying(String host, int retries) throws Exception {
-        Exception lastexception = null;
-        for (int i = 0; i < retries; i++) {
-            try {
-                return new JmxService(host, (int)(11000+(500*Math.random())));
-            } catch (Exception e) {
-                log.debug("Unable to create JMX service during test - "+retries+" retries remaining");
-                lastexception = e;
-            }
-        }
-        throw lastexception;
     }
 
     private Notification sendNotification(StandardEmitterMBean mbean, String type, long seq, Object userData) {

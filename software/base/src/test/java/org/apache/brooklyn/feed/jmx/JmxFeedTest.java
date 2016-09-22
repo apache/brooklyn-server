@@ -157,7 +157,8 @@ public class JmxFeedTest {
         feed = null;
     }
 
-    @Test
+    // Integration because the expected port might not be available
+    @Test(groups="Integration")
     public void testJmxAttributePollerReturnsMBeanAttribute() throws Exception {
         GeneralisedDynamicMBean mbean = jmxService.registerMBean(ImmutableMap.of(attributeName, 42), objectName);
 
@@ -177,7 +178,8 @@ public class JmxFeedTest {
         assertSensorEventually(intAttribute, 64, TIMEOUT_MS);
     }
 
-    @Test
+    // Integration because the expected port might not be available
+    @Test(groups="Integration")
     public void testJmxAttributeSensor() throws Exception {
         GeneralisedDynamicMBean mbean = jmxService.registerMBean(ImmutableMap.of(attributeName, 42), objectName);
 
@@ -203,7 +205,8 @@ public class JmxFeedTest {
         assertSensorEventually(sensor, 64, TIMEOUT_MS);
     }
 
-    @Test
+    // Integration because the expected port might not be available
+    @Test(groups="Integration")
     public void testJmxAttributeOfTypeTabularDataProviderConvertedToMap() throws Exception {
         // Create the CompositeType and TabularData
         CompositeType compositeType = new CompositeType(
@@ -244,7 +247,8 @@ public class JmxFeedTest {
                 TIMEOUT_MS);
     }
 
-    @Test
+    // Integration because the expected port might not be available
+    @Test(groups="Integration")
     public void testJmxOperationPolledForSensor() throws Exception {
         // This is awful syntax...
         final int opReturnVal = 123;
@@ -272,7 +276,8 @@ public class JmxFeedTest {
             }});
     }
 
-    @Test
+    // Integration because the expected port might not be available
+    @Test(groups="Integration")
     public void testJmxOperationWithArgPolledForSensor() throws Exception {
         // This is awful syntax...
         MBeanParameterInfo paramInfo = new MBeanParameterInfo("param1", String.class.getName(), "my param1");
@@ -297,7 +302,8 @@ public class JmxFeedTest {
         assertSensorEventually(stringAttribute, "myprefix"+"suffix", TIMEOUT_MS);
     }
 
-    @Test
+    // Integration because the expected port might not be available
+    @Test(groups="Integration")
     public void testJmxNotificationSubscriptionForSensor() throws Exception {
         final String one = "notification.one", two = "notification.two";
         final StandardEmitterMBean mbean = jmxService.registerMBean(ImmutableList.of(one, two), objectName);
@@ -327,7 +333,8 @@ public class JmxFeedTest {
             }});
     }
     
-    @Test
+    // Integration because the expected port might not be available
+    @Test(groups="Integration")
     public void testJmxNotificationSubscriptionForSensorParsingNotification() throws Exception {
         final String one = "notification.one", two = "notification.two";
         final StandardEmitterMBean mbean = jmxService.registerMBean(ImmutableList.of(one, two), objectName);
@@ -355,7 +362,8 @@ public class JmxFeedTest {
             }});
     }
 
-    @Test
+    // Integration because the expected port might not be available
+    @Test(groups="Integration")
     public void testJmxNotificationMultipleSubscriptionUsingListener() throws Exception {
         final String one = "notification.one";
         final String two = "notification.two";
@@ -383,7 +391,8 @@ public class JmxFeedTest {
     }
 
     // Test reproduces functionality used in Monterey, for Venue entity being told of requestActor
-    @Test
+    // Integration because the expected port might not be available
+    @Test(groups="Integration")
     public void testSubscribeToJmxNotificationAndEmitCorrespondingNotificationSensor() throws Exception {
         TestApplication app2 = new TestApplicationImpl();
         final EntityWithEmitter entity = new EntityWithEmitter(app2);

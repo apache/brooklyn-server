@@ -21,6 +21,7 @@ package org.apache.brooklyn.entity.software.base.test.jmx;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 
 import javax.management.InstanceAlreadyExistsException;
 import javax.management.MBeanNotificationInfo;
@@ -43,7 +44,9 @@ import mx4j.tools.naming.NamingService;
 import mx4j.tools.naming.NamingServiceMBean;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.entity.java.UsesJmx;
 import org.apache.brooklyn.feed.jmx.JmxHelper;
 import org.apache.brooklyn.test.NetworkingTestUtils;
@@ -52,6 +55,8 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 
 /**
  * Set up a JMX service ready for clients to connect. This consists of an MBean server, a connector server and a naming
@@ -59,6 +64,32 @@ import com.google.common.collect.ImmutableMap;
  */
 public class JmxService {
     private static final Logger logger = LoggerFactory.getLogger(JmxService.class);
+
+    public static JmxService newJmxServiceRetrying(String host, int retries) throws Exception {
+        List<Integer> portsToTry = Lists.newArrayList();
+        for (int i = 0; i < retries; i++) {
+            portsToTry.add((int)(11000+(5000*Math.random())));
+        }
+        return JmxService.newJmxServiceRetrying(host, PortRanges.fromIterable(portsToTry));
+    }
+    
+    public static JmxService newJmxServiceRetrying(String host, PortRange portRange) throws Exception {
+        int size = Iterables.size(portRange);
+        int attempt = 0;
+        Exception lastException = null;
+        for (int port : portRange) {
+            attempt++;
+            try {
+                return new JmxService(host, port);
+            } catch (Exception e) {
+                logger.debug("Unable to create JMX service during test using port "+port+" (attempt "+attempt+" of "+size+")");
+                lastException = e;
+            }
+        }
+        if (lastException == null) throw new NoSuchElementException("No ports in range "+portRange);
+        throw lastException;
+    }
+
 
     private MBeanServer server;
     private NamingServiceMBean namingServiceMBean;
