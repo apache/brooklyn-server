@@ -18,15 +18,19 @@
 */
 package org.apache.brooklyn.util.core.internal.winrm;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.apache.brooklyn.util.stream.Streams;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 /**
  * For stubbing out the {@link WinRmTool}, so that no real winrm commands are executed.
@@ -60,13 +64,51 @@ public class RecordingWinRmTool implements WinRmTool {
         }
     }
 
+    public interface CustomResponseGenerator {
+        public CustomResponse generate(ExecParams execParams);
+    }
+
+    public static class CustomResponse {
+        public final int exitCode;
+        public final String stdout;
+        public final String stderr;
+        
+        public CustomResponse(int exitCode, String stdout, String stderr) {
+            this.exitCode = exitCode;
+            this.stdout = stdout;
+            this.stderr = stderr;
+        }
+        
+        @Override
+        public String toString() {
+            return "CustomResponse["+exitCode+"; "+stdout+"; "+stderr+"]";
+        }
+        
+        public CustomResponseGenerator toGenerator() {
+            return new CustomResponseGenerator() {
+                @Override public CustomResponse generate(ExecParams execParams) {
+                    return CustomResponse.this;
+                }
+            };
+        }
+    }
     
     public static List<ExecParams> execs = Lists.newCopyOnWriteArrayList();
     public static List<Map<?,?>> constructorProps = Lists.newCopyOnWriteArrayList();
+    public static Map<String, CustomResponseGenerator> customResponses = Maps.newConcurrentMap();
     
     public static void clear() {
         execs.clear();
         constructorProps.clear();
+        customResponses.clear();
+    }
+    
+    public static void setCustomResponse(String cmdRegex, CustomResponseGenerator response) {
+        customResponses.put(cmdRegex, checkNotNull(response, "response"));
+    }
+    
+    public static void setCustomResponse(String cmdRegex, CustomResponse response) {
+        customResponses.put(cmdRegex, checkNotNull(response, "response").toGenerator());
     }
     
     public static List<ExecParams> getExecs() {
@@ -83,14 +125,16 @@ public class RecordingWinRmTool implements WinRmTool {
     
     @Override
     public WinRmToolResponse executeCommand(List<String> commands) {
-        execs.add(new ExecParams(ExecType.COMMAND, commands));
-        return new WinRmToolResponse("", "", 0);
+        ExecParams execParams = new ExecParams(ExecType.COMMAND, commands);
+        execs.add(execParams);
+        return generateResponse(execParams);
     }
 
     @Override
     public WinRmToolResponse executePs(List<String> commands) {
-        execs.add(new ExecParams(ExecType.POWER_SHELL, commands));
-        return new WinRmToolResponse("", "", 0);
+        ExecParams execParams = new ExecParams(ExecType.POWER_SHELL, commands);
+        execs.add(execParams);
+        return generateResponse(execParams);
     }
 
     @Override
@@ -103,5 +147,18 @@ public class RecordingWinRmTool implements WinRmTool {
     @Deprecated
     public WinRmToolResponse executeScript(List<String> commands) {
         throw new UnsupportedOperationException();
+    }
+    
+    protected WinRmToolResponse generateResponse(ExecParams execParams) {
+        for (String cmd : execParams.commands) {
+            for (Entry<String, CustomResponseGenerator> entry : customResponses.entrySet()) {
+                if (cmd.matches(entry.getKey())) {
+                    CustomResponseGenerator responseGenerator = entry.getValue();
+                    CustomResponse response = responseGenerator.generate(execParams);
+                    return new WinRmToolResponse(response.stdout, response.stderr, response.exitCode);
+                }
+            }
+        }
+        return new WinRmToolResponse("", "", 0);
     }
 }
