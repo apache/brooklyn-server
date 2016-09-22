@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.Map;
 
 import org.apache.brooklyn.config.ConfigInheritance;
+import org.apache.brooklyn.config.ConfigInheritance.ConfigInheritanceContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.Jsonya;
@@ -71,6 +72,8 @@ public class TopLevelConfigKeysTests {
         @Override public ConfigInheritance getInheritance() { return null; }
         @Override public Predicate<? super T> getConstraint() { return null; }
         @Override public boolean isValueValid(T value) { return true; }
+        @Override public ConfigInheritance getInheritanceByContext(ConfigInheritanceContext context) { return null; }
+        @Override public Map<ConfigInheritanceContext, ConfigInheritance> getInheritanceByContext() { return MutableMap.of(); }
     }
     
     static class S1 {
