@@ -66,9 +66,24 @@ public class LocalUsageManagerTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testAddUsageListenerInstance() throws Exception {
         BrooklynProperties brooklynProperties = BrooklynProperties.Factory.newEmpty();
+        brooklynProperties.put(UsageManager.USAGE_LISTENERS, ImmutableList.of(new RecordingStaticUsageListener()));
+        mgmt = LocalManagementContextForTests.newInstance(brooklynProperties);
+        assertUsageListenerCalledWhenApplicationStarted();
+    }
+
+    @Test
+    public void testAddUsageListenerViaProperties() throws Exception {
+        BrooklynProperties brooklynProperties = BrooklynProperties.Factory.newEmpty();
         brooklynProperties.put(UsageManager.USAGE_LISTENERS, RecordingStaticUsageListener.class.getName());
         mgmt = LocalManagementContextForTests.newInstance(brooklynProperties);
         assertUsageListenerCalledWhenApplicationStarted();
+    }
+
+    @Test(expectedExceptions = ClassCastException.class)
+    public void testErrorWhenConfiguredClassIsNotAUsageListener() {
+        BrooklynProperties brooklynProperties = BrooklynProperties.Factory.newEmpty();
+        brooklynProperties.put(UsageManager.USAGE_LISTENERS, Integer.class.getName());
+        mgmt = LocalManagementContextForTests.newInstance(brooklynProperties);
     }
 
     private void assertUsageListenerCalledWhenApplicationStarted() {
