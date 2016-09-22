@@ -393,7 +393,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
         synchronized (setFromCLMMutex) {
             if (setFromCatalogLoadMode) return;
             setFromCatalogLoadMode = true;
-            Maybe<Object> clmm = ((ManagementContextInternal)managementContext).getConfig().getConfigRaw(BrooklynServerConfig.CATALOG_LOAD_MODE, false);
+            Maybe<Object> clmm = ((ManagementContextInternal)managementContext).getConfig().getConfigLocalRaw(BrooklynServerConfig.CATALOG_LOAD_MODE);
             if (clmm.isAbsent()) return;
             org.apache.brooklyn.core.catalog.CatalogLoadMode clm = TypeCoercions.coerce(clmm.get(), org.apache.brooklyn.core.catalog.CatalogLoadMode.class);
             log.warn("Legacy CatalogLoadMode "+clm+" set: applying, but this should be changed to use new CLI --catalogXxx commands");

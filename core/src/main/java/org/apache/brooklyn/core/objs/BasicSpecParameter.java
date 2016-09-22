@@ -248,7 +248,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
                 .description(description)
                 .defaultValue(defaultValue)
                 .constraint(constraints)
-                .parentInheritance(parentInheritance)
+                .runtimeInheritance(parentInheritance)
                 .typeInheritance(typeInheritance);
             
             if (PortRange.class.equals(typeToken.getRawType())) {
@@ -311,7 +311,8 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
         
         private static ConfigInheritance parseInheritance(Object obj, BrooklynClassLoadingContext loader) {
             if (obj == null || obj instanceof String) {
-                return ConfigInheritance.fromString((String)obj);
+                // TODO
+                return ConfigInheritance.Legacy.fromString((String)obj);
             } else {
                 throw new IllegalArgumentException ("The config-inheritance '" + obj + "' for a catalog input is invalid format - string supported");
             }

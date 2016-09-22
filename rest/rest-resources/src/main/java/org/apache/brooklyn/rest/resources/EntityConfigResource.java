@@ -28,6 +28,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.entity.internal.EntityConfigMap;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.EntityAndItem;
 import org.apache.brooklyn.rest.api.EntityConfigApi;
@@ -43,7 +44,6 @@ import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Predicates;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
@@ -107,9 +107,10 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
 
         @Override
         public Map<String, Object> call() throws Exception {
-            Map<ConfigKey<?>, ?> source = ((EntityInternal) entity).config().getBag().getAllConfigAsConfigKeyMap();
+            // TODO on API for this, and other config (location, policy, etc), support requesting local v inherited and resolved v raw
+            Map<ConfigKey<?>, Object> source = ( (EntityConfigMap)((EntityInternal) entity).config().getInternalConfigMap() ).getAllConfigInheritedRawValuesIgnoringErrors();
             Map<String, Object> result = Maps.newLinkedHashMap();
-            for (Map.Entry<ConfigKey<?>, ?> ek : source.entrySet()) {
+            for (Map.Entry<ConfigKey<?>, Object> ek : source.entrySet()) {
                 ConfigKey<?> key = ek.getKey();
                 Object value = ek.getValue();
                 

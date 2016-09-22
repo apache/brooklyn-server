@@ -24,21 +24,23 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.config.ConfigMap;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 
-import com.google.common.annotations.Beta;
 import com.google.common.collect.Sets;
 
 /**
  * Internal class that presents a view over a ConfigMap, so it looks like a Map (with the
  * keys being the config key names).
+ * 
+ * @deprecated since 0.10.0 removed support, no longer needed
  */
-@Beta
+@Deprecated
 public class ConfigMapViewWithStringKeys implements Map<String,Object> {
 
-    private org.apache.brooklyn.config.ConfigMap target;
+    private ConfigMap target;
 
-    public ConfigMapViewWithStringKeys(org.apache.brooklyn.config.ConfigMap target) {
+    public ConfigMapViewWithStringKeys(ConfigMap target) {
         this.target = target;
     }
     

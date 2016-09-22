@@ -63,7 +63,7 @@ public class EntityLocationUtilsTest extends BrooklynAppUnitTestSupport {
         Entities.dumpInfo(app);
 
         log.info("r2loc: "+r2.getLocations());
-        log.info("props: "+((LocationInternal)r2.getLocations().iterator().next()).config().getBag().getAllConfig());
+        log.info("props: "+((LocationInternal)r2.getLocations().iterator().next()).config().getInternalConfigMap().getAllConfigInheritedRawValuesIgnoringErrors());
 
         Map<Location, Integer> counts = new EntityLocationUtils(mgmt).countLeafEntitiesByLocatedLocations();
         log.info("count: "+counts);

@@ -223,24 +223,6 @@ public interface Entity extends BrooklynObject {
     <T> T getConfig(HasConfigKey<T> key);
     
     /**
-     * Returns the uncoerced value for this config key as set on this entity, if available,
-     * not following any inheritance chains and not taking any default.
-     * 
-     * @deprecated since 0.7.0; use {@code ((EntityInternal)entity).config().getRaw()} or
-     *             {@code ((EntityInternal)entity).config().getLocalRaw()}
-     */
-    @Deprecated
-    Maybe<Object> getConfigRaw(ConfigKey<?> key, boolean includeInherited);
-    
-    /**
-     * @see {@link #getConfigRaw(ConfigKey, boolean)}.
-     * 
-     * @deprecated since 0.7.0
-     */
-    @Deprecated
-    Maybe<Object> getConfigRaw(HasConfigKey<?> key, boolean includeInherited);
-
-    /**
      * Invokes the given effector, with the given parameters to that effector.
      */
     <T> Task<T> invoke(Effector<T> eff, Map<String,?> parameters);

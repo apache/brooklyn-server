@@ -21,17 +21,12 @@ package org.apache.brooklyn.entity.software.base;
 import java.util.Collection;
 import java.util.Map;
 
-import com.google.common.annotations.Beta;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.reflect.TypeToken;
-
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
-import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.annotation.Effector;
+import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.entity.Attributes;
@@ -43,6 +38,11 @@ import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.time.Duration;
+
+import com.google.common.annotations.Beta;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.reflect.TypeToken;
 
 public interface SoftwareProcess extends Entity, Startable {
 
@@ -178,8 +178,8 @@ public interface SoftwareProcess extends Entity, Startable {
     @SetFromFlag("preInstallFiles")
     MapConfigKey<String> PRE_INSTALL_FILES = new MapConfigKey.Builder<String>(String.class, "files.preinstall")
             .description("Mapping of files, to be copied before install, to destination name relative to installDir") 
-            .parentInheritance(ConfigInheritance.NONE)
-            .typeInheritance(ConfigInheritance.DEEP_MERGE)
+            .typeInheritance(BasicConfigInheritance.DEEP_MERGE)
+            .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED_ELSE_DEEP_MERGE)
             .build();
 
     /**
@@ -191,8 +191,8 @@ public interface SoftwareProcess extends Entity, Startable {
     @SetFromFlag("preInstallTemplates")
     MapConfigKey<String> PRE_INSTALL_TEMPLATES = new MapConfigKey.Builder<String>(String.class, "templates.preinstall")
             .description("Mapping of templates, to be filled in and copied before pre-install, to destination name relative to installDir") 
-            .parentInheritance(ConfigInheritance.NONE)
-            .typeInheritance(ConfigInheritance.DEEP_MERGE)
+            .typeInheritance(BasicConfigInheritance.DEEP_MERGE)
+            .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED_ELSE_DEEP_MERGE)
             .build();
 
     /**
@@ -207,8 +207,8 @@ public interface SoftwareProcess extends Entity, Startable {
     @SetFromFlag("installFiles")
     MapConfigKey<String> INSTALL_FILES = new MapConfigKey.Builder<String>(String.class, "files.install")
             .description("Mapping of files, to be copied before install, to destination name relative to installDir") 
-            .parentInheritance(ConfigInheritance.NONE)
-            .typeInheritance(ConfigInheritance.DEEP_MERGE)
+            .typeInheritance(BasicConfigInheritance.DEEP_MERGE)
+            .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED_ELSE_DEEP_MERGE)
             .build();
 
     /**
@@ -220,8 +220,8 @@ public interface SoftwareProcess extends Entity, Startable {
     @SetFromFlag("installTemplates")
     MapConfigKey<String> INSTALL_TEMPLATES = new MapConfigKey.Builder<String>(String.class, "templates.install")
             .description("Mapping of templates, to be filled in and copied before install, to destination name relative to installDir") 
-            .parentInheritance(ConfigInheritance.NONE)
-            .typeInheritance(ConfigInheritance.DEEP_MERGE)
+            .typeInheritance(BasicConfigInheritance.DEEP_MERGE)
+            .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED_ELSE_DEEP_MERGE)
             .build();
 
     /**
@@ -236,8 +236,8 @@ public interface SoftwareProcess extends Entity, Startable {
     @SetFromFlag("runtimeFiles")
     MapConfigKey<String> RUNTIME_FILES = new MapConfigKey.Builder<String>(String.class, "files.runtime")
             .description("Mapping of files, to be copied before customisation, to destination name relative to runDir") 
-            .parentInheritance(ConfigInheritance.NONE)
-            .typeInheritance(ConfigInheritance.DEEP_MERGE)
+            .typeInheritance(BasicConfigInheritance.DEEP_MERGE)
+            .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED_ELSE_DEEP_MERGE)
             .build();
 
     /**
@@ -249,15 +249,16 @@ public interface SoftwareProcess extends Entity, Startable {
     @SetFromFlag("runtimeTemplates")
     MapConfigKey<String> RUNTIME_TEMPLATES = new MapConfigKey.Builder<String>(String.class, "templates.runtime")
             .description("Mapping of templates, to be filled in and copied before customisation, to destination name relative to runDir") 
-            .parentInheritance(ConfigInheritance.NONE)
-            .typeInheritance(ConfigInheritance.DEEP_MERGE)
+            .typeInheritance(BasicConfigInheritance.DEEP_MERGE)
+            .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED_ELSE_DEEP_MERGE)
             .build();
 
     @SetFromFlag("provisioningProperties")
     MapConfigKey<Object> PROVISIONING_PROPERTIES = new MapConfigKey.Builder<Object>(Object.class, "provisioning.properties")
             .description("Custom properties to be passed in when provisioning a new machine")
             .defaultValue(ImmutableMap.<String, Object>of())
-            .typeInheritance(ConfigInheritance.DEEP_MERGE)
+            .typeInheritance(BasicConfigInheritance.DEEP_MERGE)
+            .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED_ELSE_DEEP_MERGE)
             .build();
 
     @SetFromFlag("maxRebindSensorsDelay")

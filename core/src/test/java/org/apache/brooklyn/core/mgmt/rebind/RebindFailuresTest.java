@@ -40,7 +40,6 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.config.ConfigMap;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.EntityFunctions;
@@ -219,20 +218,13 @@ public class RebindFailuresTest extends RebindTestFixtureWithApp {
     }
     
     public static class MyPolicyFailingImpl extends AbstractPolicy {
-        @SetFromFlag("failOnGenerateMemento")
-        public static final ConfigKey<Boolean> FAIL_ON_GENERATE_MEMENTO = ConfigKeys.newBooleanConfigKey("failOnGenerateMemento", "Whether to throw exception when generating memento", false);
+        // would be nice to test this -- how to intercept memento generation?
+        // (code was here but not used)
+//        @SetFromFlag("failOnGenerateMemento")
+//        public static final ConfigKey<Boolean> FAIL_ON_GENERATE_MEMENTO = ConfigKeys.newBooleanConfigKey("failOnGenerateMemento", "Whether to throw exception when generating memento", false);
         
         @SetFromFlag("failOnRebind")
         public static final ConfigKey<Boolean> FAIL_ON_REBIND = ConfigKeys.newBooleanConfigKey("failOnRebind", "Whether to throw exception when rebinding", false);
-        
-        @Override
-        public ConfigMap getConfigMap() {
-            if (Boolean.TRUE.equals(getConfig(FAIL_ON_GENERATE_MEMENTO))) {
-                throw new RuntimeException("Simulating failure in "+this+", which will cause memento-generation to fail");
-            } else {
-                return super.getConfigMap();
-            }
-        }
         
         @Override
         public void rebind() {
@@ -243,20 +235,12 @@ public class RebindFailuresTest extends RebindTestFixtureWithApp {
     }
 
     public static class MyEnricherFailingImpl extends AbstractEnricher {
-        @SetFromFlag("failOnGenerateMemento")
-        public static final ConfigKey<Boolean> FAIL_ON_GENERATE_MEMENTO = ConfigKeys.newBooleanConfigKey("failOnGenerateMemento", "Whether to throw exception when generating memento", false);
+        // would be nice to test this -- see MyPolicyFailingImpl
+//        @SetFromFlag("failOnGenerateMemento")
+//        public static final ConfigKey<Boolean> FAIL_ON_GENERATE_MEMENTO = ConfigKeys.newBooleanConfigKey("failOnGenerateMemento", "Whether to throw exception when generating memento", false);
         
         @SetFromFlag("failOnRebind")
         public static final ConfigKey<Boolean> FAIL_ON_REBIND = ConfigKeys.newBooleanConfigKey("failOnRebind", "Whether to throw exception when rebinding", false);
-        
-        @Override
-        public ConfigMap getConfigMap() {
-            if (Boolean.TRUE.equals(getConfig(FAIL_ON_GENERATE_MEMENTO))) {
-                throw new RuntimeException("Simulating failure in "+this+", which will cause memento-generation to fail");
-            } else {
-                return super.getConfigMap();
-            }
-        }
         
         @Override
         public void rebind() {

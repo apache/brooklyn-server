@@ -345,8 +345,7 @@ public class JcloudsLocationResolverTest {
     
     @Test
     public void testResolvesListAndMapPropertiesWithoutMergeOnInheritance() throws Exception {
-        // when we have a yaml way to specify config we may wish to have different semantics;
-        // it could depend on the collection config key whether to merge on inheritance
+        // since prop2 does not specify DEEP_MERGE config inheritance, we overwrite
         brooklynProperties.put("brooklyn.location.jclouds.softlayer.prop1", "[ a, b ]");
         brooklynProperties.put("brooklyn.location.jclouds.softlayer.prop2", "{ a: 1, b: 2 }");
         brooklynProperties.put("brooklyn.location.named.foo", "jclouds:softlayer:ams01");
@@ -355,10 +354,6 @@ public class JcloudsLocationResolverTest {
         brooklynProperties.put("brooklyn.location.named.foo.prop2", "{ b: 3, c: 3 }");
         brooklynProperties.put("brooklyn.location.named.bar", "named:foo");
         brooklynProperties.put("brooklyn.location.named.bar.prop2", "{ c: 4, d: 4 }");
-        
-        // these do NOT affect the maps
-        brooklynProperties.put("brooklyn.location.named.foo.prop2.z", "9");
-        brooklynProperties.put("brooklyn.location.named.foo.prop3.z", "9");
         
         JcloudsLocation l = resolve("named:bar");
         assertJcloudsEquals(l, "softlayer", "ams01");
@@ -376,6 +371,33 @@ public class JcloudsLocationResolverTest {
         assertEquals(prop3, null);
     }
 
+    @Test
+    public void testResolvesListAndMapPropertiesMergesWithDotQualifiedKeys() throws Exception {
+        brooklynProperties.put("brooklyn.location.jclouds.softlayer.prop1", "[ a, b ]");
+        brooklynProperties.put("brooklyn.location.jclouds.softlayer.prop2", "{ a: 1, b: 2 }");
+        brooklynProperties.put("brooklyn.location.named.foo", "jclouds:softlayer:ams01");
+        
+        brooklynProperties.put("brooklyn.location.named.foo.prop1", "[ a: 1, c: 3 ]");
+        brooklynProperties.put("brooklyn.location.named.foo.prop2", "{ b: 3, c: 3 }");
+        brooklynProperties.put("brooklyn.location.named.bar", "named:foo");
+        brooklynProperties.put("brooklyn.location.named.bar.prop2", "{ c: 4, d: 4 }");
+        
+        // dot-qualified keys now DO get interpreted (sept 2016)
+        brooklynProperties.put("brooklyn.location.named.foo.prop2.z", 9);
+        brooklynProperties.put("brooklyn.location.named.foo.prop3.z", 10);
+        
+        JcloudsLocation l = resolve("named:bar");
+        assertJcloudsEquals(l, "softlayer", "ams01");
+        
+        Map<String, String> prop2 = l.config().get(new MapConfigKey<String>(String.class, "prop2"));
+        log.info("prop2: "+prop2);
+        assertEquals(prop2, MutableMap.of("c", 4, "d", 4, "z", "9"));
+        
+        Map<String, String> prop3 = l.config().get(new MapConfigKey<String>(String.class, "prop3"));
+        log.info("prop3: "+prop3);
+        assertEquals(prop3, MutableMap.of("z", "10"));
+    }
+    
     private void assertJcloudsEquals(JcloudsLocation loc, String expectedProvider, String expectedRegion) {
         assertEquals(loc.getProvider(), expectedProvider);
         assertEquals(loc.getRegion(), expectedRegion);

@@ -36,6 +36,7 @@ import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.slf4j.Logger;
@@ -278,8 +279,8 @@ public class LoadBalancingPolicy<NodeType extends Entity, ItemType extends Movab
         if (LOG.isTraceEnabled()) LOG.trace("{} recording addition of container {}", this, newContainer);
         // Low and high thresholds for the metric we're interested in are assumed to be present
         // in the container's configuration.
-        Number lowThreshold = (Number) findConfigValue(newContainer, lowThresholdConfigKeyName);
-        Number highThreshold = (Number) findConfigValue(newContainer, highThresholdConfigKeyName);
+        Number lowThreshold = newContainer.getConfig(ConfigKeys.newConfigKey(Number.class, lowThresholdConfigKeyName));
+        Number highThreshold = newContainer.getConfig(ConfigKeys.newConfigKey(Number.class, highThresholdConfigKeyName));
         if (lowThreshold == null || highThreshold == null) {
             LOG.warn(
                 "Balanceable container '"+newContainer+"' does not define low- and high- threshold configuration keys: '"+
@@ -295,15 +296,10 @@ public class LoadBalancingPolicy<NodeType extends Entity, ItemType extends Movab
         if (rebalanceNow) scheduleRebalance();
     }
     
-    private static Object findConfigValue(Entity entity, String configKeyName) {
-        Map<ConfigKey<?>, Object> config = ((EntityInternal)entity).getAllConfig();
-        for (Entry<ConfigKey<?>, Object> entry : config.entrySet()) {
-            if (configKeyName.equals(entry.getKey().getName()))
-                return entry.getValue();
-        }
+    private Number findConfigValue(NodeType newContainer, String lowThresholdConfigKeyName2) {
         return null;
     }
-    
+
     // TODO Receiving duplicates of onContainerRemoved (e.g. when running LoadBalancingInmemorySoakTest)
     private void onContainerRemoved(NodeType oldContainer, boolean rebalanceNow) {
         if (LOG.isTraceEnabled()) LOG.trace("{} recording removal of container {}", this, oldContainer);

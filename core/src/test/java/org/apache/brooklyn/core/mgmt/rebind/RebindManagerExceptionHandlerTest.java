@@ -36,7 +36,9 @@ public class RebindManagerExceptionHandlerTest extends RebindTestFixtureWithApp 
     @Test
     public void testAddConfigFailure() throws Throwable {
         origApp.createAndManageChild(EntitySpec.create(TestEntity.class)
-                .configure("test.confMapThing", ImmutableMap.of("keyWithMapValue", ImmutableMap.of("minRam", 4))));
+                .configure(TestEntity.CONF_MAP_THING.getName(), 
+                    ImmutableMap.of("keyWithMapValue", ImmutableMap.of("minRam", 4))));
+        // above misconfigured, should be a string key, but forced above so failure won't be enforced until persist/rebind
 
         try {
             RebindTestUtils.waitForPersisted(origApp);
@@ -53,9 +55,12 @@ public class RebindManagerExceptionHandlerTest extends RebindTestFixtureWithApp 
     @Test
     public void testAddConfigContinue() throws Throwable {
         ManagementContext m = createManagementContextWithAddConfigContinue();
+        // configured above to continue on error
+        
         origApp = m.getEntityManager().createEntity(EntitySpec.create(TestApplication.class, TestApplicationNoEnrichersImpl.class));
         origApp.createAndManageChild(EntitySpec.create(TestEntity.class)
-                .configure("test.confMapThing", ImmutableMap.of("keyWithMapValue", ImmutableMap.of("minRam", 4))));
+                .configure(TestEntity.CONF_MAP_THING.getName(), 
+                    ImmutableMap.of("keyWithMapValue", ImmutableMap.of("minRam", 4))));
 
         RebindTestUtils.waitForPersisted(origApp);
         RebindOptions rebindOptions = RebindOptions.create();

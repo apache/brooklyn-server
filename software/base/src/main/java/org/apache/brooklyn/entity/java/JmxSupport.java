@@ -346,7 +346,7 @@ public class JmxSupport implements UsesJmx {
      */
     public void recommendJmxRmiCustomAgent() {
         // set JMX_RMI because the registry is needed (i think)
-        Maybe<Object> jmx = entity.getConfigRaw(UsesJmx.JMX_AGENT_MODE, true);
+        Maybe<Object> jmx = ((EntityInternal)entity).config().getRaw(UsesJmx.JMX_AGENT_MODE);
         if (!jmx.isPresentAndNonNull()) {
             setConfig(UsesJmx.JMX_AGENT_MODE, JmxAgentModes.JMX_RMI_CUSTOM_AGENT);
         } else if (jmx.get()!=JmxAgentModes.JMX_RMI_CUSTOM_AGENT) {

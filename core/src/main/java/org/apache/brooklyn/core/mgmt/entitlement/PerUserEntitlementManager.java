@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.mgmt.entitlement;
 
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementClass;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
@@ -64,11 +65,11 @@ public class PerUserEntitlementManager implements EntitlementManager {
     public PerUserEntitlementManager(BrooklynProperties properties) {
         this(load(properties, properties.getConfig(DEFAULT_MANAGER)));
         
-        BrooklynProperties users = properties.submap(ConfigPredicates.nameStartsWith(PER_USER_ENTITLEMENTS_CONFIG_PREFIX+"."));
-        for (Map.Entry<ConfigKey<?>,?> key: users.getAllConfig().entrySet()) {
-            if (key.getKey().getName().equals(DEFAULT_MANAGER.getName())) continue;
-            String user = Strings.removeFromStart(key.getKey().getName(), PER_USER_ENTITLEMENTS_CONFIG_PREFIX+".");
-            addUser(user, load(properties, Strings.toString(key.getValue())));
+        Set<ConfigKey<?>> users = properties.findKeys(ConfigPredicates.nameStartsWith(PER_USER_ENTITLEMENTS_CONFIG_PREFIX+"."));
+        for (ConfigKey<?> key: users) {
+            if (key.getName().equals(DEFAULT_MANAGER.getName())) continue;
+            String user = Strings.removeFromStart(key.getName(), PER_USER_ENTITLEMENTS_CONFIG_PREFIX+".");
+            addUser(user, load(properties, Strings.toString(properties.getConfig(key))));
         }
         
         log.info(getClass().getSimpleName()+" created with "+perUserManagers.size()+" user"+Strings.s(perUserManagers)+" and "

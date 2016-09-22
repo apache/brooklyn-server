@@ -19,353 +19,99 @@
 package org.apache.brooklyn.core.entity.internal;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static org.apache.brooklyn.util.groovy.GroovyJavaMethods.elvis;
 
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.mgmt.ExecutionContext;
+import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
+import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.objs.BrooklynObjectInternal.ConfigurationSupportInternal;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 
-import org.apache.brooklyn.api.mgmt.ExecutionContext;
-import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.config.ConfigInheritance;
-import org.apache.brooklyn.config.ConfigInheritance.InheritanceMode;
-import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.config.Sanitizer;
-import org.apache.brooklyn.core.config.StructuredConfigKey;
-import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
-import org.apache.brooklyn.core.entity.AbstractEntity;
-import org.apache.brooklyn.util.collections.CollectionMerger;
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.core.flags.FlagUtils;
-import org.apache.brooklyn.util.core.flags.SetFromFlag;
-import org.apache.brooklyn.util.core.flags.TypeCoercions;
-import org.apache.brooklyn.util.core.internal.ConfigKeySelfExtracting;
-import org.apache.brooklyn.util.guava.Maybe;
+public class EntityConfigMap extends AbstractConfigMapImpl<Entity> {
 
-public class EntityConfigMap extends AbstractConfigMapImpl {
-
+    @SuppressWarnings("unused")
     private static final Logger LOG = LoggerFactory.getLogger(EntityConfigMap.class);
 
-    /** entity against which config resolution / task execution will occur */
-    private final AbstractEntity entity;
-
-    /**
-     * Map of configuration information that is defined at start-up time for the entity. These
-     * configuration parameters are shared and made accessible to the "children" of this
-     * entity.
-     */
-    private final Map<ConfigKey<?>,Object> inheritedConfig = Collections.synchronizedMap(new LinkedHashMap<ConfigKey<?>, Object>());
-    // TODO do we really want to have *both* bags and maps for these?  danger that they get out of synch.
-    // have added some logic (Oct 2014) so that the same changes are applied to both, in most places at least;
-    // i (alex) think we should prefer ConfigBag (the input keys don't matter, it is more a question of retrieval keys),
-    // but first we need ConfigBag to support StructuredConfigKeys 
-    private final ConfigBag localConfigBag;
-    private final ConfigBag inheritedConfigBag;
-
-    public EntityConfigMap(AbstractEntity entity) {
-        // Not using ConcurrentMap, because want to (continue to) allow null values.
-        // Could use ConcurrentMapAcceptingNullVals (with the associated performance hit on entrySet() etc).
-        this(entity, Collections.synchronizedMap(Maps.<ConfigKey<?>, Object>newLinkedHashMap()));
+    public EntityConfigMap(EntityInternal entity) {
+        super(checkNotNull(entity, "entity must be specified"));
     }
     
-    public EntityConfigMap(AbstractEntity entity, Map<ConfigKey<?>, Object> storage) {
-        this.entity = checkNotNull(entity, "entity must be specified");
-        this.ownConfig = checkNotNull(storage, "storage map must be specified");
-        
-        // TODO store ownUnused in backing-storage
-        this.localConfigBag = ConfigBag.newInstance();
-        this.inheritedConfigBag = ConfigBag.newInstance();
+    public EntityConfigMap(EntityInternal entity, Map<ConfigKey<?>, Object> storage) {
+        super(checkNotNull(entity, "entity must be specified"), checkNotNull(storage, "storage map must be specified"));
     }
 
-    @SuppressWarnings("unchecked")
-    public <T> T getConfig(ConfigKey<T> key, T defaultValue) {
-        // In case this entity class has overridden the given key (e.g. to set default), then retrieve this entity's key
-        // TODO If ask for a config value that's not in our configKeys, should we really continue with rest of method and return key.getDefaultValue?
-        //      e.g. SshBasedJavaAppSetup calls setAttribute(JMX_USER), which calls getConfig(JMX_USER)
-        //           but that example doesn't have a default...
-        ConfigKey<T> ownKey = entity!=null ? (ConfigKey<T>)elvis(entity.getEntityType().getConfigKey(key.getName()), key) : key;
-        
-        // TODO Confirm desired behaviour: I switched this around to get ownKey.getParentInheritance first.
-        ConfigInheritance inheritance = ownKey.getParentInheritance();
-        if (inheritance==null) inheritance = key.getParentInheritance();
-        if (inheritance==null) {
-            // TODO we could warn by introducing a temporary "ALWAYS_BUT_WARNING" instance
-            inheritance = getDefaultParentInheritance(); 
+    /** entity against which config resolution / task execution will occur
+     * @deprecated since 0.10.0 kept for serialization */ @Deprecated
+    private EntityInternal entity;
+    @Override
+    public EntityInternal getContainer() {
+        Entity result = super.getContainer();
+        if (result!=null) return (EntityInternal) result;
+
+        synchronized (this) {
+            result = super.getContainer();
+            if (result!=null) return (EntityInternal) result;
+            bo = entity;
+            entity = null;
         }
-        InheritanceMode parentInheritanceMode = inheritance.isInherited(ownKey, entity.getParent(), entity);
-        
-        // TODO We're notifying of config-changed because currently persistence needs to know when the
+        return (EntityInternal) super.getBrooklynObject();
+    }
+
+    protected EntityInternal getEntity() {
+        return (EntityInternal) getBrooklynObject();
+    }
+    
+    @Override
+    protected ExecutionContext getExecutionContext(BrooklynObject bo) {
+        return ((EntityInternal)bo).getExecutionContext();
+    }
+    
+    @Override
+    protected void postSetConfig() {
+        getEntity().config().refreshInheritedConfigOfChildren();
+    }
+
+    @Override
+    protected void postLocalEvaluate(ConfigKey<?> key, BrooklynObject bo, Maybe<?> rawValue, Maybe<?> resolvedValue) {
+        // TEMPORARY CODE
+        // We're notifying of config-changed because currently persistence needs to know when the
         // attributeWhenReady is complete (so it can persist the result).
         // Long term, we'll just persist tasks properly so the call to onConfigChanged will go!
-
-        // Don't use groovy truth: if the set value is e.g. 0, then would ignore set value and return default!
-        if (ownKey instanceof ConfigKeySelfExtracting) {
-            Object rawval = ownConfig.get(key);
-            Maybe<T> result = getConfigImpl((ConfigKeySelfExtracting<T>)ownKey, parentInheritanceMode);
-
-            if (rawval instanceof Task) {
-                entity.getManagementSupport().getEntityChangeListener().onConfigChanged(key);
-            }
-            if (result.isPresent()) {
-                return result.get();
-            }
-        } else {
-            LOG.warn("Config key {} of {} is not a ConfigKeySelfExtracting; cannot retrieve value; returning default", ownKey, this);
-        }
-        return TypeCoercions.coerce((defaultValue != null) ? defaultValue : ownKey.getDefaultValue(), key.getTypeToken());
-    }
-    
-    @SuppressWarnings("unchecked")
-    private <T> Maybe<T> getConfigImpl(ConfigKeySelfExtracting<T> key, InheritanceMode parentInheritance) {
-        ExecutionContext exec = entity.getExecutionContext();
-        Maybe<T> ownValue;
-        Maybe<T> parentValue;
-
-        // Get own value
-        if (((ConfigKeySelfExtracting<T>)key).isSet(ownConfig)) {
-            Map<ConfigKey<?>, ?> ownCopy;
-            synchronized (ownConfig) {
-                ownCopy = MutableMap.copyOf(ownConfig);
-            }
-            ownValue = Maybe.of(((ConfigKeySelfExtracting<T>) key).extractValue(ownCopy, exec));
-        } else if (localConfigBag.containsKey(key)) {
-            // TODO configBag.get doesn't handle tasks/attributeWhenReady - it only uses TypeCoercions
-            // Precedence ordering has changed; previously we'd prefer an explicit isSet(inheritedConfig)
-            // over the localConfigBag.get(key).
-            ownValue = Maybe.of(localConfigBag.get(key));
-        } else {
-            ownValue = Maybe.<T>absent();
-        }
-
-        // Get the parent-inheritance value (but only if we'll need it)
-        switch (parentInheritance) {
-        case IF_NO_EXPLICIT_VALUE:
-            if (ownValue.isAbsent()) {
-                if (((ConfigKeySelfExtracting<T>)key).isSet(inheritedConfig)) {
-                    parentValue = Maybe.of(((ConfigKeySelfExtracting<T>)key).extractValue(inheritedConfig, exec));
-                } else if (inheritedConfigBag.containsKey(key)) {
-                    parentValue = Maybe.of(inheritedConfigBag.get(key));
-                } else {
-                    parentValue = Maybe.absent();
-                }
-            } else {
-                parentValue = Maybe.absent();
-            }
-            break;
-        case DEEP_MERGE:
-            if (((ConfigKeySelfExtracting<T>)key).isSet(inheritedConfig)) {
-                parentValue = Maybe.of(((ConfigKeySelfExtracting<T>)key).extractValue(inheritedConfig, exec));
-            } else if (inheritedConfigBag.containsKey(key)) {
-                parentValue = Maybe.of(inheritedConfigBag.get(key));
-            } else {
-                parentValue = Maybe.absent();
-            }
-            break;
-        case NONE:
-            parentValue = Maybe.absent();
-            break;
-        default:
-            throw new IllegalStateException("Unsupported parent-inheritance mode for "+key.getName()+": "+parentInheritance);
-        }
-
-        // Merge or override, as appropriate
-        switch (parentInheritance) {
-        case IF_NO_EXPLICIT_VALUE:
-            return ownValue.isPresent() ? ownValue : parentValue;
-        case DEEP_MERGE:
-            return (Maybe<T>) deepMerge(ownValue, parentValue, key);
-        case NONE:
-            return ownValue;
-        default:
-            throw new IllegalStateException("Unsupported parent-inheritance mode for "+key.getName()+": "+parentInheritance);
+        if (rawValue.isPresent() && (rawValue.get() instanceof Task)) {
+            ((EntityInternal)bo).getManagementSupport().getEntityChangeListener().onConfigChanged(key);
         }
     }
-    
-    private <T> Maybe<?> deepMerge(Maybe<? extends T> val1, Maybe<? extends T> val2, ConfigKey<?> keyForLogging) {
-        if (val2.isAbsent() || val2.isNull()) {
-            return val1;
-        } else if (val1.isAbsent()) {
-            return val2;
-        } else if (val1.isNull()) {
-            return val1; // an explicit null means an override; don't merge
-        } else if (val1.get() instanceof Map && val2.get() instanceof Map) {
-            return Maybe.of(CollectionMerger.builder().build().merge((Map<?,?>)val1.get(), (Map<?,?>)val2.get()));
-        } else {
-            // cannot merge; just return val1
-            LOG.debug("Cannot merge values for "+keyForLogging.getName()+", because values are not maps: "+val1.get().getClass()+", and "+val2.get().getClass());
-            return val1;
-        }
-    }
-
-    private <T> boolean isInherited(ConfigKey<T> key) {
-        return isInherited(key, key.getParentInheritance());
-    }
-    private <T> boolean isInherited(ConfigKey<T> key, ConfigInheritance inheritance) {
-        if (inheritance==null) inheritance = getDefaultParentInheritance();
-        InheritanceMode mode = inheritance.isInherited(key, entity.getParent(), entity);
-        return mode != null && mode != InheritanceMode.NONE;
-    }
-    private ConfigInheritance getDefaultParentInheritance() {
-        return ConfigInheritance.ALWAYS; 
-    }
-
-    @Override
-    public Maybe<Object> getConfigRaw(ConfigKey<?> key, boolean includeInherited) {
-        if (ownConfig.containsKey(key)) return Maybe.of(ownConfig.get(key));
-        if (includeInherited && inheritedConfig.containsKey(key)) return Maybe.of(inheritedConfig.get(key));
-        return Maybe.absent();
-    }
-    
-    /** an immutable copy of the config visible at this entity, local and inherited (preferring local) */
-    public Map<ConfigKey<?>,Object> getAllConfig() {
-        Map<ConfigKey<?>,Object> result = new LinkedHashMap<ConfigKey<?>,Object>(inheritedConfig.size()+ownConfig.size());
-        result.putAll(inheritedConfig);
-        result.putAll(ownConfig);
-        return Collections.unmodifiableMap(result);
-    }
-
-    /** an immutable copy of the config defined at this entity, ie not inherited */
-    public Map<ConfigKey<?>,Object> getLocalConfig() {
-        Map<ConfigKey<?>,Object> result = new LinkedHashMap<ConfigKey<?>,Object>(ownConfig.size());
-        result.putAll(ownConfig);
-        return Collections.unmodifiableMap(result);
-    }
-    
-    /** Creates an immutable copy of the config visible at this entity, local and inherited (preferring local), including those that did not match config keys */
-    public ConfigBag getAllConfigBag() {
-        return ConfigBag.newInstanceCopying(localConfigBag)
-                .putAll(ownConfig)
-                .putIfAbsent(inheritedConfig)
-                .putIfAbsent(inheritedConfigBag)
-                .seal();
-    }
-
-    /** Creates an immutable copy of the config defined at this entity, ie not inherited, including those that did not match config keys */
-    public ConfigBag getLocalConfigBag() {
-        return ConfigBag.newInstanceCopying(localConfigBag)
-                .putAll(ownConfig)
-                .seal();
-    }
-
-    @SuppressWarnings("unchecked")
-    public Object setConfig(ConfigKey<?> key, Object v) {
-        Object val = coerceConfigVal(key, v);
-        Object oldVal;
-        if (key instanceof StructuredConfigKey) {
-            oldVal = ((StructuredConfigKey)key).applyValueToMap(val, ownConfig);
-            // TODO ConfigBag does not handle structured config keys; quick fix is to remove (and should also remove any subkeys;
-            // as it stands if someone set string a.b.c in the config bag then removed structured key a.b, then got a.b.c they'd get a vale);
-            // long term fix is to support structured config keys in ConfigBag, at which point i think we could remove ownConfig altogether
-            localConfigBag.remove(key);
-        } else {
-            oldVal = ownConfig.put(key, val);
-            localConfigBag.put((ConfigKey<Object>)key, v);
-        }
-        entity.config().refreshInheritedConfigOfChildren();
-        return oldVal;
-    }
-    
-    public void setLocalConfig(Map<ConfigKey<?>, ?> vals) {
-        synchronized (ownConfig) {
-            ownConfig.clear();
-            localConfigBag.clear();
-            ownConfig.putAll(vals);
-            localConfigBag.putAll(vals);
-        }
-    }
-    
-    public void setInheritedConfig(Map<ConfigKey<?>, ?> valsO, ConfigBag configBagVals) {
-        Map<ConfigKey<?>, ?> vals = filterUninheritable(valsO);
         
-        inheritedConfig.clear();
-        inheritedConfig.putAll(vals);
-
-        // The configBagVals contains all inherited, including strings that did not match a config key on the parent.
-        // They might match a config-key on this entity though, so need to check that:
-        //   - if it matches one of our keys, set it in inheritedConfig
-        //   - otherwise add it to our inheritedConfigBag
-        Set<String> valKeyNames = Sets.newLinkedHashSet();
-        for (ConfigKey<?> key : vals.keySet()) {
-            valKeyNames.add(key.getName());
-        }
-        Map<String,Object> valsUnmatched = MutableMap.<String,Object>builder()
-                .putAll(configBagVals.getAllConfig())
-                .removeAll(valKeyNames)
-                .build();
-        inheritedConfigBag.clear();
-        Map<ConfigKey<?>, SetFromFlag> annotatedConfigKeys = FlagUtils.getAnnotatedConfigKeys(entity.getClass());
-        Map<String, ConfigKey<?>> renamedConfigKeys = Maps.newLinkedHashMap();
-        for (Map.Entry<ConfigKey<?>, SetFromFlag> entry: annotatedConfigKeys.entrySet()) {
-            String rename = entry.getValue().value();
-            if (rename != null) {
-                renamedConfigKeys.put(rename, entry.getKey());
-            }
-        }
-        for (Map.Entry<String,Object> entry : valsUnmatched.entrySet()) {
-            String name = entry.getKey();
-            Object value = entry.getValue();
-            ConfigKey<?> key = renamedConfigKeys.get(name);
-            if (key == null) key = entity.getEntityType().getConfigKey(name);
-            if (key != null) {
-                if (!isInherited(key)) {
-                    // no-op
-                } else if (inheritedConfig.containsKey(key)) {
-                    LOG.warn("Entity "+entity+" inherited duplicate config for key "+key+", via explicit config and string name "+name+"; using value of key");
-                } else {
-                    inheritedConfig.put(key, value);
-                }
-            } else {
-                // a config bag has discarded the keys, so we must assume default inheritance for things given that way
-                // unless we can infer a key; not a big deal, as we should have the key in inheritedConfig for everything
-                // which originated with a key ... but still, it would be nice to clean up the use of config bag!
-                inheritedConfigBag.putStringKey(name, value);
-            }
-        }
-    }
-    
-    private Map<ConfigKey<?>, ?> filterUninheritable(Map<ConfigKey<?>, ?> vals) {
-        Map<ConfigKey<?>, Object> result = Maps.newLinkedHashMap();
-        for (Map.Entry<ConfigKey<?>, ?> entry : vals.entrySet()) {
-            if (isInherited(entry.getKey())) {
-                result.put(entry.getKey(), entry.getValue());
-            }
-        }
-        return result;
-    }
-    
-    public void addToLocalBag(Map<String,?> vals) {
-        localConfigBag.putAll(vals);
-        // quick fix for problem that ownConfig can get out of synch
-        ownConfig.putAll(localConfigBag.getAllConfigAsConfigKeyMap());
-    }
-
-    public void removeFromLocalBag(String key) {
-        localConfigBag.remove(key);
-        ownConfig.remove(key);
-    }
-
-    public void clearInheritedConfig() {
-        inheritedConfig.clear();
-        inheritedConfigBag.clear();
+    @Override
+    protected Entity getParentOfContainer(Entity container) {
+        if (container==null) return null;
+        return container.getParent();
     }
 
     @Override
+    protected <T> ConfigKey<?> getKeyAtContainerImpl(Entity container, ConfigKey<T> queryKey) {
+        return container.getEntityType().getConfigKey(queryKey.getName());
+    }
+
+    @Override
+    protected Set<ConfigKey<?>> getKeysAtContainer(Entity container) {
+        return container.getEntityType().getConfigKeys();
+    }
+
+    @Override @Deprecated
     public EntityConfigMap submap(Predicate<ConfigKey<?>> filter) {
-        EntityConfigMap m = new EntityConfigMap(entity, Maps.<ConfigKey<?>, Object>newLinkedHashMap());
-        for (Map.Entry<ConfigKey<?>,Object> entry: inheritedConfig.entrySet()) {
-            if (filter.apply(entry.getKey())) {
-                m.inheritedConfig.put(entry.getKey(), entry.getValue());
-            }
-        }
+        EntityConfigMap m = new EntityConfigMap(getEntity(), Maps.<ConfigKey<?>, Object>newLinkedHashMap());
         synchronized (ownConfig) {
             for (Map.Entry<ConfigKey<?>,Object> entry: ownConfig.entrySet()) {
                 if (filter.apply(entry.getKey())) {
@@ -373,16 +119,20 @@ public class EntityConfigMap extends AbstractConfigMapImpl {
                 }
             }
         }
+        if (getEntity().getParent()!=null) {
+            merge(m, ((EntityConfigMap) ((ConfigurationSupportInternal)getEntity().getParent().config()).getInternalConfigMap()).submap(filter));
+        }
         return m;
     }
 
-    @Override
-    public String toString() {
-        Map<ConfigKey<?>, Object> sanitizeConfig;
-        synchronized (ownConfig) {
-            sanitizeConfig = Sanitizer.sanitize(ownConfig);
+    @Deprecated
+    private void merge(EntityConfigMap local, EntityConfigMap parent) {
+        for (ConfigKey<?> k: parent.ownConfig.keySet()) {
+            // should apply inheritance; but only used in submap which is deprecated
+            if (!local.ownConfig.containsKey(k)) {
+                local.ownConfig.put(k, parent.ownConfig.get(k));
+            }
         }
-        return super.toString()+"[own="+sanitizeConfig+"; inherited="+Sanitizer.sanitize(inheritedConfig)+"]";
     }
-    
+
 }

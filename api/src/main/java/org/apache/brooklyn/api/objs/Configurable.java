@@ -18,11 +18,14 @@
  */
 package org.apache.brooklyn.api.objs;
 
+import java.util.Set;
+
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 
 import com.google.common.annotations.Beta;
+import com.google.common.base.Predicate;
 
 /**
  * Something that has mutable config, such as an entity or policy.
@@ -30,9 +33,6 @@ import com.google.common.annotations.Beta;
  * @author aled
  */
 public interface Configurable {
-
-    // FIXME Moved from core project to api project, as part of moving EntityLocal.
-    // (though maybe it's fine here?)
 
     /**
      * @return the old value, or null if there was not one
@@ -76,7 +76,7 @@ public interface Configurable {
         /**
          * Sets the config to the given value.
          */
-        <T> T set(ConfigKey<T> key, T val);
+        <T> T set(ConfigKey<T> key, T val); 
         
         /**
          * @see {@link #setConfig(HasConfigKey, Object)}
@@ -97,5 +97,7 @@ public interface Configurable {
          * @see {@link #setConfig(ConfigKey, Task)}
          */
         <T> T set(HasConfigKey<T> key, Task<T> val);
+        
+        Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> predicate);
     }
 }

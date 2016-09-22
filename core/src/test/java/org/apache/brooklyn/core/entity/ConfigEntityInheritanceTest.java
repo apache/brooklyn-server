@@ -18,27 +18,29 @@
  */
 package org.apache.brooklyn.core.entity;
 
+import java.util.List;
+import java.util.Map;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.config.ConfigMap.ConfigMapWithInheritance;
+import org.apache.brooklyn.config.ConfigValueAtContainer;
+import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.EntityConfigTest.MyOtherEntity;
 import org.apache.brooklyn.core.entity.EntityConfigTest.MyOtherEntityImpl;
 import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensorAndConfigKey.IntegerAttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-/**
- * There is a bug where:
- *    class XI extends SI implements X
- *    class SI implements S  
- *    interface X extends Y
- *    config C is declared on S and overwritten at Y
- */
+import com.google.common.collect.Iterables;
+
 public class ConfigEntityInheritanceTest extends BrooklynAppUnitTestSupport {
 
     protected void checkKeys(Entity entity2, Integer value) {
@@ -152,24 +154,112 @@ public class ConfigEntityInheritanceTest extends BrooklynAppUnitTestSupport {
     }
 
     // --------------------
+    
+    @Override
+    protected Boolean shouldSkipOnBoxBaseDirResolution() {
+        return null;  //because it adds extra config we do not want to test for
+    }
 
+    protected Entity setupBasicInheritanceTest() {
+        app.config().set(MyEntityWithPartiallyHeritableConfig.HERITABLE_BY_DEFAULT, "heritable");
+        app.config().set(MyEntityWithPartiallyHeritableConfig.ALWAYS_HERITABLE, "always_heritable");
+        app.config().set(MyEntityWithPartiallyHeritableConfig.NEVER_INHERIT, "uninheritable");
+        app.config().set(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE, "maybe");
+        return app.addChild(EntitySpec.create(MyEntityWithPartiallyHeritableConfig.class));
+    }
+    
     @Test
     public void testConfigKeysInheritance() throws Exception {
-        app.config().set(MyEntityWithPartiallyHeritableConfig.HERITABLE, "heritable");
-        app.config().set(MyEntityWithPartiallyHeritableConfig.UNINHERITABLE, "uninheritable");
-        app.config().set(MyEntityWithPartiallyHeritableConfig.ALWAYS_HERITABLE, "always_heritable");
-        Entity child = app.addChild(EntitySpec.create(MyEntityWithPartiallyHeritableConfig.class));
+        Entity child = setupBasicInheritanceTest();
         
-        Assert.assertNotNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.HERITABLE));
-        Assert.assertNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.UNINHERITABLE), null);
+        Assert.assertNotNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.HERITABLE_BY_DEFAULT));
         Assert.assertNotNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.ALWAYS_HERITABLE));
+        Assert.assertNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.NEVER_INHERIT));
+        
+        // it's reinheritable unless explicitly declared
+        Assert.assertNotNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE));
+        app.getMutableEntityType().addConfigKey(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE);
+        Assert.assertNull(child.getConfig(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE));
+    }
+    
+    @SuppressWarnings("unchecked")
+    @Test
+    public void testConfigKeysAllInheritanceMethods() throws Exception {
+        Entity child = setupBasicInheritanceTest();
+        
+        Assert.assertEquals( ((EntityInternal)child).config().getInternalConfigMap().getAllConfigLocalRaw(), MutableMap.of() );
+        
+        Assert.assertEquals( ((EntityInternal)child).config().getInternalConfigMap().getAllConfigInheritedRawValuesIgnoringErrors(), 
+            MutableMap.of().add(MyEntityWithPartiallyHeritableConfig.HERITABLE_BY_DEFAULT, "heritable")
+                .add(MyEntityWithPartiallyHeritableConfig.ALWAYS_HERITABLE, "always_heritable")
+                .add(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE, "maybe") );
+        
+        Map<ConfigKey<?>, ?> rawReinherit = ((EntityInternal)child).config().getInternalConfigMap().getAllReinheritableConfigRaw();
+        Assert.assertEquals(rawReinherit.keySet(), MutableSet.of(
+            MyEntityWithPartiallyHeritableConfig.HERITABLE_BY_DEFAULT,
+            MyEntityWithPartiallyHeritableConfig.ALWAYS_HERITABLE));
+
+        
+        // check the hierarchical list of values is correct
+        
+        List<ConfigValueAtContainer<Entity, ?>> rawHierarchy = ((ConfigMapWithInheritance<Entity>)((EntityInternal)child).config().getInternalConfigMap()).
+            getConfigAllInheritedRaw(MyEntityWithPartiallyHeritableConfig.ALWAYS_HERITABLE);
+        Assert.assertEquals(rawHierarchy.size(), 1);
+        Assert.assertEquals(Iterables.getOnlyElement(rawHierarchy).getContainer(), app);
+        
+        rawHierarchy = ((ConfigMapWithInheritance<Entity>)((EntityInternal)child).config().getInternalConfigMap()).
+            getConfigAllInheritedRaw(MyEntityWithPartiallyHeritableConfig.NEVER_INHERIT);
+        Assert.assertEquals(rawHierarchy, MutableList.of());
+        
+        
+        // and try with and without NOT_RE declared at the app
+        
+        rawHierarchy = ((ConfigMapWithInheritance<Entity>)((EntityInternal)child).config().getInternalConfigMap()).
+            getConfigAllInheritedRaw(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE);
+        Assert.assertEquals(rawHierarchy.size(), 1);
+        Assert.assertEquals(Iterables.getOnlyElement(rawHierarchy).getContainer(), app);
+        
+        app.getMutableEntityType().addConfigKey(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE);
+        
+        rawHierarchy = ((ConfigMapWithInheritance<Entity>)((EntityInternal)child).config().getInternalConfigMap()).
+            getConfigAllInheritedRaw(MyEntityWithPartiallyHeritableConfig.NOT_REINHERITABLE);
+        Assert.assertEquals(rawHierarchy, MutableList.of());
     }
     
     public static class MyEntityWithPartiallyHeritableConfig extends AbstractEntity {
-        public static final ConfigKey<String> HERITABLE = ConfigKeys.builder(String.class, "herit.default").build();
-        public static final ConfigKey<String> UNINHERITABLE = ConfigKeys.builder(String.class, "herit.none").parentInheritance(ConfigInheritance.NONE).build();
+        public static final ConfigKey<String> HERITABLE_BY_DEFAULT = ConfigKeys.builder(String.class, "herit.default").build();
+        public static final ConfigKey<String> NEVER_INHERIT = ConfigKeys.builder(String.class, "herit.never").runtimeInheritance(BasicConfigInheritance.NEVER_INHERITED).build();
+        public static final ConfigKey<String> NOT_REINHERITABLE = ConfigKeys.builder(String.class, "herit.not_re").runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED).build();
         // i find a strange joy in words where the prefix "in-" does not mean not, like inflammable 
-        public static final ConfigKey<String> ALWAYS_HERITABLE = ConfigKeys.builder(String.class, "herit.always").parentInheritance(ConfigInheritance.ALWAYS).build();
+        public static final ConfigKey<String> ALWAYS_HERITABLE = ConfigKeys.builder(String.class, "herit.always").runtimeInheritance(BasicConfigInheritance.OVERWRITE).build();
     }
 
+    public static class WeirdInheritanceCase {
+        public interface Y {
+            public static final ConfigKey<String> WHERE = ConfigKeys.newStringConfigKey("where", null, "y");
+        }
+        public interface X extends Y {}
+        public interface S {
+            public static final ConfigKey<String> WHERE = ConfigKeys.newStringConfigKey("where", null, "s");
+        }
+        public static class SI extends AbstractEntity implements S {}
+        public static class XI extends SI implements X {}
+    }
+    /** There is a special case reported (in the main javadoc of this class, before this commit) where:
+     *    class XI extends SI implements X
+     *    class SI implements S  
+     *    interface X extends Y
+     *    config C is declared on S and overwritten at Y.
+     * <p>
+     * This was described as a bug. This case confirms it correctly get S.
+     * The description should read that C (aka WHERE) is declared at both S and Y.
+     * Its value should be read from the most proximal interface ie S.
+     * (At runtime it will generate warnings.)
+     */
+    @Test
+    public void testWeirdInheritanceCase() {
+        Entity child = app.addChild(EntitySpec.create(Entity.class, WeirdInheritanceCase.XI.class));
+        Assert.assertEquals(child.getConfig(ConfigKeys.newStringConfigKey("where", null, "local")), "s");
+    }
+    
 }

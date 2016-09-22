@@ -146,7 +146,7 @@ implements MachineProvisioningLocation<T>, Closeable {
     public FixedListMachineProvisioningLocation() {
         this(Maps.newLinkedHashMap());
     }
-    public FixedListMachineProvisioningLocation(Map properties) {
+    public FixedListMachineProvisioningLocation(Map<?,?> properties) {
         super(properties);
 
         if (isLegacyConstruction()) {
@@ -220,7 +220,7 @@ implements MachineProvisioningLocation<T>, Closeable {
         // TODO shouldn't have to copy config bag as it should be inherited (but currently it is not used inherited everywhere; just most places)
         return getManagementContext().getLocationManager().createLocation(LocationSpec.create(getClass())
                 .parent(this)
-                .configure(config().getLocalBag().getAllConfig())  // FIXME Should this just be inherited?
+                .configure(config().getAllLocalRaw())  // FIXME Should this just be inherited?
                 .configure(newFlags));
     }
 
@@ -309,6 +309,7 @@ implements MachineProvisioningLocation<T>, Closeable {
         return obtain(Maps.<String,Object>newLinkedHashMap());
     }
     
+    @SuppressWarnings("unchecked")
     @Override
     public T obtain(Map<?,?> flags) throws NoMachinesAvailableException {
         T machine;
@@ -384,7 +385,7 @@ implements MachineProvisioningLocation<T>, Closeable {
         origConfigs.put(machine, origConfig);
         requestPersist();
         
-        ((ConfigurationSupportInternal)machine.config()).addToLocalBag(strFlags);
+        ((ConfigurationSupportInternal)machine.config()).putAll(strFlags);
     }
     
     protected void restoreMachineConfig(MachineLocation machine) {
@@ -399,9 +400,9 @@ implements MachineProvisioningLocation<T>, Closeable {
         Set<String> currentKeys = ((ConfigurationSupportInternal)machine.config()).getLocalBag().getAllConfig().keySet();
         Set<String> newKeys = Sets.difference(currentKeys, origConfig.entrySet());
         for (String key : newKeys) {
-            ((ConfigurationSupportInternal)machine.config()).removeFromLocalBag(key);
+            ((ConfigurationSupportInternal)machine.config()).removeKey(key);
         }
-        ((ConfigurationSupportInternal)machine.config()).addToLocalBag(origConfig);
+        ((ConfigurationSupportInternal)machine.config()).putAll(origConfig);
     }
     
     @SuppressWarnings("unchecked")

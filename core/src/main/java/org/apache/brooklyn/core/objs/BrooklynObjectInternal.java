@@ -26,6 +26,7 @@ import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
+import org.apache.brooklyn.config.ConfigMap.ConfigMapWithInheritance;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.guava.Maybe;
 
@@ -51,12 +52,19 @@ public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
          * Returns a read-only view of all the config key/value pairs on this entity, backed by a string-based map,
          * including config names that did not match anything on this entity.
          *
-         * TODO This method gives no information about which config is inherited versus local;
-         * this means {@link ConfigKey#getInheritance()} cannot be respected. This is an unsolvable problem
-         * for "config names that did not match anything on this entity". Therefore consider using
-         * alternative getters.
+         * This method gives no information about which config is inherited versus local;
+         * this means {@link ConfigKey#getInheritanceByContext()} cannot be respected
+         * if an anonymous key (not matching a declared config key) is set but the
+         * strongly typed key is accessed.
+         * <p> 
+         * It does not identify the container where it is defined, meaning URLs and deferred config values 
+         * cannot be resolved in the context of the appropriate ancestor.
+         * <p>
+         * For these reasons it is recommended to use a different accessor,
+         * and callers should be advised this beta method may be removed. 
          */
         @Beta
+        // TODO deprecate. used fairly extensively, mostly in tests. a bit more care will be needed to refactor.
         ConfigBag getBag();
 
         /**
@@ -64,7 +72,11 @@ public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
          * backed by a string-based map, including config names that did not match anything on this entity.
          */
         @Beta
+        // TODO deprecate. used extensively in tests but should be easy (if tedious) to refactor.
         ConfigBag getLocalBag();
+        
+        /** Returns all config defined here, in {@link #getLocalRaw(ConfigKey)} format */
+        Map<ConfigKey<?>,Object> getAllLocalRaw();
 
         /**
          * Returns the uncoerced value for this config key, if available, not taking any default.
@@ -117,17 +129,36 @@ public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
         @Beta
         <T> Maybe<T> getNonBlocking(HasConfigKey<T> key);
 
+        /** Adds keys or strings, making anonymous keys from strings; throws on other keys */
         @Beta
-        void addToLocalBag(Map<String, ?> vals);
+        void putAll(Map<?, ?> vals);
+        
+        /** @deprecated since 0.10.0 use {@link #putAll(Map)} instead */
+        @Deprecated  // and confirmed no uses
+        void set(Map<?, ?> vals);
 
         @Beta
-        void removeFromLocalBag(String key);
+        void removeKey(String key);
 
+        @Beta
+        void removeKey(ConfigKey<?> key);
+        
         @Beta
         void refreshInheritedConfig();
 
         @Beta
         void refreshInheritedConfigOfChildren();
+        
+        /** This is currently the only way to get some rolled up collections and raw,
+         * and also to test for the presence of a value (without any default).
+         * As more accessors are added callers may be asked to migrate. 
+         * Callers may also consider using {@link #findKeys(com.google.common.base.Predicate)}
+         * if that isn't too inefficient. */
+        @Beta  // TODO provide more accessors and deprecate this
+        ConfigMapWithInheritance<? extends BrooklynObject> getInternalConfigMap();
+
+        /** Clears all local config, e.g. on tear-down */
+        void removeAllLocalConfig();
     }
     
     @Beta

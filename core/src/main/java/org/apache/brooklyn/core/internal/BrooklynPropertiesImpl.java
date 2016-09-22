@@ -19,7 +19,6 @@
 package org.apache.brooklyn.core.internal;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import groovy.lang.Closure;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -29,9 +28,11 @@ import java.io.InputStream;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Properties;
+import java.util.Set;
 
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
@@ -53,6 +54,8 @@ import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Maps;
+
+import groovy.lang.Closure;
 
 /**
  * TODO methods in this class are not thread safe.
@@ -439,24 +442,45 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
     }
 
     @Override
-    public Object getRawConfig(ConfigKey<?> key) {
-        return get(key.getName());
+    public Maybe<Object> getConfigRaw(ConfigKey<?> key) {
+        if (containsKey(key.getName())) return Maybe.of(get(key.getName()));
+        return Maybe.absent();
     }
     
     @Override
     public Maybe<Object> getConfigRaw(ConfigKey<?> key, boolean includeInherited) {
-        if (containsKey(key.getName())) return Maybe.of(get(key.getName()));
-        return Maybe.absent();
+        return getConfigRaw(key);
     }
 
     @Override
-    public Map<ConfigKey<?>, Object> getAllConfig() {
+    public Maybe<Object> getConfigLocalRaw(ConfigKey<?> key) {
+        return getConfigRaw(key);
+    }
+    
+    @Override
+    public Map<ConfigKey<?>,Object> getAllConfigLocalRaw() {
         Map<ConfigKey<?>, Object> result = new LinkedHashMap<ConfigKey<?>, Object>();
         for (Object entry: entrySet())
             result.put(new BasicConfigKey<Object>(Object.class, ""+((Map.Entry)entry).getKey()), ((Map.Entry)entry).getValue());
         return result;
     }
 
+    @Override @Deprecated
+    public Map<ConfigKey<?>, Object> getAllConfig() {
+        return getAllConfigLocalRaw();
+    }
+
+    @Override
+    public Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> filter) {
+        Set<ConfigKey<?>> result = new LinkedHashSet<ConfigKey<?>>();
+        for (Object entry: entrySet()) {
+            ConfigKey<?> k = new BasicConfigKey<Object>(Object.class, ""+((Map.Entry)entry).getKey());
+            if (filter.apply(k))
+                result.add(new BasicConfigKey<Object>(Object.class, ""+((Map.Entry)entry).getKey()));
+        }
+        return result;
+    }
+    
     @Override
     public BrooklynPropertiesImpl submap(Predicate<ConfigKey<?>> filter) {
         BrooklynPropertiesImpl result = Factory.newEmpty();

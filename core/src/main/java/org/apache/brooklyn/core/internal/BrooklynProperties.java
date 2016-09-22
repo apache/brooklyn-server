@@ -298,19 +298,26 @@ public interface BrooklynProperties extends Map, StringConfigMap {
     @Override
     public <T> T getConfig(HasConfigKey<T> key);
 
-    @Override
     public <T> T getConfig(HasConfigKey<T> key, T defaultValue);
 
-    @Override
+    
+    /**
+     * Returns value stored against the given key,
+     * resolved (if it is a Task, possibly blocking), and coerced to the appropriate type, 
+     * or given default value if not set, 
+     * unless the default value is null in which case it returns the default.
+     */
     public <T> T getConfig(ConfigKey<T> key, T defaultValue);
 
-    @Override
-    public Object getRawConfig(ConfigKey<?> key);
-    
+    public Maybe<Object> getConfigRaw(ConfigKey<?> key);
+
+    /** Inheritance is ignored here. Preferable to use {@link #getConfigRaw(ConfigKey)}. 
+     * @deprecated since 0.10.0 the second parameter is ignored for {@link BrooklynProperties}; use {@link #getConfigLocalRaw(ConfigKey)}. */
+    @Deprecated // and confirmed no usages apart from internal
     @Override
     public Maybe<Object> getConfigRaw(ConfigKey<?> key, boolean includeInherited);
 
-    @Override
+    @Override @Deprecated
     public Map<ConfigKey<?>, Object> getAllConfig();
 
     @Override

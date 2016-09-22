@@ -20,6 +20,8 @@ package org.apache.brooklyn.config;
 
 import java.util.Map;
 
+import com.google.common.base.Predicate;
+
 /** convenience extension where map is principally strings or converted to strings
  * (supporting BrooklynProperties) */
 public interface StringConfigMap extends ConfigMap {
@@ -32,4 +34,12 @@ public interface StringConfigMap extends ConfigMap {
      * and 'defaultIfNone' (a default value to return if there is no such property);
      * defaults to no warning and null default value */
     public String getFirst(@SuppressWarnings("rawtypes") Map flags, String... keys);
+    
+    /** returns submap matching the given filter predicate; see ConfigPredicates for common predicates */
+    public StringConfigMap submap(Predicate<ConfigKey<?>> filter);
+    
+    /** returns a read-only map view which has string keys (corresponding to the config key names);
+     * callers encouraged to use the typed keys (and so not use this method),
+     * but in some compatibility areas having a Properties-like view is useful */
+    public Map<String,Object> asMapWithStringKeys();
 }

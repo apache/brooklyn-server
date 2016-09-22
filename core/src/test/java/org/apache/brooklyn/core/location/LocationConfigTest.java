@@ -25,10 +25,11 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -38,7 +39,9 @@ import com.google.common.collect.ImmutableMap;
 
 public class LocationConfigTest {
 
-    // TODO Duplication of LocationConfigTest, but with locations instead of entities
+    // TODO near duplication of EntityConfigTest, but with locations instead of entities
+    
+    private static final Logger log = LoggerFactory.getLogger(LocationConfigTest.class);
     
     private ManagementContext managementContext;
 
@@ -104,7 +107,8 @@ public class LocationConfigTest {
         Assert.assertEquals(child.getAllConfig(false), ImmutableMap.of());
     }
     
-    // TODO Fails for location, but passes for entity; not worth fixing here; locations will soon be entities!
+    // Fails for location, but passes (or used to pass) for entity; not worth fixing here; locations will soon be entities, we hope
+    // (Probably also fails for entities now; could just delete test?)
     @Test(groups="WIP")
     public void testChildConfigBagInheritsFlagNameFromParentSetsOwnConfigKey() throws Exception {
         LocationInternal loc = managementContext.getLocationManager().createLocation(LocationSpec.create(MyLocation.class)
@@ -160,6 +164,8 @@ public class LocationConfigTest {
                 .parent(loc)
                 .configure("mychildconfigflagname", "overrideMyval"));
 
+        log.info("local="+child.config().getLocalBag());
+        log.info("all="+child.config().getBag());
         assertEquals(child.config().getBag().getAllConfig(), ImmutableMap.of("mychildlocation.myconfigwithflagname", "overrideMyval", "mychildconfigflagname", "overrideMyval"));
         assertEquals(child.config().getLocalBag().getAllConfig(), ImmutableMap.of("mychildlocation.myconfigwithflagname", "overrideMyval", "mychildconfigflagname", "overrideMyval"));
         Assert.assertEquals(child.getAllConfig(true), ImmutableMap.of("mychildlocation.myconfigwithflagname", "overrideMyval", "mychildconfigflagname", "overrideMyval"));
@@ -178,7 +184,6 @@ public class LocationConfigTest {
         Assert.assertEquals(subloc.getConfig(MyLocation.MY_CONFIG_WITH_DEFAULT), "mysubdefault");
     }
     
-    @SuppressWarnings("serial")
     public static class MyLocation extends AbstractLocation {
         public static final ConfigKey<String> MY_CONFIG = ConfigKeys.newStringConfigKey("mylocation.myconfig");
 
@@ -188,7 +193,6 @@ public class LocationConfigTest {
         public static final ConfigKey<String> MY_CONFIG_WITH_DEFAULT = ConfigKeys.newStringConfigKey("mylocation.myconfigwithdefault", "", "mydefault");
     }
     
-    @SuppressWarnings("serial")
     public static class MyChildLocation extends AbstractLocation {
         public static final ConfigKey<String> MY_CHILD_CONFIG = ConfigKeys.newStringConfigKey("mychildlocation.myconfig");
 
@@ -196,7 +200,6 @@ public class LocationConfigTest {
         public static final ConfigKey<String> MY_CHILD_CONFIG_WITH_FLAGNAME = ConfigKeys.newStringConfigKey("mychildlocation.myconfigwithflagname");
     }
     
-    @SuppressWarnings("serial")
     public static class MySubLocation extends MyLocation {
         public static final ConfigKey<String> MY_CONFIG_WITH_DEFAULT = ConfigKeys.newConfigKeyWithDefault(MyLocation.MY_CONFIG_WITH_DEFAULT, "mysubdefault");
     }

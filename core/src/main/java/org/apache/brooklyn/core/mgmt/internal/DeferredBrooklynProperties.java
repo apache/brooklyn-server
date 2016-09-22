@@ -126,26 +126,35 @@ public class DeferredBrooklynProperties implements BrooklynProperties {
         return resolve(key, raw);
     }
 
-    @Deprecated
     @Override
-    public Object getRawConfig(ConfigKey<?> key) {
-        return transform(key, delegate.getRawConfig(key));
+    public Maybe<Object> getConfigRaw(ConfigKey<?> key) {
+        return getConfigRaw(key, true);
     }
     
-    @Override
+    @Override @Deprecated
     public Maybe<Object> getConfigRaw(ConfigKey<?> key, boolean includeInherited) {
         Maybe<Object> result = delegate.getConfigRaw(key, includeInherited);
         return (result.isPresent()) ? Maybe.of(transform(key, result.get())) : Maybe.absent();
     }
+    
+    @Override
+    public Maybe<Object> getConfigLocalRaw(ConfigKey<?> key) {
+        return getConfigRaw(key, false);
+    }
 
     @Override
-    public Map<ConfigKey<?>, Object> getAllConfig() {
+    public Map<ConfigKey<?>,Object> getAllConfigLocalRaw() {
         Map<ConfigKey<?>, Object> raw = delegate.getAllConfig();
         Map<ConfigKey<?>, Object> result = Maps.newLinkedHashMap();
         for (Map.Entry<ConfigKey<?>, Object> entry : raw.entrySet()) {
             result.put(entry.getKey(), transform(entry.getKey(), entry.getValue()));
         }
         return result;
+    }
+
+    @Override @Deprecated
+    public Map<ConfigKey<?>, Object> getAllConfig() {
+        return getAllConfigLocalRaw();
     }
 
     @Override
@@ -192,6 +201,10 @@ public class DeferredBrooklynProperties implements BrooklynProperties {
     public BrooklynProperties submap(Predicate<ConfigKey<?>> filter) {
         BrooklynProperties submap = delegate.submap(filter);
         return new DeferredBrooklynProperties(submap, mgmt);
+    }
+    @Override
+    public Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> filter) {
+        return delegate.findKeys(filter);
     }
 
     @Override

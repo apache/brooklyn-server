@@ -114,8 +114,8 @@ public class BasicEntityRebindSupport extends AbstractBrooklynObjectRebindSuppor
             }
         }
         
-        ((EntityInternal)entity).getConfigMap().addToLocalBag(memento.getConfigUnmatched());
-        ((EntityInternal)entity).refreshInheritedConfig();
+        ((EntityInternal)entity).config().putAll(memento.getConfigUnmatched());
+        ((EntityInternal)entity).config().refreshInheritedConfig();
     }
     
     @Override

@@ -19,7 +19,6 @@
 package org.apache.brooklyn.entity.software.base;
 
 import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecContains;
-import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecHasNever;
 import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecHasOnlyOnce;
 import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecSatisfies;
 import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecsContain;
@@ -28,13 +27,6 @@ import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertEx
 
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
-
-import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
@@ -49,6 +41,12 @@ import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.CustomResponse;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecCmdPredicates;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecParams;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 public class VanillaSoftwareProcessTest extends BrooklynAppUnitTestSupport {
 
@@ -290,6 +288,8 @@ public class VanillaSoftwareProcessTest extends BrooklynAppUnitTestSupport {
                 .configure(VanillaSoftwareProcess.LAUNCH_COMMAND, "launchCommand"));
         app.start(ImmutableList.of(loc));
 
-        assertExecHasNever(RecordingSshTool.getExecCmds(), "preInstallCommand");
+        // since app does not define it, the child *should* run it
+        assertExecHasOnlyOnce(RecordingSshTool.getExecCmds(), "preInstallCommand");
+        assertExecHasOnlyOnce(RecordingSshTool.getExecCmds(), "launchCommand");
     }
 }

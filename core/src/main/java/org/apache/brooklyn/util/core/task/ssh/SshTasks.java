@@ -21,6 +21,7 @@ package org.apache.brooklyn.util.core.task.ssh;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -32,28 +33,31 @@ import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.api.mgmt.TaskQueueingContext;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
-import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.ssh.internal.PlainSshExecTaskFactory;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskFactory;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.ssh.BashCommands;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
@@ -122,22 +126,24 @@ public class SshTasks {
     }
 
     private static Map<String, Object> getSshFlags(Location location) {
-        ConfigBag allConfig = ConfigBag.newInstance();
+        Set<ConfigKey<?>> sshConfig = MutableSet.of();
         
+        StringConfigMap mgmtConfig = null;
+        sshConfig.addAll(location.config().findKeys(ConfigPredicates.nameStartsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)));
         if (location instanceof AbstractLocation) {
             ManagementContext mgmt = ((AbstractLocation)location).getManagementContext();
-            if (mgmt!=null)
-                allConfig.putAll(mgmt.getConfig().getAllConfig());
+            if (mgmt!=null) {
+                mgmtConfig = mgmt.getConfig();
+                sshConfig.addAll(mgmtConfig.findKeys(ConfigPredicates.nameStartsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)));
+            }
         }
         
-        allConfig.putAll(((LocationInternal)location).config().getBag());
         
         Map<String, Object> result = Maps.newLinkedHashMap();
-        for (String keyS : allConfig.getAllConfig().keySet()) {
-            ConfigKey<?> key = ConfigKeys.newConfigKey(Object.class, keyS);
-            if (key.getName().startsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)) {
-                result.put(ConfigUtils.unprefixedKey(SshTool.BROOKLYN_CONFIG_KEY_PREFIX, key).getName(), allConfig.get(key));
-            }
+        for (ConfigKey<?> key : sshConfig) {
+            Maybe<Object> v = ((LocationInternal)location).config().getRaw(key);
+            if (v.isAbsent() && mgmtConfig!=null) v = Maybe.of( (Object) mgmtConfig.getConfig(key) );
+            result.put(ConfigUtils.unprefixedKey(SshTool.BROOKLYN_CONFIG_KEY_PREFIX, key).getName(), v.get());
         }
         return result;
     }

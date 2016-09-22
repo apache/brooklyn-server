@@ -26,6 +26,7 @@ import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.drivers.downloads.DownloadResolver;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal.ConfigurationSupportInternal;
 import org.apache.brooklyn.entity.software.base.lifecycle.ScriptHelper;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
@@ -82,7 +83,7 @@ public class VanillaSoftwareProcessSshDriver extends AbstractSoftwareProcessSshD
 
     @Override
     public void install() {
-        Maybe<Object> url = getEntity().getConfigRaw(SoftwareProcess.DOWNLOAD_URL, true);
+        Maybe<Object> url = ((EntityInternal)getEntity()).config().getRaw(SoftwareProcess.DOWNLOAD_URL);
         if (url.isPresentAndNonNull()) {
             DownloadResolver resolver = Entities.newDownloader(this);
             List<String> urls = resolver.getTargets();

@@ -19,7 +19,6 @@
 package org.apache.brooklyn.core.sensor;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import groovy.lang.Closure;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -84,7 +83,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
-/** Conveniences for making tasks which run in entity {@link ExecutionContext}s, subscribing to attributes from other entities, possibly transforming those;
+import groovy.lang.Closure;
+
+/** Conveniences for making tasks which run in entity {@link ExecutionContext}s, blocking on attributes from other entities, possibly transforming those;
  * these {@link Task} instances are typically passed in {@link EntityLocal#setConfig(ConfigKey, Object)}.
  * <p>
  * If using a lot it may be useful to:
@@ -93,6 +94,9 @@ import com.google.common.collect.Lists;
  *   import static org.apache.brooklyn.core.sensor.DependentConfiguration.*;
  * }
  * </pre>
+ * <p>
+ * Note that these methods return one-time tasks. The DslComponent methods return long-lasting pointers
+ * and should now normally be used instead.
  */
 public class DependentConfiguration {
 
@@ -346,7 +350,7 @@ public class DependentConfiguration {
                         throw new CompoundRuntimeException("Aborted waiting for ready from "+source+" "+sensor, abortionExceptions);
                     }
 
-                    nextPeriod = nextPeriod.times(2).upperBound(maxPeriod);
+                    nextPeriod = nextPeriod.multiply(2).upperBound(maxPeriod);
                 }
                 if (LOG.isDebugEnabled()) LOG.debug("Attribute-ready for {} in entity {}", sensor, source);
                 return postProcess(value);

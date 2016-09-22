@@ -63,40 +63,6 @@ public interface EntityInternal extends BrooklynObjectInternal, EntityLocal, Reb
     <T> T setAttributeWithoutPublishing(AttributeSensor<T> sensor, T val);
 
     /**
-     * @deprecated since 0.7.0; instead just use methods on {@link ConfigurationSupportInternal} returned by {@link #config()}
-     */
-    @Deprecated
-    EntityConfigMap getConfigMap();
-
-    /**
-     * @return a read-only copy of all the config key/value pairs on this entity.
-     * 
-     * @deprecated since 0.7.0; instead just use methods on {@link ConfigurationSupportInternal} returned by {@link #config()},
-     * e.g. getBag().getAllConfigAsConfigKeyMap().
-     */
-    @Deprecated
-    @Beta
-    Map<ConfigKey<?>,Object> getAllConfig();
-
-    /**
-     * Returns a read-only view of all the config key/value pairs on this entity, backed by a string-based map, 
-     * including config names that did not match anything on this entity.
-     * 
-     * @deprecated since 0.7.0; use {@link #config()}, such as {@code entity.config().getBag()}
-     */
-    @Deprecated
-    ConfigBag getAllConfigBag();
-
-    /**
-     * Returns a read-only view of the local (i.e. not inherited) config key/value pairs on this entity, 
-     * backed by a string-based map, including config names that did not match anything on this entity.
-     * 
-     * @deprecated since 0.7.0; use {@link #config()}, such as {@code entity.config().getLocalBag()}
-     */
-    @Deprecated
-    ConfigBag getLocalConfigBag();
-
-    /**
      * @deprecated since 0.8.0; use {@link SensorSupportInternal#getAll()} via code like {@code sensors().getAll()}.
      */
     @Beta
@@ -107,13 +73,6 @@ public interface EntityInternal extends BrooklynObjectInternal, EntityLocal, Reb
      */
     @Beta
     void removeAttribute(AttributeSensor<?> attribute);
-
-    /**
-     * 
-     * @deprecated since 0.7.0; use {@link #config()}, such as {@code entity.config().refreshInheritedConfig()}
-     */
-    @Deprecated
-    void refreshInheritedConfig();
 
     /**
      * Must be called before the entity is started.

@@ -30,7 +30,10 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.config.ConfigInheritance;
+import org.apache.brooklyn.config.ConfigInheritance.ConfigInheritanceContext;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys.InheritanceContext;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.internal.ConfigKeySelfExtracting;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -95,7 +98,7 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
         protected T defaultValue;
         protected boolean reconfigurable;
         protected Predicate<? super T> constraint = Predicates.alwaysTrue();
-        protected ConfigInheritance parentInheritance;
+        protected ConfigInheritance runtimeInheritance;
         protected ConfigInheritance typeInheritance;
         
         protected abstract B self();
@@ -115,8 +118,8 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
             description(key.getDescription());
             defaultValue(key.getDefaultValue());
             reconfigurable(key.isReconfigurable());
-            parentInheritance(key.getParentInheritance());
-            typeInheritance(key.getTypeInheritance());
+            runtimeInheritance(key.getInheritanceByContext(InheritanceContext.RUNTIME_MANAGEMENT));
+            typeInheritance(key.getInheritanceByContext(InheritanceContext.TYPE_DEFINITION));
             constraint(key.getConstraint());
         }
         public B name(String val) {
@@ -137,8 +140,15 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
         public B reconfigurable(boolean val) {
             this.reconfigurable = val; return self();
         }
+        /**
+         * @deprecated since 0.10.0; use {@link #runtime2Inheritance(ConfigInheritance)}
+         */ 
+        @Deprecated
         public B parentInheritance(ConfigInheritance val) {
-            this.parentInheritance = val; return self();
+            this.runtimeInheritance = val; return self();
+        }
+        public B runtimeInheritance(ConfigInheritance val) {
+            this.runtimeInheritance = val; return self();
         }
         public B typeInheritance(ConfigInheritance val) {
             this.typeInheritance = val; return self();
@@ -148,7 +158,7 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
          */
         @Deprecated
         public B inheritance(ConfigInheritance val) {
-            return parentInheritance(val);
+            return runtimeInheritance(val);
         }
         @Beta
         public B constraint(Predicate<? super T> constraint) {
@@ -173,16 +183,24 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
     protected T defaultValue;
     protected boolean reconfigurable;
     protected ConfigInheritance typeInheritance;
-    protected ConfigInheritance parentInheritance;
+    protected ConfigInheritance runtimeInheritance;
     protected Predicate<? super T> constraint;
 
     /**
      * Kept only for backwards compatibility with serialised state; when read, it's value is used 
-     * for {@link #parentInheritance} and then set to null.
+     * for {@link #inheritanceByContext} and then set to null.
+     * @deprecated since 0.10.0
      */
     @Deprecated
     private ConfigInheritance inheritance;
-
+    /**
+     * Kept only for backwards compatibility with serialised state; when read, it's value is used 
+     * for {@link #inheritanceByContext} and then set to null.
+     * @deprecated since 0.10.0
+     */
+    @Deprecated
+    protected ConfigInheritance parentInheritance;
+    
     // FIXME In groovy, fields were `public final` with a default constructor; do we need the gson?
     public BasicConfigKey() { /* for gson */ }
 
@@ -225,7 +243,7 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
         this.description = builder.description;
         this.defaultValue = builder.defaultValue;
         this.reconfigurable = builder.reconfigurable;
-        this.parentInheritance = builder.parentInheritance;
+        this.parentInheritance = builder.runtimeInheritance;
         this.typeInheritance = builder.typeInheritance;
         // Note: it's intentionally possible to have default values that are not valid
         // per the configured constraint. If validity were checked here any class that
@@ -262,17 +280,49 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
         return reconfigurable;
     }
     
+    @Override @Nullable 
+    public ConfigInheritance getInheritanceByContext(ConfigInheritanceContext context) {
+        if (context==InheritanceContext.RUNTIME_MANAGEMENT) {
+            // for backwards compatbility
+            if (parentInheritance!=null) {
+                runtimeInheritance = parentInheritance;
+                parentInheritance = null;
+            }
+            if (inheritance!=null) {
+                runtimeInheritance = inheritance;
+                inheritance = null;
+            }
+            
+            return runtimeInheritance;
+        }
+        
+        if (context==InheritanceContext.TYPE_DEFINITION) {
+            return typeInheritance;
+        }
+        
+        return null;
+    }
+    
+    @Override
+    public Map<ConfigInheritanceContext,ConfigInheritance> getInheritanceByContext() {
+        MutableMap<ConfigInheritanceContext, ConfigInheritance> result = MutableMap.of();
+        for (InheritanceContext context: InheritanceContext.values()) {
+            result.addIfNotNull(context, getInheritanceByContext(context));
+        }
+        return result;
+    }
+
     @Deprecated @Override @Nullable
     public ConfigInheritance getInheritance() {
         return getParentInheritance();
     }
 
-    @Override @Nullable
+    @Deprecated @Override @Nullable
     public ConfigInheritance getTypeInheritance() {
         return typeInheritance;
     }
 
-    @Override @Nullable
+    @Deprecated @Override @Nullable
     public ConfigInheritance getParentInheritance() {
         if (parentInheritance == null && inheritance != null) {
             parentInheritance = inheritance;
