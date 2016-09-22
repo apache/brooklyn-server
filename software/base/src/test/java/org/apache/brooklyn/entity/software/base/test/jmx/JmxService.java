@@ -98,13 +98,21 @@ public class JmxService {
             server.registerMBean(new NamingService(jmxPort), naming);
             Object proxy = MBeanServerInvocationHandler.newProxyInstance(server, naming, NamingServiceMBean.class, false);
             namingServiceMBean = (NamingServiceMBean) proxy;
-            try {
-                namingServiceMBean.start();
-            } catch (Exception e) {
-                // may take a bit of time for port to be available, if it had just been used
-                logger.warn("JmxService couldn't start test mbean ("+e+"); will delay then retry once");
-                Thread.sleep(1000);
-                namingServiceMBean.start();
+            for (int i=0; ; i++) {
+                try {
+                    namingServiceMBean.start();
+                    break;
+                } catch (Exception e) {
+                    // may take a bit of time for port to be available, if it had just been used
+                    if (i==0) logger.warn("JmxService couldn't start test mbean ("+e+"); will delay and retry");
+                    else if (i>=180) {
+                        logger.warn("JmxService couldn't start test mbean ("+e+"); definitive; throwing "+e);
+                        throw e;
+                    } else {
+                        logger.debug("JmxService couldn't start test mbean on retry attempt "+i+" ("+e+"); will continue retrying");
+                    }
+                    Thread.sleep(1000);
+                }
             }
     
             connectorServer.start();
