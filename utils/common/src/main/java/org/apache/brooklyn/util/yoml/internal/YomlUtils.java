@@ -23,11 +23,13 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.javalang.FieldOrderings;
 import org.apache.brooklyn.util.javalang.ReflectionPredicates;
@@ -35,16 +37,22 @@ import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yaml.Yamls;
 import org.apache.brooklyn.util.yoml.YomlConfig;
+import org.apache.brooklyn.util.yoml.YomlTypeRegistry;
 import org.apache.brooklyn.util.yoml.annotations.DefaultKeyValue;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
+import com.google.common.reflect.TypeToken;
 
 public class YomlUtils {
 
+    private static final Logger log = LoggerFactory.getLogger(YomlUtils.class);
+    
     /** true iff k1 and k2 are case-insensitively equal after removing all - and _.
      * Note that the definition of mangling may change.
      * TODO it should be stricter so that "ab" and "a-b" don't match but "aB" and "a-b" and "a_b" do */
@@ -92,6 +100,7 @@ public class YomlUtils {
         } 
     }
 
+    /** parses a type string and if it is generic it gives access to the underlying types */
     public static class GenericsParse {
         public String warning;
         public boolean isGeneric = false;
@@ -147,6 +156,51 @@ public class YomlUtils {
         public int subTypeCount() { return subTypes.size(); }
     }
 
+    public static String getTypeNameWithGenerics(TypeToken<?> t, YomlTypeRegistry tr) {
+        return getTypeNameWithGenerics(t.getType(), tr);
+    }
+    
+    @SuppressWarnings("serial") private static class CannotResolveGenerics extends IllegalStateException {}
+    private final static Set<String> WARNED_ON_UNSUPPORTED_GENERICS = MutableSet.of();  
+    
+    public static String getTypeNameWithGenerics(Type t, YomlTypeRegistry tr) {
+        if (t==null) return null;
+        
+        if (t instanceof ParameterizedType) {
+            String result = getTypeNameWithGenerics( ((ParameterizedType)t).getRawType(), tr );
+            try {
+                StringBuilder sb = new StringBuilder(result);
+                Type[] args = ((ParameterizedType)t).getActualTypeArguments();
+                if (args==null || args.length==0) {
+                    // nothing
+                } else {
+                    sb.append("<");
+                    sb.append(getTypeNameWithGenerics( args[0], tr ));
+                    for (int i=1; i<args.length; i++) {
+                        sb.append(",");
+                        sb.append(getTypeNameWithGenerics( args[i], tr ));
+                    }
+                    sb.append(">");
+                }
+                return sb.toString();
+            } catch (CannotResolveGenerics e) {
+                // fall back to non-generic
+                return result;
+            }
+        }
+        
+        if (t instanceof Class) {
+            return tr.getTypeNameOfClass((Class<?>)t);
+        }
+        
+        // don't support WilcardType, BoundedType, or arrays
+        String tn = t.getClass().getName();
+        if (WARNED_ON_UNSUPPORTED_GENERICS.contains(tn)) {
+            log.warn("Unsupported generic type: "+t+" ("+tn+"), falling back to raw type (only logging once)");
+        }
+        throw new CannotResolveGenerics();
+    }
+    
     public static <T> Map<String,Field> getAllNonTransientNonStaticFields(Class<T> type, T optionalInstanceToRequireNonNullFieldValue) {
         return getAllFields(type, optionalInstanceToRequireNonNullFieldValue,
             Predicates.and(ReflectionPredicates.IS_FIELD_NON_TRANSIENT, ReflectionPredicates.IS_FIELD_NON_STATIC));

@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.brooklyn.util.collections.Jsonya;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yoml.Yoml;
 import org.apache.brooklyn.util.yoml.YomlConfig;
@@ -109,8 +110,8 @@ public class YomlTestFixture {
     }
     
     static void assertEqualsIgnoringQuotes(Object s1, Object s2, String message) {
-        if (s1 instanceof String) s1 = Strings.replaceAllNonRegex((String)s1, "\"", "");
-        if (s2 instanceof String) s2 = Strings.replaceAllNonRegex((String)s2, "\"", "");
+        if (s1 instanceof String) s1 = Strings.replaceAll((String)s1, MutableMap.of("\"", "", "\'", ""));
+        if (s2 instanceof String) s2 = Strings.replaceAll((String)s2, MutableMap.of("\"", "", "\'", ""));
         Assert.assertEquals(s1, s2, message);
     }
     

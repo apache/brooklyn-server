@@ -53,8 +53,10 @@ public class YomlMapListTests {
         "{ key: { type: string, value: b }, value: { type: string, value: bbb } } ]";
     @Test public void testReadMapVerbose() { y.read(MAP1_JSON_OBJECT_OBJECT, "map<object,object>").assertResult(MAP1_OBJ); }
 
+    // a generic type Object is written in long form even if it's a primitive, to guard against the wrong interpretation of the primitive
     String MAP1_JSON_STRING_OBJECT = "{ a: { type: int, value: 1 }, b: { type: string, value: bbb } }";
     @Test public void testReadMapVerboseStringKey() { y.read(MAP1_JSON_STRING_OBJECT, "map<string,object>").assertResult(MAP1_OBJ); }
+    @Test public void testReadMapVerboseStringLongTypeFormatKey() { y.read(MAP1_JSON_STRING_OBJECT, "java:java.util.Map<string,java:java.lang.Object>").assertResult(MAP1_OBJ); }
     @Test public void testReadMapVerboseJsonKey() { y.read(MAP1_JSON_STRING_OBJECT, "map<json,object>").assertResult(MAP1_OBJ); }
     
     String LIST1_JSON = "[ a, 1, b ]";

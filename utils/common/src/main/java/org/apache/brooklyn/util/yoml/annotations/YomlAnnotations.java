@@ -79,7 +79,7 @@ public class YomlAnnotations {
         if (ann==null) return Collections.emptyList();
         return new InstantiateTypeFromRegistryUsingConfigMap.Factory().newConfigKeySerializersForType(
             t,
-            ann.value(), ann.writeAsKey()!=null ? ann.writeAsKey() : ann.value(),
+            ann.value(), Strings.isNonBlank(ann.writeAsKey()) ? ann.writeAsKey() : ann.value(),
             ann.validateAheadOfTime(), ann.requireStaticKeys());
     }
 

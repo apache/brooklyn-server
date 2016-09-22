@@ -125,7 +125,7 @@ public class TopLevelConfigKeySerializer extends TopLevelFieldSerializer {
         @Override
         protected void prepareTopLevelFields() {
             super.prepareTopLevelFields();
-            getTopLevelFieldsBlackboard().setDeclaredTypeIfUnset(fieldName, configKey.getType());
+            getTopLevelFieldsBlackboard().setDeclaredTypeIfUnset(fieldName, configKey.getTypeToken());
         }
     }
     

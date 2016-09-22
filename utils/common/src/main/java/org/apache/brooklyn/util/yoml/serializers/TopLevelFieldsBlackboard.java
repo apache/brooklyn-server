@@ -34,6 +34,8 @@ import org.apache.brooklyn.util.yoml.YomlSerializer;
 import org.apache.brooklyn.util.yoml.internal.YomlContext;
 import org.apache.brooklyn.util.yoml.serializers.TopLevelFieldSerializer.FieldConstraint;
 
+import com.google.common.reflect.TypeToken;
+
 public class TopLevelFieldsBlackboard implements YomlRequirement {
 
     public static final String KEY = TopLevelFieldsBlackboard.class.getCanonicalName();
@@ -55,7 +57,7 @@ public class TopLevelFieldsBlackboard implements YomlRequirement {
     private final Map<String,FieldConstraint> fieldsConstraints = MutableMap.of();
     private final Map<String,YomlSerializer> defaultValueForFieldComesFromSerializer = MutableMap.of();
     private final Map<String,Object> defaultValueOfField = MutableMap.of();
-    private final Map<String,Class<?>> declaredTypeOfFieldsAndAliases = MutableMap.of();
+    private final Map<String,TypeToken<?>> declaredTypeOfFieldsAndAliases = MutableMap.of();
     
     public String getKeyName(String fieldName) {
         return Maybe.ofDisallowingNull(keyNames.get(fieldName)).orNull();
@@ -142,17 +144,17 @@ public class TopLevelFieldsBlackboard implements YomlRequirement {
     }
     
     /** optional, and must be called after aliases; not used for fields, is used for config keys */
-    public void setDeclaredTypeIfUnset(String fieldName, Class<?> type) {
-        setDeclaredTypeOfItemIfUnset(fieldName, type);
+    public void setDeclaredTypeIfUnset(String fieldName, TypeToken<?> type) {
+        setDeclaredTypeOfIndividualNameOrAliasIfUnset(fieldName, type);
         for (String alias: getAliases(fieldName)) 
-            setDeclaredTypeOfItemIfUnset(alias, type);
+            setDeclaredTypeOfIndividualNameOrAliasIfUnset(alias, type);
     }
-    protected void setDeclaredTypeOfItemIfUnset(String fieldName, Class<?> type) {
+    protected void setDeclaredTypeOfIndividualNameOrAliasIfUnset(String fieldName, TypeToken<?> type) {
         if (declaredTypeOfFieldsAndAliases.get(fieldName)!=null) return;
         declaredTypeOfFieldsAndAliases.put(fieldName, type);
     }
-    /** only if {@link #setDeclaredTypeIfUnset(String, Class)} is being used (eg config keys) */
-    public Class<?> getDeclaredType(String key) {
+    /** only if {@link #setDeclaredTypeIfUnset(String, TypeToken)} is being used (eg config keys) */
+    public TypeToken<?> getDeclaredType(String key) {
         return declaredTypeOfFieldsAndAliases.get(key);
     }
     

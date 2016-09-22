@@ -50,17 +50,28 @@ public class TopLevelConfigKeysTests {
     static class MockConfigKey<T> implements ConfigKey<T> {
         String name;
         Class<T> type;
+        TypeToken<T> typeToken;
         T defaultValue;
+        
+        ConfigInheritance inheritance = null;
 
         public MockConfigKey(Class<T> type, String name) {
             this.name = name;
             this.type = type;
+            this.typeToken = TypeToken.of(type);
         }
-        
+
+        @SuppressWarnings("unchecked")
+        public MockConfigKey(TypeToken<T> typeToken, String name) {
+            this.name = name;
+            this.typeToken = typeToken;
+            this.type = (Class<T>)typeToken.getRawType();
+        }
+
         @Override public String getDescription() { return null; }
         @Override public String getName() { return name; }
         @Override public Collection<String> getNameParts() { return MutableList.of(name); }
-        @Override public TypeToken<T> getTypeToken() { return TypeToken.of(type); }
+        @Override public TypeToken<T> getTypeToken() { return typeToken; }
         @Override public Class<? super T> getType() { return type; }
 
         @Override public String getTypeName() { throw new UnsupportedOperationException(); }
@@ -72,7 +83,7 @@ public class TopLevelConfigKeysTests {
         @Override public ConfigInheritance getInheritance() { return null; }
         @Override public Predicate<? super T> getConstraint() { return null; }
         @Override public boolean isValueValid(T value) { return true; }
-        @Override public ConfigInheritance getInheritanceByContext(ConfigInheritanceContext context) { return null; }
+        @Override public ConfigInheritance getInheritanceByContext(ConfigInheritanceContext context) { return inheritance; }
         @Override public Map<ConfigInheritanceContext, ConfigInheritance> getInheritanceByContext() { return MutableMap.of(); }
     }
     

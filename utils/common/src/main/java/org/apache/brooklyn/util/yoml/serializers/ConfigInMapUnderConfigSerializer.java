@@ -25,6 +25,9 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.yoml.internal.YomlContext;
 import org.apache.brooklyn.util.yoml.internal.YomlContextForRead;
 import org.apache.brooklyn.util.yoml.internal.YomlContextForWrite;
+import org.apache.brooklyn.util.yoml.internal.YomlUtils;
+
+import com.google.common.reflect.TypeToken;
 
 public class ConfigInMapUnderConfigSerializer extends FieldsInMapUnderFields {
 
@@ -72,7 +75,12 @@ public class ConfigInMapUnderConfigSerializer extends FieldsInMapUnderFields {
                 // for config we try with the optional type, but don't insist
                 Exceptions.propagateIfFatal(e);
                 if (optionalType!=null) optionalType = null;
-                v2 = converter.read( new YomlContextForRead(value, context.getJsonPath()+"/"+key, optionalType, context) );
+                try {
+                    v2 = converter.read( new YomlContextForRead(value, context.getJsonPath()+"/"+key, optionalType, context) );
+                } catch (Exception e2) {
+                    Exceptions.propagateIfFatal(e2);
+                    throw e;
+                }
             }
             fib.fieldsFromReadToConstructJava.put(key, v2);
             return true;
@@ -96,9 +104,10 @@ public class ConfigInMapUnderConfigSerializer extends FieldsInMapUnderFields {
 
         protected String getType(String key, Object value) {
             TopLevelFieldsBlackboard efb = TopLevelFieldsBlackboard.get(blackboard, getKeyNameForMapOfGeneralValues());
-            Class<?> type = efb.getDeclaredType(key);
+            TypeToken<?> type = efb.getDeclaredType(key);
             String optionalType = null;
-            if (type!=null && (value==null || type.isInstance(value))) optionalType = config.getTypeRegistry().getTypeNameOfClass(type);
+            if (type!=null && (value==null || type.getRawType().isInstance(value))) 
+                optionalType = YomlUtils.getTypeNameWithGenerics(type, config.getTypeRegistry());
             return optionalType;
         }
 
