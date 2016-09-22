@@ -36,7 +36,6 @@ import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.typereg.UnsupportedTypePlanException;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.task.ValueResolver;
-import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yoml.Yoml;
@@ -44,6 +43,7 @@ import org.apache.brooklyn.util.yoml.YomlConfig;
 import org.apache.brooklyn.util.yoml.YomlException;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
 import org.apache.brooklyn.util.yoml.internal.ConstructionInstruction;
+import org.apache.brooklyn.util.yoml.internal.ConstructionInstructions;
 import org.yaml.snakeyaml.Yaml;
 
 import com.google.common.base.Preconditions;
@@ -150,7 +150,7 @@ public class YomlTypePlanTransformer extends AbstractTypePlanTransformer {
                     return Maybe.absent(new IllegalStateException("Type "+type+" has no plan YAML and error in type", ((Maybe.Absent<?>)javaType).getException()));
                 }
                 
-                Maybe<Object> result = ConstructionInstruction.Factory.newDefault(javaType.get(), constructor).create();
+                Maybe<Object> result = ConstructionInstructions.Factory.newDefault(javaType.get(), constructor).create();
 
                 if (result.isAbsent()) {
                     throw new YomlException("Type '"+type+"' has no plan and its java type cannot be instantiated", ((Maybe.Absent<?>)result).getException());

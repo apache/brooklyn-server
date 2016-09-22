@@ -34,6 +34,7 @@ import org.apache.brooklyn.util.yoml.Yoml;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
 import org.apache.brooklyn.util.yoml.YomlTypeRegistry;
 import org.apache.brooklyn.util.yoml.internal.ConstructionInstruction;
+import org.apache.brooklyn.util.yoml.internal.ConstructionInstructions;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils;
 
 import com.google.common.collect.Iterables;
@@ -82,7 +83,7 @@ public class MockYomlTypeRegistry implements YomlTypeRegistry {
             return Maybe.absent(new IllegalStateException("Incomplete hierarchy for "+type, ((Maybe.Absent<?>)javaType).getException()));
         }
         
-        return ConstructionInstruction.Factory.newDefault(javaType.get(), constructor).create();
+        return ConstructionInstructions.Factory.newDefault(javaType.get(), constructor).create();
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })

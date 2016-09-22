@@ -28,6 +28,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.yoml.annotations.Alias;
 import org.apache.brooklyn.util.yoml.internal.ConstructionInstruction;
+import org.apache.brooklyn.util.yoml.internal.ConstructionInstructions;
 import org.apache.brooklyn.util.yoml.serializers.InstantiateTypeFromRegistryUsingConfigMap;
 
 @Alias("config-bag-constructor")
@@ -69,7 +70,7 @@ public class InstantiateTypeFromRegistryUsingConfigBag extends InstantiateTypeFr
     protected ConstructionInstruction newConstructor(Class<?> type, Map<String, Object> fieldsFromReadToConstructJava, ConstructionInstruction optionalOuter) {
         Maybe<?> constructor = findConfigBagConstructor(type);
         if (constructor.isPresent() && ConfigBag.class.isAssignableFrom( (((Constructor<?>)constructor.get()).getParameterTypes()[0]) )) {
-            return ConstructionInstruction.Factory.newUsingConstructorWithArgs(type, MutableList.of(
+            return ConstructionInstructions.Factory.newUsingConstructorWithArgs(type, MutableList.of(
                 ConfigBag.newInstance(fieldsFromReadToConstructJava)), optionalOuter);
         }
         return super.newConstructor(type, fieldsFromReadToConstructJava, optionalOuter);

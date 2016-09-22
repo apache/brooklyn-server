@@ -50,7 +50,7 @@ import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yoml.Yoml;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
 import org.apache.brooklyn.util.yoml.YomlTypeRegistry;
-import org.apache.brooklyn.util.yoml.internal.ConstructionInstruction;
+import org.apache.brooklyn.util.yoml.internal.ConstructionInstructions;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -180,7 +180,7 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
             }
         }
         try {
-            return ConstructionInstruction.Factory.newDefault(t.get(), yoml==null ? null : yoml.getConfig().getConstructionInstruction()).create();
+            return ConstructionInstructions.Factory.newDefault(t.get(), yoml==null ? null : yoml.getConfig().getConstructionInstruction()).create();
         } catch (Exception e) {
             return Maybe.absent("Error instantiating type "+typeName+": "+Exceptions.collapseText(e));
         }

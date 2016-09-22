@@ -109,9 +109,18 @@ public class YomlTestFixture {
         return this;
     }
     
+    private static String removeGuff(String input) {
+        return Strings.replaceAll(input, MutableMap.of("\"", "", "\'", "")
+            .add("=", ": ").add(":  ", ": ").add(" :", ":")
+            .add(" ,", ",").add(", ", ",") 
+            .add("{ ", "{").add(" {", "{")
+            .add(" }", "}").add("} ", "}")
+            );
+    }
+    
     static void assertEqualsIgnoringQuotes(Object s1, Object s2, String message) {
-        if (s1 instanceof String) s1 = Strings.replaceAll((String)s1, MutableMap.of("\"", "", "\'", ""));
-        if (s2 instanceof String) s2 = Strings.replaceAll((String)s2, MutableMap.of("\"", "", "\'", ""));
+        if (s1 instanceof String) s1 = removeGuff((String)s1);
+        if (s2 instanceof String) s2 = removeGuff((String)s2);
         Assert.assertEquals(s1, s2, message);
     }
     

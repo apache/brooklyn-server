@@ -33,6 +33,7 @@ import org.apache.brooklyn.util.yoml.YomlConfig;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
 import org.apache.brooklyn.util.yoml.annotations.Alias;
 import org.apache.brooklyn.util.yoml.internal.ConstructionInstruction;
+import org.apache.brooklyn.util.yoml.internal.ConstructionInstructions;
 import org.apache.brooklyn.util.yoml.internal.SerializersOnBlackboard;
 import org.apache.brooklyn.util.yoml.internal.YomlContext;
 
@@ -264,7 +265,7 @@ public class InstantiateTypeFromRegistryUsingConfigMap extends InstantiateTypeFr
     }
 
     protected ConstructionInstruction newConstructor(Class<?> type, Map<String, Object> fieldsFromReadToConstructJava, ConstructionInstruction optionalOuter) {
-        return ConstructionInstruction.Factory.newUsingConstructorWithArgs(type, MutableList.of(fieldsFromReadToConstructJava), optionalOuter);
+        return ConstructionInstructions.Factory.newUsingConstructorWithArgs(type, MutableList.of(fieldsFromReadToConstructJava), optionalOuter);
     }
 
 }
