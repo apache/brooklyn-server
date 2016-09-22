@@ -296,7 +296,7 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
      * current impl just uses the key to extract again which is a little bit wasteful but simpler. 
      * <p>
      * this does not do any resolution with respect to ancestors. */
-    protected Maybe<Object> resolveRawValueFromContainer(TContainer container, ConfigKey<?> key, Object value) {
+    protected Maybe<Object> resolveRawValueFromContainer(TContainer container, ConfigKey<?> key, Maybe<Object> value) {
         Map<ConfigKey<?>, Object> oc = ((AbstractConfigMapImpl<?>) ((BrooklynObjectInternal)container).config().getInternalConfigMap()).ownConfig;
         if (key instanceof ConfigKeySelfExtracting) {
             if (((ConfigKeySelfExtracting<?>)key).isSet(oc)) {
@@ -305,7 +305,9 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
                     // wasteful to make a copy to look up; maybe try once opportunistically?
                     ownCopy = MutableMap.copyOf(oc);
                 }
-                return Maybe.of((Object) ((ConfigKeySelfExtracting<?>) key).extractValue(ownCopy, getExecutionContext(container)) );
+                Maybe<Object> result = Maybe.of((Object) ((ConfigKeySelfExtracting<?>) key).extractValue(ownCopy, getExecutionContext(container)) );
+                postLocalEvaluate(key, bo, value, result);
+                return result;
             } else {
                 return Maybe.absent();
             }

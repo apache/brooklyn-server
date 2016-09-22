@@ -61,10 +61,12 @@ public class LocationConfigMap extends AbstractConfigMapImpl<Location> {
 
     @Override
     protected void postLocalEvaluate(ConfigKey<?> key, BrooklynObject bo, Maybe<?> rawValue, Maybe<?> resolvedValue) {
+        /* nothing needed */
     }
 
     @Override
     protected void postSetConfig() {
+        /* nothing needed */
     }
 
     @Override
