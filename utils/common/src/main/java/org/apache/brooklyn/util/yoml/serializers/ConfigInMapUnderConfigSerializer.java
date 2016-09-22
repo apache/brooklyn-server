@@ -20,6 +20,7 @@ package org.apache.brooklyn.util.yoml.serializers;
 
 import java.util.Map;
 
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.yoml.internal.YomlContext;
@@ -104,7 +105,8 @@ public class ConfigInMapUnderConfigSerializer extends FieldsInMapUnderFields {
 
         protected String getType(String key, Object value) {
             TopLevelFieldsBlackboard efb = TopLevelFieldsBlackboard.get(blackboard, getKeyNameForMapOfGeneralValues());
-            TypeToken<?> type = efb.getDeclaredType(key);
+            ConfigKey<?> typeKey = efb.getConfigKey(key);
+            TypeToken<?> type = typeKey==null ? null : typeKey.getTypeToken();
             String optionalType = null;
             if (type!=null && (value==null || type.getRawType().isInstance(value))) 
                 optionalType = YomlUtils.getTypeNameWithGenerics(type, config.getTypeRegistry());

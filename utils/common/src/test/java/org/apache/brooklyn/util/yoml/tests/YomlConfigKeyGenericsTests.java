@@ -78,7 +78,7 @@ public class YomlConfigKeyGenericsTests {
 
         y.write(RAW_IN);
         log.info("M1B written as: "+y.lastWriteResult);
-        YomlTestFixture.assertEqualsIgnoringQuotes(Jsonya.newInstance().add(y.lastWriteResult).toString(), 
+        YomlTestFixture.assertEqualish(Jsonya.newInstance().add(y.lastWriteResult).toString(), 
             RAW_OUT, "wrong serialization");
     }
     
@@ -103,7 +103,7 @@ public class YomlConfigKeyGenericsTests {
 
         y.write(GEN_IN);
         log.info("M1B written as: "+y.lastWriteResult);
-        YomlTestFixture.assertEqualsIgnoringQuotes(Jsonya.newInstance().add(y.lastWriteResult).toString(), 
+        YomlTestFixture.assertEqualish(Jsonya.newInstance().add(y.lastWriteResult).toString(), 
             GEN_OUT, "wrong serialization");
     }
     

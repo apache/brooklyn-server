@@ -109,7 +109,7 @@ public class TopLevelConfigKeysTests {
     @Test
     public void testRead() {
         YomlTestFixture y = YomlTestFixture.newInstance()
-        .addTypeWithAnnotationsAndConfig("s1", S1.class, MutableMap.of("keys", "config"));
+        .addTypeWithAnnotationsAndConfigFieldsIgnoringInheritance("s1", S1.class, MutableMap.of("keys", "config"));
         
         y.read("{ type: s1, k1: foo }", null);
 
@@ -120,17 +120,17 @@ public class TopLevelConfigKeysTests {
     @Test
     public void testWrite() {
         YomlTestFixture y = YomlTestFixture.newInstance()
-        .addTypeWithAnnotationsAndConfig("s1", S1.class, MutableMap.of("keys", "config"));
+        .addTypeWithAnnotationsAndConfigFieldsIgnoringInheritance("s1", S1.class, MutableMap.of("keys", "config"));
 
         S1 s1 = new S1(MutableMap.of("k1", "foo"));
         y.write(s1);
-        YomlTestFixture.assertEqualsIgnoringQuotes(Jsonya.newInstance().add(y.lastWriteResult).toString(), "{ type: s1, k1: foo }", "wrong serialization");
+        YomlTestFixture.assertEqualish(Jsonya.newInstance().add(y.lastWriteResult).toString(), "{ type: s1, k1: foo }", "wrong serialization");
     }
 
     @Test
     public void testReadWrite() {
         YomlTestFixture.newInstance()
-        .addTypeWithAnnotationsAndConfig("s1", S1.class, MutableMap.of("keys", "config"))
+        .addTypeWithAnnotationsAndConfigFieldsIgnoringInheritance("s1", S1.class, MutableMap.of("keys", "config"))
         .reading("{ type: s1, k1: foo }").writing(new S1(MutableMap.of("k1", "foo")))
         .doReadWriteAssertingJsonMatch();
     }
@@ -144,7 +144,7 @@ public class TopLevelConfigKeysTests {
     @Test
     public void testReadWriteInherited() {
         YomlTestFixture.newInstance()
-        .addTypeWithAnnotationsAndConfig("s2", S2.class, MutableMap.of("keys", "config"))
+        .addTypeWithAnnotationsAndConfigFieldsIgnoringInheritance("s2", S2.class, MutableMap.of("keys", "config"))
         .reading("{ type: s2, k1: foo, k2: bar }").writing(new S2(MutableMap.of("k1", "foo", "k2", "bar")))
         .doReadWriteAssertingJsonMatch();
     }
@@ -152,15 +152,15 @@ public class TopLevelConfigKeysTests {
     @Test
     public void testReadWriteNested() {
         YomlTestFixture.newInstance()
-        .addTypeWithAnnotationsAndConfig("s1", S1.class, MutableMap.of("keys", "config"))
-        .addTypeWithAnnotationsAndConfig("s2", S2.class, MutableMap.of("keys", "config"))
+        .addTypeWithAnnotationsAndConfigFieldsIgnoringInheritance("s1", S1.class, MutableMap.of("keys", "config"))
+        .addTypeWithAnnotationsAndConfigFieldsIgnoringInheritance("s2", S2.class, MutableMap.of("keys", "config"))
         .reading("{ type: s2, ks: { k1: foo } }").writing(new S2(MutableMap.of("ks", new S1(MutableMap.of("k1", "foo")))))
         .doReadWriteAssertingJsonMatch();
     }
     @Test
     public void testReadWriteNestedGlobalConfigKeySupport() {
         YomlTestFixture y = YomlTestFixture.newInstance(YomlConfig.Builder.builder()
-            .serializersPostAdd(new InstantiateTypeFromRegistryUsingConfigMap.Factory().newConfigKeyClassScanningSerializers("keys", "config", true))
+            .serializersPostAdd(InstantiateTypeFromRegistryUsingConfigMap.newFactoryIgnoringInheritance().newConfigKeyClassScanningSerializers("keys", "config", true))
             .serializersPostAddDefaults().build());
         y.addTypeWithAnnotations("s1", S1.class)
         .addTypeWithAnnotations("s2", S2.class)

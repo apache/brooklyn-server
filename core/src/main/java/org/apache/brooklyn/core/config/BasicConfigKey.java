@@ -243,7 +243,7 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
         this.description = builder.description;
         this.defaultValue = builder.defaultValue;
         this.reconfigurable = builder.reconfigurable;
-        this.parentInheritance = builder.runtimeInheritance;
+        this.runtimeInheritance = builder.runtimeInheritance;
         this.typeInheritance = builder.typeInheritance;
         // Note: it's intentionally possible to have default values that are not valid
         // per the configured constraint. If validity were checked here any class that
@@ -319,16 +319,12 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
 
     @Deprecated @Override @Nullable
     public ConfigInheritance getTypeInheritance() {
-        return typeInheritance;
+        return getInheritanceByContext(InheritanceContext.TYPE_DEFINITION);
     }
 
     @Deprecated @Override @Nullable
     public ConfigInheritance getParentInheritance() {
-        if (parentInheritance == null && inheritance != null) {
-            parentInheritance = inheritance;
-            inheritance = null;
-        }
-        return parentInheritance;
+        return getInheritanceByContext(InheritanceContext.RUNTIME_MANAGEMENT);
     }
 
     /** @see ConfigKey#getConstraint() */

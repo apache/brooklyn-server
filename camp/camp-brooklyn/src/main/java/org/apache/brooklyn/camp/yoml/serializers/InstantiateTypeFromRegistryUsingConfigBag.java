@@ -18,17 +18,15 @@
  */
 package org.apache.brooklyn.camp.yoml.serializers;
 
-import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.util.Map;
 
-import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.yoml.annotations.Alias;
 import org.apache.brooklyn.util.yoml.internal.ConstructionInstruction;
-import org.apache.brooklyn.util.yoml.internal.ConstructionInstructions;
 import org.apache.brooklyn.util.yoml.serializers.InstantiateTypeFromRegistryUsingConfigMap;
 
 @Alias("config-bag-constructor")
@@ -43,14 +41,15 @@ public class InstantiateTypeFromRegistryUsingConfigBag extends InstantiateTypeFr
     protected Maybe<?> findConstructorMaybe(Class<?> type) {
         Maybe<?> c = findConfigBagConstructor(type);
         if (c.isPresent()) return c;
-        Maybe<?> c2 = Reflections.findConstructorMaybe(type, Map.class);
+        Maybe<?> c2 = super.findConstructorMaybe(type);
         if (c2.isPresent()) return c2;
         
         return c;
     }
     protected Maybe<?> findConfigBagConstructor(Class<?> type) {
-        return Reflections.findConstructorMaybe(type, ConfigBag.class);
+        return Reflections.findConstructorExactMaybe(type, ConfigBag.class);
     }
+    
     protected Maybe<Field> findFieldMaybe(Class<?> type) {
         Maybe<Field> f = Reflections.findFieldMaybe(type, fieldNameForConfigInJavaIfPreset);
         if (f.isPresent() && !(Map.class.isAssignableFrom(f.get().getType()) || ConfigBag.class.isAssignableFrom(f.get().getType()))) 
@@ -67,13 +66,14 @@ public class InstantiateTypeFromRegistryUsingConfigBag extends InstantiateTypeFr
     }
 
     @Override
-    protected ConstructionInstruction newConstructor(Class<?> type, Map<String, Object> fieldsFromReadToConstructJava, ConstructionInstruction optionalOuter) {
-        Maybe<?> constructor = findConfigBagConstructor(type);
-        if (constructor.isPresent() && ConfigBag.class.isAssignableFrom( (((Constructor<?>)constructor.get()).getParameterTypes()[0]) )) {
-            return ConstructionInstructions.Factory.newUsingConstructorWithArgs(type, MutableList.of(
-                ConfigBag.newInstance(fieldsFromReadToConstructJava)), optionalOuter);
+    protected ConstructionInstruction newConstructor(Class<?> type, Map<String, ConfigKey<?>> keysByAlias,
+            Map<String, Object> fieldsFromReadToConstructJava, ConstructionInstruction optionalOuter) {
+        if (findConfigBagConstructor(type).isPresent()) {
+            return ConfigKeyConstructionInstructions.newUsingConfigBagConstructor(type, fieldsFromReadToConstructJava, optionalOuter,
+                keysByAlias);
         }
-        return super.newConstructor(type, fieldsFromReadToConstructJava, optionalOuter);
+        return ConfigKeyConstructionInstructions.newUsingConfigKeyMapConstructor(type, fieldsFromReadToConstructJava, optionalOuter,
+            keysByAlias);
     }
 
 }

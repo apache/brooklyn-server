@@ -74,10 +74,10 @@ public class YomlAnnotations {
         return result;
     }
     
-    public Collection<YomlSerializer> findConfigMapConstructorSerializers(Class<?> t) {
+    public Collection<YomlSerializer> findConfigMapConstructorSerializersIgnoringInheritance(Class<?> t) {
         YomlConfigMapConstructor ann = t.getAnnotation(YomlConfigMapConstructor.class);
         if (ann==null) return Collections.emptyList();
-        return new InstantiateTypeFromRegistryUsingConfigMap.Factory().newConfigKeySerializersForType(
+        return InstantiateTypeFromRegistryUsingConfigMap.newFactoryIgnoringInheritance().newConfigKeySerializersForType(
             t,
             ann.value(), Strings.isNonBlank(ann.writeAsKey()) ? ann.writeAsKey() : ann.value(),
             ann.validateAheadOfTime(), ann.requireStaticKeys());
@@ -127,17 +127,26 @@ public class YomlAnnotations {
     }
     
     protected void collectSerializerAnnotationsAtClass(Set<YomlSerializer> result, Class<?> type) {
+        collectSerializersLowLevel(result, type);
+        collectSerializersForConfig(result, type);
+        collectSerializersFields(result, type);
+        // subclasses can extend or override the methods above
+    }
+
+    protected void collectSerializersFields(Set<YomlSerializer> result, Class<?> type) {
+        YomlAllFieldsTopLevel allFields = type.getAnnotation(YomlAllFieldsTopLevel.class);
+        result.addAll(findTopLevelFieldSerializers(type, allFields==null));
+    }
+
+    protected void collectSerializersForConfig(Set<YomlSerializer> result, Class<?> type) {
+        result.addAll(findConfigMapConstructorSerializersIgnoringInheritance(type));
+    }
+
+    protected void collectSerializersLowLevel(Set<YomlSerializer> result, Class<?> type) {
         result.addAll(findConvertFromPrimitiveSerializers(type));
         result.addAll(findRenameKeySerializers(type));
         result.addAll(findSingletonMapSerializers(type));
         result.addAll(findDefaultMapValuesSerializers(type));
-        
-        result.addAll(findConfigMapConstructorSerializers(type));
-
-        YomlAllFieldsTopLevel allFields = type.getAnnotation(YomlAllFieldsTopLevel.class);
-        result.addAll(findTopLevelFieldSerializers(type, allFields==null));
-        
-        // subclasses can extend
     }
     
 }

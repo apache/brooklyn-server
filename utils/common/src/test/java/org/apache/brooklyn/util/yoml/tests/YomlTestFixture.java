@@ -92,9 +92,9 @@ public class YomlTestFixture {
     public YomlTestFixture assertResult(Object expectation) {
         if (expectation instanceof String) {
             if (lastResult instanceof Map || lastResult instanceof Collection) {
-                assertEqualsIgnoringQuotes(Jsonya.newInstance().add(lastResult).toString(), expectation, "Result as JSON string does not match expectation");
+                assertEqualish(Jsonya.newInstance().add(lastResult).toString(), expectation, "Result as JSON string does not match expectation");
             } else {
-                assertEqualsIgnoringQuotes(Strings.toString(lastResult), expectation, "Result toString does not match expectation");
+                assertEqualish(Strings.toString(lastResult), expectation, "Result toString does not match expectation");
             }
         } else {
             Assert.assertEquals(lastResult, expectation);
@@ -104,8 +104,8 @@ public class YomlTestFixture {
     public YomlTestFixture doReadWriteAssertingJsonMatch() {
         read(readObject, readObjectExpectedType);
         write(writeObject, writeObjectExpectedType);
-        assertEqualsIgnoringQuotes(Jsonya.newInstance().add(lastWriteResult).toString(), readObject, "Write output should match read input");
-        assertEqualsIgnoringQuotes(lastReadResult, writeObject, "Read output should match write input");
+        assertEqualish(Jsonya.newInstance().add(lastWriteResult).toString(), readObject, "Write output should match read input");
+        assertEqualish(lastReadResult, writeObject, "Read output should match write input");
         return this;
     }
     
@@ -118,10 +118,14 @@ public class YomlTestFixture {
             );
     }
     
-    static void assertEqualsIgnoringQuotes(Object s1, Object s2, String message) {
+    static void assertEqualish(Object s1, Object s2, String message) {
         if (s1 instanceof String) s1 = removeGuff((String)s1);
         if (s2 instanceof String) s2 = removeGuff((String)s2);
         Assert.assertEquals(s1, s2, message);
+    }
+    
+    public void assertLastWriteIgnoringQuotes(String expected, String message) {
+        assertEqualish(Jsonya.newInstance().add(getLastWriteResult()).toString(), expected, message);
     }
     
     public YomlTestFixture addType(String name, Class<?> type) { tr.put(name, type); return this; }
@@ -139,11 +143,11 @@ public class YomlTestFixture {
         }
         return this; 
     }
-    public YomlTestFixture addTypeWithAnnotationsAndConfig(String optionalName, Class<?> type, 
+    public YomlTestFixture addTypeWithAnnotationsAndConfigFieldsIgnoringInheritance(String optionalName, Class<?> type, 
             Map<String, String> configFieldsToKeys) {
         Set<YomlSerializer> serializers = annotationsProvider().findSerializerAnnotations(type, true);
         for (Map.Entry<String,String> entry: configFieldsToKeys.entrySet()) {
-            serializers.addAll( new InstantiateTypeFromRegistryUsingConfigMap.Factory().newConfigKeyClassScanningSerializers(
+            serializers.addAll( InstantiateTypeFromRegistryUsingConfigMap.newFactoryIgnoringInheritance().newConfigKeyClassScanningSerializers(
                 entry.getKey(), entry.getValue(), true) );
         }
         for (String n: new YomlAnnotations().findTypeNamesFromAnnotations(type, optionalName, false)) {
@@ -154,5 +158,11 @@ public class YomlTestFixture {
     protected YomlAnnotations annotationsProvider() {
         return new YomlAnnotations();
     }
-        
+
+    public Object getLastReadResult() {
+        return lastReadResult;
+    }
+    public Object getLastWriteResult() {
+        return lastWriteResult;
+    }
 }

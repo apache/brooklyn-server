@@ -22,6 +22,8 @@ import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.brooklyn.config.ConfigInheritance;
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -54,7 +56,13 @@ public class InstantiateTypeFromRegistryUsingConfigMap extends InstantiateTypeFr
     // (for now this field can be used to load explicit config keys, if the field name is supplied)
     boolean inferByScanning = false;
     
+    public static Factory newFactoryIgnoringInheritance() {
+        return new Factory();
+    }
+    
     public static class Factory {
+        
+        protected Factory() {}
         
         /** creates a set of serializers handling config for any type, with the given field/key combination;
          * the given field will be checked at serialization time to determine whether this is applicable */
@@ -152,6 +160,11 @@ public class InstantiateTypeFromRegistryUsingConfigMap extends InstantiateTypeFr
             }
         }
 
+        protected TopLevelFieldsBlackboard getTopLevelFieldsBlackboard() {
+            // keys recorded here by the individual serializers
+            return TopLevelFieldsBlackboard.get(blackboard, keyNameForConfigWhenSerialized);
+        }
+
         protected void readFinallyCreate() {
             if (hasJavaObject()) return;
             
@@ -164,7 +177,7 @@ public class InstantiateTypeFromRegistryUsingConfigMap extends InstantiateTypeFr
             Preconditions.checkNotNull(keyNameForConfigWhenSerialized);
 
             YomlConfig newConfig = YomlConfig.Builder.builder(config).constructionInstruction(
-                newConstructor(type, fib.fieldsFromReadToConstructJava, config.getConstructionInstruction())).build();
+                newConstructor(type, getTopLevelFieldsBlackboard().getConfigKeys(), fib.fieldsFromReadToConstructJava, config.getConstructionInstruction())).build();
             
             Maybe<Object> resultM = config.getTypeRegistry().newInstanceMaybe(fib.typeNameFromReadToConstructJavaLater, Yoml.newInstance(newConfig));
           
@@ -261,11 +274,24 @@ public class InstantiateTypeFromRegistryUsingConfigMap extends InstantiateTypeFr
     }
 
     protected Maybe<?> findConstructorMaybe(Class<?> type) {
-        return Reflections.findConstructorMaybe(type, Map.class);
+        return Reflections.findConstructorExactMaybe(type, Map.class);
     }
 
-    protected ConstructionInstruction newConstructor(Class<?> type, Map<String, Object> fieldsFromReadToConstructJava, ConstructionInstruction optionalOuter) {
-        return ConstructionInstructions.Factory.newUsingConstructorWithArgs(type, MutableList.of(fieldsFromReadToConstructJava), optionalOuter);
+    /** 
+     * creates an instruction for working with a single-argument constructor which takes a simple map of
+     * config values.
+     * <p>
+     * this ignores inheritance since within this project specific ConfigInheritanceContext 
+     * and {@link ConfigInheritance} strategies are not available.
+     * <p>
+     * callers will have already invoked {@link #findConstructorMaybe(Class)} so implementations can 
+     * assume the constructor exists.  subclassers should ensure that {@link #findConstructorMaybe(Class)} is
+     * also updated if required.  
+     */
+    protected ConstructionInstruction newConstructor(Class<?> type, Map<String, ConfigKey<?>> keysByAlias,
+            Map<String, Object> fieldsFromReadToConstructJava, ConstructionInstruction optionalOuter) {
+        return ConstructionInstructions.Factory.newUsingConstructorWithArgs(type, 
+            MutableList.of(fieldsFromReadToConstructJava), optionalOuter);
     }
 
 }

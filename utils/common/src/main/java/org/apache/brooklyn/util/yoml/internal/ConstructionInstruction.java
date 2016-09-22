@@ -26,7 +26,9 @@ import org.apache.brooklyn.util.guava.Maybe;
  * <p>
  * This is used when we need information from an outer instance definition in order to construct the object.
  * (The default pathway is to use a no-arg constructor and to apply the outer definitions to the instance.
- * But that doesn't necessarily work if a specific constructor or static method is being expected.)  
+ * But that doesn't necessarily work if a specific constructor or static method is being expected.
+ * It gets more complicated if the outer instance is overwriting information from an inner instance,
+ * but it is the inner instance which actually defines the java type to instantiate ... and that isn't so uncommon!)  
  */
 public interface ConstructionInstruction {
     

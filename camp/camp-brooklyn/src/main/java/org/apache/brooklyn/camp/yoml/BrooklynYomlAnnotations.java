@@ -23,8 +23,12 @@ import java.util.Collections;
 import java.util.Set;
 
 import org.apache.brooklyn.camp.yoml.serializers.InstantiateTypeFromRegistryUsingConfigBag;
+import org.apache.brooklyn.camp.yoml.serializers.InstantiateTypeFromRegistryUsingConfigKeyMap;
+import org.apache.brooklyn.util.core.yoml.YomlConfigBagConstructor;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
 import org.apache.brooklyn.util.yoml.annotations.YomlAnnotations;
+import org.apache.brooklyn.util.yoml.annotations.YomlConfigMapConstructor;
 
 public class BrooklynYomlAnnotations extends YomlAnnotations {
 
@@ -37,10 +41,23 @@ public class BrooklynYomlAnnotations extends YomlAnnotations {
             ann.validateAheadOfTime(), ann.requireStaticKeys());
     }
 
+    public Collection<YomlSerializer> findConfigMapConstructorSerializersIgnoringInheritance(Class<?> t) {
+        throw new UnsupportedOperationException("ensure this doesn't get called");
+    }
+    
+    public Collection<YomlSerializer> findConfigMapConstructorSerializersWithInheritance(Class<?> t) {
+        YomlConfigMapConstructor ann = t.getAnnotation(YomlConfigMapConstructor.class);
+        if (ann==null) return Collections.emptyList();
+        return new InstantiateTypeFromRegistryUsingConfigKeyMap.Factory().newConfigKeySerializersForType(
+            t,
+            ann.value(), Strings.isNonBlank(ann.writeAsKey()) ? ann.writeAsKey() : ann.value(),
+            ann.validateAheadOfTime(), ann.requireStaticKeys());
+    }
+
     @Override
-    protected void collectSerializerAnnotationsAtClass(Set<YomlSerializer> result, Class<?> type) {
+    protected void collectSerializersForConfig(Set<YomlSerializer> result, Class<?> type) {
         result.addAll(findConfigBagConstructorSerializers(type));
-        super.collectSerializerAnnotationsAtClass(result, type);
+        result.addAll(findConfigMapConstructorSerializersWithInheritance(type));
     }
 
 }
