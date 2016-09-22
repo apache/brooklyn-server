@@ -16,7 +16,8 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.entity.software.base.test.core.mgmt.usage;
+
+package org.apache.brooklyn.core.mgmt.usage;
 
 import java.util.List;
 
