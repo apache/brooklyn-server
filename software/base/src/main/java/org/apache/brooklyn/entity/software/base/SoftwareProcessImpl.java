@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.Date;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
@@ -440,12 +441,20 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
         //Only if the expected state is ON_FIRE then the entity has permanently failed.
         Transition expectedState = getAttribute(SERVICE_STATE_EXPECTED);
         if (expectedState == null || expectedState.getState() != Lifecycle.RUNNING) {
+            //FIXME does not set on fire root application
+            if (expectedState.getState() == Lifecycle.STARTING || expectedState.getState() == Lifecycle.STOPPING) {
+                setAttribute(SERVICE_STATE_EXPECTED, new Lifecycle.Transition(Lifecycle.ON_FIRE, new Date()));
+                setAttribute(SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+            }
             LOG.warn("On rebind of {}, not calling software process rebind hooks because expected state is {}", this, expectedState);
             return;
         }
 
         Lifecycle actualState = getAttribute(SERVICE_STATE_ACTUAL);
         if (actualState == null || actualState != Lifecycle.RUNNING) {
+            if (expectedState.getState() == Lifecycle.STARTING || expectedState.getState() == Lifecycle.STOPPING) {
+                setAttribute(SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+            }
             LOG.warn("Rebinding entity {}, even though actual state is {}. Expected state is {}", new Object[] { this, actualState, expectedState });
         }
 
