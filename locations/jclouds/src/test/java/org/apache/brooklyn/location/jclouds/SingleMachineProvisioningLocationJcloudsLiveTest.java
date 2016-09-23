@@ -105,10 +105,10 @@ private static final Logger log = LoggerFactory.getLogger(SingleMachineProvision
     }
     
     @Override
-    protected void releaseMachine(JcloudsSshMachineLocation machine) {
+    protected void releaseMachine(JcloudsMachineLocation machine) {
         if (location.getChildren().contains(machine)) {
             machines.remove(machine);
-            location.release(machine);
+            location.release((JcloudsSshMachineLocation) machine);
         }
     }
 

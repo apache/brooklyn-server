@@ -195,7 +195,7 @@ public class JcloudsAddressesLiveTest extends AbstractJcloudsLiveTest {
     }
 
     @Override
-    protected void releaseMachine(JcloudsSshMachineLocation machine) {
+    protected void releaseMachine(JcloudsMachineLocation machine) {
         jcloudsLocation.release(machine);
     }
     

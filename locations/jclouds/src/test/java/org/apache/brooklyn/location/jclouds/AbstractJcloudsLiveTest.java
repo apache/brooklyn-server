@@ -25,6 +25,7 @@ import static org.testng.Assert.assertNotNull;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.brooklyn.util.core.internal.winrm.WinRmToolResponse;
 import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.slf4j.Logger;
@@ -36,6 +37,7 @@ import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -67,7 +69,7 @@ public class AbstractJcloudsLiveTest {
     protected BrooklynProperties brooklynProperties;
     protected LocalManagementContext managementContext;
     
-    protected List<JcloudsSshMachineLocation> machines;
+    protected List<JcloudsMachineLocation> machines;
     protected JcloudsLocation jcloudsLocation;
     
     @BeforeMethod(alwaysRun=true)
@@ -135,6 +137,11 @@ public class AbstractJcloudsLiveTest {
         assertEquals(result, 0);
     }
 
+    protected void assertWinrmable(WinRmMachineLocation machine) {
+        WinRmToolResponse result = machine.executeCommand(ImmutableList.of("echo mySimpleWinrmCmd"));
+        assertEquals(result.getStatusCode(), 0, "stdout="+result.getStdOut()+"; stderr="+result.getStdErr());
+    }
+
     // Use this utility method to ensure machines are released on tearDown
     protected JcloudsSshMachineLocation obtainMachine(Map<?, ?> conf) throws Exception {
         assertNotNull(jcloudsLocation);
@@ -147,16 +154,24 @@ public class AbstractJcloudsLiveTest {
         return obtainMachine(ImmutableMap.of());
     }
     
-    protected void releaseMachine(JcloudsSshMachineLocation machine) {
+    protected JcloudsWinRmMachineLocation obtainWinrmMachine(Map<?, ?> conf) throws Exception {
+        assertNotNull(jcloudsLocation);
+        JcloudsWinRmMachineLocation result = (JcloudsWinRmMachineLocation)jcloudsLocation.obtain(conf);
+        machines.add(checkNotNull(result, "result"));
+        return result;
+    }
+
+    // Use this utility method to ensure machines are released on tearDown
+    protected void releaseMachine(JcloudsMachineLocation machine) {
         assertNotNull(jcloudsLocation);
         machines.remove(machine);
         jcloudsLocation.release(machine);
     }
     
-    protected List<Exception> releaseMachineSafely(Iterable<? extends JcloudsSshMachineLocation> machines) {
+    protected List<Exception> releaseMachineSafely(Iterable<? extends JcloudsMachineLocation> machines) {
         List<Exception> exceptions = Lists.newArrayList();
         
-        for (JcloudsSshMachineLocation machine : machines) {
+        for (JcloudsMachineLocation machine : machines) {
             try {
                 releaseMachine(machine);
             } catch (Exception e) {
@@ -175,8 +190,8 @@ public class AbstractJcloudsLiveTest {
 
     protected MachineLocation resumeMachine(Map<?, ?> flags) {
         assertNotNull(jcloudsLocation);
-        MachineLocation location = jcloudsLocation.resumeMachine(flags);
-        machines.add((JcloudsSshMachineLocation) location);
+        JcloudsMachineLocation location = jcloudsLocation.resumeMachine(flags);
+        machines.add(location);
         return location;
     }
 

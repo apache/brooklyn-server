@@ -1218,7 +1218,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
      * @see #registerMachine(ConfigBag)
      */
     @Override
-    public MachineLocation resumeMachine(Map<?, ?> flags) {
+    public JcloudsMachineLocation resumeMachine(Map<?, ?> flags) {
         ConfigBag setup = ConfigBag.newInstanceExtending(config().getBag(), flags);
         LOG.info("{} using resuming node matching properties: {}", this, Sanitizer.sanitize(setup));
         ComputeService computeService = getComputeService(setup);
@@ -1229,7 +1229,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         // hostname and addresses populated.
         node = findNodeOrThrow(setup);
         LOG.debug("{} resumed {}", this, node);
-        MachineLocation registered = registerMachineLocation(setup, node);
+        JcloudsMachineLocation registered = registerMachineLocation(setup, node);
         LOG.info("{} resumed and registered {}", this, registered);
         return registered;
     }
