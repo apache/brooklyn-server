@@ -45,7 +45,7 @@ public class LocalUsageManagerTest extends BrooklynAppUnitTestSupport {
     // Also see {Application|Location}UsageTrackingTest for listener functionality
 
     @Override
-    protected boolean shouldSkipOnBoxBaseDirResolution() {
+    protected Boolean shouldSkipOnBoxBaseDirResolution() {
         return true;
     }
 
