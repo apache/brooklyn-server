@@ -21,8 +21,6 @@ package org.apache.brooklyn.policy.jclouds.os;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-import java.util.List;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -32,53 +30,29 @@ import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
+import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecCmd;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 
 public class CreateUserPolicyTest extends BrooklynAppUnitTestSupport {
 
     @SuppressWarnings("unused")
     private static final Logger LOG = LoggerFactory.getLogger(CreateUserPolicyTest.class);
 
-    public static class RecordingSshMachineLocation extends SshMachineLocation {
-        public static List<List<String>> execScriptCalls = Lists.newArrayList();
-
-        @Override 
-        public int execScript(String summary, List<String> cmds) {
-            execScriptCalls.add(cmds);
-            return 0;
-        }
-        @Override 
-        public int execScript(Map<String,?> props, String summaryForLogging, List<String> cmds) {
-            execScriptCalls.add(cmds);
-            return 0;
-        }
-        @Override 
-        public int execScript(String summaryForLogging, List<String> cmds, Map<String,?> env) {
-            execScriptCalls.add(cmds);
-            return 0;
-        }
-        @Override 
-        public int execScript(Map<String,?> props, String summaryForLogging, List<String> cmds, Map<String,?> env) {
-            execScriptCalls.add(cmds);
-            return 0;
-        }
-    }
-
     @BeforeMethod(alwaysRun=true)
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        RecordingSshMachineLocation.execScriptCalls.clear();
+        RecordingSshTool.clear();
     }
 
     @AfterMethod(alwaysRun=true)
@@ -87,13 +61,14 @@ public class CreateUserPolicyTest extends BrooklynAppUnitTestSupport {
         try {
             super.tearDown();
         } finally {
-            RecordingSshMachineLocation.execScriptCalls.clear();
+            RecordingSshTool.clear();
         }
     }
     
     @Test
     public void testCallsCreateUser() throws Exception {
-        SshMachineLocation machine = mgmt.getLocationManager().createLocation(LocationSpec.create(RecordingSshMachineLocation.class)
+        SshMachineLocation machine = mgmt.getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
+                .configure(SshMachineLocation.SSH_TOOL_CLASS, RecordingSshTool.class.getName())
                 .configure(SshTool.PROP_USER, "myuser")
                 .configure(SshTool.PROP_PASSWORD, "mypassword")
                 .configure("address", "1.2.3.4")
@@ -124,12 +99,12 @@ public class CreateUserPolicyTest extends BrooklynAppUnitTestSupport {
         assertEquals(port, "1234");
 
         boolean found = false;
-        for (List<String> cmds : RecordingSshMachineLocation.execScriptCalls) {
-            if (cmds.toString().contains("useradd")) {
+        for (ExecCmd cmds : RecordingSshTool.getExecCmds()) {
+            if (cmds.commands.toString().contains("useradd")) {
                 found = true;
                 break;
             }
         }
-        assertTrue(found, "useradd not found in: "+RecordingSshMachineLocation.execScriptCalls);
+        assertTrue(found, "useradd not found in: "+RecordingSshTool.getExecCmds());
     }
 }

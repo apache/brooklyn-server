@@ -22,22 +22,22 @@ import org.testng.annotations.Test;
 
 public class CouchbaseBlueprintTest extends AbstractBlueprintTest {
 
-    @Test(groups={"Live"})
+    @Test(groups={"Live", "Broken"})
     public void testCouchbaseNode() throws Exception {
         runTest("couchbase-node.yaml");
     }
 
-    @Test(groups={"Live"})
+    @Test(groups={"Live", "Broken"})
     public void testCouchbaseCluster() throws Exception {
         runTest("couchbase-cluster.yaml");
     }
 
-    @Test(groups={"Live"})
+    @Test(groups={"Live", "Broken"})
     public void testCouchbaseClusterSingleNode() throws Exception {
         runTest("couchbase-cluster-singleNode.yaml");
     }
     
-    @Test(groups={"Live"})
+    @Test(groups={"Live", "Broken"})
     public void testCouchbaseWithPillowfight() throws Exception {
         runTest("couchbase-w-pillowfight.yaml");
     }
@@ -53,7 +53,7 @@ public class CouchbaseBlueprintTest extends AbstractBlueprintTest {
      * This blueprint uses {minRam: 16384, minCores: 4}.
      * Suspect this is already fixed by Andrea Turli in latest jclouds.
      */
-    @Test(groups={"Live", "WIP"})
+    @Test(groups={"Live", "WIP", "Broken"})
     public void testCouchbaseWithLoadgen() throws Exception {
         runTest("couchbase-w-loadgen.yaml");
     }
@@ -62,7 +62,7 @@ public class CouchbaseBlueprintTest extends AbstractBlueprintTest {
      * FIXME Failed with "Unable to match required VM template constraints" - caused by NPE
      * (see error described at {@link #testCouchbaseWithLoadgen()}.
      */
-    @Test(groups={"Live", "WIP"})
+    @Test(groups={"Live", "WIP", "Broken"})
     public void testCouchbaseReplicationWithPillowfight() throws Exception {
         runTest("couchbase-replication-w-pillowfight.yaml");
     }
