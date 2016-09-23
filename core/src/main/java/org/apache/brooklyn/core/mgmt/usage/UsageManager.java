@@ -36,13 +36,13 @@ import com.google.common.reflect.TypeToken;
 @Beta
 public interface UsageManager {
 
-    @SuppressWarnings("serial")
-    public static final ConfigKey<List<UsageListener>> USAGE_LISTENERS = ConfigKeys.newConfigKey(
+    ConfigKey<List<UsageListener>> USAGE_LISTENERS = ConfigKeys.newConfigKey(
             new TypeToken<List<UsageListener>>() {},
-            "brooklyn.usageManager.listeners", "Optional usage listeners (i.e. for metering)",
+            "brooklyn.usageManager.listeners",
+            "Optional list of usage listener instances (e.g. for metering)",
             ImmutableList.<UsageListener>of());
-    
-    public static final ConfigKey<Duration> USAGE_LISTENER_TERMINATION_TIMEOUT = ConfigKeys.newConfigKey(
+
+    ConfigKey<Duration> USAGE_LISTENER_TERMINATION_TIMEOUT = ConfigKeys.newConfigKey(
             Duration.class,
             "brooklyn.usageManager.listeners.timeout",
             "Timeout on termination, to wait for queue of usage listener events to be processed",

@@ -48,6 +48,7 @@ import org.apache.brooklyn.core.mgmt.usage.ApplicationUsage;
 import org.apache.brooklyn.core.mgmt.usage.LocationUsage;
 import org.apache.brooklyn.core.mgmt.usage.UsageListener;
 import org.apache.brooklyn.core.mgmt.usage.UsageManager;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -140,11 +141,17 @@ public class LocalUsageManager implements UsageManager {
     static {
         TypeCoercions.registerAdapter(String.class, UsageListener.class, new Function<String, UsageListener>() {
             @Override public UsageListener apply(String input) {
-                // TODO Want to use classLoader = mgmt.getCatalog().getRootClassLoader();
-                ClassLoader classLoader = LocalUsageManager.class.getClassLoader();
-                Maybe<Object> result = Reflections.invokeConstructorFromArgs(classLoader, input);
-                if (result.isPresent()) {
+                Class<?> clazz;
+                try {
+                    clazz = new ClassLoaderUtils(this.getClass()).loadClass(input);
+                } catch (ClassNotFoundException e) {
+                    throw new IllegalStateException("Failed to load usage listener class: " + input, e);
+                }
+                Maybe<Object> result = Reflections.invokeConstructorFromArgs(clazz);
+                if (result.isPresentAndNonNull() && result.get() instanceof UsageListener) {
                     return (UsageListener) result.get();
+                } else if (result.isPresent()) {
+                    throw new IllegalStateException("Object is not a UsageListener: " + result.get());
                 } else {
                     throw new IllegalStateException("Failed to create UsageListener from class name '"+input+"' using no-arg constructor");
                 }
@@ -173,20 +180,23 @@ public class LocalUsageManager implements UsageManager {
     public LocalUsageManager(LocalManagementContext managementContext) {
         this.managementContext = checkNotNull(managementContext, "managementContext");
         
-        // TODO Once org.apache.brooklyn.core.management.internal.UsageManager.UsageListener is deleted, restore this
-        // to normal generics!
+        // Although changing listeners to Collection<UsageListener> is valid at compile time
+        // the collection will contain any objects that could not be coerced by the function
+        // declared above. Generally this means any string declared in brooklyn.properties
+        // that is not a UsageListener.
         Collection<?> listeners = managementContext.getBrooklynProperties().getConfig(UsageManager.USAGE_LISTENERS);
         if (listeners != null) {
-            for (Object listener : listeners) {
-                if (listener instanceof ManagementContextInjectable) {
-                    ((ManagementContextInjectable)listener).setManagementContext(managementContext);
-                }
-                if (listener instanceof UsageListener) {
-                    addUsageListener((UsageListener)listener);
-                } else if (listener == null) {
-                    throw new NullPointerException("null listener in config "+UsageManager.USAGE_LISTENERS);
+            for (Object obj : listeners) {
+                if (obj == null) {
+                    throw new NullPointerException("null listener in config " + UsageManager.USAGE_LISTENERS);
+                } else if (!(obj instanceof UsageListener)) {
+                    throw new ClassCastException("Configured object is not a UsageListener. This probably means coercion failed: " + obj);
                 } else {
-                    throw new ClassCastException("listener "+listener+" of type "+listener.getClass()+" is not of type "+UsageListener.class.getName());
+                    UsageListener listener = (UsageListener) obj;
+                    if (listener instanceof ManagementContextInjectable) {
+                        ((ManagementContextInjectable) listener).setManagementContext(managementContext);
+                    }
+                    addUsageListener(listener);
                 }
             }
         }
@@ -424,7 +434,7 @@ public class LocalUsageManager implements UsageManager {
 
     @Override
     public void addUsageListener(UsageListener listener) {
-        listeners.add(listener);
+        listeners.add(checkNotNull(listener, "listener"));
     }
 
     @Override

@@ -90,6 +90,7 @@ import org.apache.brooklyn.util.collections.CollectionMerger;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
@@ -1605,7 +1606,13 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         Object rawVal = config.getStringKey(JcloudsLocationConfig.IMAGE_CHOOSER.getName());
         if (rawVal instanceof String && Strings.isNonBlank((String)rawVal)) {
             // Configured with a string: it could be a class that we need to instantiate
-            Maybe<?> instance = Reflections.invokeConstructorFromArgs(getManagementContext().getCatalogClassLoader(), (String)rawVal);
+            Class<?> clazz;
+            try {
+                clazz = new ClassLoaderUtils(this.getClass(), getManagementContext()).loadClass((String)rawVal);
+            } catch (ClassNotFoundException e) {
+                throw new IllegalStateException("Could not load configured ImageChooser " + rawVal, e);
+            }
+            Maybe<?> instance = Reflections.invokeConstructorFromArgs(clazz);
             if (!instance.isPresent()) {
                 throw new IllegalStateException("Failed to create ImageChooser "+rawVal+" for location "+this);
             } else if (!(instance.get() instanceof Function)) {

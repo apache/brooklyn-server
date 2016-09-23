@@ -32,6 +32,7 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.mgmt.usage.ApplicationUsage;
 import org.apache.brooklyn.core.mgmt.usage.ApplicationUsage.ApplicationEvent;
+import org.apache.brooklyn.core.mgmt.usage.RecordingUsageListener;
 import org.apache.brooklyn.core.mgmt.usage.UsageListener.ApplicationMetadata;
 import org.apache.brooklyn.core.objs.proxy.EntityProxy;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
