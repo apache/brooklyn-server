@@ -133,7 +133,8 @@ public abstract class AbstractManagementContext implements ManagementContextInte
                     EntityInternal internal = (EntityInternal)input;
                     final List<String> catalogItemSuperIds = internal.getCatalogItemSuperIds();
                     if (catalogItemSuperIds.size() > 0) {
-                        BrooklynClassLoadingContextSequential seqLoader = new BrooklynClassLoadingContextSequential(internal.getManagementContext());
+                        BrooklynClassLoadingContextSequential seqLoader =
+                            new BrooklynClassLoadingContextSequential(internal.getManagementContext());
                         for (String catalogItemId : catalogItemSuperIds) {
                             addCatalogItemContext(internal, seqLoader, catalogItemId);
                         }
@@ -142,6 +143,9 @@ public abstract class AbstractManagementContext implements ManagementContextInte
                         if (seqLoader.getPrimaries().size() != catalogItemSuperIds.size()) {
                             log.error("Couldn't find all catalog items  used for instantiating entity " + internal);
                         }
+                        JavaBrooklynClassLoadingContext entityLoader =
+                            JavaBrooklynClassLoadingContext.create(input.getClass().getClassLoader());
+                        seqLoader.add(entityLoader);
                         return seqLoader;
                     }
                     return apply(internal.getManagementSupport());
