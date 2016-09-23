@@ -909,7 +909,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                         executeCommandThrowingOnError(
                                 (SshMachineLocation)machineLocation,
                                 "using urandom instead of random",
-                                Arrays.asList("sudo mv /dev/random /dev/random-real", "sudo ln -s /dev/urandom /dev/random"));
+                                Arrays.asList(
+                                        BashCommands.sudo("mv /dev/random /dev/random-real"), 
+                                        BashCommands.sudo("ln -s /dev/urandom /dev/random")));
                     }
                 }
 
