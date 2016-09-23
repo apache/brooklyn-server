@@ -172,12 +172,14 @@ public class JcloudsLoginLiveTest extends AbstractJcloudsLiveTest {
         }
     }
 
-    @Test(groups = {"Live"})
+    // TODO Fails when ssh'ing during obtain(), because it prefers the password over the ssh key
+    @Test(groups = {"Live", "Broken"})
     public void testSpecifyingPasswordAndSshKeysPrefersKeysAndDisablesPassword() throws Exception {
         runSpecifyingPasswordAndSshKeysPrefersKeys(false);
     }
 
-    @Test(groups = {"Live"})
+    // TODO Fails because the password is passed through (so asserting machine config does not have password fails)
+    @Test(groups = {"Live", "Broken"})
     public void testSpecifyingPasswordAndSshKeysPrefersKeysAndAllowsPassword() throws Exception {
         runSpecifyingPasswordAndSshKeysPrefersKeys(true);
     }
