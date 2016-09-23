@@ -93,7 +93,7 @@ public class SharedLocationSecurityGroupCustomizer extends BasicJcloudsLocationC
         this.tcpPortRanges = Networking.portRulesToRanges(tcpPortRanges);
     }
 
-    public void setUdpPortRanges(ImmutableList<String> udpPortRanges) {
+    public void setUdpPortRanges(List<String> udpPortRanges) {
         this.udpPortRanges = Networking.portRulesToRanges(udpPortRanges);
     }
 
