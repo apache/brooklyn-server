@@ -23,9 +23,12 @@ import static org.testng.Assert.assertEquals;
 import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
+import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
@@ -37,6 +40,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 
 public class TemplateProcessorTest extends BrooklynAppUnitTestSupport {
@@ -87,6 +91,37 @@ public class TemplateProcessorTest extends BrooklynAppUnitTestSupport {
         String templateContents = "${config['"+TestEntity.CONF_OBJECT.getName()+"']?c}";
         String result = TemplateProcessor.processTemplateContents(templateContents, entity, ImmutableMap.<String,Object>of());
         assertEquals(result, "123456");
+    }
+    
+    @Test
+    public void testEntityAttribute() {
+        TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        entity.sensors().set(Attributes.HOSTNAME, "myval");
+        String templateContents = "${attribute['"+Attributes.HOSTNAME.getName()+"']}";
+        String result = TemplateProcessor.processTemplateContents(templateContents, entity, ImmutableMap.<String,Object>of());
+        assertEquals(result, "myval");
+    }
+    
+    @Test
+    public void testConditionalComparingAttributes() {
+        AttributeSensor<String> sensor1 = Sensors.newStringSensor("sensor1");
+        AttributeSensor<String> sensor2 = Sensors.newStringSensor("sensor2");
+        TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        entity.sensors().set(sensor1, "myval1");
+        entity.sensors().set(sensor2, "myval1");
+        String templateContents = Joiner.on("\n").join(
+                "[#ftl]",
+                "[#if attribute['sensor1'] == attribute['sensor2']]",
+                "true",
+                "[#else]",
+                "false",
+                "[/#if]");
+        String result = TemplateProcessor.processTemplateContents(templateContents, entity, ImmutableMap.<String,Object>of());
+        assertEquals(result.trim(), "true");
+        
+        entity.sensors().set(sensor2, "myval2");
+        String result2 = TemplateProcessor.processTemplateContents(templateContents, entity, ImmutableMap.<String,Object>of());
+        assertEquals(result2.trim(), "false");
     }
     
     @Test
