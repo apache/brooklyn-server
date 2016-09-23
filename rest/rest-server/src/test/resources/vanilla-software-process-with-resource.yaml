@@ -23,7 +23,7 @@
 brooklyn.catalog:
   id: vanilla-software-resource-test
   version: "1.0"
-  itemType: tempalte
+  itemType: template
   libraries:
   - classpath://brooklyn/osgi/brooklyn-test-osgi-entities.jar
   item:
