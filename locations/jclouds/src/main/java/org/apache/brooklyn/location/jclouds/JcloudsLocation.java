@@ -28,7 +28,6 @@ import static org.jclouds.util.Throwables2.getFirstThrowableOfType;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.security.KeyPair;
@@ -129,6 +128,7 @@ import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.ByteSizeStrings;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.KeyValueParser;
+import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -2481,13 +2481,10 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
         if (isManaged()) {
             return getManagementContext().getLocationManager().createLocation(LocationSpec.create(JcloudsSshMachineLocation.class)
+                    .configure(sshConfig)
                     .configure("displayName", vmHostname)
                     .configure("address", address)
                     .configure(JcloudsSshMachineLocation.SSH_PORT, sshHostAndPort.isPresent() ? sshHostAndPort.get().getPort() : node.getLoginPort())
-                    // don't think "config" does anything
-                    .configure(sshConfig)
-                    // FIXME remove "config" -- inserted directly, above
-                    .configure("config", sshConfig)
                     .configure("user", userCredentials.getUser())
                     .configure(SshMachineLocation.PASSWORD.getName(), sshConfig.get(SshMachineLocation.PASSWORD.getName()) != null ?
                             sshConfig.get(SshMachineLocation.PASSWORD.getName()) :
@@ -2509,13 +2506,10 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         } else {
             LOG.warn("Using deprecated JcloudsSshMachineLocation constructor because "+this+" is not managed");
             return new JcloudsSshMachineLocation(MutableMap.builder()
+                    .putAll(sshConfig)
                     .put("displayName", vmHostname)
                     .put("address", address)
                     .put("port", sshHostAndPort.isPresent() ? sshHostAndPort.get().getPort() : node.getLoginPort())
-                    // don't think "config" does anything
-                    .putAll(sshConfig)
-                    // FIXME remove "config" -- inserted directly, above
-                    .put("config", sshConfig)
                     .put("user", userCredentials.getUser())
                     .putIfNotNull(SshMachineLocation.PASSWORD.getName(), sshConfig.get(SshMachineLocation.PASSWORD.getName()) != null ?
                             SshMachineLocation.PASSWORD.getName() :
@@ -2547,6 +2541,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     }
 
     protected JcloudsWinRmMachineLocation createWinRmMachineLocation(ComputeService computeService, NodeMetadata node, String vmHostname, Optional<HostAndPort> sshHostAndPort, ConfigBag setup) {
+        Map<?,?> winrmConfig = extractWinrmConfig(setup, node);
         String nodeAvailabilityZone = extractAvailabilityZone(setup, node);
         String nodeRegion = extractRegion(setup, node);
         if (nodeRegion == null) {
@@ -2558,13 +2553,13 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
         if (isManaged()) {
             return getManagementContext().getLocationManager().createLocation(LocationSpec.create(JcloudsWinRmMachineLocation.class)
+                    .configure(winrmConfig)
                     .configure("jcloudsParent", this)
                     .configure("displayName", vmHostname)
                     .configure("address", address)
                     .configure(WinRmMachineLocation.WINRM_CONFIG_PORT, sshHostAndPort.isPresent() ? sshHostAndPort.get().getPort() : node.getLoginPort())
                     .configure("user", getUser(setup))
                     .configure(WinRmMachineLocation.USER, setup.get(USER))
-                    .configure(ConfigBag.newInstance().copyKeyAs(setup, PASSWORD, WinRmMachineLocation.PASSWORD).getAllConfigRaw())
                     .configure("node", node)
                     .configureIfNotNull(CLOUD_AVAILABILITY_ZONE_ID, nodeAvailabilityZone)
                     .configureIfNotNull(CLOUD_REGION_ID, nodeRegion)
@@ -2588,6 +2583,33 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             nodeConfig.putIfNotNull(PRIVATE_KEY_DATA, node.getCredentials().getOptionalPrivateKey().orNull());
         }
         return extractSshConfig(setup, nodeConfig).getAllConfig();
+    }
+
+    protected Map<String,Object> extractWinrmConfig(ConfigBag setup, NodeMetadata node) {
+        ConfigBag nodeConfig = new ConfigBag();
+        if (node!=null && node.getCredentials() != null) {
+            nodeConfig.putIfNotNull(PASSWORD, node.getCredentials().getOptionalPassword().orNull());
+            nodeConfig.putIfNotNull(PRIVATE_KEY_DATA, node.getCredentials().getOptionalPrivateKey().orNull());
+        }
+        return extractWinrmConfig(setup, nodeConfig).getAllConfig();
+    }
+
+    protected ConfigBag extractWinrmConfig(ConfigBag setup, ConfigBag alt) {
+        ConfigBag winrmConfig = new ConfigBag();
+        
+        for (HasConfigKey<?> key : WinRmMachineLocation.ALL_WINRM_CONFIG_KEYS) {
+            String keyName = key.getConfigKey().getName();
+            if (setup.containsKey(keyName)) {
+                winrmConfig.putStringKey(keyName, setup.getStringKey(keyName));
+            } else if (alt.containsKey(keyName)) {
+                winrmConfig.putStringKey(keyName, setup.getStringKey(keyName));
+            }
+        }
+        
+        Map<String, Object> winrmToolClassProperties = Maps.filterKeys(setup.getAllConfig(), StringPredicates.startsWith(WinRmMachineLocation.WINRM_TOOL_CLASS_PROPERTIES_PREFIX));
+        winrmConfig.putAll(winrmToolClassProperties);
+        
+        return winrmConfig;
     }
 
     protected String extractAvailabilityZone(ConfigBag setup, NodeMetadata node) {
