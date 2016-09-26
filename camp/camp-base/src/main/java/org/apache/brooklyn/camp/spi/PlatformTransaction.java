@@ -43,4 +43,9 @@ public abstract class PlatformTransaction {
         return this;
     }
 
+    public PlatformTransaction clear() {
+        additions.clear();
+        return this;
+    }
+
 }

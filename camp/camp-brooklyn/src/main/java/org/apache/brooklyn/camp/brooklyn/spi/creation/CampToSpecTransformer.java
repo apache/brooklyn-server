@@ -64,7 +64,7 @@ public class CampToSpecTransformer implements PlanToSpecTransformer {
         try {
             CampPlatform camp = CampInternalUtils.getCampPlatform(mgmt);
             BrooklynClassLoadingContext loader = JavaBrooklynClassLoadingContext.create(mgmt);
-            AssemblyTemplate at = CampInternalUtils.registerDeploymentPlan(plan, loader, camp);
+            AssemblyTemplate at = CampInternalUtils.resolveDeploymentPlan(plan, loader, camp);
             AssemblyTemplateInstantiator instantiator = CampInternalUtils.getInstantiator(at);
             if (instantiator instanceof AssemblyTemplateSpecInstantiator) {
                 return ((AssemblyTemplateSpecInstantiator) instantiator).createApplicationSpec(at, camp, loader, MutableSet.<String>of());

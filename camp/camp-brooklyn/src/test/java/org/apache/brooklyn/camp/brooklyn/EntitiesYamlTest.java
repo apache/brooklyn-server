@@ -36,6 +36,7 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.camp.CampPlatform;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
@@ -47,6 +48,7 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityFunctions;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityPredicates;
+import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.mgmt.internal.EntityManagerInternal;
 import org.apache.brooklyn.core.sensor.Sensors;
@@ -55,8 +57,8 @@ import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.entity.group.DynamicCluster;
 import org.apache.brooklyn.entity.group.DynamicFabric;
 import org.apache.brooklyn.entity.software.base.SameServerEntity;
-import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
 import org.apache.brooklyn.entity.software.base.SoftwareProcessShellEnvironmentTest.EnvRecordingLocation;
+import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -1067,4 +1069,35 @@ public class EntitiesYamlTest extends AbstractYamlTest {
     protected Logger getLogger() {
         return log;
     }
+    
+    @Test
+    public void testLeakSimple() throws Exception {
+        String yaml =
+            "services:\n"+
+                "- type: "+TestEntity.class.getName()+"\n"+
+                "- type: "+TestEntity.class.getName()+"\n"+
+                "";
+        doTestLeak(yaml);
+    }
+
+    @Test
+    public void testLeakyPlatformComponentTemplate() throws Exception {
+        String yaml = loadYaml("same-server-entity-test.yaml");
+        doTestLeak(yaml);
+    }
+    
+    protected void doTestLeak(String yaml) throws Exception {
+        CampPlatform camp = BrooklynCampPlatform.findPlatform(mgmt());
+
+        Application app = (Application) createStartWaitAndLogApplication(yaml);
+        ((StartableApplication)app).stop();
+
+        Assert.assertEquals(camp.assemblyTemplates().links().size(), 0);
+        Assert.assertEquals(camp.assemblies().links().size(), 0);
+        Assert.assertEquals(camp.applicationComponentTemplates().links().size(), 0);
+        Assert.assertEquals(camp.applicationComponents().links().size(), 0);
+        Assert.assertEquals(camp.platformComponentTemplates().links().size(), 0);
+        Assert.assertEquals(camp.platformComponents().links().size(), 0);
+    }
+
 }

@@ -139,7 +139,7 @@ class CampResolver {
     private static EntitySpec<?> createEntitySpecFromServicesBlock(String plan, BrooklynClassLoadingContext loader, Set<String> encounteredTypes, boolean isApplication) {
         CampPlatform camp = CampInternalUtils.getCampPlatform(loader.getManagementContext());
 
-        AssemblyTemplate at = CampInternalUtils.registerDeploymentPlan(plan, loader, camp);
+        AssemblyTemplate at = CampInternalUtils.resolveDeploymentPlan(plan, loader, camp);
         AssemblyTemplateInstantiator instantiator = CampInternalUtils.getInstantiator(at);
         if (instantiator instanceof AssemblyTemplateSpecInstantiator) {
             EntitySpec<? extends Application> appSpec = ((AssemblyTemplateSpecInstantiator)instantiator).createApplicationSpec(at, camp, loader, encounteredTypes);

@@ -26,10 +26,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
+import javax.annotation.Nonnull;
 
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -44,7 +41,7 @@ import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.camp.CampPlatform;
-import org.apache.brooklyn.camp.brooklyn.BrooklynCampConstants;
+import org.apache.brooklyn.camp.brooklyn.BrooklynCampPlatform;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampReservedKeys;
 import org.apache.brooklyn.camp.spi.AssemblyTemplate;
 import org.apache.brooklyn.camp.spi.AssemblyTemplate.Builder;
@@ -60,6 +57,11 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.yaml.Yamls;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 
 /** package-private; as {@link RegisteredType} becomes standard hopefully we can remove this */
 class CampInternalUtils {
@@ -101,10 +103,10 @@ class CampInternalUtils {
         }
     }
 
-    static AssemblyTemplate registerDeploymentPlan(String plan, BrooklynClassLoadingContext loader, CampPlatform camp) {
+    static AssemblyTemplate resolveDeploymentPlan(String plan, BrooklynClassLoadingContext loader, CampPlatform camp) {
         BrooklynLoaderTracker.setLoader(loader);
         try {
-            return camp.pdp().registerDeploymentPlan(new StringReader(plan));
+            return camp.pdp().resolveDeploymentPlan(new StringReader(plan));
         } finally {
             BrooklynLoaderTracker.unsetLoader(loader);
         }
@@ -191,8 +193,8 @@ class CampInternalUtils {
         return camp.pdp().parseDeploymentPlan(Streams.newReaderWithContents(yaml));
     }
 
-    public static CampPlatform getCampPlatform(ManagementContext mgmt) {
-        CampPlatform result = mgmt.getConfig().getConfig(BrooklynCampConstants.CAMP_PLATFORM);
+    @Nonnull public static CampPlatform getCampPlatform(ManagementContext mgmt) {
+        CampPlatform result = BrooklynCampPlatform.findPlatform(mgmt);
         if (result!=null) {
             return result;
         } else {

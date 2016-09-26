@@ -40,15 +40,22 @@ public class AssemblyTemplateConstructor {
         this.transaction = this.campPlatform.transaction();
     }
     
-    /** records all the templates to the underlying platform */
+    /** records all the templates to the underlying platform 
+     * @deprecated since 0.10.0 use {@link #construct(boolean)} */
     public AssemblyTemplate commit() {
+        return construct(true);
+    }
+    
+    /** builds the template, optionally recording everything to the underlying platform */
+    public AssemblyTemplate construct(boolean save) {
         checkState();
         AssemblyTemplate at = builder.build();
-        transaction.add(at).commit();
+        if (!save) transaction.clear();
+        transaction.commit();
         transaction = null;
         return at;
     }
-
+    
     public void name(String name) {
         checkState();
         builder.name(name);

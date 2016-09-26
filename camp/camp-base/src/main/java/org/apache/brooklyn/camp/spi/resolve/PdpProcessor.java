@@ -76,16 +76,32 @@ public class PdpProcessor {
         return DeploymentPlan.of(dpRootInterpreted, yaml);
     }
     
-    /** create and return an AssemblyTemplate based on the given DP (yaml) */
+    /** create and return an AssemblyTemplate based on the given DP (yaml),
+     * applying matchers to the given deployment plan to create an assembly template,
+     * and registering with the platform for re-use */
     public AssemblyTemplate registerDeploymentPlan(Reader yaml) {
         DeploymentPlan plan = parseDeploymentPlan(yaml);
         return registerDeploymentPlan(plan);
     }
 
-    /** applies matchers to the given deployment plan to create an assembly template */
+    /** as {@link #registerDeploymentPlan(Reader)} but taking a parsed plan */
     public AssemblyTemplate registerDeploymentPlan(DeploymentPlan plan) {
+        return resolveDeploymentPlanInternal(plan).construct(true);
+    }
+
+    /** as {@link #registerDeploymentPlan(Reader)} but not registering it */
+    public AssemblyTemplate resolveDeploymentPlan(Reader yaml) {
+        DeploymentPlan plan = parseDeploymentPlan(yaml);
+        return resolveDeploymentPlan(plan);
+    }
+
+    /** as {@link #registerDeploymentPlan(DeploymentPlan)} but not registering it */
+    public AssemblyTemplate resolveDeploymentPlan(DeploymentPlan plan) {
+        return resolveDeploymentPlanInternal(plan).construct(false);
+    }
+
+    protected AssemblyTemplateConstructor resolveDeploymentPlanInternal(DeploymentPlan plan) {
         AssemblyTemplateConstructor atc = new AssemblyTemplateConstructor(campPlatform);
-        
         if (plan.getName()!=null) atc.name(plan.getName());
         if (plan.getDescription()!=null) atc.description(plan.getDescription());
         if (plan.getSourceCode()!=null) atc.sourceCode(plan.getSourceCode());
@@ -120,8 +136,8 @@ public class PdpProcessor {
             // set a default instantiator which just invokes the component's instantiators
             // (or throws unsupported exceptions, currently!)
             atc.instantiator(BasicAssemblyTemplateInstantiator.class);
-
-        return atc.commit();
+        
+        return atc;
     }
     
     public AssemblyTemplate registerPdpFromArchive(InputStream archiveInput) {

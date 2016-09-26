@@ -30,6 +30,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.util.javalang.JavaClassNames;
+import org.apache.brooklyn.util.javalang.MemoryUsageTracker.SoftUsageTracker;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
@@ -387,11 +388,13 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
     }
 
     public static class SoftlyPresent<T> extends Maybe<T> {
+        private static final SoftUsageTracker TRACKER = new SoftUsageTracker();
         private static final long serialVersionUID = 436799990500336015L;
         private final SoftReference<T> value;
         private Maybe<T> defaultValue;
         protected SoftlyPresent(@Nonnull T value) {
             this.value = new SoftReference<T>(value);
+            TRACKER.track(this, this.value);
         }
         @Override
         public T get() {
@@ -423,6 +426,9 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
             this.defaultValue = defaultValue;
             return this;
         }
+
+        /** Returns the global usage tracker to determine how many references are soft */
+        public static SoftUsageTracker getUsageTracker() { return TRACKER; }
     }
 
     @Override
