@@ -90,7 +90,7 @@ public class MemoryUsageTracker {
 
     /** forces all soft references to be cleared by trying to allocate an enormous chunk of memory,
      * returns a description of what was done 
-     * (tune with with {@link #forceClearSoftReferences(long, int)} 
+     * (tune with {@link #forceClearSoftReferences(long, int)} 
      * for greater than 200M precision in the output message, if you really care about that) */
     public static String forceClearSoftReferences() {
         return forceClearSoftReferences(1000*1000, Integer.MAX_VALUE);
@@ -138,8 +138,8 @@ public class MemoryUsageTracker {
         public synchronized void disable() {
             cache = null;
         }
-        public long getTotalEntries() {
-            return cache.size();
+        public synchronized long getTotalEntries() {
+            return cache==null ? -1 : cache.size();
         }
         public synchronized double getPercentagePresent() {
             if (cache==null) return -1;

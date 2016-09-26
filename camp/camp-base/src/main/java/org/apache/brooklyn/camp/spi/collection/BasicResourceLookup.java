@@ -43,16 +43,15 @@ public class BasicResourceLookup<T extends AbstractResource> extends AbstractRes
     }
 
     public synchronized void add(T item) {
-        T old = items.put(item.getId(), item);
-        if (old!=null) {
-            items.put(old.getId(), old);
-            throw new IllegalStateException("Already contains item for "+item.getId()+": "+old+" (adding "+item+")");
-        } else {
-            if (!items.isEmpty() && items.size()%100==0) {
-                // useful for monitoring any leaks here
-                log.debug("Creating new CAMP item in "+this+" (had "+(items.size())+"): "+item);
-            }
+        if (items.containsKey(item.getId())) {
+            throw new IllegalStateException("Already contains item for "+item.getId()+" (adding "+item+")");
         }
+        
+        if (!items.isEmpty() && items.size()%100==0) {
+            // useful for monitoring any leaks here
+            log.debug("Creating new CAMP item in "+this+" (had "+(items.size())+"): "+item);
+        }
+        items.put(item.getId(), item);
         links.put(item.getId(), newLink(item.getId(), item.getName()));
     }
     

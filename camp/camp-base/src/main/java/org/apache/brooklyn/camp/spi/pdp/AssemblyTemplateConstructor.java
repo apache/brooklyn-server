@@ -43,7 +43,7 @@ public class AssemblyTemplateConstructor {
     /** records all the templates to the underlying platform 
      * @deprecated since 0.10.0 use {@link #construct(boolean)} */
     public AssemblyTemplate commit() {
-        return construct(false);
+        return construct(true);
     }
     
     /** builds the template, optionally recording everything to the underlying platform */

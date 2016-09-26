@@ -1081,7 +1081,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
     }
 
     @Test
-    public void testLeakWithPct() throws Exception {
+    public void testLeakyPlatformComponentTemplate() throws Exception {
         String yaml = loadYaml("same-server-entity-test.yaml");
         doTestLeak(yaml);
     }

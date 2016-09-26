@@ -210,7 +210,7 @@ public class BrooklynGarbageCollector {
             gcTasks();
             logUsage("brooklyn gc (after)");
             
-            double memUsage = 1.0 - 1.0*Runtime.getRuntime().freeMemory() / Runtime.getRuntime().totalMemory();
+            double memUsage = 1.0 - 1.0*Runtime.getRuntime().freeMemory() / Runtime.getRuntime().maxMemory();
             if (memUsage > brooklynProperties.getConfig(FORCE_CLEAR_SOFT_REFERENCES_ON_MEMORY_USAGE_LEVEL)) {
                 LOG.info("Forcing brooklyn gc including soft-reference cleansing due to memory usage: "+getUsageString());
                 MemoryUsageTracker.forceClearSoftReferences();
@@ -237,8 +237,13 @@ public class BrooklynGarbageCollector {
 
     public static String makeBasicUsageString() {
         int present = (int)Math.round(100.0*SoftlyPresent.getUsageTracker().getPercentagePresent());
-        return Strings.makeSizeString(Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory())+" / "+
-            Strings.makeSizeString(Runtime.getRuntime().totalMemory()) + " memory; " +
+        return Strings.makeSizeString(Runtime.getRuntime().maxMemory() - Runtime.getRuntime().freeMemory())+" / "+
+            Strings.makeSizeString(Runtime.getRuntime().maxMemory()) 
+            + (Runtime.getRuntime().maxMemory() > Runtime.getRuntime().totalMemory() ? 
+                " ("+ Strings.makeSizeString(Runtime.getRuntime().totalMemory()) +" real)"
+                : "")
+            + " memory"
+            + "; " +
             (present>=0 ? present+"% soft-reference maybe retention (of "+SoftlyPresent.getUsageTracker().getTotalEntries()+"); " : "") +
             Thread.activeCount()+" threads";
     }
