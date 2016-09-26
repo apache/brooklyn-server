@@ -72,7 +72,7 @@ public class RecordingSshTool implements SshTool {
     }
 
     public interface CustomResponseGenerator {
-        public CustomResponse generate(ExecParams execParams);
+        public CustomResponse generate(ExecParams execParams) throws Exception;
     }
 
     public static class CustomResponse {
@@ -225,7 +225,12 @@ public class RecordingSshTool implements SshTool {
             for (Entry<String, CustomResponseGenerator> entry : customResponses.entrySet()) {
                 if (cmd.matches(entry.getKey())) {
                     CustomResponseGenerator responseGenerator = entry.getValue();
-                    CustomResponse response = responseGenerator.generate(new ExecParams(props, commands, env));
+                    CustomResponse response;
+                    try {
+                        response = responseGenerator.generate(new ExecParams(props, commands, env));
+                    } catch (Exception e) {
+                        throw Exceptions.propagate(e);
+                    }
                     writeCustomResponseStreams(props, response);
                     return response.exitCode;
                 }
