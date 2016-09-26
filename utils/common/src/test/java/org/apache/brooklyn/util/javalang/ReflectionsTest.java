@@ -133,6 +133,12 @@ public class ReflectionsTest {
     }
     
     @Test
+    public void testFindConstructors() throws Exception {
+        Asserts.assertPresent(Reflections.findConstructorExactMaybe(String.class, String.class));
+        Asserts.assertNotPresent(Reflections.findConstructorExactMaybe(String.class, Object.class));
+    }
+
+    @Test
     public void testConstruction() throws Exception {
         Assert.assertEquals(Reflections.invokeConstructorFromArgs(CI1.class, new Object[] {"hello", 3}).get().constructorArgs, ImmutableList.of("hello", 3));
         Assert.assertEquals(Reflections.invokeConstructorFromArgs(CI1.class, new Object[] {"hello", 3, 4, 5}).get().constructorArgs, ImmutableList.of("hello", 3, 4, 5));

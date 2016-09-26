@@ -645,7 +645,7 @@ public class Reflections {
         return (List) MutableList.copyOf(Arrays.asList(clazz.getConstructors())).appendAll(Arrays.asList(clazz.getDeclaredConstructors()));
     }
     /** Returns any constructor exactly matching the given signature, including privates and on parent classes. */
-    public static <T> Maybe<Constructor<T>> findConstructorMaybe(Class<T> clazz, Class<?>... parameterTypes) {
+    public static <T> Maybe<Constructor<T>> findConstructorExactMaybe(Class<T> clazz, Class<?>... parameterTypes) {
         if (clazz == null) return Maybe.absentNoTrace("class is null");
         Iterable<Constructor<T>> result = findConstructors(false, clazz, parameterTypes);
         if (!result.iterator().hasNext()) return Maybe.absentNoTrace("no Constructors matching "+clazz.getName()+"("+Arrays.asList(parameterTypes)+")");
@@ -661,12 +661,13 @@ public class Reflections {
         }
         List<Constructor<T>> result = MutableList.of();
         
-        for (Constructor<T> m: getConstructors(clazz)) {
-            if (m.getParameterTypes().length!=parameterTypes.length) continue;
+        constructors: for (Constructor<T> m: getConstructors(clazz)) {
+            if (m.getParameterTypes().length!=parameterTypes.length) continue constructors;
             parameters: for (int i=0; i<parameterTypes.length; i++) {
                 if (m.getParameterTypes()[i].equals(parameterTypes[i])) continue parameters;
-                if (allowCovariantParameterClasses && m.getParameterTypes()[i].isAssignableFrom(parameterTypes[i])) continue;
-                continue;
+                if (allowCovariantParameterClasses && m.getParameterTypes()[i].isAssignableFrom(parameterTypes[i])) continue parameters;
+                // does not match
+                continue constructors;
             }
             result.add(m);
         }
