@@ -351,6 +351,8 @@ public class Exceptions {
         return collapseText(t, false);
     }
     
+    /** as {@link #collapseText(Throwable)} but skipping any throwables which implement {@link CanSkipInContext}
+     * and indicate they should be skipped any of the given contexts */
     public static String collapseTextInContext(Throwable t, Object ...contexts) {
         return collapseText(t, false, ImmutableSet.<Throwable>of(), contexts);
     }
@@ -459,6 +461,16 @@ public class Exceptions {
     /** Like {@link Throwable#toString()} except suppresses boring prefixes and replaces prefixes with sensible messages where required */
     public static String getMessageWithAppropriatePrefix(Throwable t) {
         return appendSeparator(getPrefixText(t), t.getMessage());
+    }
+
+    /** Returns true if the root cause is a "boring" CNF, ie a straightforward declaration that the clazz is not found;
+     * this permits callers to include the cause only when it is interesting, ie caused by a dependent class not loadable.
+     */
+    public static boolean isRootBoringClassNotFound(Exception e, String clazz) {
+        Throwable root = Throwables.getRootCause(e);
+        if (!(root instanceof ClassNotFoundException)) return false;
+        if (clazz.equals(root.getMessage())) return true;
+        return false;
     }
 
 }

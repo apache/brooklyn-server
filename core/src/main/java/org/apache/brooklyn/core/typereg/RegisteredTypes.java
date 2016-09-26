@@ -24,6 +24,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
@@ -45,6 +46,8 @@ import org.apache.brooklyn.util.guava.Maybe.Absent;
 import org.apache.brooklyn.util.text.NaturalOrderComparator;
 import org.apache.brooklyn.util.text.VersionComparator;
 import org.apache.brooklyn.util.yaml.Yamls;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
@@ -57,7 +60,7 @@ import com.google.common.reflect.TypeToken;
 /**
  * Utility and preferred creation mechanisms for working with {@link RegisteredType} instances.
  * <p>
- * Use {@link #bean(String, String, TypeImplementationPlan, Class)} and {@link #spec(String, String, TypeImplementationPlan, Class)}
+ * Use {@link #bean(String, String, TypeImplementationPlan)} and {@link #spec(String, String, TypeImplementationPlan)}
  * to create {@link RegisteredType} instances.
  * <p>
  * See {@link #isSubtypeOf(RegisteredType, Class)} or {@link #isSubtypeOf(RegisteredType, RegisteredType)} to 
@@ -65,6 +68,8 @@ import com.google.common.reflect.TypeToken;
  */
 public class RegisteredTypes {
 
+    private static final Logger log = LoggerFactory.getLogger(RegisteredTypes.class);
+    
     @SuppressWarnings("serial")
     static ConfigKey<Class<?>> ACTUAL_JAVA_TYPE = ConfigKeys.newConfigKey(new TypeToken<Class<?>>() {}, "java.type.actual",
         "The actual Java type which will be instantiated (bean) or pointed at (spec)");
@@ -106,31 +111,56 @@ public class RegisteredTypes {
         return type;
     }
 
-    /** Preferred mechanism for defining a bean {@link RegisteredType}. */
-    public static RegisteredType bean(String symbolicName, String version, TypeImplementationPlan plan, @Nullable Class<?> superType) {
-        return addSuperType(new BasicRegisteredType(RegisteredTypeKind.BEAN, symbolicName, version, plan), superType);
+    /** Preferred mechanism for defining a bean {@link RegisteredType}. 
+     * Callers should also {@link #addSuperTypes(RegisteredType, Iterable)} on the result.*/
+    public static RegisteredType bean(@Nonnull String symbolicName, @Nonnull String version, @Nonnull TypeImplementationPlan plan) {
+        if (symbolicName==null || version==null) log.warn("Deprecated use of RegisteredTypes API passing null name/version", new Exception("Location of deprecated use, wrt "+plan));
+        return new BasicRegisteredType(RegisteredTypeKind.BEAN, symbolicName, version, plan);
+    }
+    /** Convenience for {@link #bean(String, String, TypeImplementationPlan)} when there is a single known java signature/super type */
+    public static RegisteredType bean(@Nonnull String symbolicName, @Nonnull String version, @Nonnull TypeImplementationPlan plan, @Nonnull Class<?> superType) {
+        if (superType==null) log.warn("Deprecated use of RegisteredTypes API passing null name/version", new Exception("Location of deprecated use, wrt "+symbolicName+":"+version+" "+plan));
+        return addSuperType(bean(symbolicName, version, plan), superType);
     }
     
-    /** Preferred mechanism for defining a spec {@link RegisteredType}. */
-    // TODO we currently allow symbolicName and version to be null for the purposes of creation, internal only in BasicBrooklynTypeRegistry.createSpec
-    // (ideally the API in TypePlanTransformer can be changed so even that is not needed)
-    public static RegisteredType spec(String symbolicName, String version, TypeImplementationPlan plan, @Nullable Class<?> superType) {
-        return addSuperType(new BasicRegisteredType(RegisteredTypeKind.SPEC, symbolicName, version, plan), superType);
+    /** Preferred mechanism for defining a spec {@link RegisteredType}.
+     * Callers should also {@link #addSuperTypes(RegisteredType, Iterable)} on the result.*/
+    public static RegisteredType spec(@Nonnull String symbolicName, @Nonnull String version, @Nonnull TypeImplementationPlan plan) {
+        if (symbolicName==null || version==null) log.warn("Deprecated use of RegisteredTypes API passing null name/version", new Exception("Location of deprecated use, wrt "+plan));
+        return new BasicRegisteredType(RegisteredTypeKind.SPEC, symbolicName, version, plan);
+    }
+    /** Convenience for {@link #cpec(String, String, TypeImplementationPlan)} when there is a single known java signature/super type */
+    public static RegisteredType spec(@Nonnull String symbolicName, @Nonnull String version, @Nonnull TypeImplementationPlan plan, @Nonnull Class<?> superType) {
+        if (superType==null) log.warn("Deprecated use of RegisteredTypes API passing null name/version", new Exception("Location of deprecated use, wrt "+symbolicName+":"+version+" "+plan));
+        return addSuperType(spec(symbolicName, version, plan), superType);
     }
 
-    /** returns the {@link Class} object corresponding to the given java type name,
-     * using the cache on the type and the loader defined on the type
-     * @param mgmt */
+    /** Creates an anonymous {@link RegisteredType} for plan-instantiation-only use. */
+    @Beta
+    // internal only in *TypeRegistry.create methods; uses null for name and version,
+    // which is ignored in the TypePlanTransformer; might be better to clean up the API to avoid this
+    public static RegisteredType anonymousRegisteredType(RegisteredTypeKind kind, TypeImplementationPlan plan) {
+        return new BasicRegisteredType(kind, null, null, plan);
+    }
+    
+    /** returns the {@link Class} object corresponding to the given java type name and registered type,
+     * using the cache on the type in the first instance, falling back to the loader defined the type and context. */
     @Beta
     // TODO should this be on the AbstractTypePlanTransformer ?
     public static Class<?> loadActualJavaType(String javaTypeName, ManagementContext mgmt, RegisteredType type, RegisteredTypeLoadingContext context) {
-        Class<?> result = ((BasicRegisteredType)type).getCache().get(ACTUAL_JAVA_TYPE);
+        Class<?> result = peekActualJavaType(type);
         if (result!=null) return result;
         
         result = CatalogUtils.newClassLoadingContext(mgmt, type, context==null ? null : context.getLoader()).loadClass( javaTypeName );
         
-        ((BasicRegisteredType)type).getCache().put(ACTUAL_JAVA_TYPE, result);
+        cacheActualJavaType(type, result);
         return result;
+    }
+    @Beta public static Class<?> peekActualJavaType(RegisteredType type) {
+        return ((BasicRegisteredType)type).getCache().get(ACTUAL_JAVA_TYPE);
+    }
+    @Beta public static void cacheActualJavaType(RegisteredType type, Class<?> clazz) {
+        ((BasicRegisteredType)type).getCache().put(ACTUAL_JAVA_TYPE, clazz);
     }
 
     @Beta
@@ -151,7 +181,7 @@ public class RegisteredTypes {
         return type;
     }
     @Beta
-    public static RegisteredType addSuperTypes(RegisteredType type, Iterable<Object> superTypesAsClassOrRegisteredType) {
+    public static RegisteredType addSuperTypes(RegisteredType type, Iterable<? extends Object> superTypesAsClassOrRegisteredType) {
         if (superTypesAsClassOrRegisteredType!=null) {
             for (Object superType: superTypesAsClassOrRegisteredType) {
                 if (superType==null) {
@@ -372,7 +402,7 @@ public class RegisteredTypes {
         }
 
         if (context!=null) {
-            if (context.getExpectedKind()!=RegisteredTypeKind.BEAN)
+            if (context.getExpectedKind()!=null && context.getExpectedKind()!=RegisteredTypeKind.BEAN)
                 return Maybe.absent("Validating a bean when constraint expected "+context.getExpectedKind());
             if (context.getExpectedJavaSuperType()!=null && !context.getExpectedJavaSuperType().isInstance(object))
                 return Maybe.absent(object+" is not of the expected java supertype "+context.getExpectedJavaSuperType());

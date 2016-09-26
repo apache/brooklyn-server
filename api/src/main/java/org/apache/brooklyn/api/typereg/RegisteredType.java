@@ -47,18 +47,23 @@ public interface RegisteredType extends Identifiable {
     /** @return all declared supertypes or super-interfaces of this registered type,
      * consisting of a collection of {@link Class} or {@link RegisteredType}
      * <p>
-     * This should normally include at least one {@link Class} object:
+     * This should normally include at least one {@link Class} object for filtering purposes:
      * For beans, this should include the java type that the {@link BrooklynTypeRegistry} will create. 
      * For specs, this should refer to the {@link BrooklynObject} type that the created spec will point at 
      * (e.g. the concrete {@link Entity}, not the {@link EntitySpec}).
      * <p>
-     * This may not necessarily return the most specific java class or classes;
+     * This will normally not return all ancestor classes,
+     * and it is not required even to return the most specific java class or classes:
      * such as if the concrete type is private and callers should know only about a particular public interface,
      * or if precise type details are unavailable and all that is known at creation is some higher level interface/supertype
      * (e.g. this may return {@link Entity} even though the spec points at a specific subclass,
      * for instance because the YAML has not yet been parsed or OSGi bundles downloaded).
      * <p>
      * This may include other registered types such as marker interfaces.
+     * <p>
+     * It may even include multiple interfaces but exclude the concrete subclass which implements them all
+     * (for instance if that concrete implementation is an internal private class). 
+     * However it must be possible for the corresponding transformer to instantiate that type at runtime. 
      */
     @Beta
     Set<Object> getSuperTypes();

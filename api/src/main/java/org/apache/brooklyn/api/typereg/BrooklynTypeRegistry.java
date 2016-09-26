@@ -63,16 +63,27 @@ public interface BrooklynTypeRegistry {
      * including a detailed message if absent */
     public Maybe<RegisteredType> getMaybe(String symbolicNameOrAliasWithOptionalVersion, RegisteredTypeLoadingContext context);
 
+    /** Creates an instance of the given type, either a bean or spec as appropriate. */
+    @Beta
+    <T> T create(RegisteredType type, @Nullable RegisteredTypeLoadingContext optionalContext, @Nullable Class<T> optionalResultSuperType);
+    /** Creates a bean or spec (depending on the super-type hint) for the given plan data (e.g. a yaml string) for the given format (optional, will auto-detect if null) */
+    @Beta
+    <T> T createFromPlan(Class<T> requiredSuperTypeHint, @Nullable String planFormat, Object planData, @Nullable RegisteredTypeLoadingContext optionalConstraint);
+
+    /** Typesafe {@link AbstractBrooklynObjectSpec} variant of {@link #create(RegisteredType, RegisteredTypeLoadingContext, Class)} */
     // NB the seemingly more correct generics <T,SpecT extends AbstractBrooklynObjectSpec<T,SpecT>> 
     // cause compile errors, not in Eclipse, but in maven (?) 
     // TODO do these belong here, or in a separate master TypePlanTransformer ?  see also BrooklynTypePlanTransformer
     @Beta
     <SpecT extends AbstractBrooklynObjectSpec<?,?>> SpecT createSpec(RegisteredType type, @Nullable RegisteredTypeLoadingContext optionalContext, @Nullable Class<SpecT> optionalSpecSuperType);
+    /** Typesafe {@link AbstractBrooklynObjectSpec} variant of {@link #createFromPlan(Class, String, Object, RegisteredTypeLoadingContext)} */
     @Beta
     <SpecT extends AbstractBrooklynObjectSpec<?,?>> SpecT createSpecFromPlan(@Nullable String planFormat, Object planData, @Nullable RegisteredTypeLoadingContext optionalContext, @Nullable Class<SpecT> optionalSpecSuperType);
+    /** Typesafe non-spec variant of {@link #create(RegisteredType, RegisteredTypeLoadingContext, Class)} */
     @Beta
     <T> T createBean(RegisteredType type, @Nullable RegisteredTypeLoadingContext optionalContext, @Nullable Class<T> optionalResultSuperType);
     @Beta
+    /** Typesafe non-spec variant of {@link #createFromPlan(Class, String, Object, RegisteredTypeLoadingContext)} */
     <T> T createBeanFromPlan(String planFormat, Object planData, @Nullable RegisteredTypeLoadingContext optionalConstraint, @Nullable Class<T> optionalBeanSuperType);
-    
+
 }

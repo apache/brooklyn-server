@@ -100,7 +100,7 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
 
     /** as {@link #absentNull(String)} but with a generic message */
     public static <T> Maybe<T> absentNull() {
-        return absentNull("value is null");
+        return absentNull("disallowed null value");
     }
     
     /** like {@link #absent(String)} but {@link #isNull()} will return true on the result. */
