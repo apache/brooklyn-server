@@ -24,17 +24,26 @@ import java.util.Map;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
+import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.location.AbstractLocation;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
+import org.apache.brooklyn.util.text.StringPredicates;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.Maps;
 
 public abstract class AbstractCloudMachineProvisioningLocation extends AbstractLocation
-implements MachineProvisioningLocation<MachineLocation>, CloudLocationConfig
-{
-   public AbstractCloudMachineProvisioningLocation() {
-      super();
-   }
+        implements MachineProvisioningLocation<MachineLocation>, CloudLocationConfig {
+    
+    private static final Logger LOG = LoggerFactory.getLogger(AbstractCloudMachineProvisioningLocation.class);
+
+    public AbstractCloudMachineProvisioningLocation() {
+        super();
+    }
 
     /** typically wants at least ACCESS_IDENTITY and ACCESS_CREDENTIAL */
     public AbstractCloudMachineProvisioningLocation(Map<?,?> conf) {
@@ -70,6 +79,19 @@ implements MachineProvisioningLocation<MachineLocation>, CloudLocationConfig
     protected ConfigBag extractSshConfig(ConfigBag setup, ConfigBag alt) {
         ConfigBag sshConfig = new ConfigBag();
         
+        for (HasConfigKey<?> key : SshMachineLocation.ALL_SSH_CONFIG_KEYS) {
+            String keyName = key.getConfigKey().getName();
+            if (setup.containsKey(keyName)) {
+                sshConfig.putStringKey(keyName, setup.getStringKey(keyName));
+            } else if (alt.containsKey(keyName)) {
+                sshConfig.putStringKey(keyName, setup.getStringKey(keyName));
+            }
+        }
+        
+        Map<String, Object> sshToolClassProperties = Maps.filterKeys(setup.getAllConfig(), StringPredicates.startsWith(SshMachineLocation.SSH_TOOL_CLASS_PROPERTIES_PREFIX));
+        sshConfig.putAll(sshToolClassProperties);
+
+        // Special cases (preserving old code!)
         if (setup.containsKey(PASSWORD)) {
             sshConfig.copyKeyAs(setup, PASSWORD, SshTool.PROP_PASSWORD);
         } else if (alt.containsKey(PASSWORD)) {
@@ -89,9 +111,6 @@ implements MachineProvisioningLocation<MachineLocation>, CloudLocationConfig
             sshConfig.copyKeyAs(setup, PRIVATE_KEY_PASSPHRASE, SshTool.PROP_PRIVATE_KEY_PASSPHRASE);
         }
 
-        // TODO extract other SshTool properties ?
-        
         return sshConfig;
     }
-
 }
