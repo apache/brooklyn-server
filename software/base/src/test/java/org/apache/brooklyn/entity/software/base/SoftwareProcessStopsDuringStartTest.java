@@ -56,6 +56,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -76,7 +77,8 @@ public class SoftwareProcessStopsDuringStartTest extends BrooklynAppUnitTestSupp
     public void setUp() throws Exception {
         super.setUp();
         loc = mgmt.getLocationManager().createLocation(LocationSpec.create(DelayedProvisioningLocation.class));
-        entity = app.createAndManageChild(EntitySpec.create(EmptySoftwareProcess.class));
+        entity = app.createAndManageChild(EntitySpec.create(EmptySoftwareProcess.class)
+            .configure(EmptySoftwareProcess.START_TIMEOUT, Asserts.DEFAULT_SHORT_TIMEOUT));
         executor = Executors.newCachedThreadPool();
     }
     
@@ -171,9 +173,8 @@ public class SoftwareProcessStopsDuringStartTest extends BrooklynAppUnitTestSupp
             // might fail, depending how far it got before stop completed
             LOG.info("start() failed during concurrent stop; acceptable", e);
         } catch (TimeoutException e) {
-            // TODO we should fail on this, tidy up so start always returns immediately when stopped
-            // (instead it seems to sit there waiting 2m for isUp)
-            LOG.warn("start() timed out during concurrent stop; acceptable, but test should be fixed", e);
+            // with shorter timeout this shouldn't occur (26 Sept 2016)
+            Assert.fail("start() timed out during concurrent stop; acceptable, but test should be fixed", e);
         }
         
         assertEquals(loc.getCalls(), ImmutableList.of("obtain", "release"));
