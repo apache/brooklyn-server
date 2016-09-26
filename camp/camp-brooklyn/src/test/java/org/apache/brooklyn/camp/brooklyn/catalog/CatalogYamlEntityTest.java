@@ -634,7 +634,6 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
 
    @Test
    public void testDeepCatalogItemCanLoadResources() throws Exception {
-      TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
 
       String symbolicNameInner = "my.catalog.app.id.inner";
       String symbolicNameFiller = "my.catalog.app.id.filler";
