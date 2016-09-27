@@ -30,9 +30,11 @@ public @interface CatalogConfig {
     /** a label to be displayed when a config key is exposed as editable in the catalog */ 
     String label();
     
-    /** a priority used to determine the order in which config keys are displayed when presenting as editable in the catalog;
-     * a higher value appears higher in the list. the default is 1.
-     * (negative values may be used to indicate advanced config which might not be shown unless requested.) */ 
+    /** a priority used to determine the order in which config keys are displayed when presenting as editable in the
+     * catalog. The default is 1. */
     double priority() default 1;
-    
+
+     /** a pinned configuration means that the config key will always be displayed when presenting as editable in the
+      * catalog. The default is true. */
+    boolean pinned() default true;
 }

@@ -24,6 +24,7 @@ import java.lang.reflect.Field;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.brooklyn.api.catalog.CatalogConfig;
 import org.apache.brooklyn.api.entity.Application;
@@ -119,9 +120,9 @@ public class EntityTransformer {
             }));
     }
 
-    public static EntityConfigSummary entityConfigSummary(ConfigKey<?> config, String label, Double priority, Map<String, URI> links) {
+    public static EntityConfigSummary entityConfigSummary(ConfigKey<?> config, String label, Double priority, Boolean pinned, Map<String, URI> links) {
         Map<String, URI> mapOfLinks =  links==null ? null : ImmutableMap.copyOf(links);
-        return new EntityConfigSummary(config, label, priority, mapOfLinks);
+        return new EntityConfigSummary(config, label, priority, pinned, mapOfLinks);
     }
 
     public static PolicyConfigSummary policyConfigSummary(ConfigKey<?> config, String label, Double priority, Map<String, URI> links) {
@@ -162,7 +163,7 @@ public class EntityTransformer {
             SensorTransformer.addNamedAction(lb, na, entity.getConfig(config), config, entity);
         }
     
-        return entityConfigSummary(config, label, priority, lb.build());
+        return entityConfigSummary(config, label, priority, null, lb.build());
     }
 
     public static URI applicationUri(Application entity, UriBuilder ub) {
@@ -177,12 +178,16 @@ public class EntityTransformer {
         CatalogConfig catalogConfig = configKeyField!=null ? configKeyField.getAnnotation(CatalogConfig.class) : null;
         String label = catalogConfig==null ? null : catalogConfig.label();
         Double priority = catalogConfig==null ? null : catalogConfig.priority();
-        return entityConfigSummary(config, label, priority, null);
+        boolean pinned = catalogConfig!=null && catalogConfig.pinned();
+        return entityConfigSummary(config, label, priority, pinned, null);
     }
 
-    public static EntityConfigSummary entityConfigSummary(SpecParameter<?> input) {
-        Double priority = input.isPinned() ? Double.valueOf(1d) : null;
-        return entityConfigSummary(input.getConfigKey(), input.getLabel(), priority, null);
+    public static EntityConfigSummary entityConfigSummary(SpecParameter<?> input, AtomicInteger paramPriorityCnt) {
+        // Increment the priority because the config container is a set. Server-side we are using an ordered set
+        // which results in correctly ordered items on the wire (as a list). Clients which use the java bindings
+        // though will push the items in an unordered set - so give them means to recover the correct order.
+        Double priority = input.isPinned() ? Double.valueOf(paramPriorityCnt.incrementAndGet()) : null;
+        return entityConfigSummary(input.getConfigKey(), input.getLabel(), priority, input.isPinned(), null);
     }
 
     public static PolicyConfigSummary policyConfigSummary(SpecParameter<?> input) {

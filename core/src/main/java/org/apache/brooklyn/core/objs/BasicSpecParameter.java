@@ -26,16 +26,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
-import com.google.common.annotations.Beta;
-import com.google.common.base.Function;
-import com.google.common.base.Objects;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
-import com.google.common.collect.FluentIterable;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.reflect.TypeToken;
-
 import org.apache.brooklyn.api.catalog.CatalogConfig;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -57,6 +47,16 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.time.Duration;
+
+import com.google.common.annotations.Beta;
+import com.google.common.base.Function;
+import com.google.common.base.Objects;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.reflect.TypeToken;
 
 public class BasicSpecParameter<T> implements SpecParameter<T>{
     private static final long serialVersionUID = -4728186276307619778L;
@@ -83,12 +83,12 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
         }
     }
     
-    @Beta // TBD whether "pinned" stays
+    @Beta
     public BasicSpecParameter(String label, boolean pinned, ConfigKey<T> config) {
         this(label, pinned, config, null);
     }
 
-    @Beta // TBD whether "pinned" and "sensor" stay
+    @Beta // TBD whether "sensor" stay
     public <SensorType> BasicSpecParameter(String label, boolean pinned, ConfigKey<T> config, AttributeSensor<SensorType> sensor) {
         this.label = label;
         this.pinned = pinned;
@@ -228,10 +228,11 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
             String description = (String)inputDef.get("description");
             String type = (String)inputDef.get("type");
             Object defaultValue = inputDef.get("default");
+            Boolean pinned = (Boolean)inputDef.get("pinned");
             if (specialFlagTransformer != null) {
                 defaultValue = specialFlagTransformer.apply(defaultValue);
             }
-            Predicate<?> constraints = parseConstraints(inputDef.get("constraints"), loader);
+            Predicate<?> constraint = parseConstraints(inputDef.get("constraints"), loader);
             ConfigInheritance parentInheritance = parseInheritance(inputDef.get("inheritance.parent"), loader);
             ConfigInheritance typeInheritance = parseInheritance(inputDef.get("inheritance.type"), loader);
 
@@ -247,17 +248,17 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
                 .name(name)
                 .description(description)
                 .defaultValue(defaultValue)
-                .constraint(constraints)
+                .constraint(constraint)
                 .runtimeInheritance(parentInheritance)
                 .typeInheritance(typeInheritance);
-            
+
             if (PortRange.class.equals(typeToken.getRawType())) {
                 sensorType = new PortAttributeSensorAndConfigKey(builder);
                 configType = ((HasConfigKey)sensorType).getConfigKey();
             } else {
                 configType = builder.build();
             }
-            return new BasicSpecParameter(Objects.firstNonNull(label, name), true, configType, sensorType);
+            return new BasicSpecParameter(Objects.firstNonNull(label, name), !Boolean.FALSE.equals(pinned), configType, sensorType);
         }
 
         @SuppressWarnings({ "rawtypes" })
@@ -276,7 +277,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
                 }
             }
         }
-    
+
         @SuppressWarnings({ "unchecked", "rawtypes" })
         private static Predicate parseConstraints(Object obj, BrooklynClassLoadingContext loader) {
             List constraintsRaw;
@@ -375,12 +376,14 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
             CatalogConfig catalogConfig = configKeyField.getAnnotation(CatalogConfig.class);
             String label = config.getName();
             Double priority = null;
+            Boolean pinned = Boolean.FALSE;
             if (catalogConfig != null) {
                 label = Maybe.fromNullable(catalogConfig.label()).or(config.getName());
                 priority = catalogConfig.priority();
+                pinned = catalogConfig.pinned();
             }
             @SuppressWarnings({ "unchecked", "rawtypes" })
-            SpecParameter<?> param = new BasicSpecParameter(label, priority != null, config);
+            SpecParameter<?> param = new BasicSpecParameter(label, pinned, config);
             return new WeightedParameter(priority, param);
         }
 

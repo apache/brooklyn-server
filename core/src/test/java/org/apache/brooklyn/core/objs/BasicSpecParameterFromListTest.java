@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.objs;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
@@ -29,7 +30,6 @@ import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
-import org.apache.brooklyn.core.objs.BasicSpecParameter;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.testng.annotations.BeforeMethod;
@@ -86,6 +86,7 @@ public class BasicSpecParameterFromListTest {
         String description = "Some description";
         String inputType = "string";
         String defaultValue = "VALUE";
+        Boolean pinned = false;
         String constraint = "required";
         SpecParameter<?> input = parse(ImmutableMap.builder()
                 .put("name", name)
@@ -93,11 +94,12 @@ public class BasicSpecParameterFromListTest {
                 .put("description", description)
                 .put("type", inputType)
                 .put("default", defaultValue)
+                .put("pinned", pinned)
                 .put("constraints", constraint)
                 .build());
 
         assertEquals(input.getLabel(), label);
-        assertTrue(input.isPinned());
+        assertFalse(input.isPinned());
 
         ConfigKey<?> type = input.getConfigKey();
         assertEquals(type.getName(), name);
@@ -170,6 +172,19 @@ public class BasicSpecParameterFromListTest {
         parse(ImmutableMap.of(
                 "name", name,
                 "type", "missing_type"));
+    }
+
+    @Test
+    public void testDefaultPinned() {
+        String name = "pinned";
+        String label = "Is pinned";
+        String description = "Is pinned description";
+        SpecParameter<?> input = parse(ImmutableMap.of(
+                "name", name,
+                "label", label,
+                "description", description));
+
+        assertTrue(input.isPinned());
     }
 
     private SpecParameter<?> parse(Object def) {
