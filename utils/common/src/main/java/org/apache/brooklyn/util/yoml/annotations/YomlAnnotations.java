@@ -41,6 +41,7 @@ import org.apache.brooklyn.util.yoml.serializers.RenameKeySerializer;
 import org.apache.brooklyn.util.yoml.serializers.RenameKeySerializer.RenameDefaultKey;
 import org.apache.brooklyn.util.yoml.serializers.RenameKeySerializer.RenameDefaultValue;
 import org.apache.brooklyn.util.yoml.serializers.TopLevelFieldSerializer;
+import org.apache.brooklyn.util.yoml.serializers.TypeFromOtherFieldSerializer;
 
 public class YomlAnnotations {
 
@@ -64,12 +65,17 @@ public class YomlAnnotations {
         return names;
     }
     
-    public Collection<TopLevelFieldSerializer> findTopLevelFieldSerializers(Class<?> t, boolean requireAnnotation) {
-        List<TopLevelFieldSerializer> result = MutableList.of();
+    public Collection<YomlSerializer> findTopLevelFieldSerializers(Class<?> t, boolean requireAnnotation) {
+        List<YomlSerializer> result = MutableList.of();
         Map<String,Field> fields = YomlUtils.getAllNonTransientNonStaticFields(t, null);
         for (Map.Entry<String, Field> f: fields.entrySet()) {
-            if (!requireAnnotation || f.getValue().isAnnotationPresent(YomlTopLevelField.class))
-            result.add(new TopLevelFieldSerializer(f.getKey(), f.getValue()));
+            if (!requireAnnotation || f.getValue().isAnnotationPresent(YomlTopLevelField.class)) {
+                result.add(new TopLevelFieldSerializer(f.getKey(), f.getValue()));
+                YomlTypeFromOtherField typeFromOther = f.getValue().getAnnotation(YomlTypeFromOtherField.class);
+                if (typeFromOther!=null) {
+                    result.add(new TypeFromOtherFieldSerializer(f.getKey(), typeFromOther));
+                }
+            }
         }
         return result;
     }

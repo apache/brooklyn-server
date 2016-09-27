@@ -226,7 +226,7 @@ public class TopLevelFieldSerializer extends YomlSerializerComposition {
                 }
             }
             if (keysMatched>0) {
-                // repeat the preparing phase if we set any keys, so that remapping can apply
+                // repeat this manipulating phase if we set any keys, so that remapping can apply
                 getTopLevelFieldsBlackboard().setFieldDone(fieldName);
                 context.phaseInsert(StandardPhases.MANIPULATING);
             }

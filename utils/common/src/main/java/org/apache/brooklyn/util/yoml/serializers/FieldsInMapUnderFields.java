@@ -20,6 +20,7 @@ package org.apache.brooklyn.util.yoml.serializers;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.util.collections.MutableList;
@@ -27,11 +28,12 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.yoml.YomlException;
 import org.apache.brooklyn.util.yoml.internal.YomlContext;
+import org.apache.brooklyn.util.yoml.internal.YomlContext.StandardPhases;
 import org.apache.brooklyn.util.yoml.internal.YomlContextForRead;
 import org.apache.brooklyn.util.yoml.internal.YomlContextForWrite;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils;
-import org.apache.brooklyn.util.yoml.internal.YomlContext.StandardPhases;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,7 +57,7 @@ public class FieldsInMapUnderFields extends YomlSerializerComposition {
 
     public class Worker extends YomlSerializerWorker {
         
-        protected boolean setKeyValueForJavaObjectOnRead(String key, Object value)
+        protected boolean setKeyValueForJavaObjectOnRead(String key, Object value, String optionalTypeConstraint)
                 throws IllegalAccessException {
             Maybe<Field> ffm = Reflections.findFieldMaybe(getJavaObject().getClass(), key);
             if (ffm.isAbsentOrNull()) {
@@ -67,7 +69,7 @@ public class FieldsInMapUnderFields extends YomlSerializerComposition {
                     // as above
                     return false;
                 } else {
-                    String fieldType = YomlUtils.getFieldTypeName(ff, config);
+                    String fieldType = getFieldTypeName(ff, optionalTypeConstraint);
                     Object v2 = converter.read( new YomlContextForRead(value, context.getJsonPath()+"/"+key, fieldType, context) );
                     
                     ff.setAccessible(true);
@@ -75,6 +77,21 @@ public class FieldsInMapUnderFields extends YomlSerializerComposition {
                     return true;
                 }
             }
+        }
+
+        protected String getFieldTypeName(Field ff, String optionalTypeConstraint) {
+            String fieldType;
+            if (optionalTypeConstraint!=null) {
+                if (!Object.class.equals(ff.getType())) {
+                    throw new YomlException("Cannot apply inferred type "+optionalTypeConstraint+" for non-Object field "+ff, context);
+                    // is there a "combineTypes(fieldType, optionalTypeConstraint)" method?
+                    // that would let us weaken the above
+                }
+                fieldType = optionalTypeConstraint;
+            } else {
+                fieldType = YomlUtils.getFieldTypeName(ff, config);
+            }
+            return fieldType;
         }
 
         protected boolean shouldHaveJavaObject() { return true; }
@@ -87,16 +104,51 @@ public class FieldsInMapUnderFields extends YomlSerializerComposition {
             Map<String,Object> fields = peekFromYamlKeysOnBlackboard(getKeyNameForMapOfGeneralValues(), Map.class).orNull();
             if (fields==null) return;
             
+            MutableMap<String, Object> initialFields = MutableMap.copyOf(fields);
+            
+            List<String> deferred = MutableList.of();
             boolean changed = false;
-            for (Object fo: MutableList.copyOf( ((Map<?,?>)fields).keySet() )) {
+            for (Object fo: initialFields.keySet()) {
                 String f = (String)fo;
+                if (TypeFromOtherFieldBlackboard.get(blackboard).getTypeConstraintField(f)!=null) {
+                    deferred.add(f);
+                    continue;
+                }
                 Object v = ((Map<?,?>)fields).get(f);
                 try {
-                    if (setKeyValueForJavaObjectOnRead(f, v)) {
+                    if (setKeyValueForJavaObjectOnRead(f, v, null)) {
                         ((Map<?,?>)fields).remove(f);
                         changed = true;
                     }
                 } catch (Exception e) { throw Exceptions.propagate(e); }
+            }
+
+            // defer for objects whose types come from another field
+            for (String f: deferred) {
+                Object typeO;
+                String tf = TypeFromOtherFieldBlackboard.get(blackboard).getTypeConstraintField(f);
+                boolean isTypeFieldReal = TypeFromOtherFieldBlackboard.get(blackboard).isTypeConstraintFieldReal(f);
+                
+                if (isTypeFieldReal) {
+                    typeO = initialFields.get(tf);
+                } else {
+                    typeO = peekFromYamlKeysOnBlackboard(tf, Object.class).orNull();
+                }
+                if (typeO!=null && !(typeO instanceof String)) {
+                    throw new YomlException("Wrong type of value '"+typeO+"' inferred as type of '"+f+"' on "+getJavaObject(), context);
+                }
+                String type = (String)typeO;
+                
+                Object v = ((Map<?,?>)fields).get(f);
+                try {
+                    if (setKeyValueForJavaObjectOnRead(f, v, type)) {
+                        ((Map<?,?>)fields).remove(f);
+                        if (type!=null && !isTypeFieldReal) {
+                            removeFromYamlKeysOnBlackboard(tf);
+                        }
+                        changed = true;
+                    }
+                } catch (Exception e) { throw Exceptions.propagate(e); }                
             }
             
             if (((Map<?,?>)fields).isEmpty()) {
@@ -134,7 +186,34 @@ public class FieldsInMapUnderFields extends YomlSerializerComposition {
                         // silently drop null fields
                     } else {
                         Field ff = Reflections.findFieldMaybe(getJavaObject().getClass(), f).get();
-                        String fieldType = YomlUtils.getFieldTypeName(ff, config);
+                        
+                        String fieldType = getFieldTypeName(ff, null);
+                        
+                        String tf = TypeFromOtherFieldBlackboard.get(blackboard).getTypeConstraintField(f);
+                        if (tf!=null) {
+                            if (!Object.class.equals(ff.getType())) {
+                                // currently we only support smart types if the base type is object;
+                                // see getFieldTypeName
+                            } else {
+                                if (!TypeFromOtherFieldBlackboard.get(blackboard).isTypeConstraintFieldReal(f)) {
+                                    String realType = config.getTypeRegistry().getTypeName(v.get());
+                                    fieldType = realType;
+                                    // for non-real, just write the pseudo-type-field at root
+                                    getYamlMap().put(tf, realType);
+                                    
+                                } else {
+                                    Maybe<Object> rt = Reflections.getFieldValueMaybe(getJavaObject(), tf);
+                                    if (rt.isPresentAndNonNull()) {
+                                        if (rt.get() instanceof String) {
+                                            fieldType = (String) rt.get();
+                                        } else {
+                                            throw new YomlException("Cannot use type information from "+tf+" for "+f+" as it is "+rt.get(), context);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
                         Object v2 = converter.write(new YomlContextForWrite(v.get(), context.getJsonPath()+"/"+f, fieldType, context) );
                         fields.put(f, v2);
                     }

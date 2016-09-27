@@ -23,6 +23,7 @@ import java.util.Map;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.yoml.YomlException;
 import org.apache.brooklyn.util.yoml.internal.YomlContext;
 import org.apache.brooklyn.util.yoml.internal.YomlContextForRead;
 import org.apache.brooklyn.util.yoml.internal.YomlContextForWrite;
@@ -66,9 +67,13 @@ public class ConfigInMapUnderConfigSerializer extends FieldsInMapUnderFields {
         protected boolean shouldHaveJavaObject() { return false; }
         
         @Override
-        protected boolean setKeyValueForJavaObjectOnRead(String key, Object value) throws IllegalAccessException {
+        protected boolean setKeyValueForJavaObjectOnRead(String key, Object value, String optionalTypeConstraint) throws IllegalAccessException {
             JavaFieldsOnBlackboard fib = JavaFieldsOnBlackboard.peek(blackboard, getKeyNameForMapOfGeneralValues());
             String optionalType = getType(key, null);
+            if (optionalTypeConstraint!=null) {
+                throw new YomlException("Types from other types not supported for config keys");
+                // TODO see behaviour in super to override
+            }
             Object v2;
             try {
                 v2 = converter.read( new YomlContextForRead(value, context.getJsonPath()+"/"+key, optionalType, context) );

@@ -547,6 +547,9 @@ either on a global or a per-class basis in the registry.
 * `default-map-values` (`@YomlDefaultMapValues`)
   * allows default key-value pairs to be added on read and removed on write
 
+* `type-from-other-field` (`@YomlTypeFromOtherField`)
+  * indicates that type information for one field can be found in the value of another field
+
 
 ## Implementation notes
 
@@ -570,7 +573,7 @@ the right order whilst allowing them to be extended, but care does need to be ta
 The general phases are:
 
 * `manipulating` (custom serializers, operating directly on the input YAML map) 
-* `handling-type` (default to instantaiate the java type, on read, or set the `type` field, on write),
+* `handling-type` (default to instantiate the java type, on read, or set the `type` field, on write),
   on read, sets the Java object and sets YamlKeysOnBlackboard which are subsequently used for manipulation;
   on write, sets the YAML object and sets JavaFieldsOnBlackboard (and sets ReadingTypeOnBlackboard with errors);
   inserting new phases:
