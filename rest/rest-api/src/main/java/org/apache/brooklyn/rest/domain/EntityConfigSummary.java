@@ -33,6 +33,9 @@ public class EntityConfigSummary extends ConfigSummary {
 
     private static final long serialVersionUID = -1336134336883426030L;
 
+    @JsonSerialize
+    private final boolean pinned;
+
     @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)
     private final Map<String, URI> links;
 
@@ -45,13 +48,16 @@ public class EntityConfigSummary extends ConfigSummary {
             @JsonProperty("label") String label,
             @JsonProperty("priority") Double priority,
             @JsonProperty("possibleValues") List<Map<String, String>> possibleValues,
+            @JsonProperty("pinned") boolean pinned,
             @JsonProperty("links") Map<String, URI> links) {
         super(name, type, description, defaultValue, reconfigurable, label, priority, possibleValues);
+        this.pinned = pinned;
         this.links = (links == null) ? ImmutableMap.<String, URI>of() : ImmutableMap.copyOf(links);
     }
 
-    public EntityConfigSummary(ConfigKey<?> config, String label, Double priority, Map<String, URI> links) {
+    public EntityConfigSummary(ConfigKey<?> config, String label, Double priority, boolean pinned, Map<String, URI> links) {
         super(config, label, priority);
+        this.pinned = pinned;
         this.links = links != null ? ImmutableMap.copyOf(links) : null;
     }
 
@@ -63,10 +69,11 @@ public class EntityConfigSummary extends ConfigSummary {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof EntityConfigSummary)) return false;
+        if (o == null || getClass() != o.getClass()) return false;
         if (!super.equals(o)) return false;
         EntityConfigSummary that = (EntityConfigSummary) o;
-        return Objects.equals(links, that.links);
+        if (pinned != that.pinned) return false;
+        return links.equals(that.links);
     }
 
     @Override

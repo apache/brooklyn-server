@@ -34,5 +34,7 @@ public @interface CatalogConfig {
      * a higher value appears higher in the list. the default is 1.
      * (negative values may be used to indicate advanced config which might not be shown unless requested.) */ 
     double priority() default 1;
-    
+
+     /** a pinned configuration means that it should be displayed, regardless of its priority */
+    boolean pinned() default false;
 }

@@ -83,12 +83,12 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
         }
     }
     
-    @Beta // TBD whether "pinned" stays
+    @Beta
     public BasicSpecParameter(String label, boolean pinned, ConfigKey<T> config) {
         this(label, pinned, config, null);
     }
 
-    @Beta // TBD whether "pinned" and "sensor" stay
+    @Beta // TBD whether "sensor" stay
     public <SensorType> BasicSpecParameter(String label, boolean pinned, ConfigKey<T> config, AttributeSensor<SensorType> sensor) {
         this.label = label;
         this.pinned = pinned;
@@ -228,6 +228,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
             String description = (String)inputDef.get("description");
             String type = (String)inputDef.get("type");
             Object defaultValue = inputDef.get("default");
+            Boolean pinned = (Boolean)inputDef.get("pinned");
             if (specialFlagTransformer != null) {
                 defaultValue = specialFlagTransformer.apply(defaultValue);
             }
@@ -257,7 +258,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
             } else {
                 configType = builder.build();
             }
-            return new BasicSpecParameter(Objects.firstNonNull(label, name), true, configType, sensorType);
+            return new BasicSpecParameter(Objects.firstNonNull(label, name), Objects.firstNonNull(pinned, Boolean.FALSE), configType, sensorType);
         }
 
         @SuppressWarnings({ "rawtypes" })
@@ -375,12 +376,14 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
             CatalogConfig catalogConfig = configKeyField.getAnnotation(CatalogConfig.class);
             String label = config.getName();
             Double priority = null;
+            Boolean pinned = Boolean.FALSE;
             if (catalogConfig != null) {
                 label = Maybe.fromNullable(catalogConfig.label()).or(config.getName());
                 priority = catalogConfig.priority();
+                pinned = catalogConfig.pinned();
             }
             @SuppressWarnings({ "unchecked", "rawtypes" })
-            SpecParameter<?> param = new BasicSpecParameter(label, priority != null, config);
+            SpecParameter<?> param = new BasicSpecParameter(label, pinned, config);
             return new WeightedParameter(priority, param);
         }
 

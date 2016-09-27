@@ -66,19 +66,20 @@ public class SpecParameterParsingTest  extends AbstractYamlTest {
                 "    - simple",
                 "    - name: explicit_name",
                 "    - name: third_input",
-                "      type: integer");
+                "      type: integer",
+                "      pinned: true");
         EntitySpec<?> item = mgmt().getTypeRegistry().createSpec(mgmt().getTypeRegistry().get(itemId), null, EntitySpec.class);
         List<SpecParameter<?>> inputs = item.getParameters();
         assertEquals(inputs.size(), 6);
         SpecParameter<?> firstInput = inputs.get(0);
         assertEquals(firstInput.getLabel(), "simple");
-        assertEquals(firstInput.isPinned(), true);
+        assertEquals(firstInput.isPinned(), false);
         assertEquals(firstInput.getConfigKey().getName(), "simple");
         assertEquals(firstInput.getConfigKey().getTypeToken(), TypeToken.of(String.class));
         
         SpecParameter<?> secondInput = inputs.get(1);
         assertEquals(secondInput.getLabel(), "explicit_name");
-        assertEquals(secondInput.isPinned(), true);
+        assertEquals(secondInput.isPinned(), false);
         assertEquals(secondInput.getConfigKey().getName(), "explicit_name");
         assertEquals(secondInput.getConfigKey().getTypeToken(), TypeToken.of(String.class));
         
@@ -110,7 +111,7 @@ public class SpecParameterParsingTest  extends AbstractYamlTest {
         assertEquals(inputs.size(), 4);
         SpecParameter<?> firstInput = inputs.get(0);
         assertEquals(firstInput.getLabel(), "simple");
-        assertTrue(firstInput.isPinned());
+        assertFalse(firstInput.isPinned());
         assertEquals(firstInput.getConfigKey().getName(), "simple");
         assertEquals(firstInput.getConfigKey().getTypeToken().getRawType().getName(), OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY);
     }
