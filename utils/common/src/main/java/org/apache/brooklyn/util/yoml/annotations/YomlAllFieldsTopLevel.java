@@ -21,11 +21,13 @@ package org.apache.brooklyn.util.yoml.annotations;
 import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
+import java.lang.annotation.Inherited;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
 @Retention(RUNTIME)
 @Target({ TYPE })
+@Inherited
 /** Indicates that all fields should be available at the top-level when reading yoml,
  * ie none require to be inside a <code>fields</code> block. */
 public @interface YomlAllFieldsTopLevel {

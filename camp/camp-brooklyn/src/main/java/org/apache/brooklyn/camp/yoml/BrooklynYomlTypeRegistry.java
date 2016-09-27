@@ -386,7 +386,7 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
                 supers.addAll(((RegisteredType) type).getSuperTypes());
             }
         } else if (type instanceof Class) {
-            result.addAll(new BrooklynYomlAnnotations().findSerializerAnnotations((Class<?>)type, true));
+            result.addAll(new BrooklynYomlAnnotations().findSerializerAnnotations((Class<?>)type, false));
 //            // could look up the type? but we should be calling this normally with the RT if we have one so probably not necessary
 //            // and could recurse through superclasses and interfaces -- but the above is a better place to do that if needed
 //            String name = getTypeNameOfClass((Class<?>)type);
@@ -427,7 +427,7 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
     public static RegisteredType newYomlRegisteredType(RegisteredTypeKind kind, @Nullable String symbolicName, String version, Class<?> clazz) {
         Set<String> names = new BrooklynYomlAnnotations().findTypeNamesFromAnnotations(clazz, symbolicName, false);
         
-        Set<YomlSerializer> serializers = new BrooklynYomlAnnotations().findSerializerAnnotations(clazz, true);
+        Set<YomlSerializer> serializers = new BrooklynYomlAnnotations().findSerializerAnnotations(clazz, false);
                 
         RegisteredType type = BrooklynYomlTypeRegistry.newYomlRegisteredType(kind, 
             // symbolicName, version, 

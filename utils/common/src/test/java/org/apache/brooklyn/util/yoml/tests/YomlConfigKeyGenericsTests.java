@@ -58,7 +58,6 @@ public class YomlConfigKeyGenericsTests {
         }
     }
     
-    @YomlConfigMapConstructor("conf")
     @SuppressWarnings({ "rawtypes" })
     static class MG extends M0 {
         static MockConfigKey<Map> KR = new MockConfigKey<Map>(Map.class, "kr");

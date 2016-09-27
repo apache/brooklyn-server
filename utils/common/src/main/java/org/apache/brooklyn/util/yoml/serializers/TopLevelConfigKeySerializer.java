@@ -59,6 +59,8 @@ public class TopLevelConfigKeySerializer extends TopLevelFieldSerializer {
         return keyNameForConfigWhenSerialized;
     }
 
+    @Override protected boolean includeFieldNameAsAlias() { return false; }
+    
     public static Set<ConfigKey<?>> findConfigKeys(Class<?> clazz) {
         MutableMap<String, ConfigKey<?>> result = MutableMap.of();
         
@@ -128,5 +130,8 @@ public class TopLevelConfigKeySerializer extends TopLevelFieldSerializer {
             getTopLevelFieldsBlackboard().recordConfigKey(fieldName, configKey);
         }
     }
-    
+
+    @Override
+    protected String toStringPrefix() { return "top-level-config"; }
+
 }

@@ -26,9 +26,13 @@ import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.camp.yoml.types.YomlInitializers;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.core.sensor.StaticSensor;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.yaml.Yamls;
 import org.testng.Assert;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
@@ -36,6 +40,15 @@ import com.google.common.collect.Iterables;
 
 public class YomlTypeRegistryEntityInitializersTest extends AbstractYamlTest {
 
+    @BeforeMethod(alwaysRun = true)
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        
+        // TODO logically how should we populate the catalog? see notes on the method called below
+        YomlInitializers.install(mgmt());
+    }
+    
     @Test(enabled=false) // format still runs old camp parse, does not attempt yaml
     public void testStaticSensorBasic() throws Exception {
         String yaml = Joiner.on("\n").join(
@@ -46,9 +59,20 @@ public class YomlTypeRegistryEntityInitializersTest extends AbstractYamlTest {
                 "      type: static-sensor",
                 "      value: 42");
 
-        checkStaticSensor(yaml);
+        checkStaticSensorInApp(yaml);
     }
 
+    @Test
+    public void testReadSensor() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "name: the-answer",
+                "type: static-sensor",
+                "value: { type: int, value: 42 }");
+
+        Object ss = mgmt().getTypeRegistry().createBeanFromPlan("yoml", Yamls.parseAll(yaml).iterator().next(), null, null);
+        Asserts.assertInstanceOf(ss, StaticSensor.class);
+    }
+    
     @Test
     public void testStaticSensorSingletonMap() throws Exception {
         String yaml = Joiner.on("\n").join(
@@ -57,16 +81,13 @@ public class YomlTypeRegistryEntityInitializersTest extends AbstractYamlTest {
                 "  brooklyn.initializers:",
                 "    the-answer:",
                 "      type: static-sensor",
-                "      value: 42");
+                "      value: { type: int, value: 42 }");
 
-        checkStaticSensor(yaml);
+        checkStaticSensorInApp(yaml);
     }
 
-    protected void checkStaticSensor(String yaml)
-        throws Exception, InterruptedException, ExecutionException, TimeoutException {
-        // TODO not finding/loading type for serializers
-        // TODO logically how should it learn details of static-sensor serialization?
-        YomlInitializers.install(mgmt());
+    protected void checkStaticSensorInApp(String yaml)
+            throws Exception, InterruptedException, ExecutionException, TimeoutException {
         final Entity app = createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
      

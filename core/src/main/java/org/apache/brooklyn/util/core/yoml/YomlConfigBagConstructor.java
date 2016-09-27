@@ -21,6 +21,7 @@ package org.apache.brooklyn.util.core.yoml;
 import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
+import java.lang.annotation.Inherited;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
@@ -30,18 +31,15 @@ import org.apache.brooklyn.util.yoml.annotations.YomlConfigMapConstructor;
  * Indicates that a class should be yoml-serialized using a one-arg constructor taking a map or bag of config.
  * Similar to {@link YomlConfigMapConstructor} but accepting config-bag constructors
  * and defaulting to `brooklyn.config` as the key for unknown config.
+ * <p>
+ * See {@link YomlConfigMapConstructor} for the meaning of all methods.
  */
 @Retention(RUNTIME)
 @Target({ TYPE })
+@Inherited
 public @interface YomlConfigBagConstructor {
-    /** YOML needs to know which field contains the config at serialization time. */
     String value();
-    /** By default here reads/writes unrecognised key values against `brooklyn.config`. */
     String writeAsKey() default "brooklyn.config";
-    
-    /** Validate that a suitable field and constructor exist, failing fast if not */
     boolean validateAheadOfTime() default true;
-    
-    /** Skip if there are no declared config keys (default false) */
     boolean requireStaticKeys() default false;
 }

@@ -51,7 +51,7 @@ public class InstantiateTypeFromRegistryUsingConfigBag extends InstantiateTypeFr
     }
     
     protected Maybe<Field> findFieldMaybe(Class<?> type) {
-        Maybe<Field> f = Reflections.findFieldMaybe(type, fieldNameForConfigInJavaIfPreset);
+        Maybe<Field> f = Reflections.findFieldMaybe(type, fieldNameForConfigInJava);
         if (f.isPresent() && !(Map.class.isAssignableFrom(f.get().getType()) || ConfigBag.class.isAssignableFrom(f.get().getType()))) 
             f = Maybe.absent();
         return f;

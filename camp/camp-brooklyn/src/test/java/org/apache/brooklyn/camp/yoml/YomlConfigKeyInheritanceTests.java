@@ -58,7 +58,6 @@ public class YomlConfigKeyInheritanceTests {
         }
     }
     
-    @YomlConfigMapConstructor("conf")
     static class M1 extends M0 {
         @SuppressWarnings("serial")
         static ConfigKey<Map<String,Integer>> KM = ConfigKeys.builder(new TypeToken<Map<String,Integer>>() {}, "km")

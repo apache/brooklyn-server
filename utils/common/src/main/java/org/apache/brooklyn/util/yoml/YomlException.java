@@ -36,9 +36,13 @@ public class YomlException extends RuntimeException {
     }
     
     @Override
-    public String toString() {
-        if (context==null) return super.toString();
-        return super.toString() + " ("+context+")";
+    public String getMessage() {
+        if (context==null) return getBaseMessage();
+        return getBaseMessage() + " ("+context+")";
+    }
+    
+    public String getBaseMessage() {
+        return super.getMessage();
     }
     
 }

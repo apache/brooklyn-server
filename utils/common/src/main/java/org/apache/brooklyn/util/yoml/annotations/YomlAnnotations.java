@@ -74,7 +74,7 @@ public class YomlAnnotations {
         return result;
     }
     
-    public Collection<YomlSerializer> findConfigMapConstructorSerializersIgnoringInheritance(Class<?> t) {
+    public Collection<YomlSerializer> findConfigMapConstructorSerializersIgnoringConfigInheritance(Class<?> t) {
         YomlConfigMapConstructor ann = t.getAnnotation(YomlConfigMapConstructor.class);
         if (ann==null) return Collections.emptyList();
         return InstantiateTypeFromRegistryUsingConfigMap.newFactoryIgnoringInheritance().newConfigKeySerializersForType(
@@ -139,7 +139,7 @@ public class YomlAnnotations {
     }
 
     protected void collectSerializersForConfig(Set<YomlSerializer> result, Class<?> type) {
-        result.addAll(findConfigMapConstructorSerializersIgnoringInheritance(type));
+        result.addAll(findConfigMapConstructorSerializersIgnoringConfigInheritance(type));
     }
 
     protected void collectSerializersLowLevel(Set<YomlSerializer> result, Class<?> type) {

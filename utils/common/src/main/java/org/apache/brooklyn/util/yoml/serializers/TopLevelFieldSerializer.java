@@ -66,7 +66,9 @@ public class TopLevelFieldSerializer extends YomlSerializerComposition {
                 keyName = alias.preferred();
                 aliases.add(alias.preferred());
             }
-            aliases.add(f.getName());
+            if (includeFieldNameAsAlias()) {
+                aliases.add(f.getName());
+            }
             aliases.addAll(Arrays.asList(alias.value()));
         }
         
@@ -74,6 +76,8 @@ public class TopLevelFieldSerializer extends YomlSerializerComposition {
 //        YomlFieldAtTopLevel ytf = f.getAnnotation(YomlFieldAtTopLevel.class);
     }
 
+    protected boolean includeFieldNameAsAlias() { return true; }
+    
     protected YomlSerializerWorker newWorker() {
         return new Worker();
     }
@@ -279,8 +283,10 @@ public class TopLevelFieldSerializer extends YomlSerializerComposition {
         }
     }
 
+    protected String toStringPrefix() { return "top-level-field"; }
+    
     @Override
     public String toString() {
-        return "top-level-field["+fieldName+"->"+keyName+":"+alias+"/"+aliases+"]";
+        return toStringPrefix()+"["+fieldName+"->"+keyName+":"+alias+"/"+aliases+"]";
     }
 }

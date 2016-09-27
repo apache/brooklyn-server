@@ -30,10 +30,12 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.yoml.YomlConfigBagConstructor;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.yoml.annotations.Alias;
+import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsTopLevel;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
@@ -48,6 +50,8 @@ import com.google.common.base.Preconditions;
  * @since 0.7.0
  */
 @Beta
+@YomlConfigBagConstructor("")
+@YomlAllFieldsTopLevel
 public class AddSensor<T> implements EntityInitializer {
 
     public static final ConfigKey<String> SENSOR_NAME = ConfigKeys.newStringConfigKey("name", "The name of the sensor to create");

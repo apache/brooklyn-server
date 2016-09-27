@@ -21,6 +21,7 @@ package org.apache.brooklyn.util.yoml.annotations;
 import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
+import java.lang.annotation.Inherited;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
@@ -32,8 +33,13 @@ import org.apache.brooklyn.config.ConfigKey;
  */
 @Retention(RUNTIME)
 @Target({ TYPE })
+@Inherited
 public @interface YomlConfigMapConstructor {
-    /** YOML needs to know which field contains the config at serialization time. */
+    /** YOML needs to know which field contains the config at serialization time.
+     * <p>
+     * It can be supplied as blank to mean that a map should be taken as a constructor
+     * but data will be written to fields. In that case the output YAML serialization will refer to
+     * the fields but config keys will be accepted for input. */
     String value();
     /** By default YOML reads/writes unrecognised key values against a key with the same name as {@link #value()}.
      * This can be set to use a different key in the YAML. */

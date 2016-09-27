@@ -20,6 +20,7 @@ package org.apache.brooklyn.util.yoml.tests;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Objects;
 
 import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigInheritance.ConfigInheritanceContext;
@@ -29,10 +30,13 @@ import org.apache.brooklyn.util.collections.Jsonya;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.yoml.YomlConfig;
+import org.apache.brooklyn.util.yoml.annotations.Alias;
+import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsTopLevel;
 import org.apache.brooklyn.util.yoml.annotations.YomlConfigMapConstructor;
 import org.apache.brooklyn.util.yoml.serializers.InstantiateTypeFromRegistryUsingConfigMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Predicate;
@@ -53,8 +57,6 @@ public class TopLevelConfigKeysTests {
         TypeToken<T> typeToken;
         T defaultValue;
         
-        ConfigInheritance inheritance = null;
-
         public MockConfigKey(Class<T> type, String name) {
             this.name = name;
             this.type = type;
@@ -83,7 +85,7 @@ public class TopLevelConfigKeysTests {
         @Override public ConfigInheritance getInheritance() { return null; }
         @Override public Predicate<? super T> getConstraint() { return null; }
         @Override public boolean isValueValid(T value) { return true; }
-        @Override public ConfigInheritance getInheritanceByContext(ConfigInheritanceContext context) { return inheritance; }
+        @Override public ConfigInheritance getInheritanceByContext(ConfigInheritanceContext context) { return null; }
         @Override public Map<ConfigInheritanceContext, ConfigInheritance> getInheritanceByContext() { return MutableMap.of(); }
     }
     
@@ -199,6 +201,104 @@ public class TopLevelConfigKeysTests {
             .addTypeWithAnnotations("s3", S3.class)
             .reading("{ type: s3, k1: foo, extraConfig: { k0: { type: string, value: bar } } }").writing(new S3(MutableMap.of("k1", "foo", "k0", "bar")))
             .doReadWriteAssertingJsonMatch();
+    }
+
+    @YomlConfigMapConstructor("")
+    @YomlAllFieldsTopLevel
+    static class KF {
+        @Alias("k")
+        static ConfigKey<String> K1 = new MockConfigKey<String>(String.class, "key1");
+        final String key1Field;
+        transient final Map<String,?> keysSuppliedToConstructorForTestAssertions;
+        KF(Map<String,?> keys) {
+            key1Field = (String) keys.get(K1.getName());
+            keysSuppliedToConstructorForTestAssertions = keys;
+        }
+        
+        @Override
+        public boolean equals(Object obj) {
+            return (obj instanceof KF) && ((KF)obj).key1Field.equals(key1Field);
+        }
+        @Override
+        public int hashCode() {
+            return Objects.hash(key1Field);
+        }
+        @Override
+        public String toString() {
+            return super.toString()+":"+key1Field;
+        }
+    }
+    
+    final KF KF_FOO = new KF(MutableMap.of("key1", "foo"));
+    
+    @Test
+    public void testNoConfigMapFieldCanReadKeyToMapConstructor() {
+        YomlTestFixture y = YomlTestFixture.newInstance().addTypeWithAnnotations("kf", KF.class);
+        y.read("{ key1: foo }", "kf").assertResult(KF_FOO);
+        Assert.assertEquals(((KF)y.lastReadResult).keysSuppliedToConstructorForTestAssertions, KF_FOO.keysSuppliedToConstructorForTestAssertions);
+    }
+    @Test
+    public void testNoConfigMapFieldCanReadKeyAliasToMapConstructor() {
+        YomlTestFixture y = YomlTestFixture.newInstance().addTypeWithAnnotations("kf", KF.class);
+        y.read("{ k: foo }", "kf").assertResult(KF_FOO);
+        Assert.assertEquals(((KF)y.lastReadResult).keysSuppliedToConstructorForTestAssertions, KF_FOO.keysSuppliedToConstructorForTestAssertions);
+    }
+    @Test
+    public void testStaticFieldNameNotRelevant() {
+        YomlTestFixture y = YomlTestFixture.newInstance().addTypeWithAnnotations("kf", KF.class);
+        try {
+            y.read("{ k1: foo }", "kf");
+            Asserts.shouldHaveFailedPreviously("Got "+y.lastReadResult);
+        } catch (Exception e) {
+            Asserts.expectedFailureContainsIgnoreCase(e, "k1", "foo");
+        }
+    }
+    
+    @Test
+    public void testNoConfigMapFieldCanWriteAndReadToFieldDirectly() {
+        YomlTestFixture y = YomlTestFixture.newInstance().addTypeWithAnnotations("kf", KF.class);
+        // writing must write to the field directly because it is not defined how to reverse map to the config key
+        y.writing(KF_FOO).reading("{ type: kf, key1Field: foo }").doReadWriteAssertingJsonMatch();
+        // nothing passed to constructor, but constructor is invoked
+        Assert.assertEquals(((KF)y.lastReadResult).keysSuppliedToConstructorForTestAssertions, MutableMap.of(),
+            "Constructor given unexpectedly non-empty map: "+((KF)y.lastReadResult).keysSuppliedToConstructorForTestAssertions);
+    }
+
+    static class KF2 extends KF {
+        KF2(Map<String, ?> keys) { super(keys); }
+
+        @Alias("key1Field")  // alias same name as field means it *is* passed to constructor
+        static ConfigKey<String> K1 = new MockConfigKey<String>(String.class, "key1");
+    }
+    
+    private static final KF2 KF2_FOO = new KF2(MutableMap.of("key1", "foo"));
+
+    @Test
+    public void testConfigKeyTopLevelInherited() {
+        YomlTestFixture y = YomlTestFixture.newInstance().addTypeWithAnnotations("kf2", KF2.class);
+        y.read("{ key1: foo }", "kf2").assertResult(KF2_FOO);
+    }
+    
+    @Test
+    public void testConfigKeyOverrideHidesParentAlias() {
+        // this could be weakened to be allowed (but aliases at types must not be, for obvious reasons!) 
+        
+        YomlTestFixture y = YomlTestFixture.newInstance().addTypeWithAnnotations("kf2", KF2.class);
+        try {
+            y.read("{ k: foo }", "kf2");
+            Asserts.shouldHaveFailedPreviously("Got "+y.lastReadResult);
+        } catch (Exception e) {
+            Asserts.expectedFailureContainsIgnoreCase(e, "k", "foo");
+        }
+    }
+
+    @Test
+    public void testNoConfigMapFieldWillPreferConstructorIfKeyForFieldCanBeFound() {
+        YomlTestFixture y = YomlTestFixture.newInstance().addTypeWithAnnotations("kf2", KF2.class);
+        // writing must write to the field because it is not defined how to reverse map to the config key
+        y.writing(KF2_FOO).reading("{ type: kf2, key1Field: foo }").doReadWriteAssertingJsonMatch();
+        // is passed to constructor
+        Assert.assertEquals(((KF)y.lastReadResult).keysSuppliedToConstructorForTestAssertions, KF_FOO.keysSuppliedToConstructorForTestAssertions);
     }
 
 }

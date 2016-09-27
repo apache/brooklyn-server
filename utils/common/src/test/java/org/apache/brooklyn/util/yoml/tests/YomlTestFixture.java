@@ -127,6 +127,9 @@ public class YomlTestFixture {
     public void assertLastWriteIgnoringQuotes(String expected, String message) {
         assertEqualish(Jsonya.newInstance().add(getLastWriteResult()).toString(), expected, message);
     }
+    public void assertLastWriteIgnoringQuotes(String expected) {
+        assertEqualish(Jsonya.newInstance().add(getLastWriteResult()).toString(), expected, "mismatch");
+    }
     
     public YomlTestFixture addType(String name, Class<?> type) { tr.put(name, type); return this; }
     public YomlTestFixture addType(String name, Class<?> type, List<? extends YomlSerializer> serializers) { tr.put(name, type, serializers); return this; }
@@ -137,7 +140,7 @@ public class YomlTestFixture {
         return addTypeWithAnnotations(null, type);
     }
     public YomlTestFixture addTypeWithAnnotations(String optionalName, Class<?> type) {
-        Set<YomlSerializer> serializers = annotationsProvider().findSerializerAnnotations(type, true);
+        Set<YomlSerializer> serializers = annotationsProvider().findSerializerAnnotations(type, false);
         for (String n: new YomlAnnotations().findTypeNamesFromAnnotations(type, optionalName, false)) {
             tr.put(n, type, serializers);
         }
@@ -145,7 +148,7 @@ public class YomlTestFixture {
     }
     public YomlTestFixture addTypeWithAnnotationsAndConfigFieldsIgnoringInheritance(String optionalName, Class<?> type, 
             Map<String, String> configFieldsToKeys) {
-        Set<YomlSerializer> serializers = annotationsProvider().findSerializerAnnotations(type, true);
+        Set<YomlSerializer> serializers = annotationsProvider().findSerializerAnnotations(type, false);
         for (Map.Entry<String,String> entry: configFieldsToKeys.entrySet()) {
             serializers.addAll( InstantiateTypeFromRegistryUsingConfigMap.newFactoryIgnoringInheritance().newConfigKeyClassScanningSerializers(
                 entry.getKey(), entry.getValue(), true) );

@@ -30,6 +30,7 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yoml.Yoml;
 import org.apache.brooklyn.util.yoml.YomlConfig;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
@@ -48,7 +49,7 @@ public class InstantiateTypeFromRegistryUsingConfigMap extends InstantiateTypeFr
     public static final String PHASE_INSTANTIATE_TYPE_DEFERRED = "handling-type-deferred-after-config";
 
     protected String keyNameForConfigWhenSerialized = null;
-    protected String fieldNameForConfigInJavaIfPreset = null;
+    protected String fieldNameForConfigInJava = null;
     boolean staticKeysRequired;
     
     // don't currently fully support inferring setup from annotations; we need the field above.
@@ -90,9 +91,9 @@ public class InstantiateTypeFromRegistryUsingConfigMap extends InstantiateTypeFr
             MutableSet<YomlSerializer> result = MutableSet.<YomlSerializer>of();
             if (fieldNameForConfigInJava==null) return result;
             InstantiateTypeFromRegistryUsingConfigMap instantiator = newInstance();
-            instantiator.fieldNameForConfigInJavaIfPreset = fieldNameForConfigInJava;
+            instantiator.fieldNameForConfigInJava = fieldNameForConfigInJava;
             if (validateAheadOfTime) {
-                instantiator.findFieldMaybe(type).get(); 
+                Preconditions.checkArgument(instantiator.isValidConfigFieldOrBlankSoWeCanRead(type), "Missing config field "+fieldNameForConfigInJava+" in "+type);
                 instantiator.findConstructorMaybe(type).get();
             }
             instantiator.keyNameForConfigWhenSerialized = keyNameForConfigWhenSerialized;
@@ -177,7 +178,8 @@ public class InstantiateTypeFromRegistryUsingConfigMap extends InstantiateTypeFr
             Preconditions.checkNotNull(keyNameForConfigWhenSerialized);
 
             YomlConfig newConfig = YomlConfig.Builder.builder(config).constructionInstruction(
-                newConstructor(type, getTopLevelFieldsBlackboard().getConfigKeys(), fib.fieldsFromReadToConstructJava, config.getConstructionInstruction())).build();
+                newConstructor(type, getTopLevelFieldsBlackboard().getConfigKeys(), MutableMap.copyOf(fib.fieldsFromReadToConstructJava), 
+                    config.getConstructionInstruction())).build();
             
             Maybe<Object> resultM = config.getTypeRegistry().newInstanceMaybe(fib.typeNameFromReadToConstructJavaLater, Yoml.newInstance(newConfig));
           
@@ -194,18 +196,9 @@ public class InstantiateTypeFromRegistryUsingConfigMap extends InstantiateTypeFr
         protected boolean canDoWrite() {
             if (!super.canDoWrite()) return false;
             if (!isConfigurable(getJavaObject().getClass())) return false;
-            if (!hasValidConfigFieldSoWeCanWriteConfigMap()) return false;
+            if (!isValidConfigFieldSoWeCanWrite()) return false;
             
             return true;
-        }
-        
-        protected boolean hasValidConfigFieldSoWeCanWriteConfigMap() {
-            if (fieldNameForConfigInJavaIfPreset!=null) {
-                return findFieldMaybe(getJavaObject().getClass()).isPresent();
-            }
-            
-            // if supporting autodetect of the field, do the test here
-            return false;
         }
 
         @Override
@@ -213,7 +206,7 @@ public class InstantiateTypeFromRegistryUsingConfigMap extends InstantiateTypeFr
             super.writingPopulateBlackboard();
 
             try {
-                String configMapKeyName = fieldNameForConfigInJavaIfPreset;
+                String configMapKeyName = fieldNameForConfigInJava;
                 if (configMapKeyName==null) {
                     if (!inferByScanning) {
                         throw new IllegalStateException("no config key name set and not allowed to infer; "
@@ -227,7 +220,7 @@ public class InstantiateTypeFromRegistryUsingConfigMap extends InstantiateTypeFr
                 // write clues for ConfigInMapUnder...
                 
                 JavaFieldsOnBlackboard fib = JavaFieldsOnBlackboard.peek(blackboard);
-                Field f = Reflections.findFieldMaybe(getJavaObject().getClass(), fieldNameForConfigInJavaIfPreset).get();
+                Field f = Reflections.findFieldMaybe(getJavaObject().getClass(), fieldNameForConfigInJava).get();
                 f.setAccessible(true);
                 Map<String, Object> configMap = getRawConfigMap(f, getJavaObject());
                 if (configMap!=null) {
@@ -243,6 +236,13 @@ public class InstantiateTypeFromRegistryUsingConfigMap extends InstantiateTypeFr
             }
             
             addExtraTypeSerializers(getJavaObject().getClass());
+        }
+        
+        /** see {@link #isValidConfigFieldOrBlankSoWeCanRead(Class)}; cannot write via this if field blank
+         * as we cannot reverse engineer config keys from fields */
+        protected boolean isValidConfigFieldSoWeCanWrite() {
+            if (Strings.isBlank(fieldNameForConfigInJava)) return false;
+            return findFieldMaybe(getJavaObject().getClass()).isPresent();
         }
 
         protected void writingInsertPhases() {
@@ -262,13 +262,20 @@ public class InstantiateTypeFromRegistryUsingConfigMap extends InstantiateTypeFr
     protected boolean isConfigurable(Class<?> type) {
         if (type==null) return false;
         if (findConstructorMaybe(type).isAbsent()) return false;
-        if (findFieldMaybe(type).isAbsent()) return false;
+        if (!isValidConfigFieldOrBlankSoWeCanRead(type)) return false;
         if (staticKeysRequired && TopLevelConfigKeySerializer.findConfigKeys(type).isEmpty()) return false;
         return true;
     }
 
+    /** can be blank if reads are supported to a constructor but no config map field is used within
+     * the class, ie fields for each config value are populated on construction */
+    protected boolean isValidConfigFieldOrBlankSoWeCanRead(Class<?> type) {
+        if ("".equals(fieldNameForConfigInJava)) return true;
+        return findFieldMaybe(type).isPresent();
+    }
+
     protected Maybe<Field> findFieldMaybe(Class<?> type) {
-        Maybe<Field> f = Reflections.findFieldMaybe(type, fieldNameForConfigInJavaIfPreset);
+        Maybe<Field> f = Reflections.findFieldMaybe(type, fieldNameForConfigInJava);
         if (f.isPresent() && !Map.class.isAssignableFrom(f.get().getType())) f = Maybe.absent();
         return f;
     }

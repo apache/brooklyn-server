@@ -41,7 +41,7 @@ public class BrooklynYomlAnnotations extends YomlAnnotations {
             ann.validateAheadOfTime(), ann.requireStaticKeys());
     }
 
-    public Collection<YomlSerializer> findConfigMapConstructorSerializersIgnoringInheritance(Class<?> t) {
+    public Collection<YomlSerializer> findConfigMapConstructorSerializersIgnoringConfigInheritance(Class<?> t) {
         throw new UnsupportedOperationException("ensure this doesn't get called");
     }
     

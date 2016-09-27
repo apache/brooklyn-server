@@ -99,10 +99,10 @@ public class FieldsInMapUnderFields extends YomlSerializerComposition {
                 } catch (Exception e) { throw Exceptions.propagate(e); }
             }
             
+            if (((Map<?,?>)fields).isEmpty()) {
+                removeFromYamlKeysOnBlackboard(getKeyNameForMapOfGeneralValues());
+            }
             if (changed) {
-                if (((Map<?,?>)fields).isEmpty()) {
-                    removeFromYamlKeysOnBlackboard(getKeyNameForMapOfGeneralValues());
-                }
                 // restart (there is normally nothing after this so could equally continue with rerun)
                 context.phaseRestart();
             }
