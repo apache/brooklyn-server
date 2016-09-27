@@ -80,16 +80,20 @@ public class FieldsInMapUnderFields extends YomlSerializerComposition {
         }
 
         protected String getFieldTypeName(Field ff, String optionalTypeConstraint) {
+            return merge(ff, ff.getType(), YomlUtils.getFieldTypeName(ff, config), optionalTypeConstraint);
+        }
+        
+        protected String merge(Object elementForError, Class<?> localTypeJ, String localTypeName, String optionalTypeConstraint) {
             String fieldType;
             if (optionalTypeConstraint!=null) {
-                if (!Object.class.equals(ff.getType())) {
-                    throw new YomlException("Cannot apply inferred type "+optionalTypeConstraint+" for non-Object field "+ff, context);
+                if (localTypeJ!=null && !Object.class.equals(localTypeJ)) {
+                    throw new YomlException("Cannot apply inferred type "+optionalTypeConstraint+" for non-Object field "+elementForError, context);
                     // is there a "combineTypes(fieldType, optionalTypeConstraint)" method?
                     // that would let us weaken the above
                 }
                 fieldType = optionalTypeConstraint;
             } else {
-                fieldType = YomlUtils.getFieldTypeName(ff, config);
+                fieldType = localTypeName;
             }
             return fieldType;
         }
@@ -189,11 +193,13 @@ public class FieldsInMapUnderFields extends YomlSerializerComposition {
                         
                         String fieldType = getFieldTypeName(ff, null);
                         
+                        // can we record additional information about the type in the yaml?
                         String tf = TypeFromOtherFieldBlackboard.get(blackboard).getTypeConstraintField(f);
                         if (tf!=null) {
                             if (!Object.class.equals(ff.getType())) {
                                 // currently we only support smart types if the base type is object;
                                 // see getFieldTypeName
+                                
                             } else {
                                 if (!TypeFromOtherFieldBlackboard.get(blackboard).isTypeConstraintFieldReal(f)) {
                                     String realType = config.getTypeRegistry().getTypeName(v.get());

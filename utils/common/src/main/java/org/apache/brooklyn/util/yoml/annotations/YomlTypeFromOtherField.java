@@ -35,12 +35,14 @@ import java.lang.annotation.Target;
 @Target(FIELD)
 public @interface YomlTypeFromOtherField {
     
-    /** The other field which will supply the type. */
+    /** The other field which will supply the type. This must point at the field name or the config key name,
+     * not any alias, although aliases can be used in the YAML when specifying the type. */
     String value();
     
-    /** Whether the other field is real and present in the java object and 
-     * should be serialized/deserialized normally;
-     * if false it will be created on writing and deleted after reading */
+    /** Whether the other field is real in the java object,
+     * ie present as a field or config key, and so should be serialized/deserialized normally;
+     * if false it will be created on writing to yaml and deleted while reading,
+     * ie not reflected in the java object */
     boolean real() default true;
     
 }

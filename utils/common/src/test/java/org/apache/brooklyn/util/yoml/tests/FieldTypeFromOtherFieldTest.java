@@ -18,9 +18,14 @@
  */
 package org.apache.brooklyn.util.yoml.tests;
 
+import java.util.Map;
+
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.yoml.annotations.Alias;
 import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsTopLevel;
+import org.apache.brooklyn.util.yoml.annotations.YomlConfigMapConstructor;
 import org.apache.brooklyn.util.yoml.annotations.YomlTypeFromOtherField;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -137,7 +142,63 @@ public class FieldTypeFromOtherFieldTest {
             .reading("{ type: fto-type-key-not-real, typ: int, val: 42 }").writing(new FieldTypeFromOtherNotReal(42)).doReadWriteAssertingJsonMatch();
     }
 
+
+    @YomlConfigMapConstructor("vals")
+    @Alias("fto-from-config")
+    static class FieldTypeFromOtherConfig extends FieldTypeFromOtherAbstract {
+        
+        private Map<String, Object> vals;
+
+        @YomlTypeFromOtherField(value="valType")
+        public static final ConfigKey<Object> VALUE = new TopLevelConfigKeysTests.MockConfigKey<Object>(Object.class, "val");
+        
+        @Alias(preferred="typ")
+        public static final ConfigKey<String> TYPE = new TopLevelConfigKeysTests.MockConfigKey<String>(String.class, "valType");
+        
+        public FieldTypeFromOtherConfig(Map<String,Object> vals) {
+            this.vals = vals;
+        }
+
+        @Override
+        public Object val() {
+            return vals.get(VALUE.getName());
+        }
+    }
     
-    // TODO test w config
+    @Test
+    public void testReadWriteWithTypeInConfig() {
+        YomlTestFixture.newInstance().addTypeWithAnnotations(FieldTypeFromOtherConfig.class)
+            .reading("{ type: fto-from-config, typ: int, val: 42 }").writing(new FieldTypeFromOtherConfig(
+                MutableMap.of("valType", (Object)"int", "val", 42)))
+            .doReadWriteAssertingJsonMatch();
+    }
+
     
+    @YomlConfigMapConstructor("vals")
+    @Alias("fto-from-config-type-not-real")
+    static class FieldTypeFromOtherConfigTypeNotReal extends FieldTypeFromOtherAbstract {
+        
+        private Map<String, Object> vals;
+
+        @YomlTypeFromOtherField(value="typ", real=false)
+        public static final ConfigKey<Object> VALUE = new TopLevelConfigKeysTests.MockConfigKey<Object>(Object.class, "val");
+        
+        public FieldTypeFromOtherConfigTypeNotReal(Map<String,Object> vals) {
+            this.vals = vals;
+        }
+
+        @Override
+        public Object val() {
+            return vals.get(VALUE.getName());
+        }
+    }
+    
+    @Test
+    public void testReadWriteWithTypeInConfigTypeNotReal() {
+        YomlTestFixture.newInstance().addTypeWithAnnotations(FieldTypeFromOtherConfigTypeNotReal.class)
+            .reading("{ type: fto-from-config-type-not-real, typ: int, val: 42 }").writing(new FieldTypeFromOtherConfigTypeNotReal(
+                MutableMap.of("val", (Object)42)))
+            .doReadWriteAssertingJsonMatch();
+    }
+
 }

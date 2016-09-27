@@ -20,6 +20,8 @@ package org.apache.brooklyn.util.yoml.serializers;
 
 import java.util.Map;
 
+import javax.annotation.Nullable;
+
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -70,10 +72,10 @@ public class ConfigInMapUnderConfigSerializer extends FieldsInMapUnderFields {
         protected boolean setKeyValueForJavaObjectOnRead(String key, Object value, String optionalTypeConstraint) throws IllegalAccessException {
             JavaFieldsOnBlackboard fib = JavaFieldsOnBlackboard.peek(blackboard, getKeyNameForMapOfGeneralValues());
             String optionalType = getType(key, null);
-            if (optionalTypeConstraint!=null) {
-                throw new YomlException("Types from other types not supported for config keys");
-                // TODO see behaviour in super to override
-            }
+            ConfigKey<?> cKey = getKey(key);
+            
+            optionalType = merge(key, cKey==null ? null : cKey.getType(), optionalType, optionalTypeConstraint);
+            
             Object v2;
             try {
                 v2 = converter.read( new YomlContextForRead(value, context.getJsonPath()+"/"+key, optionalType, context) );
@@ -98,8 +100,37 @@ public class ConfigInMapUnderConfigSerializer extends FieldsInMapUnderFields {
             Map<String,Object> configMap = MutableMap.of();
             
             for (Map.Entry<String,Object> entry: fib.configToWriteFromJava.entrySet()) {
-                // NB: won't normally have a type, the explicit config keys will take those
                 String optionalType = getType(entry.getKey(), entry.getValue());
+                ConfigKey<?> cKey = getKey(entry.getKey());
+                
+                // can we record additional information about the type in the yaml?
+                // TODO merge with similar code in overwritten method
+                String tf = TypeFromOtherFieldBlackboard.get(blackboard).getTypeConstraintField(entry.getKey());
+                if (tf!=null) {
+                    if (cKey!=null && !Object.class.equals(cKey.getType())) {
+                        // currently we only support smart types if the base type is object;
+                        // see getFieldTypeName
+                        
+                    } else {
+                        if (!TypeFromOtherFieldBlackboard.get(blackboard).isTypeConstraintFieldReal(entry.getKey())) {
+                            String realType = config.getTypeRegistry().getTypeName(entry.getValue());
+                            optionalType = realType;
+                            // for non-real, just write the pseudo-type-field at root
+                            getYamlMap().put(tf, realType);
+                            
+                        } else {
+                            Object rt = fib.configToWriteFromJava.get(tf);
+                            if (rt!=null) {
+                                if (rt instanceof String) {
+                                    optionalType = (String) rt;
+                                } else {
+                                    throw new YomlException("Cannot use type information from "+tf+" for "+cKey+" as it is "+rt, context);
+                                }
+                            }
+                        }
+                    }
+                }
+                
                 Object v = converter.write(new YomlContextForWrite(entry.getValue(), context.getJsonPath()+"/"+entry.getKey(), optionalType, context) );
                 configMap.put(entry.getKey(), v);
             }
@@ -108,14 +139,19 @@ public class ConfigInMapUnderConfigSerializer extends FieldsInMapUnderFields {
             return configMap;
         }
 
-        protected String getType(String key, Object value) {
-            TopLevelFieldsBlackboard efb = TopLevelFieldsBlackboard.get(blackboard, getKeyNameForMapOfGeneralValues());
-            ConfigKey<?> typeKey = efb.getConfigKey(key);
-            TypeToken<?> type = typeKey==null ? null : typeKey.getTypeToken();
+        @Nullable protected String getType(String keyName, Object value) {
+            ConfigKey<?> keyForTypeInfo = getKey(keyName);
+            TypeToken<?> type = keyForTypeInfo==null ? null : keyForTypeInfo.getTypeToken();
             String optionalType = null;
             if (type!=null && (value==null || type.getRawType().isInstance(value))) 
                 optionalType = YomlUtils.getTypeNameWithGenerics(type, config.getTypeRegistry());
             return optionalType;
+        }
+
+        @Nullable protected ConfigKey<?> getKey(String keyName) {
+            TopLevelFieldsBlackboard efb = TopLevelFieldsBlackboard.get(blackboard, getKeyNameForMapOfGeneralValues());
+            ConfigKey<?> typeKey = efb.getConfigKey(keyName);
+            return typeKey;
         }
 
     }

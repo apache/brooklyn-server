@@ -19,7 +19,6 @@
 package org.apache.brooklyn.util.yoml.serializers;
 
 import java.lang.reflect.Field;
-import java.util.Map;
 import java.util.Set;
 
 import org.apache.brooklyn.config.ConfigKey;
@@ -28,6 +27,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
+import org.apache.brooklyn.util.yoml.annotations.YomlTypeFromOtherField;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -88,8 +88,9 @@ public class TopLevelConfigKeySerializer extends TopLevelFieldSerializer {
     }
     
     /** only useful in conjuction with {@link InstantiateTypeFromRegistryUsingConfigMap} static serializer factory methods */
-    public static Map<String,YomlSerializer> findConfigKeySerializers(String keyNameForConfigWhenSerialized, Class<?> clazz) {
-        MutableMap<String, YomlSerializer> result = MutableMap.of();
+    public static Set<YomlSerializer> findConfigKeySerializers(String keyNameForConfigWhenSerialized, Class<?> clazz) {
+        MutableMap<String, YomlSerializer> resultKeys = MutableMap.of();
+        Set<YomlSerializer> resultOthers = MutableSet.of();
         
         for (Field f: YomlUtils.getAllNonTransientStaticFields(clazz).values()) {
             try {
@@ -101,9 +102,14 @@ public class TopLevelConfigKeySerializer extends TopLevelFieldSerializer {
                 else if (ckO instanceof HasConfigKey) ck = ((HasConfigKey<?>)ckO).getConfigKey();
                 
                 if (ck==null) continue;
-                if (result.containsKey(ck.getName())) continue;
+                if (resultKeys.containsKey(ck.getName())) continue;
                 
-                result.put(ck.getName(), new TopLevelConfigKeySerializer(keyNameForConfigWhenSerialized, ck, f));
+                resultKeys.put(ck.getName(), new TopLevelConfigKeySerializer(keyNameForConfigWhenSerialized, ck, f));
+                
+                YomlTypeFromOtherField typeFromOther = f.getAnnotation(YomlTypeFromOtherField.class);
+                if (typeFromOther!=null) {
+                    resultOthers.add(new TypeFromOtherFieldSerializer(ck.getName(), typeFromOther));
+                }
                 
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
@@ -112,7 +118,7 @@ public class TopLevelConfigKeySerializer extends TopLevelFieldSerializer {
             
         }
         
-        return result;
+        return MutableSet.copyOf(resultKeys.values()).putAll(resultOthers);
     }
 
     protected YomlSerializerWorker newWorker() {

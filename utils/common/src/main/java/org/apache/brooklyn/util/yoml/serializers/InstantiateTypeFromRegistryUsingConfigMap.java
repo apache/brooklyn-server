@@ -101,8 +101,7 @@ public class InstantiateTypeFromRegistryUsingConfigMap extends InstantiateTypeFr
 
             if (type!=null) {
                 instantiator.inferByScanning = false;
-                Map<String, YomlSerializer> keys = TopLevelConfigKeySerializer.findConfigKeySerializers(keyNameForConfigWhenSerialized, type);
-                result.addAll(keys.values());
+                result.addAll(TopLevelConfigKeySerializer.findConfigKeySerializers(keyNameForConfigWhenSerialized, type));
             } else {
                 instantiator.inferByScanning = true;
             }
@@ -157,7 +156,7 @@ public class InstantiateTypeFromRegistryUsingConfigMap extends InstantiateTypeFr
         protected void addExtraTypeSerializers(Class<?> clazz) {
             if (inferByScanning) {
                 SerializersOnBlackboard.get(blackboard).addInstantiatedTypeSerializers(
-                    TopLevelConfigKeySerializer.findConfigKeySerializers(keyNameForConfigWhenSerialized, clazz).values());
+                    TopLevelConfigKeySerializer.findConfigKeySerializers(keyNameForConfigWhenSerialized, clazz) );
             }
         }
 
