@@ -180,6 +180,7 @@ import com.google.common.base.Predicates;
 import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -3266,45 +3267,49 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
      * For some clouds (e.g. aws-ec2), it will attempt to find the public hostname.
      */
     protected String getPublicHostname(NodeMetadata node, Optional<HostAndPort> sshHostAndPort, LoginCredentials userCredentials, ConfigBag setup) {
+        return getPublicHostname(node, sshHostAndPort, Suppliers.ofInstance(userCredentials), setup);
+    }
+    
+    protected String getPublicHostname(NodeMetadata node, Optional<HostAndPort> sshHostAndPort, Supplier<? extends LoginCredentials> userCredentials, ConfigBag setup) {
         String provider = (setup != null) ? setup.get(CLOUD_PROVIDER) : null;
         Boolean lookupAwsHostname = (setup != null) ? setup.get(LOOKUP_AWS_HOSTNAME) : null;
         if (provider == null) provider= getProvider();
 
         if ("aws-ec2".equals(provider) && Boolean.TRUE.equals(lookupAwsHostname)) {
-            HostAndPort inferredHostAndPort = null;
-            if (!sshHostAndPort.isPresent()) {
-                try {
-                    String vmIp = getFirstReachableAddress(node, setup);
-                    int port = node.getLoginPort();
-                    inferredHostAndPort = HostAndPort.fromParts(vmIp, port);
-                } catch (Exception e) {
-                    LOG.warn("Error reaching aws-ec2 instance "+node.getId()+"@"+node.getLocation()+" on port "+node.getLoginPort()+"; falling back to jclouds metadata for address", e);
-                }
-            }
-            if (sshHostAndPort.isPresent() || inferredHostAndPort != null) {
-                if (isWindows(node, setup)) {
-                    if (inferredHostAndPort != null) {
-                        LOG.warn("Cannot querying aws-ec2 Windows instance "+node.getId()+"@"+node.getLocation()+" over ssh for its hostname; falling back to first reachable IP");
-                        return inferredHostAndPort.getHostText();
-                    }
-                } else {
-                    HostAndPort hostAndPortToUse = sshHostAndPort.isPresent() ? sshHostAndPort.get() : inferredHostAndPort;
-                    try {
-                        return getPublicHostnameAws(hostAndPortToUse, userCredentials, setup);
-                    } catch (Exception e) {
-                        if (inferredHostAndPort != null) { 
-                            LOG.warn("Error querying aws-ec2 instance "+node.getId()+"@"+node.getLocation()+" over ssh for its hostname; falling back to first reachable IP", e);
-                            // We've already found a reachable address so settle for that, rather than doing it again
-                            return inferredHostAndPort.getHostText();
-                        } else {
-                            LOG.warn("Error querying aws-ec2 instance "+node.getId()+"@"+node.getLocation()+" over ssh for its hostname; falling back to jclouds metadata for address", e);
-                        }
-                    }
-                }
-            }
+            Maybe<String> result = getHostnameAws(node, sshHostAndPort, userCredentials, setup);
+            if (result.isPresent()) return result.get();
         }
 
         return getPublicHostnameGeneric(node, setup);
+    }
+
+    /**
+     * Attempts to obtain the private hostname or IP of the node, as advertised by the cloud provider.
+     * 
+     * For some clouds (e.g. aws-ec2), it will attempt to find the fully qualified hostname (as that works in public+private).
+     */
+    protected String getPrivateHostname(NodeMetadata node, Optional<HostAndPort> sshHostAndPort, ConfigBag setup) {
+        return getPrivateHostname(node, sshHostAndPort, node.getCredentials(), setup);
+    }
+
+    protected String getPrivateHostname(NodeMetadata node, Optional<HostAndPort> sshHostAndPort, LoginCredentials userCredentials, ConfigBag setup) {
+        return getPrivateHostname(node, sshHostAndPort, Suppliers.ofInstance(userCredentials), setup);
+    }
+    
+    protected String getPrivateHostname(NodeMetadata node, Optional<HostAndPort> sshHostAndPort, Supplier<? extends LoginCredentials> userCredentials, ConfigBag setup) {
+        String provider = (setup != null) ? setup.get(CLOUD_PROVIDER) : null;
+        Boolean lookupAwsHostname = (setup != null) ? setup.get(LOOKUP_AWS_HOSTNAME) : null;
+        if (provider == null) provider = getProvider();
+
+        // TODO Discouraged to do cloud-specific things; think of this code for aws as an
+        // exceptional situation rather than a pattern to follow. We need a better way to
+        // do cloud-specific things.
+        if ("aws-ec2".equals(provider) && Boolean.TRUE.equals(lookupAwsHostname)) {
+            Maybe<String> result = getHostnameAws(node, sshHostAndPort, userCredentials, setup);
+            if (result.isPresent()) return result.get();
+        }
+
+        return getPrivateHostnameGeneric(node, setup);
     }
 
     private String getPublicHostnameGeneric(NodeMetadata node, @Nullable ConfigBag setup) {
@@ -3328,7 +3333,52 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
     }
 
-    private String getPublicHostnameAws(HostAndPort hostAndPort, LoginCredentials userCredentials, ConfigBag setup) {
+    private String getPrivateHostnameGeneric(NodeMetadata node, @Nullable ConfigBag setup) {
+        //prefer the private address to the hostname because hostname is sometimes wrong/abbreviated
+        //(see that javadoc; also e.g. on rackspace/cloudstack, the hostname is not registered with any DNS).
+        //Don't return local-only address (e.g. never 127.0.0.1)
+        if (groovyTruth(node.getPrivateAddresses())) {
+            for (String p : node.getPrivateAddresses()) {
+                if (Networking.isLocalOnly(p)) continue;
+                return p;
+            }
+        }
+        if (groovyTruth(node.getPublicAddresses())) {
+            return node.getPublicAddresses().iterator().next();
+        } else if (groovyTruth(node.getHostname())) {
+            return node.getHostname();
+        } else {
+            return null;
+        }
+    }
+
+    private Maybe<String> getHostnameAws(NodeMetadata node, Optional<HostAndPort> sshHostAndPort, Supplier<? extends LoginCredentials> userCredentials, ConfigBag setup) {
+        HostAndPort inferredHostAndPort = null;
+        if (!sshHostAndPort.isPresent()) {
+            try {
+                String vmIp = getFirstReachableAddress(node, setup);
+                int port = node.getLoginPort();
+                inferredHostAndPort = HostAndPort.fromParts(vmIp, port);
+            } catch (Exception e) {
+                LOG.warn("Error reaching aws-ec2 instance "+node.getId()+"@"+node.getLocation()+" on port "+node.getLoginPort()+"; falling back to jclouds metadata for address", e);
+            }
+        }
+        if (sshHostAndPort.isPresent() || inferredHostAndPort != null) {
+            if (isWindows(node, setup)) {
+                LOG.warn("Cannpy query aws-ec2 Windows instance "+node.getId()+"@"+node.getLocation()+" over ssh for its hostname; falling back to jclouds metadata for address");
+            } else {
+                HostAndPort hostAndPortToUse = sshHostAndPort.isPresent() ? sshHostAndPort.get() : inferredHostAndPort;
+                try {
+                    return Maybe.of(getHostnameAws(hostAndPortToUse, userCredentials.get(), setup));
+                } catch (Exception e) {
+                    LOG.warn("Error querying aws-ec2 instance "+node.getId()+"@"+node.getLocation()+" over ssh for its hostname; falling back to jclouds metadata for address", e);
+                }
+            }
+        }
+        return Maybe.absent();
+    }
+
+    private String getHostnameAws(HostAndPort hostAndPort, LoginCredentials userCredentials, ConfigBag setup) {
         SshMachineLocation sshLocByIp = null;
         try {
             // TODO messy way to get an SSH session
@@ -3350,75 +3400,6 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             throw new IllegalStateException("Could not obtain aws-ec2 hostname for vm "+hostAndPort+"; exitcode="+exitcode+"; stdout="+outString+"; stderr="+new String(errStream.toByteArray()));
         } finally {
             Streams.closeQuietly(sshLocByIp);
-        }
-    }
-
-    /**
-     * Attempts to obtain the private hostname or IP of the node, as advertised by the cloud provider.
-     * 
-     * For some clouds (e.g. aws-ec2), it will attempt to find the fully qualified hostname (as that works in public+private).
-     */
-    protected String getPrivateHostname(NodeMetadata node, Optional<HostAndPort> sshHostAndPort, ConfigBag setup) {
-        return getPrivateHostname(node, sshHostAndPort, node.getCredentials(), setup);
-    }
-    
-    protected String getPrivateHostname(NodeMetadata node, Optional<HostAndPort> sshHostAndPort, LoginCredentials userCredentials, ConfigBag setup) {
-        String provider = (setup != null) ? setup.get(CLOUD_PROVIDER) : null;
-        Boolean lookupAwsHostname = (setup != null) ? setup.get(LOOKUP_AWS_HOSTNAME) : null;
-        
-        if (provider == null) provider = getProvider();
-
-        // TODO Discouraged to do cloud-specific things; think of this code for aws as an
-        // exceptional situation rather than a pattern to follow. We need a better way to
-        // do cloud-specific things.
-        if ("aws-ec2".equals(provider) && Boolean.TRUE.equals(lookupAwsHostname)) {
-            Maybe<String> result = getPrivateHostnameAws(node, sshHostAndPort, userCredentials, setup);
-            if (result.isPresent()) return result.get();
-        }
-
-        return getPrivateHostnameGeneric(node, setup);
-    }
-
-    private Maybe<String> getPrivateHostnameAws(NodeMetadata node, Optional<HostAndPort> sshHostAndPort, LoginCredentials userCredentials, ConfigBag setup) {
-        // TODO Remove duplication from getPublicHostname.
-        // TODO Don't like 
-        HostAndPort inferredHostAndPort = null;
-        if (!sshHostAndPort.isPresent()) {
-            try {
-                String vmIp = getFirstReachableAddress(node, setup);
-                int port = node.getLoginPort();
-                inferredHostAndPort = HostAndPort.fromParts(vmIp, port);
-            } catch (Exception e) {
-                LOG.warn("Error reaching aws-ec2 instance "+node.getId()+"@"+node.getLocation()+" on port "+node.getLoginPort()+"; falling back to jclouds metadata for address", e);
-            }
-        }
-        if (sshHostAndPort.isPresent() || inferredHostAndPort != null) {
-            HostAndPort hostAndPortToUse = sshHostAndPort.isPresent() ? sshHostAndPort.get() : inferredHostAndPort;
-            try {
-                return Maybe.of(getPublicHostnameAws(hostAndPortToUse, userCredentials, setup));
-            } catch (Exception e) {
-                LOG.warn("Error querying aws-ec2 instance instance "+node.getId()+"@"+node.getLocation()+" over ssh for its hostname; falling back to jclouds metadata for address", e);
-            }
-        }
-        return Maybe.absent();
-    }
-
-    private String getPrivateHostnameGeneric(NodeMetadata node, @Nullable ConfigBag setup) {
-        //prefer the private address to the hostname because hostname is sometimes wrong/abbreviated
-        //(see that javadoc; also e.g. on rackspace/cloudstack, the hostname is not registered with any DNS).
-        //Don't return local-only address (e.g. never 127.0.0.1)
-        if (groovyTruth(node.getPrivateAddresses())) {
-            for (String p : node.getPrivateAddresses()) {
-                if (Networking.isLocalOnly(p)) continue;
-                return p;
-            }
-        }
-        if (groovyTruth(node.getPublicAddresses())) {
-            return node.getPublicAddresses().iterator().next();
-        } else if (groovyTruth(node.getHostname())) {
-            return node.getHostname();
-        } else {
-            return null;
         }
     }
 
