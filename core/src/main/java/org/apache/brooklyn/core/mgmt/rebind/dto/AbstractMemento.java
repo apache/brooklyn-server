@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.Memento;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.config.Sanitizer;
@@ -45,7 +46,7 @@ public abstract class AbstractMemento implements Memento, Serializable {
         protected String type;
         protected Class<?> typeClass;
         protected String displayName;
-        protected String catalogItemId;
+        protected List<String> catalogItemSuperIds;
         protected Map<String, Object> customFields = Maps.newLinkedHashMap();
         protected List<Object> tags = Lists.newArrayList();
         protected Map<String,Set<String>> relations = Maps.newLinkedHashMap();
@@ -64,7 +65,7 @@ public abstract class AbstractMemento implements Memento, Serializable {
             type = other.getType();
             typeClass = other.getTypeClass();
             displayName = other.getDisplayName();
-            catalogItemId = other.getCatalogItemId();
+            catalogItemSuperIds = other.getCatalogItemSuperIds();
             customFields.putAll(other.getCustomFields());
             tags.addAll(other.getTags());
             relations.putAll(other.getRelations());
@@ -85,7 +86,7 @@ public abstract class AbstractMemento implements Memento, Serializable {
     private String type;
     private String id;
     private String displayName;
-    private String catalogItemId;
+    private List<String> catalogItemSuperIds;
     private List<Object> tags;
     private Map<String,Set<String>> relations;
     
@@ -105,7 +106,7 @@ public abstract class AbstractMemento implements Memento, Serializable {
         type = builder.type;
         typeClass = builder.typeClass;
         displayName = builder.displayName;
-        catalogItemId = builder.catalogItemId;
+        catalogItemSuperIds = builder.catalogItemSuperIds;
         setCustomFields(builder.customFields);
         tags = toPersistedList(builder.tags);
         relations = toPersistedMap(builder.relations);
@@ -148,7 +149,12 @@ public abstract class AbstractMemento implements Memento, Serializable {
 
     @Override
     public String getCatalogItemId() {
-        return catalogItemId;
+        return Iterables.getFirst(getCatalogItemSuperIds(), null);
+    }
+
+    @Override
+    public List<String> getCatalogItemSuperIds() {
+        return catalogItemSuperIds;
     }
 
     @Override

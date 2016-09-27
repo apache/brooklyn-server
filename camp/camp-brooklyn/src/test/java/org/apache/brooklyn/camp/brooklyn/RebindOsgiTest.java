@@ -46,10 +46,12 @@ import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.osgi.Osgis;
+import org.apache.brooklyn.util.core.xstream.XmlUtil;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
+import org.apache.brooklyn.util.text.Strings;
 import org.jclouds.compute.domain.OsFamily;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.launch.Framework;
@@ -64,6 +66,8 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+
+import javax.xml.xpath.XPathConstants;
 
 public class RebindOsgiTest extends AbstractYamlRebindTest {
 
@@ -164,7 +168,7 @@ public class RebindOsgiTest extends AbstractYamlRebindTest {
     }
 
 
-    @Test(groups = "Broken")
+    @Test
     public void testReboundDeepCatalogItemCanLoadResources() throws Exception {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_MORE_ENTITIES_0_1_0_PATH);

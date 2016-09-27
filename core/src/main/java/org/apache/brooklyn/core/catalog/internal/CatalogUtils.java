@@ -20,11 +20,10 @@ package org.apache.brooklyn.core.catalog.internal;
 
 import java.util.Collection;
 import java.util.Iterator;
-import java.util.ListIterator;
+import java.util.List;
 
 import javax.annotation.Nullable;
 
-import com.google.common.collect.Lists;
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
@@ -334,6 +333,33 @@ public class CatalogUtils {
         mgmt.getCatalog().persist(item);
     }
 
+    public static BrooklynClassLoadingContextSequential newClassLoadingContextForCatalogItems(
+        ManagementContext managementContext, List<String> catalogItemIds) {
+
+        BrooklynClassLoadingContextSequential seqLoader =
+            new BrooklynClassLoadingContextSequential(managementContext);
+        for (String catalogItemId : catalogItemIds) {
+            addCatalogItemContext(managementContext, seqLoader, catalogItemId);
+        }
+        // TODO what if not all items were found? need to consider what the right behaviour is.
+        // TODO for now take the course of using whatever items we *did* find
+        if (seqLoader.getPrimaries().size() != catalogItemIds.size()) {
+            log.warn("Couldn't find all catalog items  used for instantiating entity " + managementContext);
+        }
+        return seqLoader;
+    }
+
+    private static void addCatalogItemContext(ManagementContext managementContext, BrooklynClassLoadingContextSequential loader, String catalogItemId) {
+        RegisteredType item = managementContext.getTypeRegistry().get(catalogItemId);
+
+        if (item != null) {
+            BrooklynClassLoadingContext itemLoader = newClassLoadingContext(managementContext, item);
+            loader.add(itemLoader);
+        } else {
+            // TODO review what to do here
+            log.debug("Can't find catalog item " + catalogItemId);
+        }
+    }
 
     public static String[] bundleIds(Bundle bundle) {
         return new String[] {
