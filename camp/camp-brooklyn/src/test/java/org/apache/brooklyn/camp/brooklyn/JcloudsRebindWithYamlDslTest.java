@@ -18,10 +18,8 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.assertEquals;
 
-import java.io.File;
 import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Application;
@@ -29,16 +27,16 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
 import org.apache.brooklyn.core.entity.trait.Startable;
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
+import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.entity.machine.MachineEntity;
 import org.apache.brooklyn.location.jclouds.ComputeServiceRegistry;
 import org.apache.brooklyn.location.jclouds.JcloudsLocation;
+import org.apache.brooklyn.location.jclouds.JcloudsMachineLocation;
 import org.apache.brooklyn.location.jclouds.JcloudsRebindStubTest;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecCmd;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
@@ -46,7 +44,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
 /**
- * This is primarily to test https://issues.apache.org/jira/browse/BROOKLYN-349
+ * This is primarily to test https://issues.apache.org/jira/browse/BROOKLYN-349.
+ * It confirms that entity "provisioning.properties" get passed through to the machine.
  * 
  * As per the other {@link JcloudsRebindStubTest} tests, it will connect to SoftLayer to retrieve
  * image details (so needs real credentials), but it will then stub out the VM creation.
@@ -63,47 +62,9 @@ import com.google.common.collect.Iterables;
  * </ul>
  */
 @Test(groups={"Live", "Live-sanity"})
-public class JcloudsRebindWithYamlDslTest extends JcloudsRebindStubTest {
+public class JcloudsRebindWithYamlDslTest extends JcloudsRebindStubYamlTest {
 
-    private BrooklynCampPlatformLauncherNoServer origLauncher;
-    private BrooklynCampPlatformLauncherNoServer newLauncher;
-
-    @Override
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        try {
-            super.tearDown();
-        } finally {
-            ByonComputeServiceStaticRef.clearInstance();
-            if (origLauncher != null) origLauncher.stopServers();
-            if (newLauncher != null) newLauncher.stopServers();
-        }
-    }
-    
-    @Override
-    protected LocalManagementContext createOrigManagementContext() {
-        origLauncher = new BrooklynCampPlatformLauncherNoServer() {
-            @Override
-            protected LocalManagementContext newMgmtContext() {
-                return JcloudsRebindWithYamlDslTest.super.createOrigManagementContext();
-            }
-        };
-        origLauncher.launch();
-        LocalManagementContext mgmt = (LocalManagementContext) origLauncher.getBrooklynMgmt();
-        return mgmt;
-    }
-
-    @Override
-    protected LocalManagementContext createNewManagementContext(final File mementoDir) {
-        newLauncher = new BrooklynCampPlatformLauncherNoServer() {
-            @Override
-            protected LocalManagementContext newMgmtContext() {
-                return JcloudsRebindWithYamlDslTest.super.createNewManagementContext(mementoDir);
-            }
-        };
-        newLauncher.launch();
-        return (LocalManagementContext) newLauncher.getBrooklynMgmt();
-    }
+    protected Entity origApp;
     
     @Override
     protected JcloudsLocation newJcloudsLocation(ComputeServiceRegistry computeServiceRegistry) throws Exception {
@@ -124,7 +85,8 @@ public class JcloudsRebindWithYamlDslTest extends JcloudsRebindStubTest {
 
         String yaml = Joiner.on("\n").join(
                 "location:",
-                "  jclouds:softlayer:",
+                "  "+LOCATION_SPEC+":",
+                "    imageId: "+IMAGE_ID,
                 "    jclouds.computeServiceRegistry:",
                 "      $brooklyn:object:",
                 "        type: "+ByonComputeServiceStaticRef.class.getName(),
@@ -142,9 +104,15 @@ public class JcloudsRebindWithYamlDslTest extends JcloudsRebindStubTest {
         
         EntitySpec<?> spec = 
                 mgmt().getTypeRegistry().createSpecFromPlan(CampTypePlanTransformer.FORMAT, yaml, RegisteredTypeLoadingContexts.spec(Application.class), EntitySpec.class);
-        final Entity app = mgmt().getEntityManager().createEntity(spec);
-        final MachineEntity entity = (MachineEntity) Iterables.getOnlyElement(app.getChildren());
-        app.invoke(Startable.START, ImmutableMap.<String, Object>of()).get();
+        origApp = mgmt().getEntityManager().createEntity(spec);
+        
+        return (JcloudsLocation) Iterables.getOnlyElement(origApp.getLocations());
+    }
+
+    @Override
+    protected JcloudsMachineLocation obtainMachine(JcloudsLocation jcloudsLoc, Map<?,?> props) throws Exception {
+        final MachineEntity entity = (MachineEntity) Iterables.getOnlyElement(origApp.getChildren());
+        origApp.invoke(Startable.START, ImmutableMap.<String, Object>of()).get();
         
         // Execute ssh (with RecordingSshTool), and confirm was given resolved password
         entity.execCommand("mycmd");
@@ -152,20 +120,6 @@ public class JcloudsRebindWithYamlDslTest extends JcloudsRebindStubTest {
         ExecCmd execCmd = RecordingSshTool.getLastExecCmd();
         assertEquals(constructorProps.get("password"), "myYamlPassword", "constructorProps: "+constructorProps+"; execProps: "+execCmd.props);
         
-        return (JcloudsLocation) Iterables.getOnlyElement(app.getLocations());
-    }
-
-    public static class ByonComputeServiceStaticRef {
-        private static volatile ComputeServiceRegistry instance;
-
-        public ComputeServiceRegistry asComputeServiceRegistry() {
-            return checkNotNull(instance, "instance");
-        }
-        static void setInstance(ComputeServiceRegistry val) {
-            instance = val;
-        }
-        static void clearInstance() {
-            instance = null;
-        }
+        return Machines.findUniqueMachineLocation(entity.getLocations(), JcloudsMachineLocation.class).get();
     }
 }

@@ -18,13 +18,12 @@
  */
 package org.apache.brooklyn.location.jclouds;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.entity.Entities;
@@ -32,8 +31,6 @@ import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixtureWithApp;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
-import org.jclouds.compute.ComputeService;
-import org.jclouds.compute.RunNodesException;
 import org.jclouds.compute.domain.Image;
 import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.NodeMetadata.Status;
@@ -44,7 +41,6 @@ import org.jclouds.compute.domain.Template;
 import org.jclouds.compute.domain.Volume;
 import org.jclouds.compute.domain.internal.HardwareImpl;
 import org.jclouds.compute.domain.internal.NodeMetadataImpl;
-import org.jclouds.compute.options.TemplateOptions;
 import org.jclouds.domain.LocationScope;
 import org.jclouds.domain.LoginCredentials;
 import org.jclouds.domain.internal.LocationImpl;
@@ -81,8 +77,8 @@ public class JcloudsRebindStubTest extends RebindTestFixtureWithApp {
     private static final Logger LOG = LoggerFactory.getLogger(JcloudsRebindStubTest.class);
 
     public static final String PROVIDER = AbstractJcloudsLiveTest.SOFTLAYER_PROVIDER;
-    public static final String SOFTLAYER_LOCATION_SPEC = "jclouds:" + PROVIDER;
-    public static final String SOFTLAYER_IMAGE_ID = "UBUNTU_14_64";
+    public static final String LOCATION_SPEC = "jclouds:" + PROVIDER;
+    public static final String IMAGE_ID = "UBUNTU_14_64";
     
     protected List<ManagementContext> mgmts;
     protected Multimap<ManagementContext, JcloudsSshMachineLocation> machines;
@@ -172,7 +168,7 @@ public class JcloudsRebindStubTest extends RebindTestFixtureWithApp {
                         Predicates.<Image>alwaysTrue(), // supportsImage, 
                         (String)null, // hypervisor
                         false),
-                SOFTLAYER_IMAGE_ID,
+                IMAGE_ID,
                 new OperatingSystem(
                         OsFamily.CENTOS, 
                         "myOsName", 
@@ -192,7 +188,7 @@ public class JcloudsRebindStubTest extends RebindTestFixtureWithApp {
 
         JcloudsLocation origJcloudsLoc = newJcloudsLocation(computeServiceRegistry);
     
-        JcloudsSshMachineLocation origMachine = (JcloudsSshMachineLocation) origJcloudsLoc.obtain(ImmutableMap.of("imageId", SOFTLAYER_IMAGE_ID));
+        JcloudsSshMachineLocation origMachine = (JcloudsSshMachineLocation) obtainMachine(origJcloudsLoc, ImmutableMap.of("imageId", IMAGE_ID));
         
         String origHostname = origMachine.getHostname();
         NodeMetadata origNode = origMachine.getNode();
@@ -215,6 +211,10 @@ public class JcloudsRebindStubTest extends RebindTestFixtureWithApp {
         assertFalse(newTemplate.isPresent(), "newTemplate="+newTemplate);
         
         assertEquals(newJcloudsLoc.getProvider(), origJcloudsLoc.getProvider());
+    }
+    
+    protected JcloudsMachineLocation obtainMachine(JcloudsLocation jcloudsLoc, Map<?,?> props) throws Exception {
+        return (JcloudsMachineLocation) jcloudsLoc.obtain(ImmutableMap.of("imageId", IMAGE_ID));
     }
     
     protected JcloudsLocation newJcloudsLocation(ComputeServiceRegistry computeServiceRegistry) throws Exception {

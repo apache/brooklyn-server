@@ -43,7 +43,6 @@ import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
-import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
 import org.apache.brooklyn.core.mgmt.persist.FileBasedObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
@@ -301,6 +300,7 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
         return hotStandby(RebindOptions.create());
     }
 
+    @SuppressWarnings("unchecked")
     protected T hotStandby(RebindOptions options) throws Exception {
         if (newApp != null || newManagementContext != null) {
             throw new IllegalStateException("already rebound - use switchOriginalToNewManagementContext() if you are trying to rebind multiple times");
