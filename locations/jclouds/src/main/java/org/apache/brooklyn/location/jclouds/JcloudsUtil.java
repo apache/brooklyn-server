@@ -375,7 +375,7 @@ public class JcloudsUtil implements JcloudsLocationConfig {
             return result.getHostText();
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
-            throw new IllegalStateException("Unable to connect SshClient to "+node+"; check that the node is accessible and that the SSH key exists and is correctly configured, including any passphrase defined", e);
+            throw new IllegalStateException("Unable to choose IP for "+node+"; check whether the node is reachable or whether it meets requirements of the HostAndPort tester: " + socketTester , e);
         } finally {
             executor.shutdownNow();
         }
