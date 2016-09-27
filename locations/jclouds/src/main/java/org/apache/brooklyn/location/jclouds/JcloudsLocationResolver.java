@@ -36,15 +36,8 @@ import org.apache.brooklyn.core.location.LocationConfigUtils;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.text.Strings;
-import org.jclouds.apis.ApiMetadata;
-import org.jclouds.apis.Apis;
-import org.jclouds.providers.ProviderMetadata;
-import org.jclouds.providers.Providers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 
 @SuppressWarnings("rawtypes")
 public class JcloudsLocationResolver implements LocationResolver {
@@ -53,25 +46,6 @@ public class JcloudsLocationResolver implements LocationResolver {
     
     private static final String JCLOUDS = "jclouds";
     
-    public static final Map<String,ProviderMetadata> PROVIDERS = getProvidersMap();
-    public static final Map<String,ApiMetadata> APIS = getApisMap();
-    
-    private static Map<String,ProviderMetadata> getProvidersMap() {
-        Map<String,ProviderMetadata> result = Maps.newLinkedHashMap();
-        for (ProviderMetadata p: Providers.all()) {
-            result.put(p.getId(), p);
-        }
-        return ImmutableMap.copyOf(result);
-    }
-
-    private static Map<String,ApiMetadata> getApisMap() {
-        Map<String,ApiMetadata> result = Maps.newLinkedHashMap();
-        for (ApiMetadata api: Apis.all()) {
-            result.put(api.getId(), api);
-        }
-        return ImmutableMap.copyOf(result);
-    }
-
     public static final Collection<String> AWS_REGIONS = Arrays.asList(
             // from http://docs.amazonwebservices.com/general/latest/gr/rande.html as of Apr 2012.
             // it is suggested not to maintain this list here, instead to require aws-ec2 explicitly named.
@@ -137,11 +111,11 @@ public class JcloudsLocationResolver implements LocationResolver {
         }
 
         public boolean isProvider() {
-            return PROVIDERS.containsKey(providerOrApi);
+            return JcloudsProviderAndApiLoader.isProvider(providerOrApi);
         }
 
         public boolean isApi() {
-            return APIS.containsKey(providerOrApi);
+            return JcloudsProviderAndApiLoader.isApi(providerOrApi);
         }
         
         public String getProviderOrApi() {
