@@ -55,6 +55,7 @@ import org.apache.brooklyn.util.yoml.internal.YomlUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
 
@@ -218,6 +219,7 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
      */
     @Override
     public Maybe<Class<?>> getJavaTypeMaybe(String typeName) {
+        if (typeName==null) return Maybe.absent("null type");
         return getJavaTypeInternal(typeName, defaultLoadingContext);
     }
     

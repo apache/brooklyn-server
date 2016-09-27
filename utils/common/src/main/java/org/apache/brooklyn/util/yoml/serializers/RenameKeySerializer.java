@@ -62,11 +62,14 @@ public class RenameKeySerializer extends YomlSerializerComposition {
             if (hasJavaObject()) return;
             if (!isYamlMap()) return;
 
-            if (!getYamlMap().containsKey(oldKeyName)) return;
-            if (getYamlMap().containsKey(newKeyName)) return;
+            YamlKeysOnBlackboard ym = YamlKeysOnBlackboard.getOrCreate(blackboard, getYamlMap());
+            Map<Object, Object> ymj = ym.yamlKeysToReadToJava;
             
-            getYamlMap().put(newKeyName, getYamlMap().remove(oldKeyName));
-            YomlUtils.addDefaults(defaults, getYamlMap());
+            if (!ymj.containsKey(oldKeyName)) return;
+            if (ymj.containsKey(newKeyName)) return;
+            
+            ymj.put(newKeyName, ymj.remove(oldKeyName));
+            YomlUtils.addDefaults(defaults, ymj);
             
             context.phaseRestart();
         }

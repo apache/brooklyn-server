@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.util.yoml;
 
+import javax.annotation.Nullable;
+
 import org.apache.brooklyn.util.guava.Maybe;
 
 public interface YomlTypeRegistry {
@@ -33,7 +35,7 @@ public interface YomlTypeRegistry {
      * This is needed so that the right deserialization strategies can be applied for
      * things like collections and enums.
      */
-    Maybe<Class<?>> getJavaTypeMaybe(String typeName);
+    Maybe<Class<?>> getJavaTypeMaybe(@Nullable String typeName);
 
     /** Return the best known type name to describe the given java instance */
     String getTypeName(Object obj);

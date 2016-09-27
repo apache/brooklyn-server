@@ -22,6 +22,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.camp.yoml.types.YomlInitializers;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
@@ -57,6 +58,7 @@ public class YomlTypeRegistryEntityInitializersTest extends AbstractYamlTest {
                 "  brooklyn.initializers:",
                 "    - name: the-answer",
                 "      type: static-sensor",
+                "      sensor-type: int",
                 "      value: 42");
 
         checkStaticSensorInApp(yaml);
@@ -67,12 +69,37 @@ public class YomlTypeRegistryEntityInitializersTest extends AbstractYamlTest {
         String yaml = Joiner.on("\n").join(
                 "name: the-answer",
                 "type: static-sensor",
-                "value: { type: int, value: 42 }");
+                "sensor-type: int",
+                "value: 42");
 
         Object ss = mgmt().getTypeRegistry().createBeanFromPlan("yoml", Yamls.parseAll(yaml).iterator().next(), null, null);
         Asserts.assertInstanceOf(ss, StaticSensor.class);
     }
-    
+
+    @Test
+    public void testReadSensorWithExpectedSuperType() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "name: the-answer",
+                "type: static-sensor",
+                "sensor-type: int",
+                "value: 42");
+
+        Object ss = mgmt().getTypeRegistry().createBeanFromPlan("yoml", Yamls.parseAll(yaml).iterator().next(), null, EntityInitializer.class);
+        Asserts.assertInstanceOf(ss, StaticSensor.class);
+    }
+
+    @Test
+    public void testReadSensorAsMapWithName() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "the-answer:",
+                "  type: static-sensor",
+                "  sensor-type: int",
+                "  value: 42");
+
+        Object ss = mgmt().getTypeRegistry().createBeanFromPlan("yoml", Yamls.parseAll(yaml).iterator().next(), null, EntityInitializer.class);
+        Asserts.assertInstanceOf(ss, StaticSensor.class);
+    }
+
     @Test
     public void testStaticSensorSingletonMap() throws Exception {
         String yaml = Joiner.on("\n").join(
@@ -81,7 +108,8 @@ public class YomlTypeRegistryEntityInitializersTest extends AbstractYamlTest {
                 "  brooklyn.initializers:",
                 "    the-answer:",
                 "      type: static-sensor",
-                "      value: { type: int, value: 42 }");
+                "      sensor-type: int",
+                "      value: 42");
 
         checkStaticSensorInApp(yaml);
     }

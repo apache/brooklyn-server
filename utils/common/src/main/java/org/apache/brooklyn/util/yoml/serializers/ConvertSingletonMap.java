@@ -156,6 +156,7 @@ public class ConvertSingletonMap extends YomlSerializerComposition {
             YomlUtils.addDefaults(defaults, newYamlMap);
             
             context.setYamlObject(newYamlMap);
+            // TODO should the above apply to YamlKeysOnBlackboard?  Or clear it?  Or does this happen early enough that isn't an issue?
             context.phaseRestart();
         }
 
