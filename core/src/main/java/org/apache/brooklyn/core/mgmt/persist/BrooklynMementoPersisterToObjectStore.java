@@ -35,7 +35,9 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import javax.annotation.Nullable;
+import javax.xml.xpath.XPathConstants;
 
+import com.google.common.collect.ImmutableList;
 import org.apache.brooklyn.api.mgmt.rebind.PersistenceExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMemento;
@@ -57,6 +59,7 @@ import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore.StoreObjectA
 import org.apache.brooklyn.core.mgmt.rebind.PeriodicDeltaChangeListener;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BrooklynMementoImpl;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BrooklynMementoManifestImpl;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.xstream.XmlUtil;
@@ -77,6 +80,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import org.w3c.dom.NodeList;
 
 /** Implementation of the {@link BrooklynMementoPersister} backed by a pluggable
  * {@link PersistenceObjectStore} such as a file system or a jclouds object store */
@@ -321,8 +325,47 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         return result;
     }
 
+    private static class XPathHelper {
+        private String contents;
+        private String prefix;
+
+        public XPathHelper(String contents, String prefix) {
+            this.contents = contents;
+            this.prefix = prefix;
+        }
+
+        private String get(String innerPath) {
+            return (String) XmlUtil.xpathHandlingIllegalChars(contents, prefix+innerPath);
+        }
+        private List<String> getStringList(String innerPath) {
+            List<String> result = MutableList.of();
+            final NodeList nodeList =
+                (NodeList) XmlUtil.xpathHandlingIllegalChars(contents, prefix + innerPath + "/string", XPathConstants.NODESET);
+            for(int c = 0 ; c < nodeList.getLength() ; c++) {
+                result.add(nodeList.item(c).getFirstChild().getNodeValue());
+            }
+            return result;
+        }
+    }
+
+    // We must be able to cope with XML serialized with either a single "catalogItemId"
+    // or a list "catalogItemSuperIds" of catalog item ids. Only one should be encountered
+    // but in any case prefer the list of ids.
+    private ImmutableList<String> getCatalogItemIds(XPathHelper x) {
+        final MutableList<String> list = MutableList.of();
+        final List<String> catalogItemSuperIds = x.getStringList("catalogItemSuperIds");
+        final String catalogItemId = Strings.emptyToNull(x.get("catalogItemId"));
+        if (!catalogItemSuperIds.isEmpty()) {
+            list.addAll(catalogItemSuperIds);
+        } else if (catalogItemId != null) {
+            list.add(catalogItemId);
+        }
+        return ImmutableList.copyOf(list);
+    }
+
     @Override
-    public BrooklynMementoManifest loadMementoManifest(BrooklynMementoRawData mementoData, final RebindExceptionHandler exceptionHandler) throws IOException {
+    public BrooklynMementoManifest loadMementoManifest(BrooklynMementoRawData mementoData,
+                                                       final RebindExceptionHandler exceptionHandler) throws IOException {
         if (mementoData==null)
             mementoData = loadMementoRawData(exceptionHandler);
         
@@ -331,19 +374,10 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         Visitor visitor = new Visitor() {
             @Override
             public void visit(BrooklynObjectType type, String objectId, final String contents) throws Exception {
-                final String prefix = "/"+type.toCamelCase()+"/";
-
-                class XPathHelper {
-                    private String get(String innerPath) {
-                        return (String) XmlUtil.xpathHandlingIllegalChars(contents, prefix+innerPath);
-                    }
-                }
-                XPathHelper x = new XPathHelper();
-                
+                XPathHelper x = new XPathHelper(contents, "/"+type.toCamelCase()+"/");
                 switch (type) {
                     case ENTITY:
-                        builder.entity(x.get("id"), x.get("type"), 
-                            Strings.emptyToNull(x.get("parent")), Strings.emptyToNull(x.get("catalogItemId")));
+                        builder.entity(x.get("id"), x.get("type"), Strings.emptyToNull(x.get("parent")), getCatalogItemIds(x));
                         break;
                     case LOCATION:
                     case POLICY:

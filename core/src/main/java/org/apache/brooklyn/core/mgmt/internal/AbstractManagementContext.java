@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.mgmt.internal;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
+import static org.apache.brooklyn.core.catalog.internal.CatalogUtils.newClassLoadingContextForCatalogItems;
 
 import java.net.URI;
 import java.net.URL;
@@ -50,7 +51,6 @@ import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityManager;
 import org.apache.brooklyn.api.mgmt.rebind.RebindManager;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
-import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
@@ -134,15 +134,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
                     final List<String> catalogItemSuperIds = internal.getCatalogItemSuperIds();
                     if (catalogItemSuperIds.size() > 0) {
                         BrooklynClassLoadingContextSequential seqLoader =
-                            new BrooklynClassLoadingContextSequential(internal.getManagementContext());
-                        for (String catalogItemId : catalogItemSuperIds) {
-                            addCatalogItemContext(internal, seqLoader, catalogItemId);
-                        }
-                        // TODO what if not all items were found? need to consider what the right behaviour is.
-                        // TODO for now take the course of using whatever items we *did* find
-                        if (seqLoader.getPrimaries().size() != catalogItemSuperIds.size()) {
-                            log.error("Couldn't find all catalog items  used for instantiating entity " + internal);
-                        }
+                            newClassLoadingContextForCatalogItems(internal.getManagementContext(), catalogItemSuperIds);
                         JavaBrooklynClassLoadingContext entityLoader =
                             JavaBrooklynClassLoadingContext.create(input.getClass().getClassLoader());
                         seqLoader.add(entityLoader);
@@ -158,19 +150,6 @@ public abstract class AbstractManagementContext implements ManagementContextInte
                 return null;
             }
         });
-    }
-
-    private static void addCatalogItemContext(EntityInternal entity, BrooklynClassLoadingContextSequential loader, String catalogItemId) {
-        RegisteredType item = entity.getManagementContext().getTypeRegistry().get(catalogItemId);
-
-        if (item != null) {
-            BrooklynClassLoadingContext itemLoader = CatalogUtils.newClassLoadingContext(entity.getManagementContext(), item);
-            loader.add(itemLoader);
-        } else {
-            log.error("Can't find catalog item " + catalogItemId +
-                " used for instantiating entity " + entity +
-                ". Falling back to application classpath.");
-        }
     }
 
     private final AtomicLong totalEffectorInvocationCount = new AtomicLong();

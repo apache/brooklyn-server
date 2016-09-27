@@ -30,6 +30,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.google.common.collect.ImmutableList;
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Application;
@@ -779,9 +780,9 @@ public abstract class RebindIteration {
         }
     }
     
-    protected String findCatalogItemId(ClassLoader cl, Map<String, EntityMementoManifest> entityIdToManifest, EntityMementoManifest entityManifest) {
-        if (entityManifest.getCatalogItemId() != null) {
-            return entityManifest.getCatalogItemId();
+    protected List<String> findCatalogItemIds(ClassLoader cl, Map<String, EntityMementoManifest> entityIdToManifest, EntityMementoManifest entityManifest) {
+        if (!entityManifest.getCatalogItemSuperIds().isEmpty()) {
+            return entityManifest.getCatalogItemSuperIds();
         }
 
         if (BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_BACKWARDS_COMPATIBILITY_INFER_CATALOG_ITEM_ON_REBIND)) {
@@ -791,12 +792,12 @@ public abstract class RebindIteration {
                 if (ptr.getCatalogItemId() != null) {
                     RegisteredType type = managementContext.getTypeRegistry().get(ptr.getCatalogItemId());
                     if (type != null) {
-                        return type.getId();
+                        return ImmutableList.of(type.getId());
                     } else {
                         //Couldn't find a catalog item with this id, but return it anyway and
                         //let the caller deal with the error.
                         //TODO under what circumstances is this permitted?
-                        return ptr.getCatalogItemId();
+                        return ImmutableList.of(ptr.getCatalogItemId());
                     }
                 }
                 if (ptr.getParent() != null) {
@@ -816,7 +817,7 @@ public abstract class RebindIteration {
                 RegisteredType t = types.get(ptr.getType(), BrooklynCatalog.DEFAULT_VERSION);
                 if (t != null) {
                     LOG.debug("Inferred catalog item ID "+t.getId()+" for "+entityManifest+" from ancestor "+ptr);
-                    return t.getId();
+                    return ImmutableList.of(t.getId());
                 }
                 if (ptr.getParent() != null) {
                     ptr = entityIdToManifest.get(ptr.getParent());
@@ -836,20 +837,20 @@ public abstract class RebindIteration {
                 boolean canLoadClass = loader.tryLoadClass(entityManifest.getType()).isPresent();
                 if (canLoadClass) {
                     LOG.warn("Missing catalog item for "+entityManifest.getId()+" ("+entityManifest.getType()+"), inferring as "+item.getId()+" because that is able to load the item");
-                    return item.getId();
+                    return ImmutableList.of(item.getId());
                 }
             }
         }
-        return null;
+        return ImmutableList.of();
     }
 
     protected static class LoadedClass<T extends BrooklynObject> {
         protected final Class<? extends T> clazz;
-        protected final String catalogItemId;
+        protected final List<String> catalogItemIds;
         
-        protected LoadedClass(Class<? extends T> clazz, String catalogItemId) {
+        protected LoadedClass(Class<? extends T> clazz, List<String> catalogItemIds) {
             this.clazz = clazz;
-            this.catalogItemId = catalogItemId;
+            this.catalogItemIds = catalogItemIds;
         }
     }
 
@@ -867,13 +868,12 @@ public abstract class RebindIteration {
 
         protected Entity newEntity(EntityMementoManifest entityManifest) {
             String entityId = entityManifest.getId();
-            String catalogItemId = findCatalogItemId(classLoader, mementoManifest.getEntityIdToManifest(), entityManifest);
+            List<String> catalogItemIds = findCatalogItemIds(classLoader, mementoManifest.getEntityIdToManifest(), entityManifest);
             String entityType = entityManifest.getType();
-            
-            LoadedClass<? extends Entity> loaded = load(Entity.class, entityType, catalogItemId, entityId);
+
+            LoadedClass<? extends Entity> loaded = load(Entity.class, entityType, catalogItemIds, entityId);
             Class<? extends Entity> entityClazz = loaded.clazz;
-            String transformedCatalogItemId = loaded.catalogItemId;
-            
+
             Entity entity;
             
             if (InternalFactory.isNewStyle(entityClazz)) {
@@ -909,27 +909,64 @@ public abstract class RebindIteration {
                 ((AbstractEntity)entity).setManagementContext(managementContext);
                 managementContext.prePreManage(entity);
             }
-            
-            setCatalogItemId(entity, transformedCatalogItemId);
+
+            setCatalogItemIds(entity, loaded.catalogItemIds);
+
             return entity;
         }
 
-        protected void setCatalogItemId(BrooklynObject item, String catalogItemId) {
-            if (catalogItemId!=null) {
-                // TODO add support for nested catalog superids here.
-                ((BrooklynObjectInternal)item).setCatalogItemId(catalogItemId);
-            }
+        protected void setCatalogItemIds(BrooklynObject object, List<String> superIds) {
+            ((BrooklynObjectInternal)object).setCatalogItemIds(superIds);
         }
 
+
         protected <T extends BrooklynObject> LoadedClass<? extends T> load(Class<T> bType, Memento memento) {
-            return load(bType, memento.getType(), memento.getCatalogItemId(), memento.getId());
+            return load(bType, memento.getType(), memento.getCatalogItemSuperIds(), memento.getId());
         }
         
         @SuppressWarnings("unchecked")
-        protected <T extends BrooklynObject> LoadedClass<? extends T> load(Class<T> bType, String jType, String catalogItemId, String contextSuchAsId) {
+        protected <T extends BrooklynObject> LoadedClass<? extends T> load(Class<T> bType, String jType, List<String> catalogItemIds, String contextSuchAsId) {
             checkNotNull(jType, "Type of %s (%s) must not be null", contextSuchAsId, bType.getSimpleName());
+
+            List<String> idsFromReboundCatalog = MutableList.of();
+            if (catalogItemIds != null && !catalogItemIds.isEmpty()) {
+                findCatalogIdsInReboundCatalog(bType, catalogItemIds, contextSuchAsId, idsFromReboundCatalog);
+                if (!idsFromReboundCatalog.isEmpty()) {
+                    BrooklynClassLoadingContext loader = CatalogUtils.newClassLoadingContextForCatalogItems(managementContext, idsFromReboundCatalog);
+                    return new LoadedClass<T>(loader.loadClass(jType, bType), catalogItemIds);
+                } else {
+                    LOG.warn("Unable to load catalog items "+ catalogItemIds +" for "+contextSuchAsId
+                            +" ("+bType.getSimpleName()+"); will try default class loader");
+                }
+            }
             
-            if (catalogItemId != null) {
+            try {
+                return new LoadedClass<T>((Class<T>)loadClass(jType), idsFromReboundCatalog);
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                LOG.warn("Unable to load "+jType+" using reflections; will try standard context");
+            }
+
+            if (catalogItemIds != null && !catalogItemIds.isEmpty()) {
+                throw new IllegalStateException("Unable to load catalog item "+ catalogItemIds +" for "+contextSuchAsId+", or load class from classpath");
+            } else if (BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_BACKWARDS_COMPATIBILITY_INFER_CATALOG_ITEM_ON_REBIND)) {
+                //Try loading from whichever catalog bundle succeeds.
+                BrooklynCatalog catalog = managementContext.getCatalog();
+                for (CatalogItem<?, ?> item : catalog.getCatalogItems()) {
+                    BrooklynClassLoadingContext catalogLoader = CatalogUtils.newClassLoadingContext(managementContext, item);
+                    Maybe<Class<?>> catalogClass = catalogLoader.tryLoadClass(jType);
+                    if (catalogClass.isPresent()) {
+                        return new LoadedClass<T>((Class<? extends T>) catalogClass.get(), catalogItemIds);
+                    }
+                }
+                throw new IllegalStateException("No catalogItemId specified for "+contextSuchAsId+" and can't load class (" + jType + ") from either classpath or catalog items");
+            } else {
+                throw new IllegalStateException("No catalogItemId specified for "+contextSuchAsId+" and can't load class (" + jType + ") from classpath");
+            }
+        }
+
+        private <T extends BrooklynObject> void findCatalogIdsInReboundCatalog(Class<T> bType, List<String> catalogItemIds, String contextSuchAsId, List<String> idsToUse) {
+            for (String catalogItemId : catalogItemIds) {
                 CatalogItem<?, ?> catalogItem = rebindContext.lookup().lookupCatalogItem(catalogItemId);
                 if (catalogItem == null) {
                     if (BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_AUTO_FIX_CATALOG_REF_ON_REBIND)) {
@@ -939,46 +976,17 @@ public abstract class RebindIteration {
                         if (CatalogUtils.looksLikeVersionedId(catalogItemId)) {
                             String symbolicName = CatalogUtils.getSymbolicNameFromVersionedId(catalogItemId);
                             catalogItem = rebindContext.lookup().lookupCatalogItem(symbolicName);
-                            
+
                             if (catalogItem != null) {
-                                LOG.warn("Unable to load catalog item "+catalogItemId+" for "+contextSuchAsId
+                                LOG.warn("Unable to load catalog item "+ catalogItemIds +" for "+contextSuchAsId
                                         +" ("+bType.getSimpleName()+"); will auto-upgrade to "+catalogItem.getCatalogItemId());
-                                catalogItemId = catalogItem.getCatalogItemId();
+                                idsToUse.add(catalogItem.getCatalogItemId());
                             }
                         }
                     }
-                }
-                if (catalogItem != null) {
-                    BrooklynClassLoadingContext loader = CatalogUtils.newClassLoadingContext(managementContext, catalogItem);
-                    return new LoadedClass<T>(loader.loadClass(jType, bType), catalogItemId);
                 } else {
-                    LOG.warn("Unable to load catalog item "+catalogItemId+" for "+contextSuchAsId
-                            +" ("+bType.getSimpleName()+"); will try default class loader");
+                    idsToUse.add(catalogItemId);
                 }
-            }
-            
-            try {
-                return new LoadedClass<T>((Class<T>)loadClass(jType), catalogItemId);
-            } catch (Exception e) {
-                Exceptions.propagateIfFatal(e);
-                LOG.warn("Unable to load "+jType+" using reflections; will try standard context");
-            }
-
-            if (catalogItemId != null) {
-                throw new IllegalStateException("Unable to load catalog item "+catalogItemId+" for "+contextSuchAsId+", or load class from classpath");
-            } else if (BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_BACKWARDS_COMPATIBILITY_INFER_CATALOG_ITEM_ON_REBIND)) {
-                //Try loading from whichever catalog bundle succeeds.
-                BrooklynCatalog catalog = managementContext.getCatalog();
-                for (CatalogItem<?, ?> item : catalog.getCatalogItems()) {
-                    BrooklynClassLoadingContext catalogLoader = CatalogUtils.newClassLoadingContext(managementContext, item);
-                    Maybe<Class<?>> catalogClass = catalogLoader.tryLoadClass(jType);
-                    if (catalogClass.isPresent()) {
-                        return new LoadedClass<T>((Class<? extends T>) catalogClass.get(), catalogItemId);
-                    }
-                }
-                throw new IllegalStateException("No catalogItemId specified for "+contextSuchAsId+" and can't load class (" + jType + ") from either classpath or catalog items");
-            } else {
-                throw new IllegalStateException("No catalogItemId specified for "+contextSuchAsId+" and can't load class (" + jType + ") from classpath");
             }
         }
 
@@ -1036,9 +1044,8 @@ public abstract class RebindIteration {
          */
         protected Policy newPolicy(PolicyMemento memento) {
             String id = memento.getId();
-            LoadedClass<? extends Policy> loaded = load(Policy.class, memento.getType(), memento.getCatalogItemId(), id);
+            LoadedClass<? extends Policy> loaded = load(Policy.class, memento.getType(), memento.getCatalogItemSuperIds(), id);
             Class<? extends Policy> policyClazz = loaded.clazz;
-            String transformedCatalogItemId = loaded.catalogItemId;
 
             Policy policy;
             if (InternalFactory.isNewStyle(policyClazz)) {
@@ -1062,7 +1069,7 @@ public abstract class RebindIteration {
                 policy = invokeConstructor(null, policyClazz, new Object[] {flags});
             }
             
-            setCatalogItemId(policy, transformedCatalogItemId);
+            setCatalogItemIds(policy, memento.getCatalogItemSuperIds());
             return policy;
         }
 
@@ -1073,7 +1080,6 @@ public abstract class RebindIteration {
             String id = memento.getId();
             LoadedClass<? extends Enricher> loaded = load(Enricher.class, memento);
             Class<? extends Enricher> enricherClazz = loaded.clazz;
-            String transformedCatalogItemId = loaded.catalogItemId;
 
             Enricher enricher;
             if (InternalFactory.isNewStyle(enricherClazz)) {
@@ -1097,7 +1103,7 @@ public abstract class RebindIteration {
                 enricher = invokeConstructor(reflections, enricherClazz, new Object[] {flags});
             }
             
-            setCatalogItemId(enricher, transformedCatalogItemId);
+            setCatalogItemIds(enricher, memento.getCatalogItemSuperIds());
             return enricher;
         }
 
@@ -1108,7 +1114,6 @@ public abstract class RebindIteration {
             String id = memento.getId();
             LoadedClass<? extends Feed> loaded = load(Feed.class, memento);
             Class<? extends Feed> feedClazz = loaded.clazz;
-            String transformedCatalogItemId = loaded.catalogItemId;
 
             Feed feed;
             if (InternalFactory.isNewStyle(feedClazz)) {
@@ -1121,7 +1126,7 @@ public abstract class RebindIteration {
                 throw new IllegalStateException("rebind of feed without no-arg constructor unsupported: id="+id+"; type="+feedClazz);
             }
             
-            setCatalogItemId(feed, transformedCatalogItemId);
+            setCatalogItemIds(feed, memento.getCatalogItemSuperIds());
             return feed;
         }
 
