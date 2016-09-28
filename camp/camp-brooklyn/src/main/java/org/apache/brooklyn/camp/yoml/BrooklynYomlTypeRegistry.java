@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -55,7 +56,6 @@ import org.apache.brooklyn.util.yoml.internal.YomlUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
 
@@ -123,7 +123,7 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
      */
     private RegisteredTypeLoadingContext defaultLoadingContext;
 
-    public BrooklynYomlTypeRegistry(ManagementContext mgmt, RegisteredTypeLoadingContext defaultLoadingContext) {
+    public BrooklynYomlTypeRegistry(@Nonnull ManagementContext mgmt, @Nonnull RegisteredTypeLoadingContext defaultLoadingContext) {
         this.mgmt = mgmt;
         this.defaultLoadingContext = defaultLoadingContext;
         
@@ -324,13 +324,30 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
         return getTypeNameOfClass(obj.getClass());
     }
 
+    public static Set<String> WARNS = MutableSet.of();
+    
     @Override
     public <T> String getTypeNameOfClass(Class<T> type) {
         if (type==null) return null;
-        log.warn("Returning default for type name of "+type);
-        // TODO reverse lookup??
+
+        String defaultTypeName = getDefaultTypeNameOfClass(type);
+        String cleanedTypeName = Strings.removeAllFromStart(getDefaultTypeNameOfClass(type), "java:");
+        
         // look in catalog for something where plan matches and consists only of type
-        return getDefaultTypeNameOfClass(type);
+        for (RegisteredType rt: mgmt.getTypeRegistry().getAll()) {
+            if (!(rt.getPlan() instanceof YomlTypeImplementationPlan)) continue;
+            if (((YomlTypeImplementationPlan)rt.getPlan()).javaType==null) continue;
+            if (!((YomlTypeImplementationPlan)rt.getPlan()).javaType.equals(cleanedTypeName)) continue;
+            if (rt.getPlan().getPlanData()==null) return rt.getId();
+            // TODO find the "best" one, not just any one (at least best version) - though it shouldn't matter
+            // TODO are there some plans which are permitted, eg just defining serializers?
+            // TODO cache or something more efficient
+        }
+        
+        if (WARNS.add(type.getName()))
+            log.warn("Returning default for type name of "+type+"; catalog entry should be supplied");
+        
+        return defaultTypeName;
     }
     
     protected <T> String getDefaultTypeNameOfClass(Class<T> type) {

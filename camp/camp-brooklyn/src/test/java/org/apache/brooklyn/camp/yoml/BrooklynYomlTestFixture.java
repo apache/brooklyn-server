@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.camp.yoml;
 
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.util.yoml.YomlConfig;
 import org.apache.brooklyn.util.yoml.annotations.YomlAnnotations;
 import org.apache.brooklyn.util.yoml.tests.YomlTestFixture;
@@ -26,6 +27,9 @@ public class BrooklynYomlTestFixture extends YomlTestFixture {
 
     public static YomlTestFixture newInstance() { return new BrooklynYomlTestFixture(); }
     public static YomlTestFixture newInstance(YomlConfig config) { return new BrooklynYomlTestFixture(config); }
+    public static YomlTestFixture newInstance(ManagementContext mgmt) {
+        return newInstance(YomlTypePlanTransformer.newYomlConfig(mgmt).build());
+    }
 
     public BrooklynYomlTestFixture() {}
     public BrooklynYomlTestFixture(YomlConfig config) {

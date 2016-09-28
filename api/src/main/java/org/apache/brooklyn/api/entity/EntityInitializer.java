@@ -23,6 +23,7 @@ import java.util.Map;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Feed;
+import org.apache.brooklyn.util.yoml.annotations.Alias;
 import org.apache.brooklyn.util.yoml.annotations.YomlSingletonMap;
 
 /** 
@@ -41,6 +42,7 @@ import org.apache.brooklyn.util.yoml.annotations.YomlSingletonMap;
  * which will be attached during rebind.
  **/ 
 @YomlSingletonMap(keyForPrimitiveValue="type")
+@Alias("entity-initializer")
 public interface EntityInitializer {
     
     /** Applies initialization logic to a just-built entity.

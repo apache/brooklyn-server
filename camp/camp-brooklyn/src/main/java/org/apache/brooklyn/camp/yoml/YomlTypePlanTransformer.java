@@ -22,6 +22,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -32,6 +35,7 @@ import org.apache.brooklyn.camp.spi.resolve.interpret.PlanInterpretationContext;
 import org.apache.brooklyn.camp.spi.resolve.interpret.PlanInterpretationNode;
 import org.apache.brooklyn.core.typereg.AbstractFormatSpecificTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.AbstractTypePlanTransformer;
+import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.typereg.UnsupportedTypePlanException;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -44,8 +48,11 @@ import org.apache.brooklyn.util.yoml.YomlException;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
 import org.apache.brooklyn.util.yoml.internal.ConstructionInstruction;
 import org.apache.brooklyn.util.yoml.internal.ConstructionInstructions;
+import org.apache.brooklyn.util.yoml.internal.YomlConfigs.Builder;
 import org.yaml.snakeyaml.Yaml;
 
+import com.google.common.annotations.Beta;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -131,20 +138,19 @@ public class YomlTypePlanTransformer extends AbstractTypePlanTransformer {
 
     @Override
     protected Object createBean(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
-        BrooklynYomlTypeRegistry tr = new BrooklynYomlTypeRegistry(mgmt, context);
-        Yoml y = Yoml.newInstance(newYomlConfig(mgmt, tr).build());
+        Yoml y = Yoml.newInstance(newYomlConfig(mgmt, context).build());
         
         // TODO could cache the parse, could cache the instantiation instructions
         Object data = type.getPlan().getPlanData();
         
         Class<?> expectedSuperType = context.getExpectedJavaSuperType();
-        String expectedSuperTypeName = tr.getTypeNameOfClass(expectedSuperType);
+        String expectedSuperTypeName = y.getConfig().getTypeRegistry().getTypeNameOfClass(expectedSuperType);
         
         Object parsedInput;
         if (data==null || (data instanceof String)) {
             if (Strings.isBlank((String)data)) {
                 // blank plan means to use the java type / construction instruction
-                Maybe<Class<?>> javaType = tr.getJavaTypeInternal(type, context); 
+                Maybe<Class<?>> javaType = ((BrooklynYomlTypeRegistry) y.getConfig().getTypeRegistry()).getJavaTypeInternal(type, context); 
                 ConstructionInstruction constructor = context.getConstructorInstruction();
                 if (javaType.isAbsent() && constructor==null) {
                     return Maybe.absent(new IllegalStateException("Type "+type+" has no plan YAML and error in type", ((Maybe.Absent<?>)javaType).getException()));
@@ -185,6 +191,18 @@ public class YomlTypePlanTransformer extends AbstractTypePlanTransformer {
         }
         
         return y.readFromYamlObject(parsedInput, expectedSuperTypeName);
+    }
+
+    @Beta @VisibleForTesting
+    public static Builder<YomlConfig.Builder> newYomlConfig(@Nonnull ManagementContext mgmt) {
+        return newYomlConfig(mgmt, (RegisteredTypeLoadingContext)null);
+    }
+    
+    @Beta @VisibleForTesting
+    public static Builder<YomlConfig.Builder> newYomlConfig(@Nonnull ManagementContext mgmt, @Nullable RegisteredTypeLoadingContext context) {
+        if (context==null) context = RegisteredTypeLoadingContexts.any();
+        BrooklynYomlTypeRegistry tr = new BrooklynYomlTypeRegistry(mgmt, context);
+        return newYomlConfig(mgmt, tr);
     }
 
     static YomlConfig.Builder newYomlConfig(ManagementContext mgmt, BrooklynYomlTypeRegistry typeRegistry) {

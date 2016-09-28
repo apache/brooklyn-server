@@ -30,8 +30,10 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.sensor.StaticSensor;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.yaml.Yamls;
+import org.apache.brooklyn.util.yoml.tests.YomlTestFixture;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -50,8 +52,77 @@ public class YomlTypeRegistryEntityInitializersTest extends AbstractYamlTest {
         YomlInitializers.install(mgmt());
     }
     
-    @Test(enabled=false) // format still runs old camp parse, does not attempt yaml
-    public void testStaticSensorBasic() throws Exception {
+    StaticSensor<?> SS_42 = new StaticSensor<Object>(ConfigBag.newInstance()
+        .configure(StaticSensor.SENSOR_NAME, "the-answer")
+        .configure(StaticSensor.SENSOR_TYPE, "int")
+        .configure(StaticSensor.STATIC_VALUE, 42) );
+
+    // permitted anytime
+    final static String SS_42_YAML_SIMPLE = Joiner.on("\n").join(
+        "name: the-answer",
+        "type: static-sensor",
+        "sensor-type: int",
+        "value: 42");
+
+    // permitted if we know we are reading EntityInitializer instances
+    final String SS_42_YAML_SINGLETON_MAP = Joiner.on("\n").join(
+        "the-answer:",
+        "  type: static-sensor",
+        "  sensor-type: int",
+        "  value: 42");
+
+    @Test
+    public void testYomlReadSensor() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "name: the-answer",
+                "type: static-sensor",
+                "sensor-type: int",
+                "value: 42");
+
+        Object ss = mgmt().getTypeRegistry().createBeanFromPlan("yoml", Yamls.parseAll(yaml).iterator().next(), null, null);
+        Asserts.assertInstanceOf(ss, StaticSensor.class);
+        // Assert.assertEquals(ss, SS_42);  // class does not support equals
+    }
+
+    @Test
+    public void testYomlReadSensorWithExpectedSuperType() throws Exception {
+        Object ss = mgmt().getTypeRegistry().createBeanFromPlan("yoml", Yamls.parseAll(SS_42_YAML_SIMPLE).iterator().next(), null, EntityInitializer.class);
+        Asserts.assertInstanceOf(ss, StaticSensor.class);
+        // Assert.assertEquals(ss, SS_42);  // class does not support equals
+    }
+    
+    @Test
+    public void testReadSensorAsMapWithName() throws Exception {
+        Object ss = mgmt().getTypeRegistry().createBeanFromPlan("yoml", Yamls.parseAll(SS_42_YAML_SINGLETON_MAP).iterator().next(), null, EntityInitializer.class);
+        Asserts.assertInstanceOf(ss, StaticSensor.class);
+    }
+
+    @Test
+    public void testYomlReadSensorSingletonMapWithFixture() throws Exception {
+        YomlTestFixture y = BrooklynYomlTestFixture.newInstance(mgmt());
+        y.read(SS_42_YAML_SINGLETON_MAP, "entity-initializer");
+        Asserts.assertInstanceOf(y.getLastReadResult(), StaticSensor.class);
+    }
+    
+    @Test
+    public void testYomlWriteSensorWithFixture() throws Exception {
+        YomlTestFixture y = BrooklynYomlTestFixture.newInstance(mgmt());
+        y.write(SS_42, "entity-initializer").assertLastWriteIgnoringQuotes(
+            "{the-answer: { type: static-sensor:0.10.0-SNAPSHOT, period: 5m, targetType: int, timeout: a very long time, value: 42}}"
+            // ideally it would be simple like below but it sets all the values so it ends up looking like the above
+//            Jsonya.newInstance().add( Yamls.parseAll(SS_42_YAML_SINGLETON_MAP).iterator().next() ).toString() 
+            );
+        
+        // and another read/write cycle gives the same thing
+        Object fullOutput = y.getLastWriteResult();
+        y.readLastWrite().writeLastRead();
+        Assert.assertEquals(fullOutput, y.getLastWriteResult());
+    }
+
+    // and test in context
+    
+    @Test(enabled=false) // this format (list) still runs old camp parse, does not attempt yaml, included for comparison
+    public void testStaticSensorWorksAsList() throws Exception {
         String yaml = Joiner.on("\n").join(
                 "services:",
                 "- type: org.apache.brooklyn.core.test.entity.TestEntity",
@@ -65,43 +136,7 @@ public class YomlTypeRegistryEntityInitializersTest extends AbstractYamlTest {
     }
 
     @Test
-    public void testReadSensor() throws Exception {
-        String yaml = Joiner.on("\n").join(
-                "name: the-answer",
-                "type: static-sensor",
-                "sensor-type: int",
-                "value: 42");
-
-        Object ss = mgmt().getTypeRegistry().createBeanFromPlan("yoml", Yamls.parseAll(yaml).iterator().next(), null, null);
-        Asserts.assertInstanceOf(ss, StaticSensor.class);
-    }
-
-    @Test
-    public void testReadSensorWithExpectedSuperType() throws Exception {
-        String yaml = Joiner.on("\n").join(
-                "name: the-answer",
-                "type: static-sensor",
-                "sensor-type: int",
-                "value: 42");
-
-        Object ss = mgmt().getTypeRegistry().createBeanFromPlan("yoml", Yamls.parseAll(yaml).iterator().next(), null, EntityInitializer.class);
-        Asserts.assertInstanceOf(ss, StaticSensor.class);
-    }
-
-    @Test
-    public void testReadSensorAsMapWithName() throws Exception {
-        String yaml = Joiner.on("\n").join(
-                "the-answer:",
-                "  type: static-sensor",
-                "  sensor-type: int",
-                "  value: 42");
-
-        Object ss = mgmt().getTypeRegistry().createBeanFromPlan("yoml", Yamls.parseAll(yaml).iterator().next(), null, EntityInitializer.class);
-        Asserts.assertInstanceOf(ss, StaticSensor.class);
-    }
-
-    @Test
-    public void testStaticSensorSingletonMap() throws Exception {
+    public void testStaticSensorWorksAsSingletonMap() throws Exception {
         String yaml = Joiner.on("\n").join(
                 "services:",
                 "- type: org.apache.brooklyn.core.test.entity.TestEntity",
