@@ -24,47 +24,42 @@ import static org.testng.Assert.fail;
 
 import java.net.ServerSocket;
 
+import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.api.location.MachineProvisioningLocation;
+import org.apache.brooklyn.api.location.NoMachinesAvailableException;
+import org.apache.brooklyn.api.location.PortRange;
+import org.apache.brooklyn.core.location.PortRanges;
+import org.apache.brooklyn.core.location.geo.HostGeoInfo;
+import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.net.Networking;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import org.apache.brooklyn.api.location.LocationSpec;
-import org.apache.brooklyn.api.location.MachineProvisioningLocation;
-import org.apache.brooklyn.api.location.NoMachinesAvailableException;
-import org.apache.brooklyn.api.location.PortRange;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.location.PortRanges;
-import org.apache.brooklyn.core.location.geo.HostGeoInfo;
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
 
-public class LocalhostMachineProvisioningLocationTest {
+public class LocalhostMachineProvisioningLocationTest extends BrooklynMgmtUnitTestSupport {
 
     private static final Logger log = LoggerFactory.getLogger(LocalhostMachineProvisioningLocationTest.class);
     
-    private LocalManagementContext mgmt;
-
-    @BeforeMethod
-    @AfterClass
-    protected void clearStatics() {
+    @BeforeMethod(alwaysRun=true)
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
         LocalhostMachineProvisioningLocation.clearStaticData();
     }
     
-    @BeforeClass
-    protected void setup() {
-        mgmt = LocalManagementContextForTests.newInstance();
-    }
-    
-    @AfterClass
-    protected void teardown() {
-        Entities.destroyAll(mgmt);
+    @AfterMethod(alwaysRun=true)
+    @Override
+    public void tearDown() throws Exception {
+        try {
+            super.tearDown();
+        } finally {
+            LocalhostMachineProvisioningLocation.clearStaticData();
+        }
     }
     
     protected LocalhostMachineProvisioningLocation newLocalhostProvisioner() {
