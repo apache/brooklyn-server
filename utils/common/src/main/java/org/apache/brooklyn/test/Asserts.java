@@ -1381,4 +1381,18 @@ public class Asserts {
         if (Iterables.size(list)!=expectedSize) fail("List has wrong size "+Iterables.size(list)+" (expected "+expectedSize+"): "+list);
     }
 
+    public static void assertInstanceOf(Object obj, Class<?> type) {
+        assertThat(obj, Predicates.instanceOf(type));
+    }
+
+    public static <T> void assertPresent(Maybe<T> candidate) {
+        if (candidate.isPresent()) return;
+        fail( Maybe.getException(candidate) );
+    }
+
+    public static <T> void assertNotPresent(Maybe<T> candidate) {
+        if (candidate.isAbsent()) return;
+        fail("Expected absent value; instead got: "+candidate.get());
+    }
+
 }

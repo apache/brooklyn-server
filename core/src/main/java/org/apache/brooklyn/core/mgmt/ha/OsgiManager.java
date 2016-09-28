@@ -195,7 +195,7 @@ public class OsgiManager {
                     clazz = SystemFrameworkLoader.get().loadClassFromBundle(type, b);
                     return Maybe.of(clazz);
                 } else {
-                    bundleProblems.put(osgiBundle, ((Maybe.Absent<?>)bundle).getException());
+                    bundleProblems.put(osgiBundle, Maybe.getException(bundle));
                 }
                 
             } catch (Exception e) {

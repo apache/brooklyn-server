@@ -508,7 +508,7 @@ public class BasicLocationRegistry implements LocationRegistry {
         if (result.isPresent()) 
             return result;
         throw new IllegalStateException("Cannot instantiate location '"+ld+"' pointing at "+ld.getSpec(), 
-            ((Absent<?>)result).getException() );
+            Maybe.getException(result) );
     }
     
     @Override

@@ -55,7 +55,7 @@ public class SingleMachineLocationResolver extends AbstractLocationResolver {
         Maybe<LocationSpec<?>> testResolve = managementContext.getLocationRegistry().getLocationSpec(target);
         if (!testResolve.isPresent()) {
             throw new IllegalArgumentException("Invalid target location '" + target + "' for location '"+SINGLE+"': "+
-                Exceptions.collapseText( ((Absent<?>)testResolve).getException() ));
+                Exceptions.collapseText( Maybe.getException(testResolve) ), Maybe.getException(testResolve));
         }
         
         return LocationSpec.create(SingleMachineProvisioningLocation.class)
