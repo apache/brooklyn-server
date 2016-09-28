@@ -34,7 +34,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.net.Urls;
-import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.osgi.OsgiUtil;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
@@ -51,8 +51,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
-import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.brooklyn.util.osgi.OsgiUtil;
 
 public class Os {
 

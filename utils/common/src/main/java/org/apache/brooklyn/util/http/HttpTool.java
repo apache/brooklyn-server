@@ -241,6 +241,8 @@ public class HttpTool {
         return new HttpClientBuilder();
     }
     
+    // TODO deprecate this and use the new Apache Commons HttpClientBuilder instead
+    @SuppressWarnings("deprecation")
     public static class HttpClientBuilder {
         private ClientConnectionManager clientConnectionManager;
         private HttpParams httpParams;

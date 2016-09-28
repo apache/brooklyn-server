@@ -64,11 +64,11 @@ public class ShellUtils {
         return exec(new String[] { "bash", "-l", "-c", cmd }, null, null, input, log, context);
     }
     /** @see {@link #exec(Map, String[], String[], File, String, Logger, Object)} */
-    public static String[] exec(Map flags, String cmd, Logger log, Object context) {
+    public static String[] exec(Map<?,?> flags, String cmd, Logger log, Object context) {
         return exec(flags, new String[] { "bash", "-l", "-c", cmd }, null, null, null, log, context);
     }
     /** @see {@link #exec(Map, String[], String[], File, String, Logger, Object)} */
-    public static String[] exec(Map flags, String cmd, String input, Logger log, Object context) {
+    public static String[] exec(Map<?,?> flags, String cmd, String input, Logger log, Object context) {
         return exec(flags, new String[] { "bash", "-l", "-c", cmd }, null, null, input, log, context);
     }
     /** @see {@link #exec(Map, String[], String[], File, String, Logger, Object)} */
@@ -76,7 +76,7 @@ public class ShellUtils {
         return exec(Maps.newLinkedHashMap(), cmd, envp, dir, input, log, context);
     }
 
-    private static long getTimeoutMs(Map flags) {
+    private static long getTimeoutMs(Map<?,?> flags) {
         long timeout = TIMEOUT;
 
         Object tf = flags.get("timeout");
@@ -103,7 +103,7 @@ public class ShellUtils {
      * @throws IllegalStateException if return code non-zero
      * @return lines from stdout.
      */
-    public static String[] exec(Map flags, final String[] cmd, String[] envp, File dir, String input, final Logger log, final Object context) {
+    public static String[] exec(Map<?,?> flags, final String[] cmd, String[] envp, File dir, String input, final Logger log, final Object context) {
         if (log.isDebugEnabled()) {
             log.debug("Running local command: {}% {}", context, Strings.join(cmd, " "));
         }

@@ -18,7 +18,6 @@ package org.apache.brooklyn.util.net;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 
 import java.util.Collection;
 import java.util.List;

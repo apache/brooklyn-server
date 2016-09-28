@@ -168,9 +168,11 @@ public class Identifiers {
         return Joiner.on("").join(list);
     }
 
+    @SuppressWarnings({ "rawtypes", "unchecked" })  
     protected static String mergeCharacterSets(String... s) {
         Set characters = new HashSet<Character>();
         for (String characterSet : s) {
+            // more efficient to lose the generics here
             characters.addAll(Arrays.asList(characterSet.split("")));
         }
 
