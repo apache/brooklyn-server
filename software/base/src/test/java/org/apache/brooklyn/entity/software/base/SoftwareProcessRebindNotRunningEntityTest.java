@@ -75,22 +75,6 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
     // should tell the user that a VM might have started being provisioned but been forgotten about; or
     // that termination of the VM may or may not have completed.
     // We could use the Attributes.SERVICE_NOT_UP_INDICATORS to achieve that.
-    
-    // TODO Parent app should go on-fire after restart, but it doesn't - it continues saying "starting".
-    // We probably need to set the "service.state.expected" to on-fire on the parent as well (i.e. for 
-    // more things than just SoftwareProcess).
-    //    Sensor: service.notUp.indicators (java.util.Map) = {service.state=Application starting, service-lifecycle-indicators-from-children-and-members=VanillaSoftwareProcessImpl{id=nyijf1980z} is not up}
-    //    Sensor: entity.id (java.lang.String) = nz6qobkstx
-    //    Sensor: application.id (java.lang.String) = nz6qobkstx
-    //    Sensor: catalog.id (java.lang.String) = null
-    //    Sensor: service.isUp (java.lang.Boolean) = false
-    //    Sensor: service.problems (java.util.Map) = {service-lifecycle-indicators-from-children-and-members=Required entity not healthy: VanillaSoftwareProcessImpl{id=nyijf1980z}}
-    //    Sensor: service.state (org.apache.brooklyn.core.entity.lifecycle.Lifecycle) = starting
-    //    Sensor: service.state.expected (org.apache.brooklyn.core.entity.lifecycle.Lifecycle$Transition) = starting @ 1474967564852 / Tue Sep 27 10:12:44 BST 2016
-    //
-    // In each test, we should add at the end:
-    //   EntityAsserts.assertAttributeEqualsEventually(newApp, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
-    //   EntityAsserts.assertAttributeEqualsEventually(newApp, Attributes.SERVICE_UP, false);
 
     private ListeningExecutorService executor;
     private LocationSpec<SshMachineLocation> machineSpec;
@@ -166,6 +150,9 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
 
         EntityAsserts.assertAttributeEqualsEventually(newEntity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
         EntityAsserts.assertAttributeEqualsEventually(newEntity, Attributes.SERVICE_UP, false);
+
+        EntityAsserts.assertAttributeEqualsEventually(newApp, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertAttributeEqualsEventually(newApp, Attributes.SERVICE_UP, false);
     }
 
     @Test
@@ -194,6 +181,9 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
 
         EntityAsserts.assertAttributeEqualsEventually(newEntity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
         EntityAsserts.assertAttributeEqualsEventually(newEntity, Attributes.SERVICE_UP, false);
+
+        EntityAsserts.assertAttributeEqualsEventually(newApp, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertAttributeEqualsEventually(newApp, Attributes.SERVICE_UP, false);
     }
 
     @Test
@@ -224,6 +214,9 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
 
         EntityAsserts.assertAttributeEqualsEventually(newEntity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
         EntityAsserts.assertAttributeEqualsEventually(newEntity, Attributes.SERVICE_UP, false);
+
+        EntityAsserts.assertAttributeEqualsEventually(newApp, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertAttributeEqualsEventually(newApp, Attributes.SERVICE_UP, false);
     }
 
     @Test
@@ -249,6 +242,9 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
 
         EntityAsserts.assertAttributeEqualsEventually(newEntity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
         EntityAsserts.assertAttributeEqualsEventually(newEntity, Attributes.SERVICE_UP, false);
+
+        EntityAsserts.assertAttributeEqualsEventually(newApp, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertAttributeEqualsEventually(newApp, Attributes.SERVICE_UP, false);
     }
 
     @Test
@@ -276,6 +272,9 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
 
         EntityAsserts.assertAttributeEqualsEventually(newEntity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
         EntityAsserts.assertAttributeEqualsEventually(newEntity, Attributes.SERVICE_UP, false);
+
+        EntityAsserts.assertAttributeEqualsEventually(newApp, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertAttributeEqualsEventually(newApp, Attributes.SERVICE_UP, false);
     }
 
     protected ListenableFuture<Void> startAsync(final Startable entity, final Collection<? extends Location> locs) {
