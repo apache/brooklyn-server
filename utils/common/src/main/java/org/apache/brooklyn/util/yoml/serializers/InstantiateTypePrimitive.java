@@ -20,6 +20,7 @@ package org.apache.brooklyn.util.yoml.serializers;
 
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.yoml.annotations.YomlAsPrimitive;
 import org.apache.brooklyn.util.yoml.internal.YomlContext;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils;
 
@@ -69,11 +70,14 @@ public class InstantiateTypePrimitive extends YomlSerializerComposition {
                     if (typeName==null) return;
                     expectedJavaType = config.getTypeRegistry().getJavaTypeMaybe(typeName).orNull();
                     if (expectedJavaType==null) expectedJavaType = getSpecialKnownTypeName(typeName);
-                    if (!isJsonPrimitiveType(expectedJavaType) && !isJsonMarkerType(typeName)) return;
+                    // could restrict read coercion to basic types as follows, but no harm in trying to coerce if it's
+                    // a value map
+//                    if (!isJsonPrimitiveType(expectedJavaType) && !isJsonMarkerType(typeName)) return;
 
                     value = readingValueFromTypeValueMap();
                     if (value.isAbsent()) return;
-                    if (tryCoerceAndNoteError(value.get(), expectedJavaType).isAbsent()) return;
+                    value = tryCoerceAndNoteError(value.get(), expectedJavaType);
+                    if (value.isAbsent()) return;
                     removeTypeAndValueKeys();
                 }
             }
@@ -84,26 +88,71 @@ public class InstantiateTypePrimitive extends YomlSerializerComposition {
         public void write() {
             if (!canDoWrite()) return;
             
-            if (!YomlUtils.JsonMarker.isPureJson(getJavaObject())) return;
+            Object jIn = getJavaObject();
+            Object jOut = null;
+            
+            if (jIn==null) return;
+            
+            if (!YomlUtils.JsonMarker.isPureJson(jIn)) {
+                // not json, but can we coerce to json?
+                if (jIn.getClass().getAnnotation(YomlAsPrimitive.class)!=null) {
+                    Object jo;
+                    if (jOut==null) {
+                        jo = config.getCoercer().tryCoerce(jIn, String.class).orNull();
+                        if (isReverseCoercible(jo, jIn)) jOut = jo;
+                    }
+                    if (jOut==null) {
+                        jo = jIn.toString();
+                        if (isReverseCoercible(jo, jIn)) jOut = jo;
+                    }
+                    // could convert to other primitives eg int
+                    // but no good use case so far
+                }
+                if (jOut!=null) {
+                    // check whether we'll be able to read it back without additional type information
+                    Maybe<?> typeNeededCheck = config.getCoercer().tryCoerce(jOut, getExpectedTypeJava());
+                    if (typeNeededCheck.isPresent() && jIn.equals(typeNeededCheck.get())) {
+                        // expected type is good enough to coerce, so write without type info
+                        storeWriteObjectAndAdvance(jOut);
+                        return;                    
+                        
+                    } else {
+                        // fall through to below and write as type/value map
+                    }
+                }
+            }
+            
+            if (jOut==null) jOut = jIn;
+            if (!YomlUtils.JsonMarker.isPureJson(jOut)) {
+                // it input is not pure json at this point, we don't apply
+                return;
+            }
             
             if (isJsonPrimitiveType(getExpectedTypeJava()) || isJsonMarkerTypeExpected()) {
-                storeWriteObjectAndAdvance(getJavaObject());
+                // store it as pure primitive
+                storeWriteObjectAndAdvance(jOut);
                 return;                    
             }
 
             // not expecting a primitive/json; bail out if it's not a primitive (map/list might decide to write `json` as the type)
-            if (!isJsonPrimitiveObject(getJavaObject())) return;
+            if (!isJsonPrimitiveObject(jOut)) return;
             
-            String typeName = config.getTypeRegistry().getTypeName(getJavaObject());
+            String typeName = config.getTypeRegistry().getTypeName(jIn);
             if (addSerializersForDiscoveredRealType(typeName)) {
                 // if new serializers, bail out and we'll re-run
                 context.phaseRestart();
                 return;
             }
 
-            MutableMap<Object, Object> map = writingMapWithTypeAndLiteralValue(typeName, getJavaObject());
+            MutableMap<Object, Object> map = writingMapWithTypeAndLiteralValue(typeName, jOut);
             context.phaseInsert(YomlContext.StandardPhases.MANIPULATING);
             storeWriteObjectAndAdvance(map);
+        }
+
+        private boolean isReverseCoercible(Object input, Object target) {
+            Maybe<? extends Object> coerced = config.getCoercer().tryCoerce(input, target.getClass());
+            if (coerced.isAbsent()) return false;
+            return (target.equals(coerced.get()));
         }
     }
 

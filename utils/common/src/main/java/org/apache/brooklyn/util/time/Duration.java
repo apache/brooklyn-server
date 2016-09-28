@@ -29,12 +29,18 @@ import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.yoml.annotations.Alias;
+import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsTopLevel;
+import org.apache.brooklyn.util.yoml.annotations.YomlAsPrimitive;
 
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 
 /** simple class determines a length of time */
+@YomlAllFieldsTopLevel
+@YomlAsPrimitive
+@Alias("duration")
 public class Duration implements Comparable<Duration>, Serializable {
 
     private static final long serialVersionUID = -2303909964519279617L;
@@ -53,9 +59,13 @@ public class Duration implements Comparable<Duration>, Serializable {
     
     /** longest supported duration, 2^{63}-1 nanoseconds, approx ten billion seconds, or 300 years */ 
     public static final Duration PRACTICALLY_FOREVER = of(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+    public static final String PRACTICALLY_FOREVER_NAME = "a very long time";
 
     private final long nanos;
 
+    @SuppressWarnings("unused")  // for yoml creation
+    private Duration() { nanos=-1; }
+    
     public Duration(long value, TimeUnit unit) {
         if (value != 0) {
             Preconditions.checkNotNull(unit, "Cannot accept null timeunit (unless value is 0)");
@@ -72,6 +82,7 @@ public class Duration implements Comparable<Duration>, Serializable {
 
     @Override
     public String toString() {
+        if (nanos==PRACTICALLY_FOREVER.nanos) return PRACTICALLY_FOREVER_NAME;
         return Time.makeTimeStringExact(this);
     }
 
@@ -143,9 +154,13 @@ public class Duration implements Comparable<Duration>, Serializable {
         if (Strings.isBlank(textualDescription)) return null;
         if ("null".equalsIgnoreCase(textualDescription)) return null;
         
-        if ("forever".equalsIgnoreCase(textualDescription)) return Duration.PRACTICALLY_FOREVER;
-        if ("practicallyforever".equalsIgnoreCase(textualDescription)) return Duration.PRACTICALLY_FOREVER;
-        if ("practically_forever".equalsIgnoreCase(textualDescription)) return Duration.PRACTICALLY_FOREVER;
+        if (!textualDescription.matches(".*[0-9].*")) {
+            // look for text matches if there are no numbers in it
+            String t = textualDescription.toLowerCase();
+            if (PRACTICALLY_FOREVER_NAME.equals(t)) return Duration.PRACTICALLY_FOREVER;
+            if (t.matches("(practically[-_\\s]*)?forever")) return Duration.PRACTICALLY_FOREVER;
+            if (t.matches("(a[-_\\s]+)?(very[-_,\\s]*)*(long[-_,\\s]*)+(time)?")) return Duration.PRACTICALLY_FOREVER;
+        }
         
         return new Duration((long) Time.parseElapsedTimeAsDouble(textualDescription), TimeUnit.MILLISECONDS);
     }

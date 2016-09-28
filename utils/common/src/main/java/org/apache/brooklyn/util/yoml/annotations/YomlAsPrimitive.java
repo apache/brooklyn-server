@@ -21,25 +21,22 @@ package org.apache.brooklyn.util.yoml.annotations;
 import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
-import java.lang.annotation.Inherited;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
 import org.apache.brooklyn.util.yoml.serializers.ConvertFromPrimitive;
+import org.apache.brooklyn.util.yoml.serializers.InstantiateTypePrimitive;
 
 /** 
- * Indicates that a class can be yoml-serialized as a primitive
- * reflecting a single field in the object which will take the primitive value.
+ * Indicates that a class is potentially coercible to and from a primitive.
+ * YOML will always try to coerce from a primitive if appropriate,
+ * but this indicates that it should try various strategies to coerce to a primitive.
  * <p>
- * If no {@link #keyToInsert()} is supplied the value is set under the key 
- * <code>.value</code> for use by other serializers.
- * <p>
- * See {@link ConvertFromPrimitive}.
+ * See {@link InstantiateTypePrimitive}.
  */
 @Retention(RUNTIME)
 @Target({ TYPE })
-@Inherited
-public @interface YomlFromPrimitive {
+public @interface YomlAsPrimitive {
     
     /** The key to insert for the given value */
     String keyToInsert() default ConvertFromPrimitive.DEFAULT_DEFAULT_KEY;

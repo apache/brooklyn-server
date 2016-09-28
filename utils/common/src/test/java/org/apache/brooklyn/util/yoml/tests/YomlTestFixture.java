@@ -56,10 +56,12 @@ public class YomlTestFixture {
     
     Object writeObject;
     String writeObjectExpectedType;
+    String lastWriteExpectedType;
     Object lastWriteResult;
     String readObject;
     String readObjectExpectedType;
     Object lastReadResult;
+    String lastReadExpectedType;
     Object lastResult;
 
     public YomlTestFixture writing(Object objectToWrite) {
@@ -84,21 +86,31 @@ public class YomlTestFixture {
     }
     public YomlTestFixture write(Object objectToWrite, String expectedType) {
         writing(objectToWrite, expectedType);
+        lastWriteExpectedType = expectedType;
         lastWriteResult = y.write(objectToWrite, expectedType);
         lastResult = lastWriteResult;
         return this;
     }
     public YomlTestFixture read(String objectToRead, String expectedType) {
         reading(objectToRead, expectedType);
+        lastReadExpectedType = expectedType;
         lastReadResult = y.read(objectToRead, expectedType);
         lastResult = lastReadResult;
+        return this;
+    }
+    public YomlTestFixture writeLastRead() {
+        write(lastReadResult, lastReadExpectedType);
+        return this;
+    }
+    public YomlTestFixture readLastWrite() {
+        read(asJson(lastWriteResult), lastWriteExpectedType);
         return this;
     }
     
     public YomlTestFixture assertResult(Object expectation) {
         if (expectation instanceof String) {
             if (lastResult instanceof Map || lastResult instanceof Collection) {
-                assertEqualish(Jsonya.newInstance().add(lastResult).toString(), expectation, "Result as JSON string does not match expectation");
+                assertEqualish(asJson(lastResult), expectation, "Result as JSON string does not match expectation");
             } else {
                 assertEqualish(Strings.toString(lastResult), expectation, "Result toString does not match expectation");
             }
@@ -107,10 +119,19 @@ public class YomlTestFixture {
         }
         return this;
     }
+    
+    static String asJson(Object o) {
+        return Jsonya.newInstance().add(o).toString();
+    }
+    
     public YomlTestFixture doReadWriteAssertingJsonMatch() {
         read(readObject, readObjectExpectedType);
         write(writeObject, writeObjectExpectedType);
-        assertEqualish(Jsonya.newInstance().add(lastWriteResult).toString(), readObject, "Write output should match read input");
+        return assertLastsMatch();
+    }
+    
+    public YomlTestFixture assertLastsMatch() {
+        assertEqualish(asJson(lastWriteResult), readObject, "Write output should match read input");
         assertEqualish(lastReadResult, writeObject, "Read output should match write input");
         return this;
     }
@@ -134,7 +155,7 @@ public class YomlTestFixture {
         assertEqualish(Jsonya.newInstance().add(getLastWriteResult()).toString(), expected, message);
     }
     public void assertLastWriteIgnoringQuotes(String expected) {
-        assertEqualish(Jsonya.newInstance().add(getLastWriteResult()).toString(), expected, "mismatch");
+        assertEqualish(Jsonya.newInstance().add(getLastWriteResult()).toString(), expected, "mismatch on last write");
     }
 
     // methods below require using the default registry, will NPE otherwise
