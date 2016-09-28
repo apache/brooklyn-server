@@ -30,6 +30,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.yoml.YomlException;
 import org.apache.brooklyn.util.yoml.annotations.Alias;
 import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsTopLevel;
 import org.apache.brooklyn.util.yoml.internal.YomlContext;
@@ -58,6 +59,10 @@ public class TopLevelFieldSerializer extends YomlSerializerComposition {
     /** preferred constructor for dealing with shadowed fields using superclass.field naming convention */
     public TopLevelFieldSerializer(String name, Field f) {
         fieldName = keyName = name;
+        // if field is called type insert _ to prevent confusion
+        if (keyName.matches("_*type")) {
+            keyName = "_"+keyName;
+        }
             
         Alias alias = f.getAnnotation(Alias.class);
         if (alias!=null) {
@@ -183,22 +188,25 @@ public class TopLevelFieldSerializer extends YomlSerializerComposition {
             if (!readyForMainEvent()) return;
             if (!canDoRead()) return;
             if (!isYamlMap()) return;
-            if (!hasYamlKeysOnBlackboard()) return;
+            if (!hasYamlKeysOnBlackboardRemaining()) return;
+            
+            boolean fieldsCreated = false;
             
             @SuppressWarnings("unchecked")
-            Map<String,Object> fields = peekFromYamlKeysOnBlackboard(getKeyNameForMapOfGeneralValues(), Map.class).orNull();
+            Map<String,Object> fields = peekFromYamlKeysOnBlackboardRemaining(getKeyNameForMapOfGeneralValues(), Map.class).orNull();
             if (fields==null) {
                 // create the fields if needed; FieldsInFieldsMap will remove (even if empty)
+                fieldsCreated = true;
                 fields = MutableMap.of();
-                YamlKeysOnBlackboard.getOrCreate(blackboard, null).yamlKeysToReadToJava.put(getKeyNameForMapOfGeneralValues(), fields);
+                getYamlKeysOnBlackboardInitializedFromYamlMap().putNewKey(getKeyNameForMapOfGeneralValues(), fields);
             }
             
             int keysMatched = 0;
             for (String aliasO: getKeyNameAndAliases()) {
                 Set<String> aliasMangles = getTopLevelFieldsBlackboard().isAliasesStrict(fieldName) ?
-                    Collections.singleton(aliasO) : findAllKeyManglesYamlKeys(aliasO);
+                    Collections.singleton(aliasO) : findAllYamlKeysOnBlackboardRemainingMangleMatching(aliasO);
                 for (String alias: aliasMangles) {
-                    Maybe<Object> value = peekFromYamlKeysOnBlackboard(alias, Object.class);
+                    Maybe<Object> value = peekFromYamlKeysOnBlackboardRemaining(alias, Object.class);
                     if (value.isAbsent()) continue;
                     if (log.isTraceEnabled()) {
                         log.trace(TopLevelFieldSerializer.this+": found "+alias+" for "+fieldName);
@@ -212,7 +220,7 @@ public class TopLevelFieldSerializer extends YomlSerializerComposition {
                         continue;
                     }
                     // value present, field not yet handled
-                    removeFromYamlKeysOnBlackboard(alias);
+                    removeFromYamlKeysOnBlackboardRemaining(alias);
                     fields.put(fieldName, value.get());
                     keysMatched++;
                 }
@@ -225,7 +233,7 @@ public class TopLevelFieldSerializer extends YomlSerializerComposition {
                     keysMatched++;                    
                 }
             }
-            if (keysMatched>0) {
+            if (fieldsCreated || keysMatched>0) {
                 // repeat this manipulating phase if we set any keys, so that remapping can apply
                 getTopLevelFieldsBlackboard().setFieldDone(fieldName);
                 context.phaseInsert(StandardPhases.MANIPULATING);
@@ -237,7 +245,7 @@ public class TopLevelFieldSerializer extends YomlSerializerComposition {
             if (!isYamlMap()) return;
 
             @SuppressWarnings("unchecked")
-            Map<String,Object> fields = getFromYamlMap(getKeyNameForMapOfGeneralValues(), Map.class).orNull();
+            Map<String,Object> fields = getFromOutputYamlMap(getKeyNameForMapOfGeneralValues(), Map.class).orNull();
             /*
              * if fields is null either we are too early (not yet set by instantiate-type / FieldsInMapUnderFields)
              * or too late (already read in to java), so we bail -- this yaml key cannot be handled at this time
@@ -269,14 +277,14 @@ public class TopLevelFieldSerializer extends YomlSerializerComposition {
             
             if (valueToSet.isPresent()) {
                 getTopLevelFieldsBlackboard().setFieldDone(fieldName);
-                Object oldValue = getYamlMap().put(getPreferredKeyName(), valueToSet.get());
+                Object oldValue = getOutputYamlMap().put(getPreferredKeyName(), valueToSet.get());
                 if (oldValue!=null && !oldValue.equals(valueToSet.get())) {
-                    throw new IllegalStateException("Conflicting values for `"+getPreferredKeyName()+"`");
+                    throw new YomlException("Conflicting values for `"+getPreferredKeyName()+"`: "+oldValue+" / "+valueToSet.get(), context);
                 }
                 // and move the `fields` object to the end
-                getYamlMap().remove(getKeyNameForMapOfGeneralValues());
+                getOutputYamlMap().remove(getKeyNameForMapOfGeneralValues());
                 if (!fields.isEmpty())
-                    getYamlMap().put(getKeyNameForMapOfGeneralValues(), fields);
+                    getOutputYamlMap().put(getKeyNameForMapOfGeneralValues(), fields);
                 // rerun this phase again, as we've changed it
                 context.phaseInsert(StandardPhases.MANIPULATING);
             }

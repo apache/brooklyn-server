@@ -20,6 +20,7 @@ package org.apache.brooklyn.util.yoml.serializers;
 
 import java.util.Map;
 
+import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.yoml.annotations.Alias;
 import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsTopLevel;
 import org.apache.brooklyn.util.yoml.annotations.YomlRenameKey;
@@ -27,11 +28,15 @@ import org.apache.brooklyn.util.yoml.annotations.YomlRenameKey.YomlRenameDefault
 import org.apache.brooklyn.util.yoml.annotations.YomlRenameKey.YomlRenameDefaultValue;
 import org.apache.brooklyn.util.yoml.internal.YomlContext;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @YomlAllFieldsTopLevel
 @Alias("rename-key")
 public class RenameKeySerializer extends YomlSerializerComposition {
 
+    private static final Logger log = LoggerFactory.getLogger(RenameKeySerializer.class);
+    
     RenameKeySerializer() { }
 
     public RenameKeySerializer(YomlRenameKey ann) { 
@@ -54,7 +59,7 @@ public class RenameKeySerializer extends YomlSerializerComposition {
     @Alias("to")
     String newKeyName;
     Map<String,? extends Object> defaults;
-        
+
     public class Worker extends YomlSerializerWorker {
         public void read() {
             if (!context.isPhase(YomlContext.StandardPhases.MANIPULATING)) return;
@@ -62,14 +67,17 @@ public class RenameKeySerializer extends YomlSerializerComposition {
             if (hasJavaObject()) return;
             if (!isYamlMap()) return;
 
-            YamlKeysOnBlackboard ym = YamlKeysOnBlackboard.getOrCreate(blackboard, getYamlMap());
-            Map<Object, Object> ymj = ym.yamlKeysToReadToJava;
+            YamlKeysOnBlackboard ym = getYamlKeysOnBlackboardInitializedFromYamlMap();
             
-            if (!ymj.containsKey(oldKeyName)) return;
-            if (ymj.containsKey(newKeyName)) return;
+            if (!ym.hasKeysLeft(oldKeyName)) return;
+            if (ym.hadKeysEver(newKeyName)) return;
             
-            ymj.put(newKeyName, ymj.remove(oldKeyName));
-            YomlUtils.addDefaults(defaults, ymj);
+            ym.putNewKey(newKeyName, ym.removeKey(oldKeyName).get());
+            ym.addDefaults(defaults);
+            
+            if (log.isTraceEnabled()) {
+                log.trace(this+" read, keys left now: "+ym);
+            }
             
             context.phaseRestart();
         }
@@ -79,16 +87,25 @@ public class RenameKeySerializer extends YomlSerializerComposition {
             if (!isYamlMap()) return;
 
             // reverse order
-            if (!getYamlMap().containsKey(newKeyName)) return;
-            if (getYamlMap().containsKey(oldKeyName)) return;
+            if (!getOutputYamlMap().containsKey(newKeyName)) return;
+            if (getOutputYamlMap().containsKey(oldKeyName)) return;
             
-            getYamlMap().put(oldKeyName, getYamlMap().remove(newKeyName));
-            YomlUtils.removeDefaults(defaults, getYamlMap());
+            getOutputYamlMap().put(oldKeyName, getOutputYamlMap().remove(newKeyName));
+            YomlUtils.removeDefaults(defaults, getOutputYamlMap());
+
+            if (log.isTraceEnabled()) {
+                log.trace(this+" write, output now: "+getOutputYamlMap());
+            }
 
             context.phaseRestart();
         }
     }
 
+    @Override
+    public String toString() {
+        return JavaClassNames.simpleClassName(getClass())+"["+oldKeyName+"->"+newKeyName+"]";
+    }
+    
     @YomlAllFieldsTopLevel
     @Alias("rename-default-key")
     public static class RenameDefaultKey extends RenameKeySerializer {

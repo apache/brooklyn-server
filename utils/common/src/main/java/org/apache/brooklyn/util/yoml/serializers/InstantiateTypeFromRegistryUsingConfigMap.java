@@ -141,6 +141,7 @@ public class InstantiateTypeFromRegistryUsingConfigMap extends InstantiateTypeFr
             
             // prepare blackboard, annotations, then do handling_config
             JavaFieldsOnBlackboard fib = JavaFieldsOnBlackboard.create(blackboard, keyNameForConfigWhenSerialized);
+            
             fib.typeNameFromReadToConstructJavaLater = type;
             fib.typeFromReadToConstructJavaLater = clazz;
             fib.fieldsFromReadToConstructJava = MutableMap.of();
@@ -154,10 +155,13 @@ public class InstantiateTypeFromRegistryUsingConfigMap extends InstantiateTypeFr
         }
 
         protected void addExtraTypeSerializers(Class<?> clazz) {
-            if (inferByScanning) {
-                SerializersOnBlackboard.get(blackboard).addInstantiatedTypeSerializers(
-                    TopLevelConfigKeySerializer.findConfigKeySerializers(keyNameForConfigWhenSerialized, clazz) );
-            }
+            if (!inferByScanning) return;
+            
+            // prevent multiple additions
+            if (!putLabelOnBlackboard("extra-type-serializers="+clazz, true)) return;
+            
+            SerializersOnBlackboard.get(blackboard).addInstantiatedTypeSerializers(
+                TopLevelConfigKeySerializer.findConfigKeySerializers(keyNameForConfigWhenSerialized, clazz) );
         }
 
         protected TopLevelFieldsBlackboard getTopLevelFieldsBlackboard() {

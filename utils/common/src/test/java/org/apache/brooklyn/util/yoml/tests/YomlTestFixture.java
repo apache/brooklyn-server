@@ -38,14 +38,20 @@ public class YomlTestFixture {
     public static YomlTestFixture newInstance() { return new YomlTestFixture(); }
     public static YomlTestFixture newInstance(YomlConfig config) { return new YomlTestFixture(config); }
     
-    final MockYomlTypeRegistry tr = new MockYomlTypeRegistry();
+    final MockYomlTypeRegistry tr;
     final Yoml y;
     
     public YomlTestFixture() {
         this(YomlConfig.Builder.builder().serializersPostAddDefaults().build());
     }
     public YomlTestFixture(YomlConfig config) {
-        y = Yoml.newInstance(YomlConfig.Builder.builder(config).typeRegistry(tr).build());
+        if (config.getTypeRegistry()==null) {
+            tr = new MockYomlTypeRegistry();
+            config = YomlConfig.Builder.builder(config).typeRegistry(tr).build();
+        } else {
+            tr = null;
+        }
+        y = Yoml.newInstance(config);
     }
     
     Object writeObject;
@@ -130,6 +136,8 @@ public class YomlTestFixture {
     public void assertLastWriteIgnoringQuotes(String expected) {
         assertEqualish(Jsonya.newInstance().add(getLastWriteResult()).toString(), expected, "mismatch");
     }
+
+    // methods below require using the default registry, will NPE otherwise
     
     public YomlTestFixture addType(String name, Class<?> type) { tr.put(name, type); return this; }
     public YomlTestFixture addType(String name, Class<?> type, List<? extends YomlSerializer> serializers) { tr.put(name, type, serializers); return this; }

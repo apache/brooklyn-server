@@ -63,6 +63,13 @@ public class TopLevelConfigKeysTests {
             this.typeToken = TypeToken.of(type);
         }
 
+        public MockConfigKey(Class<T> type, String name, T defaultValue) {
+            this.name = name;
+            this.type = type;
+            this.typeToken = TypeToken.of(type);
+            this.defaultValue = defaultValue;
+        }
+
         @SuppressWarnings("unchecked")
         public MockConfigKey(TypeToken<T> typeToken, String name) {
             this.name = name;
@@ -114,6 +121,17 @@ public class TopLevelConfigKeysTests {
         .addTypeWithAnnotationsAndConfigFieldsIgnoringInheritance("s1", S1.class, MutableMap.of("keys", "config"));
         
         y.read("{ type: s1, k1: foo }", null);
+
+        Asserts.assertInstanceOf(y.lastReadResult, S1.class);
+        Asserts.assertEquals(((S1)y.lastReadResult).keys.get("k1"), "foo");
+    }
+    
+    @Test
+    public void testReadExpectingType() {
+        YomlTestFixture y = YomlTestFixture.newInstance()
+        .addTypeWithAnnotationsAndConfigFieldsIgnoringInheritance("s1", S1.class, MutableMap.of("keys", "config"));
+        
+        y.read("{ k1: foo }", "s1");
 
         Asserts.assertInstanceOf(y.lastReadResult, S1.class);
         Asserts.assertEquals(((S1)y.lastReadResult).keys.get("k1"), "foo");
@@ -205,19 +223,19 @@ public class TopLevelConfigKeysTests {
 
     @YomlConfigMapConstructor("")
     @YomlAllFieldsTopLevel
-    static class KF {
+    static class KeyAsField {
         @Alias("k")
         static ConfigKey<String> K1 = new MockConfigKey<String>(String.class, "key1");
         final String key1Field;
         transient final Map<String,?> keysSuppliedToConstructorForTestAssertions;
-        KF(Map<String,?> keys) {
+        KeyAsField(Map<String,?> keys) {
             key1Field = (String) keys.get(K1.getName());
             keysSuppliedToConstructorForTestAssertions = keys;
         }
         
         @Override
         public boolean equals(Object obj) {
-            return (obj instanceof KF) && ((KF)obj).key1Field.equals(key1Field);
+            return (obj instanceof KeyAsField) && Objects.equals( ((KeyAsField)obj).key1Field, key1Field);
         }
         @Override
         public int hashCode() {
@@ -229,23 +247,23 @@ public class TopLevelConfigKeysTests {
         }
     }
     
-    final KF KF_FOO = new KF(MutableMap.of("key1", "foo"));
+    final KeyAsField KF_FOO = new KeyAsField(MutableMap.of("key1", "foo"));
     
     @Test
     public void testNoConfigMapFieldCanReadKeyToMapConstructor() {
-        YomlTestFixture y = YomlTestFixture.newInstance().addTypeWithAnnotations("kf", KF.class);
+        YomlTestFixture y = YomlTestFixture.newInstance().addTypeWithAnnotations("kf", KeyAsField.class);
         y.read("{ key1: foo }", "kf").assertResult(KF_FOO);
-        Assert.assertEquals(((KF)y.lastReadResult).keysSuppliedToConstructorForTestAssertions, KF_FOO.keysSuppliedToConstructorForTestAssertions);
+        Assert.assertEquals(((KeyAsField)y.lastReadResult).keysSuppliedToConstructorForTestAssertions, KF_FOO.keysSuppliedToConstructorForTestAssertions);
     }
     @Test
     public void testNoConfigMapFieldCanReadKeyAliasToMapConstructor() {
-        YomlTestFixture y = YomlTestFixture.newInstance().addTypeWithAnnotations("kf", KF.class);
+        YomlTestFixture y = YomlTestFixture.newInstance().addTypeWithAnnotations("kf", KeyAsField.class);
         y.read("{ k: foo }", "kf").assertResult(KF_FOO);
-        Assert.assertEquals(((KF)y.lastReadResult).keysSuppliedToConstructorForTestAssertions, KF_FOO.keysSuppliedToConstructorForTestAssertions);
+        Assert.assertEquals(((KeyAsField)y.lastReadResult).keysSuppliedToConstructorForTestAssertions, KF_FOO.keysSuppliedToConstructorForTestAssertions);
     }
     @Test
     public void testStaticFieldNameNotRelevant() {
-        YomlTestFixture y = YomlTestFixture.newInstance().addTypeWithAnnotations("kf", KF.class);
+        YomlTestFixture y = YomlTestFixture.newInstance().addTypeWithAnnotations("kf", KeyAsField.class);
         try {
             y.read("{ k1: foo }", "kf");
             Asserts.shouldHaveFailedPreviously("Got "+y.lastReadResult);
@@ -256,36 +274,36 @@ public class TopLevelConfigKeysTests {
     
     @Test
     public void testNoConfigMapFieldCanWriteAndReadToFieldDirectly() {
-        YomlTestFixture y = YomlTestFixture.newInstance().addTypeWithAnnotations("kf", KF.class);
+        YomlTestFixture y = YomlTestFixture.newInstance().addTypeWithAnnotations("kf", KeyAsField.class);
         // writing must write to the field directly because it is not defined how to reverse map to the config key
         y.writing(KF_FOO).reading("{ type: kf, key1Field: foo }").doReadWriteAssertingJsonMatch();
         // nothing passed to constructor, but constructor is invoked
-        Assert.assertEquals(((KF)y.lastReadResult).keysSuppliedToConstructorForTestAssertions, MutableMap.of(),
-            "Constructor given unexpectedly non-empty map: "+((KF)y.lastReadResult).keysSuppliedToConstructorForTestAssertions);
+        Assert.assertEquals(((KeyAsField)y.lastReadResult).keysSuppliedToConstructorForTestAssertions, MutableMap.of(),
+            "Constructor given unexpectedly non-empty map: "+((KeyAsField)y.lastReadResult).keysSuppliedToConstructorForTestAssertions);
     }
 
-    static class KF2 extends KF {
-        KF2(Map<String, ?> keys) { super(keys); }
+    static class KfA2C extends KeyAsField {
+        KfA2C(Map<String, ?> keys) { super(keys); }
 
         @Alias("key1Field")  // alias same name as field means it *is* passed to constructor
         static ConfigKey<String> K1 = new MockConfigKey<String>(String.class, "key1");
     }
     
-    private static final KF2 KF2_FOO = new KF2(MutableMap.of("key1", "foo"));
+    private static final KfA2C KF_A2C_FOO = new KfA2C(MutableMap.of("key1", "foo"));
 
     @Test
     public void testConfigKeyTopLevelInherited() {
-        YomlTestFixture y = YomlTestFixture.newInstance().addTypeWithAnnotations("kf2", KF2.class);
-        y.read("{ key1: foo }", "kf2").assertResult(KF2_FOO);
+        YomlTestFixture y = YomlTestFixture.newInstance().addTypeWithAnnotations("kf-a2c", KfA2C.class);
+        y.read("{ key1: foo }", "kf-a2c").assertResult(KF_A2C_FOO);
     }
     
     @Test
     public void testConfigKeyOverrideHidesParentAlias() {
         // this could be weakened to be allowed (but aliases at types must not be, for obvious reasons!) 
         
-        YomlTestFixture y = YomlTestFixture.newInstance().addTypeWithAnnotations("kf2", KF2.class);
+        YomlTestFixture y = YomlTestFixture.newInstance().addTypeWithAnnotations("kf-a2c", KfA2C.class);
         try {
-            y.read("{ k: foo }", "kf2");
+            y.read("{ k: foo }", "kf-a2c");
             Asserts.shouldHaveFailedPreviously("Got "+y.lastReadResult);
         } catch (Exception e) {
             Asserts.expectedFailureContainsIgnoreCase(e, "k", "foo");
@@ -294,11 +312,32 @@ public class TopLevelConfigKeysTests {
 
     @Test
     public void testNoConfigMapFieldWillPreferConstructorIfKeyForFieldCanBeFound() {
-        YomlTestFixture y = YomlTestFixture.newInstance().addTypeWithAnnotations("kf2", KF2.class);
+        YomlTestFixture y = YomlTestFixture.newInstance().addTypeWithAnnotations("kf-a2c", KfA2C.class);
         // writing must write to the field because it is not defined how to reverse map to the config key
-        y.writing(KF2_FOO).reading("{ type: kf2, key1Field: foo }").doReadWriteAssertingJsonMatch();
+        y.writing(KF_A2C_FOO).reading("{ type: kf-a2c, key1Field: foo }").doReadWriteAssertingJsonMatch();
         // is passed to constructor
-        Assert.assertEquals(((KF)y.lastReadResult).keysSuppliedToConstructorForTestAssertions, KF_FOO.keysSuppliedToConstructorForTestAssertions);
+        Assert.assertEquals(((KeyAsField)y.lastReadResult).keysSuppliedToConstructorForTestAssertions, KF_FOO.keysSuppliedToConstructorForTestAssertions);
+    }
+
+    
+    static class SDefault extends S3 {
+        transient final Map<String,?> keysSuppliedToConstructorForTestAssertions;
+            
+        SDefault(Map<String, ?> keys) { 
+            super(keys); 
+            keysSuppliedToConstructorForTestAssertions = keys;
+        }
+
+        static ConfigKey<String> KD = new MockConfigKey<String>(String.class, "keyD", "default");
+    }
+
+    @Test
+    public void testConfigKeyDefaultsReadButNotWritten() {
+        YomlTestFixture y = YomlTestFixture.newInstance().addTypeWithAnnotations("s-default", SDefault.class);
+        y.reading("{}", "s-default").writing(new SDefault(MutableMap.<String,Object>of()), "s-default")
+        .doReadWriteAssertingJsonMatch();
+        
+        Asserts.assertSize( ((SDefault)y.lastReadResult).keysSuppliedToConstructorForTestAssertions.keySet(), 0 );
     }
 
 }

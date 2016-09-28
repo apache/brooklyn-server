@@ -119,12 +119,12 @@ public class ConvertSingletonMap extends YomlSerializerComposition {
             if (!context.isPhase(YomlContext.StandardPhases.MANIPULATING)) return;
             
             if (!isYamlMap()) return;
-            if (getYamlMap().size()!=1) return;
+            if (getRawInputYamlMap().size()!=1) return;
             
             if (!enterModeRead(SingletonMapMode.NON_LIST)) return;
             
-            Object key = Iterables.getOnlyElement(getYamlMap().keySet());
-            Object value = Iterables.getOnlyElement(getYamlMap().values());
+            Object key = Iterables.getOnlyElement(getRawInputYamlMap().keySet());
+            Object value = Iterables.getOnlyElement(getRawInputYamlMap().values());
             
             // key should always be primitive
             if (!isJsonPrimitiveObject(key)) return;
@@ -224,14 +224,14 @@ public class ConvertSingletonMap extends YomlSerializerComposition {
         protected void readManipulatingMapToList() {
             // convert from a map to a list; then manipulate in list
             List<Object> result = MutableList.of();
-            for (Map.Entry<Object,Object> entry: getYamlMap().entrySet()) {
+            for (Map.Entry<Object,Object> entry: getRawInputYamlMap().entrySet()) {
                 result.add(MutableMap.of(entry.getKey(), entry.getValue()));
             }
             result = readManipulatingInList(result, SingletonMapMode.LIST_AS_MAP);
             if (result==null) return;
             
             context.setYamlObject(result);
-            YamlKeysOnBlackboard.getOrCreate(blackboard, null).yamlKeysToReadToJava.clear();
+            YamlKeysOnBlackboard.getOrCreate(blackboard, null).clear();
             context.phaseAdvance();
         }
 
@@ -280,8 +280,8 @@ public class ConvertSingletonMap extends YomlSerializerComposition {
                 }
             }
 
-            if (!getYamlMap().containsKey(keyForKey)) return;
-            Object newKey = getYamlMap().get(keyForKey);
+            if (!getOutputYamlMap().containsKey(keyForKey)) return;
+            Object newKey = getOutputYamlMap().get(keyForKey);
             if (!isJsonPrimitiveObject(newKey)) {
                 // NB this is potentially irreversible - 
                 // e.g. if given say we want for { color: red, xxx: yyy } to write { red: { xxx: yyy } }
@@ -291,7 +291,7 @@ public class ConvertSingletonMap extends YomlSerializerComposition {
                 return;
             }
 
-            Map<Object, Object> yamlMap = MutableMap.copyOf(getYamlMap());
+            Map<Object, Object> yamlMap = MutableMap.copyOf(getOutputYamlMap());
             yamlMap.remove(keyForKey);
             
             YomlUtils.removeDefaults(defaults, yamlMap);

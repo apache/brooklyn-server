@@ -18,11 +18,12 @@
  */
 package org.apache.brooklyn.util.yoml.serializers;
 
+import java.util.Objects;
+
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.yoml.internal.SerializersOnBlackboard;
 import org.apache.brooklyn.util.yoml.internal.YomlContext;
@@ -30,6 +31,13 @@ import org.apache.brooklyn.util.yoml.serializers.YomlSerializerComposition.YomlS
 
 public abstract class InstantiateTypeWorkerAbstract extends YomlSerializerWorker {
     
+    /** puts the given label on the blackboard, in a namespace qualified to this class type, with the given value.
+     * returns whether the value is new on the blackboard, ie false if the value is already there.
+     */
+    protected boolean putLabelOnBlackboard(String label, Object value) {
+        return !Objects.equals(value, blackboard.put(getClass().getName()+":"+label, value));
+    }
+
     protected boolean canDoRead() {
         if (!context.isPhase(YomlContext.StandardPhases.HANDLING_TYPE)) return false;
         if (hasJavaObject()) return false;
@@ -51,7 +59,10 @@ public abstract class InstantiateTypeWorkerAbstract extends YomlSerializerWorker
         if (type!=null) {
             // (if null, we were writing what was expected, and we'll have added from expected type serializers)
             if (!type.equals(context.getExpectedType())) {
-                return SerializersOnBlackboard.get(blackboard).addInstantiatedTypeSerializers(config.getTypeRegistry().getSerializersForType(type));
+                if (putLabelOnBlackboard("discovered-type="+type, true)) {
+                    SerializersOnBlackboard.get(blackboard).addInstantiatedTypeSerializers(config.getTypeRegistry().getSerializersForType(type));
+                    return true;
+                }
             }
         }
         return false;
@@ -84,8 +95,8 @@ public abstract class InstantiateTypeWorkerAbstract extends YomlSerializerWorker
     protected String readingTypeFromFieldOrExpected() {
         String type = null;
         if (isYamlMap()) {
-            YamlKeysOnBlackboard.getOrCreate(blackboard, getYamlMap());
-            type = peekFromYamlKeysOnBlackboard("type", String.class).orNull();
+            getYamlKeysOnBlackboardInitializedFromYamlMap();
+            type = peekFromYamlKeysOnBlackboardRemaining("type", String.class).orNull();
         }
         if (type==null) type = context.getExpectedType();
         return type;
@@ -95,14 +106,14 @@ public abstract class InstantiateTypeWorkerAbstract extends YomlSerializerWorker
     }
     protected <T> Maybe<T> readingValueFromTypeValueMap(Class<T> requiredType) {
         if (!isYamlMap()) return Maybe.absent();
-        if (YamlKeysOnBlackboard.peek(blackboard).yamlKeysToReadToJava.size()>2) return Maybe.absent();
-        if (!MutableSet.of("type", "value").containsAll(YamlKeysOnBlackboard.peek(blackboard).yamlKeysToReadToJava.keySet())) {
+        if (YamlKeysOnBlackboard.peek(blackboard).size()>2) return Maybe.absent();
+        if (!YamlKeysOnBlackboard.peek(blackboard).hasKeysLeft("type", "value")) {
             return Maybe.absent();
         }
-        return peekFromYamlKeysOnBlackboard("value", requiredType);
+        return peekFromYamlKeysOnBlackboardRemaining("value", requiredType);
     }
     protected void removeTypeAndValueKeys() {
-        removeFromYamlKeysOnBlackboard("type", "value");
+        removeFromYamlKeysOnBlackboardRemaining("type", "value");
     }
 
     /** null type-name means we are writing the expected type */

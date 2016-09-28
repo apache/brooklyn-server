@@ -75,4 +75,8 @@ public class ReadingTypeOnBlackboard implements YomlRequirement {
         errorNotes.add(message);
     }
 
+    @Override
+    public String toString() {
+        return super.toString()+"["+errorNotes.size()+" notes]";
+    }
 }

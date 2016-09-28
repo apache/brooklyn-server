@@ -56,7 +56,7 @@ public class DefaultMapValuesSerializer extends YomlSerializerComposition {
             if (hasJavaObject()) return;
             if (!isYamlMap()) return;
 
-            if (YomlUtils.addDefaults(defaults, getYamlMap())==0) return;
+            if (getYamlKeysOnBlackboardInitializedFromYamlMap().addDefaults(defaults)==0) return;
             
             context.phaseRestart();
         }
@@ -65,7 +65,7 @@ public class DefaultMapValuesSerializer extends YomlSerializerComposition {
             if (!context.isPhase(YomlContext.StandardPhases.MANIPULATING)) return;
             if (!isYamlMap()) return;
 
-            if (YomlUtils.removeDefaults(defaults, getYamlMap())==0) return;
+            if (YomlUtils.removeDefaults(defaults, getOutputYamlMap())==0) return;
             
             context.phaseRestart();
         }

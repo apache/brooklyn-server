@@ -23,9 +23,7 @@ import java.util.Map;
 import org.apache.brooklyn.util.yoml.YomlConfig;
 import org.apache.brooklyn.util.yoml.YomlRequirement;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
-import org.apache.brooklyn.util.yoml.serializers.JavaFieldsOnBlackboard;
 import org.apache.brooklyn.util.yoml.serializers.ReadingTypeOnBlackboard;
-import org.apache.brooklyn.util.yoml.serializers.YamlKeysOnBlackboard;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -79,7 +77,10 @@ public class YomlConverter {
             while (context.phaseStepAdvance()<Iterables.size(serializers.getSerializers())) {
                 if (context.phaseCurrentStep()==0) {
                     if (log.isTraceEnabled()) { 
-                        log.trace("yoml "+context.getJsonPath()+"/ = "+context.getJavaObject()+" entering phase "+context.phaseCurrent()+": "+YamlKeysOnBlackboard.peek(blackboard)+" / "+JavaFieldsOnBlackboard.peek(blackboard)+" / "+JavaFieldsOnBlackboard.peek(blackboard, "config"));
+                        log.trace("yoml "+context.getJsonPath()+"/ = "+context.getJavaObject()+" entering phase "+context.phaseCurrent()+", blackboard size "+blackboard.size());
+                        for (Map.Entry<Object, Object> bb: blackboard.entrySet()) {
+                            log.trace("  "+bb.getKey()+": "+bb.getValue());
+                        }
                     }
                 }
                 YomlSerializer s = Iterables.get(serializers.getSerializers(), context.phaseCurrentStep());

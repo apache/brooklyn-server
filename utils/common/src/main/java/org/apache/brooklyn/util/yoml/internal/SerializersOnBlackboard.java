@@ -24,12 +24,16 @@ import java.util.Map;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 
 /** Stores serializers that should be used */
 public class SerializersOnBlackboard {
+    
+    private static final Logger log = LoggerFactory.getLogger(SerializersOnBlackboard.class);
     
     private static String KEY = SerializersOnBlackboard.class.getName();
     
@@ -60,20 +64,25 @@ public class SerializersOnBlackboard {
     private List<YomlSerializer> expectedTypeSerializers = MutableList.of();
     private List<YomlSerializer> postSerializers = MutableList.of();
 
-    public boolean addInstantiatedTypeSerializers(Iterable<? extends YomlSerializer> newInstantiatedTypeSerializers) {
-        return addNewSerializers(instantiatedTypeSerializers, newInstantiatedTypeSerializers);
+    public void addInstantiatedTypeSerializers(Iterable<? extends YomlSerializer> newInstantiatedTypeSerializers) {
+        addNewSerializers(instantiatedTypeSerializers, newInstantiatedTypeSerializers, "instantiated type");
     }
-    public boolean addExpectedTypeSerializers(Iterable<YomlSerializer> newExpectedTypeSerializers) {
-        return addNewSerializers(expectedTypeSerializers, newExpectedTypeSerializers);
+    public void addExpectedTypeSerializers(Iterable<YomlSerializer> newExpectedTypeSerializers) {
+        addNewSerializers(expectedTypeSerializers, newExpectedTypeSerializers, "expected type");
         
     }
-    public boolean addPostSerializers(List<YomlSerializer> newPostSerializers) {
-        return addNewSerializers(postSerializers, newPostSerializers);
+    public void addPostSerializers(List<YomlSerializer> newPostSerializers) {
+        addNewSerializers(postSerializers, newPostSerializers, "post");
     }
-    protected static boolean addNewSerializers(List<YomlSerializer> addTo, Iterable<? extends YomlSerializer> elementsToAddIfNotPresent) {
+    protected static void addNewSerializers(List<YomlSerializer> addTo, Iterable<? extends YomlSerializer> elementsToAddIfNotPresent, String description) {
         MutableSet<YomlSerializer> newOnes = MutableSet.copyOf(elementsToAddIfNotPresent);
+        int sizeBefore = newOnes.size();
+        // removal isn't expected to work as hashCode and equals aren't typically implemented;
+        // callers should make sure only to add when needed
         newOnes.removeAll(addTo);
-        return addTo.addAll(newOnes);
+        if (log.isTraceEnabled())
+            log.trace("Adding "+newOnes.size()+" serializers ("+sizeBefore+" initially requested) for "+description+" (had "+addTo.size()+"): "+newOnes);
+        addTo.addAll(newOnes);
     }
     
     public Iterable<YomlSerializer> getSerializers() {
@@ -85,5 +94,9 @@ public class SerializersOnBlackboard {
         if (sb!=null && sb.instantiatedTypeSerializers.contains(serializer)) return true;
         return false;
     }
-    
+
+    public String toString() {
+        return super.toString()+"["+preSerializers.size()+"@pre,"+instantiatedTypeSerializers.size()+"@inst,"+
+            expectedTypeSerializers.size()+"@exp,"+postSerializers.size()+"@post]";
+    }
 }

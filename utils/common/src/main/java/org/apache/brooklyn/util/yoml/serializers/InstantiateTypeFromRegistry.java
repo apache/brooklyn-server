@@ -33,6 +33,7 @@ public class InstantiateTypeFromRegistry extends YomlSerializerComposition {
     }
     
     public class Worker extends InstantiateTypeWorkerAbstract {
+        
         public void read() {
             if (!canDoRead()) return;
             
@@ -48,21 +49,22 @@ public class InstantiateTypeFromRegistry extends YomlSerializerComposition {
             }
             
             if (type==null) return;
-            if (addSerializersForDiscoveredRealType(type)) {
-                // added new serializers, need to restart phase
-                // in case another serializer wants to create it
-                context.phaseRestart();
-                return;
-            }
-            
+                        
             if (!readType(type)) return;
             
             if (isYamlMap()) {
-                removeFromYamlKeysOnBlackboard("type");
+                removeFromYamlKeysOnBlackboardRemaining("type");
             }
         }
 
         protected boolean readType(String type) {
+            if (addSerializersForDiscoveredRealType(type)) {
+                // added new serializers so restart phase
+                // in case another serializer wants to create it
+                context.phaseRestart();
+                return false;
+            }
+
             Maybe<Object> resultM = config.getTypeRegistry().newInstanceMaybe(type, Yoml.newInstance(config));
             if (resultM.isAbsent()) {
                 String message = "Unable to create type '"+type+"'";

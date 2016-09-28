@@ -19,8 +19,10 @@
 package org.apache.brooklyn.util.yoml.serializers;
 
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.yoml.YomlException;
 import org.apache.brooklyn.util.yoml.YomlRequirement;
 import org.apache.brooklyn.util.yoml.internal.YomlContext;
@@ -40,7 +42,8 @@ public class YamlKeysOnBlackboard implements YomlRequirement {
         if (!isPresent(blackboard)) { 
             YamlKeysOnBlackboard ykb = new YamlKeysOnBlackboard();
             blackboard.put(KEY, ykb);
-            ykb.yamlKeysToReadToJava = MutableMap.copyOf(keys);
+            ykb.yamlAllKeysEverToReadToJava = MutableMap.copyOf(keys);
+            ykb.yamlKeysRemainingToReadToJava = MutableMap.copyOf(keys);
         }
         return peek(blackboard);
     }
@@ -50,19 +53,66 @@ public class YamlKeysOnBlackboard implements YomlRequirement {
         return peek(blackboard);
     }
 
-    Map<Object,Object> yamlKeysToReadToJava;
+    private Map<Object,Object> yamlAllKeysEverToReadToJava;
+    private Map<Object,Object> yamlKeysRemainingToReadToJava;
 
     @Override
     public void checkCompletion(YomlContext context) {
-        if (!yamlKeysToReadToJava.isEmpty()) {
+        if (!yamlKeysRemainingToReadToJava.isEmpty()) {
             // TODO limit toString to depth 2 ?
-            throw new YomlException("Incomplete read of YAML keys: "+yamlKeysToReadToJava, context);
+            throw new YomlException("Incomplete read of YAML keys: "+yamlKeysRemainingToReadToJava, context);
         }
     }
 
     @Override
     public String toString() {
-        return super.toString()+"("+yamlKeysToReadToJava+")";
+        return super.toString()+"("+yamlKeysRemainingToReadToJava.size()+" ever; remaining="+yamlKeysRemainingToReadToJava+")";
     }
     
+    public void clear() {
+        yamlKeysRemainingToReadToJava.clear();
+    }
+    public boolean hasKeysLeft(String ...keys) {
+        for (String k: keys) {
+            if (!yamlKeysRemainingToReadToJava.containsKey(k)) return false;
+        }
+        return true;
+    }
+    public boolean hadKeysEver(String ...keys) {
+        for (String k: keys) {
+            if (!yamlAllKeysEverToReadToJava.containsKey(k)) return false;
+        }
+        return true;
+    }
+    public int size() {
+        return yamlKeysRemainingToReadToJava.size();
+    }
+    public Maybe<Object> removeKey(String k) {
+        if (!yamlKeysRemainingToReadToJava.containsKey(k)) return Maybe.absent();
+        return Maybe.of(yamlKeysRemainingToReadToJava.remove(k));
+    }
+    public void putNewKey(String k, Object value) {
+        if (yamlKeysRemainingToReadToJava.put(k, value)!=null) throw new IllegalStateException("Already had value for "+k);
+        yamlAllKeysEverToReadToJava.put(k, value);
+    }
+    public int addDefaults(Map<String, ? extends Object> defaults) {
+        // like YomlUtils.addDefaults(...) but only adding if never seen       
+        int count = 0;
+        if (defaults!=null) for (String key: defaults.keySet()) {
+            if (!yamlAllKeysEverToReadToJava.containsKey(key)) {
+                count++;
+                yamlAllKeysEverToReadToJava.put(key, defaults.get(key));
+                yamlKeysRemainingToReadToJava.put(key, defaults.get(key));
+            }
+        }
+        return count;
+    }
+    public Maybe<Object> peekKeyLeft(String k) {
+        if (!yamlKeysRemainingToReadToJava.containsKey(k)) return Maybe.absent();
+        return Maybe.of(yamlKeysRemainingToReadToJava.get(k));
+    }
+    public Set<Object> keysLeft() {
+        return yamlKeysRemainingToReadToJava.keySet();
+    }
+
 }

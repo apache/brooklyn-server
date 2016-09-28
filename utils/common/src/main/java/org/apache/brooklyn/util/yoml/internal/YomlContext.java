@@ -75,6 +75,9 @@ public abstract class YomlContext {
     public Object getYamlObject() {
         return yamlObject;
     }
+    /** Sets the YAML object that will be returned from a write.  
+     * In special cases of major YAML transformation this may also be used during read
+     * but most minor modifications should use blackboard objects. */
     public void setYamlObject(Object yamlObject) {
         this.yamlObject = yamlObject;
     }

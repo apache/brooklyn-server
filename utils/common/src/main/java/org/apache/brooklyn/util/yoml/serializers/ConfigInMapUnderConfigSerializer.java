@@ -116,7 +116,7 @@ public class ConfigInMapUnderConfigSerializer extends FieldsInMapUnderFields {
                             String realType = config.getTypeRegistry().getTypeName(entry.getValue());
                             optionalType = realType;
                             // for non-real, just write the pseudo-type-field at root
-                            getYamlMap().put(tf, realType);
+                            getOutputYamlMap().put(tf, realType);
                             
                         } else {
                             Object rt = fib.configToWriteFromJava.get(tf);

@@ -76,11 +76,11 @@ public class ConvertFromPrimitive extends YomlSerializerComposition {
             // don't run if we're only added after instantiating the type (because then we couldn't read back!)
             if (SerializersOnBlackboard.isAddedByTypeInstantiation(blackboard, ConvertFromPrimitive.this)) return;
 
-            Object value = getYamlMap().get(keyToInsert);
+            Object value = getOutputYamlMap().get(keyToInsert);
             if (value==null) return;
             if (!isJsonPrimitiveObject(value)) return;
             
-            Map<Object, Object> yamlMap = MutableMap.copyOf(getYamlMap());
+            Map<Object, Object> yamlMap = MutableMap.copyOf(getOutputYamlMap());
             yamlMap.remove(keyToInsert);
             YomlUtils.removeDefaults(defaults, yamlMap);
             if (!yamlMap.isEmpty()) return;

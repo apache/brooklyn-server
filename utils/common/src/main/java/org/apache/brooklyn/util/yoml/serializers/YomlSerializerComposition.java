@@ -114,52 +114,76 @@ public abstract class YomlSerializerComposition implements YomlSerializer {
         public Object getJavaObject() { return context.getJavaObject(); }
         public Object getYamlObject() { return context.getYamlObject(); }
 
-        public boolean isYamlMap() { return context.getYamlObject() instanceof Map; }
+        /** Reports whether the YAML object is a map
+         * (or on read whether it has now been transformed to a map). */
+        public boolean isYamlMap() { return getYamlObject() instanceof Map; }
+        
+        protected void assertReading() { assert context instanceof YomlContextForRead; }
+        protected void assertWriting() { assert context instanceof YomlContextForWrite; }
+        
         @SuppressWarnings("unchecked")
-        public Map<Object,Object> getYamlMap() { return (Map<Object,Object>)context.getYamlObject(); }
-        /** Returns the value of the given key if present in the map and of the given type. 
-         * If the YAML is not a map, or the key is not present, or the type is different, this returns null.
+        public Map<Object,Object> getOutputYamlMap() {
+            assertWriting();
+            return (Map<Object,Object>)context.getYamlObject(); 
+        }
+        
+        @SuppressWarnings("unchecked")
+        public Map<Object,Object> getRawInputYamlMap() {
+            assertReading();
+            return (Map<Object,Object>)context.getYamlObject(); 
+        }
+        
+        /** Returns the value of the given key if it is present in the output map and is of the given type. 
+         * If the YAML is not a map, or the key is not present, or the type is different, this returns an absent.
          * <p>
-         * See also {@link #peekFromYamlKeysOnBlackboard(String, Class)} which most read serializers should use. */
+         * Read serializers or anything interested in the state of the map should use 
+         * {@link #peekFromYamlKeysOnBlackboardRemaining(String, Class)} and other methods here or
+         * {@link YamlKeysOnBlackboard} directly. */
         @SuppressWarnings("unchecked")
-        public <T> Maybe<T> getFromYamlMap(String key, Class<T> type) {
+        public <T> Maybe<T> getFromOutputYamlMap(String key, Class<T> type) {
             if (!isYamlMap()) return Maybe.absent("not a yaml map");
-            if (!getYamlMap().containsKey(key)) return Maybe.absent("key `"+key+"` not in yaml map");
-            Object v = getYamlMap().get(key);
+            if (!getOutputYamlMap().containsKey(key)) return Maybe.absent("key `"+key+"` not in yaml map");
+            Object v = getOutputYamlMap().get(key);
             if (v==null) return Maybe.ofAllowingNull(null);
             if (!type.isInstance(v)) return Maybe.absent("value of key `"+key+"` is not a "+type);
             return Maybe.of((T) v);
         }
-        protected void setInYamlMap(String key, Object value) {
-            ((Map<Object,Object>)getYamlMap()).put(key, value);
+        /** Writes directly to the yaml map which will be returned from a write.
+         * Read serializers should not use as per the comments on {@link #getFromOutputYamlMap(String, Class)}. */
+        protected void setInOutputYamlMap(String key, Object value) {
+            ((Map<Object,Object>)getOutputYamlMap()).put(key, value);
         }
+        
+        /** creates a YKB instance. fails if the raw yaml input is not a map. */
+        protected YamlKeysOnBlackboard getYamlKeysOnBlackboardInitializedFromYamlMap() {
+            return YamlKeysOnBlackboard.getOrCreate(blackboard, getRawInputYamlMap());
+        }
+
         @SuppressWarnings("unchecked")
-        protected <T> Maybe<T> peekFromYamlKeysOnBlackboard(String key, Class<T> expectedType) {
+        protected <T> Maybe<T> peekFromYamlKeysOnBlackboardRemaining(String key, Class<T> expectedType) {
             YamlKeysOnBlackboard ykb = YamlKeysOnBlackboard.peek(blackboard);
-            if (ykb==null || ykb.yamlKeysToReadToJava==null || !ykb.yamlKeysToReadToJava.containsKey(key)) {
-                return Maybe.absent();
-            }
-            Object v = ykb.yamlKeysToReadToJava.get(key);
-            if (expectedType!=null && !expectedType.isInstance(v)) return Maybe.absent();
-            return Maybe.of((T)v);
+            if (ykb==null) return Maybe.absent();
+            Maybe<Object> v = ykb.peekKeyLeft(key);
+            if (v.isAbsent()) return Maybe.absent();
+            if (expectedType!=null && !expectedType.isInstance(v.get())) return Maybe.absent();
+            return Maybe.of((T)v.get());
         }
-        protected boolean hasYamlKeysOnBlackboard() {
+        protected boolean hasYamlKeysOnBlackboardRemaining() {
             YamlKeysOnBlackboard ykb = YamlKeysOnBlackboard.peek(blackboard);
-            if (ykb==null || ykb.yamlKeysToReadToJava==null || ykb.yamlKeysToReadToJava.isEmpty()) return false;
-            return true;
+            return (ykb!=null && ykb.size()>0);
         }
-        protected void removeFromYamlKeysOnBlackboard(String ...keys) {
+        protected void removeFromYamlKeysOnBlackboardRemaining(String ...keys) {
             YamlKeysOnBlackboard ykb = YamlKeysOnBlackboard.peek(blackboard);
             for (String key: keys) {
-                ykb.yamlKeysToReadToJava.remove(key);
+                ykb.removeKey(key);
             }
         }
         /** looks for all keys in {@link YamlKeysOnBlackboard} which can be mangled/ignore-case 
          * to match the given key */
-        protected Set<String> findAllKeyManglesYamlKeys(String targetKey) {
+        protected Set<String> findAllYamlKeysOnBlackboardRemainingMangleMatching(String targetKey) {
             Set<String> result = MutableSet.of();
             YamlKeysOnBlackboard ykb = YamlKeysOnBlackboard.peek(blackboard);
-            for (Object k: ykb.yamlKeysToReadToJava.keySet()) {
+            for (Object k: ykb.keysLeft()) {
                 if (k instanceof String && YomlUtils.mangleable(targetKey, (String)k)) {
                     result.add((String)k);
                 }

@@ -105,7 +105,8 @@ public class FieldsInMapUnderFields extends YomlSerializerComposition {
             if (hasJavaObject() != shouldHaveJavaObject()) return;
             
             @SuppressWarnings("unchecked")
-            Map<String,Object> fields = peekFromYamlKeysOnBlackboard(getKeyNameForMapOfGeneralValues(), Map.class).orNull();
+            // written by the individual TopLevelFieldSerializers
+            Map<String,Object> fields = peekFromYamlKeysOnBlackboardRemaining(getKeyNameForMapOfGeneralValues(), Map.class).orNull();
             if (fields==null) return;
             
             MutableMap<String, Object> initialFields = MutableMap.copyOf(fields);
@@ -136,7 +137,7 @@ public class FieldsInMapUnderFields extends YomlSerializerComposition {
                 if (isTypeFieldReal) {
                     typeO = initialFields.get(tf);
                 } else {
-                    typeO = peekFromYamlKeysOnBlackboard(tf, Object.class).orNull();
+                    typeO = peekFromYamlKeysOnBlackboardRemaining(tf, Object.class).orNull();
                 }
                 if (typeO!=null && !(typeO instanceof String)) {
                     throw new YomlException("Wrong type of value '"+typeO+"' inferred as type of '"+f+"' on "+getJavaObject(), context);
@@ -148,7 +149,7 @@ public class FieldsInMapUnderFields extends YomlSerializerComposition {
                     if (setKeyValueForJavaObjectOnRead(f, v, type)) {
                         ((Map<?,?>)fields).remove(f);
                         if (type!=null && !isTypeFieldReal) {
-                            removeFromYamlKeysOnBlackboard(tf);
+                            removeFromYamlKeysOnBlackboardRemaining(tf);
                         }
                         changed = true;
                     }
@@ -156,7 +157,7 @@ public class FieldsInMapUnderFields extends YomlSerializerComposition {
             }
             
             if (((Map<?,?>)fields).isEmpty()) {
-                removeFromYamlKeysOnBlackboard(getKeyNameForMapOfGeneralValues());
+                removeFromYamlKeysOnBlackboardRemaining(getKeyNameForMapOfGeneralValues());
             }
             if (changed) {
                 // restart (there is normally nothing after this so could equally continue with rerun)
@@ -167,11 +168,13 @@ public class FieldsInMapUnderFields extends YomlSerializerComposition {
         public void write() {
             if (!context.isPhase(StandardPhases.HANDLING_FIELDS)) return;
             if (!isYamlMap()) return;
-            if (getFromYamlMap(getKeyNameForMapOfGeneralValues(), Map.class).isPresent()) return;
+            
+            // should have been set by FieldsInMapUnderFields if we are to run
+            if (getFromOutputYamlMap(getKeyNameForMapOfGeneralValues(), Map.class).isPresent()) return;
             
             Map<String, Object> fields = writePrepareGeneralMap();
             if (fields!=null && !fields.isEmpty()) {
-                setInYamlMap(getKeyNameForMapOfGeneralValues(), fields);
+                setInOutputYamlMap(getKeyNameForMapOfGeneralValues(), fields);
                 // restart in case a serializer moves the `fields` map somewhere else
                 context.phaseRestart();
             }
@@ -205,7 +208,7 @@ public class FieldsInMapUnderFields extends YomlSerializerComposition {
                                     String realType = config.getTypeRegistry().getTypeName(v.get());
                                     fieldType = realType;
                                     // for non-real, just write the pseudo-type-field at root
-                                    getYamlMap().put(tf, realType);
+                                    getOutputYamlMap().put(tf, realType);
                                     
                                 } else {
                                     Maybe<Object> rt = Reflections.getFieldValueMaybe(getJavaObject(), tf);
