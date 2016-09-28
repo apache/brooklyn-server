@@ -147,6 +147,10 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
         return (newManagementContext != null) ? newManagementContext : origManagementContext;
     }
     
+    protected T app() {
+        return (newApp != null) ? newApp : origApp;
+    }
+    
     public static void waitForTaskCountToBecome(final ManagementContext mgmt, final int allowedMax) {
         waitForTaskCountToBecome(mgmt, allowedMax, false);
     }
