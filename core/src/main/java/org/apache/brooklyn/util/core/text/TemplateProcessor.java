@@ -20,11 +20,9 @@ package org.apache.brooklyn.util.core.text;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
+import java.io.StringWriter;
 import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
@@ -51,7 +49,7 @@ import com.google.common.io.Files;
 
 import freemarker.cache.StringTemplateLoader;
 import freemarker.template.Configuration;
-import freemarker.template.ObjectWrapper;
+import freemarker.template.DefaultObjectWrapperBuilder;
 import freemarker.template.Template;
 import freemarker.template.TemplateHashModel;
 import freemarker.template.TemplateModel;
@@ -71,7 +69,7 @@ public class TemplateProcessor {
 
     protected static TemplateModel wrapAsTemplateModel(Object o) throws TemplateModelException {
         if (o instanceof Map) return new DotSplittingTemplateModel((Map<?,?>)o);
-        return ObjectWrapper.DEFAULT_WRAPPER.wrap(o);
+        return new DefaultObjectWrapperBuilder(Configuration.DEFAULT_INCOMPATIBLE_IMPROVEMENTS).build().wrap(o);
     }
     
     /** @deprecated since 0.7.0 use {@link #processTemplateFile(String, Map)} */ @Deprecated
@@ -513,19 +511,21 @@ public class TemplateProcessor {
     /** Processes template contents against the given {@link TemplateHashModel}. */
     public static String processTemplateContents(String templateContents, final TemplateHashModel substitutions) {
         try {
-            Configuration cfg = new Configuration();
+            Configuration cfg = new Configuration(Configuration.DEFAULT_INCOMPATIBLE_IMPROVEMENTS);
+            // TODO is there a locale which doesn't require ?c everywhere???
+            // seems not, and looking at DecimalFormatSymbols, creating such a locale would be ugly 
+//            cfg.setLocale(...);
             StringTemplateLoader templateLoader = new StringTemplateLoader();
             templateLoader.putTemplate("config", templateContents);
             cfg.setTemplateLoader(templateLoader);
             Template template = cfg.getTemplate("config");
 
             // TODO could expose CAMP '$brooklyn:' style dsl, based on template.createProcessingEnvironment
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            Writer out = new OutputStreamWriter(baos);
+            StringWriter out = new StringWriter();
             template.process(substitutions, out);
             out.flush();
 
-            return new String(baos.toByteArray());
+            return out.toString();
         } catch (Exception e) {
             log.warn("Error processing template (propagating): "+e, e);
             log.debug("Template which could not be parsed (causing "+e+") is:"
