@@ -52,19 +52,96 @@ import org.apache.brooklyn.util.yoml.Yoml;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
 import org.apache.brooklyn.util.yoml.YomlTypeRegistry;
 import org.apache.brooklyn.util.yoml.internal.ConstructionInstructions;
+import org.apache.brooklyn.util.yoml.internal.YomlContext;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 
 /** 
- * Provides a bridge so YOML can find things in the Brooklyn type registry.
+ * Provides a bridge so YOML's type registry can find things in the Brooklyn type registry.
+ * <p>
+ * There are several subtleties in the loading strategy this registry should use depending
+ * when YOML is asking for something to be loaded.  This is done through various
+ * {@link RegisteredTypeLoadingContext} instances.  That class is able to do things including:
+ * 
+ * (a) specify a supertype to use for filtering when finding a type
+ * (b) specify a class loading context (eg based on context's catalog item id / definition)
+ * (c) specify a set of encountered types to prevent looping and resolve a duplicate name
+ *     as a class if it has already been resolved as a YOML item 
+ *     (eg yoml item java.pack.Foo declares its type as java.pack.Foo to mean to load it as a class)
+ *     or simply bail out if there is a recursive definition (eg require java:java.pack.Foo in the above case)
+ * (d) specify a construction instruction specified by wrapper/subtype definitions
+ * <p>    
+ * Which of these should apply depends on the calling context. The following situations apply:
+ * 
+ * (1) when YOML makes the first call to resolve the type at "/", we should apply (a) and (b) supplied by the user; 
+ *     (c) and (d) should be empty but no harm in applying them (and it will make recursive work easier)
+ * (2) if in the course of that call this registry calls to YOML to evaluate a plan definition of a supertype,
+ *     it should act like (1) except use the supertype's loader; ie apply everything except (b)
+ * (3) if YOML makes a subsequent call to resolve a type at a different path, it should apply only (b),
+ *     not any of the others
+ * <p>
+ * See {@link #getTypeContextFor(YomlContext)} and usages.
+ *
+ * <p>
+ * 
+ * More details on library loading.  Consider for instance:
+ * 
+ * - id: x
+ *   item: { type: X }
+ * - id: x2
+ *   item: { type: x }
+ * - id: cluster-x
+ *   item: { type: cluster, children: [ { type: x }, { type: X } ] }
+ *   
+ * And assume these items declare different libraries.
+ * 
+ * We *need* libraries to be used when resolving the reference to a parent java type (e.g. x's parent type X).
+ * 
+ * We *don't* want libraries to be used transitively, e.g. when x2 or cluster-x refers to x, 
+ * only x's libraries apply to loading X, not x2's libraries.
+ * 
+ * We *may* want libraries to be used when resolving references to types in a plan besides the parent type;
+ * e.g. cluster-x's libraries will be needed when resolving its reference to it's child of declared type X.
+ * But we might *NOT* want to support that, and could instead require that any type referenced elsewhere
+ * be defined as an explicit YAML type in the registry. This will simplify our lives as we will force all 
+ * java objects to be explicitly defined as a type in the registry. But it means we won't be able to parse
+ * current plans so for the moment this is deferred, and we'd want to go through a "warning" cycle when
+ * applying. 
+ * 
+ * (In that last case we could even be stricter and say that any yaml types
+ * should have a simple single yaml-java bridge eg using a JavaClassNameTypeImplementationPlan
+ * to facilitate reverse lookup.)
+ * 
+ * The defaultLoadingContext is used for the first and third cases above.
+ * The second case is handled by calling back to the registry with a limited context.
+ * (Note it will require some work to be able to distinguish between the third case and the first,
+ * as we don't currently have that contextual information when methods here are called.)
+ *
+ * <p>
+ * 
+ * One bit of ugly remains:
+ * 
+ * If we install v1 then v2, cluster-x:1 will pick up x:2.
+ * We could change this:
+ * - by encouraging explicit `type: x:1` in the definition of cluster-x
+ * - by allowing `type: x:.` version shorthand, where `.` means the same version as the calling type
+ * - by recording locally-preferred types (aka "friends") on a registered type, 
+ *   and looking at those friends first; this would be nice in that we could allow private friends
+ *   
+ * Yoml.read(...) can take a special "top-level type extensions" in order to find friends,
+ * and/or a special "top-level libraries" in order to resolve types in the first instance.
+ * These would *not* be passed when resolving a found type.
  */
 public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
 
     private static final Logger log = LoggerFactory.getLogger(BrooklynYomlTypeRegistry.class);
+    
+    private static final String JAVA_PREFIX = "java:";
     
     @SuppressWarnings("serial")
     static ConfigKey<List<YomlSerializer>> CACHED_SERIALIZERS = ConfigKeys.newConfigKey(new TypeToken<List<YomlSerializer>>() {}, "yoml.type.serializers",
@@ -72,60 +149,11 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
 
     private ManagementContext mgmt;
     
-    /*
-     * NB, there are a few subtleties here around library loading.  For instance, given:
-     * 
-     * - id: x
-     *   item: { type: X }
-     * - id: x2
-     *   item: { type: x }
-     * - id: cluster-x
-     *   item: { type: cluster, children: [ { type: x }, { type: X } ] }
-     *   
-     * Assume these items declare different libraries.
-     * 
-     * We *need* libraries to be used when resolving the reference to a parent java type (e.g. x's parent type X).
-     * 
-     * We *don't* want libraries to be used transitively, e.g. when x2 or cluster-x refers to x, 
-     * only x's libraries apply to loading X, not x2's libraries.
-     * 
-     * We *may* want libraries to be used when resolving references to types in a plan besides the parent type;
-     * e.g. cluster-x's libraries will be needed when resolving its reference to it's child of declared type X.
-     * But we might *NOT* want to support that, and could instead require that any type referenced elsewhere
-     * be defined as an explicit YAML type in the registry. This will simplify our lives as we will force all 
-     * java objects to be explicitly defined as a type in the registry. But it means we won't be able to parse
-     * current plans so for the moment this is deferred, and we'd want to go through a "warning" cycle when
-     * applying. 
-     * 
-     * (In that last case we could even be stricter and say that any yaml types
-     * should have a simple single yaml-java bridge eg using a JavaClassNameTypeImplementationPlan
-     * to facilitate reverse lookup.)
-     * 
-     * The defaultLoadingContext is used for the first and third cases above.
-     * The second case is handled by calling back to the registry with a limited context.
-     * (Note it will require some work to be able to distinguish between the third case and the first,
-     * as we don't currently have that contextual information when methods here are called.)
-     *
-     * <p>
-     * 
-     * One bit of ugly remains:
-     * 
-     * If we install v1 then v2, cluster-x:1 will pick up x:2.
-     * We could change this:
-     * - by encouraging explicit `type: x:1` in the definition of cluster-x
-     * - by allowing `type: x:.` version shorthand, where `.` means the same version as the calling type
-     * - by recording locally-preferred types (aka "friends") on a registered type, 
-     *   and looking at those friends first; this would be nice in that we could allow private friends
-     *   
-     * Yoml.read(...) can take a special "top-level type extensions" in order to find friends,
-     * and/or a special "top-level libraries" in order to resolve types in the first instance.
-     * These would *not* be passed when resolving a found type.
-     */
-    private RegisteredTypeLoadingContext defaultLoadingContext;
+    private RegisteredTypeLoadingContext rootLoadingContext;
 
-    public BrooklynYomlTypeRegistry(@Nonnull ManagementContext mgmt, @Nonnull RegisteredTypeLoadingContext defaultLoadingContext) {
+    public BrooklynYomlTypeRegistry(@Nonnull ManagementContext mgmt, @Nonnull RegisteredTypeLoadingContext rootLoadingContext) {
         this.mgmt = mgmt;
-        this.defaultLoadingContext = defaultLoadingContext;
+        this.rootLoadingContext = rootLoadingContext;
         
     }
     
@@ -135,55 +163,81 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
     
     @Override
     public Maybe<Object> newInstanceMaybe(String typeName, Yoml yoml) {
-        return newInstanceMaybe(typeName, yoml, defaultLoadingContext);
+        return newInstanceMaybe(typeName, yoml, rootLoadingContext);
     }
     
-    public Maybe<Object> newInstanceMaybe(String typeName, Yoml yoml, RegisteredTypeLoadingContext context) {
+    @Override
+    public Maybe<Object> newInstanceMaybe(String typeName, Yoml yoml, @Nonnull YomlContext yomlContextOfThisEvaluation) {
+        RegisteredTypeLoadingContext applicableLoadingContext = getTypeContextFor(yomlContextOfThisEvaluation);
+        return newInstanceMaybe(typeName, yoml, applicableLoadingContext);
+    }
+
+    protected RegisteredTypeLoadingContext getTypeContextFor(YomlContext yomlContextOfThisEvaluation) {
+        RegisteredTypeLoadingContext applicableLoadingContext;
+        if (Strings.isBlank(yomlContextOfThisEvaluation.getJsonPath())) {
+            // at root, use everything
+            applicableLoadingContext = rootLoadingContext;
+        } else {
+            // elsewhere the only thing we apply is the loader
+            applicableLoadingContext = RegisteredTypeLoadingContexts.builder().loader(rootLoadingContext.getLoader()).build();
+        }
+        
+        if (yomlContextOfThisEvaluation.getConstructionInstruction()!=null) {
+            // also apply any construction instruction we've been given
+            applicableLoadingContext = RegisteredTypeLoadingContexts.builder(applicableLoadingContext)
+                .constructorInstruction(yomlContextOfThisEvaluation.getConstructionInstruction()).build();
+        }
+        return applicableLoadingContext;
+    }
+    
+    public Maybe<Object> newInstanceMaybe(String typeName, Yoml yoml, @Nonnull RegisteredTypeLoadingContext typeContext) {
         // yoml may be null, for java type lookups, but we could potentially get rid of that call path
         
-        RegisteredType typeR = registry().get(typeName, context);
+        RegisteredType typeR = registry().get(typeName, typeContext);
         
         if (typeR!=null) {
-            RegisteredTypeLoadingContext nextContext = null;
-            if (context==null) {
-                nextContext = RegisteredTypeLoadingContexts.alreadyEncountered(MutableSet.of(typeName));
+            boolean seenType = typeContext.getAlreadyEncounteredTypes().contains(typeName);
+            
+            if (!seenType) {
+                // instantiate the parent type
+
+                // keep everything (supertype constraint, encountered types, constructor instruction)
+                // apart from loader info -- loader should be from the type found here 
+                RegisteredTypeLoadingContexts.Builder nextContext = RegisteredTypeLoadingContexts.builder(typeContext);
+                nextContext.addEncounteredTypes(typeName);
+                // reset the loader (pretty sure this is right -Alex)
+                // the create call will attach the loader of typeR
+                nextContext.loader(null);
+                
+                return Maybe.of(registry().create(typeR, nextContext.build(), null));
+                
             } else {
-                if (!context.getAlreadyEncounteredTypes().contains(typeName)) {
-                    // we lose any other contextual information, but that seems _good_ since it was used to find the type,
-                    // we probably now want to shift to the loading context of that type, e.g. the x2 example above;
-                    // we just need to ensure it doesn't try to load a super which is also a sub!
-                    nextContext = RegisteredTypeLoadingContexts.alreadyEncountered(context.getAlreadyEncounteredTypes(), typeName);
-                }
+                // circular reference means load java, below
             }
-            if (nextContext==null) {
-                // fall through to path below; we have a circular reference, so need to load java instead
-            } else {
-                if (yoml!=null && yoml.getConfig().getConstructionInstruction()!=null)
-                    nextContext = RegisteredTypeLoadingContexts.builder(nextContext).constructorInstruction(yoml.getConfig().getConstructionInstruction()).build();
-                return Maybe.of(registry().create(typeR, nextContext, null));
-            }
+        } else {
+            // type not found means load java, below
         }
         
         Maybe<Class<?>> t = null;
-        {
-            Exception e = null;
-            try {
-                t = getJavaTypeInternal(typeName, context);
-            } catch (Exception ee) {
-                Exceptions.propagateIfFatal(ee);
-                e = ee;
-            }
-            if (t.isAbsent()) {
-                // generally doesn't come here; it gets filtered by getJavaTypeMaybe
-                if (e==null) e = ((Maybe.Absent<?>)t).getException();
-                return Maybe.absent("Neither the type registry nor the classpath/libraries could load type "+typeName+
-                    (e!=null && !Exceptions.isRootBoringClassNotFound(e, typeName) ? ": "+Exceptions.collapseText(e) : ""));
-            }
-        }
+        
+        Exception e = null;
         try {
-            return ConstructionInstructions.Factory.newDefault(t.get(), yoml==null ? null : yoml.getConfig().getConstructionInstruction()).create();
-        } catch (Exception e) {
-            return Maybe.absent("Error instantiating type "+typeName+": "+Exceptions.collapseText(e));
+            t = getJavaTypeInternal(typeName, typeContext);
+        } catch (Exception ee) {
+            Exceptions.propagateIfFatal(ee);
+            e = ee;
+        }
+        if (t.isAbsent()) {
+            // generally doesn't come here; it gets filtered by getJavaTypeMaybe
+            if (e==null) e = ((Maybe.Absent<?>)t).getException();
+            return Maybe.absent("Neither the type registry nor the classpath/libraries could load type "+typeName+
+                (e!=null && !Exceptions.isRootBoringClassNotFound(e, typeName) ? ": "+Exceptions.collapseText(e) : ""));
+        }
+        
+        try {
+            return ConstructionInstructions.Factory.newDefault(t.get(), typeContext.getConstructorInstruction()).create();
+        } catch (Exception e2) {
+            return Maybe.absent("Error instantiating type "+typeName+": "+Exceptions.collapseText(e2));
         }
     }
 
@@ -218,9 +272,9 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
      * and risks odd errors depending when the lazy evaluation occurs vis-a-vis dependent types.
      */
     @Override
-    public Maybe<Class<?>> getJavaTypeMaybe(String typeName) {
+    public Maybe<Class<?>> getJavaTypeMaybe(String typeName, YomlContext context) {
         if (typeName==null) return Maybe.absent("null type");
-        return getJavaTypeInternal(typeName, defaultLoadingContext);
+        return getJavaTypeInternal(typeName, getTypeContextFor(context));
     }
     
     @SuppressWarnings({ "unchecked", "rawtypes" })
@@ -231,9 +285,8 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
     
     protected Maybe<Class<?>> getJavaTypeInternal(String typeName, RegisteredTypeLoadingContext context) {
         RegisteredType type = registry().get(typeName, context);
-        if (type!=null && !context.getAlreadyEncounteredTypes().contains(type.getId())) {
-            RegisteredTypeLoadingContext newContext = RegisteredTypeLoadingContexts.loaderAlreadyEncountered(context.getLoader(), context.getAlreadyEncounteredTypes(), typeName);
-            return getJavaTypeInternal(type, newContext);
+        if (type!=null && context!=null && !context.getAlreadyEncounteredTypes().contains(type.getId())) {
+            return getJavaTypeInternal(type, context);
         }
         
         // try to load it wrt context
@@ -248,8 +301,8 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
         if (result!=null) return maybeClass(result);
             
         // currently we accept but don't require the 'java:' prefix
-        boolean isJava = typeName.startsWith("java:");
-        typeName = Strings.removeFromStart(typeName, "java:");
+        boolean isJava = typeName.startsWith(JAVA_PREFIX);
+        typeName = Strings.removeFromStart(typeName, JAVA_PREFIX);
         BrooklynClassLoadingContext loader = null;
         if (context!=null && context.getLoader()!=null) 
             loader = context.getLoader();
@@ -291,9 +344,13 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
         Maybe<Class<?>> result = Maybe.absent("Unable to find java supertype for "+type);
         
         if (declaredPrimarySuperTypeName!=null) {
-            // if a supertype name was found, use it
-            RegisteredTypeLoadingContext newContext = RegisteredTypeLoadingContexts.loaderAlreadyEncountered(
-                CatalogUtils.newClassLoadingContext(mgmt, type), context.getAlreadyEncounteredTypes(), type.getId());
+            // when looking at supertypes we reset the loader to use loaders for the type,
+            // note the traversal in encountered types, and leave the rest (eg supertype restriction) as was
+            RegisteredTypeLoadingContext newContext = RegisteredTypeLoadingContexts.builder(context)
+                .loader( CatalogUtils.newClassLoadingContext(mgmt, type) )
+                .addEncounteredTypes(type.getId())
+                .build();
+
             result = getJavaTypeInternal(declaredPrimarySuperTypeName, newContext);
         }
         
@@ -324,27 +381,38 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
         return getTypeNameOfClass(obj.getClass());
     }
 
-    public static Set<String> WARNS = MutableSet.of();
+    public static Set<String> WARNS = MutableSet.of(
+        // don't warn on this base class
+        JAVA_PREFIX+Object.class.getName() );
     
     @Override
     public <T> String getTypeNameOfClass(Class<T> type) {
         if (type==null) return null;
 
         String defaultTypeName = getDefaultTypeNameOfClass(type);
-        String cleanedTypeName = Strings.removeAllFromStart(getDefaultTypeNameOfClass(type), "java:");
+        String cleanedTypeName = Strings.removeFromStart(getDefaultTypeNameOfClass(type), JAVA_PREFIX);
         
+        // the code below may be a bottleneck; if so, we should cache or something more efficient
+        
+        Set<RegisteredType> types = MutableSet.of();
         // look in catalog for something where plan matches and consists only of type
         for (RegisteredType rt: mgmt.getTypeRegistry().getAll()) {
             if (!(rt.getPlan() instanceof YomlTypeImplementationPlan)) continue;
             if (((YomlTypeImplementationPlan)rt.getPlan()).javaType==null) continue;
             if (!((YomlTypeImplementationPlan)rt.getPlan()).javaType.equals(cleanedTypeName)) continue;
-            if (rt.getPlan().getPlanData()==null) return rt.getId();
-            // TODO find the "best" one, not just any one (at least best version) - though it shouldn't matter
-            // TODO are there some plans which are permitted, eg just defining serializers?
-            // TODO cache or something more efficient
+            if (rt.getPlan().getPlanData()==null) types.add(rt);
+            // are there ever plans we want to permit, eg just defining serializers?
+            // (if so check the plan here)
+        }
+        if (types.size()==1) return Iterables.getOnlyElement(types).getSymbolicName();
+        if (types.size()>1) {
+            if (WARNS.add(type.getName()))
+                log.warn("Multiple registered types for "+type+"; picking one arbitrarily");
+            return types.iterator().next().getId();
         }
         
-        if (WARNS.add(type.getName()))
+        boolean isJava = defaultTypeName.startsWith(JAVA_PREFIX);
+        if (isJava && WARNS.add(type.getName()))
             log.warn("Returning default for type name of "+type+"; catalog entry should be supplied");
         
         return defaultTypeName;
@@ -355,24 +423,24 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
         if (primitive.isPresent()) return primitive.get();
         if (String.class.equals(type)) return "string";
         // map and list handled by those serializers
-        return "java:"+type.getName();
+        return JAVA_PREFIX+type.getName();
     }
 
     @Override
-    public Iterable<YomlSerializer> getSerializersForType(String typeName) {
+    public Iterable<YomlSerializer> getSerializersForType(String typeName, YomlContext yomlContext) {
         Set<YomlSerializer> result = MutableSet.of();
-        collectSerializers(typeName, result, MutableSet.of());
+        // TODO add root loader?
+        collectSerializers(typeName, getTypeContextFor(yomlContext), result, MutableSet.of());
         return result;
     }
     
-    protected void collectSerializers(Object type, Collection<YomlSerializer> result, Set<Object> typesVisited) {
+    protected void collectSerializers(Object type, RegisteredTypeLoadingContext context, Collection<YomlSerializer> result, Set<Object> typesVisited) {
         if (type==null) return;
         if (type instanceof String) {
             // convert string to registered type or class 
             Object typeR = registry().get((String)type);
             if (typeR==null) {
-                // TODO context
-                typeR = getJavaTypeInternal((String)type, null).orNull();
+                typeR = getJavaTypeInternal((String)type, context).orNull();
             }
             if (typeR==null) {
                 // will this ever happen in normal operations?
@@ -409,7 +477,7 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
 //            // could look up the type? but we should be calling this normally with the RT if we have one so probably not necessary
 //            // and could recurse through superclasses and interfaces -- but the above is a better place to do that if needed
 //            String name = getTypeNameOfClass((Class<?>)type);
-//            if (name.startsWith("java:")) {
+//            if (name.startsWith(JAVA_PREFIX)) {
 //                find...
 ////              supers.add(((Class<?>) type).getSuperclass());
 ////              supers.addAll(Arrays.asList(((Class<?>) type).getInterfaces()));
@@ -418,7 +486,9 @@ public class BrooklynYomlTypeRegistry implements YomlTypeRegistry {
             throw new IllegalStateException("Illegal supertype entry "+type+", visiting "+typesVisited);
         }
         for (Object s: supers) {
-            collectSerializers(s, result, typesVisited);
+            RegisteredTypeLoadingContext unconstrainedSupertypeContext = RegisteredTypeLoadingContexts.builder(context)
+                .expectedSuperType(null).build();
+            collectSerializers(s, unconstrainedSupertypeContext, result, typesVisited);
         }
         if (canUpdateCache) {
             if (type instanceof RegisteredType) {

@@ -21,7 +21,6 @@ package org.apache.brooklyn.util.yoml;
 import java.util.List;
 
 import org.apache.brooklyn.util.javalang.coerce.TypeCoercer;
-import org.apache.brooklyn.util.yoml.internal.ConstructionInstruction;
 import org.apache.brooklyn.util.yoml.internal.YomlConfigs;
 
 public interface YomlConfig {
@@ -29,7 +28,6 @@ public interface YomlConfig {
     public YomlTypeRegistry getTypeRegistry();
     public TypeCoercer getCoercer();
     public List<YomlSerializer> getSerializersPost();
-    public ConstructionInstruction getConstructionInstruction();
 
     public static class Builder extends YomlConfigs.Builder<Builder> {
         public static Builder builder() { return new Builder(); }

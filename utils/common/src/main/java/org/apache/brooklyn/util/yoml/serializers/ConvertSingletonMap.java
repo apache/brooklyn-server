@@ -209,7 +209,7 @@ public class ConvertSingletonMap extends YomlSerializerComposition {
             List<Object> result = MutableList.of();
             int index = 0;
             for (Object item: list) {
-                YomlContextForRead newContext = new YomlContextForRead(item, context.getJsonPath()+"["+index+"]", genericSubType, context);
+                YomlContextForRead newContext = ((YomlContextForRead)context).subpath("["+index+"]", item, genericSubType);
                 // add this serializer and set mode in the new context
                 SerializersOnBlackboard.create(newContext.getBlackboard()).addExpectedTypeSerializers(MutableList.of((YomlSerializer) ConvertSingletonMap.this));
                 newContext.getBlackboard().put(ConvertSingletonMap.this, mode);

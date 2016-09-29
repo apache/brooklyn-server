@@ -44,6 +44,8 @@ public abstract class YomlContext {
     Set<String> phasesFollowing = MutableSet.of(StandardPhases.MANIPULATING, StandardPhases.HANDLING_TYPE, StandardPhases.HANDLING_TYPE, StandardPhases.HANDLING_FIELDS);
     List<String> phasesPreceding = MutableList.of();
     
+    ConstructionInstruction constructionInstruction;
+    
     public static interface StandardPhases {
         String MANIPULATING = "manipulating";
         String HANDLING_TYPE = "handling-type";
@@ -59,6 +61,8 @@ public abstract class YomlContext {
     public YomlContext getParent() {
         return parent;
     }
+    /** empty string if the root, otherwise a path string using e.g. <code>/foo[0][0]/bar</code> notation
+     * for evaluation of <code>baz</code> in <code> { foo: [ [ { bar: baz } ] ] } </code> */
     public String getJsonPath() {
         return jsonPath;
     }
@@ -112,6 +116,10 @@ public abstract class YomlContext {
         if (phaseCurrent!=null) phasesPreceding.add(phaseCurrent);
         phasesFollowing = MutableSet.of(); phaseAdvance(); 
     }
+    
+    public ConstructionInstruction getConstructionInstruction() {
+        return constructionInstruction;
+    }
 
     @Override
     public String toString() {
@@ -122,5 +130,7 @@ public abstract class YomlContext {
         if (blackboard==null) blackboard = MutableMap.of();
         return blackboard; 
     }
+
+    public abstract YomlContext subpath(String subpath, Object newItem, String optionalType);
     
 }

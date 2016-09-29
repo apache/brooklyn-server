@@ -21,13 +21,18 @@ package org.apache.brooklyn.util.yoml;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.yoml.internal.YomlContext;
 
 public interface YomlTypeRegistry {
 
     Object newInstance(String type, Yoml yoml);
     
     /** Absent if unknown type; throws if type is ill-defined or incomplete. */
-    Maybe<Object> newInstanceMaybe(String type, Yoml yoml);
+    Maybe<Object> newInstanceMaybe(String type, Yoml yomlToUseForSubsequentEvaluation);
+    
+    /** As {@link #newInstance(String, Yoml)} but for use when YOML is making a nested call,
+     * in case different resolution strategies apply inside the hierarchy. */
+    Maybe<Object> newInstanceMaybe(String type, Yoml yomlToUseForSubsequentEvaluation, @Nullable YomlContext yomlContextOfThisCall);
     
     /** Returns the most-specific Java type implied by the given type in the registry,
      * or a maybe wrapping any explanatory error if the type is not available in the registry.
@@ -35,7 +40,7 @@ public interface YomlTypeRegistry {
      * This is needed so that the right deserialization strategies can be applied for
      * things like collections and enums.
      */
-    Maybe<Class<?>> getJavaTypeMaybe(@Nullable String typeName);
+    Maybe<Class<?>> getJavaTypeMaybe(@Nullable String typeName, @Nullable YomlContext yomlContextOfThisCall);
 
     /** Return the best known type name to describe the given java instance */
     String getTypeName(Object obj);
@@ -44,6 +49,6 @@ public interface YomlTypeRegistry {
 
     /** Return custom serializers that shoud be used when deserializing something of the given type,
      * typically also looking at serializers for its supertypes */
-    Iterable<YomlSerializer> getSerializersForType(String typeName);
+    Iterable<YomlSerializer> getSerializersForType(String typeName, @Nullable YomlContext yomlContextOfThisCall);
     
 }

@@ -28,7 +28,7 @@ public class BrooklynYomlTestFixture extends YomlTestFixture {
     public static YomlTestFixture newInstance() { return new BrooklynYomlTestFixture(); }
     public static YomlTestFixture newInstance(YomlConfig config) { return new BrooklynYomlTestFixture(config); }
     public static YomlTestFixture newInstance(ManagementContext mgmt) {
-        return newInstance(YomlTypePlanTransformer.newYomlConfig(mgmt).build());
+        return newInstance(YomlTypePlanTransformer.newYomlConfig(mgmt, null).build());
     }
 
     public BrooklynYomlTestFixture() {}

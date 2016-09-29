@@ -32,13 +32,13 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yoml.Yoml;
-import org.apache.brooklyn.util.yoml.YomlConfig;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
 import org.apache.brooklyn.util.yoml.annotations.Alias;
 import org.apache.brooklyn.util.yoml.internal.ConstructionInstruction;
 import org.apache.brooklyn.util.yoml.internal.ConstructionInstructions;
 import org.apache.brooklyn.util.yoml.internal.SerializersOnBlackboard;
 import org.apache.brooklyn.util.yoml.internal.YomlContext;
+import org.apache.brooklyn.util.yoml.internal.YomlContextForRead;
 
 import com.google.common.base.Preconditions;
 
@@ -135,8 +135,8 @@ public class InstantiateTypeFromRegistryUsingConfigMap extends InstantiateTypeFr
         }
 
         @Override
-        protected boolean readType(String type) {
-            Class<?> clazz = config.getTypeRegistry().getJavaTypeMaybe(type).orNull();
+        protected boolean readType(String type, boolean isRoot) {
+            Class<?> clazz = config.getTypeRegistry().getJavaTypeMaybe(type, context).orNull();
             if (!isConfigurable(clazz)) return false;
             
             // prepare blackboard, annotations, then do handling_config
@@ -146,7 +146,7 @@ public class InstantiateTypeFromRegistryUsingConfigMap extends InstantiateTypeFr
             fib.typeFromReadToConstructJavaLater = clazz;
             fib.fieldsFromReadToConstructJava = MutableMap.of();
             
-            addSerializersForDiscoveredRealType(type);
+            addSerializersForDiscoveredRealType(type, isRoot);
             addExtraTypeSerializers(clazz);
             
             context.phaseInsert(YomlContext.StandardPhases.MANIPULATING, PHASE_INSTANTIATE_TYPE_DEFERRED);
@@ -180,11 +180,11 @@ public class InstantiateTypeFromRegistryUsingConfigMap extends InstantiateTypeFr
             
             Preconditions.checkNotNull(keyNameForConfigWhenSerialized);
 
-            YomlConfig newConfig = YomlConfig.Builder.builder(config).constructionInstruction(
+            YomlContextForRead constructionContext = ((YomlContextForRead)context).constructionInstruction(
                 newConstructor(type, getTopLevelFieldsBlackboard().getConfigKeys(), MutableMap.copyOf(fib.fieldsFromReadToConstructJava), 
-                    config.getConstructionInstruction())).build();
-            
-            Maybe<Object> resultM = config.getTypeRegistry().newInstanceMaybe(fib.typeNameFromReadToConstructJavaLater, Yoml.newInstance(newConfig));
+                    context.getConstructionInstruction()) );
+ 
+            Maybe<Object> resultM = config.getTypeRegistry().newInstanceMaybe(fib.typeNameFromReadToConstructJavaLater, Yoml.newInstance(config), constructionContext);
           
             if (resultM.isAbsent()) {
                 warn(new IllegalStateException("Unable to create type '"+type+"'", ((Maybe.Absent<?>)resultM).getException()));

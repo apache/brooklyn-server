@@ -63,7 +63,7 @@ public class YomlConverter {
         // find the serializers known so far; store on blackboard so they could be edited
         SerializersOnBlackboard serializers = SerializersOnBlackboard.getOrCreate(blackboard);
         if (context.getExpectedType()!=null) {
-            serializers.addExpectedTypeSerializers(config.getTypeRegistry().getSerializersForType(context.getExpectedType()));
+            serializers.addExpectedTypeSerializers(config.getTypeRegistry().getSerializersForType(context.getExpectedType(), context));
         }
         serializers.addPostSerializers(config.getSerializersPost());
         

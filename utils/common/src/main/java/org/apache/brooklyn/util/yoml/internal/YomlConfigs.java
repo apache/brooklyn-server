@@ -45,14 +45,12 @@ public class YomlConfigs {
                 this.typeRegistry = original.getTypeRegistry();
                 this.coercer = original.getCoercer();
                 this.serializersPost = original.getSerializersPost();
-                this.constructionInstruction = original.getConstructionInstruction();
             }
         }
 
         private YomlTypeRegistry typeRegistry;
         private TypeCoercer coercer = TypeCoercerExtensible.newDefault();
         private List<YomlSerializer> serializersPost = MutableList.of();
-        private ConstructionInstruction constructionInstruction;
 
         public YomlTypeRegistry getTypeRegistry() {
             return typeRegistry;
@@ -64,10 +62,6 @@ public class YomlConfigs {
 
         public List<YomlSerializer> getSerializersPost() {
             return ImmutableList.copyOf(serializersPost);
-        }
-
-        public ConstructionInstruction getConstructionInstruction() {
-            return constructionInstruction;
         }
     }
 
@@ -84,7 +78,6 @@ public class YomlConfigs {
         public T serializersPostReplace(List<YomlSerializer> x) { result.serializersPost = x; return thiz; }
         public T serializersPostAdd(Collection<YomlSerializer> x) { result.serializersPost.addAll(x); return thiz; }
         public T serializersPostAddDefaults() { return serializersPostAdd(getDefaultSerializers()); }
-        public T constructionInstruction(ConstructionInstruction x) { result.constructionInstruction = x; return thiz; }
         
         public YomlConfig build() { return new BasicYomlConfig(result); }
         

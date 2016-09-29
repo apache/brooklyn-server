@@ -81,20 +81,21 @@ public class YomlTypeRegistryEntityInitializersTest extends AbstractYamlTest {
 
         Object ss = mgmt().getTypeRegistry().createBeanFromPlan("yoml", Yamls.parseAll(yaml).iterator().next(), null, null);
         Asserts.assertInstanceOf(ss, StaticSensor.class);
-        // Assert.assertEquals(ss, SS_42);  // class does not support equals
+        // Assert.assertEquals(ss, SS_42);  // StaticSensor does not support equals
     }
 
     @Test
     public void testYomlReadSensorWithExpectedSuperType() throws Exception {
         Object ss = mgmt().getTypeRegistry().createBeanFromPlan("yoml", Yamls.parseAll(SS_42_YAML_SIMPLE).iterator().next(), null, EntityInitializer.class);
         Asserts.assertInstanceOf(ss, StaticSensor.class);
-        // Assert.assertEquals(ss, SS_42);  // class does not support equals
+        // Assert.assertEquals(ss, SS_42);  // StaticSensor does not support equals
     }
     
     @Test
     public void testReadSensorAsMapWithName() throws Exception {
         Object ss = mgmt().getTypeRegistry().createBeanFromPlan("yoml", Yamls.parseAll(SS_42_YAML_SINGLETON_MAP).iterator().next(), null, EntityInitializer.class);
         Asserts.assertInstanceOf(ss, StaticSensor.class);
+        // Assert.assertEquals(ss, SS_42);  // StaticSensor does not support equals
     }
 
     @Test
@@ -108,8 +109,9 @@ public class YomlTypeRegistryEntityInitializersTest extends AbstractYamlTest {
     public void testYomlWriteSensorWithFixture() throws Exception {
         YomlTestFixture y = BrooklynYomlTestFixture.newInstance(mgmt());
         y.write(SS_42, "entity-initializer").assertLastWriteIgnoringQuotes(
-            "{the-answer: { type: static-sensor:0.10.0-SNAPSHOT, period: 5m, targetType: int, timeout: a very long time, value: 42}}"
-            // ideally it would be simple like below but it sets all the values so it ends up looking like the above
+            "{the-answer: { type: static-sensor, period: 5m, targetType: int, timeout: a very long time, value: 42}}"
+            // ideally it would be simple like below but StaticSensor sets all the values 
+            // so it ends up looking like the above; not too bad
 //            Jsonya.newInstance().add( Yamls.parseAll(SS_42_YAML_SINGLETON_MAP).iterator().next() ).toString() 
             );
         
@@ -118,7 +120,7 @@ public class YomlTypeRegistryEntityInitializersTest extends AbstractYamlTest {
         y.readLastWrite().writeLastRead();
         Assert.assertEquals(fullOutput, y.getLastWriteResult());
     }
-
+    
     // and test in context
     
     @Test(enabled=false) // this format (list) still runs old camp parse, does not attempt yaml, included for comparison

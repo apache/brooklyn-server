@@ -50,27 +50,27 @@ public class InstantiateTypeFromRegistry extends YomlSerializerComposition {
             
             if (type==null) return;
                         
-            if (!readType(type)) return;
+            if (!readType(type, true)) return;
             
             if (isYamlMap()) {
                 removeFromYamlKeysOnBlackboardRemaining("type");
             }
         }
 
-        protected boolean readType(String type) {
-            if (addSerializersForDiscoveredRealType(type)) {
+        protected boolean readType(String type, boolean isRoot) {
+            if (addSerializersForDiscoveredRealType(type, isRoot)) {
                 // added new serializers so restart phase
                 // in case another serializer wants to create it
                 context.phaseRestart();
                 return false;
             }
 
-            Maybe<Object> resultM = config.getTypeRegistry().newInstanceMaybe(type, Yoml.newInstance(config));
+            Maybe<Object> resultM = config.getTypeRegistry().newInstanceMaybe(type, Yoml.newInstance(config), context);
             if (resultM.isAbsent()) {
                 String message = "Unable to create type '"+type+"'";
                 RuntimeException exc = null;
                 
-                Maybe<Class<?>> jt = config.getTypeRegistry().getJavaTypeMaybe(type);
+                Maybe<Class<?>> jt = config.getTypeRegistry().getJavaTypeMaybe(type, context);
                 if (jt.isAbsent()) {
                     exc = ((Maybe.Absent<?>)jt).getException();
                 } else {
@@ -97,7 +97,7 @@ public class InstantiateTypeFromRegistry extends YomlSerializerComposition {
             // (osgi syntax isn't supported, because we expect items to be in the registry)
             
             String typeName = getJavaObject().getClass().equals(getExpectedTypeJava()) ? null : config.getTypeRegistry().getTypeName(getJavaObject());
-            if (addSerializersForDiscoveredRealType(typeName)) {
+            if (addSerializersForDiscoveredRealType(typeName, true)) {
                 // if new serializers, bail out and we'll re-run
                 context.phaseRestart();
                 return;

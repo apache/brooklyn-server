@@ -28,6 +28,7 @@ import org.apache.brooklyn.core.effector.ssh.SshCommandEffector;
 import org.apache.brooklyn.core.sensor.StaticSensor;
 import org.apache.brooklyn.core.sensor.ssh.SshCommandSensor;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
+import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
 
 import com.google.common.annotations.Beta;
@@ -285,6 +286,9 @@ public class YomlInitializers {
     /** Put here until there is a better init mechanism */
     @Beta
     public static void install(ManagementContext mgmt) {
+        
+        addLocalBean(mgmt, Duration.class);
+        
         addLocalBean(mgmt, EntityInitializer.class);
         addLocalBean(mgmt, StaticSensor.class);
         addLocalBean(mgmt, SshCommandSensor.class);

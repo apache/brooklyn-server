@@ -27,6 +27,11 @@ public class YomlContextForRead extends YomlContext {
         setYamlObject(yamlObject);
     }
     
+    @Override
+    public YomlContextForRead subpath(String subpath, Object newItem, String superType) {
+        return new YomlContextForRead(newItem, getJsonPath()+subpath, superType, this);
+    }
+
     String origin;
     int offset;
     int length;
@@ -34,5 +39,11 @@ public class YomlContextForRead extends YomlContext {
     @Override
     public String toString() {
         return "reading"+(expectedType!=null ? " "+expectedType : "")+" at "+(Strings.isNonBlank(jsonPath) ? jsonPath : "root");
+    }
+
+    public YomlContextForRead constructionInstruction(ConstructionInstruction newConstruction) {
+        YomlContextForRead result = new YomlContextForRead(yamlObject, jsonPath, expectedType, parent);
+        result.constructionInstruction = newConstruction;
+        return result;
     }
 }

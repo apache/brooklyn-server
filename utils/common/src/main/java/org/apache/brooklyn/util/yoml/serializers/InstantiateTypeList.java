@@ -138,7 +138,7 @@ public class InstantiateTypeList extends YomlSerializerComposition {
                     
                     // get any new generic type set - slightly messy
                     if (!parseExpectedTypeAndDetermineIfNoBadProblems(type)) return;
-                    Maybe<Class<?>> javaTypeM = config.getTypeRegistry().getJavaTypeMaybe(type);
+                    Maybe<Class<?>> javaTypeM = config.getTypeRegistry().getJavaTypeMaybe(type, context);
                     Class<?> javaType;
                     if (javaTypeM.isPresent()) javaType = javaTypeM.get();
                     else {
@@ -168,7 +168,8 @@ public class InstantiateTypeList extends YomlSerializerComposition {
                     // collection definitely expected but not received, schedule manipulation phase
                     if (!context.seenPhase(MANIPULATING_TO_LIST)) {
                         // and add converters for the generic subtype
-                        SerializersOnBlackboard.get(blackboard).addExpectedTypeSerializers( config.getTypeRegistry().getSerializersForType(genericSubType) );
+                        SerializersOnBlackboard.get(blackboard).addExpectedTypeSerializers( 
+                            config.getTypeRegistry().getSerializersForType(genericSubType, context.subpath("<>", null, null)) );
                         context.phaseInsert(MANIPULATING_TO_LIST, YomlContext.StandardPhases.HANDLING_TYPE);
                         context.phaseAdvance();
                     } else {
@@ -184,7 +185,8 @@ public class InstantiateTypeList extends YomlSerializerComposition {
                 if (!context.seenPhase(MANIPULATING_TO_LIST)) {
                     // first apply manipulations,
                     // and add converters for the generic subtype
-                    SerializersOnBlackboard.get(blackboard).addExpectedTypeSerializers( config.getTypeRegistry().getSerializersForType(genericSubType) );
+                    SerializersOnBlackboard.get(blackboard).addExpectedTypeSerializers( 
+                        config.getTypeRegistry().getSerializersForType(genericSubType, context.subpath("<>", null, null)) );
                     context.phaseInsert(MANIPULATING_TO_LIST, StandardPhases.MANIPULATING, YomlContext.StandardPhases.HANDLING_TYPE);
                     context.phaseAdvance();
                     return;
@@ -305,8 +307,7 @@ public class InstantiateTypeList extends YomlSerializerComposition {
             int index = 0;
             
             for (Object yi: yo) {
-                jo.add(converter.read( new YomlContextForRead(yi, context.getJsonPath()+"["+index+"]", genericSubType, context) ));
-
+                jo.add(converter.read( ((YomlContextForRead)context).subpath("["+index+"]", yi, genericSubType) ));
                 index++;
             }
         }
@@ -407,7 +408,7 @@ public class InstantiateTypeList extends YomlSerializerComposition {
 
             int index = 0;
             for (Object ji: (Iterable<?>)getJavaObject()) {
-                list.add(converter.write( new YomlContextForWrite(ji, context.getJsonPath()+"["+index+"]", genericSubType, context) ));
+                list.add(converter.write( ((YomlContextForWrite)context).subpath("/["+index+"]", ji, genericSubType) ));
                 index++;
             }
             

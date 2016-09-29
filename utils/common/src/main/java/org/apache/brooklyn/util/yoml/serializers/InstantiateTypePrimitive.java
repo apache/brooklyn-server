@@ -60,7 +60,7 @@ public class InstantiateTypePrimitive extends YomlSerializerComposition {
                 
                 expectedJavaType = getExpectedTypeJava();
                 if (!isJsonComplexObject(getYamlObject()) && (expectedJavaType!=null || isJsonMarkerTypeExpected())) {
-                    // if it's not a json map/list (and not a primitive) than try a coercion;
+                    // try coercion as long as it's not a json map/list, and we've got an expectation
                     // maybe a bit odd to call that "primitive" but it is primitive in the sense it is pass-through unparsed
                     value = tryCoerceAndNoteError(getYamlObject(), expectedJavaType);
                 }
@@ -68,7 +68,7 @@ public class InstantiateTypePrimitive extends YomlSerializerComposition {
                 if (value.isAbsent()) {
                     String typeName = readingTypeFromFieldOrExpected();
                     if (typeName==null) return;
-                    expectedJavaType = config.getTypeRegistry().getJavaTypeMaybe(typeName).orNull();
+                    expectedJavaType = config.getTypeRegistry().getJavaTypeMaybe(typeName, context).orNull();
                     if (expectedJavaType==null) expectedJavaType = getSpecialKnownTypeName(typeName);
                     // could restrict read coercion to basic types as follows, but no harm in trying to coerce if it's
                     // a value map, unless the target is a special json which will be handled by another serializer
@@ -138,7 +138,7 @@ public class InstantiateTypePrimitive extends YomlSerializerComposition {
             if (!isJsonPrimitiveObject(jOut)) return;
             
             String typeName = config.getTypeRegistry().getTypeName(jIn);
-            if (addSerializersForDiscoveredRealType(typeName)) {
+            if (addSerializersForDiscoveredRealType(typeName, true)) {
                 // if new serializers, bail out and we'll re-run
                 context.phaseRestart();
                 return;

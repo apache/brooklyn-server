@@ -52,7 +52,7 @@ public class InstantiateTypeEnum extends YomlSerializerComposition {
             if (type==null) {
                 String typeName = readingTypeFromFieldOrExpected();
                 if (typeName==null) return;
-                type = config.getTypeRegistry().getJavaTypeMaybe(typeName).orNull();
+                type = config.getTypeRegistry().getJavaTypeMaybe(typeName, context).orNull();
                 // swallow exception in this context, it isn't meant for enum to resolve
                 if (type==null || !type.isEnum()) return;
                 value = readingValueFromTypeValueMap();
@@ -89,7 +89,7 @@ public class InstantiateTypeEnum extends YomlSerializerComposition {
 
             if (wrap) {
                 String typeName = config.getTypeRegistry().getTypeName(getJavaObject());
-                if (addSerializersForDiscoveredRealType(typeName)) {
+                if (addSerializersForDiscoveredRealType(typeName, true)) {
                     // if new serializers, bail out and we'll re-run
                     context.phaseRestart();
                     return;

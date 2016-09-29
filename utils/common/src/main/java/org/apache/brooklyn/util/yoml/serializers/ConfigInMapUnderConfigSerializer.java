@@ -78,13 +78,13 @@ public class ConfigInMapUnderConfigSerializer extends FieldsInMapUnderFields {
             
             Object v2;
             try {
-                v2 = converter.read( new YomlContextForRead(value, context.getJsonPath()+"/"+key, optionalType, context) );
+                v2 = converter.read( ((YomlContextForRead)context).subpath("/"+key, value, optionalType) );
             } catch (Exception e) {
                 // for config we try with the optional type, but don't insist
                 Exceptions.propagateIfFatal(e);
                 if (optionalType!=null) optionalType = null;
                 try {
-                    v2 = converter.read( new YomlContextForRead(value, context.getJsonPath()+"/"+key, optionalType, context) );
+                    v2 = converter.read( ((YomlContextForRead)context).subpath("/"+key, value, optionalType) );
                 } catch (Exception e2) {
                     Exceptions.propagateIfFatal(e2);
                     throw e;
@@ -131,7 +131,7 @@ public class ConfigInMapUnderConfigSerializer extends FieldsInMapUnderFields {
                     }
                 }
                 
-                Object v = converter.write(new YomlContextForWrite(entry.getValue(), context.getJsonPath()+"/"+entry.getKey(), optionalType, context) );
+                Object v = converter.write( ((YomlContextForWrite)context).subpath("/"+entry.getKey(), entry.getValue(), optionalType) );
                 configMap.put(entry.getKey(), v);
             }
             for (String key: configMap.keySet()) fib.configToWriteFromJava.remove(key);

@@ -70,7 +70,7 @@ public class FieldsInMapUnderFields extends YomlSerializerComposition {
                     return false;
                 } else {
                     String fieldType = getFieldTypeName(ff, optionalTypeConstraint);
-                    Object v2 = converter.read( new YomlContextForRead(value, context.getJsonPath()+"/"+key, fieldType, context) );
+                    Object v2 = converter.read( ((YomlContextForRead)context).subpath("/"+key, value, fieldType) );
                     
                     ff.setAccessible(true);
                     ff.set(getJavaObject(), v2);
@@ -223,7 +223,7 @@ public class FieldsInMapUnderFields extends YomlSerializerComposition {
                             }
                         }
                         
-                        Object v2 = converter.write(new YomlContextForWrite(v.get(), context.getJsonPath()+"/"+f, fieldType, context) );
+                        Object v2 = converter.write( ((YomlContextForWrite)context).subpath("/"+f, v.get(), fieldType) );
                         fields.put(f, v2);
                     }
                 }

@@ -55,12 +55,13 @@ public abstract class InstantiateTypeWorkerAbstract extends YomlSerializerWorker
     /** invoked on read and write to apply the appropriate serializers one the real type is known,
      * e.g. by looking up in registry. name of type will not be null but if it equals the java type
      * that may mean that annotation-scanning is appropriate. */
-    protected boolean addSerializersForDiscoveredRealType(@Nullable String type) {
+    protected boolean addSerializersForDiscoveredRealType(@Nullable String type, boolean isRootType) {
         if (type!=null) {
             // (if null, we were writing what was expected, and we'll have added from expected type serializers)
             if (!type.equals(context.getExpectedType())) {
                 if (putLabelOnBlackboard("discovered-type="+type, true)) {
-                    SerializersOnBlackboard.get(blackboard).addInstantiatedTypeSerializers(config.getTypeRegistry().getSerializersForType(type));
+                    SerializersOnBlackboard.get(blackboard).addInstantiatedTypeSerializers(config.getTypeRegistry().getSerializersForType(type, 
+                        isRootType ? context : context.subpath("...", null, null) ));
                     return true;
                 }
             }

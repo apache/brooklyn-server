@@ -143,20 +143,20 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     }
     
     @Override
-    public RegisteredType get(String symbolicNameWithOptionalVersion, RegisteredTypeLoadingContext context) {
-        return getMaybe(symbolicNameWithOptionalVersion, context).orNull();
+    public RegisteredType get(String symbolicNameOrAliasWithOptionalVersion, RegisteredTypeLoadingContext context) {
+        return getMaybe(symbolicNameOrAliasWithOptionalVersion, context).orNull();
     }
     @Override
-    public Maybe<RegisteredType> getMaybe(String symbolicNameWithOptionalVersion, RegisteredTypeLoadingContext context) {
+    public Maybe<RegisteredType> getMaybe(String symbolicNameOrAliasWithOptionalVersion, RegisteredTypeLoadingContext context) {
         Maybe<RegisteredType> r1 = null;
-        if (CatalogUtils.looksLikeVersionedId(symbolicNameWithOptionalVersion)) {
-            String symbolicName = CatalogUtils.getSymbolicNameFromVersionedId(symbolicNameWithOptionalVersion);
-            String version = CatalogUtils.getVersionFromVersionedId(symbolicNameWithOptionalVersion);
+        if (CatalogUtils.looksLikeVersionedId(symbolicNameOrAliasWithOptionalVersion)) {
+            String symbolicName = CatalogUtils.getSymbolicNameFromVersionedId(symbolicNameOrAliasWithOptionalVersion);
+            String version = CatalogUtils.getVersionFromVersionedId(symbolicNameOrAliasWithOptionalVersion);
             r1 = getSingle(symbolicName, version, context);
             if (r1.isPresent()) return r1;
         }
 
-        Maybe<RegisteredType> r2 = getSingle(symbolicNameWithOptionalVersion, BrooklynCatalog.DEFAULT_VERSION, context);
+        Maybe<RegisteredType> r2 = getSingle(symbolicNameOrAliasWithOptionalVersion, BrooklynCatalog.DEFAULT_VERSION, context);
         if (r2.isPresent() || r1==null) return r2;
         return r1;
     }

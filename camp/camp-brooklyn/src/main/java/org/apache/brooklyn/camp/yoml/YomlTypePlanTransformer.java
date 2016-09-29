@@ -33,6 +33,7 @@ import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslInterpreter;
 import org.apache.brooklyn.camp.spi.resolve.PlanInterpreter;
 import org.apache.brooklyn.camp.spi.resolve.interpret.PlanInterpretationContext;
 import org.apache.brooklyn.camp.spi.resolve.interpret.PlanInterpretationNode;
+import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.typereg.AbstractFormatSpecificTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.AbstractTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
@@ -138,6 +139,15 @@ public class YomlTypePlanTransformer extends AbstractTypePlanTransformer {
 
     @Override
     protected Object createBean(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
+        Preconditions.checkNotNull(type);
+        Preconditions.checkNotNull(context);
+        
+        // add any loaders for this type
+        context = RegisteredTypeLoadingContexts.builder(context)
+            .loader(
+                CatalogUtils.newClassLoadingContext(mgmt, type, context.getLoader()) )
+            .build();
+
         Yoml y = Yoml.newInstance(newYomlConfig(mgmt, context).build());
         
         // TODO could cache the parse, could cache the instantiation instructions
@@ -194,21 +204,13 @@ public class YomlTypePlanTransformer extends AbstractTypePlanTransformer {
     }
 
     @Beta @VisibleForTesting
-    public static Builder<YomlConfig.Builder> newYomlConfig(@Nonnull ManagementContext mgmt) {
-        return newYomlConfig(mgmt, (RegisteredTypeLoadingContext)null);
-    }
-    
-    @Beta @VisibleForTesting
     public static Builder<YomlConfig.Builder> newYomlConfig(@Nonnull ManagementContext mgmt, @Nullable RegisteredTypeLoadingContext context) {
         if (context==null) context = RegisteredTypeLoadingContexts.any();
         BrooklynYomlTypeRegistry tr = new BrooklynYomlTypeRegistry(mgmt, context);
-        return newYomlConfig(mgmt, tr);
-    }
-
-    static YomlConfig.Builder newYomlConfig(ManagementContext mgmt, BrooklynYomlTypeRegistry typeRegistry) {
-        return YomlConfig.Builder.builder().typeRegistry(typeRegistry).
+        return YomlConfig.Builder.builder().typeRegistry(tr).
             serializersPostAddDefaults().
-            // TODO any custom serializers?
+            // could add any custom global serializers here; but so far these are all linked to types
+            // and collected by tr.collectSerializers(...)
             coercer(new ValueResolver.ResolvingTypeCoercer());
     }
     
