@@ -31,6 +31,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Application;
@@ -843,8 +844,9 @@ public abstract class RebindIteration {
 
             //As a last resort go through all catalog items trying to load the type and use the first that succeeds.
             //But first check if can be loaded from the default classpath
-            if (JavaBrooklynClassLoadingContext.create(managementContext).tryLoadClass(entityManifest.getType()).isPresent())
-                return null;
+            if (JavaBrooklynClassLoadingContext.create(managementContext).tryLoadClass(entityManifest.getType()).isPresent()) {
+                return ImmutableList.of();
+            }
 
             // TODO get to the point when we can deprecate this behaviour!:
             for (RegisteredType item : types.getAll()) {
@@ -946,24 +948,25 @@ public abstract class RebindIteration {
             List<String> idsFromReboundCatalog = MutableList.of();
             if (catalogItemIds != null && !catalogItemIds.isEmpty()) {
                 findCatalogIdsInReboundCatalog(bType, catalogItemIds, contextSuchAsId, idsFromReboundCatalog);
-                if (!idsFromReboundCatalog.isEmpty()) {
+                if (idsFromReboundCatalog.size() == catalogItemIds.size()) {
                     BrooklynClassLoadingContext loader = CatalogUtils.newClassLoadingContextForCatalogItems(managementContext, idsFromReboundCatalog);
                     return new LoadedClass<T>(loader.loadClass(jType, bType), catalogItemIds);
                 } else {
-                    LOG.warn("Unable to load catalog items "+ catalogItemIds +" for "+contextSuchAsId
+                    LOG.warn("Unable to load all catalog items "+ Iterables.toString(catalogItemIds) +" for "+contextSuchAsId
                             +" ("+bType.getSimpleName()+"); will try default class loader");
                 }
             }
             
             try {
-                return new LoadedClass<T>((Class<T>)loadClass(jType), idsFromReboundCatalog);
+                return new LoadedClass<T>((Class<T>)loadClass(jType), catalogItemIds);
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
                 LOG.warn("Unable to load "+jType+" using reflections; will try standard context");
             }
 
             if (catalogItemIds != null && !catalogItemIds.isEmpty()) {
-                throw new IllegalStateException("Unable to load catalog item "+ catalogItemIds +" for "+contextSuchAsId+", or load class from classpath");
+                throw new IllegalStateException("Unable to load catalog items " + Iterables.toString(catalogItemIds)
+                    + " for "+contextSuchAsId+", or load class from classpath");
             } else if (BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_BACKWARDS_COMPATIBILITY_INFER_CATALOG_ITEM_ON_REBIND)) {
                 //Try loading from whichever catalog bundle succeeds.
                 BrooklynCatalog catalog = managementContext.getCatalog();
