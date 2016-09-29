@@ -32,7 +32,7 @@ import org.apache.brooklyn.test.http.TestHttpServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.Iterables;
@@ -41,12 +41,12 @@ public class HttpRequestSensorYamlTest extends AbstractYamlTest {
     private static final Logger log = LoggerFactory.getLogger(HttpRequestSensorYamlTest.class);
 
     final static AttributeSensor<String> SENSOR_STRING = Sensors.newStringSensor("aString");
-    final static String TARGET_TYPE = "java.lang.String";
+    final static String TARGET_TYPE = String.class.getName();
 
     private TestHttpServer server;
     private String serverUrl;
 
-    @BeforeClass(alwaysRun=true)
+    @BeforeMethod(alwaysRun = true)
     @Override
     public void setUp() throws Exception {
         super.setUp();

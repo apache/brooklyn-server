@@ -50,7 +50,6 @@ import com.google.common.base.Supplier;
  * However when the source is another sensor,
  * consider using {@link Propagator} which listens for changes instead. */
 @Alias("static-sensor")
-@YomlRenameDefaultKey("name")
 public class StaticSensor<T> extends AddSensor<T> {
 
     private static final Logger log = LoggerFactory.getLogger(StaticSensor.class);

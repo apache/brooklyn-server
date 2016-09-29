@@ -125,12 +125,21 @@ public class BrooklynConfigKeys {
             .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED)
             .build();
 
-    public static final MapConfigKey<Object> SHELL_ENVIRONMENT = new MapConfigKey.Builder<Object>(Object.class, "shell.env")
-            .description("Map of environment variables to pass to the runtime shell. Non-string values are serialized to json before passed to the shell.") 
-            .defaultValue(ImmutableMap.<String,Object>of())
-            .typeInheritance(BasicConfigInheritance.DEEP_MERGE)
-            .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED_ELSE_DEEP_MERGE)
-            .build();
+    public static final MapConfigKey<String> SHELL_ENVIRONMENT_STRING_VALUES = new MapConfigKey.Builder<String>(String.class, "shell.env")
+        .description("Map of environment variables to pass to the runtime shell") 
+        .defaultValue(ImmutableMap.<String,String>of())
+        .typeInheritance(BasicConfigInheritance.DEEP_MERGE)
+        .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED_ELSE_DEEP_MERGE)
+        .build();
+
+    public static final MapConfigKey<Object> SHELL_ENVIRONMENT_OBJECT_VALUE = new MapConfigKey.Builder<Object>(Object.class, "shell.env")
+        .description("Map of environment variables to pass to the runtime shell. Non-string values are serialized to json before passed to the shell.") 
+        .defaultValue(ImmutableMap.<String,Object>of())
+        .typeInheritance(BasicConfigInheritance.DEEP_MERGE)
+        .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED_ELSE_DEEP_MERGE)
+        .build();
+    
+    public static final MapConfigKey<Object> SHELL_ENVIRONMENT = SHELL_ENVIRONMENT_OBJECT_VALUE;
 
     // TODO these dirs should also not be reinherited at runtime
     public static final AttributeSensorAndConfigKey<String, String> INSTALL_DIR = new TemplatedStringAttributeSensorAndConfigKey("install.dir", "Directory for this software to be installed in",

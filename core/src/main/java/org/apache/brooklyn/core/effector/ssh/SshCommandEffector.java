@@ -61,7 +61,7 @@ public final class SshCommandEffector extends AddEffector {
     public static final ConfigKey<String> EFFECTOR_COMMAND = ConfigKeys.newStringConfigKey("command");
     public static final ConfigKey<String> EFFECTOR_EXECUTION_DIR = SshCommandSensor.SENSOR_EXECUTION_DIR;
     @Alias(preferred="env", value={"vars","variables","environment"})
-    public static final MapConfigKey<Object> EFFECTOR_SHELL_ENVIRONMENT = BrooklynConfigKeys.SHELL_ENVIRONMENT;
+    public static final MapConfigKey<String> EFFECTOR_SHELL_ENVIRONMENT = BrooklynConfigKeys.SHELL_ENVIRONMENT_STRING_VALUES;
 
     public static enum ExecutionTarget {
         ENTITY,
@@ -90,7 +90,7 @@ public final class SshCommandEffector extends AddEffector {
     protected static class Body extends EffectorBody<String> {
         private final Effector<?> effector;
         private final String command;
-        private final Map<String, Object> shellEnv;
+        private final Map<String, String> shellEnv;
         private final String executionDir;
         private final ExecutionTarget executionTarget;
 
@@ -165,7 +165,7 @@ public final class SshCommandEffector extends AddEffector {
             if (shellEnv != null) env.putAll(shellEnv);
             
             // Add the shell environment entries from our invocation
-            Map<String, Object> effectorEnv = params.get(EFFECTOR_SHELL_ENVIRONMENT);
+            Map<String, String> effectorEnv = params.get(EFFECTOR_SHELL_ENVIRONMENT);
             if (effectorEnv != null) env.putAll(effectorEnv);
             
             // Try to resolve the configuration in the env Map

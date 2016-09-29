@@ -36,6 +36,7 @@ import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.yoml.annotations.Alias;
 import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsTopLevel;
+import org.apache.brooklyn.util.yoml.annotations.YomlRenameKey.YomlRenameDefaultKey;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
@@ -52,6 +53,7 @@ import com.google.common.base.Preconditions;
 @Beta
 @YomlConfigBagConstructor("")
 @YomlAllFieldsTopLevel
+@YomlRenameDefaultKey("name")
 public class AddSensor<T> implements EntityInitializer {
 
     public static final ConfigKey<String> SENSOR_NAME = ConfigKeys.newStringConfigKey("name", "The name of the sensor to create");

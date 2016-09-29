@@ -31,7 +31,10 @@ import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.effector.Effectors.EffectorBuilder;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.yoml.YomlConfigBagConstructor;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsTopLevel;
+import org.apache.brooklyn.util.yoml.annotations.YomlRenameKey.YomlRenameDefaultKey;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
@@ -56,6 +59,9 @@ import com.google.common.base.Preconditions;
  *  
  * @since 0.7.0 */
 @Beta
+@YomlConfigBagConstructor("")
+@YomlAllFieldsTopLevel
+@YomlRenameDefaultKey("name")
 public class AddEffector implements EntityInitializer {
     
     public static final ConfigKey<String> EFFECTOR_NAME = ConfigKeys.newStringConfigKey("name");

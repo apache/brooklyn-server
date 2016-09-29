@@ -69,11 +69,11 @@ public final class SshCommandSensor<T> extends AddSensor<T> {
         + "if not supplied, executes in the entity's run dir (or home dir if no run dir is defined); "
         + "use '~' to always execute in the home dir, or 'custom-feed/' to execute in a custom-feed dir relative to the run dir");
     @Alias(preferred="env", value={"vars","variables","environment"})
-    public static final MapConfigKey<Object> SENSOR_SHELL_ENVIRONMENT = BrooklynConfigKeys.SHELL_ENVIRONMENT;
+    public static final MapConfigKey<String> SENSOR_SHELL_ENVIRONMENT = BrooklynConfigKeys.SHELL_ENVIRONMENT_STRING_VALUES;
 
     protected final String command;
     protected final String executionDir;
-    protected final Map<String,Object> sensorEnv;
+    protected final Map<String,String> sensorEnv;
 
     public SshCommandSensor(final ConfigBag params) {
         super(params);
