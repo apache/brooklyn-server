@@ -48,6 +48,7 @@ public @interface YomlRenameKey {
     /** As {@link YomlRenameKey} with {@link YomlRenameKey#oldKeyName()} equals to <code>.key</code> */
     @Retention(RUNTIME)
     @Target({ TYPE })
+    @Inherited
     public @interface YomlRenameDefaultKey {
         /** The key name to change to when reading */
         String value();
@@ -57,6 +58,7 @@ public @interface YomlRenameKey {
     /** As {@link YomlRenameKey} with {@link YomlRenameKey#oldKeyName()} equals to <code>.value</code> */
     @Retention(RUNTIME)
     @Target({ TYPE })
+    @Inherited
     public @interface YomlRenameDefaultValue {
         /** The key name to change to when reading */
         String value();
