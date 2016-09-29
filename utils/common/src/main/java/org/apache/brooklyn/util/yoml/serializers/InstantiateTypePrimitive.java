@@ -71,8 +71,8 @@ public class InstantiateTypePrimitive extends YomlSerializerComposition {
                     expectedJavaType = config.getTypeRegistry().getJavaTypeMaybe(typeName).orNull();
                     if (expectedJavaType==null) expectedJavaType = getSpecialKnownTypeName(typeName);
                     // could restrict read coercion to basic types as follows, but no harm in trying to coerce if it's
-                    // a value map
-//                    if (!isJsonPrimitiveType(expectedJavaType) && !isJsonMarkerType(typeName)) return;
+                    // a value map, unless the target is a special json which will be handled by another serializer
+                    if (isJsonComplexType(expectedJavaType) || isGeneric(typeName)) return;
 
                     value = readingValueFromTypeValueMap();
                     if (value.isAbsent()) return;

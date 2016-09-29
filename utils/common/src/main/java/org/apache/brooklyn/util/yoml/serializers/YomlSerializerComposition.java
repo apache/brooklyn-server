@@ -81,7 +81,37 @@ public abstract class YomlSerializerComposition implements YomlSerializer {
             if (YomlUtils.TYPE_MAP.equals(typename)) return Map.class;
             return Boxing.boxedType( Boxing.getPrimitiveType(typename).orNull() );
         }
+        protected boolean isJsonComplexType(Class<?> t) {
+            if (t==null) return false;
+            // or could be equals, used as response of the above
+            if (Map.class.isAssignableFrom(t)) return true;
+            if (Set.class.isAssignableFrom(t)) return true;
+            if (List.class.isAssignableFrom(t)) return true;
+            return false;
+        }
+        protected boolean isGeneric(String typename) {
+            if (typename==null) return false;
+            return typename.contains("<");
+        }
 
+        /** true iff the object is a string or java primitive type */ 
+        protected boolean isJsonPrimitiveObject(Object o) {
+            if (o==null) return true;
+            if (o instanceof String) return true;
+            if (Boxing.isPrimitiveOrBoxedObject(o)) return true;
+            return false;
+        }
+        
+        /** true iff the object is a map or collection (not recursing; for that see {@link #isJsonPureObject(Object)}  */ 
+        protected boolean isJsonComplexObject(Object o) {
+            return (o instanceof Map || o instanceof Collection);
+        }
+
+        /** true iff the object is a primitive type or a map or collection of pure objects;
+         * see {@link JsonMarker#isPureJson(Object)} (which this simply proxies for convenience) */ 
+        protected boolean isJsonPureObject(Object o) {
+            return YomlUtils.JsonMarker.isPureJson(o);
+        }
         
         private void initRead(YomlContextForRead context, YomlConverter converter) {
             if (this.context!=null) throw new IllegalStateException("Already initialized, for "+context);
@@ -191,25 +221,6 @@ public abstract class YomlSerializerComposition implements YomlSerializer {
             return result;
         }
         
-        /** true iff the object is a string or java primitive type */ 
-        protected boolean isJsonPrimitiveObject(Object o) {
-            if (o==null) return true;
-            if (o instanceof String) return true;
-            if (Boxing.isPrimitiveOrBoxedObject(o)) return true;
-            return false;
-        }
-        
-        /** true iff the object is a map or collection (not recursing; for that see {@link #isJsonPureObject(Object)}  */ 
-        protected boolean isJsonComplexObject(Object o) {
-            return (o instanceof Map || o instanceof Collection);
-        }
-
-        /** true iff the object is a primitive type or a map or collection of pure objects;
-         * see {@link JsonMarker#isPureJson(Object)} (which this simply proxies for convenience) */ 
-        protected boolean isJsonPureObject(Object o) {
-            return YomlUtils.JsonMarker.isPureJson(o);
-        }
-
         public abstract void read();
         public abstract void write();
     }
