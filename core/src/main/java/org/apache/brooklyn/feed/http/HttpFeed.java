@@ -394,7 +394,7 @@ public class HttpFeed extends AbstractFeed {
                             .build());
                     return createHttpToolRespose(response);
                 }};
-                getPoller().scheduleAtFixedRate(pollJob, new DelegatingPollHandler(handlers), minPeriod);
+                getPoller().scheduleAtFixedRate(pollJob, new DelegatingPollHandler<HttpToolResponse>(handlers), minPeriod);
         }
     }
 
