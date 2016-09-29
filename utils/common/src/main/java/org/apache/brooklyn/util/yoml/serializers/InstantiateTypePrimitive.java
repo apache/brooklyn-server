@@ -59,7 +59,11 @@ public class InstantiateTypePrimitive extends YomlSerializerComposition {
                 // not primitive; either should be coercible or should be of {type: ..., value: ...} format with type being the primitive
                 
                 expectedJavaType = getExpectedTypeJava();
-                if (!isJsonComplexObject(getYamlObject()) && (expectedJavaType!=null || isJsonMarkerTypeExpected())) {
+                if (isDeferredValue(getYamlObject())) {
+                    value = Maybe.of(getYamlObject());
+                }
+                
+                if (value.isAbsent() && !isJsonComplexObject(getYamlObject()) && (expectedJavaType!=null || isJsonMarkerTypeExpected())) {
                     // try coercion as long as it's not a json map/list, and we've got an expectation
                     // maybe a bit odd to call that "primitive" but it is primitive in the sense it is pass-through unparsed
                     value = tryCoerceAndNoteError(getYamlObject(), expectedJavaType);
