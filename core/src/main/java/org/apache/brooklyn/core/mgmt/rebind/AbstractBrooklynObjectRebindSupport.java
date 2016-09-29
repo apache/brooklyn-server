@@ -66,7 +66,7 @@ public abstract class AbstractBrooklynObjectRebindSupport<T extends Memento> imp
         
         doReconstruct(rebindContext, memento);
         if (!rebindContext.isReadOnly(instance))
-            instance.rebind();
+            instanceRebind(instance);
     }
 
     protected abstract void addConfig(RebindContext rebindContext, T memento);
@@ -101,6 +101,10 @@ public abstract class AbstractBrooklynObjectRebindSupport<T extends Memento> imp
         }
     }
 
+    protected void instanceRebind(AbstractBrooklynObject instance) {
+        instance.rebind();
+    }
+    
     @Override
     public void addPolicies(RebindContext rebindContext, T Memento) {
         throw new UnsupportedOperationException();
@@ -115,7 +119,7 @@ public abstract class AbstractBrooklynObjectRebindSupport<T extends Memento> imp
     public void addFeeds(RebindContext rebindContext, T Memento) {
         throw new UnsupportedOperationException();
     }
-
+    
     /**
      * For overriding, to give custom reconstruct behaviour.
      * 

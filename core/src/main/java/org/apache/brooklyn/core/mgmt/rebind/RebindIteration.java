@@ -692,10 +692,6 @@ public abstract class RebindIteration {
             if (oldMode!=null) {
                 oldEntities.remove(entity.getId());
             }
-
-            if (ServiceStateLogic.getExpectedState(entity) == Lifecycle.STARTING || ServiceStateLogic.getExpectedState(entity) == Lifecycle.STOPPING) {
-                ServiceStateLogic.setExpectedState(entity, Lifecycle.ON_FIRE);
-            }
         }
         List<Application> apps = Lists.newArrayList();
         for (String rootId : getMementoRootEntities()) {

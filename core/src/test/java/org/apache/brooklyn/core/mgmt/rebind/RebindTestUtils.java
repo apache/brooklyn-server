@@ -44,6 +44,7 @@ import org.apache.brooklyn.core.mgmt.ha.ManagementPlaneSyncRecordPersisterToObje
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
+import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
 import org.apache.brooklyn.core.mgmt.persist.FileBasedObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
@@ -150,6 +151,7 @@ public class RebindTestUtils {
         BrooklynProperties properties;
         PersistenceObjectStore objectStore;
         Duration persistPeriod = Duration.millis(100);
+        HighAvailabilityMode haMode;
         boolean forLive;
         boolean enableOsgi = false;
         boolean emptyCatalog;
@@ -205,6 +207,11 @@ public class RebindTestUtils {
             return this;
         }
 
+        public ManagementContextBuilder haMode(HighAvailabilityMode val) {
+            this.haMode = val;
+            return this;
+        }
+
         public LocalManagementContext buildUnstarted() {
             LocalManagementContext unstarted;
             BrooklynProperties properties = this.properties != null
@@ -225,7 +232,7 @@ public class RebindTestUtils {
             }
             
             objectStore.injectManagementContext(unstarted);
-            objectStore.prepareForSharedUse(PersistMode.AUTO, HighAvailabilityMode.DISABLED);
+            objectStore.prepareForSharedUse(PersistMode.AUTO, (haMode == null ? HighAvailabilityMode.DISABLED : haMode));
             BrooklynMementoPersisterToObjectStore newPersister = new BrooklynMementoPersisterToObjectStore(
                     objectStore, 
                     unstarted.getBrooklynProperties(), 
@@ -394,6 +401,7 @@ public class RebindTestUtils {
         ManagementContextInternal origManagementContext = (ManagementContextInternal) options.origManagementContext;
         ManagementContextInternal newManagementContext = (ManagementContextInternal) options.newManagementContext;
         PersistenceObjectStore objectStore = options.objectStore;
+        HighAvailabilityMode haMode = (options.haMode == null ? HighAvailabilityMode.DISABLED : options.haMode);
         RebindExceptionHandler exceptionHandler = options.exceptionHandler;
         boolean hasPersister = newManagementContext != null && newManagementContext.getRebindManager().getPersister() != null;
         boolean checkSerializable = options.checkSerializable;
@@ -412,7 +420,7 @@ public class RebindTestUtils {
                 objectStore = new FileBasedObjectStore(checkNotNull(mementoDir, "mementoDir and objectStore must not both be null"));
             }
             objectStore.injectManagementContext(newManagementContext);
-            objectStore.prepareForSharedUse(PersistMode.AUTO, HighAvailabilityMode.DISABLED);
+            objectStore.prepareForSharedUse(PersistMode.AUTO, haMode);
             
             BrooklynMementoPersisterToObjectStore newPersister = new BrooklynMementoPersisterToObjectStore(
                     objectStore,
@@ -443,7 +451,10 @@ public class RebindTestUtils {
             stateTransformer.apply(persister);
         }
         
-        List<Application> newApps = newManagementContext.getRebindManager().rebind(classLoader, exceptionHandler, ManagementNodeState.MASTER);
+        List<Application> newApps = newManagementContext.getRebindManager().rebind(
+                classLoader, 
+                exceptionHandler, 
+                (haMode == HighAvailabilityMode.DISABLED) ? ManagementNodeState.MASTER : ManagementNodeState.of(haMode).get());
         newManagementContext.getRebindManager().startPersistence();
         return newApps;
     }
