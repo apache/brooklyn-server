@@ -70,14 +70,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 
 public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixtureWithApp {
 
-    // TODO We'd like to record the fact that we were starting or stopping, rather than just say "on-fire".
-    // For example, we can use the Attributes.SERVICE_NOT_UP_INDICATORS to say what went wrong.
-    
-    // TODO If we fail during provisioningLocation.obtain() or provisioningLocation.release(), then we
-    // should tell the user that a VM might have started being provisioned but been forgotten about; or
-    // that termination of the VM may or may not have completed.
-    // We could use the Attributes.SERVICE_NOT_UP_INDICATORS to achieve that.
-
     private ListeningExecutorService executor;
     private LocationSpec<SshMachineLocation> machineSpec;
     private FixedListMachineProvisioningLocation<?> locationProvisioner;

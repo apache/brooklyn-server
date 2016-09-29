@@ -69,8 +69,6 @@ import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.AbstractApplication;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
-import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.feed.AbstractFeed;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
@@ -689,9 +687,8 @@ public abstract class RebindIteration {
         Set<String> oldEntities = Sets.newLinkedHashSet(entityManager.getEntityIds());
         for (Entity entity: rebindContext.getEntities()) {
             ManagementTransitionMode oldMode = updateTransitionMode(entityManager, entity);
-            if (oldMode!=null) {
+            if (oldMode!=null)
                 oldEntities.remove(entity.getId());
-            }
         }
         List<Application> apps = Lists.newArrayList();
         for (String rootId : getMementoRootEntities()) {
