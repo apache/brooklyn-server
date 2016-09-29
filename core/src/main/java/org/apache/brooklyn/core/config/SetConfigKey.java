@@ -18,9 +18,12 @@
  */
 package org.apache.brooklyn.core.config;
 
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -28,6 +31,8 @@ import org.apache.brooklyn.core.config.internal.AbstractCollectionConfigKey;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.reflect.TypeToken;
 
 /** A config key representing a set of values. 
  * If a value is set using this *typed* key, it is _added_ to the set
@@ -58,11 +63,30 @@ public class SetConfigKey<V> extends AbstractCollectionConfigKey<Set<? extends V
         this(subType, name, description, null);
     }
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
     public SetConfigKey(Class<V> subType, String name, String description, Set<? extends V> defaultValue) {
-        super((Class)Set.class, subType, name, description, defaultValue);
+        super(typeTokenSetWithSubtype(subType), subType, name, description, defaultValue);
     }
 
+    @SuppressWarnings("unchecked")
+    private static <V> TypeToken<Set<? extends V>> typeTokenSetWithSubtype(final Class<V> subType) {
+        return (TypeToken<Set<? extends V>>) TypeToken.of(new ParameterizedType() {
+            @Override
+            public Type getRawType() {
+                return Set.class;
+            }
+            
+            @Override
+            public Type getOwnerType() {
+                return null;
+            }
+            
+            @Override
+            public Type[] getActualTypeArguments() {
+                return new Type[] { subType };
+            }
+        });
+    }
+    
     @Override
     protected Set<Object> merge(boolean unmodifiable, Iterable<?>... sets) {
         MutableSet<Object> result = MutableSet.of();
@@ -78,7 +102,7 @@ public class SetConfigKey<V> extends AbstractCollectionConfigKey<Set<? extends V
         /** when passed as a value to a SetConfigKey, causes each of these items to be added.
          * if you have just one, no need to wrap in a mod. */
         // to prevent confusion (e.g. if a set is passed) we require two objects here.
-        public static final <T> SetModification<T> add(final T o1, final T o2, final T ...oo) {
+        public static final <T> SetModification<T> add(final T o1, final T o2, @SuppressWarnings("unchecked") final T ...oo) {
             Set<T> l = new LinkedHashSet<T>();
             l.add(o1); l.add(o2);
             for (T o: oo) l.add(o);

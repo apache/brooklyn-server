@@ -32,6 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Iterables;
+import com.google.common.reflect.TypeToken;
 
 public abstract class AbstractCollectionConfigKey<T, RawT extends Collection<Object>, V> extends AbstractStructuredConfigKey<T, RawT, V> {
 
@@ -39,6 +40,10 @@ public abstract class AbstractCollectionConfigKey<T, RawT extends Collection<Obj
     private static final Logger log = LoggerFactory.getLogger(AbstractCollectionConfigKey.class);
     
     public AbstractCollectionConfigKey(Class<T> type, Class<V> subType, String name, String description, T defaultValue) {
+        super(type, subType, name, description, defaultValue);
+    }
+
+    public AbstractCollectionConfigKey(TypeToken<T> type, Class<V> subType, String name, String description, T defaultValue) {
         super(type, subType, name, description, defaultValue);
     }
 

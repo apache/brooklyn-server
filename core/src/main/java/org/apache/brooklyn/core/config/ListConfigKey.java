@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.core.config;
 
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -29,6 +31,8 @@ import org.apache.brooklyn.core.internal.storage.impl.ConcurrentMapAcceptingNull
 import org.apache.brooklyn.util.collections.MutableList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.reflect.TypeToken;
 
 /** A config key representing a list of values. 
  * If a value is set on this key, it is _added_ to the list.
@@ -67,11 +71,30 @@ public class ListConfigKey<V> extends AbstractCollectionConfigKey<List<? extends
         this(subType, name, description, null);
     }
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
     public ListConfigKey(Class<V> subType, String name, String description, List<? extends V> defaultValue) {
-        super((Class)List.class, subType, name, description, (List<V>)defaultValue);
+        super(typeTokenListWithSubtype(subType), subType, name, description, defaultValue);
     }
 
+    @SuppressWarnings("unchecked")
+    private static <V> TypeToken<List<? extends V>> typeTokenListWithSubtype(final Class<V> subType) {
+        return (TypeToken<List<? extends V>>) TypeToken.of(new ParameterizedType() {
+            @Override
+            public Type getRawType() {
+                return List.class;
+            }
+            
+            @Override
+            public Type getOwnerType() {
+                return null;
+            }
+            
+            @Override
+            public Type[] getActualTypeArguments() {
+                return new Type[] { subType };
+            }
+        });
+    }
+    
     @Override
     protected List<Object> merge(boolean unmodifiable, Iterable<?>... sets) {
         MutableList<Object> result = MutableList.of();
@@ -87,7 +110,7 @@ public class ListConfigKey<V> extends AbstractCollectionConfigKey<List<? extends
         /** when passed as a value to a ListConfigKey, causes each of these items to be added.
          * if you have just one, no need to wrap in a mod. */
         // to prevent confusion (e.g. if a list is passed) we require two objects here.
-        public static final <T> ListModification<T> add(final T o1, final T o2, final T ...oo) {
+        public static final <T> ListModification<T> add(final T o1, final T o2, @SuppressWarnings("unchecked") final T ...oo) {
             List<T> l = new ArrayList<T>();
             l.add(o1); l.add(o2);
             for (T o: oo) l.add(o);

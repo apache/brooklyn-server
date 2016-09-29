@@ -20,6 +20,8 @@ package org.apache.brooklyn.core.config;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -65,9 +67,11 @@ public class MapConfigKey<V> extends AbstractStructuredConfigKey<Map<String,V>,M
         return new Builder<V>(key);
     }
 
+    @SuppressWarnings("serial")
     public static class Builder<V> extends BasicConfigKey.Builder<Map<String, V>,Builder<V>> {
         protected Class<V> subType;
         
+        @SuppressWarnings("unchecked")
         public Builder(TypeToken<V> subType, String name) {
             super(new TypeToken<Map<String, V>>() {}, name);
             this.subType = (Class<V>) subType.getRawType();
@@ -117,7 +121,7 @@ public class MapConfigKey<V> extends AbstractStructuredConfigKey<Map<String,V>,M
     }
 
     protected MapConfigKey(Builder<V> builder) {
-        super((Class)Map.class,
+        super(typeTokenMapWithSubtype(builder.subType),
                 checkNotNull(builder.subType, "subType"),
                 checkNotNull(builder.name, "name"),
                 builder.description,
@@ -129,6 +133,26 @@ public class MapConfigKey<V> extends AbstractStructuredConfigKey<Map<String,V>,M
         // per the configured constraint. If validity were checked here any class that
         // contained a weirdly-defined config key would fail to initialise.
         this.constraint = checkNotNull(builder.constraint, "constraint");
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <V> TypeToken<Map<String,V>> typeTokenMapWithSubtype(final Class<V> subType) {
+        return (TypeToken<Map<String,V>>) TypeToken.of(new ParameterizedType() {
+            @Override
+            public Type getRawType() {
+                return Map.class;
+            }
+            
+            @Override
+            public Type getOwnerType() {
+                return null;
+            }
+            
+            @Override
+            public Type[] getActualTypeArguments() {
+                return new Type[] { String.class, subType };
+            }
+        });
     }
 
     public MapConfigKey(Class<V> subType, String name) {

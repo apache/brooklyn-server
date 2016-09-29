@@ -29,6 +29,7 @@ import org.apache.brooklyn.core.config.SubElementConfigKey;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 
 import com.google.common.collect.Maps;
+import com.google.common.reflect.TypeToken;
 
 public abstract class AbstractStructuredConfigKey<T,RawT,V> extends BasicConfigKey<T> implements StructuredConfigKey {
 
@@ -37,6 +38,11 @@ public abstract class AbstractStructuredConfigKey<T,RawT,V> extends BasicConfigK
     protected final Class<V> subType;
 
     public AbstractStructuredConfigKey(Class<T> type, Class<V> subType, String name, String description, T defaultValue) {
+        super(type, name, description, defaultValue);
+        this.subType = subType;
+    }
+
+    public AbstractStructuredConfigKey(TypeToken<T> type, Class<V> subType, String name, String description, T defaultValue) {
         super(type, name, description, defaultValue);
         this.subType = subType;
     }
