@@ -950,7 +950,7 @@ public abstract class RebindIteration {
                 findCatalogIdsInReboundCatalog(bType, catalogItemIds, contextSuchAsId, idsFromReboundCatalog);
                 if (idsFromReboundCatalog.size() == catalogItemIds.size()) {
                     BrooklynClassLoadingContext loader = CatalogUtils.newClassLoadingContextForCatalogItems(managementContext, idsFromReboundCatalog);
-                    return new LoadedClass<T>(loader.loadClass(jType, bType), catalogItemIds);
+                    return new LoadedClass<T>(loader.loadClass(jType, bType), idsFromReboundCatalog);
                 } else {
                     LOG.warn("Unable to load all catalog items "+ Iterables.toString(catalogItemIds) +" for "+contextSuchAsId
                             +" ("+bType.getSimpleName()+"); will try default class loader");
