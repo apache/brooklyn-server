@@ -188,7 +188,6 @@ public class TopLevelFieldSerializer extends YomlSerializerComposition {
             if (!readyForMainEvent()) return;
             if (!canDoRead()) return;
             if (!isYamlMap()) return;
-            if (!hasYamlKeysOnBlackboardRemaining()) return;
             
             boolean fieldsCreated = false;
             
@@ -198,6 +197,7 @@ public class TopLevelFieldSerializer extends YomlSerializerComposition {
                 // create the fields if needed; FieldsInFieldsMap will remove (even if empty)
                 fieldsCreated = true;
                 fields = MutableMap.of();
+                // fine (needed even) to write this even with empty
                 getYamlKeysOnBlackboardInitializedFromYamlMap().putNewKey(getKeyNameForMapOfGeneralValues(), fields);
             }
             
@@ -225,19 +225,23 @@ public class TopLevelFieldSerializer extends YomlSerializerComposition {
                     keysMatched++;
                 }
             }
+            
             if (keysMatched==0) {
-                // set a default if there is one
-                Maybe<Object> value = getTopLevelFieldsBlackboard().getDefault(fieldName);
-                if (value.isPresentAndNonNull()) {
-                    fields.put(fieldName, value.get());
-                    keysMatched++;                    
-                }
+                if (setDefaultValue(fields, keysMatched)) keysMatched++;
             }
+            
             if (fieldsCreated || keysMatched>0) {
                 // repeat this manipulating phase if we set any keys, so that remapping can apply
                 getTopLevelFieldsBlackboard().setFieldDone(fieldName);
                 context.phaseInsert(StandardPhases.MANIPULATING);
             }
+        }
+
+        protected boolean setDefaultValue(Map<String, Object> fields, int keysMatched) {
+            Maybe<Object> value = getTopLevelFieldsBlackboard().getDefault(fieldName);
+            if (!value.isPresentAndNonNull()) return false;
+            fields.put(fieldName, value.get());
+            return true;
         }
 
         public void write() {
@@ -287,6 +291,8 @@ public class TopLevelFieldSerializer extends YomlSerializerComposition {
                     getOutputYamlMap().put(getKeyNameForMapOfGeneralValues(), fields);
                 // rerun this phase again, as we've changed it
                 context.phaseInsert(StandardPhases.MANIPULATING);
+            } else if (fields.isEmpty()) {
+                getOutputYamlMap().remove(getKeyNameForMapOfGeneralValues());
             }
         }
     }

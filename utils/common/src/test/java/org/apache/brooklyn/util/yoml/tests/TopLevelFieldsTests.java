@@ -132,6 +132,14 @@ public class TopLevelFieldsTests {
     }
 
     @Test
+    public void testEmptyDefault() {
+        commonTopLevelFieldFixtureKeyNameAlias(", defaultValue: { type: string, value: bob }").
+        reading( "{}", "shape" ).
+        writing( new Shape().name("bob"), "shape" ).
+        doReadWriteAssertingJsonMatch();
+    }
+
+    @Test
     public void testNameNotRequired() {
         commonTopLevelFieldFixtureKeyNameAlias().
         reading( COMMON_IN_NO_NAME, "shape" ).

@@ -334,10 +334,20 @@ public class TopLevelConfigKeysTests {
     @Test
     public void testConfigKeyDefaultsReadButNotWritten() {
         YomlTestFixture y = YomlTestFixture.newInstance().addTypeWithAnnotations("s-default", SDefault.class);
-        y.reading("{}", "s-default").writing(new SDefault(MutableMap.<String,Object>of()), "s-default")
+        y.reading("{ }", "s-default").writing(new SDefault(MutableMap.<String,Object>of()), "s-default")
         .doReadWriteAssertingJsonMatch();
         
         Asserts.assertSize( ((SDefault)y.lastReadResult).keysSuppliedToConstructorForTestAssertions.keySet(), 0 );
+    }
+
+    @Test
+    public void testConfigKeyDefaultsReadButNotWrittenWithAtLeastOneConfigValueSupplied() {
+        // behaviour is different in this case
+        YomlTestFixture y = YomlTestFixture.newInstance().addTypeWithAnnotations("s-default", SDefault.class);
+        y.reading("{ k2: x }", "s-default").writing(new SDefault(MutableMap.<String,Object>of("k2", "x")), "s-default")
+        .doReadWriteAssertingJsonMatch();
+        
+        Asserts.assertSize( ((SDefault)y.lastReadResult).keysSuppliedToConstructorForTestAssertions.keySet(), 1 );
     }
 
 }

@@ -19,6 +19,7 @@
 package org.apache.brooklyn.util.yoml.serializers;
 
 import java.lang.reflect.Field;
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.brooklyn.config.ConfigKey;
@@ -134,6 +135,12 @@ public class TopLevelConfigKeySerializer extends TopLevelFieldSerializer {
         protected void prepareTopLevelFields() {
             super.prepareTopLevelFields();
             getTopLevelFieldsBlackboard().recordConfigKey(fieldName, configKey);
+        }
+        
+        @Override
+        protected boolean setDefaultValue(Map<String, Object> fields, int keysMatched) {
+            // no need to set the default for config keys
+            return false;
         }
     }
 

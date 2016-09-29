@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Future;
 
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -36,6 +37,8 @@ import org.apache.brooklyn.util.yoml.internal.YomlContextForWrite;
 import org.apache.brooklyn.util.yoml.internal.YomlConverter;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils;
 import org.apache.brooklyn.util.yoml.internal.YomlUtils.JsonMarker;
+
+import com.google.common.base.Supplier;
 
 public abstract class YomlSerializerComposition implements YomlSerializer {
 
@@ -111,6 +114,10 @@ public abstract class YomlSerializerComposition implements YomlSerializer {
          * see {@link JsonMarker#isPureJson(Object)} (which this simply proxies for convenience) */ 
         protected boolean isJsonPureObject(Object o) {
             return YomlUtils.JsonMarker.isPureJson(o);
+        }
+        
+        protected boolean isDeferredValue(Object o) {
+            return o instanceof Supplier || o instanceof Future;
         }
         
         private void initRead(YomlContextForRead context, YomlConverter converter) {
