@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.mgmt.rebind;
 import java.io.File;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
@@ -41,6 +42,7 @@ public class RebindOptions {
     public Function<BrooklynMementoPersister, Void> stateTransformer;
     public ClassLoader classLoader;
     public PersistenceObjectStore objectStore;
+    public HighAvailabilityMode haMode;
     
     public static RebindOptions create() {
         return new RebindOptions();
@@ -57,6 +59,7 @@ public class RebindOptions {
         result.stateTransformer(options.stateTransformer);
         result.classLoader(options.classLoader);
         result.objectStore(options.objectStore);
+        result.haMode(options.haMode);
         return result;
     }
     public RebindOptions checkSerializable(boolean val) {
@@ -97,6 +100,10 @@ public class RebindOptions {
     }
     public RebindOptions objectStore(PersistenceObjectStore val) {
         this.objectStore = val;
+        return this;
+    }
+    public RebindOptions haMode(HighAvailabilityMode val) {
+        this.haMode = val;
         return this;
     }
 }

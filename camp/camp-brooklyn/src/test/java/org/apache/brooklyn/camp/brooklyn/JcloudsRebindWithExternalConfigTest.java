@@ -26,6 +26,7 @@ import java.util.Map;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
 import org.apache.brooklyn.core.config.external.InPlaceExternalConfigSupplier;
 import org.apache.brooklyn.core.entity.trait.Startable;
@@ -105,11 +106,11 @@ public class JcloudsRebindWithExternalConfigTest extends JcloudsRebindStubTest {
     }
 
     @Override
-    protected LocalManagementContext createNewManagementContext(final File mementoDir) {
+    protected LocalManagementContext createNewManagementContext(final File mementoDir, final HighAvailabilityMode haMode) {
         newLauncher = new BrooklynCampPlatformLauncherNoServer() {
             @Override
             protected LocalManagementContext newMgmtContext() {
-                return JcloudsRebindWithExternalConfigTest.super.createNewManagementContext(mementoDir);
+                return JcloudsRebindWithExternalConfigTest.super.createNewManagementContext(mementoDir, haMode);
             }
         };
         newLauncher.launch();

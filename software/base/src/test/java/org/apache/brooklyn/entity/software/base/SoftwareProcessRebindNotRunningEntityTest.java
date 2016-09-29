@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.entity.software.base;
 
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 import java.util.Collection;
@@ -35,6 +36,7 @@ import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
+import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Attributes;
@@ -124,6 +126,11 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
     @Override
     protected TestApplication createApp() {
         return mgmt().getEntityManager().createEntity(EntitySpec.create(TestApplication.class));
+    }
+
+    @Override
+    protected HighAvailabilityMode getHaMode() {
+        return HighAvailabilityMode.MASTER;
     }
 
     @Test
@@ -275,6 +282,38 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
 
         EntityAsserts.assertAttributeEqualsEventually(newApp, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
         EntityAsserts.assertAttributeEqualsEventually(newApp, Attributes.SERVICE_UP, false);
+    }
+
+    @Test
+    public void testLaunchHotStandbyWhileEntityStarting() throws Exception {
+        final CountDownLatch launchCalledLatch = newLatch(1);
+        final CountDownLatch launchBlockedLatch = newLatch(1);
+        RecordingSshTool.setCustomResponse(".*myLaunch.*", new CustomResponseGenerator() {
+            @Override
+            public CustomResponse generate(ExecParams execParams) throws Exception {
+                launchCalledLatch.countDown();
+                launchBlockedLatch.await();
+                return new CustomResponse(0, "", "");
+            }});
+        
+        VanillaSoftwareProcess entity = app().createAndManageChild(EntitySpec.create(VanillaSoftwareProcess.class)
+                .configure(VanillaSoftwareProcess.LAUNCH_COMMAND, "myLaunch")
+                .configure(VanillaSoftwareProcess.CHECK_RUNNING_COMMAND, "myCheckRunning"));
+        
+        startAsync(app(), ImmutableList.of(locationProvisioner));
+        awaitOrFail(launchCalledLatch, Asserts.DEFAULT_LONG_TIMEOUT);
+
+        EntityAsserts.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STARTING);
+
+        // Check that the read-only hot standby does not overwrite the entity's state; it should still say "STARTING"
+        TestApplication newApp = hotStandby();
+        final VanillaSoftwareProcess newEntity = (VanillaSoftwareProcess) Iterables.find(newApp.getChildren(), Predicates.instanceOf(VanillaSoftwareProcess.class));
+
+        EntityAsserts.assertAttributeEqualsContinually(newEntity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STARTING);
+        assertEquals(newEntity.getAttribute(Attributes.SERVICE_STATE_EXPECTED).getState(), Lifecycle.STARTING);
+        
+        EntityAsserts.assertAttributeEqualsEventually(newApp, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STARTING);
+        assertEquals(newApp.getAttribute(Attributes.SERVICE_STATE_EXPECTED).getState(), Lifecycle.STARTING);
     }
 
     protected ListenableFuture<Void> startAsync(final Startable entity, final Collection<? extends Location> locs) {

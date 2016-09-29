@@ -28,6 +28,7 @@ import java.util.List;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -90,8 +91,8 @@ public class RebindOsgiTest extends AbstractYamlRebindTest {
     }
     
     @Override
-    protected LocalManagementContext createNewManagementContext(File mementoDir) {
-        LocalManagementContext result = super.createNewManagementContext(mementoDir);
+    protected LocalManagementContext createNewManagementContext(File mementoDir, HighAvailabilityMode haMode) {
+        LocalManagementContext result = super.createNewManagementContext(mementoDir, haMode);
         for (String bundleUrl : bundleUrlsToInstallOnRebind) {
             try {
                 installBundle(result, bundleUrl);
