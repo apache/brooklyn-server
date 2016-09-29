@@ -24,6 +24,7 @@ import org.apache.brooklyn.util.yoml.YomlConfig;
 import org.apache.brooklyn.util.yoml.YomlRequirement;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
 import org.apache.brooklyn.util.yoml.serializers.ReadingTypeOnBlackboard;
+import org.apache.brooklyn.util.yoml.serializers.YamlKeysOnBlackboard;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,6 +34,9 @@ public class YomlConverter {
 
     private static final Logger log = LoggerFactory.getLogger(YomlConverter.class);
     private final YomlConfig config;
+    
+    /** easy way at dev time to get trace logging to stdout info level */
+    private static boolean FORCE_SHOW_TRACE_LOGGING = false;
     
     public YomlConverter(YomlConfig config) {
         this.config = config;
@@ -56,6 +60,17 @@ public class YomlConverter {
         return context.getYamlObject();
     }
 
+    protected boolean isTraceDetailWanted() {
+        return log.isTraceEnabled() || FORCE_SHOW_TRACE_LOGGING;
+    }
+    protected void logTrace(String message) {
+        if (FORCE_SHOW_TRACE_LOGGING) {
+            log.info(message);
+        } else {
+            log.trace(message);
+        }
+    }
+    
     protected void loopOverSerializers(YomlContext context) {
         // TODO refactor further so we always pass the context
         Map<Object, Object> blackboard = context.getBlackboard();
@@ -72,33 +87,34 @@ public class YomlConverter {
             ReadingTypeOnBlackboard.get(blackboard);
         }
         
-        if (log.isTraceEnabled()) log.trace("YOML now looking at "+context.getJsonPath()+"/ = "+context.getJavaObject()+" <-> "+context.getYamlObject()+" ("+context.getExpectedType()+")");
+        if (log.isTraceEnabled()) logTrace("YOML now looking at "+context.getJsonPath()+"/ = "+context.getJavaObject()+" <-> "+context.getYamlObject()+" ("+context.getExpectedType()+")");
         while (context.phaseAdvance()) {
             while (context.phaseStepAdvance()<Iterables.size(serializers.getSerializers())) {
                 if (context.phaseCurrentStep()==0) {
-                    if (log.isTraceEnabled()) { 
-                        log.trace("yoml "+context.getJsonPath()+"/ = "+context.getJavaObject()+" entering phase "+context.phaseCurrent()+", blackboard size "+blackboard.size());
+                    if (isTraceDetailWanted()) { 
+                        logTrace("yoml "+context.getJsonPath()+"/ = "+context.getJavaObject()+" entering phase "+context.phaseCurrent()+", blackboard size "+blackboard.size());
                         for (Map.Entry<Object, Object> bb: blackboard.entrySet()) {
-                            log.trace("  "+bb.getKey()+": "+bb.getValue());
+                            logTrace("  "+bb.getKey()+": "+bb.getValue());
                         }
                     }
                 }
                 YomlSerializer s = Iterables.get(serializers.getSerializers(), context.phaseCurrentStep());
                 if (context instanceof YomlContextForRead) {
-                    if (log.isTraceEnabled()) log.trace("read "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" starting ("+context.phaseCurrent()+"."+context.phaseCurrentStep()+") ");
+                    if (isTraceDetailWanted()) logTrace("read "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" starting ("+context.phaseCurrent()+"."+context.phaseCurrentStep()+") ");
                     s.read((YomlContextForRead)context, this);
-                    if (log.isTraceEnabled()) log.trace("read "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" ended: "+context.getYamlObject());
+                    if (isTraceDetailWanted()) logTrace("read "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" ended: "+context.getYamlObject());
+                    if (isTraceDetailWanted()) logTrace("  YKB: "+YamlKeysOnBlackboard.peek(blackboard));
                 } else {
-                    if (log.isTraceEnabled()) log.trace("write "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" starting ("+context.phaseCurrent()+"."+context.phaseCurrentStep()+") ");
+                    if (isTraceDetailWanted()) logTrace("write "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" starting ("+context.phaseCurrent()+"."+context.phaseCurrentStep()+") ");
                     s.write((YomlContextForWrite)context, this);
                     if (log.isDebugEnabled())
                         log.debug("write "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" ended: "+context.getYamlObject());
-                    if (log.isTraceEnabled()) log.trace("write "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" ended: "+context.getYamlObject());
+                    if (isTraceDetailWanted()) logTrace("write "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" ended: "+context.getYamlObject());
                 }
             }
         }
         
-        if (log.isTraceEnabled()) log.trace("YOML done looking at "+context.getJsonPath()+"/ = "+context.getJavaObject()+" <-> "+context.getYamlObject());
+        if (isTraceDetailWanted()) logTrace("YOML done looking at "+context.getJsonPath()+"/ = "+context.getJavaObject()+" <-> "+context.getYamlObject());
         checkCompletion(context);
     }
 
