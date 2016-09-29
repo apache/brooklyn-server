@@ -211,7 +211,7 @@ public class ItemDescriptors {
                 }
 
                 EntityConfigSummary entityConfigSummary = EntityTransformer.entityConfigSummary(param.getConfigKey(),
-                    param.getLabel(), priority, MutableMap.<String,URI>of());
+                    param.getLabel(), priority, param.isPinned(), MutableMap.<String,URI>of());
                 config.add(entityConfigSummary);
             }
             itemDescriptor.put("config", config);

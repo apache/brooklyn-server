@@ -53,20 +53,20 @@ public class BasicSpecParameterFromClassTest {
         @CatalogConfig(label="String Key", priority=3)
         ConfigKey<String> STRING_KEY = ConfigKeys.newStringConfigKey("string_key");
 
-        @CatalogConfig(label="Integer Key", priority=2)
-        ConfigKey<Integer> INTEGER_KEY = ConfigKeys.newIntegerConfigKey("integer_key");
+        @CatalogConfig(label="Integer Key", priority=2, pinned = true)
+        ConfigKey<Integer> INTEGER_PINNED_KEY = ConfigKeys.newIntegerConfigKey("integer_key");
 
         @SuppressWarnings("serial")
-        @CatalogConfig(label="Predicate Key", priority=1)
-        ConfigKey<Predicate<String>> PREDICATE_KEY = ConfigKeys.newConfigKey(new TypeToken<Predicate<String>>() {}, "predicate_key");
+        @CatalogConfig(label="Predicate Key", priority=1, pinned = true)
+        ConfigKey<Predicate<String>> PREDICATE_PINNED_KEY = ConfigKeys.newConfigKey(new TypeToken<Predicate<String>>() {}, "predicate_key");
 
         @SuppressWarnings("serial")
         @CatalogConfig(label="Hidden 1 Key", priority=-1)
         ConfigKey<Predicate<String>> HIDDEN1_KEY = ConfigKeys.newConfigKey(new TypeToken<Predicate<String>>() {}, "hidden1_key");
 
         @SuppressWarnings("serial")
-        @CatalogConfig(label="Hidden 2 Key", priority=-2)
-        ConfigKey<Predicate<String>> HIDDEN2_KEY = ConfigKeys.newConfigKey(new TypeToken<Predicate<String>>() {}, "hidden2_key");
+        @CatalogConfig(label="Hidden 2 Key", priority=-2, pinned = true)
+        ConfigKey<Predicate<String>> HIDDEN2_PINNED_KEY = ConfigKeys.newConfigKey(new TypeToken<Predicate<String>>() {}, "hidden2_key");
 
         ConfigKey<String> UNPINNNED2_KEY = ConfigKeys.newStringConfigKey("unpinned2_key");
         ConfigKey<String> UNPINNNED1_KEY = ConfigKeys.newStringConfigKey("unpinned1_key");
@@ -82,11 +82,11 @@ public class BasicSpecParameterFromClassTest {
     public void testFullDefinition() {
         List<SpecParameter<?>> inputs = BasicSpecParameter.fromClass(mgmt, SpecParameterTestEntity.class);
         assertEquals(inputs.size(), 7);
-        assertInput(inputs.get(0), "String Key", true, SpecParameterTestEntity.STRING_KEY);
-        assertInput(inputs.get(1), "Integer Key", true, SpecParameterTestEntity.INTEGER_KEY);
-        assertInput(inputs.get(2), "Predicate Key", true, SpecParameterTestEntity.PREDICATE_KEY);
-        assertInput(inputs.get(3), "Hidden 1 Key", true, SpecParameterTestEntity.HIDDEN1_KEY);
-        assertInput(inputs.get(4), "Hidden 2 Key", true, SpecParameterTestEntity.HIDDEN2_KEY);
+        assertInput(inputs.get(0), "String Key", false, SpecParameterTestEntity.STRING_KEY);
+        assertInput(inputs.get(1), "Integer Key", true, SpecParameterTestEntity.INTEGER_PINNED_KEY);
+        assertInput(inputs.get(2), "Predicate Key", true, SpecParameterTestEntity.PREDICATE_PINNED_KEY);
+        assertInput(inputs.get(3), "Hidden 1 Key", false, SpecParameterTestEntity.HIDDEN1_KEY);
+        assertInput(inputs.get(4), "Hidden 2 Key", true, SpecParameterTestEntity.HIDDEN2_PINNED_KEY);
         assertInput(inputs.get(5), "unpinned1_key", false, SpecParameterTestEntity.UNPINNNED1_KEY);
         assertInput(inputs.get(6), "unpinned2_key", false, SpecParameterTestEntity.UNPINNNED2_KEY);
     }
