@@ -179,21 +179,31 @@ public class CompoundTransformer {
         }
         /** Changes the contents of an XML tag 'catalogItemId' where the
          * old text matches oldSymbolicName and optionally oldVersion
-         * to have newSymbolicName and newVersion. 
+         * to have newSymbolicName and newVersion.
          * <p>
+         * Also changes contents of elements within a list of 'catalogItemSuperIds' e.g.
+         * <pre>
+         *     &lt;catalogItemSuperIds>
+         *        &lt;string>one&lt;/string>
+         *        &lt;string>two&lt;/string>
+         *     &lt;/catalogItemSuperIds>
+         * </pre>
+         * </p><p>
+         *
+         * </p>
          * This provides a programmatic way to change the catalogItemID. */
         public Builder changeCatalogItemId(String oldSymbolicName, String oldVersion,
                 String newSymbolicName, String newVersion) {
             if (oldVersion==null)
                 return changeCatalogItemId(oldSymbolicName, newSymbolicName, newVersion);
             // warnings use underscore notation because that's what CompoundTransformerLoader uses
-            return xmlReplaceItem("catalogItemId/text()[.='"+
+            return xmlReplaceItem("*[self::catalogItemId|parent::catalogItemSuperIds]/text()[.='"+
                 Preconditions.checkNotNull(oldSymbolicName, "old_symbolic_name")+":"+Preconditions.checkNotNull(oldVersion, "old_version")+"']", 
                 Preconditions.checkNotNull(newSymbolicName, "new_symbolic_name")+":"+Preconditions.checkNotNull(newVersion, "new_version"));
         }
         /** As {@link #changeCatalogItemId(String, String, String, String)} matching any old version. */
         public Builder changeCatalogItemId(String oldSymbolicName, String newSymbolicName, String newVersion) {
-            return xmlReplaceItem("catalogItemId/text()[starts-with(.,'"+Preconditions.checkNotNull(oldSymbolicName, "old_symbolic_name")+":')]", 
+            return xmlReplaceItem("*[self::catalogItemId|parent::catalogItemSuperIds]/text()[starts-with(.,'"+Preconditions.checkNotNull(oldSymbolicName, "old_symbolic_name")+":')]",
                 Preconditions.checkNotNull(newSymbolicName, "new_symbolic_name")+":"+Preconditions.checkNotNull(newVersion, "new_version"));
         }
 
