@@ -22,9 +22,16 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
+import org.apache.brooklyn.camp.yoml.types.YomlInitializers;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
+import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsTopLevel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +39,7 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import com.google.api.client.repackaged.com.google.common.base.Joiner;
+import com.google.common.base.Supplier;
 import com.google.common.collect.Iterables;
 
 public class BrooklynDslInYomlStringPlanTest extends AbstractYamlTest {
@@ -73,14 +81,43 @@ public class BrooklynDslInYomlStringPlanTest extends AbstractYamlTest {
                 "- type: org.apache.brooklyn.core.test.entity.TestEntity",
                 "  brooklyn.config:",
                 "    test.obj:",
+                // with this, the yoml is resolved at retrieval time
                 "      $brooklyn:object-yoml: item-w-dsl");
 
         Entity app = createStartWaitAndLogApplication(yaml);
         Entity entity = Iterables.getOnlyElement( app.getChildren() );
         
         entity.sensors().set(Sensors.newStringSensor("test.sensor"), "bob");
+        Maybe<Object> raw = ((EntityInternal)entity).config().getRaw(ConfigKeys.newConfigKey(Object.class, "test.obj"));
+        Asserts.assertPresent(raw);
+        Asserts.assertInstanceOf(raw.get(), Supplier.class);
         Object obj = entity.config().get(ConfigKeys.newConfigKey(Object.class, "test.obj"));
         Assert.assertEquals(((ItemA)obj).name, "bob");
+    }
+
+    @Test
+    public void testYomlDefersDslEvaluationForConfig() throws Exception {
+        add(SAMPLE_TYPE_BASE);
+        add(SAMPLE_TYPE_TEST);
+        YomlInitializers.install(mgmt());
+        
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.initializers:",
+                "    a-sensor:",
+                "      type: static-sensor",
+                "      value: '$brooklyn:self().attributeWhenReady(\"test.sensor\")'",
+                "      period: 100ms");
+
+        Entity app = createStartWaitAndLogApplication(yaml);
+        Entity entity = Iterables.getOnlyElement( app.getChildren() );
+        
+        entity.sensors().set(Sensors.newStringSensor("test.sensor"), "bob");
+//        EntityAsserts.assertAttributeEqualsEventually(entity, attribute, expected);
+        System.out.println(entity.getAttribute(Sensors.newStringSensor("a-sensor")));
+        Time.sleep(Duration.ONE_SECOND);
+        System.out.println(entity.getAttribute(Sensors.newStringSensor("a-sensor")));
     }
 
 }

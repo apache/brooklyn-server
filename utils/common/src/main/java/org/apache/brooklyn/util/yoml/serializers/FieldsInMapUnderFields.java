@@ -72,6 +72,16 @@ public class FieldsInMapUnderFields extends YomlSerializerComposition {
                     String fieldType = getFieldTypeName(ff, optionalTypeConstraint);
                     Object v2 = converter.read( ((YomlContextForRead)context).subpath("/"+key, value, fieldType) );
                     
+                    if (isDeferredValue(v2)) {
+                        Maybe<?> coerced = config.getCoercer().tryCoerce(v2, ff.getType());
+                        if (coerced.isAbsent()) {
+                            // couldn't coerce or resolve, and this is needed for fields of course
+                            throw new YomlException("Cannot interpret or coerce '"+v2+"' as "+fieldType+" for field "+ff.getName(),
+                                Maybe.getException(coerced));
+                        }
+                        v2 = coerced.get();
+                    }
+                    
                     ff.setAccessible(true);
                     ff.set(getJavaObject(), v2);
                     return true;

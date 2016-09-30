@@ -78,7 +78,8 @@ public class ConfigInMapUnderConfigSerializer extends FieldsInMapUnderFields {
             
             Object v2;
             try {
-                v2 = converter.read( ((YomlContextForRead)context).subpath("/"+key, value, optionalType) );
+                if (isDeferredValue(value)) v2 = value;
+                else v2 = converter.read( ((YomlContextForRead)context).subpath("/"+key, value, optionalType) );
             } catch (Exception e) {
                 // for config we try with the optional type, but don't insist
                 Exceptions.propagateIfFatal(e);
