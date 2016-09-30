@@ -20,7 +20,6 @@ package org.apache.brooklyn.camp.brooklyn;
 
 import static org.testng.Assert.assertEquals;
 
-import java.io.File;
 import java.io.StringReader;
 
 import org.apache.brooklyn.api.entity.Entity;
@@ -31,8 +30,6 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
-import org.apache.brooklyn.core.mgmt.rebind.RebindTestUtils;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.location.jclouds.JcloudsLocation;
@@ -48,7 +45,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.Iterables;
 
 // also see ExternalConfigYamlTest
-public class JcloudsLocationExternalConfigYamlTest extends AbstractYamlRebindTest {
+public class JcloudsLocationExternalConfigYamlLiveTest extends AbstractYamlRebindTest {
 
     private static final Logger log = LoggerFactory.getLogger(ExternalConfigYamlTest.class);
 
