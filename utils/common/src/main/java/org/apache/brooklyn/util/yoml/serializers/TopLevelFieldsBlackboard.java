@@ -160,5 +160,9 @@ public class TopLevelFieldsBlackboard implements YomlRequirement {
     public Map<String,ConfigKey<?>> getConfigKeys() {
         return MutableMap.copyOf(keyForFieldsAndAliases);
     }
-    
+
+    @Override
+    public String toString() {
+        return super.toString()+"[keys "+keyNames.keySet()+",done "+fieldsDone+"]";
+    }
 }

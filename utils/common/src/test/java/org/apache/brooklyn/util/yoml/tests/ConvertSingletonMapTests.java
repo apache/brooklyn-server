@@ -25,8 +25,12 @@ import java.util.Map;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.yoml.annotations.Alias;
 import org.apache.brooklyn.util.yoml.annotations.DefaultKeyValue;
 import org.apache.brooklyn.util.yoml.annotations.YomlAllFieldsTopLevel;
+import org.apache.brooklyn.util.yoml.annotations.YomlFromPrimitive;
+import org.apache.brooklyn.util.yoml.annotations.YomlRenameKey.YomlRenameDefaultKey;
+import org.apache.brooklyn.util.yoml.annotations.YomlRenameKey.YomlRenameDefaultValue;
 import org.apache.brooklyn.util.yoml.annotations.YomlSingletonMap;
 import org.apache.brooklyn.util.yoml.serializers.AllFieldsTopLevel;
 import org.apache.brooklyn.util.yoml.serializers.ConvertSingletonMap;
@@ -162,19 +166,20 @@ public class ConvertSingletonMapTests {
                 MutableList.of(SingletonMapMode.LIST_AS_LIST), null, MutableMap.of("size", 0)) )            
             );
 
+    List<?> LIST_OF_BLUE_SHAPE = MutableList.of(new ShapeAnn().name("blue_shape").color("blue"));
+    
     @Test public void testAnnListPerverseOrders() {
         // read list-as-map, will write out as list-as-list, and can read that back too
-        List<?> obj = MutableList.of(new ShapeAnn().name("blue").color("bleu"));
-        String listJson = "[ { bleu: blue } ]";
+        String listJson = "[ { blue: blue_shape } ]";
         
-        y4.read("{ blue: bleu }", "list<shape>").assertResult(obj);
+        y4.read("{ blue_shape: blue }", "list<shape>").assertResult(LIST_OF_BLUE_SHAPE);
         y4.write(y4.lastReadResult, "list<shape>").assertResult(listJson);
-        y4.read(listJson, "list<shape>").assertResult(obj);
+        y4.read(listJson, "list<shape>").assertResult(LIST_OF_BLUE_SHAPE);
     }
 
     @Test public void testAnnDisallowedAtRoot() {
         try {
-            y4.read("{ blue: bleu }", "shape");
+            y4.read("{ blue: blue_shape }", "shape");
             Asserts.shouldHaveFailedPreviously("but got "+y4.lastReadResult);
         } catch (Exception e) {
             log.info("got expected error: "+e);
@@ -182,5 +187,38 @@ public class ConvertSingletonMapTests {
         }
     }
 
+    @YomlSingletonMap
+    @YomlRenameDefaultKey("type")
+    public static class ShapesAbstract {
+    }
+    
+    @Alias("shapes")
+    @YomlAllFieldsTopLevel
+    @YomlFromPrimitive
+    @YomlRenameDefaultValue("shapes")
+    public static class Shapes {
+        List<ShapeAnn> shapes;
+    }
+    
+    @Test public void testComplexListValue() {
+        YomlTestFixture y = YomlTestFixture.newInstance().addTypeWithAnnotations(Shapes.class)
+                .addTypeWithAnnotations(ShapeAnn.class);
+        y.read("[ {blue_shape: blue} ]", "shapes");
+        
+        Asserts.assertInstanceOf(y.lastReadResult, Shapes.class);
+        Asserts.assertEquals( ((Shapes)y.lastReadResult).shapes, LIST_OF_BLUE_SHAPE );
+        
+        y.writeLastRead().assertLastsMatch();
+    }
+
+    @Test public void testComplexListValueSingletonMapWithType() {
+        YomlTestFixture y = YomlTestFixture.newInstance().addTypeWithAnnotations(Shapes.class)
+                .addTypeWithAnnotations(ShapeAnn.class)
+                .addTypeWithAnnotations(ShapesAbstract.class);
+        y.read("shapes: [ {blue_shape: blue} ]", ShapesAbstract.class.getName());
+        
+        Asserts.assertInstanceOf(y.lastReadResult, Shapes.class);
+        Asserts.assertEquals( ((Shapes)y.lastReadResult).shapes, LIST_OF_BLUE_SHAPE ); 
+    }
 
 }

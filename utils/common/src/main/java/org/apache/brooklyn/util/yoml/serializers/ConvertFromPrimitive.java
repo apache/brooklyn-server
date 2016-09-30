@@ -59,8 +59,8 @@ public class ConvertFromPrimitive extends YomlSerializerComposition {
             if (!context.isPhase(YomlContext.StandardPhases.MANIPULATING)) return;
             // runs before type instantiated
             if (hasJavaObject()) return;
-            // only runs on primitives
-            if (!isJsonPrimitiveObject(getYamlObject())) return;
+            // only runs on primitives/lists
+            if (!isJsonPrimitiveObject(getYamlObject()) && !isJsonList(getYamlObject())) return;
 
             Map<String,Object> newYamlMap = MutableMap.of(keyToInsert, getYamlObject());
             
@@ -78,7 +78,7 @@ public class ConvertFromPrimitive extends YomlSerializerComposition {
 
             Object value = getOutputYamlMap().get(keyToInsert);
             if (value==null) return;
-            if (!isJsonPrimitiveObject(value)) return;
+            if (!isJsonPrimitiveObject(value) && !isJsonList(value)) return;
             
             Map<Object, Object> yamlMap = MutableMap.copyOf(getOutputYamlMap());
             yamlMap.remove(keyToInsert);

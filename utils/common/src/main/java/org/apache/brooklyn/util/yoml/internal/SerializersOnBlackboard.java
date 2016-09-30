@@ -96,7 +96,7 @@ public class SerializersOnBlackboard {
     }
 
     public String toString() {
-        return super.toString()+"["+preSerializers.size()+"@pre,"+instantiatedTypeSerializers.size()+"@inst,"+
-            expectedTypeSerializers.size()+"@exp,"+postSerializers.size()+"@post]";
+        return super.toString()+"["+preSerializers.size()+" pre,"+instantiatedTypeSerializers.size()+" inst,"+
+            expectedTypeSerializers.size()+" exp,"+postSerializers.size()+" post]";
     }
 }

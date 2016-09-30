@@ -46,6 +46,7 @@ import com.google.common.base.Preconditions;
 /** Special instantiator for when the class's constructor takes a Map<String,Object> of config */
 public class InstantiateTypeFromRegistryUsingConfigMap extends InstantiateTypeFromRegistry {
 
+    // for config keys we need an extra "manipulating" phase
     public static final String PHASE_INSTANTIATE_TYPE_DEFERRED = "handling-type-deferred-after-config";
 
     protected String keyNameForConfigWhenSerialized = null;

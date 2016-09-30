@@ -19,12 +19,15 @@
 package org.apache.brooklyn.util.yoml.internal;
 
 import java.util.Map;
+import java.util.Objects;
 
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yoml.YomlConfig;
 import org.apache.brooklyn.util.yoml.YomlRequirement;
 import org.apache.brooklyn.util.yoml.YomlSerializer;
+import org.apache.brooklyn.util.yoml.serializers.InstantiateTypeFromRegistry;
 import org.apache.brooklyn.util.yoml.serializers.ReadingTypeOnBlackboard;
-import org.apache.brooklyn.util.yoml.serializers.YamlKeysOnBlackboard;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -87,35 +90,84 @@ public class YomlConverter {
             ReadingTypeOnBlackboard.get(blackboard);
         }
         
-        if (log.isTraceEnabled()) logTrace("YOML now looking at "+context.getJsonPath()+"/ = "+context.getJavaObject()+" <-> "+context.getYamlObject()+" ("+context.getExpectedType()+")");
+        String lastYamlObject = ""+context.getYamlObject();
+        String lastJavaObject = ""+context.getJavaObject();
+        Map<String,String> lastBlackboardOutput = MutableMap.of();
+        if (isTraceDetailWanted()) {
+            logTrace("YOML "+contextMode(context)+" "+contextSummary(context)+" (expecting "+context.getExpectedType()+")");
+            showBlackboard(blackboard, lastBlackboardOutput, false);
+        }
+        
         while (context.phaseAdvance()) {
             while (context.phaseStepAdvance()<Iterables.size(serializers.getSerializers())) {
                 if (context.phaseCurrentStep()==0) {
                     if (isTraceDetailWanted()) { 
-                        logTrace("yoml "+context.getJsonPath()+"/ = "+context.getJavaObject()+" entering phase "+context.phaseCurrent()+", blackboard size "+blackboard.size());
-                        for (Map.Entry<Object, Object> bb: blackboard.entrySet()) {
-                            logTrace("  "+bb.getKey()+": "+bb.getValue());
-                        }
+                        logTrace("yoml "+contextMode(context)+" "+contextSummary(context)+" entering phase "+context.phaseCurrent()+", blackboard size "+blackboard.size());
                     }
                 }
                 YomlSerializer s = Iterables.get(serializers.getSerializers(), context.phaseCurrentStep());
+                if (isTraceDetailWanted()) logTrace("yoml "+contextMode(context)+" "+context.phaseCurrent()+" "+context.phaseCurrentStep()+": "+cleanName(s));
                 if (context instanceof YomlContextForRead) {
-                    if (isTraceDetailWanted()) logTrace("read "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" starting ("+context.phaseCurrent()+"."+context.phaseCurrentStep()+") ");
                     s.read((YomlContextForRead)context, this);
-                    if (isTraceDetailWanted()) logTrace("read "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" ended: "+context.getYamlObject());
-                    if (isTraceDetailWanted()) logTrace("  YKB: "+YamlKeysOnBlackboard.peek(blackboard));
                 } else {
-                    if (isTraceDetailWanted()) logTrace("write "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" starting ("+context.phaseCurrent()+"."+context.phaseCurrentStep()+") ");
                     s.write((YomlContextForWrite)context, this);
-                    if (log.isDebugEnabled())
-                        log.debug("write "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" ended: "+context.getYamlObject());
-                    if (isTraceDetailWanted()) logTrace("write "+context.getJsonPath()+"/ = "+context.getJavaObject()+" serializer "+s+" ended: "+context.getYamlObject());
+                }
+                
+                if (isTraceDetailWanted()) {
+                    String nowYamlObject = ""+context.getYamlObject();
+                    if (!Objects.equals(lastYamlObject, nowYamlObject)) {
+                        logTrace("  yaml obj now: "+nowYamlObject);
+                        lastYamlObject = nowYamlObject;
+                    }
+                    String nowJavaObject = ""+context.getJavaObject();
+                    if (!Objects.equals(lastJavaObject, nowJavaObject)) {
+                        logTrace("  java obj now: "+nowJavaObject);
+                        lastJavaObject = nowJavaObject;
+                    }
+                    showBlackboard(blackboard, lastBlackboardOutput, true);
                 }
             }
         }
         
         if (isTraceDetailWanted()) logTrace("YOML done looking at "+context.getJsonPath()+"/ = "+context.getJavaObject()+" <-> "+context.getYamlObject());
         checkCompletion(context);
+    }
+
+    protected String contextMode(YomlContext context) {
+        return context instanceof YomlContextForWrite ? "write" : "read";
+    }
+
+    private void showBlackboard(Map<Object, Object> blackboard, Map<String, String> lastBlackboardOutput, boolean justDelta) {
+        Map<String, String> newBlackboardOutput = MutableMap.copyOf(lastBlackboardOutput);
+        if (!justDelta) lastBlackboardOutput.clear();
+        
+        for (Map.Entry<Object, Object> bb: blackboard.entrySet()) {
+            String k = cleanName(bb.getKey());
+            String v = cleanName(bb.getValue());
+            newBlackboardOutput.put(k, v);
+            String last = lastBlackboardOutput.remove(k);
+            if (!justDelta) logTrace("  "+k+": "+v);
+            else if (!Objects.equals(last, v)) logTrace("  "+k+" "+(last==null ? "added" : "now")+": "+v);
+        }
+
+        for (String k: lastBlackboardOutput.keySet()) {
+            logTrace("  "+k+" removed");
+        }
+        
+        lastBlackboardOutput.putAll(newBlackboardOutput);
+    }
+
+    protected String cleanName(Object s) {
+        String out = Strings.toString(s);
+        out = Strings.removeFromStart(out, YomlConverter.class.getPackage().getName());
+        out = Strings.removeFromStart(out, InstantiateTypeFromRegistry.class.getPackage().getName());
+        out = Strings.removeFromStart(out, ".");
+        return out;
+    }
+
+    protected String contextSummary(YomlContext context) {
+        return (Strings.isBlank(context.getJsonPath()) ? "/" : context.getJsonPath()) + " = " +
+            (context instanceof YomlContextForWrite ? context.getJavaObject() : context.getYamlObject());
     }
 
     protected void checkCompletion(YomlContext context) {

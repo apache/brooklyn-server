@@ -88,7 +88,7 @@ public class InstantiateTypeMap extends YomlSerializerComposition {
                 // json is pass-through
                 context.setJavaObject( context.getYamlObject() );
                 context.phaseAdvance();
-                YamlKeysOnBlackboard.getOrCreate(blackboard, null).clear();
+                YamlKeysOnBlackboard.getOrCreate(blackboard, null).clearRemaining();
                 return;
             }
             
@@ -191,7 +191,7 @@ public class InstantiateTypeMap extends YomlSerializerComposition {
                 
             context.setJavaObject(jo);
             context.phaseAdvance();
-            YamlKeysOnBlackboard.getOrCreate(blackboard, null).clear();
+            YamlKeysOnBlackboard.getOrCreate(blackboard, null).clearRemaining();
         }
 
         private String getAlias(Class<?> type) {

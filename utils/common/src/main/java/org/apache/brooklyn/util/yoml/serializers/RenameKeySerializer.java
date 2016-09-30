@@ -63,9 +63,8 @@ public class RenameKeySerializer extends YomlSerializerComposition {
     public class Worker extends YomlSerializerWorker {
         public void read() {
             if (!context.isPhase(YomlContext.StandardPhases.MANIPULATING)) return;
-            // runs before type instantiated
-            if (hasJavaObject()) return;
             if (!isYamlMap()) return;
+            // this can run after type instantiation for the purpose of setting fields
 
             YamlKeysOnBlackboard ym = getYamlKeysOnBlackboardInitializedFromYamlMap();
             

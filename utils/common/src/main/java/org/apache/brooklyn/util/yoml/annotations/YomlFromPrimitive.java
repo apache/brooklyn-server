@@ -28,7 +28,7 @@ import java.lang.annotation.Target;
 import org.apache.brooklyn.util.yoml.serializers.ConvertFromPrimitive;
 
 /** 
- * Indicates that a class can be yoml-serialized as a primitive
+ * Indicates that a class can be yoml-serialized as a primitive or list
  * reflecting a single field in the object which will take the primitive value.
  * <p>
  * If no {@link #keyToInsert()} is supplied the value is set under the key 

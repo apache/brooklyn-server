@@ -27,7 +27,7 @@ public class YomlContextForWrite extends YomlContext {
 
     @Override
     public YomlContextForWrite subpath(String subpath, Object newItem, String optionalType) {
-        return new YomlContextForWrite(newItem, getJsonPath()+"/"+subpath, optionalType, this);
+        return new YomlContextForWrite(newItem, getJsonPath()+subpath, optionalType, this);
     }
 
 }

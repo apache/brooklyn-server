@@ -105,9 +105,13 @@ public abstract class YomlSerializerComposition implements YomlSerializer {
             return false;
         }
         
+        /** true iff the object is a collection */ 
+        protected boolean isJsonList(Object o) {
+            return (o instanceof Collection);
+        }
         /** true iff the object is a map or collection (not recursing; for that see {@link #isJsonPureObject(Object)}  */ 
         protected boolean isJsonComplexObject(Object o) {
-            return (o instanceof Map || o instanceof Collection);
+            return (o instanceof Map || isJsonList(o));
         }
 
         /** true iff the object is a primitive type or a map or collection of pure objects;

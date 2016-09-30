@@ -35,9 +35,15 @@ public class YamlKeysOnBlackboard implements YomlRequirement {
     public static boolean isPresent(Map<Object,Object> blackboard) {
         return blackboard.containsKey(KEY);
     }
+    /** returns the {@link YamlKeysOnBlackboard} or null if not yet initialized */
     public static YamlKeysOnBlackboard peek(Map<Object,Object> blackboard) {
         return (YamlKeysOnBlackboard) blackboard.get(KEY);
     }
+    /** deletes the {@link YamlKeysOnBlackboard} on the blackboard, so that it will be re-initialized from the YAML object */
+    public static void delete(Map<Object,Object> blackboard) {
+        blackboard.remove(KEY);
+    }
+    /** returns the {@link YamlKeysOnBlackboard}, creating from the given keys map if not yet present */
     public static YamlKeysOnBlackboard getOrCreate(Map<Object,Object> blackboard, Map<Object,Object> keys) {
         if (!isPresent(blackboard)) { 
             YamlKeysOnBlackboard ykb = new YamlKeysOnBlackboard();
@@ -69,7 +75,8 @@ public class YamlKeysOnBlackboard implements YomlRequirement {
         return super.toString()+"("+yamlKeysRemainingToReadToJava.size()+" ever; remaining="+yamlKeysRemainingToReadToJava+")";
     }
     
-    public void clear() {
+    /** clears keys remaining, normally indicating that work is done */
+    public void clearRemaining() {
         yamlKeysRemainingToReadToJava.clear();
     }
     public boolean hasKeysLeft(String ...keys) {
