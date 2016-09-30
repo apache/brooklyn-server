@@ -119,6 +119,18 @@ public class SharedLocationSecurityGroupCustomizerTest {
         assertPermissionsAdded(5, 5, IpProtocol.TCP);
     }
 
+    @Test
+    public  void testDisableFlagDisableCustomizer() {
+        customizer.setEnabled(false);
+        customizer.setUdpPortRanges(ImmutableList.of("55-78"));
+
+        customizer.customize(jcloudsLocation, computeService, mockTemplate);
+        customizer.customize(jcloudsLocation, computeService, mock(JcloudsMachineLocation.class));
+
+        verify(sgCustomizer, never()).customize(jcloudsLocation, computeService, mockTemplate);
+        verify(sgCustomizer, never()).addPermissionsToLocation(any(JcloudsMachineLocation.class), any(Iterable.class));
+    }
+
     private void assertPermissionsAdded(int expectedFrom, int expectedTo, IpProtocol expectedProtocol) {
         ArgumentCaptor<List> listArgumentCaptor = ArgumentCaptor.forClass(List.class);
         verify(sgCustomizer).addPermissionsToLocation(any(JcloudsMachineLocation.class), listArgumentCaptor.capture());
