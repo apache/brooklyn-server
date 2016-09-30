@@ -66,7 +66,8 @@ public class SpecParameterParsingTest  extends AbstractYamlTest {
                 "    - simple",
                 "    - name: explicit_name",
                 "    - name: third_input",
-                "      type: integer");
+                "      type: integer",
+                "      pinned: false");
         EntitySpec<?> item = mgmt().getTypeRegistry().createSpec(mgmt().getTypeRegistry().get(itemId), null, EntitySpec.class);
         List<SpecParameter<?>> inputs = item.getParameters();
         assertEquals(inputs.size(), 6);
@@ -84,7 +85,7 @@ public class SpecParameterParsingTest  extends AbstractYamlTest {
         
         SpecParameter<?> thirdInput = inputs.get(2);
         assertEquals(thirdInput.getLabel(), "third_input");
-        assertEquals(thirdInput.isPinned(), true);
+        assertEquals(thirdInput.isPinned(), false);
         assertEquals(thirdInput.getConfigKey().getName(), "third_input");
         assertEquals(thirdInput.getConfigKey().getTypeToken(), TypeToken.of(Integer.class));
     }
