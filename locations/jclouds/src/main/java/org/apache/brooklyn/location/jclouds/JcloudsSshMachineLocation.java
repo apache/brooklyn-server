@@ -63,6 +63,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import com.google.common.base.Optional;
+import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -312,7 +313,7 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
             Optional<NodeMetadata> node = getOptionalNode();
             if (node.isPresent()) {
                 HostAndPort sshHostAndPort = getSshHostAndPort();
-                LoginCredentials creds = getLoginCredentials();
+                Supplier<LoginCredentials> creds = getLoginCredentialsSupplier();
                 hostname = jcloudsParent.getPublicHostname(node.get(), Optional.of(sshHostAndPort), creds, config().getBag());
                 requestPersist();
 
@@ -355,7 +356,7 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
                 // If we can't get the node (i.e. the cloud provider doesn't know that id, because it has
                 // been terminated), then we don't care as much about getting the right id!
                 HostAndPort sshHostAndPort = getSshHostAndPort();
-                LoginCredentials creds = getLoginCredentials();
+                Supplier<LoginCredentials> creds = getLoginCredentialsSupplier();
                 privateHostname = jcloudsParent.getPrivateHostname(node.get(), Optional.of(sshHostAndPort), creds, config().getBag());
 
             } else {
@@ -496,6 +497,14 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
         }
     }
 
+    private Supplier<LoginCredentials> getLoginCredentialsSupplier() {
+        return new Supplier<LoginCredentials>() {
+            @Override public LoginCredentials get() {
+                return getLoginCredentials();
+            }
+        };
+    }
+    
     private LoginCredentials getLoginCredentials() {
         OsCredential creds = LocationConfigUtils.getOsCredential(new ResolvingConfigBag(getManagementContext(), config().getBag()));
         

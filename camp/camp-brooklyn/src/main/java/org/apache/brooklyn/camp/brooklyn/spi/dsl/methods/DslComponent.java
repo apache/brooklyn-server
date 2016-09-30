@@ -89,8 +89,12 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
     
     @Override
     public Task<Entity> newTask() {
-        return TaskBuilder.<Entity>builder().displayName(toString()).tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
-            .body(new EntityInScopeFinder(scopeComponent, scope, componentId)).build();
+        return TaskBuilder.<Entity>builder()
+                .displayName(toString())
+                .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
+                .tagIfNotNull(BrooklynTaskTags.getTargetOrContextEntityTag(Tasks.current()))
+                .body(new EntityInScopeFinder(scopeComponent, scope, componentId))
+                .build();
     }
     
     protected static class EntityInScopeFinder implements Callable<Entity> {
@@ -300,13 +304,18 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
 
         @Override
         public Task<Object> newTask() {
-            return Tasks.builder().displayName("retrieving config for "+keyName).tag(BrooklynTaskTags.TRANSIENT_TASK_TAG).dynamic(false).body(new Callable<Object>() {
-                @Override
-                public Object call() throws Exception {
-                    Entity targetEntity = component.get();
-                    return targetEntity.getConfig(ConfigKeys.newConfigKey(Object.class, keyName));
-                }
-            }).build();
+            return Tasks.builder()
+                    .displayName("retrieving config for "+keyName)
+                    .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
+                    .tagIfNotNull(BrooklynTaskTags.getTargetOrContextEntityTag(Tasks.current()))
+                    .dynamic(false)
+                    .body(new Callable<Object>() {
+                        @Override
+                        public Object call() throws Exception {
+                            Entity targetEntity = component.get();
+                            return targetEntity.getConfig(ConfigKeys.newConfigKey(Object.class, keyName));
+                        }})
+                    .build();
         }
 
         @Override
@@ -345,31 +354,35 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
 
         @Override
         public Task<Sensor<?>> newTask() {
-            return Tasks.<Sensor<?>>builder().displayName("looking up sensor for "+sensorName).dynamic(false).body(new Callable<Sensor<?>>() {
-                @Override
-                public Sensor<?> call() throws Exception {
-                    return resolve(sensorName, false);
-                }
-                
-                public Sensor<?> resolve(Object si, boolean resolved) throws ExecutionException, InterruptedException {
-                    if (si instanceof Sensor) return (Sensor<?>)si;
-                    if (si instanceof String) {
-                        Entity targetEntity = component.get();
-                        Sensor<?> result = null;
-                        if (targetEntity!=null) {
-                            result = targetEntity.getEntityType().getSensor((String)si);
+            return Tasks.<Sensor<?>>builder()
+                    .displayName("looking up sensor for "+sensorName)
+                    .dynamic(false)
+                    .tagIfNotNull(BrooklynTaskTags.getTargetOrContextEntityTag(Tasks.current()))
+                    .body(new Callable<Sensor<?>>() {
+                        @Override
+                        public Sensor<?> call() throws Exception {
+                            return resolve(sensorName, false);
                         }
-                        if (result!=null) return result;
-                        return Sensors.newSensor(Object.class, (String)si);
-                    }
-                    if (!resolved) {
-                        // attempt to resolve, and recurse
-                        final ExecutionContext executionContext = ((EntityInternal)entity()).getExecutionContext();
-                        return resolve(Tasks.resolveDeepValue(si, Object.class, executionContext), true);
-                    }
-                    throw new IllegalStateException("Cannot resolve '"+sensorName+"' as a sensor");
-                }
-            }).build();
+                        
+                        public Sensor<?> resolve(Object si, boolean resolved) throws ExecutionException, InterruptedException {
+                            if (si instanceof Sensor) return (Sensor<?>)si;
+                            if (si instanceof String) {
+                                Entity targetEntity = component.get();
+                                Sensor<?> result = null;
+                                if (targetEntity!=null) {
+                                    result = targetEntity.getEntityType().getSensor((String)si);
+                                }
+                                if (result!=null) return result;
+                                return Sensors.newSensor(Object.class, (String)si);
+                            }
+                            if (!resolved) {
+                                // attempt to resolve, and recurse
+                                final ExecutionContext executionContext = ((EntityInternal)entity()).getExecutionContext();
+                                return resolve(Tasks.resolveDeepValue(si, Object.class, executionContext), true);
+                            }
+                            throw new IllegalStateException("Cannot resolve '"+sensorName+"' as a sensor");
+                        }})
+                    .build();
         }
 
         @Override

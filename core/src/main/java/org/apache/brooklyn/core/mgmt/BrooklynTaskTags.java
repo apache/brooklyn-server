@@ -23,6 +23,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.io.ByteArrayOutputStream;
 import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -53,6 +54,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 
 /** Provides utilities for making Tasks easier to work with in Brooklyn.
  * Main thing at present is to supply (and find) wrapped entities for tasks to understand the
@@ -122,21 +124,42 @@ public class BrooklynTaskTags extends TaskTags {
         return new WrappedEntity(TARGET_ENTITY, entity);
     }
 
-    public static Entity getWrappedEntityOfType(Task<?> t, String wrappingType) {
+    public static WrappedEntity getWrappedEntityTagOfType(Task<?> t, String wrappingType) {
         if (t==null) return null;
-        return getWrappedEntityOfType(t.getTags(), wrappingType);
+        return getWrappedEntityTagOfType(t.getTags(), wrappingType);
     }
-    public static Entity getWrappedEntityOfType(Collection<?> tags, String wrappingType) {
+    public static WrappedEntity getWrappedEntityTagOfType(Collection<?> tags, String wrappingType) {
         for (Object x: tags)
             if ((x instanceof WrappedEntity) && ((WrappedEntity)x).wrappingType.equals(wrappingType))
-                return ((WrappedEntity)x).entity;
+                return (WrappedEntity)x;
         return null;
+    }
+
+    public static Entity getWrappedEntityOfType(Task<?> t, String wrappingType) {
+        WrappedEntity wrapper = getWrappedEntityTagOfType(t, wrappingType);
+        return (wrapper == null) ? null : wrapper.entity;
+    }
+    public static Entity getWrappedEntityOfType(Collection<?> tags, String wrappingType) {
+        WrappedEntity wrapper = getWrappedEntityTagOfType(tags, wrappingType);
+        return (wrapper == null) ? null : wrapper.entity;
     }
 
     public static Entity getContextEntity(Task<?> task) {
         return getWrappedEntityOfType(task, CONTEXT_ENTITY);
     }
 
+    public static Object getTargetOrContextEntityTag(Task<?> task) {
+        if (task == null) return null;
+        Object result = getWrappedEntityTagOfType(task, CONTEXT_ENTITY);
+        if (result!=null) return result;
+        result = getWrappedEntityTagOfType(task, TARGET_ENTITY);
+        if (result!=null) return result;
+        result = Tasks.tag(task, Entity.class, false);
+        if (result!=null) return result;
+        
+        return null;
+    }
+    
     public static Entity getTargetOrContextEntity(Task<?> t) {
         if (t==null) return null;
         Entity result = getWrappedEntityOfType(t, CONTEXT_ENTITY);

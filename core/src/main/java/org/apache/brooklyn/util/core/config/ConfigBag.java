@@ -620,6 +620,15 @@ public class ConfigBag {
         return this;
     }
 
+    /**
+     * Whether this config bag is "sealed" (i.e. whether no more modifications can be made to it).
+     * This method is for information only - it should not be overridden to try to change the 
+     * semantics, as internal methods access the (private) field directly.
+     */
+    protected final boolean isSealed() {
+        return sealed;
+    }
+    
     // TODO why have both this and mutable
     /** @see #getAllConfigMutable() */
     public Map<String, Object> getAllConfigRaw() {
