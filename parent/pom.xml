@@ -291,7 +291,7 @@
             <dependency>
                 <groupId>org.apache.httpcomponents</groupId>
                 <artifactId>httpcore</artifactId>
-                <version>${httpclient.version}</version>
+                <version>${httpcomponents.httpcore.version}</version>
             </dependency>
             <dependency>
                 <groupId>xml-apis</groupId>
@@ -321,13 +321,13 @@
             <dependency>
                 <groupId>org.apache.httpcomponents</groupId>
                 <artifactId>httpclient</artifactId>
-                <version>${httpclient.version}</version>
+                <version>${httpcomponents.httpclient.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.httpcomponents</groupId>
                 <artifactId>httpclient</artifactId>
                 <classifier>tests</classifier>
-                <version>${httpclient.version}</version>
+                <version>${httpcomponents.httpclient.version}</version>
             </dependency>
             <dependency>
                 <groupId>aopalliance</groupId>
