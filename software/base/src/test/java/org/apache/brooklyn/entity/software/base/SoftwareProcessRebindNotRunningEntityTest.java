@@ -19,6 +19,7 @@
 package org.apache.brooklyn.entity.software.base;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import java.util.Collection;
@@ -30,6 +31,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
@@ -55,10 +57,13 @@ import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.CustomRespons
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecParams;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -69,6 +74,13 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 
 public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixtureWithApp {
+
+    // TODO If we fail during provisioningLocation.obtain() or provisioningLocation.release(), then we
+    // should tell the user that a VM might have started being provisioned but been forgotten about; or
+    // that termination of the VM may or may not have completed.
+    // We could use the Attributes.SERVICE_NOT_UP_INDICATORS to achieve that.
+
+    private static final Logger LOG = LoggerFactory.getLogger(SoftwareProcessRebindNotRunningEntityTest.class);
 
     private ListeningExecutorService executor;
     private LocationSpec<SshMachineLocation> machineSpec;
@@ -147,11 +159,8 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
         TestApplication newApp = rebind();
         final VanillaSoftwareProcess newEntity = (VanillaSoftwareProcess) Iterables.find(newApp.getChildren(), Predicates.instanceOf(VanillaSoftwareProcess.class));
 
-        EntityAsserts.assertAttributeEqualsEventually(newEntity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
-        EntityAsserts.assertAttributeEqualsEventually(newEntity, Attributes.SERVICE_UP, false);
-
-        EntityAsserts.assertAttributeEqualsEventually(newApp, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
-        EntityAsserts.assertAttributeEqualsEventually(newApp, Attributes.SERVICE_UP, false);
+        assertMarkedAsOnfire(newEntity, Lifecycle.STARTING);
+        assertMarkedAsOnfire(newApp, Lifecycle.STARTING);
     }
 
     @Test
@@ -178,11 +187,8 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
         TestApplication newApp = rebind();
         final VanillaSoftwareProcess newEntity = (VanillaSoftwareProcess) Iterables.find(newApp.getChildren(), Predicates.instanceOf(VanillaSoftwareProcess.class));
 
-        EntityAsserts.assertAttributeEqualsEventually(newEntity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
-        EntityAsserts.assertAttributeEqualsEventually(newEntity, Attributes.SERVICE_UP, false);
-
-        EntityAsserts.assertAttributeEqualsEventually(newApp, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
-        EntityAsserts.assertAttributeEqualsEventually(newApp, Attributes.SERVICE_UP, false);
+        assertMarkedAsOnfire(newEntity, Lifecycle.STARTING);
+        assertMarkedAsOnfire(newApp, Lifecycle.STARTING);
     }
 
     @Test
@@ -211,11 +217,7 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
         TestApplication newApp = rebind();
         final VanillaSoftwareProcess newEntity = (VanillaSoftwareProcess) Iterables.find(newApp.getChildren(), Predicates.instanceOf(VanillaSoftwareProcess.class));
 
-        EntityAsserts.assertAttributeEqualsEventually(newEntity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
-        EntityAsserts.assertAttributeEqualsEventually(newEntity, Attributes.SERVICE_UP, false);
-
-        EntityAsserts.assertAttributeEqualsEventually(newApp, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
-        EntityAsserts.assertAttributeEqualsEventually(newApp, Attributes.SERVICE_UP, false);
+        assertMarkedAsOnfire(newEntity, Lifecycle.STOPPING);
     }
 
     @Test
@@ -239,11 +241,8 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
         TestApplication newApp = rebind();
         final VanillaSoftwareProcess newEntity = (VanillaSoftwareProcess) Iterables.find(newApp.getChildren(), Predicates.instanceOf(VanillaSoftwareProcess.class));
 
-        EntityAsserts.assertAttributeEqualsEventually(newEntity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
-        EntityAsserts.assertAttributeEqualsEventually(newEntity, Attributes.SERVICE_UP, false);
-
-        EntityAsserts.assertAttributeEqualsEventually(newApp, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
-        EntityAsserts.assertAttributeEqualsEventually(newApp, Attributes.SERVICE_UP, false);
+        assertMarkedAsOnfire(newEntity, Lifecycle.STARTING);
+        assertMarkedAsOnfire(newApp, Lifecycle.STARTING);
     }
 
     @Test
@@ -269,11 +268,7 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
         TestApplication newApp = rebind();
         final VanillaSoftwareProcess newEntity = (VanillaSoftwareProcess) Iterables.find(newApp.getChildren(), Predicates.instanceOf(VanillaSoftwareProcess.class));
 
-        EntityAsserts.assertAttributeEqualsEventually(newEntity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
-        EntityAsserts.assertAttributeEqualsEventually(newEntity, Attributes.SERVICE_UP, false);
-
-        EntityAsserts.assertAttributeEqualsEventually(newApp, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
-        EntityAsserts.assertAttributeEqualsEventually(newApp, Attributes.SERVICE_UP, false);
+        assertMarkedAsOnfire(newEntity, Lifecycle.STOPPING);
     }
 
     @Test
@@ -301,11 +296,8 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
         TestApplication newApp = hotStandby();
         final VanillaSoftwareProcess newEntity = (VanillaSoftwareProcess) Iterables.find(newApp.getChildren(), Predicates.instanceOf(VanillaSoftwareProcess.class));
 
-        EntityAsserts.assertAttributeEqualsContinually(newEntity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STARTING);
-        assertEquals(newEntity.getAttribute(Attributes.SERVICE_STATE_EXPECTED).getState(), Lifecycle.STARTING);
-        
-        EntityAsserts.assertAttributeEqualsEventually(newApp, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STARTING);
-        assertEquals(newApp.getAttribute(Attributes.SERVICE_STATE_EXPECTED).getState(), Lifecycle.STARTING);
+        assertNotMarkedOnfire(newEntity, Lifecycle.STARTING);
+        assertNotMarkedOnfire(newApp, Lifecycle.STARTING);
     }
 
     protected ListenableFuture<Void> startAsync(final Startable entity, final Collection<? extends Location> locs) {
@@ -335,11 +327,38 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
         return result;
     }
 
+    protected void assertMarkedAsOnfire(final Entity entity, final Lifecycle previousState) throws Exception {
+        EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+        EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, false);
+        EntityAsserts.assertAttributeEventually(entity, Attributes.SERVICE_NOT_UP_INDICATORS, new Predicate<Map<?,?>>() {
+            @Override
+            public boolean apply(Map<?, ?> input) {
+                if (input == null) return false;
+                String expectedKey = "Task aborted on rebind";
+                String expectedVal = "Set to on-fire (from previous expected state "+previousState+") because tasks aborted on rebind";
+                for (Map.Entry<?, ?> entry : input.entrySet()) {
+                    boolean keyMatches = expectedKey.equals(entry.getKey());
+                    boolean valueMatches = expectedVal.equals(entry.getValue());
+                    if (keyMatches && valueMatches) return true;
+                }
+                LOG.info("entity "+entity+" not-up-indicators: "+input);
+                return false;
+            }});
+    }
+
+    protected void assertNotMarkedOnfire(final Entity entity, final Lifecycle expectedState) throws Exception {
+        assertEquals(entity.getAttribute(Attributes.SERVICE_STATE_ACTUAL), expectedState);
+        Map<String, Object> indicators = entity.getAttribute(Attributes.SERVICE_NOT_UP_INDICATORS);
+        assertFalse(indicators.keySet().contains("Task aborted on rebind"), "indicators="+indicators);
+    }
+
     public static class MyProvisioningLocation extends AbstractLocation implements MachineProvisioningLocation<SshMachineLocation> {
         public static final ConfigKey<CountDownLatch> OBTAIN_CALLED_LATCH = ConfigKeys.newConfigKey(CountDownLatch.class, "obtainCalledLatch");
         public static final ConfigKey<CountDownLatch> OBTAIN_BLOCKED_LATCH = ConfigKeys.newConfigKey(CountDownLatch.class, "obtainBlockedLatch");
         public static final ConfigKey<CountDownLatch> RELEASE_CALLED_LATCH = ConfigKeys.newConfigKey(CountDownLatch.class, "releaseCalledLatch");
         public static final ConfigKey<CountDownLatch> RELEASE_BLOCKED_LATCH = ConfigKeys.newConfigKey(CountDownLatch.class, "releaseBlockedLatch");
+        
+        @SuppressWarnings("serial")
         public static final ConfigKey<LocationSpec<SshMachineLocation>> MACHINE_SPEC = ConfigKeys.newConfigKey(
                 new TypeToken<LocationSpec<SshMachineLocation>>() {},
                 "machineSpec");

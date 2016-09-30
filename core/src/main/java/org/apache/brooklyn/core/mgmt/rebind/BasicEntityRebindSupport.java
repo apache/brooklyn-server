@@ -248,6 +248,10 @@ public class BasicEntityRebindSupport extends AbstractBrooklynObjectRebindSuppor
             LOG.warn("Entity {} goes on-fire because it was in state {} on rebind", entity, expectedState);
             LOG.warn("not-up-indicators={}", entity.getAttribute(Attributes.SERVICE_NOT_UP_INDICATORS));
             ServiceStateLogic.setExpectedState(entity, Lifecycle.ON_FIRE);
+            ServiceStateLogic.ServiceNotUpLogic.updateNotUpIndicator(
+                    entity, 
+                    "Task aborted on rebind", 
+                    "Set to on-fire (from previous expected state "+expectedState+") because tasks aborted on rebind");
         }
         super.instanceRebind(instance);
     }
