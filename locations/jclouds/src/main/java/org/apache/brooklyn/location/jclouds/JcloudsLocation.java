@@ -2892,7 +2892,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         if (enabled) {
             Duration timeout = "true".equals(pollForFirstReachable) ? Duration.FIVE_MINUTES : Duration.of(pollForFirstReachable);
 
-            Predicate<HostAndPort> pollForFirstReachableHostAndPortPredicate;
+            Predicate<? super HostAndPort> pollForFirstReachableHostAndPortPredicate;
             if (setup.get(POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE) != null) {
                 LOG.debug("Using pollForFirstReachableAddress.predicate supplied from config for location " + this + " "
                         + POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE.getName() + " : " + setup.get(POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE));
@@ -2901,7 +2901,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 LOG.debug("Using pollForFirstReachableAddress.predicate.type supplied from config for location " + this + " " + POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE_TYPE.getName()
                         + " : " + setup.get(POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE_TYPE));
 
-                Class<? extends Predicate<HostAndPort>> predicateType = setup.get(POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE_TYPE);
+                Class<? extends Predicate<? super HostAndPort>> predicateType = setup.get(POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE_TYPE);
 
                 Map<String, Object> args = MutableMap.of();
                 ConfigUtils.addUnprefixedConfigKeyInConfigBack(POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE.getName() + ".", setup, args);

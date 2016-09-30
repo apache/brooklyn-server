@@ -358,7 +358,7 @@ public class JcloudsUtil implements JcloudsLocationConfig {
         return getFirstReachableAddress(node, timeout, new Networking.IsReachablePredicate());
     }
 
-    public static String getFirstReachableAddress(NodeMetadata node, Duration timeout, Predicate<HostAndPort> socketTester) {
+    public static String getFirstReachableAddress(NodeMetadata node, Duration timeout, Predicate<? super HostAndPort> socketTester) {
         final int port = node.getLoginPort();
         List<HostAndPort> sockets = FluentIterable
                 .from(Iterables.concat(node.getPublicAddresses(), node.getPrivateAddresses()))
