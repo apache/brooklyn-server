@@ -76,6 +76,15 @@ public class SharedLocationSecurityGroupCustomizer extends BasicJcloudsLocationC
     private RangeSet<Integer> udpPortRanges;
 
     /**
+     * Add a flag that disables this customizer.  It's isn't currently possible to add a customizer
+     * based on a flag.  This flag makes it possible to write blueprints using the customizer but still
+     * be able to disable it for clouds (e.g. bluebox) where the SG implementation has known issues.
+     *
+     * Default: true
+     */
+    private boolean enabled = true;
+
+    /**
      * The location name is appended to the name of the shared SG - use if you need distinct shared SGs within the same location
      *
      * @param locationName appended to the name of the SG
@@ -106,8 +115,17 @@ public class SharedLocationSecurityGroupCustomizer extends BasicJcloudsLocationC
         this.cidr = cidr;
     }
 
+    /**
+     * @param enabled set to false to disable this customizer
+     */
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
     @Override
     public void customize(JcloudsLocation location, ComputeService computeService, Template template) {
+        if(!enabled) return;
+
         super.customize(location, computeService, template);
 
         inboundPorts = template.getOptions().getInboundPorts();
@@ -120,6 +138,8 @@ public class SharedLocationSecurityGroupCustomizer extends BasicJcloudsLocationC
     @Override
     public void customize(JcloudsLocation location, ComputeService computeService, JcloudsMachineLocation machine) {
         super.customize(location, computeService, machine);
+
+        if(!enabled) return;
 
         final JcloudsLocationSecurityGroupCustomizer instance = getInstance(getSharedGroupId(location));
 
