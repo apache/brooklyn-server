@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.Date;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
@@ -438,19 +439,18 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
     public void rebind() {
         //SERVICE_STATE_ACTUAL might be ON_FIRE due to a temporary condition (problems map non-empty)
         //Only if the expected state is ON_FIRE then the entity has permanently failed.
-        Transition expectedState = getAttribute(SERVICE_STATE_EXPECTED);
-        if (expectedState == null || expectedState.getState() != Lifecycle.RUNNING) {
+        Lifecycle expectedState = ServiceStateLogic.getExpectedState(this);
+        if (expectedState == null || expectedState != Lifecycle.RUNNING) {
             LOG.warn("On rebind of {}, not calling software process rebind hooks because expected state is {}", this, expectedState);
             return;
         }
 
-        Lifecycle actualState = getAttribute(SERVICE_STATE_ACTUAL);
+        Lifecycle actualState = ServiceStateLogic.getActualState(this);
         if (actualState == null || actualState != Lifecycle.RUNNING) {
             LOG.warn("Rebinding entity {}, even though actual state is {}. Expected state is {}", new Object[] { this, actualState, expectedState });
         }
 
         // e.g. rebinding to a running instance
-        // FIXME For rebind, what to do about things in STARTING or STOPPING state?
         // FIXME What if location not set?
         LOG.info("Rebind {} connecting to pre-running service", this);
         

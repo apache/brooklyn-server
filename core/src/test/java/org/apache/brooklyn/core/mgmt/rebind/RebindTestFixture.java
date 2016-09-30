@@ -43,6 +43,7 @@ import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
+import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
 import org.apache.brooklyn.core.mgmt.persist.FileBasedObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
@@ -102,6 +103,7 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
 
         return RebindTestUtils.managementContextBuilder(mementoDir, classLoader)
                 .persistPeriodMillis(getPersistPeriodMillis())
+                .haMode(getHaMode())
                 .forLive(useLiveManagementContext())
                 .enablePersistenceBackups(enablePersistenceBackups())
                 .emptyCatalog(useEmptyCatalog())
@@ -110,6 +112,10 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
                 .buildStarted();
     }
 
+    protected HighAvailabilityMode getHaMode() {
+        return HighAvailabilityMode.DISABLED;
+    }
+    
     protected boolean enablePersistenceBackups() {
         return true;
     }
@@ -121,9 +127,14 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
     
     /** @return An unstarted management context using the specified mementoDir (or default if null) */
     protected LocalManagementContext createNewManagementContext(File mementoDir) {
+        return createNewManagementContext(mementoDir, getHaMode());
+    }
+    
+    protected LocalManagementContext createNewManagementContext(File mementoDir, HighAvailabilityMode haMode) {
         if (mementoDir==null) mementoDir = this.mementoDir;
         return RebindTestUtils.managementContextBuilder(mementoDir, classLoader)
                 .forLive(useLiveManagementContext())
+                .haMode(haMode)
                 .emptyCatalog(useEmptyCatalog())
                 .properties(createBrooklynProperties())
                 .enableOsgi(useOsgi())
@@ -145,6 +156,10 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
 
     protected ManagementContext mgmt() {
         return (newManagementContext != null) ? newManagementContext : origManagementContext;
+    }
+    
+    protected T app() {
+        return (newApp != null) ? newApp : origApp;
     }
     
     public static void waitForTaskCountToBecome(final ManagementContext mgmt, final int allowedMax) {
@@ -274,6 +289,36 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
         if (options.mementoDir == null) options.mementoDir(mementoDir);
         if (options.origManagementContext == null) options.origManagementContext(origManagementContext);
         if (options.newManagementContext == null) options.newManagementContext(createNewManagementContext(options.mementoDir));
+        
+        RebindTestUtils.waitForPersisted(origApp);
+        
+        newManagementContext = options.newManagementContext;
+        newApp = (T) RebindTestUtils.rebind(options);
+        return newApp;
+    }
+
+    protected T hotStandby() throws Exception {
+        return hotStandby(RebindOptions.create());
+    }
+
+    protected T hotStandby(RebindOptions options) throws Exception {
+        if (newApp != null || newManagementContext != null) {
+            throw new IllegalStateException("already rebound - use switchOriginalToNewManagementContext() if you are trying to rebind multiple times");
+        }
+        if (options.haMode != null && options.haMode != HighAvailabilityMode.HOT_STANDBY) {
+            throw new IllegalStateException("hotStandby called, but with HA Mode set to "+options.haMode);
+        }
+        if (options.terminateOrigManagementContext) {
+            throw new IllegalStateException("hotStandby called with terminateOrigManagementContext==true");
+        }
+        
+        options = RebindOptions.create(options);
+        options.terminateOrigManagementContext(false);
+        if (options.haMode == null) options.haMode(HighAvailabilityMode.HOT_STANDBY);
+        if (options.classLoader == null) options.classLoader(classLoader);
+        if (options.mementoDir == null) options.mementoDir(mementoDir);
+        if (options.origManagementContext == null) options.origManagementContext(origManagementContext);
+        if (options.newManagementContext == null) options.newManagementContext(createNewManagementContext(options.mementoDir, options.haMode));
         
         RebindTestUtils.waitForPersisted(origApp);
         

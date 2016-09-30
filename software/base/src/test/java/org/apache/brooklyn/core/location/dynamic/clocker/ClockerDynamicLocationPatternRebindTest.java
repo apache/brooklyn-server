@@ -29,6 +29,7 @@ import java.util.Map;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.location.BasicLocationRegistry;
@@ -56,8 +57,8 @@ public class ClockerDynamicLocationPatternRebindTest extends RebindTestFixtureWi
     }
     
     @Override
-    protected LocalManagementContext createNewManagementContext(File mementoDir) {
-        LocalManagementContext result = super.createNewManagementContext(mementoDir);
+    protected LocalManagementContext createNewManagementContext(File mementoDir, HighAvailabilityMode haMode) {
+        LocalManagementContext result = super.createNewManagementContext(mementoDir, haMode);
         StubResolver stubResolver = new StubResolver();
         ((BasicLocationRegistry)result.getLocationRegistry()).registerResolver(stubResolver);
         return result;

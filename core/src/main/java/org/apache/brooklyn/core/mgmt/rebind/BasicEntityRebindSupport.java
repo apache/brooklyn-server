@@ -33,15 +33,21 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.AbstractEntity;
+import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.feed.AbstractFeed;
 import org.apache.brooklyn.core.mgmt.rebind.dto.MementosGenerators;
+import org.apache.brooklyn.core.objs.AbstractBrooklynObject;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.entity.group.AbstractGroupImpl;
+import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 public class BasicEntityRebindSupport extends AbstractBrooklynObjectRebindSupport<EntityMemento> {
@@ -232,5 +238,17 @@ public class BasicEntityRebindSupport extends AbstractBrooklynObjectRebindSuppor
                         new Object[] {id, memento.getType(), memento.getId()});
             }
         }
+    }
+
+    @Override
+    protected void instanceRebind(AbstractBrooklynObject instance) {
+        Preconditions.checkState(instance == entity, "Expected %s and %s to match, but different objects", instance, entity);
+        Lifecycle expectedState = ServiceStateLogic.getExpectedState(entity);
+        if (expectedState == Lifecycle.STARTING || expectedState == Lifecycle.STOPPING) {
+            LOG.warn("Entity {} goes on-fire because it was in state {} on rebind", entity, expectedState);
+            LOG.warn("not-up-indicators={}", entity.getAttribute(Attributes.SERVICE_NOT_UP_INDICATORS));
+            ServiceStateLogic.setExpectedState(entity, Lifecycle.ON_FIRE);
+        }
+        super.instanceRebind(instance);
     }
 }

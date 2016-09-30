@@ -24,6 +24,7 @@ import java.io.File;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
@@ -68,12 +69,13 @@ public class RebindCatalogWhenCatalogPersistenceDisabledTest extends RebindTestF
     }
 
     @Override
-    protected LocalManagementContext createNewManagementContext(File mementoDir) {
+    protected LocalManagementContext createNewManagementContext(File mementoDir, HighAvailabilityMode haMode) {
         BrooklynProperties properties = BrooklynProperties.Factory.newDefault();
         properties.put(BrooklynServerConfig.BROOKLYN_CATALOG_URL, TEST_CATALOG);
         return RebindTestUtils.managementContextBuilder(mementoDir, classLoader)
                 .properties(properties)
                 .forLive(useLiveManagementContext())
+                .haMode(haMode)
                 .buildUnstarted();
     }
 

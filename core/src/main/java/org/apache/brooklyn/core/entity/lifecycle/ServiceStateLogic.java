@@ -37,7 +37,6 @@ import org.apache.brooklyn.api.sensor.EnricherSpec.ExtensibleEnricherSpec;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
-import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynLogging;
 import org.apache.brooklyn.core.BrooklynLogging.LoggingLevel;
@@ -153,6 +152,22 @@ public class ServiceStateLogic {
     }
     
     public static void setExpectedState(Entity entity, Lifecycle state) {
+        waitBrieflyForServiceUpIfStateIsRunning(entity, state);
+        ((EntityInternal)entity).sensors().set(Attributes.SERVICE_STATE_EXPECTED, new Lifecycle.Transition(state, new Date()));
+        
+        Maybe<Enricher> enricher = EntityAdjuncts.tryFindWithUniqueTag(entity.enrichers(), ComputeServiceState.DEFAULT_ENRICHER_UNIQUE_TAG);
+        if (enricher.isPresent() && enricher.get() instanceof ComputeServiceState) {
+            ((ComputeServiceState)enricher.get()).onEvent(null);
+        }
+    }
+    
+    public static Lifecycle getExpectedState(Entity entity) {
+        Transition expected = entity.getAttribute(Attributes.SERVICE_STATE_EXPECTED);
+        if (expected==null) return null;
+        return expected.getState();
+    }
+
+    private static void waitBrieflyForServiceUpIfStateIsRunning(Entity entity, Lifecycle state) {
         if (state==Lifecycle.RUNNING) {
             Boolean up = ((EntityInternal)entity).getAttribute(Attributes.SERVICE_UP);
             if (!Boolean.TRUE.equals(up) && !Boolean.TRUE.equals(Entities.isReadOnly(entity))) {
@@ -167,22 +182,16 @@ public class ServiceStateLogic {
                     log.debug("Had to wait "+Duration.of(timer)+" for "+entity+" "+Attributes.SERVICE_UP+" to be true before setting "+state);
                 } else {
                     log.warn("Service is not up when setting "+state+" on "+entity+"; delayed "+Duration.of(timer)+" "
-                        + "but "+Attributes.SERVICE_UP+" did not recover from "+up+"; not-up-indicators="+entity.getAttribute(Attributes.SERVICE_NOT_UP_INDICATORS));
+                            + "but "+Attributes.SERVICE_UP+" did not recover from "+up+"; not-up-indicators="+entity.getAttribute(Attributes.SERVICE_NOT_UP_INDICATORS));
                 }
             }
         }
-        ((EntityInternal)entity).sensors().set(Attributes.SERVICE_STATE_EXPECTED, new Lifecycle.Transition(state, new Date()));
-        
-        Maybe<Enricher> enricher = EntityAdjuncts.tryFindWithUniqueTag(entity.enrichers(), ComputeServiceState.DEFAULT_ENRICHER_UNIQUE_TAG);
-        if (enricher.isPresent() && enricher.get() instanceof ComputeServiceState) {
-            ((ComputeServiceState)enricher.get()).onEvent(null);
-        }
     }
-    public static Lifecycle getExpectedState(Entity entity) {
-        Transition expected = entity.getAttribute(Attributes.SERVICE_STATE_EXPECTED);
-        if (expected==null) return null;
-        return expected.getState();
+
+    public static Lifecycle getActualState(Entity entity) {
+        return entity.getAttribute(Attributes.SERVICE_STATE_ACTUAL);
     }
+
     public static boolean isExpectedState(Entity entity, Lifecycle state) {
         return getExpectedState(entity)==state;
     }
