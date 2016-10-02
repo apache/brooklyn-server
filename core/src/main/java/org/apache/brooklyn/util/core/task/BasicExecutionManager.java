@@ -516,13 +516,7 @@ public class BasicExecutionManager implements ExecutionManager {
             try {
                 T result = null;
                 Throwable error = null;
-                String oldThreadName = Thread.currentThread().getName();
                 try {
-                    if (RENAME_THREADS) {
-                        String newThreadName = oldThreadName+"-"+task.getDisplayName()+
-                            "["+task.getId().substring(0, 8)+"]";
-                        Thread.currentThread().setName(newThreadName);
-                    }
                     beforeStartAtomicTask(flags, task);
                     if (!task.isCancelled()) {
                         result = ((TaskInternal<T>)task).getJob().call();
@@ -530,9 +524,6 @@ public class BasicExecutionManager implements ExecutionManager {
                 } catch(Throwable e) {
                     error = e;
                 } finally {
-                    if (RENAME_THREADS) {
-                        Thread.currentThread().setName(oldThreadName);
-                    }
                     afterEndAtomicTask(flags, task);
                 }
                 if (error!=null) {
