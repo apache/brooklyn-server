@@ -19,7 +19,6 @@
 package org.apache.brooklyn.util.core.task;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import groovy.lang.Closure;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -41,6 +40,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -70,11 +70,12 @@ import com.google.common.base.CaseFormat;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ExecutionList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+
+import groovy.lang.Closure;
 
 /**
  * Manages the execution of atomic tasks and scheduled (recurring) tasks,
@@ -84,7 +85,11 @@ public class BasicExecutionManager implements ExecutionManager {
     private static final Logger log = LoggerFactory.getLogger(BasicExecutionManager.class);
 
     private static final boolean RENAME_THREADS = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_RENAME_THREADS);
-    
+    private static final String JITTER_THREADS_MAX_DELAY_PROPERTY = BrooklynFeatureEnablement.FEATURE_JITTER_THREADS + ".maxDelay";
+
+    private boolean jitterThreads = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_JITTER_THREADS);
+    private int jitterThreadsMaxDelay = Integer.getInteger(JITTER_THREADS_MAX_DELAY_PROPERTY, 200);
+
     private static class PerThreadCurrentTaskHolder {
         public static final ThreadLocal<Task<?>> perThreadCurrentTask = new ThreadLocal<Task<?>>();
     }
@@ -146,6 +151,10 @@ public class BasicExecutionManager implements ExecutionManager {
                 daemonThreadFactory);
             
         delayedRunner = new ScheduledThreadPoolExecutor(1, daemonThreadFactory);
+
+        if (jitterThreads) {
+            log.info("Task startup jittering enabled with a maximum of " + jitterThreadsMaxDelay + " delay.");
+        }
     }
     
     private final static class UncaughtExceptionHandlerImplementation implements Thread.UncaughtExceptionHandler {
@@ -757,7 +766,21 @@ public class BasicExecutionManager implements ExecutionManager {
             PerThreadCurrentTaskHolder.perThreadCurrentTask.set(task);
             ((TaskInternal<?>)task).setStartTimeUtc(System.currentTimeMillis());
         }
+
+        jitterThreadStart(task);
+
         invokeCallback(flags.get("newTaskStartCallback"), task);
+    }
+
+    private void jitterThreadStart(Task<?> task) {
+        if (jitterThreads) {
+            try {
+                Thread.sleep(ThreadLocalRandom.current().nextInt(jitterThreadsMaxDelay));
+            } catch (InterruptedException e) {
+                log.warn("Task " + task + " got cancelled before starting because of jitter.");
+                throw Exceptions.propagate(e);
+            }
+        }
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
@@ -888,6 +911,20 @@ public class BasicExecutionManager implements ExecutionManager {
     @VisibleForTesting
     public ConcurrentMap<Object, TaskScheduler> getSchedulerByTag() {
         return schedulerByTag;
+    }
+
+    public void setJitterThreads(boolean jitterThreads) {
+        this.jitterThreads = jitterThreads;
+        if (jitterThreads) {
+            log.info("Task startup jittering enabled with a maximum of " + jitterThreadsMaxDelay + " delay.");
+        } else {
+            log.info("Disabled task startup jittering");
+        }
+    }
+
+    public void setJitterThreadsMaxDelay(int jitterThreadsMaxDelay) {
+        this.jitterThreadsMaxDelay = jitterThreadsMaxDelay;
+        log.info("Setting task startup jittering maximum delay to " + jitterThreadsMaxDelay);
     }
 
 }
