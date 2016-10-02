@@ -754,7 +754,7 @@ public class BasicExecutionManager implements ExecutionManager {
         activeTaskCount.incrementAndGet();
         
         //set thread _before_ start time, so we won't get a null thread when there is a start-time
-        if (log.isTraceEnabled()) log.trace(""+this+" beforeStart, task: "+task);
+        if (log.isTraceEnabled()) log.trace(""+this+" beforeStart, task: "+task + " running on thread " + Thread.currentThread().getName());
         if (!task.isCancelled()) {
             Thread thread = Thread.currentThread();
             ((TaskInternal<?>)task).setThread(thread);
