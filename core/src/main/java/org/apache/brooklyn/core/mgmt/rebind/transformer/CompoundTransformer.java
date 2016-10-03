@@ -243,7 +243,7 @@ public class CompoundTransformer {
         deletions = builder.deletions;
     }
 
-    public BrooklynMementoRawData transform(BrooklynMementoPersisterToObjectStore reader, RebindExceptionHandler exceptionHandler) throws Exception {
+    public BrooklynMementoRawData transform(BrooklynMementoPersister reader, RebindExceptionHandler exceptionHandler) throws Exception {
         BrooklynMementoRawData rawData = reader.loadMementoRawData(exceptionHandler);
         return transform(rawData);
     }
