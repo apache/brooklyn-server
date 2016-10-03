@@ -39,6 +39,8 @@ import javax.xml.transform.stream.StreamResult;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
+import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -51,7 +53,9 @@ import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore.StoreObjectAccessor;
+import org.apache.brooklyn.core.mgmt.rebind.RebindExceptionHandlerImpl;
 import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
+import org.apache.brooklyn.core.mgmt.rebind.transformer.CompoundTransformer;
 import org.apache.brooklyn.core.test.policy.TestEnricher;
 import org.apache.brooklyn.core.test.policy.TestPolicy;
 import org.apache.brooklyn.entity.stock.BasicEntity;
@@ -103,7 +107,7 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
         LIBRARY,
         PREFIX
     }
-    
+
     private Boolean defaultEnablementOfFeatureAutoFixatalogRefOnRebind;
     
     @BeforeMethod(alwaysRun=true)
@@ -162,8 +166,61 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
     }
 
     @Test(dataProvider = "dataProvider")
+    public void testRebindWithCatalogAndApp(RebindWithCatalogTestMode mode, boolean useOsgi) throws Exception {
+        testRebindWithCatalogAndAppUsingOptions(mode, useOsgi, RebindOptions.create());
+    }
+
+    @Test(dataProvider = "dataProvider")
+    public void testRebindWithCatalogAndAppRebindCatalogItemIds(RebindWithCatalogTestMode mode, boolean useOsgi) throws Exception {
+        testRebindWithCatalogAndAppUsingOptions(mode, useOsgi, rebindCatalogItemIds());
+    }
+
+    private RebindOptions rebindCatalogItemIds() {
+        CompoundTransformer transformer = CompoundTransformer.builder()
+            .xmlReplaceItem("//catalogItemSuperIds", "<catalogItemId><xsl:value-of select=\"string\"/></catalogItemId>")
+            .build();
+        return applyStateTransformer(transformer);
+    }
+
+    private RebindOptions applyStateTransformer(final CompoundTransformer transformer) {
+        return RebindOptions.create()
+            .stateTransformer(new Function<BrooklynMementoPersister, Void>() {
+                @Override public Void apply(BrooklynMementoPersister input) {
+
+                    BrooklynMementoRawData transformed = null;
+                    try {
+                        transformed = transformer.transform((BrooklynMementoPersisterToObjectStore) input, RebindExceptionHandlerImpl.builder().build());
+                    } catch (Exception e) {
+                        Exceptions.propagateIfFatal(e);
+                        getLogger().warn(Strings.join(new Object[]{
+                            "Caught'", e.getMessage(), "' when transforming '", input.getBackingStoreDescription()
+                        }, ""), e);
+                    }
+
+                    PersistenceObjectStore objectStore = ((BrooklynMementoPersisterToObjectStore)input).getObjectStore();
+                    for (BrooklynObjectType type : BrooklynObjectType.values()) {
+                        final List<String> contents = objectStore.listContentsWithSubPath(type.getSubPathName());
+                        for (String path : contents) {
+                            StoreObjectAccessor accessor = objectStore.newAccessor(path);
+                            String memento = checkNotNull(accessor.get(), path);
+                            String replacement = transformed.getObjectsOfType(type).get(idFromPath(type, path));
+                            getLogger().trace("Replacing {} with {}", memento, replacement);
+                            accessor.put(replacement);
+                        }
+                    }
+
+                    return null;
+                }});
+    }
+
+    private String idFromPath(BrooklynObjectType type, String path) {
+        // the replace underscore with colon below handles file names of catalog items like "catalog/my.catalog.app.id.load_0.1.0"
+        return path.substring(type.getSubPathName().length()+1).replace('_', ':');
+    }
+
+
     @SuppressWarnings({ "deprecation", "unused" })
-    public void testRebindWithCatalogAndApp(RebindWithCatalogTestMode mode, OsgiMode osgiMode) throws Exception {
+    public void testRebindWithCatalogAndAppUsingOptions(RebindWithCatalogTestMode mode, boolean useOsgi, RebindOptions options) throws Exception {
         if (osgiMode != OsgiMode.NONE) {
             TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
         }
@@ -298,7 +355,7 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
         // Rebind
         if (mode == RebindWithCatalogTestMode.STRIP_DEPRECATION_AND_ENABLEMENT_FROM_CATALOG_ITEM) {
             // Edit the persisted state to remove the "deprecated" and "enablement" tags for our catalog items
-            rebind(RebindOptions.create()
+            rebind(RebindOptions.create(options)
                     .stateTransformer(new Function<BrooklynMementoPersister, Void>() {
                         @Override public Void apply(BrooklynMementoPersister input) {
                             PersistenceObjectStore objectStore = ((BrooklynMementoPersisterToObjectStore)input).getObjectStore();
@@ -313,7 +370,7 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
                             return null;
                         }}));
         } else {
-            rebind();
+            rebind(options);
         }
 
         // Ensure app is still there, and that it is usable - e.g. "stop" effector functions as expected

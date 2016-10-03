@@ -35,6 +35,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
+import org.apache.brooklyn.util.collections.MutableList;
 
 public abstract class AbstractMemento implements Memento, Serializable {
 
@@ -46,7 +47,9 @@ public abstract class AbstractMemento implements Memento, Serializable {
         protected String type;
         protected Class<?> typeClass;
         protected String displayName;
-        protected List<String> catalogItemSuperIds;
+        // catalogItemId is retained to support rebind of previously persisted state (prior to catalogItemSuperIds)
+        protected String catalogItemId;
+        protected List<String> catalogItemSuperIds = MutableList.of();
         protected Map<String, Object> customFields = Maps.newLinkedHashMap();
         protected List<Object> tags = Lists.newArrayList();
         protected Map<String,Set<String>> relations = Maps.newLinkedHashMap();
@@ -65,14 +68,28 @@ public abstract class AbstractMemento implements Memento, Serializable {
             type = other.getType();
             typeClass = other.getTypeClass();
             displayName = other.getDisplayName();
-            catalogItemSuperIds = other.getCatalogItemSuperIds();
+            setCatalogItemIds(other.getCatalogItemSuperIds(), other.getCatalogItemId());
             customFields.putAll(other.getCustomFields());
             tags.addAll(other.getTags());
             relations.putAll(other.getRelations());
             uniqueTag = other.getUniqueTag();
             return self();
         }
-        
+
+        private void setCatalogItemIds(List<String> otherItemSuperIds, String otherItemId) {
+            if (isEmpty(otherItemSuperIds) && otherItemId == null) {
+                catalogItemSuperIds = MutableList.of();
+            } else if (isEmpty(otherItemSuperIds) && otherItemId != null) {
+                catalogItemSuperIds = MutableList.of(otherItemId);
+            } else {
+                catalogItemSuperIds = MutableList.copyOf(otherItemSuperIds);
+            }
+        }
+
+        private boolean isEmpty(List<String> ids) {
+            return ids == null || ids.isEmpty();
+        }
+
         /**
          * @deprecated since 0.7.0; use config/attributes so generic persistence will work, rather than requiring "custom fields"
          */
@@ -86,7 +103,9 @@ public abstract class AbstractMemento implements Memento, Serializable {
     private String type;
     private String id;
     private String displayName;
-    private List<String> catalogItemSuperIds;
+    // catalogItemId is retained to support rebind of previously persisted state (prior to catalogItemSuperIds)
+    protected String catalogItemId;
+    private List<String> catalogItemSuperIds = MutableList.of();
     private List<Object> tags;
     private Map<String,Set<String>> relations;
     
@@ -116,7 +135,18 @@ public abstract class AbstractMemento implements Memento, Serializable {
     // "fields" is not included as a field here, so that it is serialized after selected subclass fields
     // but the method declared here simplifies how it is connected in via builder etc
     protected abstract void setCustomFields(Map<String, Object> fields);
-    
+
+    // deals with value created by deserialization of state persisted with <catalogItemId>
+    private void normalizeCatalogItemIds() {
+        if (catalogItemSuperIds == null) {
+            catalogItemSuperIds = MutableList.of();
+        }
+        if (catalogItemSuperIds.isEmpty() && catalogItemId != null) {
+            catalogItemSuperIds = MutableList.of(catalogItemId);
+            catalogItemId = null;
+        }
+    }
+
     @Override
     public void injectTypeClass(Class<?> clazz) {
         this.typeClass = clazz;
@@ -149,11 +179,13 @@ public abstract class AbstractMemento implements Memento, Serializable {
 
     @Override
     public String getCatalogItemId() {
+        normalizeCatalogItemIds();
         return Iterables.getFirst(getCatalogItemSuperIds(), null);
     }
 
     @Override
     public List<String> getCatalogItemSuperIds() {
+        normalizeCatalogItemIds();
         return catalogItemSuperIds;
     }
 

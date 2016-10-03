@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
@@ -188,8 +189,6 @@ public class CompoundTransformer {
          *        &lt;string>two&lt;/string>
          *     &lt;/catalogItemSuperIds>
          * </pre>
-         * </p><p>
-         *
          * </p>
          * This provides a programmatic way to change the catalogItemID. */
         public Builder changeCatalogItemId(String oldSymbolicName, String oldVersion,
