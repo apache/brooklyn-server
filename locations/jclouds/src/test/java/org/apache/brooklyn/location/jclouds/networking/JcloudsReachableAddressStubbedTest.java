@@ -18,7 +18,9 @@
  */
 package org.apache.brooklyn.location.jclouds.networking;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import java.io.IOException;
@@ -28,10 +30,15 @@ import java.util.Map;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.core.location.access.PortForwardManagerImpl;
-import org.apache.brooklyn.location.jclouds.AbstractJcloudsStubbedLiveTest;
+import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
+import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.location.jclouds.AbstractJcloudsLiveTest;
+import org.apache.brooklyn.location.jclouds.ComputeServiceRegistry;
 import org.apache.brooklyn.location.jclouds.JcloudsLocation;
 import org.apache.brooklyn.location.jclouds.JcloudsLocationConfig;
 import org.apache.brooklyn.location.jclouds.JcloudsSshMachineLocation;
+import org.apache.brooklyn.location.jclouds.JcloudsStubTemplateBuilder;
+import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry;
 import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.AbstractNodeCreator;
 import org.apache.brooklyn.location.jclouds.networking.JcloudsPortForwardingStubbedLiveTest.RecordingJcloudsPortForwarderExtension;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
@@ -40,8 +47,6 @@ import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.CustomResponse;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.CustomResponseGenerator;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecParams;
-import org.apache.brooklyn.util.net.Cidr;
-import org.apache.brooklyn.util.net.Protocol;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.NodeMetadata.Status;
@@ -54,7 +59,6 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -68,27 +72,25 @@ import com.google.common.net.HostAndPort;
  * Simulates the creation of a VM that has multiple IPs. Checks that we choose the right address.
  * 
  */
-public class JcloudsReachableAddressStubbedLiveTest extends AbstractJcloudsStubbedLiveTest {
+public class JcloudsReachableAddressStubbedTest extends AbstractJcloudsLiveTest {
 
     // TODO Aim is to test the various situations/permutations, where we pass in different config.
     // More tests still need to be added.
 
     @SuppressWarnings("unused")
-    private static final Logger LOG = LoggerFactory.getLogger(JcloudsReachableAddressStubbedLiveTest.class);
+    private static final Logger LOG = LoggerFactory.getLogger(JcloudsReachableAddressStubbedTest.class);
 
+    protected StubbedComputeServiceRegistry.NodeCreator nodeCreator;
+    protected ComputeServiceRegistry computeServiceRegistry;
+    
     protected String reachableIp;
-    protected List<String> publicAddresses;
-    protected List<String> privateAddresses;
     protected AddressChooser addressChooser;
     protected CustomResponseGeneratorImpl customResponseGenerator;
 
-    
     @BeforeMethod(alwaysRun=true)
     @Override
     public void setUp() throws Exception {
         reachableIp = null; // expect test method to set this
-        publicAddresses = null; // expect test method to set this
-        privateAddresses = null; // expect test method to set this
         addressChooser = new AddressChooser();
         customResponseGenerator = new CustomResponseGeneratorImpl();
         RecordingSshTool.clear();
@@ -104,9 +106,13 @@ public class JcloudsReachableAddressStubbedLiveTest extends AbstractJcloudsStubb
             RecordingSshTool.clear();
         }
     }
-    
+
     @Override
-    protected AbstractNodeCreator newNodeCreator() {
+    protected LocalManagementContext newManagementContext() {
+        return LocalManagementContextForTests.builder(true).build();
+    }
+
+    protected AbstractNodeCreator newNodeCreator(final List<String> publicAddresses, final List<String> privateAddresses) {
         return new AbstractNodeCreator() {
             int nextIpSuffix = 2;
             @Override
@@ -125,8 +131,30 @@ public class JcloudsReachableAddressStubbedLiveTest extends AbstractJcloudsStubb
         };
     }
 
-    protected AbstractNodeCreator getNodeCreator() {
-        return (AbstractNodeCreator) nodeCreator;
+    public String getLocationSpec() {
+        return "jclouds:aws-ec2";
+    }
+
+    protected void initNodeCreatorAndJcloudsLocation(List<String> publicAddresses, List<String> privateAddresses, Map<Object, Object> jcloudsLocationConfig) throws Exception {
+        nodeCreator = newNodeCreator(publicAddresses, privateAddresses);
+        computeServiceRegistry = new StubbedComputeServiceRegistry(nodeCreator);
+
+        jcloudsLocation = (JcloudsLocation)managementContext.getLocationRegistry().getLocationManaged(
+                getLocationSpec(),
+                ImmutableMap.builder()
+                        .put(JcloudsLocationConfig.COMPUTE_SERVICE_REGISTRY, computeServiceRegistry)
+                        .put(JcloudsLocationConfig.TEMPLATE_BUILDER, JcloudsStubTemplateBuilder.create())
+                        .put(JcloudsLocationConfig.ACCESS_IDENTITY, "stub-identity")
+                        .put(JcloudsLocationConfig.ACCESS_CREDENTIAL, "stub-credential")
+                        .putAll(jcloudsLocationConfig)
+                        .build());
+    }
+
+    protected JcloudsSshMachineLocation obtainMachine(Map<?, ?> conf) throws Exception {
+        assertNotNull(jcloudsLocation);
+        JcloudsSshMachineLocation result = (JcloudsSshMachineLocation)jcloudsLocation.obtain(conf);
+        machines.add(checkNotNull(result, "result"));
+        return result;
     }
     
     /**
@@ -134,9 +162,8 @@ public class JcloudsReachableAddressStubbedLiveTest extends AbstractJcloudsStubb
      * With waitForSshable=true; pollForFirstReachableAddress=true; and custom reachable-predicate
      */
     @Test(groups = {"Live", "Live-sanity"})
-    protected void testMachineUsesVanillaPublicAddress() throws Exception {
-        publicAddresses = ImmutableList.of("1.1.1.1");
-        privateAddresses = ImmutableList.<String>of("2.1.1.1");
+    public void testMachineUsesVanillaPublicAddress() throws Exception {
+        initNodeCreatorAndJcloudsLocation(ImmutableList.of("1.1.1.1"), ImmutableList.of("2.1.1.1"), ImmutableMap.of());
         reachableIp = "1.1.1.1";
 
         JcloudsSshMachineLocation machine = newMachine(ImmutableMap.<ConfigKey<?>,Object>builder()
@@ -156,10 +183,9 @@ public class JcloudsReachableAddressStubbedLiveTest extends AbstractJcloudsStubb
      * Only one public and one private; private is reachable;
      * With waitForSshable=true; pollForFirstReachableAddress=true; and custom reachable-predicate
      */
-    @Test(groups = {"Live", "Live-sanity"})
-    protected void testMachineUsesVanillaPrivateAddress() throws Exception {
-        publicAddresses = ImmutableList.of("1.1.1.1");
-        privateAddresses = ImmutableList.<String>of("2.1.1.1");
+    @Test(enabled = false, groups = "WIP")
+    public void testMachineUsesVanillaPrivateAddress() throws Exception {
+        initNodeCreatorAndJcloudsLocation(ImmutableList.of("1.1.1.1"), ImmutableList.of("2.1.1.1"), ImmutableMap.of());
         reachableIp = "2.1.1.1";
 
         JcloudsSshMachineLocation machine = newMachine(ImmutableMap.<ConfigKey<?>,Object>builder()
@@ -179,10 +205,9 @@ public class JcloudsReachableAddressStubbedLiveTest extends AbstractJcloudsStubb
      * Multiple public addresses; chooses the reachable one;
      * With waitForSshable=true; pollForFirstReachableAddress=true; and custom reachable-predicate
      */
-    @Test(enabled=false, groups = {"Live", "Live-sanity"})
-    protected void testMachineUsesReachablePublicAddress() throws Exception {
-        publicAddresses = ImmutableList.of("1.1.1.1", "1.1.1.2", "1.1.1.2");
-        privateAddresses = ImmutableList.<String>of("2.1.1.1");
+    @Test(enabled = false, groups = "WIP")
+    public void testMachineUsesReachablePublicAddress() throws Exception {
+        initNodeCreatorAndJcloudsLocation(ImmutableList.of("1.1.1.1", "1.1.1.2", "1.1.1.2"), ImmutableList.of("2.1.1.1"), ImmutableMap.of());
         reachableIp = "1.1.1.2";
 
         JcloudsSshMachineLocation machine = newMachine(ImmutableMap.<ConfigKey<?>,Object>builder()
@@ -202,10 +227,9 @@ public class JcloudsReachableAddressStubbedLiveTest extends AbstractJcloudsStubb
      * Multiple private addresses; chooses the reachable one;
      * With waitForSshable=true; pollForFirstReachableAddress=true; and custom reachable-predicate
      */
-    @Test(enabled=false, groups = {"Live", "Live-sanity"})
-    protected void testMachineUsesReachablePrivateAddress() throws Exception {
-        publicAddresses = ImmutableList.<String>of("1.1.1.1");
-        privateAddresses = ImmutableList.of("2.1.1.1", "2.1.1.2", "2.1.1.2");
+    @Test(enabled = false, groups = "WIP")
+    public void testMachineUsesReachablePrivateAddress() throws Exception {
+        initNodeCreatorAndJcloudsLocation(ImmutableList.of("1.1.1.1"), ImmutableList.of("2.1.1.1", "2.1.1.2", "2.1.1.2"), ImmutableMap.of());
         reachableIp = "2.1.1.2";
 
         JcloudsSshMachineLocation machine = newMachine(ImmutableMap.<ConfigKey<?>,Object>builder()
@@ -225,37 +249,14 @@ public class JcloudsReachableAddressStubbedLiveTest extends AbstractJcloudsStubb
      * No waitForSshable: should not try to ssh.
      * Therefore will also not search for reachable address (as that expects loginPort to be reachable).
      */
-    @Test(groups = {"Live", "Live-sanity"})
-    protected void testNoWaitFroSshable() throws Exception {
-        publicAddresses = ImmutableList.of("1.1.1.1", "1.1.1.2", "1.1.1.2");
-        privateAddresses = ImmutableList.<String>of("2.1.1.1");
-        reachableIp = "1.1.1.2";
-
-        JcloudsSshMachineLocation machine = newMachine(ImmutableMap.<ConfigKey<?>,Object>builder()
-                .put(JcloudsLocationConfig.WAIT_FOR_SSHABLE, "false")
-                .put(JcloudsLocation.POLL_FOR_FIRST_REACHABLE_ADDRESS, Asserts.DEFAULT_LONG_TIMEOUT.toString())
-                .build());
-        
-        addressChooser.assertNotCalled();
-        assertTrue(RecordingSshTool.getExecCmds().isEmpty());
-
-        assertEquals(machine.getAddress().getHostAddress(), reachableIp);
-        assertEquals(machine.getHostname(), reachableIp);
-        assertEquals(machine.getSubnetIp(), "2.1.1.1");
-    }
-
-    /**
-     * No pollForFirstReachableAddress: should use first public IP.
-     */
-    @Test(groups = {"Live", "Live-sanity"})
-    protected void testNoPollForFirstReachable() throws Exception {
-        publicAddresses = ImmutableList.of("1.1.1.1", "1.1.1.2", "1.1.1.2");
-        privateAddresses = ImmutableList.<String>of("2.1.1.1");
+    @Test
+    public void testNoWaitFroSshable() throws Exception {
+        initNodeCreatorAndJcloudsLocation(ImmutableList.of("1.1.1.1", "1.1.1.2", "1.1.1.2"), ImmutableList.of("2.1.1.1"), ImmutableMap.of());
         reachableIp = null;
 
         JcloudsSshMachineLocation machine = newMachine(ImmutableMap.<ConfigKey<?>,Object>builder()
                 .put(JcloudsLocationConfig.WAIT_FOR_SSHABLE, "false")
-                .put(JcloudsLocation.POLL_FOR_FIRST_REACHABLE_ADDRESS, "false")
+                .put(JcloudsLocation.POLL_FOR_FIRST_REACHABLE_ADDRESS, Asserts.DEFAULT_LONG_TIMEOUT.toString())
                 .build());
         
         addressChooser.assertNotCalled();
@@ -266,11 +267,29 @@ public class JcloudsReachableAddressStubbedLiveTest extends AbstractJcloudsStubb
         assertEquals(machine.getSubnetIp(), "2.1.1.1");
     }
 
-    // TODO What is the right behaviour for getHostname?
-    @Test(groups = {"Live", "Live-sanity"})
-    protected void testReachabilityChecksWithPortForwarding() throws Exception {
-        publicAddresses = ImmutableList.of("1.1.1.1");
-        privateAddresses = ImmutableList.<String>of("2.1.1.1");
+    /**
+     * No pollForFirstReachableAddress: should use first public IP.
+     */
+    @Test
+    public void testNoPollForFirstReachable() throws Exception {
+        initNodeCreatorAndJcloudsLocation(ImmutableList.of("1.1.1.1", "1.1.1.2", "1.1.1.2"), ImmutableList.of("2.1.1.1"), ImmutableMap.of());
+        reachableIp = null;
+
+        JcloudsSshMachineLocation machine = newMachine(ImmutableMap.<ConfigKey<?>,Object>builder()
+                .put(JcloudsLocationConfig.WAIT_FOR_SSHABLE, Asserts.DEFAULT_LONG_TIMEOUT.toString())
+                .put(JcloudsLocation.POLL_FOR_FIRST_REACHABLE_ADDRESS, "false")
+                .build());
+        
+        addressChooser.assertNotCalled();
+
+        assertEquals(machine.getAddress().getHostAddress(), "1.1.1.1");
+        assertEquals(machine.getHostname(), "1.1.1.1");
+        assertEquals(machine.getSubnetIp(), "2.1.1.1");
+    }
+
+    @Test
+    public void testReachabilityChecksWithPortForwarding() throws Exception {
+        initNodeCreatorAndJcloudsLocation(ImmutableList.of("1.1.1.1"), ImmutableList.of("2.1.1.1"), ImmutableMap.of());
         reachableIp = "1.2.3.4";
                 
         PortForwardManager pfm = new PortForwardManagerImpl();
@@ -292,6 +311,19 @@ public class JcloudsReachableAddressStubbedLiveTest extends AbstractJcloudsStubb
         assertEquals(machine.getSshHostAndPort(), HostAndPort.fromParts("1.2.3.4", 12345));
         assertEquals(machine.getHostname(), "1.1.1.1");
         assertEquals(machine.getSubnetIp(), "2.1.1.1");
+    }
+    
+    @Test
+    public void testMachineUsesFirstPublicAddress() throws Exception {
+        initNodeCreatorAndJcloudsLocation(ImmutableList.of("10.10.10.1", "10.10.10.2"), ImmutableList.of("1.1.1.1", "1.1.1.2", "1.1.1.2"), ImmutableMap.of());
+        reachableIp = "10.10.10.1";
+
+        JcloudsSshMachineLocation machine = newMachine(ImmutableMap.<ConfigKey<?>,Object>builder()
+                .put(JcloudsLocationConfig.WAIT_FOR_SSHABLE, Asserts.DEFAULT_LONG_TIMEOUT.toString())
+                .put(JcloudsLocation.POLL_FOR_FIRST_REACHABLE_ADDRESS, false)
+                .build());
+
+        assertEquals(machine.getAddress().getHostAddress(), reachableIp);
     }
     
     protected JcloudsSshMachineLocation newMachine() throws Exception {

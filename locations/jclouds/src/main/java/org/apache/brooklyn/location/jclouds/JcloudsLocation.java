@@ -3354,6 +3354,11 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
     private Maybe<String> getHostnameAws(NodeMetadata node, Optional<HostAndPort> sshHostAndPort, Supplier<? extends LoginCredentials> userCredentials, ConfigBag setup) {
         HostAndPort inferredHostAndPort = null;
+        boolean waitForSshable = !"false".equalsIgnoreCase(setup.get(WAIT_FOR_SSHABLE));
+        if (!waitForSshable) {
+            return Maybe.absent();
+        }
+
         if (!sshHostAndPort.isPresent()) {
             try {
                 String vmIp = getFirstReachableAddress(node, setup);
