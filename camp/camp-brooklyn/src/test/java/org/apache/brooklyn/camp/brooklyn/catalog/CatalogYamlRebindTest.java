@@ -170,43 +170,39 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
         testRebindWithCatalogAndAppUsingOptions(mode, useOsgi, RebindOptions.create());
     }
 
+    // Re-run the same tests as testRebindWithCatalogAndApp but with the XML updated to mimic state
+    // persisted before <catalogItemId> was replaced with <catalogItemSuperIds>.
     @Test(dataProvider = "dataProvider")
     public void testRebindWithCatalogAndAppRebindCatalogItemIds(RebindWithCatalogTestMode mode, boolean useOsgi) throws Exception {
-        testRebindWithCatalogAndAppUsingOptions(mode, useOsgi, rebindCatalogItemIds());
-    }
-
-    private RebindOptions rebindCatalogItemIds() {
-        CompoundTransformer transformer = CompoundTransformer.builder()
+        final RebindOptions rebindOptions = RebindOptions.create();
+        applyCompoundStateTransformer(rebindOptions, CompoundTransformer.builder()
             .xmlReplaceItem("//catalogItemSuperIds", "<catalogItemId><xsl:value-of select=\"string\"/></catalogItemId>")
-            .build();
-        return applyStateTransformer(transformer);
+            .build());
+        testRebindWithCatalogAndAppUsingOptions(mode, useOsgi, rebindOptions);
     }
 
-    private RebindOptions applyStateTransformer(final CompoundTransformer transformer) {
-        return RebindOptions.create()
-            .stateTransformer(new Function<BrooklynMementoPersister, Void>() {
+    private void applyCompoundStateTransformer(RebindOptions options, final CompoundTransformer transformer) {
+        options.stateTransformer(new Function<BrooklynMementoPersister, Void>() {
                 @Override public Void apply(BrooklynMementoPersister input) {
 
-                    BrooklynMementoRawData transformed = null;
                     try {
-                        transformed = transformer.transform((BrooklynMementoPersisterToObjectStore) input, RebindExceptionHandlerImpl.builder().build());
+                        BrooklynMementoRawData transformed = transformer.transform(input, RebindExceptionHandlerImpl.builder().build());
+                        PersistenceObjectStore objectStore = ((BrooklynMementoPersisterToObjectStore)input).getObjectStore();
+                        for (BrooklynObjectType type : BrooklynObjectType.values()) {
+                            final List<String> contents = objectStore.listContentsWithSubPath(type.getSubPathName());
+                            for (String path : contents) {
+                                StoreObjectAccessor accessor = objectStore.newAccessor(path);
+                                String memento = checkNotNull(accessor.get(), path);
+                                String replacement = transformed.getObjectsOfType(type).get(idFromPath(type, path));
+                                getLogger().trace("Replacing {} with {}", memento, replacement);
+                                accessor.put(replacement);
+                            }
+                        }
                     } catch (Exception e) {
                         Exceptions.propagateIfFatal(e);
                         getLogger().warn(Strings.join(new Object[]{
                             "Caught'", e.getMessage(), "' when transforming '", input.getBackingStoreDescription()
                         }, ""), e);
-                    }
-
-                    PersistenceObjectStore objectStore = ((BrooklynMementoPersisterToObjectStore)input).getObjectStore();
-                    for (BrooklynObjectType type : BrooklynObjectType.values()) {
-                        final List<String> contents = objectStore.listContentsWithSubPath(type.getSubPathName());
-                        for (String path : contents) {
-                            StoreObjectAccessor accessor = objectStore.newAccessor(path);
-                            String memento = checkNotNull(accessor.get(), path);
-                            String replacement = transformed.getObjectsOfType(type).get(idFromPath(type, path));
-                            getLogger().trace("Replacing {} with {}", memento, replacement);
-                            accessor.put(replacement);
-                        }
                     }
 
                     return null;
@@ -231,7 +227,7 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
 
         String appSymbolicName = "my.catalog.app.id.load";
         String appVersion = "0.1.0";
-        
+
         String appCatalogFormat;
         if (osgiMode == OsgiMode.LIBRARY) {
             appCatalogFormat = Joiner.on("\n").join(
@@ -277,45 +273,43 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
                     "    - type: " + OSGI_BUNDLE_SYMBOLID_NAME_FULL + ":" + OSGI_SIMPLE_EFFECTOR_TYPE);
         } else {
             appCatalogFormat = Joiner.on("\n").join(
-                    "brooklyn.catalog:",
-                    "  id: " + appSymbolicName,
-                    "  version: %s",
-                    "  itemType: entity",
-                    "  item:",
-                    "    type: "+ BasicEntity.class.getName(),
-                    "    brooklyn.enrichers:",
-                    "    - type: "+TestEnricher.class.getName(),
-                    "    brooklyn.policies:",
-                    "    - type: "+TestPolicy.class.getName());
+                "brooklyn.catalog:",
+                "  id: " + appSymbolicName,
+                "  version: %s",
+                "  itemType: entity",
+                "  item:",
+                "    type: " + BasicEntity.class.getName(),
+                "    brooklyn.enrichers:",
+                "    - type: " + TestEnricher.class.getName(),
+                "    brooklyn.policies:",
+                "    - type: " + TestPolicy.class.getName());
         }
 
 
         String locSymbolicName = "my.catalog.loc.id.load";
         String locVersion = "1.0.0";
         String locCatalogFormat = Joiner.on("\n").join(
-                "brooklyn.catalog:",
-                "  id: " + locSymbolicName,
-                "  version: %s",
-                "  itemType: location",
-                "  item:",
-                "    type: localhost");
-        
+            "brooklyn.catalog:",
+            "  id: " + locSymbolicName,
+            "  version: %s",
+            "  itemType: location",
+            "  item:",
+            "    type: localhost");
+
         // Create the catalog items
         CatalogItem<?, ?> appItem = Iterables.getOnlyElement(addCatalogItems(String.format(appCatalogFormat, appVersion)));
         CatalogItem<?, ?> locItem = Iterables.getOnlyElement(addCatalogItems(String.format(locCatalogFormat, locVersion)));
-        final String appItemId = appItem.getId();
-        final String locItemId = locItem.getId();
-        
+
         // Create an app, using that catalog item
         String yaml = "name: simple-app-yaml\n" +
-                "location: \"brooklyn.catalog:"+CatalogUtils.getVersionedId(locSymbolicName, locVersion)+"\"\n" +
-                "services: \n" +
-                "- type: "+CatalogUtils.getVersionedId(appSymbolicName, appVersion);
+            "location: \"brooklyn.catalog:" + CatalogUtils.getVersionedId(locSymbolicName, locVersion) + "\"\n" +
+            "services: \n" +
+            "- type: " + CatalogUtils.getVersionedId(appSymbolicName, appVersion);
         origApp = (StartableApplication) createAndStartApplication(yaml);
         Entity origEntity = Iterables.getOnlyElement(origApp.getChildren());
-        Policy origPolicy = Iterables.getOnlyElement(origEntity.policies());
-        Enricher origEnricher = Iterables.tryFind(origEntity.enrichers(), Predicates.instanceOf(TestEnricher.class)).get();
-        assertEquals(origEntity.getCatalogItemId(), appSymbolicName+":"+appVersion);
+        Iterables.getOnlyElement(origEntity.policies());
+        Iterables.tryFind(origEntity.enrichers(), Predicates.instanceOf(TestEnricher.class)).get();
+        assertEquals(origEntity.getCatalogItemId(), appSymbolicName + ":" + appVersion);
 
         // Depending on test-mode, delete the catalog item, and then rebind
         switch (mode) {
@@ -345,94 +339,80 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
                 CatalogUtils.setDeprecated(mgmt(), locSymbolicName, locVersion, false);
                 CatalogUtils.setDisabled(mgmt(), appSymbolicName, appVersion, false);
                 CatalogUtils.setDisabled(mgmt(), locSymbolicName, locVersion, false);
+                // Edit the persisted state to remove the "deprecated" and "enablement" tags for our catalog items
+                applyCompoundStateTransformer(options, CompoundTransformer.builder()
+                    .xmlReplaceItem("deprecated|disabled", "")
+                    .build());
                 break;
             case NO_OP:
                 break; // no-op
             default:
-                throw new IllegalStateException("Unknown mode: "+mode);
+                throw new IllegalStateException("Unknown mode: " + mode);
         }
 
         // Rebind
-        if (mode == RebindWithCatalogTestMode.STRIP_DEPRECATION_AND_ENABLEMENT_FROM_CATALOG_ITEM) {
-            // Edit the persisted state to remove the "deprecated" and "enablement" tags for our catalog items
-            rebind(RebindOptions.create(options)
-                    .stateTransformer(new Function<BrooklynMementoPersister, Void>() {
-                        @Override public Void apply(BrooklynMementoPersister input) {
-                            PersistenceObjectStore objectStore = ((BrooklynMementoPersisterToObjectStore)input).getObjectStore();
-                            StoreObjectAccessor appItemAccessor = objectStore.newAccessor("catalog/"+Strings.makeValidFilename(appItemId));
-                            StoreObjectAccessor locItemAccessor = objectStore.newAccessor("catalog/"+Strings.makeValidFilename(locItemId));
-                            String appItemMemento = checkNotNull(appItemAccessor.get(), "appItem in catalog");
-                            String locItemMemento = checkNotNull(locItemAccessor.get(), "locItem in catalog");
-                            String newAppItemMemento = removeFromXml(appItemMemento, ImmutableList.of("catalogItem/deprecated", "catalogItem/disabled"));
-                            String newLocItemMemento = removeFromXml(locItemMemento, ImmutableList.of("catalogItem/deprecated", "catalogItem/disabled"));
-                            appItemAccessor.put(newAppItemMemento);
-                            locItemAccessor.put(newLocItemMemento);
-                            return null;
-                        }}));
-        } else {
-            rebind(options);
-        }
+        rebind(options);
 
         // Ensure app is still there, and that it is usable - e.g. "stop" effector functions as expected
         Entity newEntity = Iterables.getOnlyElement(newApp.getChildren());
-        Policy newPolicy = Iterables.getOnlyElement(newEntity.policies());
-        Enricher newEnricher = Iterables.tryFind(newEntity.enrichers(), Predicates.instanceOf(TestEnricher.class)).get();
-        assertEquals(newEntity.getCatalogItemId(), appSymbolicName+":"+appVersion);
+        Iterables.getOnlyElement(newEntity.policies());
+        Iterables.tryFind(newEntity.enrichers(), Predicates.instanceOf(TestEnricher.class)).get();
+        assertEquals(newEntity.getCatalogItemId(), appSymbolicName + ":" + appVersion);
 
         newApp.stop();
         assertFalse(Entities.isManaged(newApp));
         assertFalse(Entities.isManaged(newEntity));
-        
+
         // Ensure catalog item is as expecpted
         RegisteredType newAppItem = mgmt().getTypeRegistry().get(appSymbolicName, appVersion);
         RegisteredType newLocItem = mgmt().getTypeRegistry().get(locSymbolicName, locVersion);
 
         boolean itemDeployable;
         switch (mode) {
-        case DISABLE_CATALOG:
-            assertTrue(newAppItem.isDisabled());
-            assertTrue(newLocItem.isDisabled());
-            itemDeployable = false;
-            break;
-        case DELETE_CATALOG:
-            assertNull(newAppItem);
-            assertNull(newLocItem);
-            itemDeployable = false;
-            break;
-        case DEPRECATE_CATALOG:
-            assertTrue(newAppItem.isDeprecated());
-            assertTrue(newLocItem.isDeprecated());
-            itemDeployable = true;
-            break;
-        case NO_OP:
-        case STRIP_DEPRECATION_AND_ENABLEMENT_FROM_CATALOG_ITEM:
-        case REPLACE_CATALOG_WITH_NEWER_VERSION:
-            assertNotNull(newAppItem);
-            assertNotNull(newLocItem);
-            assertFalse(newAppItem.isDeprecated());
-            assertFalse(newAppItem.isDisabled());
-            assertFalse(newLocItem.isDeprecated());
-            assertFalse(newLocItem.isDisabled());
-            itemDeployable = true;
-            break;
-        default:
-            throw new IllegalStateException("Unknown mode: "+mode);
+            case DISABLE_CATALOG:
+                assertTrue(newAppItem.isDisabled());
+                assertTrue(newLocItem.isDisabled());
+                itemDeployable = false;
+                break;
+            case DELETE_CATALOG:
+                assertNull(newAppItem);
+                assertNull(newLocItem);
+                itemDeployable = false;
+                break;
+            case DEPRECATE_CATALOG:
+                assertTrue(newAppItem.isDeprecated());
+                assertTrue(newLocItem.isDeprecated());
+                itemDeployable = true;
+                break;
+            case NO_OP:
+            case STRIP_DEPRECATION_AND_ENABLEMENT_FROM_CATALOG_ITEM:
+            case REPLACE_CATALOG_WITH_NEWER_VERSION:
+                assertNotNull(newAppItem);
+                assertNotNull(newLocItem);
+                assertFalse(newAppItem.isDeprecated());
+                assertFalse(newAppItem.isDisabled());
+                assertFalse(newLocItem.isDeprecated());
+                assertFalse(newLocItem.isDisabled());
+                itemDeployable = true;
+                break;
+            default:
+                throw new IllegalStateException("Unknown mode: " + mode);
         }
 
         // Try to deploy a new app
         String yaml2 = "name: simple-app-yaml2\n" +
-                "location: \"brooklyn.catalog:"+CatalogUtils.getVersionedId(locSymbolicName, locVersion)+"\"\n" +
-                "services: \n" +
-                "- type: "+CatalogUtils.getVersionedId(appSymbolicName, appVersion);
+            "location: \"brooklyn.catalog:" + CatalogUtils.getVersionedId(locSymbolicName, locVersion) + "\"\n" +
+            "services: \n" +
+            "- type: " + CatalogUtils.getVersionedId(appSymbolicName, appVersion);
 
         if (itemDeployable) {
             StartableApplication app2 = (StartableApplication) createAndStartApplication(yaml2);
             Entity entity2 = Iterables.getOnlyElement(app2.getChildren());
-            assertEquals(entity2.getCatalogItemId(), appSymbolicName+":"+appVersion);
+            assertEquals(entity2.getCatalogItemId(), appSymbolicName + ":" + appVersion);
         } else {
             try {
                 StartableApplication app2 = (StartableApplication) createAndStartApplication(yaml2);
-                Asserts.shouldHaveFailedPreviously("app2="+app2);
+                Asserts.shouldHaveFailedPreviously("app2=" + app2);
             } catch (Exception e) {
                 // only these two modes are allowed; may have different assertions (but don't yet)
                 if (mode == RebindWithCatalogTestMode.DELETE_CATALOG) {
@@ -442,52 +422,6 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
                     Asserts.expectedFailureContainsIgnoreCase(e, "unable to match", "my.catalog.app");
                 }
             }
-        }
-    }
-    
-    /**
-     * Given the "/"-separated path for the elements to be removed, it removes these from the xml
-     * and returns the transformed XML.
-     */
-    private String removeFromXml(String xml, List<String> elementsToRemove) {
-        try {
-            InputSource source = new InputSource(new StringReader(xml));
-            Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(source);
-
-            for (String elementToRemove : elementsToRemove) {
-                Node current = null;
-                boolean first = true;
-                for (String tag : elementToRemove.split("/")) {
-                    NodeList matches;
-                    if (first) {
-                        matches = doc.getElementsByTagName(tag);
-                        first = false;
-                    } else {
-                        matches = ((Element)current).getElementsByTagName(tag);
-                    }
-                    if (matches.getLength() > 0) {
-                        current = matches.item(0);
-                    } else {
-                        current = null;
-                        break;
-                    }
-                }
-                if (current != null) {
-                    current.getParentNode().removeChild(current);
-                }
-            }
-          
-            DOMSource domSource = new DOMSource(doc);
-            StringWriter writer = new StringWriter();
-            StreamResult result = new StreamResult(writer);
-            Transformer transformer = TransformerFactory.newInstance().newTransformer();
-            transformer.setOutputProperty(OutputKeys.INDENT, "yes");
-            transformer.transform(domSource, result);
-            
-            return writer.toString();
-          
-        } catch (Exception e) {
-            throw Exceptions.propagate(e);
         }
     }
 }
