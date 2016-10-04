@@ -41,6 +41,7 @@ import org.jclouds.compute.domain.Template;
 import org.jclouds.domain.LoginCredentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Predicate;
@@ -49,7 +50,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
-public class JcloudsByonLocationResolverStubbedTest extends AbstractJcloudsStubbedLiveTest {
+public class JcloudsByonLocationResolverStubbedTest extends AbstractJcloudsStubbedUnitTest {
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(JcloudsByonLocationResolverStubbedTest.class);
@@ -57,6 +58,13 @@ public class JcloudsByonLocationResolverStubbedTest extends AbstractJcloudsStubb
     private final String nodeId = "mynodeid";
     private final String nodePublicAddress = "173.194.32.123";
     private final String nodePrivateAddress = "172.168.10.11";
+
+    @BeforeMethod(alwaysRun=true)
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of());
+    }
     
     protected LocalManagementContext newManagementContext() {
         // This really is stubbed; no live access to the cloud
@@ -68,7 +76,6 @@ public class JcloudsByonLocationResolverStubbedTest extends AbstractJcloudsStubb
 
     }
 
-    @Override
     protected NodeCreator newNodeCreator() {
         return new AbstractNodeCreator() {
             @Override

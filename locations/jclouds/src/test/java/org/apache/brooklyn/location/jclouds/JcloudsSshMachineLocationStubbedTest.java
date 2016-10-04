@@ -21,7 +21,6 @@ package org.apache.brooklyn.location.jclouds;
 import static org.testng.Assert.assertEquals;
 
 import java.util.List;
-import java.util.Map;
 
 import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.AbstractNodeCreator;
 import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.NodeCreator;
@@ -45,7 +44,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
-public class JcloudsSshMachineLocationStubbedLiveTest extends AbstractJcloudsStubbedLiveTest {
+public class JcloudsSshMachineLocationStubbedTest extends AbstractJcloudsStubbedUnitTest {
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(JcloudsImageChoiceStubbedLiveTest.class);
@@ -55,12 +54,12 @@ public class JcloudsSshMachineLocationStubbedLiveTest extends AbstractJcloudsStu
 
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
+        super.setUp();
         privateAddresses = ImmutableList.of("172.168.10.11");
         publicAddresses = ImmutableList.of("173.194.32.123");
-        super.setUp();
+        initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of());
     }
     
-    @Override
     protected NodeCreator newNodeCreator() {
         return new AbstractNodeCreator() {
             @Override protected NodeMetadata newNode(String group, Template template) {
@@ -77,14 +76,7 @@ public class JcloudsSshMachineLocationStubbedLiveTest extends AbstractJcloudsStu
         };
     }
 
-    protected Map<Object, Object> jcloudsLocationConfig(Map<Object, Object> defaults) {
-        return ImmutableMap.<Object, Object>builder()
-                .putAll(defaults)
-                .put(JcloudsLocationConfig.IMAGE_ID, "CENTOS_5_64")
-                .build();
-    }
-
-    @Test(groups={"Live", "Live-sanity"})
+    @Test
     public void testWithNoPrivateAddress() throws Exception {
         privateAddresses = ImmutableList.of();
         JcloudsSshMachineLocation machine = obtainMachine();
@@ -94,7 +86,7 @@ public class JcloudsSshMachineLocationStubbedLiveTest extends AbstractJcloudsStu
         assertEquals(machine.getSubnetHostname(), publicAddresses.get(0));
     }
     
-    @Test(groups={"Live", "Live-sanity"})
+    @Test
     public void testWithPrivateAddress() throws Exception {
         JcloudsSshMachineLocation machine = obtainMachine();
         assertEquals(machine.getPrivateAddresses(), privateAddresses);
@@ -103,7 +95,7 @@ public class JcloudsSshMachineLocationStubbedLiveTest extends AbstractJcloudsStu
         assertEquals(machine.getSubnetHostname(), privateAddresses.get(0));
     }
     
-    @Test(groups={"Live", "Live-sanity"})
+    @Test
     public void testSshConfigPassedToMachine() throws Exception {
         JcloudsSshMachineLocation machine = obtainMachine(ImmutableMap.of(
                 SshMachineLocation.LOCAL_TEMP_DIR.getName(), "/my/local/temp/dir",
@@ -114,11 +106,11 @@ public class JcloudsSshMachineLocationStubbedLiveTest extends AbstractJcloudsStu
         assertEquals(machine.config().get(SshTool.PROP_SSH_TRIES), Integer.valueOf(123));
     }
     
-    @Test(groups={"Live", "Live-sanity"})
+    @Test
     public void testWinrmConfigPassedToMachine() throws Exception {
         JcloudsWinRmMachineLocation machine = obtainWinrmMachine(ImmutableMap.of(
                 JcloudsLocation.OS_FAMILY_OVERRIDE.getName(), OsFamily.WINDOWS,
-                JcloudsLocation.WAIT_FOR_WINRM_AVAILABLE.getName(), "false",
+//                JcloudsLocation.WAIT_FOR_WINRM_AVAILABLE.getName(), "false",
                 WinRmMachineLocation.COPY_FILE_CHUNK_SIZE_BYTES.getName(), 123,
                 WinRmTool.PROP_EXEC_TRIES.getName(), 456));
         assertEquals(machine.config().get(WinRmMachineLocation.COPY_FILE_CHUNK_SIZE_BYTES), Integer.valueOf(123));

@@ -60,7 +60,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
-public class JcloudsByonLocationResolverStubbedRebindTest extends AbstractJcloudsStubbedLiveTest {
+public class JcloudsByonLocationResolverStubbedRebindTest extends AbstractJcloudsStubbedUnitTest {
 
     private static final Logger LOG = LoggerFactory.getLogger(JcloudsByonLocationResolverStubbedRebindTest.class);
     
@@ -92,6 +92,8 @@ public class JcloudsByonLocationResolverStubbedRebindTest extends AbstractJcloud
         LOG.info("Test "+getClass()+" persisting to "+mementoDir);
         
         super.setUp();
+        
+        initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of());
     }
 
     @AfterMethod(alwaysRun=true)
@@ -110,7 +112,6 @@ public class JcloudsByonLocationResolverStubbedRebindTest extends AbstractJcloud
         origManagementContext = null;
     }
 
-    @Override
     protected NodeCreator newNodeCreator() {
         return new NodeCreatorForRebinding();
     }
