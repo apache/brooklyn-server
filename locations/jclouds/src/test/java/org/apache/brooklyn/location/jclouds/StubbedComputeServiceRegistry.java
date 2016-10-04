@@ -78,10 +78,10 @@ public class StubbedComputeServiceRegistry implements ComputeServiceRegistry {
         }
     }
 
-    static class StubbedComputeService extends DelegatingComputeService {
+    static class MinimalComputeService extends DelegatingComputeService {
         private final NodeCreator nodeCreator;
         
-        public StubbedComputeService(ComputeService delegate, NodeCreator nodeCreator) {
+        public MinimalComputeService(ComputeService delegate, NodeCreator nodeCreator) {
             super(delegate);
             this.nodeCreator = nodeCreator;
         }
@@ -111,19 +111,69 @@ public class StubbedComputeServiceRegistry implements ComputeServiceRegistry {
         }
     }
     
+    static class StubbedComputeService extends UnsupportedComputeService {
+        private final NodeCreator nodeCreator;
+        
+        public StubbedComputeService(NodeCreator nodeCreator) {
+            this.nodeCreator = nodeCreator;
+        }
+        @Override
+        public Set<? extends NodeMetadata> createNodesInGroup(String group, int count, Template template) throws RunNodesException {
+            return nodeCreator.createNodesInGroup(group, count, template);
+        }
+        @Override
+        public void destroyNode(String id) {
+            nodeCreator.destroyNode(id);
+        }
+        @Override
+        public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<ComputeMetadata> filter) {
+            return nodeCreator.listNodesDetailsMatching(filter);
+        }
+        @Override
+        public Set<? extends NodeMetadata> createNodesInGroup(String group, int count) {
+            throw new UnsupportedOperationException();
+        }
+        @Override
+        public Set<? extends NodeMetadata> createNodesInGroup(String group, int count, TemplateOptions templateOptions) {
+            throw new UnsupportedOperationException();
+        }
+        @Override
+        public Set<? extends NodeMetadata> destroyNodesMatching(Predicate<NodeMetadata> filter) {
+            throw new UnsupportedOperationException();
+        }
+    }
+    
     private final NodeCreator nodeCreator;
-
+    private final boolean allowCloudQueries;
+    
     public StubbedComputeServiceRegistry(NodeMetadata node) throws Exception {
         this(new SingleNodeCreator(node));
     }
 
     public StubbedComputeServiceRegistry(NodeCreator nodeCreator) throws Exception {
-        this.nodeCreator = nodeCreator;
+        this(nodeCreator, true);
     }
 
+    public StubbedComputeServiceRegistry(NodeCreator nodeCreator, boolean allowCloudQueries) throws Exception {
+        this.nodeCreator = nodeCreator;
+        this.allowCloudQueries = allowCloudQueries;
+    }
+
+    /**
+     * If using {@link #allowCloudQueries}, then we'll go through the jclouds code to instantiate
+     * a delegate {@link ComputeService}. That takes about a second (because of everything guice
+     * does), so is unpleasant to do in unit tests.
+     * 
+     * Better is to create the {@link StubbedComputeServiceRegistry} with that disabled, which will
+     * throw an exception if any unexpected method is called on {@link ComputeService}.
+     */
     @Override
     public ComputeService findComputeService(ConfigBag conf, boolean allowReuse) {
-        ComputeService delegate = ComputeServiceRegistryImpl.INSTANCE.findComputeService(conf, allowReuse);
-        return new StubbedComputeService(delegate, nodeCreator);
+        if (allowCloudQueries) {
+            ComputeService delegate = ComputeServiceRegistryImpl.INSTANCE.findComputeService(conf, allowReuse);
+            return new MinimalComputeService(delegate, nodeCreator);
+        } else {
+            return new StubbedComputeService(nodeCreator);
+        }
     }
 }
