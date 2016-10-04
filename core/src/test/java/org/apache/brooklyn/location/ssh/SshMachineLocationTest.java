@@ -175,7 +175,7 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
         assertNull(details);
     }
     public static class FailingSshTool extends RecordingSshTool {
-        public FailingSshTool(Map<?, ?> props) {
+        public FailingSshTool(Map<String, ?> props) {
             super(props);
         }
         @Override public int execScript(Map<String, ?> props, List<String> commands, Map<String, ?> env) {

@@ -82,12 +82,18 @@ public interface CloudLocationConfig {
             + "if 'false', will default to the node's first public IP (or privae if no public IPs); "
             + "if 'true' uses default duration; otherwise accepts a time string e.g. '5m' (the default) or a number of milliseconds", "5m");
 
-    ConfigKey<Predicate<HostAndPort>> POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE = ConfigKeys.newConfigKey(new TypeToken<Predicate<HostAndPort>>(){}, "pollForFirstReachableAddress.predicate",
+    @SuppressWarnings("serial")
+    ConfigKey<Predicate<? super HostAndPort>> POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE = ConfigKeys.newConfigKey(
+            new TypeToken<Predicate<? super HostAndPort>>(){}, 
+            "pollForFirstReachableAddress.predicate",
             "Predicate<HostAndPort> implementation which checks whether machine is up or not.");
 
-    ConfigKey<Class<? extends Predicate<HostAndPort>>> POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE_TYPE = ConfigKeys.newConfigKey(new TypeToken<Class<? extends Predicate<HostAndPort>>>(){}, "pollForFirstReachableAddress.predicate.type",
+    @SuppressWarnings("serial")
+    ConfigKey<Class<? extends Predicate<? super HostAndPort>>> POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE_TYPE = ConfigKeys.newConfigKey(
+            new TypeToken<Class<? extends Predicate<? super HostAndPort>>>() {}, 
+            "pollForFirstReachableAddress.predicate.type",
             "Predicate<HostAndPort> class. " +
-            "Other keys prefixed with pollForFirstReachableAddress.predicate.<property> will be passed to the Map constructor of the Predicate<HostAndPort> implementation.",
+                    "Other keys prefixed with pollForFirstReachableAddress.predicate.<property> will be passed to the Map constructor of the Predicate<HostAndPort> implementation.",
             Networking.IsReachablePredicate.class);
 
     public static final ConfigKey<String> WAIT_FOR_SSHABLE = ConfigKeys.newStringConfigKey("waitForSshable",

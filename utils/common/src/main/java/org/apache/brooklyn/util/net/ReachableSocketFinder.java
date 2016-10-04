@@ -18,7 +18,6 @@ package org.apache.brooklyn.util.net;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 
 import java.util.Collection;
 import java.util.List;
@@ -52,7 +51,7 @@ public class ReachableSocketFinder {
 
     private static final Logger LOG = LoggerFactory.getLogger(ReachableSocketFinder.class);
 
-    private final Predicate<HostAndPort> socketTester;
+    private final Predicate<? super HostAndPort> socketTester;
     private final ListeningExecutorService userExecutor;
 
     public ReachableSocketFinder(ListeningExecutorService userExecutor) {
@@ -64,7 +63,7 @@ public class ReachableSocketFinder {
                 userExecutor);
     }
 
-    public ReachableSocketFinder(Predicate<HostAndPort> socketTester, ListeningExecutorService userExecutor) {
+    public ReachableSocketFinder(Predicate<? super HostAndPort> socketTester, ListeningExecutorService userExecutor) {
         this.socketTester = checkNotNull(socketTester, "socketTester");
         this.userExecutor = checkNotNull(userExecutor, "userExecutor");
     }
