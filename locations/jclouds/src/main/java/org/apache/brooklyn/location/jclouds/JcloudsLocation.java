@@ -747,6 +747,8 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 throw new IllegalStateException("No nodes returned by jclouds create-nodes in " + setup.getDescription());
 
             boolean windows = isWindows(node, setup);
+            boolean waitForConnectable = (windows) ? waitForWinRmable : waitForSshable;
+            
             if (windows) {
                 int newLoginPort = node.getLoginPort() == 22 ? (getConfig(WinRmMachineLocation.USE_HTTPS_WINRM) ? 5986 : 5985) : node.getLoginPort();
                 String newLoginUser = "root".equals(node.getCredentials().getUser()) ? "Administrator" : node.getCredentials().getUser();
@@ -772,10 +774,16 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 sshHostAndPortOverride = Optional.absent();
             }
 
-            String vmHostname = getPublicHostname(node, sshHostAndPortOverride, userCredentials, setup);
             LoginCredentials initialCredentials = node.getCredentials();
-            boolean waitForConnectable = (windows) ? waitForWinRmable : waitForSshable;
-            final HostAndPort managementHostAndPort = resolveManagementHostAndPort(computeService, node, vmHostname, sshHostAndPortOverride, waitForConnectable, setup);
+            
+            final HostAndPort managementHostAndPort = resolveManagementHostAndPort(
+                    computeService, node, Optional.fromNullable(userCredentials), sshHostAndPortOverride, setup,
+                    new ResolveOptions()
+                            .windows(windows)
+                            .expectConnectable(waitForConnectable)
+                            .pollForFirstReachableAddress(!"false".equalsIgnoreCase(setup.get(POLL_FOR_FIRST_REACHABLE_ADDRESS)))
+                            .propagatePollForReachableFailure(true));
+            
             if (skipJcloudsSshing) {
                 if (waitForConnectable) {
                     if (windows) {
@@ -832,9 +840,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
             // Create a JcloudsSshMachineLocation, and register it
             if (windows) {
-                machineLocation = registerWinRmMachineLocation(computeService, node, managementHostAndPort, sshHostAndPortOverride, setup);
+                machineLocation = registerWinRmMachineLocation(computeService, node, managementHostAndPort, setup);
             } else {
-                machineLocation = registerJcloudsSshMachineLocation(computeService, node, Optional.fromNullable(template), userCredentials, managementHostAndPort, sshHostAndPortOverride, vmHostname, setup);
+                machineLocation = registerJcloudsSshMachineLocation(computeService, node, Optional.fromNullable(template), userCredentials, managementHostAndPort, setup);
             }
 
             PortForwardManager portForwardManager = setup.get(PORT_FORWARDING_MANAGER);
@@ -1955,31 +1963,102 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         return userCreation.createdUserCredentials;
     }
 
-    protected HostAndPort resolveManagementHostAndPort(ComputeService computeService, NodeMetadata node, String vmHostname, Optional<HostAndPort> hostAndPortOverride, boolean waitForMakingManagementConnection, ConfigBag config) {
-        return resolveManagementHostAndPort(computeService, node, vmHostname, hostAndPortOverride, config, waitForMakingManagementConnection, false);
+    private static class ResolveOptions {
+        boolean pollForFirstReachableAddress;
+        boolean expectConnectable;
+        boolean isWindows;
+        boolean propagatePollForReachableFailure;
+        
+        ResolveOptions pollForFirstReachableAddress(boolean val) {
+            pollForFirstReachableAddress = val;
+            return this;
+        }
+        ResolveOptions expectConnectable(boolean val) {
+            expectConnectable = val;
+            return this;
+        }
+        ResolveOptions windows(boolean val) {
+            isWindows = val;
+            return this;
+        }
+        public ResolveOptions propagatePollForReachableFailure(boolean val) {
+            this.propagatePollForReachableFailure = val;
+            return this;
+        }
+    }
+    
+    /**
+     * Infers the hostAndPort to use for subsequent creation of the  
+     * {@link JcloudsSshMachineLocation} or {@link JcloudsWinRmMachineLocation}.
+     * This is expected to be the login host:port, for connecting to the VM
+     * via ssh or WinRM.
+     * 
+     * However, some VMs provisioned will not be sshable or reachable at all. 
+     * In such cases, this method will likely return the first address returned by 
+     * jclouds.
+     * 
+     * For AWS, if we are allowed to SSH to the VM to find out its DNS name, then we'll
+     * return that fully qualified name (which we expect to be reachable from inside
+     * and outside the AWS region).
+     */
+    private HostAndPort resolveManagementHostAndPort(ComputeService computeService, NodeMetadata node, Optional<LoginCredentials> userCredentials, Optional<HostAndPort> hostAndPortOverride, ConfigBag config, ResolveOptions options) {
+        Boolean lookupAwsHostname = config.get(LOOKUP_AWS_HOSTNAME);
+        String provider = config.get(CLOUD_PROVIDER);
+        if (provider == null) provider= getProvider();
+        int defaultPort;
+        if (options.isWindows) {
+            defaultPort = config.get(WinRmMachineLocation.USE_HTTPS_WINRM) ? 5986 : 5985;
+        } else {
+            defaultPort = node.getLoginPort();
+        }
+
+        if (hostAndPortOverride.isPresent()) {
+            // Don't try to resolve it; just use it
+            int port = hostAndPortOverride.get().hasPort() ? hostAndPortOverride.get().getPort() : defaultPort;
+            return HostAndPort.fromParts(hostAndPortOverride.get().getHostText(), port);
+        }
+        if (options.expectConnectable && userCredentials.isPresent() && "aws-ec2".equals(provider) && Boolean.TRUE.equals(lookupAwsHostname)) {
+            // Treat AWS as a special case because the DNS fully qualified hostname in AWS is 
+            // (normally?!) a good way to refer to the VM from both inside and outside of the 
+            // region.
+            Maybe<String> result = getHostnameAws(node, hostAndPortOverride, Suppliers.ofInstance(userCredentials.get()), config);
+            if (result.isPresent()) {
+                return HostAndPort.fromParts(result.get(), defaultPort);
+            }
+        }
+        if (options.expectConnectable && options.pollForFirstReachableAddress) {
+            try {
+                String firstReachableAddress = getFirstReachableAddress(node, config);
+                return HostAndPort.fromParts(firstReachableAddress, defaultPort);
+            } catch (RuntimeException e) {
+                if (options.propagatePollForReachableFailure) {
+                    throw Exceptions.propagate(e);
+                } else {
+                    LOG.warn("No reachable address ("+config.getDescription()+"/"+node+"); falling back to any advertised address; may cause future failures");
+                }
+            }
+        }
+
+        Iterable<String> addresses = Iterables.concat(node.getPublicAddresses(), node.getPrivateAddresses());
+        for (String address : addresses) {
+            if (isAddressResolvable(address)) {
+                return HostAndPort.fromParts(address, defaultPort);
+            }
+        }
+        
+        LOG.warn("No resolvable address in "+addresses+" ("+config.getDescription()+"/"+node+"); using first; may cause future failures");
+        String host = Iterables.get(addresses, 0);
+        return HostAndPort.fromParts(host, defaultPort);
     }
 
-    protected HostAndPort resolveManagementHostAndPort(ComputeService computeService, NodeMetadata node, String vmHostname, Optional<HostAndPort> hostAndPortOverride, ConfigBag config, boolean waitForMakingManagementConnection, boolean useOnlyVmHostNameAndHostAndPortOverride) {
-        String pollForFirstReachable = config.get(POLL_FOR_FIRST_REACHABLE_ADDRESS);
-        boolean pollForFirstReachableEnabled = !useOnlyVmHostNameAndHostAndPortOverride && !"false".equalsIgnoreCase(pollForFirstReachable) && waitForMakingManagementConnection;
-
-        String managementAddress = hostAndPortOverride.isPresent() ? hostAndPortOverride.get().getHostText() :
-                (pollForFirstReachableEnabled ? getFirstReachableAddress(node, config) : vmHostname);
-        int managementPort = hostAndPortOverride.isPresent() ? hostAndPortOverride.get().getPort() : node.getLoginPort();
+    private boolean isAddressResolvable(String addr) {
         try {
-            Networking.getInetAddressWithFixedName(managementAddress);
-            // fine, it resolves
-        } catch (Exception e) {
-            // occurs if an unresolvable hostname is given as vmHostname, and the machine only has private IP addresses but they are reachable
-            // TODO cleanup use of getPublicHostname so its semantics are clearer, returning reachable hostname or ip, and
-            // do this check/fix there instead of here!
+            Networking.getInetAddressWithFixedName(addr);
+            return true; // fine, it resolves
+        } catch (RuntimeException e) {
             Exceptions.propagateIfFatal(e);
-            LOG.debug("Could not resolve reported address '"+managementAddress+"' for "+vmHostname+" ("+config.getDescription()+"/"+node+"), requesting reachable address");
-            if (computeService==null) throw Exceptions.propagate(e);
-            // this has sometimes already been done in waitForReachable (unless skipped) but easy enough to do again
-            managementAddress = getFirstReachableAddress(node, config);
+            return false;
         }
-        return hostAndPortOverride.isPresent() ? hostAndPortOverride.get() : HostAndPort.fromParts(managementAddress, managementPort);
     }
 
     /**
@@ -2294,14 +2373,22 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
     protected JcloudsMachineLocation registerMachineLocation(ConfigBag setup, NodeMetadata node) {
         ComputeService computeService = getComputeService(setup);
-        String vmHostname = getPublicHostname(node, Optional.<HostAndPort>absent(), Suppliers.<LoginCredentials>ofInstance(null), setup);
-        boolean waitForMakingManagementConnection = isWindows(node, setup) ? !"false".equalsIgnoreCase(setup.get(WAIT_FOR_WINRM_AVAILABLE)) : !"false".equalsIgnoreCase(setup.get(WAIT_FOR_SSHABLE));
-        HostAndPort managementHostAndPort = resolveManagementHostAndPort(computeService, node, vmHostname, Optional.<HostAndPort>absent(), setup, waitForMakingManagementConnection, true);
-        if (isWindows(node, setup)) {
-            return registerWinRmMachineLocation(computeService, node, managementHostAndPort, Optional.<HostAndPort>absent(), setup);
+        boolean windows = isWindows(node, setup);
+        
+        HostAndPort managementHostAndPort = resolveManagementHostAndPort(
+                computeService, node, Optional.<LoginCredentials>absent(), Optional.<HostAndPort>absent(), setup,
+                new ResolveOptions()
+                        .windows(windows)
+                        .expectConnectable(true)
+                        .propagatePollForReachableFailure(false)
+                        .pollForFirstReachableAddress(!"false".equalsIgnoreCase(setup.get(POLL_FOR_FIRST_REACHABLE_ADDRESS))));
+        
+
+        if (windows) {
+            return registerWinRmMachineLocation(computeService, node, managementHostAndPort, setup);
         } else {
             try {
-                return registerJcloudsSshMachineLocation(computeService, node, Optional.<Template>absent(), node.getCredentials(), managementHostAndPort, Optional.<HostAndPort>absent(), vmHostname, setup);
+                return registerJcloudsSshMachineLocation(computeService, node, Optional.<Template>absent(), node.getCredentials(), managementHostAndPort, setup);
             } catch (IOException e) {
                 throw Exceptions.propagate(e);
             }
@@ -2431,8 +2518,8 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     }
 
     protected JcloudsSshMachineLocation registerJcloudsSshMachineLocation(ComputeService computeService, NodeMetadata node, Optional<Template> template, LoginCredentials credentials,
-                                                                          HostAndPort managementHostAndPort, Optional<HostAndPort> sshHostAndPort, String vmHostname, ConfigBag setup) throws IOException {
-        JcloudsSshMachineLocation machine = createJcloudsSshMachineLocation(computeService, node, template, vmHostname, sshHostAndPort, credentials, managementHostAndPort, setup);
+                                                                          HostAndPort managementHostAndPort, ConfigBag setup) throws IOException {
+        JcloudsSshMachineLocation machine = createJcloudsSshMachineLocation(computeService, node, template, credentials, managementHostAndPort, setup);
         registerJcloudsMachineLocation(node.getId(), machine);
         return machine;
     }
@@ -2443,7 +2530,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         vmInstanceIds.put(machine, nodeId);
     }
 
-    protected JcloudsSshMachineLocation createJcloudsSshMachineLocation(ComputeService computeService, NodeMetadata node, Optional<Template> template, String vmHostname, Optional<HostAndPort> sshHostAndPort,
+    protected JcloudsSshMachineLocation createJcloudsSshMachineLocation(ComputeService computeService, NodeMetadata node, Optional<Template> template,
                                                                         LoginCredentials userCredentials, HostAndPort managementHostAndPort, ConfigBag setup) throws IOException {
         Map<?,?> sshConfig = extractSshConfig(setup, node);
         String nodeAvailabilityZone = extractAvailabilityZone(setup, node);
@@ -2454,24 +2541,30 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
 
         if (LOG.isDebugEnabled())
-            LOG.debug("creating JcloudsSshMachineLocation representation for {}@{} ({}/{}) for {}/{}",
+            LOG.debug("creating JcloudsSshMachineLocation representation for {}@{} ({}) for {}/{}",
                     new Object[] {
                             getUser(setup),
                             managementHostAndPort,
                             Sanitizer.sanitize(sshConfig),
-                            sshHostAndPort,
                             setup.getDescription(),
                             node
                     });
 
         String address = managementHostAndPort.getHostText();
-
+        int port = managementHostAndPort.hasPort() ? managementHostAndPort.getPort() : node.getLoginPort();
+        
+        // The display name will be one of the IPs of the VM (preferring public if there are any).
+        // If the managementHostAndPort matches any of the IP contenders, then prefer that.
+        // (Don't just use the managementHostAndPort, because that could be using DNAT so could be
+        // a shared IP address, for example).
+        String displayName = getPublicHostnameGeneric(node, setup, Optional.of(address));
+        
         if (isManaged()) {
             return getManagementContext().getLocationManager().createLocation(LocationSpec.create(JcloudsSshMachineLocation.class)
                     .configure(sshConfig)
-                    .configure("displayName", vmHostname)
+                    .configure("displayName", displayName)
                     .configure("address", address)
-                    .configure(JcloudsSshMachineLocation.SSH_PORT, sshHostAndPort.isPresent() ? sshHostAndPort.get().getPort() : node.getLoginPort())
+                    .configure(JcloudsSshMachineLocation.SSH_PORT, port)
                     .configure("user", userCredentials.getUser())
                     .configure(SshMachineLocation.PASSWORD.getName(), sshConfig.get(SshMachineLocation.PASSWORD.getName()) != null ?
                             sshConfig.get(SshMachineLocation.PASSWORD.getName()) :
@@ -2494,9 +2587,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             LOG.warn("Using deprecated JcloudsSshMachineLocation constructor because "+this+" is not managed");
             return new JcloudsSshMachineLocation(MutableMap.builder()
                     .putAll(sshConfig)
-                    .put("displayName", vmHostname)
+                    .put("displayName", displayName)
                     .put("address", address)
-                    .put("port", sshHostAndPort.isPresent() ? sshHostAndPort.get().getPort() : node.getLoginPort())
+                    .put("port", port)
                     .put("user", userCredentials.getUser())
                     .putIfNotNull(SshMachineLocation.PASSWORD.getName(), sshConfig.get(SshMachineLocation.PASSWORD.getName()) != null ?
                             SshMachineLocation.PASSWORD.getName() :
@@ -2517,15 +2610,13 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     }
 
     protected JcloudsWinRmMachineLocation registerWinRmMachineLocation(ComputeService computeService, NodeMetadata node, HostAndPort managementHostAndPort,
-                                                                       Optional<HostAndPort> sshHostAndPort, ConfigBag setup) {
-        String vmHostname = getPublicHostname(node, sshHostAndPort, setup);
-
-        JcloudsWinRmMachineLocation machine = createWinRmMachineLocation(computeService, node, vmHostname, managementHostAndPort, setup);
+                                                                       ConfigBag setup) {
+        JcloudsWinRmMachineLocation machine = createWinRmMachineLocation(computeService, node, managementHostAndPort, setup);
         registerJcloudsMachineLocation(node.getId(), machine);
         return machine;
     }
 
-    protected JcloudsWinRmMachineLocation createWinRmMachineLocation(ComputeService computeService, NodeMetadata node, String vmHostname, HostAndPort sshHostAndPort, ConfigBag setup) {
+    protected JcloudsWinRmMachineLocation createWinRmMachineLocation(ComputeService computeService, NodeMetadata node, HostAndPort winrmHostAndPort, ConfigBag setup) {
         Map<?,?> winrmConfig = extractWinrmConfig(setup, node);
         String nodeAvailabilityZone = extractAvailabilityZone(setup, node);
         String nodeRegion = extractRegion(setup, node);
@@ -2534,13 +2625,16 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             nodeRegion = extractProvider(setup, node);
         }
         
+        String address = winrmHostAndPort.getHostText();
+        String displayName = getPublicHostnameGeneric(node, setup, Optional.of(address));
+
         if (isManaged()) {
             return getManagementContext().getLocationManager().createLocation(LocationSpec.create(JcloudsWinRmMachineLocation.class)
                     .configure(winrmConfig)
                     .configure("jcloudsParent", this)
-                    .configure("displayName", vmHostname)
-                    .configure("address", sshHostAndPort.getHostText())
-                    .configure(WinRmMachineLocation.WINRM_CONFIG_PORT, sshHostAndPort.getPort())
+                    .configure("displayName", displayName)
+                    .configure("address", address)
+                    .configure(WinRmMachineLocation.WINRM_CONFIG_PORT, winrmHostAndPort.getPort())
                     .configure("user", getUser(setup))
                     .configure(WinRmMachineLocation.USER, setup.get(USER))
                     .configure("node", node)
@@ -3238,7 +3332,8 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             if (result.isPresent()) return result.get();
         }
 
-        return getPublicHostnameGeneric(node, setup);
+        Optional<String> preferredAddress = sshHostAndPort.isPresent() ? Optional.of(sshHostAndPort.get().getHostText()) : Optional.<String>absent();
+        return getPublicHostnameGeneric(node, setup, preferredAddress);
     }
 
     /**
@@ -3267,10 +3362,21 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             if (result.isPresent()) return result.get();
         }
 
-        return getPrivateHostnameGeneric(node, setup);
+        Optional<String> preferredAddress = sshHostAndPort.isPresent() ? Optional.of(sshHostAndPort.get().getHostText()) : Optional.<String>absent();
+        return getPrivateHostnameGeneric(node, setup, preferredAddress);
     }
 
     private String getPublicHostnameGeneric(NodeMetadata node, @Nullable ConfigBag setup) {
+        return getPublicHostnameGeneric(node, setup, Optional.<String>absent());
+    }
+    
+    /**
+     * The preferredAddress is returned if it is one of the best choices (e.g. if publicAddresses 
+     * contains it, or if publicAddresses.isEmpty but the privateAddresses contains it).
+     * 
+     * Otherwise, returns the first publicAddress (if any), or failing that the first privateAddress.
+     */
+    private String getPublicHostnameGeneric(NodeMetadata node, @Nullable ConfigBag setup, Optional<String> preferredAddress) {
         // JcloudsUtil.getFirstReachableAddress() (probably) already succeeded so at least one of the provided
         // public and private IPs is reachable. Prefer the public IP. Don't use hostname as a fallback
         // from the public address - if public address is missing why would hostname resolve to a 
@@ -3283,25 +3389,45 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         // TODO Choose an IP once and stick to it - multiple places call JcloudsUtil.getFirstReachableAddress(),
         // could even get different IP on each call.
         if (groovyTruth(node.getPublicAddresses())) {
+            if (preferredAddress.isPresent() && node.getPublicAddresses().contains(preferredAddress.get())) {
+                return preferredAddress.get();
+            }
             return node.getPublicAddresses().iterator().next();
         } else if (groovyTruth(node.getPrivateAddresses())) {
+            if (preferredAddress.isPresent() && node.getPrivateAddresses().contains(preferredAddress.get())) {
+                return preferredAddress.get();
+            }
             return node.getPrivateAddresses().iterator().next();
         } else {
             return null;
         }
     }
 
-    private String getPrivateHostnameGeneric(NodeMetadata node, @Nullable ConfigBag setup) {
+    /**
+     * The preferredAddress is returned if it is one of the best choices (e.g. if non-local privateAddresses 
+     * contains it, or if privateAddresses.isEmpty but the publicAddresses contains it).
+     * 
+     * Otherwise, returns the first publicAddress (if any), or failing that the first privateAddress.
+     */
+    private String getPrivateHostnameGeneric(NodeMetadata node, @Nullable ConfigBag setup, Optional<String> preferredAddress) {
         //prefer the private address to the hostname because hostname is sometimes wrong/abbreviated
         //(see that javadoc; also e.g. on rackspace/cloudstack, the hostname is not registered with any DNS).
         //Don't return local-only address (e.g. never 127.0.0.1)
-        if (groovyTruth(node.getPrivateAddresses())) {
-            for (String p : node.getPrivateAddresses()) {
-                if (Networking.isLocalOnly(p)) continue;
-                return p;
+        Iterable<String> privateAddresses = Iterables.filter(node.getPrivateAddresses(), new Predicate<String>() {
+            @Override public boolean apply(String input) {
+                return input != null && !Networking.isLocalOnly(input);
+            }});
+        if (!Iterables.isEmpty(privateAddresses)) {
+            if (preferredAddress.isPresent() && Iterables.contains(privateAddresses, preferredAddress.get())) {
+                return preferredAddress.get();
             }
+            return Iterables.get(privateAddresses, 0);
         }
+        
         if (groovyTruth(node.getPublicAddresses())) {
+            if (preferredAddress.isPresent() && node.getPublicAddresses().contains(preferredAddress.get())) {
+                return preferredAddress.get();
+            }
             return node.getPublicAddresses().iterator().next();
         } else if (groovyTruth(node.getHostname())) {
             return node.getHostname();
