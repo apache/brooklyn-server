@@ -18,16 +18,25 @@
  */
 package org.apache.brooklyn.launcher.command.support;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Objects;
-import com.google.common.collect.Lists;
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import java.io.InputStream;
+import java.io.PrintStream;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.Callable;
+
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationDefinition;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.location.jclouds.JcloudsLocation;
+import org.apache.brooklyn.location.jclouds.JcloudsLocationCustomizer;
 import org.apache.brooklyn.location.jclouds.JcloudsUtil;
+import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.FatalConfigurationRuntimeException;
 import org.apache.brooklyn.util.stream.Streams;
 import org.jclouds.blobstore.BlobStore;
@@ -42,14 +51,9 @@ import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.Template;
 import org.jclouds.compute.options.TemplateOptions;
 
-import java.io.InputStream;
-import java.io.PrintStream;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.Callable;
-
-import static com.google.common.base.Preconditions.checkNotNull;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Objects;
+import com.google.common.collect.Lists;
 
 /**
  * Convenience for listing Cloud Compute and BlobStore details.
@@ -272,8 +276,10 @@ public abstract class CloudExplorerSupport implements Callable<Void> {
         protected void doCall(JcloudsLocation loc, String indent) throws Exception {
 
             ComputeService computeService = loc.getComputeService();
+            ConfigBag setup = loc.config().getBag();
+            Collection<JcloudsLocationCustomizer> customizers = loc.getCustomizers(setup);
 
-            Template template = loc.buildTemplate(computeService, loc.config().getBag());
+            Template template = loc.buildTemplate(computeService, setup, customizers);
             Image image = template.getImage();
             Hardware hardware = template.getHardware();
             org.jclouds.domain.Location location = template.getLocation();

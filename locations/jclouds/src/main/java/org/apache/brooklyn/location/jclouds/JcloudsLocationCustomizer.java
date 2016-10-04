@@ -32,6 +32,10 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
  * Instances will be invoked with the {@link ConfigBag} being used to obtain a machine by the
  * {@link JcloudsLocation} if such a constructor exists. If not, the default no argument constructor
  * will be invoked.
+ *
+ * Customizers are not persisted so the pre and postRelease will not be called on the same instance as was used in
+ * provisioning.  However the customize functions will be called on the same instance unless brooklyn is stopped, in which
+ * case vm provisioning would fail anyway.
  */
 public interface JcloudsLocationCustomizer {
 
