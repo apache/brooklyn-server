@@ -774,9 +774,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
             String vmHostname = getPublicHostname(node, sshHostAndPortOverride, userCredentials, setup);
             LoginCredentials initialCredentials = node.getCredentials();
-            final HostAndPort managementHostAndPort = resolveManagementHostAndPort(computeService, node, vmHostname, sshHostAndPortOverride, setup);
+            boolean waitForConnectable = (windows) ? waitForWinRmable : waitForSshable;
+            final HostAndPort managementHostAndPort = resolveManagementHostAndPort(computeService, node, vmHostname, sshHostAndPortOverride, waitForConnectable, setup);
             if (skipJcloudsSshing) {
-                boolean waitForConnectable = (windows) ? waitForWinRmable : waitForSshable;
                 if (waitForConnectable) {
                     if (windows) {
                         // TODO Does jclouds support any windows user setup?
@@ -1955,13 +1955,13 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         return userCreation.createdUserCredentials;
     }
 
-    protected HostAndPort resolveManagementHostAndPort(ComputeService computeService, NodeMetadata node, String vmHostname, Optional<HostAndPort> hostAndPortOverride, ConfigBag config) {
-        return resolveManagementHostAndPort(computeService, node, vmHostname, hostAndPortOverride, config, false);
+    protected HostAndPort resolveManagementHostAndPort(ComputeService computeService, NodeMetadata node, String vmHostname, Optional<HostAndPort> hostAndPortOverride, boolean waitForMakingManagementConnection, ConfigBag config) {
+        return resolveManagementHostAndPort(computeService, node, vmHostname, hostAndPortOverride, config, waitForMakingManagementConnection, false);
     }
 
-    protected HostAndPort resolveManagementHostAndPort(ComputeService computeService, NodeMetadata node, String vmHostname, Optional<HostAndPort> hostAndPortOverride, ConfigBag config, boolean useOnlyVmHostNameAndHostAndPortOverride) {
+    protected HostAndPort resolveManagementHostAndPort(ComputeService computeService, NodeMetadata node, String vmHostname, Optional<HostAndPort> hostAndPortOverride, ConfigBag config, boolean waitForMakingManagementConnection, boolean useOnlyVmHostNameAndHostAndPortOverride) {
         String pollForFirstReachable = config.get(POLL_FOR_FIRST_REACHABLE_ADDRESS);
-        boolean pollForFirstReachableEnabled = !useOnlyVmHostNameAndHostAndPortOverride && !"false".equalsIgnoreCase(pollForFirstReachable);
+        boolean pollForFirstReachableEnabled = !useOnlyVmHostNameAndHostAndPortOverride && !"false".equalsIgnoreCase(pollForFirstReachable) && waitForMakingManagementConnection;
 
         String managementAddress = hostAndPortOverride.isPresent() ? hostAndPortOverride.get().getHostText() :
                 (pollForFirstReachableEnabled ? getFirstReachableAddress(node, config) : vmHostname);
@@ -2295,7 +2295,8 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     protected JcloudsMachineLocation registerMachineLocation(ConfigBag setup, NodeMetadata node) {
         ComputeService computeService = getComputeService(setup);
         String vmHostname = getPublicHostname(node, Optional.<HostAndPort>absent(), Suppliers.<LoginCredentials>ofInstance(null), setup);
-        HostAndPort managementHostAndPort = resolveManagementHostAndPort(computeService, node, vmHostname, Optional.<HostAndPort>absent(), setup, true);
+        boolean waitForMakingManagementConnection = isWindows(node, setup) ? !"false".equalsIgnoreCase(setup.get(WAIT_FOR_WINRM_AVAILABLE)) : !"false".equalsIgnoreCase(setup.get(WAIT_FOR_SSHABLE));
+        HostAndPort managementHostAndPort = resolveManagementHostAndPort(computeService, node, vmHostname, Optional.<HostAndPort>absent(), setup, waitForMakingManagementConnection, true);
         if (isWindows(node, setup)) {
             return registerWinRmMachineLocation(computeService, node, managementHostAndPort, Optional.<HostAndPort>absent(), setup);
         } else {

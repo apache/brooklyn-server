@@ -183,7 +183,7 @@ public class JcloudsReachableAddressStubbedTest extends AbstractJcloudsLiveTest 
      * Only one public and one private; private is reachable;
      * With waitForSshable=true; pollForFirstReachableAddress=true; and custom reachable-predicate
      */
-    @Test(enabled = false, groups = "WIP")
+    @Test
     public void testMachineUsesVanillaPrivateAddress() throws Exception {
         initNodeCreatorAndJcloudsLocation(ImmutableList.of("1.1.1.1"), ImmutableList.of("2.1.1.1"), ImmutableMap.of());
         reachableIp = "2.1.1.1";
@@ -197,7 +197,7 @@ public class JcloudsReachableAddressStubbedTest extends AbstractJcloudsLiveTest 
         assertEquals(RecordingSshTool.getLastExecCmd().constructorProps.get(SshTool.PROP_HOST.getName()), reachableIp);
 
         assertEquals(machine.getAddress().getHostAddress(), reachableIp);
-        assertEquals(machine.getHostname(), reachableIp);
+        assertEquals(machine.getHostname(), "1.1.1.1");
         assertEquals(machine.getSubnetIp(), reachableIp);
     }
 
@@ -205,7 +205,7 @@ public class JcloudsReachableAddressStubbedTest extends AbstractJcloudsLiveTest 
      * Multiple public addresses; chooses the reachable one;
      * With waitForSshable=true; pollForFirstReachableAddress=true; and custom reachable-predicate
      */
-    @Test(enabled = false, groups = "WIP")
+    @Test
     public void testMachineUsesReachablePublicAddress() throws Exception {
         initNodeCreatorAndJcloudsLocation(ImmutableList.of("1.1.1.1", "1.1.1.2", "1.1.1.2"), ImmutableList.of("2.1.1.1"), ImmutableMap.of());
         reachableIp = "1.1.1.2";
@@ -219,7 +219,7 @@ public class JcloudsReachableAddressStubbedTest extends AbstractJcloudsLiveTest 
         assertEquals(RecordingSshTool.getLastExecCmd().constructorProps.get(SshTool.PROP_HOST.getName()), reachableIp);
 
         assertEquals(machine.getAddress().getHostAddress(), reachableIp);
-        assertEquals(machine.getHostname(), reachableIp);
+        assertEquals(machine.getHostname(), "1.1.1.1");
         assertEquals(machine.getSubnetIp(), "2.1.1.1");
     }
 
