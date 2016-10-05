@@ -25,14 +25,12 @@ import static org.testng.Assert.assertTrue;
 
 import java.util.List;
 
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.util.text.StringPredicates;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Predicate;
@@ -42,13 +40,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 
-public class BasicSpecParameterFromListTest {
-    private ManagementContext mgmt;
-
-    @BeforeMethod(alwaysRun=true)
-    public void setUp() {
-        mgmt = LocalManagementContextForTests.newInstance();
-    }
+public class BasicSpecParameterFromListTest extends BrooklynMgmtUnitTestSupport {
 
     @Test
     public void testInlineName() {
