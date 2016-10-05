@@ -93,8 +93,10 @@ public class JcloudsByonLocationResolverStubbedTest extends AbstractJcloudsStubb
     @Test
     public void testResolvesHostInSpec() throws Exception {
         String spec = "jcloudsByon:(provider=\""+SOFTLAYER_PROVIDER+"\",region=\""+SOFTLAYER_AMS01_REGION_NAME+"\",user=\"myuser\",password=\"mypassword\",hosts=\""+nodeId+"\")";
-        Map<?,?> specFlags = ImmutableMap.of(JcloudsLocationConfig.COMPUTE_SERVICE_REGISTRY, computeServiceRegistry);
-
+        Map<?,?> specFlags = ImmutableMap.of(
+                JcloudsLocationConfig.COMPUTE_SERVICE_REGISTRY, computeServiceRegistry,
+                JcloudsLocation.POLL_FOR_FIRST_REACHABLE_ADDRESS, "false");
+        
         FixedListMachineProvisioningLocation<MachineLocation> location = getLocationManaged(spec, specFlags);
         
         JcloudsSshMachineLocation machine = (JcloudsSshMachineLocation) Iterables.getOnlyElement(location.getAllMachines());
@@ -126,6 +128,7 @@ public class JcloudsByonLocationResolverStubbedTest extends AbstractJcloudsStubb
         String spec = "jcloudsByon:(provider=\""+SOFTLAYER_PROVIDER+"\",region=\""+SOFTLAYER_AMS01_REGION_NAME+"\")";
         Map<?,?> specFlags = ImmutableMap.of(
                 JcloudsLocationConfig.COMPUTE_SERVICE_REGISTRY, computeServiceRegistry,
+                JcloudsLocation.POLL_FOR_FIRST_REACHABLE_ADDRESS, "false",
                 "hosts", hostsValInFlags);
 
         FixedListMachineProvisioningLocation<MachineLocation> location = getLocationManaged(spec, specFlags);
@@ -138,7 +141,9 @@ public class JcloudsByonLocationResolverStubbedTest extends AbstractJcloudsStubb
     public void testLocationSpecDoesNotCreateMachines() throws Exception {
         Collection<Location> before = managementContext.getLocationManager().getLocations();
         String spec = "jcloudsByon:(provider=\""+SOFTLAYER_PROVIDER+"\",region=\""+SOFTLAYER_AMS01_REGION_NAME+"\",user=\"myname\",hosts=\""+nodeId+"\")";
-        Map<?,?> specFlags = ImmutableMap.of(JcloudsLocationConfig.COMPUTE_SERVICE_REGISTRY, computeServiceRegistry);
+        Map<?,?> specFlags = ImmutableMap.of(
+                JcloudsLocationConfig.COMPUTE_SERVICE_REGISTRY, computeServiceRegistry,
+                JcloudsLocation.POLL_FOR_FIRST_REACHABLE_ADDRESS, "false");
 
         @SuppressWarnings("unused")
         LocationSpec<FixedListMachineProvisioningLocation<MachineLocation>> locationSpec = getLocationSpec(spec, specFlags);
