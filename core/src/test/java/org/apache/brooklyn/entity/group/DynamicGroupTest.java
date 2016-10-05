@@ -169,9 +169,9 @@ public class DynamicGroupTest {
         final AttributeSensor<String> MY_ATTRIBUTE = Sensors.newStringSensor("test.myAttribute", "My test attribute");
         group.setEntityFilter(new Predicate<Entity>() {
             @Override public boolean apply(Entity input) {
-                if (!(input.getAttribute(MY_ATTRIBUTE) == "yes")) 
+                if (!("yes".equals(input.getAttribute(MY_ATTRIBUTE)))) {
                     return false;
-                if (input.equals(e1)) {
+                } else if (input.equals(e1)) {
                     LOG.info("testGroupDetectsChangedEntitiesMatchingFilter scanned e1 when MY_ATTRIBUTE is yes; not a bug, but indicates things may be running slowly");
                     return false;
                 }
@@ -539,6 +539,15 @@ public class DynamicGroupTest {
             t1.interrupt();
             t2.interrupt();
         }
+    }
+
+    @Test
+    public void testOnlyMatchesEntitiesInSameApplication() {
+        TestApplication app2 = TestApplication.Factory.newManagedInstanceForTests(app.getManagementContext());
+        TestEntity irrelevant = app2.createAndManageChild(EntitySpec.create(TestEntity.class));
+        group.setEntityFilter(Predicates.instanceOf(TestEntity.class));
+        Collection<Entity> members = group.getMembers();
+        assertFalse(members.contains(irrelevant), "collection should not contain " + irrelevant + ": " + members);
     }
 
     private <T> void assertContainsEventually(final Collection<? extends T> vals, final T val) {

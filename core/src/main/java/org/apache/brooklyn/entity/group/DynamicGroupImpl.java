@@ -30,6 +30,7 @@ import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.core.BrooklynLogging;
 import org.apache.brooklyn.core.BrooklynLogging.LoggingLevel;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.internal.CollectionChangeListener;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -210,7 +211,7 @@ public class DynamicGroupImpl extends AbstractGroupImpl implements DynamicGroup 
             Collection<Entity> currentMembers = getMembers();
             Collection<Entity> toRemove = Sets.newLinkedHashSet(currentMembers);
 
-            for (Entity it : Iterables.filter(getManagementContext().getEntityManager().getEntities(), entityFilter())) {
+            for (Entity it : Iterables.filter(Entities.descendantsAndSelf(getApplication()), entityFilter())) {
                 toRemove.remove(it);
                 if (!currentMembers.contains(it)) {
                     if (log.isDebugEnabled()) log.debug("{} rescan detected new item {}", this, it);
