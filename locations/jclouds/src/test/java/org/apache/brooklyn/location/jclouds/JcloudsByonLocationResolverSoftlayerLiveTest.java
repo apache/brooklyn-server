@@ -44,14 +44,14 @@ public class JcloudsByonLocationResolverSoftlayerLiveTest extends AbstractJcloud
     private String slVmHostname;
     
     private LocalManagementContext classManagementContext;
-    private JcloudsLocation classEc2Loc;
+    private JcloudsLocation classLoc;
     private JcloudsSshMachineLocation classVm;
 
     @BeforeClass(groups="Live")
     public void setUpClass() throws Exception {
         classManagementContext = newManagementContext();
-        classEc2Loc = (JcloudsLocation) classManagementContext.getLocationRegistry().getLocationManaged(SOFTLAYER_LOCATION_SPEC);
-        classVm = (JcloudsSshMachineLocation)classEc2Loc.obtain(MutableMap.<String,Object>builder()
+        classLoc = (JcloudsLocation) classManagementContext.getLocationRegistry().getLocationManaged(SOFTLAYER_LOCATION_SPEC);
+        classVm = (JcloudsSshMachineLocation)classLoc.obtain(MutableMap.<String,Object>builder()
                 .put("inboundPorts", ImmutableList.of(22))
                 .build());
         slVmUser = classVm.getUser();
@@ -64,7 +64,7 @@ public class JcloudsByonLocationResolverSoftlayerLiveTest extends AbstractJcloud
     public void tearDownClass() throws Exception {
         try {
             if (classVm != null) {
-                classEc2Loc.release(classVm);
+                classLoc.release(classVm);
             }
         } finally {
             if (classManagementContext != null) classManagementContext.terminate();

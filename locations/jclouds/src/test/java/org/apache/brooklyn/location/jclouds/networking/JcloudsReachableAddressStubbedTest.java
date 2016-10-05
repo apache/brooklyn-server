@@ -18,9 +18,7 @@
  */
 package org.apache.brooklyn.location.jclouds.networking;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import java.io.IOException;
@@ -38,19 +36,24 @@ import org.apache.brooklyn.location.jclouds.JcloudsLocation;
 import org.apache.brooklyn.location.jclouds.JcloudsLocationConfig;
 import org.apache.brooklyn.location.jclouds.JcloudsSshMachineLocation;
 import org.apache.brooklyn.location.jclouds.JcloudsStubTemplateBuilder;
+import org.apache.brooklyn.location.jclouds.JcloudsWinRmMachineLocation;
 import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry;
 import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.AbstractNodeCreator;
 import org.apache.brooklyn.location.jclouds.networking.JcloudsPortForwardingStubbedLiveTest.RecordingJcloudsPortForwarderExtension;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.CustomResponse;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.CustomResponseGenerator;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecParams;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
+import org.apache.brooklyn.util.core.internal.winrm.RecordingWinRmTool;
+import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
 import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.NodeMetadata.Status;
 import org.jclouds.compute.domain.NodeMetadataBuilder;
+import org.jclouds.compute.domain.OsFamily;
 import org.jclouds.compute.domain.Template;
 import org.jclouds.domain.LoginCredentials;
 import org.slf4j.Logger;
@@ -94,6 +97,7 @@ public class JcloudsReachableAddressStubbedTest extends AbstractJcloudsLiveTest 
         addressChooser = new AddressChooser();
         customResponseGenerator = new CustomResponseGeneratorImpl();
         RecordingSshTool.clear();
+        RecordingWinRmTool.clear();
         super.setUp();
     }
     
@@ -104,6 +108,7 @@ public class JcloudsReachableAddressStubbedTest extends AbstractJcloudsLiveTest 
             super.tearDown();
         } finally {
             RecordingSshTool.clear();
+            RecordingWinRmTool.clear();
         }
     }
 
@@ -150,18 +155,11 @@ public class JcloudsReachableAddressStubbedTest extends AbstractJcloudsLiveTest 
                         .build());
     }
 
-    protected JcloudsSshMachineLocation obtainMachine(Map<?, ?> conf) throws Exception {
-        assertNotNull(jcloudsLocation);
-        JcloudsSshMachineLocation result = (JcloudsSshMachineLocation)jcloudsLocation.obtain(conf);
-        machines.add(checkNotNull(result, "result"));
-        return result;
-    }
-    
     /**
      * Only one public and one private; public is reachable;
      * With waitForSshable=true; pollForFirstReachableAddress=true; and custom reachable-predicate
      */
-    @Test(groups = {"Live", "Live-sanity"})
+    @Test
     public void testMachineUsesVanillaPublicAddress() throws Exception {
         initNodeCreatorAndJcloudsLocation(ImmutableList.of("1.1.1.1"), ImmutableList.of("2.1.1.1"), ImmutableMap.of());
         reachableIp = "1.1.1.1";
@@ -180,10 +178,31 @@ public class JcloudsReachableAddressStubbedTest extends AbstractJcloudsLiveTest 
     }
 
     /**
+     * Similar to {@link #testMachineUsesVanillaPublicAddress()}, except for a windows machine.
+     */
+    @Test
+    public void testWindowsMachineUsesVanillaPublicAddress() throws Exception {
+        initNodeCreatorAndJcloudsLocation(ImmutableList.of("1.1.1.1"), ImmutableList.of("2.1.1.1"), ImmutableMap.of());
+        reachableIp = "1.1.1.1";
+
+        JcloudsWinRmMachineLocation machine = newWinrmMachine(ImmutableMap.<ConfigKey<?>,Object>builder()
+                .put(JcloudsLocationConfig.WAIT_FOR_WINRM_AVAILABLE, Asserts.DEFAULT_LONG_TIMEOUT.toString())
+                .put(JcloudsLocation.POLL_FOR_FIRST_REACHABLE_ADDRESS, Asserts.DEFAULT_LONG_TIMEOUT.toString())
+                .build());
+        
+        addressChooser.assertCalled();
+        assertEquals(RecordingWinRmTool.getLastExec().constructorProps.get(WinRmTool.PROP_HOST.getName()), reachableIp);
+
+        assertEquals(machine.getAddress().getHostAddress(), reachableIp);
+        assertEquals(machine.getHostname(), reachableIp);
+        assertEquals(machine.getSubnetIp(), "2.1.1.1");
+    }
+
+    /**
      * Only one public and one private; private is reachable;
      * With waitForSshable=true; pollForFirstReachableAddress=true; and custom reachable-predicate
      */
-    @Test(enabled = false, groups = "WIP")
+    @Test
     public void testMachineUsesVanillaPrivateAddress() throws Exception {
         initNodeCreatorAndJcloudsLocation(ImmutableList.of("1.1.1.1"), ImmutableList.of("2.1.1.1"), ImmutableMap.of());
         reachableIp = "2.1.1.1";
@@ -197,7 +216,7 @@ public class JcloudsReachableAddressStubbedTest extends AbstractJcloudsLiveTest 
         assertEquals(RecordingSshTool.getLastExecCmd().constructorProps.get(SshTool.PROP_HOST.getName()), reachableIp);
 
         assertEquals(machine.getAddress().getHostAddress(), reachableIp);
-        assertEquals(machine.getHostname(), reachableIp);
+        assertEquals(machine.getHostname(), "1.1.1.1"); // preferes public, even if that was not reachable
         assertEquals(machine.getSubnetIp(), reachableIp);
     }
 
@@ -205,7 +224,7 @@ public class JcloudsReachableAddressStubbedTest extends AbstractJcloudsLiveTest 
      * Multiple public addresses; chooses the reachable one;
      * With waitForSshable=true; pollForFirstReachableAddress=true; and custom reachable-predicate
      */
-    @Test(enabled = false, groups = "WIP")
+    @Test
     public void testMachineUsesReachablePublicAddress() throws Exception {
         initNodeCreatorAndJcloudsLocation(ImmutableList.of("1.1.1.1", "1.1.1.2", "1.1.1.2"), ImmutableList.of("2.1.1.1"), ImmutableMap.of());
         reachableIp = "1.1.1.2";
@@ -227,7 +246,7 @@ public class JcloudsReachableAddressStubbedTest extends AbstractJcloudsLiveTest 
      * Multiple private addresses; chooses the reachable one;
      * With waitForSshable=true; pollForFirstReachableAddress=true; and custom reachable-predicate
      */
-    @Test(enabled = false, groups = "WIP")
+    @Test
     public void testMachineUsesReachablePrivateAddress() throws Exception {
         initNodeCreatorAndJcloudsLocation(ImmutableList.of("1.1.1.1"), ImmutableList.of("2.1.1.1", "2.1.1.2", "2.1.1.2"), ImmutableMap.of());
         reachableIp = "2.1.1.2";
@@ -241,8 +260,8 @@ public class JcloudsReachableAddressStubbedTest extends AbstractJcloudsLiveTest 
         assertEquals(RecordingSshTool.getLastExecCmd().constructorProps.get(SshTool.PROP_HOST.getName()), reachableIp);
 
         assertEquals(machine.getAddress().getHostAddress(), reachableIp);
-        assertEquals(machine.getHostname(), reachableIp);
-        assertEquals(machine.getSubnetIp(), reachableIp);
+        assertEquals(machine.getHostname(), "1.1.1.1"); // prefers public, even if that was not reachable
+        assertEquals(machine.getSubnetIp(), "2.1.1.1"); // TODO uses first, rather than "reachable"; is that ok?
     }
 
     /**
@@ -313,6 +332,34 @@ public class JcloudsReachableAddressStubbedTest extends AbstractJcloudsLiveTest 
         assertEquals(machine.getSubnetIp(), "2.1.1.1");
     }
     
+    /**
+     * Similar to {@link #testMachineUsesVanillaPublicAddress()}, except for a windows machine.
+     */
+    @Test
+    public void testWindowsReachabilityChecksWithPortForwarding() throws Exception {
+        initNodeCreatorAndJcloudsLocation(ImmutableList.of("1.1.1.1"), ImmutableList.of("2.1.1.1"), ImmutableMap.of());
+        reachableIp = "1.2.3.4";
+                
+        PortForwardManager pfm = new PortForwardManagerImpl();
+        RecordingJcloudsPortForwarderExtension portForwarder = new RecordingJcloudsPortForwarderExtension(pfm);
+        
+        JcloudsWinRmMachineLocation machine = newWinrmMachine(ImmutableMap.<ConfigKey<?>,Object>builder()
+                .put(JcloudsLocationConfig.WAIT_FOR_WINRM_AVAILABLE, Asserts.DEFAULT_LONG_TIMEOUT.toString())
+                .put(JcloudsLocation.POLL_FOR_FIRST_REACHABLE_ADDRESS, Asserts.DEFAULT_LONG_TIMEOUT.toString())
+                .put(JcloudsLocation.USE_PORT_FORWARDING, true)
+                .put(JcloudsLocation.PORT_FORWARDER, portForwarder)
+                .build());
+        
+        addressChooser.assertNotCalled();
+        assertEquals(RecordingWinRmTool.getLastExec().constructorProps.get(WinRmTool.PROP_HOST.getName()), reachableIp);
+        assertEquals(RecordingWinRmTool.getLastExec().constructorProps.get(WinRmTool.PROP_PORT.getName()), 12345);
+
+        assertEquals(machine.getAddress().getHostAddress(), "1.2.3.4");
+        assertEquals(machine.getPort(), 12345);
+        assertEquals(machine.getHostname(), "1.2.3.4"); // TODO Different impl from JcloudsSshMachineLocation!
+        assertEquals(machine.getSubnetIp(), "2.1.1.1");
+    }
+    
     @Test
     public void testMachineUsesFirstPublicAddress() throws Exception {
         initNodeCreatorAndJcloudsLocation(ImmutableList.of("10.10.10.1", "10.10.10.2"), ImmutableList.of("1.1.1.1", "1.1.1.2", "1.1.1.2"), ImmutableMap.of());
@@ -334,6 +381,19 @@ public class JcloudsReachableAddressStubbedTest extends AbstractJcloudsLiveTest 
         return obtainMachine(ImmutableMap.<ConfigKey<?>,Object>builder()
                 .put(SshMachineLocation.SSH_TOOL_CLASS, RecordingSshTool.class.getName())
                 .put(JcloudsLocation.POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE, addressChooser)
+                .putAll(additionalConfig)
+                .build());
+    }
+    
+    protected JcloudsWinRmMachineLocation newWinrmMachine() throws Exception {
+        return newWinrmMachine(ImmutableMap.<ConfigKey<?>, Object>of());
+    }
+    
+    protected JcloudsWinRmMachineLocation newWinrmMachine(Map<? extends ConfigKey<?>, ?> additionalConfig) throws Exception {
+        return obtainWinrmMachine(ImmutableMap.<ConfigKey<?>,Object>builder()
+                .put(WinRmMachineLocation.WINRM_TOOL_CLASS, RecordingWinRmTool.class.getName())
+                .put(JcloudsLocation.POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE, addressChooser)
+                .put(JcloudsLocation.OS_FAMILY_OVERRIDE, OsFamily.WINDOWS)
                 .putAll(additionalConfig)
                 .build());
     }

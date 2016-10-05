@@ -48,10 +48,12 @@ public class RecordingWinRmTool implements WinRmTool {
     
     public static class ExecParams {
         public final ExecType type;
+        public final Map<?, ?> constructorProps;
         public final List<String> commands;
         
-        public ExecParams(ExecType type, List<String> commands) {
+        public ExecParams(ExecType type, Map<?, ?> constructorProps, List<String> commands) {
             this.type = type;
+            this.constructorProps = constructorProps;
             this.commands = commands;
         }
         
@@ -59,6 +61,7 @@ public class RecordingWinRmTool implements WinRmTool {
         public String toString() {
             return Objects.toStringHelper(this)
                     .add("type", type)
+                    .add("constructorProps", constructorProps)
                     .add("commands", commands)
                     .toString();
         }
@@ -118,28 +121,31 @@ public class RecordingWinRmTool implements WinRmTool {
     public static ExecParams getLastExec() {
         return execs.get(execs.size()-1);
     }
+
+    private final Map<?, ?> ownConstructorProps;
     
     public RecordingWinRmTool(Map<?,?> props) {
         constructorProps.add(props);
+        ownConstructorProps = props;
     }
     
     @Override
     public WinRmToolResponse executeCommand(List<String> commands) {
-        ExecParams execParams = new ExecParams(ExecType.COMMAND, commands);
+        ExecParams execParams = new ExecParams(ExecType.COMMAND, ownConstructorProps, commands);
         execs.add(execParams);
         return generateResponse(execParams);
     }
 
     @Override
     public WinRmToolResponse executePs(List<String> commands) {
-        ExecParams execParams = new ExecParams(ExecType.POWER_SHELL, commands);
+        ExecParams execParams = new ExecParams(ExecType.POWER_SHELL, ownConstructorProps, commands);
         execs.add(execParams);
         return generateResponse(execParams);
     }
 
     @Override
     public WinRmToolResponse copyToServer(InputStream source, String destination) {
-        execs.add(new ExecParams(ExecType.COPY_TO_SERVER, ImmutableList.of(new String(Streams.readFully(source)))));
+        execs.add(new ExecParams(ExecType.COPY_TO_SERVER, ownConstructorProps, ImmutableList.of(new String(Streams.readFully(source)))));
         return new WinRmToolResponse("", "", 0);
     }
 
