@@ -341,11 +341,6 @@ public class CatalogUtils {
         for (String catalogItemId : catalogItemIds) {
             addCatalogItemContext(managementContext, seqLoader, catalogItemId);
         }
-        // TODO what if not all items were found? need to consider what the right behaviour is.
-        // TODO for now take the course of using whatever items we *did* find
-        if (seqLoader.getPrimaries().size() != catalogItemIds.size()) {
-            log.warn("Couldn't find all catalog items  used for instantiating entity " + managementContext);
-        }
         return seqLoader;
     }
 
