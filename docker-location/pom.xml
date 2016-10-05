@@ -7,7 +7,7 @@
     <parent>
         <groupId>io.cloudsoft.amp.containerservice</groupId>
         <artifactId>containerservice-parent</artifactId>
-        <version>2.0.0-SNAPSHOT</version> <!-- CONTAINER_SERVICE_VERSION -->
+        <version>2.1.0-SNAPSHOT</version> <!-- CONTAINER_SERVICE_VERSION -->
     </parent>
 
     <name>Docker Location</name>
