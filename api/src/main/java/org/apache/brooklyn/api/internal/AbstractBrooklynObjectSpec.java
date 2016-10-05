@@ -131,18 +131,8 @@ public abstract class AbstractBrooklynObjectSpec<T,SpecT extends AbstractBrookly
         }
         return self();
     }
-    // TODO in many places (callers to this method) we prefer a wrapper item ID;
-    // that is right, because the wrapper's defn will refer to the wrapped,
-    // but we might need also to collect the item ID's so that *all* can be searched, see #catalogItemId.
-    // e.g. if R3 references R2 which references R1 any one of these might supply config keys 
-    // referencing resources or types in their local bundles. 
-    @Beta
-    public SpecT catalogItemIdIfNotNull(String val) {
-        if (val!=null) {
-            catalogItemId(val);
-        }
-        return self();
-    }
+
+
 
 
     public SpecT tag(Object tag) {
