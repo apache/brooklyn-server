@@ -43,6 +43,8 @@ import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.domain.Template;
 import org.jclouds.compute.domain.TemplateBuilder;
 import org.jclouds.compute.options.TemplateOptions;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
@@ -58,6 +60,8 @@ import com.google.common.collect.Lists;
  *
  * e.g.
  *
+ * <pre>
+ * {@code
  * brooklyn.config:
  *   provisioning.properties:
  *     customizers:
@@ -65,13 +69,31 @@ import com.google.common.collect.Lists;
  *       type: org.apache.brooklyn.location.jclouds.networking.SharedLocationSecurityGroupCustomizer
  *       object.fields:
  *         - enabled: $brooklyn:config("kubernetes.sharedsecuritygroup.create")
- *
+ * }
+ * </pre>
  */
 @Test(groups = {"Live", "Live-sanity"})
 public class JcloudsCustomizerInstantiationYamlDslTest extends JcloudsRebindStubYamlTest {
 
     protected Entity origApp;
 
+    @BeforeMethod(alwaysRun=true)
+    @Override
+    public void setUp() throws Exception {
+        RecordingLocationCustomizer.clear();
+        super.setUp();
+    }
+    
+    @AfterMethod(alwaysRun=true)
+    @Override
+    public void tearDown() throws Exception {
+        try {
+            super.tearDown();
+        } finally {
+            RecordingLocationCustomizer.clear();
+        }
+    }
+    
     @Override
     protected JcloudsLocation newJcloudsLocation(ComputeServiceRegistry computeServiceRegistry) throws Exception {
         ByonComputeServiceStaticRef.setInstance(computeServiceRegistry);
@@ -102,7 +124,7 @@ public class JcloudsCustomizerInstantiationYamlDslTest extends JcloudsRebindStub
 
         EntitySpec<?> spec = mgmt().getTypeRegistry().createSpecFromPlan(CampTypePlanTransformer.FORMAT, yaml, RegisteredTypeLoadingContexts.spec(Application.class), EntitySpec.class);
         origApp = mgmt().getEntityManager().createEntity(spec);
-
+        
         return (JcloudsLocation) Iterables.getOnlyElement(origApp.getLocations());
     }
 
@@ -131,36 +153,57 @@ public class JcloudsCustomizerInstantiationYamlDslTest extends JcloudsRebindStub
     public static class RecordingLocationCustomizer extends BasicJcloudsLocationCustomizer {
 
         public static final List<CallParams> calls = Lists.newCopyOnWriteArrayList();
+
+        public static void clear() {
+            calls.clear();
+        }
+
         private Boolean enabled;
 
+        public void setEnabled(Boolean val) {
+            this.enabled = val;
+        }
+        
         @Override
         public void customize(JcloudsLocation location, ComputeService computeService, TemplateBuilder templateBuilder) {
-            calls.add(new CallParams(this, "customize", MutableList.of(location, computeService, templateBuilder)));
+            if (Boolean.TRUE.equals(enabled)) {
+                calls.add(new CallParams(this, "customize", MutableList.of(location, computeService, templateBuilder)));
+            }
         }
 
         @Override
         public void customize(JcloudsLocation location, ComputeService computeService, Template template) {
-            calls.add(new CallParams(this, "customize", MutableList.of(location, computeService, template)));
+            if (Boolean.TRUE.equals(enabled)) {
+                calls.add(new CallParams(this, "customize", MutableList.of(location, computeService, template)));
+            }
         }
 
         @Override
         public void customize(JcloudsLocation location, ComputeService computeService, TemplateOptions templateOptions) {
-            calls.add(new CallParams(this, "customize", MutableList.of(location, computeService, templateOptions)));
+            if (Boolean.TRUE.equals(enabled)) {
+                calls.add(new CallParams(this, "customize", MutableList.of(location, computeService, templateOptions)));
+            }
         }
 
         @Override
         public void customize(JcloudsLocation location, ComputeService computeService, JcloudsMachineLocation machine) {
-            calls.add(new CallParams(this, "customize", MutableList.of(location, computeService, machine)));
+            if (Boolean.TRUE.equals(enabled)) {
+                calls.add(new CallParams(this, "customize", MutableList.of(location, computeService, machine)));
+            }
         }
 
         @Override
         public void preRelease(JcloudsMachineLocation machine) {
-            calls.add(new CallParams(this, "preRelease", MutableList.of(machine)));
+            if (Boolean.TRUE.equals(enabled)) {
+                calls.add(new CallParams(this, "preRelease", MutableList.of(machine)));
+            }
         }
 
         @Override
         public void postRelease(JcloudsMachineLocation machine) {
-            calls.add(new CallParams(this, "postRelease", MutableList.of(machine)));
+            if (Boolean.TRUE.equals(enabled)) {
+                calls.add(new CallParams(this, "postRelease", MutableList.of(machine)));
+            }
         }
 
         public static class CallParams {

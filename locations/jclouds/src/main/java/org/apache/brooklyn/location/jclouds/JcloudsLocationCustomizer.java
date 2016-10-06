@@ -23,19 +23,21 @@ import org.jclouds.compute.domain.Template;
 import org.jclouds.compute.domain.TemplateBuilder;
 import org.jclouds.compute.options.TemplateOptions;
 
-import org.apache.brooklyn.util.core.config.ConfigBag;
-
 /**
  * Customization hooks to allow apps to perform specific customisation at each stage of jclouds machine provisioning.
  * For example, an app could attach an EBS volume to an EC2 node, or configure a desired availability zone.
  * <p>
- * Instances will be invoked with the {@link ConfigBag} being used to obtain a machine by the
- * {@link JcloudsLocation} if such a constructor exists. If not, the default no argument constructor
- * will be invoked.
- *
- * Customizers are not persisted so the pre and postRelease will not be called on the same instance as was used in
- * provisioning.  However the customize functions will be called on the same instance unless brooklyn is stopped, in which
- * case vm provisioning would fail anyway.
+ * Users are strongly encouraged to sub-class {@link org.apache.brooklyn.location.jclouds.BasicJcloudsLocationCustomizer}, 
+ * to give some protection against this API changing in future releases.
+ * <p>
+ * Customizers can be instantiated on-demand, so the {@link #postRelease(JcloudsMachineLocation)}
+ * and {@link #postRelease(JcloudsMachineLocation)} methods may not be called on the same instance 
+ * as was used in provisioning. This is always true after a Brooklyn restart, and may be true at 
+ * other times depending how the customizer has been wired in.
+ * <p>
+ * However the customize functions will be called sequentially on the same instance during provisioning,
+ * unless Brooklyn is stopped (or fails over to a high-availability standby), in which case VM 
+ * provisioning would abort anyway.
  */
 public interface JcloudsLocationCustomizer {
 

@@ -141,6 +141,7 @@ public class ConfigLocationInheritanceYamlTest extends AbstractYamlTest {
     public static class RecordingJcloudsLocation extends JcloudsLocation {
         public final List<ConfigBag> templateConfigs = Lists.newCopyOnWriteArrayList();
         
+        @Override
         public Template buildTemplate(ComputeService computeService, ConfigBag config, Collection<JcloudsLocationCustomizer> customizers) {
             templateConfigs.add(config);
             return super.buildTemplate(computeService, config, customizers);
@@ -161,6 +162,7 @@ public class ConfigLocationInheritanceYamlTest extends AbstractYamlTest {
                 return "jclouds-config-test";
             }
 
+            @Override
             protected Class<? extends JcloudsLocation> getLocationClass() {
                 return RecordingJcloudsLocation.class;
             }

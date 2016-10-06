@@ -203,13 +203,13 @@ public interface JcloudsLocationConfig extends CloudLocationConfig {
     /** @deprecated since 0.7.0; use {@link #JCLOUDS_LOCATION_CUSTOMIZERS} instead */
     @Deprecated
     public static final ConfigKey<String> JCLOUDS_LOCATION_CUSTOMIZER_TYPE = ConfigKeys.newStringConfigKey(
-            "customizerType", "Optional location customizer type (to be class-loaded and constructed with no-arg constructor)");
+            "customizerType", "Optional location customizer type (to be class-loaded and constructed with either a ConfigBag or no-arg constructor)");
 
     /** @deprecated since 0.7.0; use {@link #JCLOUDS_LOCATION_CUSTOMIZERS} instead */
     @Deprecated
     public static final ConfigKey<String> JCLOUDS_LOCATION_CUSTOMIZERS_SUPPLIER_TYPE = ConfigKeys.newStringConfigKey(
             "customizersSupplierType", "Optional type of a Supplier<Collection<JcloudsLocationCustomizer>> " +
-            "(to be class-loaded and constructed with ConfigBag or no-arg constructor)");
+            "(to be class-loaded and constructed with either a ConfigBag or no-arg constructor)");
 
     public static final ConfigKey<String> LOCAL_TEMP_DIR = SshTool.PROP_LOCAL_TEMP_DIR;
     

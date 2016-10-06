@@ -25,6 +25,11 @@ import com.google.common.annotations.Beta;
  * <p>
  * Users are strongly encouraged to sub-class {@link BasicMachineLocationCustomizer}, to give
  * some protection against this {@link Beta} API changing in future releases.
+ * 
+ * Customizers can be instantiated on-demand, so the {@link #customize(MachineLocation)}
+ * and {@link #preRelease(MachineLocation)} methods may not be called on the same instance. 
+ * This is always true after a Brooklyn restart, and may be true at other times depending 
+ * how the customizer has been wired in.
  */
 @Beta
 public interface MachineLocationCustomizer {
