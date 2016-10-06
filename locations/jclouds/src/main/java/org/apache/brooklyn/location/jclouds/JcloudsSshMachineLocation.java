@@ -132,8 +132,6 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
 
     private transient Optional<Image> _image;
 
-    private RunScriptOnNode.Factory runScriptFactory;
-    
     public JcloudsSshMachineLocation() {
     }
     
@@ -152,8 +150,6 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
     public void init() {
         if (jcloudsParent != null) {
             super.init();
-            ComputeServiceContext context = jcloudsParent.getComputeService().getContext();
-            runScriptFactory = context.utils().injector().getInstance(RunScriptOnNode.Factory.class);
         } else {
             // TODO Need to fix the rebind-detection, and not call init() on rebind.
             // This will all change when locations become entities.
@@ -167,13 +163,10 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
     public void rebind() {
         super.rebind();
         
-        if (jcloudsParent != null) {
+        if (jcloudsParent == null) {
             // can be null on rebind, if location has been "orphaned" somehow
-            ComputeServiceContext context = jcloudsParent.getComputeService().getContext();
-            runScriptFactory = context.utils().injector().getInstance(RunScriptOnNode.Factory.class);
-        } else {
-            LOG.warn("Location {} does not have parent; cannot retrieve jclouds compute-service or "
-                    + "run-script factory; later operations may fail (continuing)", this);
+            LOG.warn("Location {} does not have parent; cannot retrieve jclouds compute-service; "
+                    + "later operations may fail (continuing)", this);
         }
         clearDeprecatedProperties();
     }
@@ -443,12 +436,20 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
      */
     @Deprecated
     public ListenableFuture<ExecResponse> submitRunScript(Statement script, RunScriptOptions options) {
+        JcloudsLocation jcloudsParent = getParent();
         Optional<NodeMetadata> node = getOptionalNode();
-        if (node.isPresent()) {
-            return runScriptFactory.submit(node.get(), script, options);
-        } else {
+
+        if (!node.isPresent()) {
             throw new IllegalStateException("Node "+nodeId+" not present in "+getParent());
         }
+        if (jcloudsParent == null) {
+            throw new IllegalStateException("No jclouds parent location for "+this+"; cannot retrieve jclouds script-runner");
+        }
+
+        ComputeServiceContext context = jcloudsParent.getComputeService().getContext();
+        RunScriptOnNode.Factory runScriptFactory = context.utils().injector().getInstance(RunScriptOnNode.Factory.class);
+        
+        return runScriptFactory.submit(node.get(), script, options);
     }
     
     /**

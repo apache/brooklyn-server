@@ -26,7 +26,7 @@ import java.util.List;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.core.location.access.PortForwardManagerImpl;
-import org.apache.brooklyn.location.jclouds.AbstractJcloudsStubbedLiveTest;
+import org.apache.brooklyn.location.jclouds.AbstractJcloudsStubbedUnitTest;
 import org.apache.brooklyn.location.jclouds.JcloudsLocation;
 import org.apache.brooklyn.location.jclouds.JcloudsSshMachineLocation;
 import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.AbstractNodeCreator;
@@ -39,6 +39,7 @@ import org.jclouds.compute.domain.Template;
 import org.jclouds.domain.LoginCredentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Optional;
@@ -48,17 +49,12 @@ import com.google.common.collect.Lists;
 import com.google.common.net.HostAndPort;
 
 /**
- * The VM creation is stubbed out, but it still requires live access (i.e. real account credentials)
- * to generate the template etc.
- * 
- * We supply a ComputeServiceRegistry that delegates to the real instance for everything except
- * VM creation and deletion. For those operations, it delegates to a NodeCreator that 
- * returns a dummy NodeMetadata, recording all calls made to it.
+ * Confirm that port-forwarding is registered and configured correctly.
  */
-public class JcloudsPortForwardingStubbedLiveTest extends AbstractJcloudsStubbedLiveTest {
+public class JcloudsPortForwardingStubbedTest extends AbstractJcloudsStubbedUnitTest {
 
     @SuppressWarnings("unused")
-    private static final Logger LOG = LoggerFactory.getLogger(JcloudsPortForwardingStubbedLiveTest.class);
+    private static final Logger LOG = LoggerFactory.getLogger(JcloudsPortForwardingStubbedTest.class);
 
     static class RecordingJcloudsPortForwarderExtension implements JcloudsPortForwarderExtension {
         final PortForwardManager pfm;
@@ -81,7 +77,13 @@ public class JcloudsPortForwardingStubbedLiveTest extends AbstractJcloudsStubbed
         }
     }
 
+    @BeforeMethod(alwaysRun=true)
     @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of());
+    }
+    
     protected AbstractNodeCreator newNodeCreator() {
         return new AbstractNodeCreator() {
             int nextIpSuffix = 2;
@@ -105,8 +107,8 @@ public class JcloudsPortForwardingStubbedLiveTest extends AbstractJcloudsStubbed
         return (AbstractNodeCreator) nodeCreator;
     }
 
-    @Test(groups = {"Live", "Live-sanity"})
-    protected void testPortForwardingCallsForwarder() throws Exception {
+    @Test
+    public void testPortForwardingCallsForwarder() throws Exception {
         PortForwardManager pfm = new PortForwardManagerImpl();
         RecordingJcloudsPortForwarderExtension portForwarder = new RecordingJcloudsPortForwarderExtension(pfm);
         
@@ -116,7 +118,7 @@ public class JcloudsPortForwardingStubbedLiveTest extends AbstractJcloudsStubbed
         
         NodeMetadata created = getNodeCreator().created.get(0);
         assertEquals(getNodeCreator().created.size(), 1, "created="+getNodeCreator().created+"; machine="+machine);
-        assertEquals(machine.getNode(), created);
+        assertEquals(machine.getOptionalNode().get(), created);
         assertEquals(portForwarder.opens.size(), 1, "opens="+portForwarder.opens+"; machine="+machine);
         assertEquals(portForwarder.opens.get(0).get(0), created);
         assertEquals(portForwarder.opens.get(0).get(1), 22);
@@ -135,8 +137,8 @@ public class JcloudsPortForwardingStubbedLiveTest extends AbstractJcloudsStubbed
         assertEquals(portForwarder.closes.get(0).get(3), Protocol.TCP);
     }
     
-    @Test(groups = {"Live", "Live-sanity"})
-    protected void testDeregistersWithPortForwardManagerOnRelease() throws Exception {
+    @Test
+    public void testDeregistersWithPortForwardManagerOnRelease() throws Exception {
         PortForwardManager pfm = new PortForwardManagerImpl();
         RecordingJcloudsPortForwarderExtension portForwarder = new RecordingJcloudsPortForwarderExtension(pfm);
         
@@ -164,8 +166,8 @@ public class JcloudsPortForwardingStubbedLiveTest extends AbstractJcloudsStubbed
         assertEquals(portForwarder.closes.get(0).get(3), Protocol.TCP);
     }
     
-    @Test(groups = {"Live", "Live-sanity"})
-    protected void testReleaseVmDoesNotImpactOtherVms() throws Exception {
+    @Test
+    public void testReleaseVmDoesNotImpactOtherVms() throws Exception {
         PortForwardManager pfm = new PortForwardManagerImpl();
         RecordingJcloudsPortForwarderExtension portForwarder = new RecordingJcloudsPortForwarderExtension(pfm);
         
