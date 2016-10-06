@@ -410,7 +410,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
     }
 
-    protected Collection<JcloudsLocationCustomizer> getCustomizers(ConfigBag setup) {
+    public Collection<JcloudsLocationCustomizer> getCustomizers(ConfigBag setup) {
         @SuppressWarnings("deprecation")
         JcloudsLocationCustomizer customizer = setup.get(JCLOUDS_LOCATION_CUSTOMIZER);
         Collection<JcloudsLocationCustomizer> customizers = setup.get(JCLOUDS_LOCATION_CUSTOMIZERS);
@@ -691,9 +691,12 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             LoginCredentials userCredentials = null;
             Set<? extends NodeMetadata> nodes;
             Template template;
+            Collection<JcloudsLocationCustomizer> customizers = getCustomizers(setup);
+            Collection<MachineLocationCustomizer> machineCustomizers = getMachineCustomizers(setup);
+            
             try {
                 // Setup the template
-                template = buildTemplate(computeService, setup);
+                template = buildTemplate(computeService, setup, customizers);
                 boolean expectWindows = isWindows(template, setup);
                 if (!skipJcloudsSshing) {
                     if (expectWindows) {
@@ -725,7 +728,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     }
                 }
                 
-                customizeTemplate(setup, computeService, template);
+                customizeTemplate(computeService, template, customizers);
                 
                 LOG.debug("jclouds using template {} / options {} to provision machine in {}",
                         new Object[] {template, template.getOptions(), setup.getDescription()});
@@ -1051,11 +1054,11 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             }
 
             // Apply any optional app-specific customization.
-            for (JcloudsLocationCustomizer customizer : getCustomizers(setup)) {
+            for (JcloudsLocationCustomizer customizer : customizers) {
                 LOG.debug("Customizing machine {}, using customizer {}", machineLocation, customizer);
                 customizer.customize(this, computeService, machineLocation);
             }
-            for (MachineLocationCustomizer customizer : getMachineCustomizers(setup)) {
+            for (MachineLocationCustomizer customizer : machineCustomizers) {
                 LOG.debug("Customizing machine {}, using customizer {}", machineLocation, customizer);
                 customizer.customize(machineLocation);
             }
@@ -1574,8 +1577,8 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     }
 
     /** hook whereby template customizations can be made for various clouds */
-    protected void customizeTemplate(ConfigBag setup, ComputeService computeService, Template template) {
-        for (JcloudsLocationCustomizer customizer : getCustomizers(setup)) {
+    protected void customizeTemplate(ComputeService computeService, Template template, Collection<JcloudsLocationCustomizer> customizers) {
+        for (JcloudsLocationCustomizer customizer : customizers) {
             customizer.customize(this, computeService, template);
             customizer.customize(this, computeService, template.getOptions());
         }
@@ -1639,9 +1642,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
         return BrooklynImageChooser.cloneFor(chooser, computeService, config);
     }
-    
+
     /** returns the jclouds Template which describes the image to be built, for the given config and compute service */
-    public Template buildTemplate(ComputeService computeService, ConfigBag config) {
+    public Template buildTemplate(ComputeService computeService, ConfigBag config, Collection<JcloudsLocationCustomizer> customizers) {
         TemplateBuilder templateBuilder = (TemplateBuilder) config.get(TEMPLATE_BUILDER);
         if (templateBuilder==null) {
             templateBuilder = new PortableTemplateBuilder<PortableTemplateBuilder<?>>();
@@ -1687,7 +1690,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
 
         // Then apply any optional app-specific customization.
-        for (JcloudsLocationCustomizer customizer : getCustomizers(config)) {
+        for (JcloudsLocationCustomizer customizer : customizers) {
             customizer.customize(this, computeService, templateBuilder);
         }
 
@@ -2726,7 +2729,10 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         Exception tothrow = null;
 
         ConfigBag setup = config().getBag();
-        for (JcloudsLocationCustomizer customizer : getCustomizers(setup)) {
+        Collection<JcloudsLocationCustomizer> customizers = getCustomizers(setup);
+        Collection<MachineLocationCustomizer> machineCustomizers = getMachineCustomizers(setup);
+        
+        for (JcloudsLocationCustomizer customizer : customizers) {
             try {
                 customizer.preRelease(machine);
             } catch (Exception e) {
@@ -2736,7 +2742,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 if (tothrow==null) tothrow = e;
             }
         }
-        for (MachineLocationCustomizer customizer : getMachineCustomizers(setup)) {
+        for (MachineLocationCustomizer customizer : machineCustomizers) {
             customizer.preRelease(machine);
         }
 
@@ -2763,7 +2769,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
         removeChild(machine);
 
-        for (JcloudsLocationCustomizer customizer : getCustomizers(setup)) {
+        for (JcloudsLocationCustomizer customizer : customizers) {
             try {
                 customizer.postRelease(machine);
             } catch (Exception e) {

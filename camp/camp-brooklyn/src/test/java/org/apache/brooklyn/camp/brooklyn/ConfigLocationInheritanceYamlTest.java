@@ -21,6 +21,7 @@ package org.apache.brooklyn.camp.brooklyn;
 import static org.testng.Assert.assertEquals;
 
 import java.net.URI;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -36,6 +37,7 @@ import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.location.jclouds.ComputeServiceRegistry;
 import org.apache.brooklyn.location.jclouds.JcloudsLocation;
 import org.apache.brooklyn.location.jclouds.JcloudsLocationConfig;
+import org.apache.brooklyn.location.jclouds.JcloudsLocationCustomizer;
 import org.apache.brooklyn.location.jclouds.JcloudsLocationResolver;
 import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry;
 import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.SingleNodeCreator;
@@ -139,9 +141,10 @@ public class ConfigLocationInheritanceYamlTest extends AbstractYamlTest {
     public static class RecordingJcloudsLocation extends JcloudsLocation {
         public final List<ConfigBag> templateConfigs = Lists.newCopyOnWriteArrayList();
         
-        public Template buildTemplate(ComputeService computeService, ConfigBag config) {
+        @Override
+        public Template buildTemplate(ComputeService computeService, ConfigBag config, Collection<JcloudsLocationCustomizer> customizers) {
             templateConfigs.add(config);
-            return super.buildTemplate(computeService, config);
+            return super.buildTemplate(computeService, config, customizers);
         }
     }
 
@@ -159,6 +162,7 @@ public class ConfigLocationInheritanceYamlTest extends AbstractYamlTest {
                 return "jclouds-config-test";
             }
 
+            @Override
             protected Class<? extends JcloudsLocation> getLocationClass() {
                 return RecordingJcloudsLocation.class;
             }
