@@ -1,3 +1,34 @@
+###
+ # Application blueprints and tests for testing deployment to Swarm endpoints, and hybrid
+ # deployments that span VMs and swarm containers.
+ #
+ # It deploys a multi-node blueprint, consisting of:
+ #  - a cluster of Tomcat nodes (size 1)
+ #  - nginx
+ #  - database
+ #
+ # It asserts that:
+ #  - app comes up
+ #  - via nginx, we can connect to the web-app
+ #  - via nginx (and the web-app), we can write to the database and read from database
+ # 
+ # The different variants of the test will:
+ #  - everything running in swarm;
+ #    See "multi-node-app-swarm".
+ #  - hybrid: comms from VM into the containers (nginx on a VM);
+ #    See "multi-node-app-cloud-to-swarm".
+ #  - hybrid: comms from the containers out to the VM (database on a VM);
+ #    See "multi-node-app-swarm-to-cloud".
+ #
+ # Tests assume that there is a pre-existing location defined with the name "testing-swarm",
+ # which is a swarm endpoint.
+ #
+ # It assumes that the tests are run against a location in which VMs can be provisioned
+ # (which is then overridden where "testing-swarm" should instead be used). For example,
+ # "multi-node-app-cloud-to-swarm" deploys nginx to the location passed in; and 
+ # deploys the tomcat-webapp-cluster to "testing-swarm".
+ ##
+ 
 brooklyn.catalog:
   version: "2.1.0-SNAPSHOT" # CONTAINER_SERVICE_VERSION
   iconUrl: https://raw.githubusercontent.com/docker-library/docs/471fa6e4cb58062ccbf91afc111980f9c7004981/swarm/logo.png
@@ -6,9 +37,6 @@ brooklyn.catalog:
     - commontests/common.tests.bom
   license_code: CLOUDSOFT-1.0
 
-##
-# Application blueprints and tests for testing deployment to Swarm endpoints
-##
 
   items:
 
@@ -177,21 +205,6 @@ brooklyn.catalog:
           assert:
             - contains: "myname"
             - contains: "mymessage"
-
-  ###
-  # Deploys a multi-node blueprint, consisting of:
-  #  - a cluster of Tomcat nodes (size 1)
-  #  - nginx
-  #  - database
-  #
-  # Asserts that:
-  #  - app comes up
-  #  - via nginx, can connect to web-app
-  #  - via nginx, can write to database and read from database
-  #
-  # The different versions test communication between Swarm containers and
-  # Cloud virtual machines going in both directions.
-  ##
 
   - id: deploy-multi-node-app-swarm
     name: "Multi Node Swarm App"
