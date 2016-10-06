@@ -83,9 +83,6 @@ brooklyn.catalog:
         provisioning.properties:
           osFamily: centos
           osVersionRegex: 7
-        pre.install.command: |
-          # FIXME mysql should install perl itself!
-          sudo yum install -y perl perl-Data-Dumper
         datastore.creation.script.url:
           "https://github.com/apache/brooklyn-library/raw/master/examples/simple-web-cluster/src/main/resources/visitors-creation-script.sql"
       brooklyn.enrichers:
