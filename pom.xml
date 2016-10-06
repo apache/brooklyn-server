@@ -18,7 +18,6 @@
         <groupId>org.apache.brooklyn</groupId>
         <artifactId>brooklyn-downstream-parent</artifactId>
         <version>0.10.0-SNAPSHOT</version>  <!-- BROOKLYN_VERSION -->
-        <relativePath>../pom.xml</relativePath>
     </parent>
 
     <licenses>
