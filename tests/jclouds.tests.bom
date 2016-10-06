@@ -83,7 +83,7 @@ brooklyn.catalog:
     item:
       name: TEST [container.ip] [exists]
       description: Make sure we have an eagerly evaluated container ip, before we stop the container
-      type: sensor-test
+      type: assert-sensor
       sensor: container.ip
       target: $brooklyn:ancestor("test-scope").descendant("swarm-master")
       assert:
@@ -92,7 +92,7 @@ brooklyn.catalog:
   - id: assert-container-destroyed
     item:
       name: Assert container is destroyed
-      type: ssh-test
+      type: test-ssh
       target: $brooklyn:ancestor("test-scope").descendant("swarm-master")
       shell.env:
         HOST_ADDRESS: $brooklyn:ancestor("test-scope").descendant("swarm-master").attributeWhenReady("host.address")
@@ -110,7 +110,7 @@ brooklyn.catalog:
   - id: wait-for-dd
     item:
       name: Wait for dd to complete
-      type: ssh-test
+      type: test-ssh
       target: $brooklyn:ancestor("test-scope").descendant("swarm-master")
       shell.env:
         HOST_ADDRESS: $brooklyn:ancestor("test-scope").descendant("swarm-master").attributeWhenReady("host.address")
@@ -139,7 +139,7 @@ brooklyn.catalog:
   - id: assert-location-image
     item:
       name: Assert specific image is used
-      type: ssh-test
+      type: test-ssh
       brooklyn.config:
         target: $brooklyn:ancestor("test-scope").descendant("swarm-master")
         shell.env:
@@ -159,7 +159,7 @@ brooklyn.catalog:
   - id: docker-pull-image
     item:
       name: Pull Docker image
-      type: ssh-test
+      type: test-ssh
       brooklyn.config:
         target: $brooklyn:ancestor("test-scope").descendant("swarm-master")
         shell.env:

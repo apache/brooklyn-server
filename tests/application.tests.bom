@@ -286,7 +286,7 @@ brooklyn.catalog:
                 - type: assert-up
                 - type: assert-running
                 # Can ssh
-                - type: ssh-test
+                - type: test-ssh
                   command: |
                     echo "hello-world"
                   assertStatus:
