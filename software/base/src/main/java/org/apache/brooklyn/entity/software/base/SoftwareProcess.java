@@ -29,6 +29,7 @@ import org.apache.brooklyn.core.annotation.Effector;
 import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
+import org.apache.brooklyn.core.effector.EffectorBody;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
@@ -36,6 +37,7 @@ import org.apache.brooklyn.core.entity.lifecycle.Lifecycle.Transition;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.time.Duration;
 
@@ -275,6 +277,12 @@ public interface SoftwareProcess extends Entity, Startable {
             "The period for polling for whether the process is running; applies only if the entity "
                     + "wires up the connectServiceUpIsRunning.",
             Duration.FIVE_SECONDS);
+
+    ConfigKey<Object> BROOKLYN_LOCATION_EXTRA_HDD_EFFECTOR = ConfigKeys.newConfigKey(new TypeToken<Object>() {}, "brooklyn.location.extra.hdd.effector",
+            "TODO - description");
+
+    ConfigKey<Map<?,?>> LOCATION_CUSTOMIZER_FIELDS = ConfigKeys.newConfigKey(new TypeToken<Map<?,?>>() {}, "location.customizer.fields",
+            "Map of location customizer fields", MutableMap.of());
     
     /**
      * Sets the object that manages the sequence of calls of the entity's driver.
