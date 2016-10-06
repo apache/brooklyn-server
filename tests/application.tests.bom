@@ -2,7 +2,8 @@ brooklyn.catalog:
   version: "2.1.0-SNAPSHOT" # CONTAINER_SERVICE_VERSION
   iconUrl: https://raw.githubusercontent.com/docker-library/docs/471fa6e4cb58062ccbf91afc111980f9c7004981/swarm/logo.png
   dependsOn:
-    - tests/common.tests.bom
+    # From https://github.com/brooklyncentral/common-catalog-utils
+    - commontests/common.tests.bom
   license_code: CLOUDSOFT-1.0
 
 ##
