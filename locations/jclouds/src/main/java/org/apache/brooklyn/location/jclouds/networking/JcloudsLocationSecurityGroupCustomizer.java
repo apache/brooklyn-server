@@ -20,6 +20,7 @@ package org.apache.brooklyn.location.jclouds.networking;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -454,11 +455,9 @@ public class JcloudsLocationSecurityGroupCustomizer extends BasicJcloudsLocation
     private SecurityGroup createBaseSecurityGroupInLocation(String groupName, Location location, SecurityGroupExtension securityApi) {
         SecurityGroup group = addSecurityGroupInLocation(groupName, location, securityApi);
 
-        Set<String> openstackNovaIds = getJcloudsLocationIds("openstack-nova");
-
         String groupId = group.getProviderId();
         int fromPort = 0;
-        if (location.getParent() != null && Iterables.contains(openstackNovaIds, location.getParent().getId())) {
+        if (isOpenstackNova(location)) {
             groupId = group.getId();
             fromPort = 1;
         }
@@ -470,7 +469,9 @@ public class JcloudsLocationSecurityGroupCustomizer extends BasicJcloudsLocation
                 .toPort(65535);
         addPermission(allWithinGroup.ipProtocol(IpProtocol.TCP).build(), group, securityApi);
         addPermission(allWithinGroup.ipProtocol(IpProtocol.UDP).build(), group, securityApi);
-        addPermission(allWithinGroup.ipProtocol(IpProtocol.ICMP).fromPort(-1).toPort(-1).build(), group, securityApi);
+        if (!isAzure(location)) {
+            addPermission(allWithinGroup.ipProtocol(IpProtocol.ICMP).fromPort(-1).toPort(-1).build(), group, securityApi);
+        }
 
         IpPermission sshPermission = IpPermission.builder()
                 .fromPort(22)
@@ -484,11 +485,15 @@ public class JcloudsLocationSecurityGroupCustomizer extends BasicJcloudsLocation
     }
 
     private Set<String> getJcloudsLocationIds(final String jcloudsApiId) {
+        return getJcloudsLocationIds(ImmutableList.of(jcloudsApiId));
+    }
+    
+    private Set<String> getJcloudsLocationIds(final Collection<? extends String> jcloudsApiIds) {
         Set<String> openstackNovaProviders = FluentIterable.from(Providers.all())
                 .filter(new Predicate<ProviderMetadata>() {
             @Override
             public boolean apply(ProviderMetadata providerMetadata) {
-                return providerMetadata.getApiMetadata().getId().equals(jcloudsApiId);
+                return jcloudsApiIds.contains(providerMetadata.getApiMetadata().getId());
             }
         }).transform(new Function<ProviderMetadata, String>() {
             @Nullable
@@ -500,10 +505,20 @@ public class JcloudsLocationSecurityGroupCustomizer extends BasicJcloudsLocation
 
         return new ImmutableSet.Builder<String>()
                 .addAll(openstackNovaProviders)
-                .add(jcloudsApiId)
+                .addAll(jcloudsApiIds)
                 .build();
     }
 
+    private boolean isOpenstackNova(Location location) {
+        Set<String> computeIds = getJcloudsLocationIds(ImmutableList.of("openstack-nova", "openstack-mitaka-nova", "openstack-devtest-compute"));
+        return location.getParent() != null && Iterables.contains(computeIds, location.getParent().getId());
+    }
+    
+    private boolean isAzure(Location location) {
+        Set<String> computeIds = getJcloudsLocationIds("azurecompute");
+        return location.getParent() != null && Iterables.contains(computeIds, location.getParent().getId());
+    }
+    
     protected SecurityGroup addSecurityGroupInLocation(final String groupName, final Location location, final SecurityGroupExtension securityApi) {
         LOG.debug("Creating security group {} in {}", groupName, location);
         Callable<SecurityGroup> callable = new Callable<SecurityGroup>() {
