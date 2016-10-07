@@ -292,6 +292,7 @@
         <feature>jclouds-aws-s3</feature>
         <feature>jclouds-azureblob</feature>
         <feature>jclouds-api-atmos</feature>
+        <feature>jclouds-api-swift</feature>
         <feature>jclouds-api-openstack-swift</feature>
         <feature>jclouds-rackspace-cloudfiles-uk</feature>
         <feature>jclouds-rackspace-cloudfiles-us</feature>
