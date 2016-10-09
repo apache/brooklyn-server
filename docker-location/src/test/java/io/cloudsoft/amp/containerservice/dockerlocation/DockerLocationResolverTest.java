@@ -15,11 +15,13 @@ import org.testng.annotations.Test;
 
 public class DockerLocationResolverTest extends BrooklynMgmtUnitTestSupport {
 
+    @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(DockerLocationResolverTest.class);
     
     private BrooklynProperties brooklynProperties;
 
     @BeforeMethod(alwaysRun = true)
+    @Override
     public void setUp() throws Exception {
         super.setUp();
         brooklynProperties = mgmt.getBrooklynProperties();

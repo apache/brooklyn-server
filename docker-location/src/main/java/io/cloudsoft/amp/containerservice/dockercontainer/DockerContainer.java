@@ -43,9 +43,10 @@ public interface DockerContainer extends SoftwareProcess {
                    "docker.container.imageName",
                    "Image name to pull from docker hub");
 
+   @SuppressWarnings("serial")
    ConfigKey<Iterable<String>> INBOUND_TCP_PORTS =
            ConfigKeys.newConfigKey(
-                   new TypeToken<Iterable<String>>() { },
+                   new TypeToken<Iterable<String>>() {},
                    "docker.container.inboundPorts",
                    "List of ports, that the docker image opens, to be made public");
 }
