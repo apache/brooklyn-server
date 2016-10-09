@@ -2,6 +2,7 @@ package io.cloudsoft.amp.containerservice.dockerlocation;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.util.Collection;
 import java.util.List;
 
 import javax.annotation.Nullable;
@@ -11,6 +12,7 @@ import org.apache.brooklyn.api.location.NoMachinesAvailableException;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.location.jclouds.JcloudsLocation;
+import org.apache.brooklyn.location.jclouds.JcloudsLocationCustomizer;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.text.Identifiers;
@@ -120,13 +122,13 @@ public class DockerJcloudsLocation extends JcloudsLocation {
     }
     
     @Override
-    public Template buildTemplate(ComputeService computeService, ConfigBag config) {
+    public Template buildTemplate(ComputeService computeService, ConfigBag config, Collection<JcloudsLocationCustomizer> customizers) {
         String loginUser = config.get(JcloudsLocation.LOGIN_USER);
         String loginPassword = config.get(JcloudsLocation.LOGIN_USER_PASSWORD);
         String loginKeyFile = config.get(JcloudsLocation.LOGIN_USER_PRIVATE_KEY_FILE);
         String loginKeyData = config.get(JcloudsLocation.LOGIN_USER_PRIVATE_KEY_DATA);
 
-        Template template = super.buildTemplate(computeService, config);
+        Template template = super.buildTemplate(computeService, config, customizers);
         Image image = template.getImage();
 
         // Inject login credentials, if required
