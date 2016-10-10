@@ -18,9 +18,6 @@
  */
 package org.apache.brooklyn.policy;
 
-import java.util.Map;
-
-import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
@@ -62,10 +59,9 @@ public class InvokeEffectorOnSensorChange extends AbstractPolicy implements Sens
         subscriptions().subscribe(entity, (Sensor<?>)sensor, this);
     }
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
     @Override
     public void onEvent(SensorEvent<Object> event) {
-        entity.invoke((Effector)entity.getEntityType().getEffectorByName( getConfig(EFFECTOR) ).get(), (Map)MutableMap.of());
+        entity.invoke(entity.getEntityType().getEffectorByName(getConfig(EFFECTOR)).get(), MutableMap.<String, Object>of());
     }
     
 }
