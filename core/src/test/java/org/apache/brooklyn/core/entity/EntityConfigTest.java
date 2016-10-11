@@ -209,6 +209,32 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
         assertEquals(entity.config().getNonBlocking(TestEntity.CONF_MAP_THING.subKey("mysub")).get(), "myval");
     }
     
+    @Test
+    public void testGetConfigMapWithCoercedStringToMap() throws Exception {
+        TestEntity entity = mgmt.getEntityManager().createEntity(EntitySpec.create(TestEntity.class)
+                .configure(TestEntity.CONF_MAP_THING.getName(), "{mysub: myval}"));
+        assertEquals(entity.config().get(TestEntity.CONF_MAP_THING), ImmutableMap.of("mysub", "myval"));
+        
+        TestEntity entity2 = mgmt.getEntityManager().createEntity(EntitySpec.create(TestEntity.class)
+                .configure(TestEntity.CONF_MAP_THING.getName(), "{mysub: {sub2: myval}}"));
+        assertEquals(entity2.config().get(TestEntity.CONF_MAP_THING), ImmutableMap.of("mysub", ImmutableMap.of("sub2", "myval")));
+    }
+    
+    @Test
+    public void testGetConfigMapWithSubValueAsStringNotCoerced() throws Exception {
+        TestEntity entity = mgmt.getEntityManager().createEntity(EntitySpec.create(TestEntity.class)
+                .configure(TestEntity.CONF_MAP_THING, ImmutableMap.of("mysub", "{a: b}")));
+        assertEquals(entity.config().get(TestEntity.CONF_MAP_THING), ImmutableMap.of("mysub", "{a: b}"));
+        
+        TestEntity entity2 = mgmt.getEntityManager().createEntity(EntitySpec.create(TestEntity.class)
+                .configure(TestEntity.CONF_MAP_THING.subKey("mysub"), "{a: b}"));
+        assertEquals(entity2.config().get(TestEntity.CONF_MAP_THING), ImmutableMap.of("mysub", "{a: b}"));
+        
+        TestEntity entity3 = mgmt.getEntityManager().createEntity(EntitySpec.create(TestEntity.class)
+                .configure(TestEntity.CONF_MAP_THING.getName(), ImmutableMap.of("mysub", "{a: b}")));
+        assertEquals(entity3.config().get(TestEntity.CONF_MAP_THING), ImmutableMap.of("mysub", "{a: b}"));
+    }
+    
     // TODO This now fails because the task has been cancelled, in entity.config().get().
     // But it used to pass (e.g. with commit 56fcc1632ea4f5ac7f4136a7e04fabf501337540).
     // It failed after the rename of CONF_MAP_THING_OBJ to CONF_MAP_OBJ_THING, which 

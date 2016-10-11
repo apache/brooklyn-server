@@ -33,10 +33,6 @@ import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.Abstra
 import org.apache.brooklyn.util.net.Cidr;
 import org.apache.brooklyn.util.net.Protocol;
 import org.jclouds.compute.domain.NodeMetadata;
-import org.jclouds.compute.domain.NodeMetadata.Status;
-import org.jclouds.compute.domain.NodeMetadataBuilder;
-import org.jclouds.compute.domain.Template;
-import org.jclouds.domain.LoginCredentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
@@ -81,28 +77,9 @@ public class JcloudsPortForwardingStubbedTest extends AbstractJcloudsStubbedUnit
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of());
+        initNodeCreatorAndJcloudsLocation(newVanillaNodeCreator(), ImmutableMap.of());
     }
     
-    protected AbstractNodeCreator newNodeCreator() {
-        return new AbstractNodeCreator() {
-            int nextIpSuffix = 2;
-            @Override
-            protected NodeMetadata newNode(String group, Template template) {
-                int ipSuffix = nextIpSuffix++;
-                NodeMetadata result = new NodeMetadataBuilder()
-                        .id("myid-"+ipSuffix)
-                        .credentials(LoginCredentials.builder().identity("myuser").credential("mypassword").build())
-                        .loginPort(22)
-                        .status(Status.RUNNING)
-                        .publicAddresses(ImmutableList.of("173.194.32."+ipSuffix))
-                        .privateAddresses(ImmutableList.of("172.168.10."+ipSuffix))
-                        .build();
-                return result;
-            }
-        };
-    }
-
     protected AbstractNodeCreator getNodeCreator() {
         return (AbstractNodeCreator) nodeCreator;
     }
