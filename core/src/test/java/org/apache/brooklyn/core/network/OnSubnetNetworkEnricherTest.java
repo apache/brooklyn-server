@@ -196,6 +196,22 @@ public class OnSubnetNetworkEnricherTest extends BrooklynAppUnitTestSupport {
         assertAttributeEqualsEventually("stringHostAndPort.endpoint.mapped.subnet", ""+privateIp+":1234");
     }
     
+    @Test(groups="Broken")
+    public <T> void testTransformsWithDefaultPorts() throws Exception {
+        AttributeSensor<String> stringUriWithHttpNoPort = Sensors.newStringSensor("string.uriWithHttpNoPort");
+        AttributeSensor<String> stringUriWithHttpsNoPort = Sensors.newStringSensor("string.uriWithHttpsNoPort");
+
+        entity.sensors().set(Attributes.SUBNET_ADDRESS, privateIp);
+        entity.sensors().set(stringUriWithHttpNoPort, "http://"+publicIp+"/my/path");
+        entity.sensors().set(stringUriWithHttpsNoPort, "https://"+publicIp+"/my/path");
+        entity.addLocations(ImmutableList.of(machine));
+        
+        entity.enrichers().add(EnricherSpec.create(OnSubnetNetworkEnricher.class));
+
+        assertAttributeEqualsEventually("string.uriWithHttpNoPort.mapped.subnet", "http://"+privateIp+"/my/path");
+        assertAttributeEqualsEventually("string.uriWithHttpsNoPort.mapped.subnet", "https://"+privateIp+"/my/path");
+    }
+    
     @Test
     public <T> void testIgnoresNonMatchingSensors() throws Exception {
         AttributeSensor<URI> sensor1 = Sensors.newSensor(URI.class, "my.different");
