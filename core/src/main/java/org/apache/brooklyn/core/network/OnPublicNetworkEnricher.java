@@ -21,11 +21,13 @@ package org.apache.brooklyn.core.network;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.location.MachineLocation;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,6 +36,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
 import com.google.common.net.HostAndPort;
+import com.google.common.reflect.TypeToken;
 
 /**
  * Can be added to an entity so that it advertises its mapped ports (according to the port-mappings
@@ -90,6 +93,12 @@ public class OnPublicNetworkEnricher extends AbstractOnNetworkEnricher {
             "portForwardManager",
             "The PortForwardManager storing the port-mappings; if null, the global instance will be used");
     
+    @SuppressWarnings("serial")
+    public static final ConfigKey<AttributeSensor<String>> ADDRESS_SENSOR = ConfigKeys.newConfigKey(
+            new TypeToken<AttributeSensor<String>>() {}, 
+            "addressSensor",
+            "The sensor to use to retrieve the entity's public address; if null (default), then use the PortForwardManager instead");
+    
     protected PortForwardManager.AssociationListener pfmListener;
     
     @Override
@@ -137,8 +146,18 @@ public class OnPublicNetworkEnricher extends AbstractOnNetworkEnricher {
 
     @Override
     protected Optional<HostAndPort> getMappedEndpoint(Entity source, MachineLocation machine, int port) {
-        HostAndPort publicTarget = getPortForwardManager().lookup(machine, port);
-        return Optional.fromNullable(publicTarget);
+        AttributeSensor<String> sensor = config().get(ADDRESS_SENSOR);
+        if (sensor == null) {
+            HostAndPort publicTarget = getPortForwardManager().lookup(machine, port);
+            return Optional.fromNullable(publicTarget);
+        } else {
+            String address = source.sensors().get(sensor);
+            if (Strings.isNonBlank(address)) {
+                return Optional.of(HostAndPort.fromParts(address, port));
+            } else {
+                return Optional.absent();
+            }
+        }
     }
     
     protected PortForwardManager getPortForwardManager() {
