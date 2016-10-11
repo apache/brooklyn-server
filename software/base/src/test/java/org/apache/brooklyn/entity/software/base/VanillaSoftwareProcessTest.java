@@ -41,6 +41,7 @@ import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.CustomResponse;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecCmdPredicates;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecParams;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -65,6 +66,7 @@ public class VanillaSoftwareProcessTest extends BrooklynAppUnitTestSupport {
         RecordingSshTool.clear();
     }
 
+    @AfterMethod(alwaysRun=true)
     @Override
     public void tearDown() throws Exception {
         super.tearDown();

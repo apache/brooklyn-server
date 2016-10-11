@@ -65,10 +65,15 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
         return false;
     }
 
-    @AfterMethod
-    public void tearDown() {
-        for (RegisteredType ci : mgmt().getTypeRegistry().getMatching(RegisteredTypePredicates.IS_LOCATION)) {
-            mgmt().getCatalog().deleteCatalogItem(ci.getSymbolicName(), ci.getVersion());
+    @AfterMethod(alwaysRun=true)
+    @Override
+    public void tearDown() throws Exception {
+        try {
+            for (RegisteredType ci : mgmt().getTypeRegistry().getMatching(RegisteredTypePredicates.IS_LOCATION)) {
+                mgmt().getCatalog().deleteCatalogItem(ci.getSymbolicName(), ci.getVersion());
+            }
+        } finally {
+            super.tearDown();
         }
     }
     

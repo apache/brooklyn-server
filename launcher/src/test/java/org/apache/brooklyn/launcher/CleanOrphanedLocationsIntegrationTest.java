@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.launcher;
 
+import java.io.File;
 import java.util.Set;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -25,9 +26,9 @@ import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.api.mgmt.rebind.PersistenceExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.RebindManager;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
@@ -37,54 +38,85 @@ import org.apache.brooklyn.core.mgmt.rebind.PersistenceExceptionHandlerImpl;
 import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServerPaths;
+import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.collect.Sets;
+
 public class CleanOrphanedLocationsIntegrationTest extends AbstractCleanOrphanedStateTest {
 
-    private String PERSISTED_STATE_PATH_WITH_ORPHANED_LOCATIONS = "/orphaned-locations-test-data/data-with-orphaned-locations";
-    private String PERSISTED_STATE_PATH_WITH_MULTIPLE_LOCATIONS_OCCURRENCE = "/orphaned-locations-test-data/fake-multiple-location-for-multiple-search-tests";
-    private String PERSISTED_STATE_PATH_WITHOUT_ORPHANED_LOCATIONS = "/orphaned-locations-test-data/data-without-orphaned-locations";
-    private String PERSISTED_STATE_DESTINATION_PATH = "/orphaned-locations-test-data/copy-persisted-state-destination";
+    private static final Logger LOG = LoggerFactory.getLogger(CleanOrphanedLocationsIntegrationTest.class);
 
+    private final String PERSISTED_STATE_PATH_WITH_ORPHANED_LOCATIONS = "/orphaned-locations-test-data/data-with-orphaned-locations";
+    private final String PERSISTED_STATE_PATH_WITH_MULTIPLE_LOCATIONS_OCCURRENCE = "/orphaned-locations-test-data/fake-multiple-location-for-multiple-search-tests";
+    private final String PERSISTED_STATE_PATH_WITHOUT_ORPHANED_LOCATIONS = "/orphaned-locations-test-data/data-without-orphaned-locations";
 
     private String persistenceDirWithOrphanedLocations;
     private String persistenceDirWithoutOrphanedLocations;
     private String persistenceDirWithMultipleLocationsOccurrence;
-    private String destinationDir;
-    private ManagementContext managementContext;
+    private File destinationDir;
+    private Set<ManagementContext> mgmts;
+    private ManagementContext mgmt;
 
     @BeforeMethod(alwaysRun = true)
-    public void initialize() throws Exception {
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
         persistenceDirWithOrphanedLocations = getClass().getResource(PERSISTED_STATE_PATH_WITH_ORPHANED_LOCATIONS).getFile();
         persistenceDirWithoutOrphanedLocations = getClass().getResource(PERSISTED_STATE_PATH_WITHOUT_ORPHANED_LOCATIONS).getFile();
         persistenceDirWithMultipleLocationsOccurrence = getClass().getResource(PERSISTED_STATE_PATH_WITH_MULTIPLE_LOCATIONS_OCCURRENCE).getFile();
 
-        destinationDir = getClass().getResource(PERSISTED_STATE_DESTINATION_PATH).getFile();
+        destinationDir = Os.newTempDir(getClass());
+        
+        mgmts = Sets.newLinkedHashSet();
     }
 
+    @AfterMethod(alwaysRun = true)
+    @Override
+    public void tearDown() throws Exception {
+        super.tearDown();
+        
+        // contents of method copied from BrooklynMgmtUnitTestSupport
+        for (ManagementContext mgmt : mgmts) {
+            try {
+                if (mgmt != null) Entities.destroyAll(mgmt);
+            } catch (Throwable t) {
+                LOG.error("Caught exception in tearDown method", t);
+                // we should fail here, except almost always that masks a primary failure in the test itself,
+                // so it would be extremely unhelpful to do so. if we could check if test has not already failed,
+                // that would be ideal, but i'm not sure if that's possible with TestNG. ?
+            }
+        }
+        if (destinationDir != null) Os.deleteRecursively(destinationDir);
+        mgmts.clear();
+    }
+    
     private void initManagementContextAndPersistence(String persistenceDir) {
-
         BrooklynProperties brooklynProperties = BrooklynProperties.Factory.builderDefault().build();
         brooklynProperties.put(BrooklynServerConfig.MGMT_BASE_DIR.getName(), "");
         brooklynProperties.put(BrooklynServerConfig.OSGI_CACHE_DIR, "target/" + BrooklynServerConfig.OSGI_CACHE_DIR.getDefaultValue());
 
-        managementContext = new LocalManagementContext(brooklynProperties);
-
+        mgmt = LocalManagementContextForTests.newInstance(brooklynProperties);
+        mgmts.add(mgmt);
+        
         persistenceDir = BrooklynServerPaths.newMainPersistencePathResolver(brooklynProperties).dir(persistenceDir).resolve();
-        PersistenceObjectStore objectStore = BrooklynPersistenceUtils.newPersistenceObjectStore(managementContext, null, persistenceDir,
+        PersistenceObjectStore objectStore = BrooklynPersistenceUtils.newPersistenceObjectStore(mgmt, null, persistenceDir,
                 PersistMode.AUTO, HighAvailabilityMode.HOT_STANDBY);
 
         BrooklynMementoPersisterToObjectStore persister = new BrooklynMementoPersisterToObjectStore(
                 objectStore,
-                ((ManagementContextInternal)managementContext).getBrooklynProperties(),
-                managementContext.getCatalogClassLoader());
+                ((ManagementContextInternal)mgmt).getBrooklynProperties(),
+                mgmt.getCatalogClassLoader());
 
-        RebindManager rebindManager = managementContext.getRebindManager();
+        RebindManager rebindManager = mgmt.getRebindManager();
 
         PersistenceExceptionHandler persistenceExceptionHandler = PersistenceExceptionHandlerImpl.builder().build();
         ((RebindManagerImpl) rebindManager).setPeriodicPersistPeriod(Duration.ONE_SECOND);
@@ -99,7 +131,7 @@ public class CleanOrphanedLocationsIntegrationTest extends AbstractCleanOrphaned
         );
 
         initManagementContextAndPersistence(persistenceDirWithOrphanedLocations);
-        BrooklynMementoRawData mementoRawData = managementContext.getRebindManager().retrieveMementoRawData();
+        BrooklynMementoRawData mementoRawData = mgmt.getRebindManager().retrieveMementoRawData();
 
         assertTransformDeletes(new Deletions().locations(orphanedLocations), mementoRawData);
     }
@@ -107,7 +139,7 @@ public class CleanOrphanedLocationsIntegrationTest extends AbstractCleanOrphaned
     @Test
     public void testSelectionWithoutOrphanedLocationsInData() throws Exception {
         initManagementContextAndPersistence(persistenceDirWithoutOrphanedLocations);
-        BrooklynMementoRawData mementoRawData = managementContext.getRebindManager().retrieveMementoRawData();
+        BrooklynMementoRawData mementoRawData = mgmt.getRebindManager().retrieveMementoRawData();
 
         assertTransformIsNoop(mementoRawData);
     }
@@ -121,19 +153,22 @@ public class CleanOrphanedLocationsIntegrationTest extends AbstractCleanOrphaned
                 .persistenceDir(persistenceDirWithOrphanedLocations)
                 .highAvailabilityMode(HighAvailabilityMode.DISABLED);
 
+        ManagementContext mgmtForCleaning = null;
         try {
-            launcher.cleanOrphanedState(destinationDir, null);
+            launcher.cleanOrphanedState(destinationDir.getAbsolutePath(), null);
+            mgmtForCleaning = launcher.getManagementContext();
         } finally {
             launcher.terminate();
+            if (mgmtForCleaning != null) Entities.destroyAll(mgmtForCleaning);
         }
 
-        initManagementContextAndPersistence(destinationDir);
-        BrooklynMementoRawData mementoRawDataFromCleanedState = managementContext.getRebindManager().retrieveMementoRawData();
+        initManagementContextAndPersistence(destinationDir.getAbsolutePath());
+        BrooklynMementoRawData mementoRawDataFromCleanedState = mgmt.getRebindManager().retrieveMementoRawData();
         Asserts.assertTrue(mementoRawDataFromCleanedState.getEntities().size() != 0);
         Asserts.assertTrue(mementoRawDataFromCleanedState.getLocations().size() != 0);
 
         initManagementContextAndPersistence(persistenceDirWithoutOrphanedLocations);
-        BrooklynMementoRawData mementoRawData = managementContext.getRebindManager().retrieveMementoRawData();
+        BrooklynMementoRawData mementoRawData = mgmt.getRebindManager().retrieveMementoRawData();
 
         assertRawData(mementoRawData, mementoRawDataFromCleanedState);
     }
@@ -141,13 +176,8 @@ public class CleanOrphanedLocationsIntegrationTest extends AbstractCleanOrphaned
     @Test
     public void testMultipleLocationOccurrenceInEntity() throws Exception {
         initManagementContextAndPersistence(persistenceDirWithMultipleLocationsOccurrence);
-        BrooklynMementoRawData mementoRawData = managementContext.getRebindManager().retrieveMementoRawData();
+        BrooklynMementoRawData mementoRawData = mgmt.getRebindManager().retrieveMementoRawData();
         
         assertTransformIsNoop(mementoRawData);
-    }
-
-    @AfterMethod
-    public void cleanCopiedPersistedState() {
-
     }
 }

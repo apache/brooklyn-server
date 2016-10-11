@@ -35,6 +35,7 @@ import org.apache.brooklyn.util.core.internal.winrm.RecordingWinRmTool;
 import org.apache.brooklyn.util.core.internal.winrm.RecordingWinRmTool.ExecParams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -60,6 +61,7 @@ public class VanillaWindowsProcessTest extends BrooklynAppUnitTestSupport {
         RecordingWinRmTool.clear();
     }
 
+    @AfterMethod(alwaysRun=true)
     @Override
     public void tearDown() throws Exception {
         super.tearDown();
