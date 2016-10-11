@@ -147,13 +147,19 @@ public interface Attributes {
     AttributeSensor<String> LOG_FILE_LOCATION = Sensors.newStringSensor("log.location", "Log file location");
     
     AttributeSensor<URI> MAIN_URI = MainUri.MAIN_URI;
+    AttributeSensor<URI> MAIN_URI_MAPPED_SUBNET = MainUri.MAIN_URI_MAPPED_SUBNET;
+    AttributeSensor<URI> MAIN_URI_MAPPED_PUBLIC = MainUri.MAIN_URI_MAPPED_PUBLIC;
 
     // this class is added because the MAIN_URI relies on a static initialization which unfortunately can't be added to an interface.
     class MainUri {
         private final static AttributeSensor<URI> MAIN_URI = Sensors.newSensor(URI.class, "main.uri", "Main URI for contacting the service/endpoint offered by this entity");
+        private final static AttributeSensor<URI> MAIN_URI_MAPPED_SUBNET = Sensors.newSensor(URI.class, "main.uri.mapped.subnet", "Main URI for contacting the service/endpoint offered by this entity from the same subnet");
+        private final static AttributeSensor<URI> MAIN_URI_MAPPED_PUBLIC = Sensors.newSensor(URI.class, "main.uri.mapped.public", "Main URI for contacting the service/endpoint offered by this entity from the outside world");
 
         static {
             RendererHints.register(MAIN_URI, RendererHints.namedActionWithUrl());
+            RendererHints.register(MAIN_URI_MAPPED_SUBNET, RendererHints.namedActionWithUrl());
+            RendererHints.register(MAIN_URI_MAPPED_PUBLIC, RendererHints.namedActionWithUrl());
         }
     }
 
