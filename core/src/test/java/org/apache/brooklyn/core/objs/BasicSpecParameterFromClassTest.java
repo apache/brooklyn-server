@@ -27,27 +27,20 @@ import java.util.Map;
 import org.apache.brooklyn.api.catalog.CatalogConfig;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.ImplementedBy;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 
-public class BasicSpecParameterFromClassTest {
-    private ManagementContext mgmt;
-    @BeforeMethod(alwaysRun=true)
-    public void setUp() {
-        mgmt = LocalManagementContextForTests.newInstance();
-    }
+public class BasicSpecParameterFromClassTest extends BrooklynMgmtUnitTestSupport {
 
     public interface SpecParameterTestEntity extends Entity {
         @CatalogConfig(label="String Key", priority=3, pinned = false)
