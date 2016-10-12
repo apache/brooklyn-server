@@ -55,6 +55,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -137,7 +138,10 @@ public class JcloudsByonLocationResolverStubbedRebindTest extends AbstractJcloud
     @Test
     public void testRebind() throws Exception {
         String spec = "jcloudsByon:(provider=\""+SOFTLAYER_PROVIDER+"\",region=\""+SOFTLAYER_AMS01_REGION_NAME+"\",user=\"myuser\",password=\"mypassword\",hosts=\""+nodeId+"\")";
-        Map<?,?> specFlags = ImmutableMap.of(JcloudsLocationConfig.COMPUTE_SERVICE_REGISTRY, computeServiceRegistry);
+        Map<?,?> specFlags = ImmutableMap.builder()
+                .put(JcloudsLocationConfig.COMPUTE_SERVICE_REGISTRY, computeServiceRegistry)
+                .put(JcloudsLocation.POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE, Predicates.alwaysTrue())
+                .build();
 
         FixedListMachineProvisioningLocation<MachineLocation> location = getLocationManaged(spec, specFlags);
         JcloudsSshMachineLocation machine = (JcloudsSshMachineLocation) Iterables.getOnlyElement(location.getAllMachines());
