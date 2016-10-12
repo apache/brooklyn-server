@@ -90,7 +90,7 @@ public class Transformer<T,U> extends AbstractTransformer<T,U> {
                 return (U) Tasks.resolving(targetValueRaw).as(targetSensor.getType())
                     .context(entity)
                     .description("Computing sensor "+targetSensor+" from "+targetValueRaw)
-                    .timeout(ValueResolver.PRETTY_QUICK_WAIT)
+                    .timeout(ValueResolver.NON_BLOCKING_WAIT)
                     .getMaybe().orNull();
             }
             public String toString() {

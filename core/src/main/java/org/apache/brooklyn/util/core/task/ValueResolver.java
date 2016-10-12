@@ -83,7 +83,17 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
      * <p>
      * See {@link #REAL_QUICK_WAIT}. */
     public static Duration PRETTY_QUICK_WAIT = Duration.millis(200);
-    
+
+    /** 
+     * Period to wait if we're expecting the operation to be non-blocking, so want to abort if the 
+     * invoked task/supplier is taking too long (likely because its value is not yet ready, and 
+     * the invoked task is blocked waiting for it). 
+     * <p>
+     * See {@link #REAL_QUICK_WAIT} and <a href="https://issues.apache.org/jira/browse/BROOKLYN-356">BROOKLYN-356</a>.
+     */
+    @Beta
+    public static final Duration NON_BLOCKING_WAIT = Duration.millis(500);
+
     /** Period to wait when we have to poll but want to give the illusion of no wait.
      * See {@link Repeater#DEFAULT_REAL_QUICK_PERIOD} */ 
     public static Duration REAL_QUICK_PERIOD = Repeater.DEFAULT_REAL_QUICK_PERIOD;
