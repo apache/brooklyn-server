@@ -111,7 +111,7 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
                 .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
                 .build());
         try {
-            T result = t.get(ValueResolver.PRETTY_QUICK_WAIT);
+            T result = t.get(ValueResolver.NON_BLOCKING_WAIT);
             return Maybe.of(result);
         } catch (TimeoutException e) {
             t.cancel(true);
