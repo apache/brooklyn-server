@@ -21,12 +21,12 @@ package org.apache.brooklyn.core.mgmt.internal;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvis;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.join;
-import static org.apache.brooklyn.util.JavaGroovyEquivalents.mapOf;
 
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -43,6 +43,7 @@ import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.sensor.BasicSensorEvent;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.apache.brooklyn.util.core.task.SingleThreadedScheduler;
@@ -53,6 +54,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimaps;
 
 /**
@@ -97,6 +99,12 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
         Entity producer = s.producer;
         Sensor<T> sensor= s.sensor;
         s.subscriber = getSubscriber(flags, s);
+        if (flags.containsKey("tags") || flags.containsKey("tag")) {
+            Iterable<?> tags = (Iterable<?>) flags.get("tags");
+            Object tag = flags.get("tag");
+            s.subscriberExtraExecTags = (tag == null) ? tags : (tags == null ? ImmutableList.of(tag) : MutableList.builder().addAll(tags).add(tag).build());
+        }
+
         if (flags.containsKey("subscriberExecutionManagerTag")) {
             s.subscriberExecutionManagerTag = flags.remove("subscriberExecutionManagerTag");
             s.subscriberExecutionManagerTagSupplied = true;
@@ -130,8 +138,13 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
                 LOG.warn("Cannot notifyOfInitialValue for subscription with non-attribute sensor: "+s);
             } else {
                 if (LOG.isTraceEnabled()) LOG.trace("sending initial value of {} -> {} to {}", new Object[] {s.producer, s.sensor, s});
-                Map<String, Object> tagsMap = MutableMap.of("tag", s.subscriberExecutionManagerTag);
-                em.submit(tagsMap, new Runnable() {
+                List<Object> tags = MutableList.builder()
+                        .addAll(s.subscriberExtraExecTags == null ? ImmutableList.of() : s.subscriberExtraExecTags)
+                        .add(s.subscriberExecutionManagerTag)
+                        .build()
+                        .asUnmodifiable();
+                Map<String, ?> execFlags = MutableMap.of("tags", tags);
+                em.submit(execFlags, new Runnable() {
                     @Override
                     public String toString() {
                         return "LSM.publishInitialValue("+s.producer+", "+s.sensor+")";
@@ -222,16 +235,14 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
                     continue;
                 final Subscription sAtClosureCreation = s;
                 
-//                Set<Object> tags = MutableSet.of();
-//                if (s.subscriberExecutionManagerTag!=null) tags.add(s.subscriberExecutionManagerTag);
-//                if (event.getSource()!=null) tags.add(BrooklynTaskTags.tagForContextEntity(event.getSource()));
-//                Map<String, Object> tagsMap = mapOf("tags", (Object)tags);
-                // use code above, instead of line below, if we want subscription deliveries associated with the entity;
-                // that will cause them to be cancelled when the entity is unmanaged
-                // (not sure that is useful, and likely NOT worth the expense, but it might be...) -Alex Oct 2014
-                Map<String, Object> tagsMap = mapOf("tag", s.subscriberExecutionManagerTag);
+                List<Object> tags = MutableList.builder()
+                        .addAll(s.subscriberExtraExecTags == null ? ImmutableList.of() : s.subscriberExtraExecTags)
+                        .add(s.subscriberExecutionManagerTag)
+                        .build()
+                        .asUnmodifiable();
+                Map<String, ?> execFlags = MutableMap.of("tags", tags);
                 
-                em.submit(tagsMap, new Runnable() {
+                em.submit(execFlags, new Runnable() {
                     @Override
                     public String toString() {
                         return "LSM.publish("+event+")";

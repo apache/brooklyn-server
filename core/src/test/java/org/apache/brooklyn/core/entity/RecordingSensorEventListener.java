@@ -25,8 +25,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 
+import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.core.task.Tasks;
 
 import com.google.common.base.Function;
 import com.google.common.collect.FluentIterable;
@@ -41,6 +44,8 @@ import com.google.common.primitives.Longs;
 public class RecordingSensorEventListener<T> implements SensorEventListener<T>, Iterable<SensorEvent<T>> {
 
     private final List<SensorEvent<T>> events = Lists.newCopyOnWriteArrayList();
+    private final List<Task<?>> tasks = Lists.newCopyOnWriteArrayList();
+
     private final boolean suppressDuplicates;
     private T lastValue;
 
@@ -56,6 +61,7 @@ public class RecordingSensorEventListener<T> implements SensorEventListener<T>, 
     public void onEvent(SensorEvent<T> event) {
         if (!suppressDuplicates || events.isEmpty() || !Objects.equals(lastValue, event.getValue())) {
             events.add(event);
+            tasks.add(Tasks.current());
             lastValue = event.getValue();
         }
     }
@@ -65,6 +71,13 @@ public class RecordingSensorEventListener<T> implements SensorEventListener<T>, 
      */
     public List<SensorEvent<T>> getEvents() {
         return ImmutableList.copyOf(events);
+    }
+
+    /**
+     * The {@link {@link Tasks#current()} for each call to {@link #onEvent(SensorEvent)}
+     */
+    public List<Task<?>> getTasks() {
+        return MutableList.copyOf(tasks).asUnmodifiable();
     }
 
     /**
@@ -89,7 +102,8 @@ public class RecordingSensorEventListener<T> implements SensorEventListener<T>, 
      * Clears all events recorded by the listener.
      */
     public void clearEvents() {
-        this.events.clear();
+        events.clear();
+        tasks.clear();
         lastValue = null;
     }
 
