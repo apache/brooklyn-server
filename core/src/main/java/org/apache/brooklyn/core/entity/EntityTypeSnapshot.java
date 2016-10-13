@@ -64,11 +64,13 @@ public class EntityTypeSnapshot extends BrooklynTypeSnapshot implements EntityTy
 
     @Override
     public Maybe<Effector<?>> getEffectorByName(String name) {
-        for (Effector<?> contender : effectors) {
-            if (name.equals(contender.getName()))
-                return Maybe.<Effector<?>>of(contender);
+        if (name != null) {
+            for (Effector<?> contender : effectors) {
+                if (name.equals(contender.getName()))
+                    return Maybe.<Effector<?>>of(contender);
+            }
         }
-        return Maybe.<Effector<?>>absent("No effector matching '"+name+"'");        
+        return Maybe.<Effector<?>>absent("No effector matching '" + name + "'");
     }
     
     @Override
