@@ -420,24 +420,24 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         final Entity app = createAndStartApplication(loadYaml("test-referencing-entities.yaml"));
         waitForApplicationTasks(app);
         
-        Entity root1 = Tasks.resolving(new DslComponent(Scope.ROOT, "xxx").newTask(), Entity.class).context( ((EntityInternal)app).getExecutionContext() ).embedResolutionInTask(true).get();
+        Entity root1 = Tasks.resolving(new DslComponent(Scope.ROOT, "xxx").newTask(), Entity.class).context(app).embedResolutionInTask(true).get();
         Assert.assertEquals(root1, app);
         
-        Entity c1 = Tasks.resolving(new DslComponent("c1").newTask(), Entity.class).context( ((EntityInternal)app).getExecutionContext() ).embedResolutionInTask(true).get();
+        Entity c1 = Tasks.resolving(new DslComponent("c1").newTask(), Entity.class).context(app).embedResolutionInTask(true).get();
         Assert.assertEquals(c1, Iterables.getOnlyElement(Entities.descendantsAndSelf(app, EntityPredicates.displayNameEqualTo("child 1"))));
         
-        Entity e1 = Tasks.resolving(new DslComponent(Scope.PARENT, "xxx").newTask(), Entity.class).context( ((EntityInternal)c1).getExecutionContext() ).embedResolutionInTask(true).get();
+        Entity e1 = Tasks.resolving(new DslComponent(Scope.PARENT, "xxx").newTask(), Entity.class).context(c1).embedResolutionInTask(true).get();
         Assert.assertEquals(e1, Iterables.getOnlyElement(Entities.descendantsAndSelf(app, EntityPredicates.displayNameEqualTo("entity 1"))));
         
-        Entity root2 = Tasks.resolving(new DslComponent(Scope.ROOT, "xxx").newTask(), Entity.class).context( ((EntityInternal)c1).getExecutionContext() ).embedResolutionInTask(true).get();
+        Entity root2 = Tasks.resolving(new DslComponent(Scope.ROOT, "xxx").newTask(), Entity.class).context(c1).embedResolutionInTask(true).get();
         Assert.assertEquals(root2, app);
         
-        Entity c1a = Tasks.resolving(BrooklynDslCommon.descendant("c1").newTask(), Entity.class).context( ((EntityInternal)e1).getExecutionContext() ).embedResolutionInTask(true).get();
+        Entity c1a = Tasks.resolving(BrooklynDslCommon.descendant("c1").newTask(), Entity.class).context(e1).embedResolutionInTask(true).get();
         Assert.assertEquals(c1a, c1);
-        Entity e1a = Tasks.resolving(BrooklynDslCommon.ancestor("e1").newTask(), Entity.class).context( ((EntityInternal)c1).getExecutionContext() ).embedResolutionInTask(true).get();
+        Entity e1a = Tasks.resolving(BrooklynDslCommon.ancestor("e1").newTask(), Entity.class).context(c1).embedResolutionInTask(true).get();
         Assert.assertEquals(e1a, e1);
         try {
-            Tasks.resolving(BrooklynDslCommon.ancestor("c1").newTask(), Entity.class).context( ((EntityInternal)e1).getExecutionContext() ).embedResolutionInTask(true).get();
+            Tasks.resolving(BrooklynDslCommon.ancestor("c1").newTask(), Entity.class).context(e1).embedResolutionInTask(true).get();
             Assert.fail("Should not have found c1 as ancestor of e1");
         } catch (Exception e) { /* expected */ }
     }
@@ -595,7 +595,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         return Tasks.resolving(Tasks.<Entity>builder().body(
             Functionals.callable(Suppliers.compose(EntityFunctions.config(key), Suppliers.ofInstance(entity))) ).build())
             .as(Entity.class)
-            .context( ((EntityInternal)entity).getExecutionContext() ).embedResolutionInTask(true)
+            .context(entity).embedResolutionInTask(true)
             .getMaybe();
     }
 

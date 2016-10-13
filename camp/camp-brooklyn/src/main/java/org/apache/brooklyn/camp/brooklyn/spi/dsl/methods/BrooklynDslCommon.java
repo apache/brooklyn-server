@@ -52,11 +52,9 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
-import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.Reflections;
-import org.apache.brooklyn.util.javalang.coerce.ClassCoercionException;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.commons.beanutils.BeanUtils;
@@ -283,6 +281,8 @@ public class BrooklynDslCommon {
 
 
     protected static class DslRegexReplacement extends BrooklynDslDeferredSupplier<String> {
+
+        private static final long serialVersionUID = 737189899361183341L;
 
         private Object source;
         private Object pattern;
@@ -585,6 +585,8 @@ public class BrooklynDslCommon {
         }
 
         protected static class DslRegexReplacer extends BrooklynDslDeferredSupplier<Function<String, String>> {
+
+            private static final long serialVersionUID = -2900037495440842269L;
 
             private Object pattern;
             private Object replacement;

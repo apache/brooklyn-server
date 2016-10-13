@@ -119,7 +119,7 @@ public class TasksTest extends BrooklynAppUnitTestSupport {
     public void testErrorsResolvingPropagatesOrSwallowedAllCorrectly() throws Exception {
         app.config().set(TestEntity.CONF_OBJECT, ValueResolverTest.newThrowTask(Duration.ZERO));
         Task<Object> t = Tasks.builder().body(Functionals.callable(EntityFunctions.config(TestEntity.CONF_OBJECT), app)).build();
-        ValueResolver<Object> v = Tasks.resolving(t).as(Object.class).context(app.getExecutionContext());
+        ValueResolver<Object> v = Tasks.resolving(t).as(Object.class).context(app);
         
         ValueResolverTest.assertThrowsOnMaybe(v);
         ValueResolverTest.assertThrowsOnGet(v);

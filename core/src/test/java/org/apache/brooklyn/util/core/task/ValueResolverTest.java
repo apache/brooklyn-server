@@ -20,11 +20,8 @@ package org.apache.brooklyn.util.core.task;
 
 import java.util.concurrent.Callable;
 
-import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
-import org.apache.brooklyn.util.core.task.Tasks;
-import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -38,13 +35,10 @@ import org.testng.annotations.Test;
 @Test
 public class ValueResolverTest extends BrooklynAppUnitTestSupport {
 
-    private ExecutionContext executionContext;
-
     @BeforeMethod(alwaysRun=true)
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        executionContext = app.getExecutionContext();
     }
     
     public static final Task<String> newSleepTask(final Duration timeout, final String result) {
@@ -66,18 +60,18 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
     }
     
     public void testTimeoutZero() {
-        Maybe<String> result = Tasks.resolving(newSleepTask(Duration.TEN_SECONDS, "foo")).as(String.class).context(executionContext).timeout(Duration.ZERO).getMaybe();
+        Maybe<String> result = Tasks.resolving(newSleepTask(Duration.TEN_SECONDS, "foo")).as(String.class).context(app).timeout(Duration.ZERO).getMaybe();
         Assert.assertFalse(result.isPresent());
     }
     
     public void testTimeoutBig() {
-        Maybe<String> result = Tasks.resolving(newSleepTask(Duration.ZERO, "foo")).as(String.class).context(executionContext).timeout(Duration.TEN_SECONDS).getMaybe();
+        Maybe<String> result = Tasks.resolving(newSleepTask(Duration.ZERO, "foo")).as(String.class).context(app).timeout(Duration.TEN_SECONDS).getMaybe();
         Assert.assertEquals(result.get(), "foo");
     }
 
     public void testNoExecutionContextOnCompleted() {
         Task<String> t = newSleepTask(Duration.ZERO, "foo");
-        executionContext.submit(t).getUnchecked();
+        app.getExecutionContext().submit(t).getUnchecked();
         Maybe<String> result = Tasks.resolving(t).as(String.class).timeout(Duration.ZERO).getMaybe();
         Assert.assertEquals(result.get(), "foo");
     }
@@ -106,26 +100,26 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
     }
     
     public void testSwallowError() {
-        ValueResolver<String> result = Tasks.resolving(newThrowTask(Duration.ZERO)).as(String.class).context(executionContext).swallowExceptions();
+        ValueResolver<String> result = Tasks.resolving(newThrowTask(Duration.ZERO)).as(String.class).context(app).swallowExceptions();
         assertMaybeIsAbsent(result);
         assertThrowsOnGet(result);
     }
 
 
     public void testDontSwallowError() {
-        ValueResolver<String> result = Tasks.resolving(newThrowTask(Duration.ZERO)).as(String.class).context(executionContext);
+        ValueResolver<String> result = Tasks.resolving(newThrowTask(Duration.ZERO)).as(String.class).context(app);
         assertThrowsOnMaybe(result);
         assertThrowsOnGet(result);
     }
 
     public void testDefaultWhenSwallowError() {
-        ValueResolver<String> result = Tasks.resolving(newThrowTask(Duration.ZERO)).as(String.class).context(executionContext).swallowExceptions().defaultValue("foo");
+        ValueResolver<String> result = Tasks.resolving(newThrowTask(Duration.ZERO)).as(String.class).context(app).swallowExceptions().defaultValue("foo");
         assertMaybeIsAbsent(result);
         Assert.assertEquals(result.get(), "foo");
     }
 
     public void testDefaultBeforeDelayAndError() {
-        ValueResolver<String> result = Tasks.resolving(newThrowTask(Duration.TEN_SECONDS)).as(String.class).context(executionContext).timeout(Duration.ZERO).defaultValue("foo");
+        ValueResolver<String> result = Tasks.resolving(newThrowTask(Duration.TEN_SECONDS)).as(String.class).context(app).timeout(Duration.ZERO).defaultValue("foo");
         assertMaybeIsAbsent(result);
         Assert.assertEquals(result.get(), "foo");
     }
