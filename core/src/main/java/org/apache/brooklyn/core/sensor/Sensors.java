@@ -84,6 +84,10 @@ public class Sensors {
         return new BasicAttributeSensor<T>(type, name);
     }
 
+    public static <T> AttributeSensor<T> newSensor(TypeToken<T> type, String name) {
+        return new BasicAttributeSensor<T>(type, name);
+    }
+
     public static <T> AttributeSensor<T> newSensor(Class<T> type, String name, String description) {
         return new BasicAttributeSensor<T>(type, name, description);
     }
