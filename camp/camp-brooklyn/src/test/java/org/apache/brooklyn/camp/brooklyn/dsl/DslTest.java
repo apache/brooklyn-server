@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
@@ -38,6 +39,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.objs.BasicSpecParameter;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
@@ -267,6 +269,40 @@ public class DslTest extends BrooklynAppUnitTestSupport {
                 throw e;
             }
         }
+    }
+
+    // Different from testParentConcurrent() only in the execution context the task is submitted in (global vs app)
+    @Test(invocationCount=10, groups="Broken") //fails ~4 times
+    public void testResolveInDifferentContext() throws InterruptedException, ExecutionException {
+        final TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        Task<Maybe<Entity>> result = app.getExecutionContext().submit(new Callable<Maybe<Entity>>() {
+            @Override
+            public Maybe<Entity> call() throws Exception {
+                BrooklynDslDeferredSupplier<?> dsl = BrooklynDslCommon.self();
+                return Tasks.resolving(dsl).as(Entity.class)
+                        .context(entity)
+                        .timeout(ValueResolver.NON_BLOCKING_WAIT)
+                        .getMaybe();
+            }
+        });
+        assertEquals(result.get().get(), entity);
+    }
+
+    @Test(invocationCount=10, groups="Broken") //fails ~4 times
+    public void testTaskContext() {
+        final TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        // context entity here = none
+        Task<Entity> task = Tasks.<Entity>builder()
+            .tag(BrooklynTaskTags.tagForContextEntity(entity))
+            .body(new Callable<Entity>() {
+                @Override
+                public Entity call() throws Exception {
+                    // context entity here = entity
+                    return BrooklynTaskTags.getContextEntity(Tasks.current());
+                }
+            }).build();
+        Task<Entity> result = app.getExecutionContext().submit(task);
+        assertEquals(result.getUnchecked(), entity);
     }
 
     protected void runConcurrentWorker(Supplier<Runnable> taskSupplier) {

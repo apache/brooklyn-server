@@ -22,13 +22,19 @@ import static org.apache.brooklyn.core.sensor.DependentConfiguration.attributeWh
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.entity.EntityFunctions;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedEntity;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
@@ -178,6 +184,31 @@ public class TasksTest extends BrooklynAppUnitTestSupport {
         Task<Boolean> t = Tasks.testing(repeater).build();
         app.getExecutionContext().submit(t);
         assertTrue(t.get(Duration.TEN_SECONDS));
+    }
+
+    @Test(groups="Broken")
+    public void testSingleExecutionContextEntity() {
+        final TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        // context entity here = none
+        Task<Collection<Entity>> task = Tasks.<Collection<Entity>>builder()
+            .tag(BrooklynTaskTags.tagForContextEntity(entity))
+            .body(new Callable<Collection<Entity>>() {
+                @Override
+                public Collection<Entity> call() throws Exception {
+                    Collection<Entity> context = new ArrayList<>();
+                    for (Object tag : Tasks.current().getTags()) {
+                        if (tag instanceof WrappedEntity) {
+                            WrappedEntity wrapped = (WrappedEntity)tag;
+                            if (BrooklynTaskTags.CONTEXT_ENTITY.equals(wrapped.wrappingType)) {
+                                context.add(wrapped.entity);
+                            }
+                        }
+                    }
+                    return context;
+                }
+            }).build();
+        Task<Collection<Entity>> result = app.getExecutionContext().submit(task);
+        assertEquals(result.getUnchecked(), ImmutableList.of(entity));
     }
 
 }
