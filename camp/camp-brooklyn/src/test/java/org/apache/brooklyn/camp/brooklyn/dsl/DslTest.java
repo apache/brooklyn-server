@@ -273,27 +273,10 @@ public class DslTest extends BrooklynAppUnitTestSupport {
 
     // Different from testParentConcurrent() only in the execution context the task is submitted in (global vs app)
     @Test(invocationCount=10)
-    public void testResolveInDifferentContext() throws InterruptedException, ExecutionException {
-        final TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
-        Task<Maybe<Entity>> result = app.getExecutionContext().submit(new Callable<Maybe<Entity>>() {
-            @Override
-            public Maybe<Entity> call() throws Exception {
-                BrooklynDslDeferredSupplier<?> dsl = BrooklynDslCommon.self();
-                return Tasks.resolving(dsl).as(Entity.class)
-                        .context(entity)
-                        .timeout(ValueResolver.NON_BLOCKING_WAIT)
-                        .getMaybe();
-            }
-        });
-        assertEquals(result.get().get(), entity);
-    }
-
-    @Test(invocationCount=10, groups="Broken") //fails ~4 times
     public void testTaskContext() {
         final TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         // context entity here = none
         Task<Entity> task = Tasks.<Entity>builder()
-            .tag(BrooklynTaskTags.tagForContextEntity(entity))
             .body(new Callable<Entity>() {
                 @Override
                 public Entity call() throws Exception {
@@ -301,14 +284,14 @@ public class DslTest extends BrooklynAppUnitTestSupport {
                     return BrooklynTaskTags.getContextEntity(Tasks.current());
                 }
             }).build();
-        Task<Entity> result = app.getExecutionContext().submit(task);
+        Task<Entity> result = entity.getExecutionContext().submit(task);
         assertEquals(result.getUnchecked(), entity);
     }
 
     protected void runConcurrentWorker(Supplier<Runnable> taskSupplier) {
         Collection<Task<?>> results = new ArrayList<>();
         for (int i = 0; i < MAX_PARALLEL_RESOLVERS; i++) {
-            Task<?> result = mgmt.getExecutionManager().submit(taskSupplier.get());
+            Task<?> result = app.getExecutionContext().submit(taskSupplier.get());
             results.add(result);
         }
         for (Task<?> result : results) {

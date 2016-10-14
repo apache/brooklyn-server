@@ -38,9 +38,6 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedEntity;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.util.core.task.TaskInternal;
-import org.apache.brooklyn.util.core.task.Tasks;
-import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.guava.Functionals;
 import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.time.Duration;
@@ -186,29 +183,79 @@ public class TasksTest extends BrooklynAppUnitTestSupport {
         assertTrue(t.get(Duration.TEN_SECONDS));
     }
 
-    @Test(groups="Broken")
-    public void testSingleExecutionContextEntity() {
+    @Test
+    public void testSingleExecutionContextEntityWithTask() {
+        // Should cause an exception to be thrown in future releases. For now will log a warning.
+        // Until then make sure the task is tagged only with the context of the executor.
         final TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
-        // context entity here = none
-        Task<Collection<Entity>> task = Tasks.<Collection<Entity>>builder()
+        Task<Void> task = Tasks.<Void>builder()
             .tag(BrooklynTaskTags.tagForContextEntity(entity))
-            .body(new Callable<Collection<Entity>>() {
-                @Override
-                public Collection<Entity> call() throws Exception {
-                    Collection<Entity> context = new ArrayList<>();
-                    for (Object tag : Tasks.current().getTags()) {
-                        if (tag instanceof WrappedEntity) {
-                            WrappedEntity wrapped = (WrappedEntity)tag;
-                            if (BrooklynTaskTags.CONTEXT_ENTITY.equals(wrapped.wrappingType)) {
-                                context.add(wrapped.entity);
-                            }
-                        }
+            .body(new AssertContextRunnable(ImmutableList.of(app))).build();
+        app.getExecutionContext().submit(task).getUnchecked();
+    }
+
+    @Test
+    public void testSingleExecutionContextEntityWithTaskAndExternalFlags() {
+        // Should cause an exception to be thrown in future releases. For now will log a warning.
+        // Until then make sure the task is tagged only with the context of the executor.
+        final TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        Task<Void> task = Tasks.<Void>builder()
+            .body(new AssertContextRunnable(ImmutableList.of(app))).build();
+        ImmutableMap<String,?> flags = ImmutableMap.of(
+                "tags", ImmutableList.of(BrooklynTaskTags.tagForContextEntity(entity)));
+        app.getExecutionContext().submit(flags, task).getUnchecked();
+    }
+
+    @Test
+    public void testSingleExecutionContextEntityWithCallable() {
+        // Should cause an exception to be thrown in future releases. For now will log a warning.
+        // Until then make sure the task is tagged only with the context of the executor.
+        final TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        Callable<Void> task = new Callable<Void>() {
+            @Override
+            public Void call() throws Exception {
+                new AssertContextRunnable(ImmutableList.of(app)).run();
+                return null;
+            }
+        };
+
+        ImmutableMap<String,?> flags = ImmutableMap.of(
+                "tags", ImmutableList.of(BrooklynTaskTags.tagForContextEntity(entity)));
+        app.getExecutionContext().submit(flags, task).getUnchecked();
+    }
+
+    @Test
+    public void testSingleExecutionContextEntityWithRunnable() {
+        // Should cause an exception to be thrown in future releases. For now will log a warning.
+        // Until then make sure the task is tagged only with the context of the executor.
+        final TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        Runnable task = new AssertContextRunnable(ImmutableList.of(app));
+        ImmutableMap<String,?> flags = ImmutableMap.of(
+                "tags", ImmutableList.of(BrooklynTaskTags.tagForContextEntity(entity)));
+        app.getExecutionContext().submit(flags, task).getUnchecked();
+    }
+
+    private static class AssertContextRunnable implements Runnable {
+        private Collection<?> expectedContext;
+
+        public AssertContextRunnable(Collection<?> expectedContext) {
+            this.expectedContext = expectedContext;
+        }
+
+        @Override
+        public void run() {
+            Collection<Entity> context = new ArrayList<>();
+            for (Object tag : Tasks.current().getTags()) {
+                if (tag instanceof WrappedEntity) {
+                    WrappedEntity wrapped = (WrappedEntity)tag;
+                    if (BrooklynTaskTags.CONTEXT_ENTITY.equals(wrapped.wrappingType)) {
+                        context.add(wrapped.entity);
                     }
-                    return context;
                 }
-            }).build();
-        Task<Collection<Entity>> result = app.getExecutionContext().submit(task);
-        assertEquals(result.getUnchecked(), ImmutableList.of(entity));
+            }
+            assertEquals(context, expectedContext, "Found " + context + ", expected " + expectedContext);
+        }
+        
     }
 
 }

@@ -35,7 +35,9 @@ import org.apache.brooklyn.api.mgmt.ExecutionManager;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
+import org.apache.brooklyn.core.mgmt.internal.AbstractManagementContext;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.TaskTags;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -112,6 +114,16 @@ public class BrooklynTaskTags extends TaskTags {
     public static final String CALLER_ENTITY = "callerEntity";
     public static final String TARGET_ENTITY = "targetEntity";
     
+    /**
+     * Marks a task as running in the context of the entity. This means
+     * resolving any relative/context sensitive values against that entity.
+     * Using the entity in APIs where it is implicit - a prominent example
+     * being {@link DynamicTasks}.
+     *
+     * The result from the call should be used only when reading tags (for example
+     * to compare whether the tag already exists). The only place where the value is
+     * added to the entity tags is {@link AbstractManagementContext#getExecutionContext(Entity)}.
+     */
     public static WrappedEntity tagForContextEntity(Entity entity) {
         return new WrappedEntity(CONTEXT_ENTITY, entity);
     }

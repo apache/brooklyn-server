@@ -110,7 +110,6 @@ public class SystemServiceEnricher extends AbstractEnricher implements Enricher 
                 .description("Update system service")
                 .add(installerTask)
                 .add(udpateTask)
-                .tag(BrooklynTaskTags.tagForContextEntity(entity))
                 .tag(BrooklynTaskTags.NON_TRANSIENT_TASK_TAG)
                 .build();
 

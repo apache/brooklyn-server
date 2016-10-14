@@ -24,13 +24,18 @@ import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.location.AbstractLocation;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,10 +58,18 @@ public class LocationConfigMap extends AbstractConfigMapImpl<Location> {
 
     @Override
     protected ExecutionContext getExecutionContext(BrooklynObject bo) {
-        if (bo==null) return null;
-        ManagementContext mgmt = ((AbstractLocation)bo).getManagementContext();
-        if (mgmt==null) return null;
-        return mgmt.getServerExecutionContext();
+        // Support DSL in location config. DSL expects to be resolved in the execution context of an entity.
+        // Since there's no location-entity relation try to infer it from the context of the caller.
+        Entity contextEntity = BrooklynTaskTags.getTargetOrContextEntity(Tasks.current());
+        if (contextEntity != null) {
+            return ((EntityInternal)contextEntity).getExecutionContext();
+        } else {
+            log.debug("No resolving context found, will use global execution context. Could lead to NPE on DSL resolving.");
+            if (bo==null) return null;
+            ManagementContext mgmt = ((AbstractLocation)bo).getManagementContext();
+            if (mgmt==null) return null;
+            return mgmt.getServerExecutionContext();
+        }
     }
 
     @Override
