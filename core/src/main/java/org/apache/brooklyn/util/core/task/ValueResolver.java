@@ -375,8 +375,7 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
                     TaskBuilder<Object> tb = Tasks.<Object>builder()
                             .body(callable)
                             .displayName("Resolving dependent value")
-                            .description(description)
-                            .tagIfNotNull(BrooklynTaskTags.getTargetOrContextEntityTag(Tasks.current()));
+                            .description(description);
                     if (isTransientTask) tb.tag(BrooklynTaskTags.TRANSIENT_TASK_TAG);
                     
                     // Note that immediate resolution is handled by using ImmediateSupplier (using an instanceof check), 

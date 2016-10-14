@@ -272,7 +272,7 @@ public class DslTest extends BrooklynAppUnitTestSupport {
     }
 
     // Different from testParentConcurrent() only in the execution context the task is submitted in (global vs app)
-    @Test(invocationCount=10, groups="Broken") //fails ~4 times
+    @Test(invocationCount=10)
     public void testResolveInDifferentContext() throws InterruptedException, ExecutionException {
         final TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         Task<Maybe<Entity>> result = app.getExecutionContext().submit(new Callable<Maybe<Entity>>() {
