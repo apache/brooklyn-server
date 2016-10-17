@@ -1,6 +1,6 @@
 package io.cloudsoft.amp.container.kubernetes.location;
 
-import static com.google.api.client.util.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -8,7 +8,7 @@ import java.net.URL;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.os.Os;
 
-import com.google.api.client.repackaged.com.google.common.base.Throwables;
+import com.google.common.base.Throwables;
 
 import io.fabric8.kubernetes.client.ConfigBuilder;
 import io.fabric8.kubernetes.client.DefaultKubernetesClient;

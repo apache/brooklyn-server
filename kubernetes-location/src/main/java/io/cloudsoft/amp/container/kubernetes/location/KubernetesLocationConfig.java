@@ -118,7 +118,6 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
             "Registry/Factory for creating Kubernetes client; default is almost always fine, " +
                     "except where tests want to customize behaviour", KubernetesClientRegistryImpl.INSTANCE);
 
-    @SetFromFlag("kubernetes.loginUser")
     ConfigKey<String> LOGIN_USER = ConfigKeys.builder(String.class)
             .name("kubernetes.loginUser")
             .description(

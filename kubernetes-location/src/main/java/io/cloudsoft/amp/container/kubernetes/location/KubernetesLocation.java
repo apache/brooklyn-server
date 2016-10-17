@@ -1,8 +1,9 @@
 package io.cloudsoft.amp.container.kubernetes.location;
 
-import static com.google.api.client.repackaged.com.google.common.base.Objects.firstNonNull;
+import static com.google.common.base.Objects.firstNonNull;
 
-import java.net.URI;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.List;
@@ -14,6 +15,7 @@ import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.location.PortRanges;
@@ -29,12 +31,13 @@ import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.api.client.repackaged.com.google.common.base.Throwables;
-import com.google.api.client.util.Lists;
-import com.google.api.client.util.Maps;
+import com.google.common.base.Joiner;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.io.BaseEncoding;
 
 import io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer;
@@ -48,6 +51,8 @@ import io.fabric8.kubernetes.api.model.Namespace;
 import io.fabric8.kubernetes.api.model.NamespaceBuilder;
 import io.fabric8.kubernetes.api.model.PersistentVolume;
 import io.fabric8.kubernetes.api.model.PersistentVolumeBuilder;
+import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.api.model.PodList;
 import io.fabric8.kubernetes.api.model.PodTemplateSpec;
 import io.fabric8.kubernetes.api.model.PodTemplateSpecBuilder;
 import io.fabric8.kubernetes.api.model.QuantityBuilder;
@@ -201,7 +206,8 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         Container container = buildContainer(namespace.getMetadata().getName(), metadata, deploymentName, imageName, inboundPorts, env, limits, privileged);
         Deployment deployment = deploy(namespace.getMetadata().getName(), metadata, deploymentName, container, replicas, secrets);
         Service service = exposeService(namespace.getMetadata().getName(), metadata, deploymentName, inboundPorts);
-        LocationSpec locationSpec = prepareLocationSpec(entity, setup, namespace, deployment, service);
+        Pod pod = getPod(namespace.getMetadata().getName(), metadata);
+        LocationSpec locationSpec = prepareLocationSpec(entity, setup, namespace, deployment, service, pod);
         return (SshMachineLocation) getManagementContext().getLocationManager().createLocation(locationSpec);
     }
 
@@ -225,6 +231,14 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         }
         waitForExitCondition(namespaceReady);
         return client.namespaces().withName(ns).get();
+    }
+
+    private Pod getPod(String namespace, Map<String, String> metadata) {
+        PodList result = client.pods().inNamespace(namespace).withLabels(metadata).list();
+        if (result.getItems().isEmpty() || result.getItems().size() > 1) {
+            throw new IllegalStateException("Cannot find pod  Pod with metadata: " + Joiner.on(" ").withKeyValueSeparator("=").join(metadata));
+        }
+        return result.getItems().get(0);
     }
 
     private void createSecrets(String namespace, Map<String, String> secrets) {
@@ -355,19 +369,27 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         return client.services().inNamespace(namespace).withName(serviceName).get();
     }
 
-    private LocationSpec prepareLocationSpec(Entity entity, ConfigBag setup, Namespace namespace, Deployment deployment, Service service) {
-        LocationSpec locationSpec = LocationSpec.create(SshMachineLocation.class)
-                .configure("address", URI.create(setup.get(KubernetesLocationConfig.MASTER_URL)).getHost())
-                .configure(KubernetesLocationConfig.NAMESPACE, namespace.getMetadata().getName())
-                .configure(KubernetesLocationConfig.DEPLOYMENT, deployment.getMetadata().getName())
-                .configure(KubernetesLocationConfig.SERVICE, service.getMetadata().getName())
-                .configure(CALLER_CONTEXT, setup.get(CALLER_CONTEXT));
-        if (!isDockerContainer(entity)) {
-            locationSpec.configure(CloudLocationConfig.USER, setup.get(KubernetesLocationConfig.LOGIN_USER))
-                    .configure(SshMachineLocation.PASSWORD, setup.get(KubernetesLocationConfig.LOGIN_USER_PASSWORD))
-                    .configure(SshMachineLocation.SSH_PORT, service.getSpec().getPorts().get(0).getNodePort());
+    private LocationSpec prepareLocationSpec(Entity entity, ConfigBag setup, Namespace namespace, Deployment deployment, Service service, Pod pod) {
+        try {
+            InetAddress node = InetAddress.getByName(pod.getSpec().getNodeName());
+            LocationSpec locationSpec = LocationSpec.create(SshMachineLocation.class)
+                    .configure("address", node)
+                    .configure(KubernetesLocationConfig.NAMESPACE, namespace.getMetadata().getName())
+                    .configure(KubernetesLocationConfig.DEPLOYMENT, deployment.getMetadata().getName())
+                    .configure(KubernetesLocationConfig.SERVICE, service.getMetadata().getName())
+                    .configure(CALLER_CONTEXT, setup.get(CALLER_CONTEXT));
+            if (!isDockerContainer(entity)) {
+                locationSpec.configure(CloudLocationConfig.USER, setup.get(KubernetesLocationConfig.LOGIN_USER))
+                        .configure(SshMachineLocation.PASSWORD, setup.get(KubernetesLocationConfig.LOGIN_USER_PASSWORD))
+                        .configure(SshMachineLocation.SSH_PORT, service.getSpec().getPorts().get(0).getNodePort())
+                        .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, true)
+                        .configure(BrooklynConfigKeys.ONBOX_BASE_DIR, "/tmp")
+                        .configure(SshMachineLocation.UNIQUE_ID, entity.getId());
+            }
+            return locationSpec;
+        } catch (UnknownHostException uhe) {
+            throw Throwables.propagate(uhe);
         }
-        return locationSpec;
     }
 
     private void createPersistentVolumes(List<String> volumes) {
