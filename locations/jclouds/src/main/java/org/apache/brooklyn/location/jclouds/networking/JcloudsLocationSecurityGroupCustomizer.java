@@ -168,13 +168,13 @@ public class JcloudsLocationSecurityGroupCustomizer extends BasicJcloudsLocation
         return this;
     }
 
-    /** @see #addPermissionsToLocation(JcloudsSshMachineLocation, java.lang.Iterable) */
+    /** @see #addPermissionsToLocation(JcloudsMachineLocation, java.lang.Iterable) */
     public JcloudsLocationSecurityGroupCustomizer addPermissionsToLocation(final JcloudsMachineLocation location, IpPermission... permissions) {
         addPermissionsToLocation(location, ImmutableList.copyOf(permissions));
         return this;
     }
 
-    /** @see #addPermissionsToLocation(JcloudsSshMachineLocation, java.lang.Iterable) */
+    /** @see #addPermissionsToLocation(JcloudsMachineLocation, java.lang.Iterable) */
     public JcloudsLocationSecurityGroupCustomizer addPermissionsToLocation(final JcloudsMachineLocation location, SecurityGroupDefinition securityGroupDefinition) {
         addPermissionsToLocation(location, securityGroupDefinition.getPermissions());
         return this;
