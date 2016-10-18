@@ -45,9 +45,9 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.Iterables;
 
 // also see ExternalConfigYamlTest
-public class JcloudsLocationExternalConfigYamlLiveTest extends AbstractYamlRebindTest {
+public class JcloudsExternalConfigYamlTest extends AbstractYamlRebindTest {
 
-    private static final Logger log = LoggerFactory.getLogger(ExternalConfigYamlTest.class);
+    private static final Logger log = LoggerFactory.getLogger(JcloudsExternalConfigYamlTest.class);
 
     private static final ConfigKey<String> MY_CONFIG_KEY = ConfigKeys.newStringConfigKey("my.config.key");
 
