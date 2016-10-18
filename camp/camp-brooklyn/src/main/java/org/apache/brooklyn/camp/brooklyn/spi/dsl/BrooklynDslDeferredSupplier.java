@@ -34,8 +34,10 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
+import org.apache.brooklyn.util.core.task.ImmediateSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -64,7 +66,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * use {@code synchronized} because that is not interruptible - if someone tries to get the value
  * and interrupts after a short wait, then we must release the lock immediately and return.
  **/
-public abstract class BrooklynDslDeferredSupplier<T> implements DeferredSupplier<T>, TaskFactory<Task<T>>, Serializable {
+public abstract class BrooklynDslDeferredSupplier<T> implements DeferredSupplier<T>, ImmediateSupplier<T>, TaskFactory<Task<T>>, Serializable {
 
     private static final long serialVersionUID = -8789624905412198233L;
 

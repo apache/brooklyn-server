@@ -39,6 +39,8 @@ import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 
@@ -87,6 +89,15 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
 
     // ---------------------------
     
+    @Override
+    public final Maybe<Entity> getImmediately() {
+        try {
+            return Maybe.of(new EntityInScopeFinder(scopeComponent, scope, componentId).call());
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
+        }
+    }
+
     @Override
     public Task<Entity> newTask() {
         return TaskBuilder.<Entity>builder()
@@ -224,6 +235,11 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
         }
 
         @Override
+        public Maybe<Object> getImmediately() {
+            return Maybe.<Object>of(component.get().getId());
+        }
+        
+        @Override
         public Task<Object> newTask() {
             Entity targetEntity = component.get();
             return Tasks.create("identity", Callables.<Object>returning(targetEntity.getId()));
@@ -257,6 +273,17 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
         public AttributeWhenReady(DslComponent component, String sensorName) {
             this.component = Preconditions.checkNotNull(component);
             this.sensorName = sensorName;
+        }
+
+        @Override
+        public final Maybe<Object> getImmediately() {
+            Entity targetEntity = component.getImmediately().get();
+            AttributeSensor<?> targetSensor = (AttributeSensor<?>) targetEntity.getEntityType().getSensor(sensorName);
+            if (targetSensor == null) {
+                targetSensor = Sensors.newSensor(Object.class, sensorName);
+            }
+            Object result = targetEntity.sensors().get(targetSensor);
+            return GroovyJavaMethods.truth(result) ? Maybe.of(result) : Maybe.absent();
         }
 
         @SuppressWarnings("unchecked")
@@ -300,6 +327,12 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
         public DslConfigSupplier(DslComponent component, String keyName) {
             this.component = Preconditions.checkNotNull(component);
             this.keyName = keyName;
+        }
+
+        @Override
+        public final Maybe<Object> getImmediately() {
+            Entity targetEntity = component.get();
+            return Maybe.of(targetEntity.getConfig(ConfigKeys.newConfigKey(Object.class, keyName)));
         }
 
         @Override
@@ -353,6 +386,33 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
         }
 
         @Override
+        public Maybe<Sensor<?>> getImmediately() {
+            return getImmediately(sensorName, false);
+        }
+        
+        protected Maybe<Sensor<?>> getImmediately(Object si, boolean resolved) {
+            if (si instanceof Sensor) {
+                return Maybe.<Sensor<?>>of((Sensor<?>)si);
+            } else if (si instanceof String) {
+                Entity targetEntity = component.get();
+                Sensor<?> result = null;
+                if (targetEntity!=null) {
+                    result = targetEntity.getEntityType().getSensor((String)si);
+                }
+                if (result!=null) return Maybe.<Sensor<?>>of(result);
+                return Maybe.<Sensor<?>>of(Sensors.newSensor(Object.class, (String)si));
+            }
+            if (!resolved) {
+                // attempt to resolve, and recurse
+                final ExecutionContext executionContext = ((EntityInternal)entity()).getExecutionContext();
+                Maybe<Object> resolvedSi = Tasks.resolving(si, Object.class).deep(true).immediately(true).context(executionContext).getMaybe();
+                if (resolvedSi.isAbsent()) return Maybe.absent();
+                return getImmediately(resolvedSi.get(), true);
+            }
+            throw new IllegalStateException("Cannot resolve '"+sensorName+"' as a sensor (got type "+(si == null ? "null" : si.getClass().getName()+")"));
+        }
+        
+        @Override
         public Task<Sensor<?>> newTask() {
             return Tasks.<Sensor<?>>builder()
                     .displayName("looking up sensor for "+sensorName)
@@ -380,7 +440,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
                                 final ExecutionContext executionContext = ((EntityInternal)entity()).getExecutionContext();
                                 return resolve(Tasks.resolveDeepValue(si, Object.class, executionContext), true);
                             }
-                            throw new IllegalStateException("Cannot resolve '"+sensorName+"' as a sensor");
+                            throw new IllegalStateException("Cannot resolve '"+sensorName+"' as a sensor (got type "+(si == null ? "null" : si.getClass().getName()+")"));
                         }})
                     .build();
         }

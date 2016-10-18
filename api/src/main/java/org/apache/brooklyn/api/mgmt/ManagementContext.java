@@ -154,7 +154,11 @@ public interface ManagementContext {
     /**
      * Returns a {@link SubscriptionContext} instance representing subscriptions
      * (from the {@link SubscriptionManager}) associated with this entity, and capable 
-     * of conveniently subscribing on behalf of that entity  
+     * of conveniently subscribing on behalf of that entity.
+     * 
+     * For subscriptions made using this {@link SubscriptionContext}, the calls to 
+     * {@link org.apache.brooklyn.api.sensor.SensorEventListener#onEvent(org.apache.brooklyn.api.sensor.SensorEvent)}
+     * will be made in a task that has the {@code CONTEXT_ENTITY} tag set to this entity (see BrooklynTaskTag).
      */
     SubscriptionContext getSubscriptionContext(Entity entity);
 

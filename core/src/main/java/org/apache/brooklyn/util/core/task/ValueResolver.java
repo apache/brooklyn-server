@@ -109,6 +109,7 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
     Boolean embedResolutionInTask;
     /** timeout on execution, if possible, or if embedResolutionInTask is true */
     Duration timeout;
+    boolean immediately;
     boolean isTransientTask = true;
     
     T defaultValue = null;
@@ -142,6 +143,7 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
         parentOriginalValue = parent.getOriginalValue();
 
         timeout = parent.timeout;
+        immediately = parent.immediately;
         parentTimer = parent.parentTimer;
         if (parentTimer!=null && parentTimer.isExpired())
             expired = true;
@@ -250,7 +252,18 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
         this.timeout = timeout;
         return this;
     }
-    
+
+    /**
+     * Whether the value should be resolved immediately (and if not available immediately,
+     * return absent).
+     */
+    @Beta
+    public ValueResolver<T> immediately(boolean val) {
+        this.immediately = val;
+        if (timeout == null) timeout = ValueResolver.NON_BLOCKING_WAIT;
+        return this;
+    }
+
     protected void checkTypeNotNull() {
         if (type==null) 
             throw new NullPointerException("type must be set to resolve, for '"+value+"'"+(description!=null ? ", "+description : ""));
@@ -300,6 +313,18 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
             return Maybe.of((T) v);
         
         try {
+            if (immediately && v instanceof ImmediateSupplier) {
+                final ImmediateSupplier<?> supplier = (ImmediateSupplier<?>) v;
+                try {
+                    Maybe<?> result = supplier.getImmediately();
+                    
+                    // Recurse: need to ensure returned value is cast, etc
+                    return (result.isPresent()) ? new ValueResolver(result.get(), type, this).getMaybe() : Maybe.<T>absent();
+                } catch (ImmediateSupplier.ImmediateUnsupportedException e) {
+                    log.debug("Unable to resolve-immediately for "+description+" ("+v+"); falling back to executing with timeout", e);
+                }
+            }
+            
             //if it's a task or a future, we wait for the task to complete
             if (v instanceof TaskAdaptable<?>) {
                 //if it's a task, we make sure it is submitted

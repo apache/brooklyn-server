@@ -34,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.SubscriptionHandle;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -55,6 +56,7 @@ import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.BasicTask;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.core.task.ImmediateSupplier;
 import org.apache.brooklyn.util.core.task.ParallelTask;
 import org.apache.brooklyn.util.core.task.TaskInternal;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -67,6 +69,7 @@ import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
 import org.apache.brooklyn.util.guava.Functionals;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.StringFunctions;
+import org.apache.brooklyn.util.text.StringFunctions.RegexReplacer;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
@@ -471,20 +474,65 @@ public class DependentConfiguration {
             
         return transformMultiple(
             MutableMap.<String,String>of("displayName", "formatting '"+spec+"' with "+taskArgs.size()+" task"+(taskArgs.size()!=1?"s":"")), 
-                new Function<List<Object>, String>() {
-            @Override public String apply(List<Object> input) {
-                Iterator<?> tri = input.iterator();
-                Object[] vv = new Object[args.length];
-                int i=0;
-                for (Object arg : args) {
-                    if (arg instanceof TaskAdaptable || arg instanceof TaskFactory) vv[i] = tri.next();
-                    else if (arg instanceof DeferredSupplier) vv[i] = ((DeferredSupplier<?>) arg).get();
-                    else vv[i] = arg;
-                    i++;
-                }
-                return String.format(spec, vv);
-            }},
+            new Function<List<Object>, String>() {
+                @Override public String apply(List<Object> input) {
+                    Iterator<?> tri = input.iterator();
+                    Object[] vv = new Object[args.length];
+                    int i=0;
+                    for (Object arg : args) {
+                        if (arg instanceof TaskAdaptable || arg instanceof TaskFactory) vv[i] = tri.next();
+                        else if (arg instanceof DeferredSupplier) vv[i] = ((DeferredSupplier<?>) arg).get();
+                        else vv[i] = arg;
+                        i++;
+                    }
+                    return String.format(spec, vv);
+                }},
             taskArgs);
+    }
+
+    /**
+     * @throws ImmediateSupplier.ImmediateUnsupportedException if cannot evaluate this in a timely manner
+     */
+    public static Maybe<String> formatStringImmediately(final String spec, final Object ...args) {
+        List<Object> resolvedArgs = Lists.newArrayList();
+        for (Object arg : args) {
+            Maybe<?> argVal = resolveImmediately(arg);
+            if (argVal.isAbsent()) return Maybe.absent();
+            resolvedArgs.add(argVal.get());
+        }
+
+        return Maybe.of(String.format(spec, resolvedArgs.toArray()));
+    }
+
+    protected static <T> Maybe<?> resolveImmediately(Object val) {
+        if (val instanceof ImmediateSupplier<?>) {
+            return ((ImmediateSupplier<?>)val).getImmediately();
+        } else if (val instanceof TaskAdaptable) {
+            throw new ImmediateSupplier.ImmediateUnsupportedException("Cannot immediately resolve value "+val);
+        } else if (val instanceof TaskFactory) {
+            throw new ImmediateSupplier.ImmediateUnsupportedException("Cannot immediately resolve value "+val);
+        } else if (val instanceof DeferredSupplier<?>) {
+            throw new ImmediateSupplier.ImmediateUnsupportedException("Cannot immediately resolve value "+val);
+        } else {
+            return Maybe.of(val);
+        }
+    }
+    
+    public static Maybe<String> regexReplacementImmediately(Object source, Object pattern, Object replacement) {
+        Maybe<?> resolvedSource = resolveImmediately(source);
+        if (resolvedSource.isAbsent()) return Maybe.absent();
+        String resolvedSourceStr = String.valueOf(resolvedSource.get());
+        
+        Maybe<?> resolvedPattern = resolveImmediately(pattern);
+        if (resolvedPattern.isAbsent()) return Maybe.absent();
+        String resolvedPatternStr = String.valueOf(resolvedPattern.get());
+        
+        Maybe<?> resolvedReplacement = resolveImmediately(replacement);
+        if (resolvedReplacement.isAbsent()) return Maybe.absent();
+        String resolvedReplacementStr = String.valueOf(resolvedReplacement.get());
+
+        String result = new StringFunctions.RegexReplacer(resolvedPatternStr, resolvedReplacementStr).apply(resolvedSourceStr);
+        return Maybe.of(result);
     }
 
     public static Task<String> regexReplacement(Object source, Object pattern, Object replacement) {
@@ -495,6 +543,19 @@ public class DependentConfiguration {
                 transformer,
                 taskArgs
         );
+    }
+
+    public static Maybe<Function<String, String>> regexReplacementImmediately(Object pattern, Object replacement) {
+        Maybe<?> resolvedPattern = resolveImmediately(pattern);
+        if (resolvedPattern.isAbsent()) return Maybe.absent();
+        String resolvedPatternStr = String.valueOf(resolvedPattern.get());
+        
+        Maybe<?> resolvedReplacement = resolveImmediately(replacement);
+        if (resolvedReplacement.isAbsent()) return Maybe.absent();
+        String resolvedReplacementStr = String.valueOf(resolvedReplacement.get());
+
+        RegexReplacer result = new StringFunctions.RegexReplacer(resolvedPatternStr, resolvedReplacementStr);
+        return Maybe.<Function<String, String>>of(result);
     }
 
     public static Task<Function<String, String>> regexReplacement(Object pattern, Object replacement) {
