@@ -604,7 +604,7 @@ public abstract class MachineLifecycleEffectorTasks {
 
         // Opportunity to block startup until other dependent components are available
         Object val = entity().getConfig(SoftwareProcess.START_LATCH);
-        if (val != null) log.debug("{} finished waiting for start-latch; continuing...", entity(), val);
+        if (val != null) log.debug("{} finished waiting for start-latch {}; continuing...", entity(), val);
     }
 
     protected Map<String, Object> obtainProvisioningFlags(final MachineProvisioningLocation<?> location) {
@@ -951,7 +951,9 @@ public abstract class MachineLifecycleEffectorTasks {
      * Throw if stop should be aborted.
      */
     protected void preStopConfirmCustom() {
-        // nothing needed here
+        // Opportunity to block stop() until other dependent components are ready for it
+        Object val = entity().getConfig(SoftwareProcess.STOP_LATCH);
+        if (val != null) log.debug("{} finished waiting for stop-latch {}; continuing...", entity(), val);
     }
 
     protected void preStopCustom() {

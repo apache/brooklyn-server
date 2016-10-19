@@ -179,6 +179,7 @@ public class BrooklynConfigKeys {
 
     public static final ConfigKey<Boolean> PROVISION_LATCH = newBooleanConfigKey("provision.latch", "Latch for blocking location provision until ready");
     public static final ConfigKey<Boolean> START_LATCH = newBooleanConfigKey("start.latch", "Latch for blocking start until ready");
+    public static final ConfigKey<Boolean> STOP_LATCH = newBooleanConfigKey("stop.latch", "Latch for blocking stop until a condition is met");
     public static final ConfigKey<Boolean> SETUP_LATCH = newBooleanConfigKey("setup.latch", "Latch for blocking setup until ready");
     public static final ConfigKey<Boolean> PRE_INSTALL_RESOURCES_LATCH = newBooleanConfigKey("resources.preInstall.latch", "Latch for blocking pre-install resources until ready");
     public static final ConfigKey<Boolean> INSTALL_RESOURCES_LATCH = newBooleanConfigKey("resources.install.latch", "Latch for blocking install resources until ready");
