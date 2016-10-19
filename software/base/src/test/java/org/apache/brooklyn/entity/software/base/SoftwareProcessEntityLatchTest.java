@@ -18,24 +18,27 @@
  */
 package org.apache.brooklyn.entity.software.base;
 
+import static org.apache.brooklyn.core.mgmt.BrooklynTaskTags.getEffectorName;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import java.util.List;
+import java.util.Set;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
+import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
-import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.entity.software.base.SoftwareProcessEntityTest.MyService;
 import org.apache.brooklyn.entity.software.base.SoftwareProcessEntityTest.SimulatedDriver;
 import org.apache.brooklyn.entity.stock.BasicEntity;
@@ -51,7 +54,6 @@ import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 
@@ -116,14 +118,36 @@ public class SoftwareProcessEntityLatchTest extends BrooklynAppUnitTestSupport {
         runTestLatchBlocks(SoftwareProcess.LAUNCH_LATCH, ImmutableList.of("setup", "copyInstallResources", "install", "customize", "copyRuntimeResources"));
     }
 
+    @Test
+    public void testStopLatchBlocks() throws Exception {
+        final AttributeSensor<Boolean> stopper = Sensors.newBooleanSensor("stop.now");
+        final BasicEntity triggerEntity = app.createAndManageChild(EntitySpec.create(BasicEntity.class));
+        final MyService entity = app.createAndManageChild(EntitySpec.create(MyService.class)
+                .configure(SoftwareProcess.STOP_LATCH, DependentConfiguration.attributeWhenReady(app, stopper)));
+        
+        final Task<Void> startTask = Entities.invokeEffector(app, app, MyService.START, ImmutableMap.of("locations", ImmutableList.of(loc)));
+        ((EntityLocal)triggerEntity).sensors().set(Attributes.SERVICE_UP, true);
+        startTask.get(Duration.THIRTY_SECONDS);
+
+        final Task<Void> stopTask = Entities.invokeEffector(app, app, MyService.STOP);
+
+        assertEffectorBlockingDetailsEventually(entity, MyService.STOP.getName(), "Waiting for config " + SoftwareProcess.STOP_LATCH.getName());
+
+        app.sensors().set(stopper, true);
+        stopTask.get(Asserts.DEFAULT_LONG_TIMEOUT);
+
+        assertDriverEventsEquals(entity, ImmutableList.of("setup", "copyInstallResources", "install", "customize", "copyRuntimeResources", "launch", "stop"));
+    }
+
+
     protected void runTestLatchBlocks(final ConfigKey<Boolean> latch, List<String> preLatchEvents) throws Exception {
         final BasicEntity triggerEntity = app.createAndManageChild(EntitySpec.create(BasicEntity.class));
         final MyService entity = app.createAndManageChild(EntitySpec.create(MyService.class)
                 .configure(latch, DependentConfiguration.attributeWhenReady(triggerEntity, Attributes.SERVICE_UP)));
-        
+
         final Task<Void> task = Entities.invokeEffector(app, app, MyService.START, ImmutableMap.of("locations", ImmutableList.of(loc)));
-        
-        assertEffectorBlockingDetailsEventually(entity, "Waiting for config "+latch.getName());
+
+        assertEffectorBlockingDetailsEventually(entity, MyService.START.getName(), "Waiting for config " + latch.getName());
         assertDriverEventsEquals(entity, preLatchEvents);
 
         assertFalse(task.isDone());
@@ -137,10 +161,18 @@ public class SoftwareProcessEntityLatchTest extends BrooklynAppUnitTestSupport {
         assertEquals(events, expectedEvents, "events="+events);
     }
 
-    private void assertEffectorBlockingDetailsEventually(final Entity entity, final String blockingDetailsSnippet) {
+    private void assertEffectorBlockingDetailsEventually(final Entity entity, final String effectorName, final String blockingDetailsSnippet) {
         Asserts.succeedsEventually(new Runnable() {
             @Override public void run() {
-                Task<?> entityTask = Iterables.getOnlyElement(mgmt.getExecutionManager().getTasksWithAllTags(ImmutableList.of(BrooklynTaskTags.EFFECTOR_TAG, BrooklynTaskTags.tagForContextEntity(entity))));
+                final Set<Task<?>> tasksWithAllTags = mgmt.getExecutionManager().getTasksWithAllTags(ImmutableList.of(BrooklynTaskTags.EFFECTOR_TAG, BrooklynTaskTags.tagForContextEntity(entity)));
+                Task<?> entityTask = null;
+                for (Task<?> item : tasksWithAllTags) {
+                    final String itemName = getEffectorName(item);
+                    entityTask = itemName.equals(effectorName) ? item : entityTask;
+                }
+                if (entityTask == null) {
+                    Asserts.fail("Could not find task for effector " + effectorName);
+                }
                 String blockingDetails = getBlockingDetails(entityTask);
                 assertTrue(blockingDetails.contains(blockingDetailsSnippet));
             }});
