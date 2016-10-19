@@ -21,13 +21,15 @@ package org.apache.brooklyn.util.text;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
+import org.apache.brooklyn.util.collections.MutableSet;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.primitives.Chars;
 
 public class Identifiers {
     
@@ -168,15 +170,15 @@ public class Identifiers {
         return Joiner.on("").join(list);
     }
 
-    @SuppressWarnings({ "rawtypes", "unchecked" })  
     protected static String mergeCharacterSets(String... s) {
-        Set characters = new HashSet<Character>();
+        Set<Character> characters = MutableSet.of();
         for (String characterSet : s) {
-            // more efficient to lose the generics here
-            characters.addAll(Arrays.asList(characterSet.split("")));
+            for (char c: characterSet.toCharArray()) {
+                characters.add(c);
+            }
         }
 
-        return Joiner.on("").join(characters);
+        return new String(Chars.toArray(characters));
     }
 
     /** creates a short identifier comfortable in java and OS's, given an input hash code
