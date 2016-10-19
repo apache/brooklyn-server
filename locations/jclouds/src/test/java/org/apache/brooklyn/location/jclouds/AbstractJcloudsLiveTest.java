@@ -109,6 +109,10 @@ public class AbstractJcloudsLiveTest {
         }
     }
 
+    protected LocalManagementContext mgmt() {
+        return managementContext;
+    }
+    
     protected LocalManagementContext newManagementContext() {
         // loads properties, by default, but not OSGi or anything else
         return LocalManagementContextForTests.builder(true).useDefaultProperties().build();

@@ -25,6 +25,7 @@ import java.util.Map;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.camp.brooklyn.AbstractJcloudsStubYamlTest.ByonComputeServiceStaticRef;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.location.Machines;
@@ -33,8 +34,6 @@ import org.apache.brooklyn.entity.machine.MachineEntity;
 import org.apache.brooklyn.location.jclouds.ComputeServiceRegistry;
 import org.apache.brooklyn.location.jclouds.JcloudsLocation;
 import org.apache.brooklyn.location.jclouds.JcloudsMachineLocation;
-import org.apache.brooklyn.location.jclouds.JcloudsRebindStubTest;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecCmd;
 import org.testng.annotations.Test;
@@ -47,9 +46,6 @@ import com.google.common.collect.Iterables;
  * This is primarily to test https://issues.apache.org/jira/browse/BROOKLYN-349.
  * It confirms that entity "provisioning.properties" get passed through to the machine.
  * 
- * As per the other {@link JcloudsRebindStubTest} tests, it will connect to SoftLayer to retrieve
- * image details (so needs real credentials), but it will then stub out the VM creation.
- * 
  * It could do with some cleanup at some point:
  * <ul>
  *   <li>There is an NPE at AddMachineMetrics$2.apply(AddMachineMetrics.java:111), despite having set
@@ -61,8 +57,8 @@ import com.google.common.collect.Iterables;
  *       Presumably we need to stub out that call as well somehow!
  * </ul>
  */
-@Test(groups={"Live", "Live-sanity"})
-public class JcloudsRebindWithYamlDslTest extends JcloudsRebindStubYamlTest {
+@Test
+public class JcloudsRebindWithYamlDslTest extends AbstractJcloudsRebindStubYamlTest {
 
     protected Entity origApp;
     
@@ -84,15 +80,7 @@ public class JcloudsRebindWithYamlDslTest extends JcloudsRebindStubYamlTest {
         mgmt().getCatalog().addItems(catalogYaml, true);
 
         String yaml = Joiner.on("\n").join(
-                "location:",
-                "  "+LOCATION_SPEC+":",
-                "    imageId: "+IMAGE_ID,
-                "    jclouds.computeServiceRegistry:",
-                "      $brooklyn:object:",
-                "        type: "+ByonComputeServiceStaticRef.class.getName(),
-                "    "+SshMachineLocation.SSH_TOOL_CLASS.getName() + ": " + RecordingSshTool.class.getName(),
-                "    waitForSshable: false",
-                "    useJcloudsSshInit: false",
+                "location: " + LOCATION_CATALOG_ID,
                 "services:\n"+
                 "- type: "+symbolicName,
                 "  brooklyn.config:",

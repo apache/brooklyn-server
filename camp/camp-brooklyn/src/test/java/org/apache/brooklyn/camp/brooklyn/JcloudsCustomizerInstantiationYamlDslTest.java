@@ -22,23 +22,18 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertSame;
 
 import java.util.List;
-import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
 import org.apache.brooklyn.core.entity.trait.Startable;
-import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.entity.machine.MachineEntity;
 import org.apache.brooklyn.location.jclouds.BasicJcloudsLocationCustomizer;
-import org.apache.brooklyn.location.jclouds.ComputeServiceRegistry;
 import org.apache.brooklyn.location.jclouds.JcloudsLocation;
 import org.apache.brooklyn.location.jclouds.JcloudsMachineLocation;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.domain.Template;
 import org.jclouds.compute.domain.TemplateBuilder;
@@ -49,7 +44,6 @@ import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 /**
@@ -72,10 +66,8 @@ import com.google.common.collect.Lists;
  * }
  * </pre>
  */
-@Test(groups = {"Live", "Live-sanity"})
-public class JcloudsCustomizerInstantiationYamlDslTest extends JcloudsRebindStubYamlTest {
-
-    protected Entity origApp;
+@Test
+public class JcloudsCustomizerInstantiationYamlDslTest extends AbstractJcloudsStubYamlTest {
 
     @BeforeMethod(alwaysRun=true)
     @Override
@@ -94,20 +86,10 @@ public class JcloudsCustomizerInstantiationYamlDslTest extends JcloudsRebindStub
         }
     }
     
-    @Override
-    protected JcloudsLocation newJcloudsLocation(ComputeServiceRegistry computeServiceRegistry) throws Exception {
-        ByonComputeServiceStaticRef.setInstance(computeServiceRegistry);
-
+    @Test
+    public void testCustomizers() throws Exception {
         String yaml = Joiner.on("\n").join(
-                "location:",
-                "  " + LOCATION_SPEC + ":",
-                "    imageId: " + IMAGE_ID,
-                "    jclouds.computeServiceRegistry:",
-                "      $brooklyn:object:",
-                "        type: " + ByonComputeServiceStaticRef.class.getName(),
-                "    " + SshMachineLocation.SSH_TOOL_CLASS.getName() + ": " + RecordingSshTool.class.getName(),
-                "    waitForSshable: false",
-                "    useJcloudsSshInit: false",
+                "location: " + LOCATION_CATALOG_ID,
                 "services:\n" +
                 "- type: " + MachineEntity.class.getName(),
                 "  brooklyn.config:",
@@ -122,16 +104,10 @@ public class JcloudsCustomizerInstantiationYamlDslTest extends JcloudsRebindStub
                 "          object.fields:",
                 "            enabled: $brooklyn:config(\"enabled\")");
 
-        EntitySpec<?> spec = mgmt().getTypeRegistry().createSpecFromPlan(CampTypePlanTransformer.FORMAT, yaml, RegisteredTypeLoadingContexts.spec(Application.class), EntitySpec.class);
-        origApp = mgmt().getEntityManager().createEntity(spec);
-        
-        return (JcloudsLocation) Iterables.getOnlyElement(origApp.getLocations());
-    }
+        EntitySpec<?> spec = managementContext.getTypeRegistry().createSpecFromPlan(CampTypePlanTransformer.FORMAT, yaml, RegisteredTypeLoadingContexts.spec(Application.class), EntitySpec.class);
+        Entity app = managementContext.getEntityManager().createEntity(spec);
 
-    @Override
-    protected JcloudsMachineLocation obtainMachine(JcloudsLocation jcloudsLoc, Map<?, ?> props) throws Exception {
-        final MachineEntity entity = (MachineEntity) Iterables.getOnlyElement(origApp.getChildren());
-        origApp.invoke(Startable.START, ImmutableMap.<String, Object>of()).get();
+        app.invoke(Startable.START, ImmutableMap.<String, Object>of()).get();
 
         // Assert all customize functions called
         assertEquals(RecordingLocationCustomizer.calls.size(), 4,
@@ -142,13 +118,7 @@ public class JcloudsCustomizerInstantiationYamlDslTest extends JcloudsRebindStub
         for (RecordingLocationCustomizer.CallParams call : RecordingLocationCustomizer.calls) {
             assertSame(call.instance, firstInstance);
         }
-
-        JcloudsMachineLocation machine =
-                Machines.findUniqueMachineLocation(entity.getLocations(), JcloudsMachineLocation.class).get();
-
-        return machine;
     }
-
 
     public static class RecordingLocationCustomizer extends BasicJcloudsLocationCustomizer {
 

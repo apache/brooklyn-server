@@ -19,28 +19,21 @@
 package org.apache.brooklyn.location.jclouds;
 
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.AbstractNodeCreator;
+import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.BasicNodeCreator;
 import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.NodeCreator;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.core.internal.winrm.RecordingWinRmTool;
-import org.jclouds.compute.domain.NodeMetadata;
-import org.jclouds.compute.domain.NodeMetadata.Status;
-import org.jclouds.compute.domain.NodeMetadataBuilder;
-import org.jclouds.compute.domain.Template;
-import org.jclouds.domain.LoginCredentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 
 import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 /**
@@ -81,9 +74,16 @@ public abstract class AbstractJcloudsStubbedUnitTest extends AbstractJcloudsLive
 
     @Override
     protected LocalManagementContext newManagementContext() {
-        return LocalManagementContextForTests.builder(true).build();
+        return LocalManagementContextForTests.builder(true).useAdditionalProperties(customBrooklynProperties()).build();
     }
     
+    /**
+     * For overriding.
+     */
+    protected Map<String, ?> customBrooklynProperties() {
+        return ImmutableMap.of();
+    }
+
     /**
      * Expect sub-classes to call this - either in their {@link BeforeMethod} or at the very 
      * start of the test method (to allow custom config per test).
@@ -113,22 +113,7 @@ public abstract class AbstractJcloudsStubbedUnitTest extends AbstractJcloudsLive
         return LOCATION_SPEC;
     }
     
-    protected NodeCreator newVanillaNodeCreator() {
-        return new AbstractNodeCreator() {
-            private final AtomicInteger counter = new AtomicInteger(1);
-            @Override
-            protected NodeMetadata newNode(String group, Template template) {
-                int suffix = counter.getAndIncrement();
-                NodeMetadata result = new NodeMetadataBuilder()
-                        .id("mynodeid"+suffix)
-                        .credentials(LoginCredentials.builder().identity("myuser").credential("mypassword").build())
-                        .loginPort(22)
-                        .status(Status.RUNNING)
-                        .publicAddresses(ImmutableList.of("173.194.32."+suffix))
-                        .privateAddresses(ImmutableList.of("172.168.10."+suffix))
-                        .build();
-                return result;
-            }
-        };
+    protected NodeCreator newNodeCreator() {
+        return new BasicNodeCreator();
     }
 }
