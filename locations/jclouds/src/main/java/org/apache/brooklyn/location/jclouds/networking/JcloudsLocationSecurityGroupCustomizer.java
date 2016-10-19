@@ -224,11 +224,15 @@ public class JcloudsLocationSecurityGroupCustomizer extends BasicJcloudsLocation
      * @param permissions The set of permissions to be applied to the location
      */
     public JcloudsLocationSecurityGroupCustomizer addPermissionsToLocation(final JcloudsMachineLocation location, final Iterable<IpPermission> permissions) {
+        ComputeService computeService = location.getParent().getComputeService();
+        addPermissionsToLocationAndReturnSecurityGroup(computeService, location, permissions);
+        return this;
+    }
+
+    public Collection<SecurityGroup> addPermissionsToLocationAndReturnSecurityGroup(ComputeService computeService, final JcloudsMachineLocation location, final Iterable<IpPermission> permissions) {
         synchronized (JcloudsLocationSecurityGroupCustomizer.class) {
-            ComputeService computeService = location.getParent().getComputeService();
             String nodeId = location.getNode().getId();
-            addPermissionsToLocation(permissions, nodeId, computeService);
-            return this;
+            return addPermissionsToLocation(permissions, nodeId, computeService).values();
         }
     }
     /**

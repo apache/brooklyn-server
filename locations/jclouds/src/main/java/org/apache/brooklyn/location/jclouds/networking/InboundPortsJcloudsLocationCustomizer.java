@@ -36,7 +36,8 @@ import org.slf4j.LoggerFactory;
 import static org.apache.brooklyn.location.jclouds.networking.NetworkingEffectors.*;
 
 /**
- * @deprecated Please use {@link org.apache.brooklyn.location.jclouds.networking.SharedLocationSecurityGroupCustomizer}
+ * @since 0.10.0
+ * @deprecated since 0.10.0. Please use {@link org.apache.brooklyn.location.jclouds.networking.SharedLocationSecurityGroupCustomizer}
  */
 @Beta
 @Deprecated
