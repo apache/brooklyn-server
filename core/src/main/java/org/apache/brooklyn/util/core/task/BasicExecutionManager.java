@@ -536,7 +536,11 @@ public class BasicExecutionManager implements ExecutionManager {
                         // debug only here, because most submitters will handle failures
                         if (error instanceof InterruptedException || error instanceof RuntimeInterruptedException) {
                             log.debug("Detected interruption on task "+task+" (rethrowing)" +
-                                (Strings.isNonBlank(error.getMessage()) ? ": "+error.getMessage() : ""));
+                                    (Strings.isNonBlank(error.getMessage()) ? ": "+error.getMessage() : ""));
+                        } else if (error instanceof NullPointerException ||
+                                error instanceof IndexOutOfBoundsException ||
+                                error instanceof ClassCastException) {
+                            log.debug("Exception running task "+task+" (rethrowing): "+error, error);
                         } else {
                             log.debug("Exception running task "+task+" (rethrowing): "+error);
                         }
