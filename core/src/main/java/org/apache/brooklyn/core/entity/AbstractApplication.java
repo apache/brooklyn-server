@@ -154,7 +154,6 @@ public abstract class AbstractApplication extends AbstractEntity implements Star
             doStart(locationsToUse);
             postStart(locationsToUse);
 
-            ServiceStateLogic.ServiceNotUpLogic.clearNotUpIndicator(this, Attributes.SERVICE_STATE_ACTUAL);
         } catch (Exception e) {
             // TODO should probably remember these problems then clear?  if so, do it here ... or on all effectors?
             // ServiceProblemsLogic.updateProblemsIndicator(this, START, e);
@@ -163,6 +162,7 @@ public abstract class AbstractApplication extends AbstractEntity implements Star
             // no need to log here; the effector invocation should do that
             throw Exceptions.propagate(e);
         } finally {
+            ServiceStateLogic.ServiceNotUpLogic.clearNotUpIndicator(this, Attributes.SERVICE_STATE_ACTUAL);
             ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
         }
 
