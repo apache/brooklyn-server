@@ -145,6 +145,19 @@
         <dependency>
             <groupId>com.maxmind.geoip2</groupId>
             <artifactId>geoip2</artifactId>
+            <exclusions>
+              <exclusion>
+                <!--
+                  com.maxmind.db:maxmind-db:jar:1.2.1 depends on jackson-databind [2.7.0,)
+                  which causes excessive download of dependencies (all versions in the range,
+                  including snapshots). We already include it explicitly anyway so can save on
+                  the extra http requests. It's also forces maven to check frequently whether
+                  new versions are available so it can use them.
+                -->
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+              </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
