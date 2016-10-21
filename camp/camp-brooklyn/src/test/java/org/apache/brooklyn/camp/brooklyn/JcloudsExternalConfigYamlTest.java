@@ -21,7 +21,9 @@ package org.apache.brooklyn.camp.brooklyn;
 import static org.testng.Assert.assertEquals;
 
 import java.io.StringReader;
+import java.util.Map;
 
+import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.camp.brooklyn.ExternalConfigYamlTest.MyExternalConfigSupplier;
@@ -29,10 +31,10 @@ import org.apache.brooklyn.camp.brooklyn.ExternalConfigYamlTest.MyExternalConfig
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.StartableApplication;
-import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.location.jclouds.JcloudsLocation;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -45,34 +47,35 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.Iterables;
 
 // also see ExternalConfigYamlTest
-public class JcloudsLocationExternalConfigYamlLiveTest extends AbstractYamlRebindTest {
+public class JcloudsExternalConfigYamlTest extends AbstractJcloudsStubYamlTest {
 
-    private static final Logger log = LoggerFactory.getLogger(ExternalConfigYamlTest.class);
+    private static final Logger log = LoggerFactory.getLogger(JcloudsExternalConfigYamlTest.class);
 
     private static final ConfigKey<String> MY_CONFIG_KEY = ConfigKeys.newStringConfigKey("my.config.key");
-
+    
     @Override
-    protected BrooklynProperties createBrooklynProperties() {
-        BrooklynProperties props = BrooklynProperties.Factory.newDefault();
-        props.put("brooklyn.external.myprovider", MyExternalConfigSupplier.class.getName());
-        props.put("brooklyn.external.myprovider.mykey", "myval");
-        props.put("brooklyn.external.myproviderWithoutMapArg", MyExternalConfigSupplierWithoutMapArg.class.getName());
-        return props;
+    protected Map<String, ?> customBrooklynProperties() {
+        return MutableMap.<String, Object>builder()
+                .putAll(super.customBrooklynProperties())
+                .put("brooklyn.external.myprovider", MyExternalConfigSupplier.class.getName())
+                .put("brooklyn.external.myprovider.mykey", "myval")
+                .put("brooklyn.external.myproviderWithoutMapArg", MyExternalConfigSupplierWithoutMapArg.class.getName())
+                .build();
     }
 
-    @Test(groups="Live")
+    @Test
     public void testJcloudsInheritanceAndPasswordSecret() throws Exception {
         String yaml = Joiner.on("\n").join(
-                "services:",
-                "- type: "+EmptySoftwareProcess.class.getName(),
                 "location:",
-                "  jclouds:aws-ec2:",
+                "  " + LOCATION_CATALOG_ID + ":",
                 "    password: $brooklyn:external(\"myprovider\", \"mykey\")",
-                "    my.config.key: $brooklyn:external(\"myprovider\", \"mykey\")");
+                "    my.config.key: $brooklyn:external(\"myprovider\", \"mykey\")",
+                "services:",
+                "- type: "+EmptySoftwareProcess.class.getName());
 
-        origApp = (StartableApplication) createAndStartApplication(new StringReader(yaml));
+        Application app = (StartableApplication) createAndStartApplication(new StringReader(yaml));
 
-        Entity entity = Iterables.getOnlyElement( origApp.getChildren() );
+        Entity entity = Iterables.getOnlyElement( app.getChildren() );
         Location l = Iterables.getOnlyElement( entity.getLocations() );
         log.info("Location: "+l);
         assertEquals(l.config().get(MY_CONFIG_KEY), "myval");
@@ -88,21 +91,21 @@ public class JcloudsLocationExternalConfigYamlLiveTest extends AbstractYamlRebin
         Assert.assertTrue(rawConfig.get() instanceof DeferredSupplier, "Expected deferred raw value; got "+rawConfig.get());
     }
 
-    @Test(groups="Live")
+    @Test
     public void testProvisioningPropertyInheritance() throws Exception {
         String yaml = Joiner.on("\n").join(
+                "location: " + LOCATION_CATALOG_ID,
                 "services:",
                 "- type: "+EmptySoftwareProcess.class.getName(),
                 "  provisioning.properties:",
                 "      password: $brooklyn:external(\"myprovider\", \"mykey\")",
                 // note that these 2 do not get transferred -- see below
                 "      simple: 42",
-                "      my.config.key: $brooklyn:external(\"myprovider\", \"mykey\")",
-                "location: aws-ec2");
+                "      my.config.key: $brooklyn:external(\"myprovider\", \"mykey\")");
 
-        origApp = (StartableApplication) createAndStartApplication(new StringReader(yaml));
+        StartableApplication app = (StartableApplication) createAndStartApplication(new StringReader(yaml));
 
-        Entity entity = Iterables.getOnlyElement( origApp.getChildren() );
+        Entity entity = Iterables.getOnlyElement( app.getChildren() );
         Location l = Iterables.getOnlyElement( entity.getLocations() );
         log.info("Location: "+l);
         assertEquals(l.config().get(JcloudsLocation.PASSWORD), "myval");

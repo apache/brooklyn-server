@@ -105,7 +105,7 @@ public class DslAndRebindYamlTest extends AbstractYamlTest {
         return log;
     }
 
-    public Application rebind(Application app) throws Exception {
+    protected Application rebind(Application app) throws Exception {
         RebindTestUtils.waitForPersisted(app);
         Application result = RebindTestUtils.rebind(mementoDir, getClass().getClassLoader());
         mgmtContexts.add(result.getManagementContext());
@@ -129,7 +129,7 @@ public class DslAndRebindYamlTest extends AbstractYamlTest {
         return entity;
     }
 
-    public static <T> T getConfigInTask(final Entity entity, final ConfigKey<T> key) {
+    protected static <T> T getConfigInTask(final Entity entity, final ConfigKey<T> key) {
         return Entities.submit(entity, Tasks.<T>builder().body(new Callable<T>() {
             @Override
             public T call() throws Exception {

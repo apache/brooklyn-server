@@ -54,7 +54,7 @@ public class JcloudsLocationExtensionStubbedTest extends AbstractJcloudsStubbedU
 
     @Test
     public void testHasExtension() throws Exception {
-        initNodeCreatorAndJcloudsLocation(newVanillaNodeCreator(), ImmutableMap.of());
+        initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of());
         MachineLocation machine = jcloudsLocation.obtain();
         
         HttpExecutorFactory extension = machine.getExtension(HttpExecutorFactory.class);

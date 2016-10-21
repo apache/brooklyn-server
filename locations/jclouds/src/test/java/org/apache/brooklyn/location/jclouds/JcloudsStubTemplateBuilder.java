@@ -21,6 +21,7 @@ package org.apache.brooklyn.location.jclouds;
 import com.google.common.base.Functions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.base.Objects.ToStringHelper;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -99,6 +100,10 @@ public class JcloudsStubTemplateBuilder {
 
         return new EC2TemplateBuilderImpl(locations, new ImageCacheSupplier(images, 60), sizes, Suppliers.ofInstance(jcloudsDomainLocation), optionsProvider,
                 templateBuilderProvider, getImageStrategy, imageCache) {
+            @Override
+            protected ToStringHelper string() {
+                return super.string().add("type", "Stubbed-TemplateBuilder");
+            }
         };
     }
 }

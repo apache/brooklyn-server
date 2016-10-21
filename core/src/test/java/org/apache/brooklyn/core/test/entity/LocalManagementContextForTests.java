@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.core.test.entity;
 
+import java.util.Map;
+
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
@@ -87,6 +89,7 @@ public class LocalManagementContextForTests extends LocalManagementContext {
         boolean disableOsgi = false;
         boolean emptyCatalog = false;
         BrooklynProperties properties = null;
+        Map<String, ?> additionalProperties = null;
         
         public Builder disablePersistenceBackups() { return disablePersistenceBackups(true); }
         public Builder disableOsgi() { return disableOsgi(true); }
@@ -107,18 +110,31 @@ public class LocalManagementContextForTests extends LocalManagementContext {
             disableOsgi();
             emptyCatalog();
             properties = null;
+            additionalProperties = null;
             return this;
         }
         
+        public Builder useAdditionalProperties(Map<String, ?> additionalProperties) {
+            if (hasCustomProperties() && additionalProperties != null)
+                throw new IllegalStateException("Cannot set multiple properties");
+            this.additionalProperties = additionalProperties; 
+            return this; 
+        }
+        
         public Builder useProperties(BrooklynProperties properties) {
-            if (this.properties!=null && properties!=null)
+            if (hasCustomProperties() && properties != null)
                 throw new IllegalStateException("Cannot set multiple properties");
             this.properties = properties; 
             return this; 
         }
         
+        protected boolean hasCustomProperties() {
+            return (properties != null) || (additionalProperties != null && additionalProperties.size() > 0);
+        }
+        
         public BrooklynProperties buildProperties() {
             BrooklynProperties result = emptyIfNull(properties);
+            if (additionalProperties != null) result.putAll(additionalProperties);
             if (disablePersistenceBackups) LocalManagementContextForTests.disablePersistenceBackups(result);
             if (disableOsgi) LocalManagementContextForTests.disableOsgi(result);
             if (emptyCatalog) LocalManagementContextForTests.setEmptyCatalogAsDefault(result);

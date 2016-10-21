@@ -44,13 +44,9 @@ import org.apache.brooklyn.core.mgmt.ha.ManagementPlaneSyncRecordPersisterToObje
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
-import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
 import org.apache.brooklyn.core.mgmt.persist.FileBasedObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
-import org.apache.brooklyn.core.mgmt.rebind.PersistenceExceptionHandlerImpl;
-import org.apache.brooklyn.core.mgmt.rebind.RebindExceptionHandlerImpl;
-import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
 import org.apache.brooklyn.core.mgmt.rebind.Dumpers.Pointer;
 import org.apache.brooklyn.core.mgmt.rebind.dto.MementosGenerators;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
@@ -333,10 +329,14 @@ public class RebindTestUtils {
     
     public static Application rebind(RebindOptions options) throws Exception {
         Collection<Application> newApps = rebindAll(options);
-        if (newApps.isEmpty()) throw new IllegalStateException("Application could not be rebinded; serialization probably failed");
-        return Iterables.getFirst(newApps, null);
+        if (newApps.isEmpty()) throw new IllegalStateException("Application could not be found after rebind; serialization probably failed");
+        Function<Collection<Application>, Application> chooser = options.applicationChooserOnRebind;
+        if (chooser != null) {
+            return chooser.apply(newApps);
+        } else {
+            return Iterables.getFirst(newApps, null);
+        }
     }
-
 
     /**
      * @deprecated since 0.7.0; use {@link #rebindAll(RebindOptions)}

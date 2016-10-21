@@ -825,11 +825,11 @@ public class Reflections {
 
     /** @deprecated since 0.10.0 use {@link #invokeMethodFromArgs(Object, String, List)};
      * this allows null return values */ @Deprecated
-    public static Optional<Object> invokeMethodWithArgs(Object clazzOrInstance, String method, List<Object> args) throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
+    public static Optional<Object> invokeMethodWithArgs(Object clazzOrInstance, String method, List<?> args) throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
         return invokeMethodWithArgs(clazzOrInstance, method, args, false);
     }
     /** @deprecated since 0.10.0 use {@link #invokeMethodFromArgs(Object, String, List)} */ @Deprecated
-    public static Optional<Object> invokeMethodWithArgs(Object clazzOrInstance, String method, List<Object> args, boolean setAccessible) throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
+    public static Optional<Object> invokeMethodWithArgs(Object clazzOrInstance, String method, List<?> args, boolean setAccessible) throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
         return invokeMethodFromArgs(clazzOrInstance, method, args, setAccessible).toOptional();
     }
     
@@ -837,11 +837,11 @@ public class Reflections {
      * @throws InvocationTargetException 
      * @throws IllegalAccessException 
      * @throws IllegalArgumentException */
-    public static Maybe<Object> invokeMethodFromArgs(Object clazzOrInstance, String method, List<Object> args) throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
+    public static Maybe<Object> invokeMethodFromArgs(Object clazzOrInstance, String method, List<?> args) throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
         return invokeMethodFromArgs(clazzOrInstance, method, args, false);
     }
     /** as {@link #invokeMethodFromArgs(Object, String, List)} but giving control over whether to set it accessible */
-    public static Maybe<Object> invokeMethodFromArgs(Object clazzOrInstance, String method, List<Object> args, boolean setAccessible) throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
+    public static Maybe<Object> invokeMethodFromArgs(Object clazzOrInstance, String method, List<?> args, boolean setAccessible) throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
         Preconditions.checkNotNull(clazzOrInstance, "clazz or instance");
         Preconditions.checkNotNull(method, "method");
         Preconditions.checkNotNull(args, "args to "+method);

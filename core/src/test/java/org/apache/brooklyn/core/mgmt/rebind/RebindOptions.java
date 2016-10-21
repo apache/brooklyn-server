@@ -19,7 +19,9 @@
 package org.apache.brooklyn.core.mgmt.rebind;
 
 import java.io.File;
+import java.util.Collection;
 
+import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
@@ -43,6 +45,7 @@ public class RebindOptions {
     public ClassLoader classLoader;
     public PersistenceObjectStore objectStore;
     public HighAvailabilityMode haMode;
+    public Function<Collection<Application>, Application> applicationChooserOnRebind;
     
     public static RebindOptions create() {
         return new RebindOptions();
@@ -60,6 +63,7 @@ public class RebindOptions {
         result.classLoader(options.classLoader);
         result.objectStore(options.objectStore);
         result.haMode(options.haMode);
+        result.applicationChooserOnRebind(options.applicationChooserOnRebind);
         return result;
     }
     public RebindOptions checkSerializable(boolean val) {
@@ -104,6 +108,11 @@ public class RebindOptions {
     }
     public RebindOptions haMode(HighAvailabilityMode val) {
         this.haMode = val;
+        return this;
+    }
+    
+    public RebindOptions applicationChooserOnRebind(Function<Collection<Application>, Application> val) {
+        this.applicationChooserOnRebind = val;
         return this;
     }
 }

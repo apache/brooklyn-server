@@ -20,16 +20,21 @@ package org.apache.brooklyn.location.jclouds;
 
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.RunNodesException;
 import org.jclouds.compute.domain.ComputeMetadata;
 import org.jclouds.compute.domain.NodeMetadata;
+import org.jclouds.compute.domain.NodeMetadata.Status;
+import org.jclouds.compute.domain.NodeMetadataBuilder;
 import org.jclouds.compute.domain.Template;
 import org.jclouds.compute.options.TemplateOptions;
+import org.jclouds.domain.LoginCredentials;
 
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -75,6 +80,23 @@ public class StubbedComputeServiceRegistry implements ComputeServiceRegistry {
         }
         protected NodeMetadata newNode(String group, Template template) {
             return node;
+        }
+    }
+
+    public static class BasicNodeCreator extends AbstractNodeCreator {
+        private final AtomicInteger counter = new AtomicInteger(1);
+        @Override
+        protected NodeMetadata newNode(String group, Template template) {
+            int suffix = counter.getAndIncrement();
+            NodeMetadata result = new NodeMetadataBuilder()
+                    .id("mynodeid"+suffix)
+                    .credentials(LoginCredentials.builder().identity("myuser").credential("mypassword").build())
+                    .loginPort(22)
+                    .status(Status.RUNNING)
+                    .publicAddresses(ImmutableList.of("173.194.32."+suffix))
+                    .privateAddresses(ImmutableList.of("172.168.10."+suffix))
+                    .build();
+            return result;
         }
     }
 

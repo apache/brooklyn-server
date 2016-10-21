@@ -45,6 +45,10 @@ import com.google.common.io.Files;
 @Test
 public class JavaWebAppWithDslYamlRebindIntegrationTest extends AbstractYamlTest {
     
+    // TODO Tests rely on being able to access ControlledDynamicWebAppCluster, but that is in
+    // brooklyn-library, rather than brooklyn-server repo. This test needs to either be moved
+    // or deleted.
+
     private static final Logger log = LoggerFactory.getLogger(JavaWebAppWithDslYamlRebindIntegrationTest.class);
     
     protected ClassLoader classLoader = getClass().getClassLoader();
@@ -87,7 +91,7 @@ public class JavaWebAppWithDslYamlRebindIntegrationTest extends AbstractYamlTest
     }
 
     /** as {@link JavaWebAppsIntegrationTest#testWithDbDeploy()} but with rebind */
-    @Test(groups="Integration")
+    @Test(groups={"Integration", "WIP", "Broken"})
     public void testJavaWebAppDeployAndRebind() throws Exception {
         Reader input = Streams.reader(new ResourceUtils(this).getResourceFromUrl("java-web-app-and-db-with-function.yaml"));
         AssemblyTemplate at = platform.pdp().registerDeploymentPlan(input);
@@ -104,7 +108,7 @@ public class JavaWebAppWithDslYamlRebindIntegrationTest extends AbstractYamlTest
     }
 
     // test for https://github.com/brooklyncentral/brooklyn/issues/1422
-    @Test(groups="Integration")
+    @Test(groups={"Integration", "WIP", "Broken"})
     public void testJavaWebWithMemberSpecRebind() throws Exception {
         Reader input = Streams.reader(new ResourceUtils(this).getResourceFromUrl("test-java-web-app-spec-and-db-with-function.yaml"));
         AssemblyTemplate at = platform.pdp().registerDeploymentPlan(input);
