@@ -237,7 +237,7 @@ public class BrooklynGarbageCollector {
 
     public static String makeBasicUsageString() {
         int present = (int)Math.round(100.0*SoftlyPresent.getUsageTracker().getPercentagePresent());
-        return Strings.makeSizeString(Runtime.getRuntime().maxMemory() - Runtime.getRuntime().freeMemory())+" / "+
+        return Strings.makeSizeString(Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory())+" / "+
             Strings.makeSizeString(Runtime.getRuntime().maxMemory()) 
             + (Runtime.getRuntime().maxMemory() > Runtime.getRuntime().totalMemory() ? 
                 " ("+ Strings.makeSizeString(Runtime.getRuntime().totalMemory()) +" real)"
