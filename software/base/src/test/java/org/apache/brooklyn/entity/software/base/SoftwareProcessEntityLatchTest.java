@@ -134,7 +134,7 @@ public class SoftwareProcessEntityLatchTest extends BrooklynAppUnitTestSupport {
         assertEffectorBlockingDetailsEventually(entity, MyService.STOP.getName(), "Waiting for config " + SoftwareProcess.STOP_LATCH.getName());
 
         app.sensors().set(stopper, true);
-        stopTask.get(Duration.THIRTY_SECONDS);
+        stopTask.get(Asserts.DEFAULT_LONG_TIMEOUT);
 
         assertDriverEventsEquals(entity, ImmutableList.of("setup", "copyInstallResources", "install", "customize", "copyRuntimeResources", "launch", "stop"));
     }

@@ -23,6 +23,7 @@ import static org.apache.brooklyn.core.config.ConfigKeys.newConfigKey;
 import static org.apache.brooklyn.core.config.ConfigKeys.newConfigKeyWithPrefix;
 import static org.apache.brooklyn.core.config.ConfigKeys.newStringConfigKey;
 
+import com.google.common.annotations.Beta;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigInheritance;
@@ -179,7 +180,10 @@ public class BrooklynConfigKeys {
 
     public static final ConfigKey<Boolean> PROVISION_LATCH = newBooleanConfigKey("provision.latch", "Latch for blocking location provision until ready");
     public static final ConfigKey<Boolean> START_LATCH = newBooleanConfigKey("start.latch", "Latch for blocking start until ready");
-    public static final ConfigKey<Boolean> STOP_LATCH = newBooleanConfigKey("stop.latch", "Latch for blocking stop until a condition is met");
+
+    @Beta // on stop DSLs time out after a minute and unblock; may be easier to fix after https://github.com/apache/brooklyn-server/pull/390
+    public static final ConfigKey<Boolean> STOP_LATCH = newBooleanConfigKey("stop.latch", "Latch for blocking stop until a condition is met; will block for at most 1 minute and then time out");
+
     public static final ConfigKey<Boolean> SETUP_LATCH = newBooleanConfigKey("setup.latch", "Latch for blocking setup until ready");
     public static final ConfigKey<Boolean> PRE_INSTALL_RESOURCES_LATCH = newBooleanConfigKey("resources.preInstall.latch", "Latch for blocking pre-install resources until ready");
     public static final ConfigKey<Boolean> INSTALL_RESOURCES_LATCH = newBooleanConfigKey("resources.install.latch", "Latch for blocking install resources until ready");
