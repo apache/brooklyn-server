@@ -89,6 +89,7 @@ public class JcloudsStoreObjectAccessor implements PersistenceObjectStore.StoreO
     @Override
     public String get() {
         try {
+            if (!blobStore.blobExists(containerName, blobName)) return null;
             Blob blob = blobStore.getBlob(containerName, blobName);
             if (blob==null) return null;
             return Strings2.toStringAndClose(blob.getPayload().openStream());
