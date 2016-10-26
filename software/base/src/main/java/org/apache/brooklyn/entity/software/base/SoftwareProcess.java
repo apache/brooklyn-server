@@ -73,6 +73,9 @@ public interface SoftwareProcess extends Entity, Startable {
     @SetFromFlag("startLatch")
     ConfigKey<Boolean> START_LATCH = BrooklynConfigKeys.START_LATCH;
 
+    @SetFromFlag("stopLatch")
+    ConfigKey<Boolean> STOP_LATCH = BrooklynConfigKeys.STOP_LATCH;
+
     @SetFromFlag("setupLatch")
     ConfigKey<Boolean> SETUP_LATCH = BrooklynConfigKeys.SETUP_LATCH;
 
