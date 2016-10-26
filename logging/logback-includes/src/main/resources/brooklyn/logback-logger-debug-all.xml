@@ -27,5 +27,10 @@
     <!-- jclouds uses org.jclouds.* class logging as well as special jclouds.* logger categories -->
     <logger name="org.jclouds" level="DEBUG"/>
     <logger name="jclouds" level="DEBUG"/>
+    <logger name="jclouds.compute" level="DEBUG"/>
+    <logger name="jclouds.headers" level="DEBUG"/>
+    <!-- wire turned off because it generates a lot of detail and in some cases it sends jclouds
+         through suboptimal paths which can cause OOME, esp on softlayer / w old swift -->
+    <logger name="jclouds.wire" level="OFF"/>
       
 </included>
