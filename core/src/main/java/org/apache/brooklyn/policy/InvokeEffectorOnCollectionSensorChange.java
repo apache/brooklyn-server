@@ -37,7 +37,6 @@ import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -72,7 +71,7 @@ import com.google.common.reflect.TypeToken;
  * there are no guarantees that the `onAdded' task will have finished before the
  * corresponding `onRemoved' task is invoked.
  */
-public class InvokeEffectorOnCollectionSensorChange extends AbstractPolicy implements SensorEventListener<Collection<?>> {
+public class InvokeEffectorOnCollectionSensorChange extends AbstractInvokeEffectorPolicy implements SensorEventListener<Collection<?>> {
 
     private static final Logger LOG = LoggerFactory.getLogger(InvokeEffectorOnCollectionSensorChange.class);
 
@@ -132,6 +131,15 @@ public class InvokeEffectorOnCollectionSensorChange extends AbstractPolicy imple
         final Set<Object> newValue = event.getValue() != null
                 ? new LinkedHashSet<>(event.getValue())
                 : ImmutableSet.of();
+        if (isBusySensorEnabled()) {
+            // There are more events coming that this policy hasn't been notified of if the
+            // value received in the event does not match the current value of the sensor.
+            final Collection<?> sensorVal = entity.sensors().get(getTriggerSensor());
+            final Set<Object> sensorValSet = sensorVal != null
+                ? new LinkedHashSet<>(sensorVal)
+                : ImmutableSet.of();
+            setMoreUpdatesComing(event.getTimestamp(), newValue, sensorValSet);
+        }
         final Set<Object> added = new LinkedHashSet<>(), removed = new LinkedHashSet<>();
         // It's only necessary to hold updateLock just to calculate the difference but
         // it is useful to guarantee that all the effectors are queued before the next
@@ -174,7 +182,7 @@ public class InvokeEffectorOnCollectionSensorChange extends AbstractPolicy imple
             }
 
             LOG.debug("{} invoking {} on {} with parameters {}", new Object[]{this, effector, entity, parameters});
-            entity.invoke(effector.get(), parameters);
+            invoke(effector.get(), parameters);
         }
     }
 
