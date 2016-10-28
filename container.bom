@@ -1,0 +1,18 @@
+brooklyn.catalog:
+  version: "2.1.0-SNAPSHOT" # CONTAINER_SERVICE_VERSION
+  publish:
+    description: |
+      Resources for working with Docker Engine from Apache Brooklyn
+    license_code: CLOUDSOFT-1.0
+    overview: README.md
+    qa: tests/docker.tests.bom
+
+  items:
+    - id: docker-container
+      name: "Docker Container"
+      description: |
+        An easy way to launch a Docker container
+      itemType: entity
+      iconUrl: https://raw.githubusercontent.com/docker-library/docs/c350af05d3fac7b5c3f6327ac82fe4d990d8729c/docker/logo.png
+      item:
+        type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer

@@ -27,6 +27,12 @@
         </dependency>
 
         <dependency>
+            <groupId>io.fabric8</groupId>
+            <artifactId>openshift-client</artifactId>
+            <version>${kubernetes-client.version}</version>
+            <classifier>bundle</classifier>
+        </dependency>
+        <dependency>
             <groupId>org.apache.brooklyn</groupId>
             <artifactId>brooklyn-logback-xml</artifactId>
             <version>${brooklyn.version}</version>
