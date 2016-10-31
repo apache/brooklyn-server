@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.util.collections;
 
-import java.util.List;
 import java.util.Set;
 
 import org.testng.Assert;

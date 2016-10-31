@@ -70,7 +70,7 @@ public class JavaEntitySpecResolver extends AbstractEntitySpecResolver{
     private EntitySpec<?> resolveInternal(String localType, BrooklynClassLoadingContext loader) {
         Maybe<Class<? extends Entity>> javaTypeMaybe = tryLoadJavaType(localType, loader);
         if (javaTypeMaybe.isAbsent())
-            throw new IllegalStateException("Could not find "+localType, ((Maybe.Absent<?>)javaTypeMaybe).getException());
+            throw new IllegalStateException("Could not find "+localType, Maybe.getException(javaTypeMaybe));
         Class<? extends Entity> javaType = javaTypeMaybe.get();
 
         EntitySpec<? extends Entity> spec;

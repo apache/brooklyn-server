@@ -346,7 +346,7 @@ public class Repeater implements Callable<Boolean> {
                 if (log.isDebugEnabled()) {
                     String msg = String.format("%s: unsatisfied during iteration %s %s", description, iterations,
                         (iterationLimit > 0 ? "(max "+iterationLimit+" attempts)" : "") + 
-                        (timer.isRunning() ? "("+Time.makeTimeStringRounded(timer.getDurationRemaining())+" remaining)" : ""));
+                        (timer.isNotPaused() ? "("+Time.makeTimeStringRounded(timer.getDurationRemaining())+" remaining)" : ""));
                     if (iterations == 1) {
                         log.debug(msg);
                     } else {

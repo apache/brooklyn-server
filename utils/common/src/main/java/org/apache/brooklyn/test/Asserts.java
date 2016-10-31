@@ -18,8 +18,6 @@
  */
 package org.apache.brooklyn.test;
 
-import groovy.lang.Closure;
-
 import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.Collection;
@@ -36,9 +34,11 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.text.StringPredicates;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -54,6 +54,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+
+import groovy.lang.Closure;
 
 /**
  * TODO should move this to new package brooklyn.util.assertions
@@ -690,7 +692,7 @@ public class Asserts {
      * @param condition the condition to evaluate
      */
     public static void assertTrue(boolean condition) {
-        if (!condition) fail(null);
+        if (!condition) fail();
     }
 
     /**
@@ -722,6 +724,9 @@ public class Asserts {
      */
     public static AssertionError fail(String message) {
         throw new AssertionError(message);
+    }
+    public static AssertionError fail(Throwable error) {
+        throw new AssertionError(error);
     }
     public static AssertionError fail() { throw new AssertionError(); }
 
@@ -1097,8 +1102,11 @@ public class Asserts {
     }
 
     public static <T> void assertThat(T object, Predicate<T> condition) {
+        assertThat(object, condition, null);
+    }
+    public static <T> void assertThat(T object, Predicate<T> condition, String message) {
         if (condition.apply(object)) return;
-        fail("Failed "+condition+": "+object);
+        fail(Strings.isBlank(message) ? "Failed "+condition+": "+object : message);
     }
 
     public static void assertStringContains(String input, String phrase1ToContain, String ...optionalOtherPhrasesToContain) {
@@ -1381,6 +1389,20 @@ public class Asserts {
     public static void assertSize(Iterable<?> list, int expectedSize) {
         if (list==null) fail("List is null");
         if (Iterables.size(list)!=expectedSize) fail("List has wrong size "+Iterables.size(list)+" (expected "+expectedSize+"): "+list);
+    }
+
+    public static void assertInstanceOf(Object obj, Class<?> type) {
+        assertThat(obj, Predicates.instanceOf(type), "Expected "+type+" but found "+(obj==null ? "null" : obj+" ("+obj.getClass()+")"));
+    }
+
+    public static <T> void assertPresent(Maybe<T> candidate) {
+        if (candidate.isPresent()) return;
+        fail( Maybe.getException(candidate) );
+    }
+
+    public static <T> void assertNotPresent(Maybe<T> candidate) {
+        if (candidate.isAbsent()) return;
+        fail("Expected absent value; instead got: "+candidate.get());
     }
 
 }

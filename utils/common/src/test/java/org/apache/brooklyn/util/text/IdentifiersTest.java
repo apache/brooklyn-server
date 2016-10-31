@@ -113,6 +113,7 @@ public class IdentifiersTest {
     public void testCharMerge() {
         String characters = Identifiers.mergeCharacterSets("abc", "bcd", "ghjj");
         Assert.assertEquals(characters.indexOf('b'), characters.lastIndexOf('b'));
+        Assert.assertEquals(characters, "abcdghj");
     }
-    
+
 }

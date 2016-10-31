@@ -32,7 +32,6 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.guava.Maybe.Absent;
 import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.collect.Iterables;
@@ -138,7 +137,7 @@ public class BrooklynYamlLocationResolver {
         Maybe<LocationSpec<?>> l = mgmt.getLocationRegistry().getLocationSpec(spec, flags);
         if (l.isPresent()) return l.get();
         
-        RuntimeException exception = ((Absent<?>)l).getException();
+        RuntimeException exception = Maybe.getException(l);
         if (exception instanceof NoSuchElementException && 
                 exception.getMessage().contains("Unknown location")) {
             // common case

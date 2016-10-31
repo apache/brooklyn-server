@@ -19,7 +19,6 @@
 package org.apache.brooklyn.entity.chef;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.InputStream;
 
 import org.apache.brooklyn.api.entity.Entity;
@@ -31,13 +30,11 @@ import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.io.FileUtil;
-import org.apache.brooklyn.util.stream.InputStreamSupplier;
 import org.apache.brooklyn.util.stream.Streams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
 
-import com.google.common.base.Throwables;
 import com.google.common.io.Files;
 
 public class ChefLiveTestSupport extends BrooklynAppLiveTestSupport {
@@ -82,18 +79,13 @@ public class ChefLiveTestSupport extends BrooklynAppLiveTestSupport {
         if (defaultConfigFile!=null) return defaultConfigFile;
         File tempDir = Files.createTempDir();
         ResourceUtils r = ResourceUtils.create(ChefServerTasksIntegrationTest.class);
-        try {
-            for (String f: new String[] { "knife.rb", "brooklyn-tests.pem", "brooklyn-validator.pem" }) {
-                String contents = r.getResourceAsString("classpath:///org/apache/brooklyn/entity/chef/hosted-chef-brooklyn-credentials/"+f);
-                InputStream in = InputStreamSupplier.fromString(contents).getInput();
-                try {
-                    FileUtil.copyTo(in, new File(tempDir, f));
-                } finally {
-                    Streams.closeQuietly(in);
-                }
+        for (String f: new String[] { "knife.rb", "brooklyn-tests.pem", "brooklyn-validator.pem" }) {
+            InputStream in = r.getResourceFromUrl("classpath:///org/apache/brooklyn/entity/chef/hosted-chef-brooklyn-credentials/"+f);
+            try {
+                FileUtil.copyTo(in, new File(tempDir, f));
+            } finally {
+                Streams.closeQuietly(in);
             }
-        } catch (IOException e) {
-            throw Throwables.propagate(e);
         }
         File knifeConfig = new File(tempDir, "knife.rb");
         defaultConfigFile = knifeConfig.getPath();

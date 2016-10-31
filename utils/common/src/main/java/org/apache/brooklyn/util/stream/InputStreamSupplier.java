@@ -21,8 +21,12 @@ package org.apache.brooklyn.util.stream;
 import java.io.IOException;
 import java.io.InputStream;
 
+import com.google.common.io.ByteSource;
 import com.google.common.io.InputSupplier;
 
+/** @deprecated since 0.10.0; underlying guava deprecated; 
+ * guava says to use a {@link ByteSource}; and in many cases there's also a better way */
+@Deprecated
 public class InputStreamSupplier implements InputSupplier<InputStream> {
 
     private final InputStream target;
