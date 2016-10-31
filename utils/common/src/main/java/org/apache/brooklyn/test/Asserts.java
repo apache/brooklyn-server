@@ -1211,11 +1211,13 @@ public class Asserts {
      * or more usually the test failure of this method is thrown, 
      * with detail of the original {@link Throwable} logged and included in the caused-by.
      */
-    public static void expectedFailureOfType(Throwable e, Class<?> ...permittedSupertypes) {
-        if (e instanceof ShouldHaveFailedPreviouslyAssertionError) throw (Error)e;
+    @SuppressWarnings("unchecked")
+    public static void expectedFailureOfType(Throwable e, Class<?> permittedSupertype, Class<?> ...permittedSupertypes) {
+        if (e instanceof ShouldHaveFailedPreviouslyAssertionError) throw (Error) e;
+        Throwable match = Exceptions.getFirstThrowableOfType(e, (Class<? extends Throwable>) permittedSupertype);
+        if (match != null) return;
         for (Class<?> clazz: permittedSupertypes) {
-            @SuppressWarnings("unchecked")
-            Throwable match = Exceptions.getFirstThrowableOfType(e, (Class<? extends Throwable>)clazz);
+            match = Exceptions.getFirstThrowableOfType(e, (Class<? extends Throwable>)clazz);
             if (match != null) return;
         }
         rethrowPreferredException(e, 

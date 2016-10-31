@@ -84,6 +84,8 @@ public interface DynamicGroup extends AbstractGroup {
      */
     <T> void addSubscription(Entity producer, Sensor<T> sensor);
 
+    /** @deprecated since 0.10.0 use <code>config().get(ENTITY_FILTER)</code> instead. */
+    @Deprecated
     Predicate<? super Entity> entityFilter();
 
 }

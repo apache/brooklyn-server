@@ -27,23 +27,18 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
-import org.apache.brooklyn.api.location.LocationSpec;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.entity.Attributes;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.RecordingSensorEventListener;
 import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.location.Locations.LocationsFilter;
 import org.apache.brooklyn.core.location.SimulatedLocation;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -54,42 +49,38 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
-public class BasicStartableTest {
+public class BasicStartableTest extends BrooklynAppUnitTestSupport {
 
-    private ManagementContext managementContext;
     private SimulatedLocation loc1;
     private SimulatedLocation loc2;
-    private TestApplication app;
-    private BasicStartable startable;
-    private TestEntity entity;
-    private TestEntity entity2;
-    
+
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
-        managementContext = LocalManagementContextForTests.newInstance();
-        loc1 = managementContext.getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class));
-        loc2 = managementContext.getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class));
-        app = TestApplication.Factory.newManagedInstanceForTests(managementContext);
+        super.setUp();
+        loc1 = app.newSimulatedLocation();
+        loc2 = app.newSimulatedLocation();
     }
-    
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        if (managementContext != null) Entities.destroyAll(managementContext);
-    }
-    
+
     @Test
     public void testSetsLocations() throws Exception {
-        startable = app.addChild(EntitySpec.create(BasicStartable.class));
+        BasicStartable startable = app.addChild(EntitySpec.create(BasicStartable.class));
         app.start(ImmutableList.of(loc1, loc2));
-        
         assertEqualsIgnoringOrder(startable.getLocations(), ImmutableSet.of(loc1, loc2));
     }
-    
+
+    @Test
+    public void testStartsWhenNoStartableChildren() {
+        BasicStartable startable = app.createAndManageChild(EntitySpec.create(BasicStartable.class)
+                .child(EntitySpec.create(BasicEntity.class)));
+        app.start(ImmutableList.of(app.newSimulatedLocation()));
+        EntityAsserts.assertAttributeEquals(startable, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+    }
+
     @Test
     public void testDefaultIsAllLocations() throws Exception {
-        startable = app.addChild(EntitySpec.create(BasicStartable.class));
-        entity = startable.addChild(EntitySpec.create(TestEntity.class));
-        entity2 = startable.addChild(EntitySpec.create(TestEntity.class));
+        BasicStartable startable = app.addChild(EntitySpec.create(BasicStartable.class));
+        TestEntity entity = startable.addChild(EntitySpec.create(TestEntity.class));
+        TestEntity entity2 = startable.addChild(EntitySpec.create(TestEntity.class));
         app.start(ImmutableList.of(loc1, loc2));
         
         assertEqualsIgnoringOrder(entity.getLocations(), ImmutableSet.of(loc1, loc2));
@@ -119,10 +110,10 @@ public class BasicStartableTest {
                 }
             }
         };
-        startable = app.addChild(EntitySpec.create(BasicStartable.class)
+        BasicStartable startable = app.addChild(EntitySpec.create(BasicStartable.class)
                 .configure(BasicStartable.LOCATIONS_FILTER, filter));
-        entity = startable.addChild(EntitySpec.create(TestEntity.class).displayName("1"));
-        entity2 = startable.addChild(EntitySpec.create(TestEntity.class).displayName("2"));
+        TestEntity entity = startable.addChild(EntitySpec.create(TestEntity.class).displayName("1"));
+        TestEntity entity2 = startable.addChild(EntitySpec.create(TestEntity.class).displayName("2"));
         app.start(ImmutableList.of(loc1, loc2));
         
         assertEqualsIgnoringOrder(entity.getLocations(), ImmutableSet.of(loc1));
@@ -140,7 +131,7 @@ public class BasicStartableTest {
                 return locations;
             }
         };
-        startable = app.addChild(EntitySpec.create(BasicStartable.class)
+        BasicStartable startable = app.addChild(EntitySpec.create(BasicStartable.class)
                 .configure(BasicStartable.LOCATIONS_FILTER, filter));
         BasicEntity entity = startable.addChild(EntitySpec.create(BasicEntity.class));
         app.start(ImmutableList.of(loc1, loc2));
@@ -157,11 +148,11 @@ public class BasicStartableTest {
     //        at org.apache.brooklyn.entity.stock.BasicStartableTest.testTransitionsThroughLifecycles(BasicStartableTest.java:170)
     @Test(groups={"Broken"})
     public void testTransitionsThroughLifecycles() throws Exception {
-        startable = app.addChild(EntitySpec.create(BasicStartable.class));
+        BasicStartable startable = app.addChild(EntitySpec.create(BasicStartable.class));
         EntityAsserts.assertAttributeEqualsEventually(app, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPED);
         
         final RecordingSensorEventListener<Lifecycle> listener = new RecordingSensorEventListener<Lifecycle>(true);
-        managementContext.getSubscriptionContext(startable)
+        mgmt.getSubscriptionContext(startable)
                 .subscribe(startable, Attributes.SERVICE_STATE_ACTUAL, listener);
 
         app.start(ImmutableList.of(loc1));

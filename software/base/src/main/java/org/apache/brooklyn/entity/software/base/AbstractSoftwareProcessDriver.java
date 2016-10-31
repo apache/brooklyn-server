@@ -305,25 +305,35 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
             }
         });
 
-        if (doFullStartOnRestart()) {
-            DynamicTasks.waitForLast();
-            ServiceStateLogic.setExpectedState(getEntity(), Lifecycle.STARTING);
-            start();
-        } else {
-            DynamicTasks.queue("pre-launch-command", new Runnable() { public void run() {
-                ServiceStateLogic.setExpectedState(getEntity(), Lifecycle.STARTING);
-                runPreLaunchCommand();
-            }});
-            DynamicTasks.queue("launch (main)", new Runnable() { public void run() {
-                launch();
-            }});
-            DynamicTasks.queue("post-launch-command", new Runnable() { public void run() {
-                runPostLaunchCommand();
-            }});
-            DynamicTasks.queue("post-launch", new Runnable() { public void run() {
-                postLaunch();
-            }});
-        }
+        DynamicTasks.queue("restart", new Runnable() {
+            public void run() {
+                try {
+                    if (doFullStartOnRestart()) {
+                        DynamicTasks.waitForLast();
+                        ServiceStateLogic.setExpectedState(getEntity(), Lifecycle.STARTING);
+                        start();
+                    } else {
+                        DynamicTasks.queue("pre-launch-command", new Runnable() { public void run() {
+                            ServiceStateLogic.setExpectedState(getEntity(), Lifecycle.STARTING);
+                            runPreLaunchCommand();
+                        }});
+                        DynamicTasks.queue("launch (main)", new Runnable() { public void run() {
+                            launch();
+                        }});
+                        DynamicTasks.queue("post-launch-command", new Runnable() { public void run() {
+                            runPostLaunchCommand();
+                        }});
+                        DynamicTasks.queue("post-launch", new Runnable() { public void run() {
+                            postLaunch();
+                        }});
+                    }
+                    DynamicTasks.waitForLast();
+                } catch (Exception e) {
+                    ServiceStateLogic.setExpectedState(entity, Lifecycle.ON_FIRE);
+                    throw Exceptions.propagate(e);
+                }
+            }
+        });
     }
 
     @Beta

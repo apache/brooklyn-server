@@ -18,8 +18,6 @@
  */
 package org.apache.brooklyn.entity.group;
 
-import groovy.lang.Closure;
-
 import java.util.Collection;
 import java.util.Map;
 
@@ -31,6 +29,7 @@ import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.core.BrooklynLogging;
 import org.apache.brooklyn.core.BrooklynLogging.LoggingLevel;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.mgmt.internal.CollectionChangeListener;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -43,6 +42,8 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+
+import groovy.lang.Closure;
 
 public class DynamicGroupImpl extends AbstractGroupImpl implements DynamicGroup {
 
@@ -64,7 +65,7 @@ public class DynamicGroupImpl extends AbstractGroupImpl implements DynamicGroup 
         super.init();
         sensors().set(RUNNING, true);
     }
-    
+
     @Override
     public void setEntityFilter(Predicate<? super Entity> filter) {
         // TODO Sould this be "evenIfOwned"?
@@ -80,12 +81,22 @@ public class DynamicGroupImpl extends AbstractGroupImpl implements DynamicGroup 
 
     @Override
     public Predicate<? super Entity> entityFilter() {
+        return getEntityFilter();
+    }
+
+    /**
+     * @return
+     *      The filter configured in {@link #ENTITY_FILTER} ANDed with a check that the
+     *      entity has the same application ID.
+     */
+    protected Predicate<? super Entity> getEntityFilter() {
         Predicate<? super Entity> entityFilter = getConfig(ENTITY_FILTER);
         if (entityFilter == null) {
-            return Predicates.alwaysFalse();
-        } else {
-            return entityFilter;
+            entityFilter = Predicates.alwaysFalse();
         }
+        return Predicates.and(
+                EntityPredicates.applicationIdEqualTo(getApplicationId()),
+                entityFilter);
     }
 
     private boolean isRunning() {
@@ -198,10 +209,6 @@ public class DynamicGroupImpl extends AbstractGroupImpl implements DynamicGroup 
                 if (log.isDebugEnabled()) log.debug("{} not scanning for children: stopped", this);
                 return;
             }
-            if (getConfig(ENTITY_FILTER) == null) {
-                log.debug("{} not (yet) scanning for children: no filter defined", this, this);
-                return;
-            }
             if (getApplication() == null) {
                 BrooklynLogging.log(log, BrooklynLogging.levelDependingIfReadOnly(this, LoggingLevel.WARN, LoggingLevel.TRACE, LoggingLevel.TRACE),
                     "{} not (yet) scanning for children: no application defined", this);
@@ -211,7 +218,9 @@ public class DynamicGroupImpl extends AbstractGroupImpl implements DynamicGroup 
             Collection<Entity> currentMembers = getMembers();
             Collection<Entity> toRemove = Sets.newLinkedHashSet(currentMembers);
 
-            for (Entity it : Iterables.filter(Entities.descendantsAndSelf(getApplication()), entityFilter())) {
+            final Iterable<Entity> unfiltered = Entities.descendantsAndSelf(getApplication());
+            log.debug("{} filtering {} with {}", new Object[]{this, unfiltered, entityFilter()});
+            for (Entity it : Iterables.filter(unfiltered, entityFilter())) {
                 toRemove.remove(it);
                 if (!currentMembers.contains(it)) {
                     if (log.isDebugEnabled()) log.debug("{} rescan detected new item {}", this, it);
@@ -228,4 +237,5 @@ public class DynamicGroupImpl extends AbstractGroupImpl implements DynamicGroup 
                 log.debug("{} rescan complete, members now {}", this, getMembers());
         }
     }
+
 }

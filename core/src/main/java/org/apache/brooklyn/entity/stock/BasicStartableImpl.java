@@ -38,9 +38,11 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
+import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceProblemsLogic;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.entity.trait.StartableMethods;
 import org.apache.brooklyn.core.location.Locations;
+import org.apache.brooklyn.util.collections.QuorumCheck;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 
 public class BasicStartableImpl extends AbstractEntity implements BasicStartable {
@@ -80,10 +82,8 @@ public class BasicStartableImpl extends AbstractEntity implements BasicStartable
                 }
             }
             sensors().set(Attributes.SERVICE_UP, true);
+        } finally {
             ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
-        } catch (Throwable t) {
-            ServiceStateLogic.setExpectedState(this, Lifecycle.ON_FIRE);
-            throw Exceptions.propagate(t);
         }
     }
 
@@ -103,6 +103,15 @@ public class BasicStartableImpl extends AbstractEntity implements BasicStartable
     @Override
     public void restart() {
         StartableMethods.restart(this);
+    }
+
+    @Override
+    protected void initEnrichers() {
+        super.initEnrichers();
+        enrichers().add(ServiceStateLogic.newEnricherFromChildrenUp()
+                .checkChildrenOnly()
+                .requireUpChildren(QuorumCheck.QuorumChecks.all())
+                .suppressDuplicates(true));
     }
 
     // TODO make public in StartableMethods

@@ -55,7 +55,7 @@ public interface QuorumCheck {
             return new NumericQuorumCheck(1, 1.0, false, "allAndAtLeastOne");
         }
         /**
-         * Requires at least one member that should be up is up.
+         * Requires at least one member that should be up.
          */
         public static QuorumCheck atLeastOne() {
             return new NumericQuorumCheck(1, 0.0, false, "atLeastOne");
