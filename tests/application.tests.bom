@@ -39,7 +39,7 @@ brooklyn.catalog:
 
 
   items:
-
+  - "https://raw.githubusercontent.com/brooklyncentral/common-catalog-utils/master/common-tests/src/main/resources/commontests/common.tests.bom"
   - id: tomcat-webapp-cluster
     name: "Tomcat Webapp Cluster"
     description: |
@@ -428,7 +428,7 @@ brooklyn.catalog:
       type: test-case
       name: "Deploy Container Type Tests"
       brooklyn.children:
-        - type: docker-container
+        - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
           location: testing-swarm
           id: httpd
           name: "httpd"

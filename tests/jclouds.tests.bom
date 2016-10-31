@@ -133,7 +133,7 @@ brooklyn.catalog:
         - type: assert-up
           brooklyn.config:
             timeout: 10m
-        - type: test-stop
+        - type: invoke-stop-machine
         - type: assert-container-destroyed
 
   - id: assert-location-image
@@ -267,7 +267,12 @@ brooklyn.catalog:
       name: Jclouds provider tests
       brooklyn.children:
         - type: test-container-stop
+          name: "1. Container Stop Test"
         - type: test-container-clean-up
+          name: "2. Container Clean Up Test"
         - type: test-default-image
+          name: "3. Default Image Test"
         - type: test-explicit-image-id
+          name: "4. Explicit Image ID Test"
         - type: test-explicit-image-name
+          name: "5. Explicit Image Name Test"

@@ -29,6 +29,12 @@ brooklyn.catalog:
 #         networkMode: "brooklyn" # the default swarm network
 ##
 
+##
+#Test assumtions
+# * swarm endpoint preconfigured
+# * cloudsoft/ubuntu:14.04 image has been pulled
+
+
   items:
     - id: swarm-endpoint-tests
       name: "Swarm Endpoint Deployment Tests"
@@ -44,26 +50,25 @@ brooklyn.catalog:
 
         services:
           - type: test-case
-            name: "TEST-01 Containers"
+            name: "1. Deploy Container Type Tests"
             brooklyn.children:
               - type: deploy-single-container-type
           - type: test-case
-            name: "TEST-02 Applications"
+            name: "2. Deploy Blueprint Application Tests"
             brooklyn.config:
               dontRequireTtyForSudo: true
             brooklyn.children:
               - type: test-case
-                name: "TEST-02-1 Single-Node Application"
+                name: "2.1. Single-Node Application Test"
                 brooklyn.children:
                   - type: deploy-app-to-swarm-single-node
               - type: test-case
-                name: "TEST-02-2 Multi-Node Application"
+                name: "2.2. Multi-Node Application Test"
                 brooklyn.children:
                   - type: deploy-riak-cluster-to-swarm-multi-node
                   - type: deploy-multi-node-app-swarm
               - type: test-case
-                name: "TEST-02-3 Hybrid Multi-Node Application"
+                name: "2.3 Hybrid Multi-Node Application"
                 brooklyn.children:
                   - type: deploy-multi-node-app-swarm-to-cloud
                   - type: deploy-multi-node-app-cloud-to-swarm
-
