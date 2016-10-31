@@ -475,7 +475,8 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
                         .body(new Callable<Object>() {
                             @Override
                             public Integer call() {
-                                return copyTemplate(input.source, input.destination, true, Collections.<String, Object>emptyMap());
+                                Map<String, Object> substitutions = MutableMap.copyOf(entity.config().get(SoftwareProcess.TEMPLATE_SUBSTITUTIONS)).asUnmodifiable();
+                                return copyTemplate(input.source, input.destination, true, substitutions);
                             }
                         })
                         .build();
