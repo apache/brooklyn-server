@@ -22,12 +22,14 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
 import javax.annotation.Nullable;
 
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,6 +47,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.UncheckedExecutionException;
@@ -67,7 +70,6 @@ import org.apache.brooklyn.location.jclouds.JcloudsLocation;
 import org.apache.brooklyn.location.jclouds.JcloudsLocationConfig;
 import org.apache.brooklyn.location.jclouds.JcloudsLocationCustomizer;
 import org.apache.brooklyn.location.jclouds.JcloudsMachineLocation;
-import org.apache.brooklyn.location.jclouds.JcloudsSshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -222,11 +224,15 @@ public class JcloudsLocationSecurityGroupCustomizer extends BasicJcloudsLocation
      * @param permissions The set of permissions to be applied to the location
      */
     public JcloudsLocationSecurityGroupCustomizer addPermissionsToLocation(final JcloudsMachineLocation location, final Iterable<IpPermission> permissions) {
+        ComputeService computeService = location.getParent().getComputeService();
+        addPermissionsToLocationAndReturnSecurityGroup(computeService, location, permissions);
+        return this;
+    }
+
+    public Collection<SecurityGroup> addPermissionsToLocationAndReturnSecurityGroup(ComputeService computeService, final JcloudsMachineLocation location, final Iterable<IpPermission> permissions) {
         synchronized (JcloudsLocationSecurityGroupCustomizer.class) {
-            ComputeService computeService = location.getParent().getComputeService();
             String nodeId = location.getNode().getId();
-            addPermissionsToLocation(permissions, nodeId, computeService);
-            return this;
+            return addPermissionsToLocation(permissions, nodeId, computeService).values();
         }
     }
     /**
@@ -280,11 +286,11 @@ public class JcloudsLocationSecurityGroupCustomizer extends BasicJcloudsLocation
      * @param computeService The compute service to use to apply the changes
      */
     @VisibleForTesting
-    void addPermissionsToLocation(Iterable<IpPermission> permissions, final String nodeId, ComputeService computeService) {
+    Map<String, SecurityGroup> addPermissionsToLocation(Iterable<IpPermission> permissions, final String nodeId, ComputeService computeService) {
         if (!computeService.getSecurityGroupExtension().isPresent()) {
             LOG.warn("Security group extension for {} absent; cannot update node {} with {}",
                     new Object[] {computeService, nodeId, permissions});
-            return;
+            return ImmutableMap.of();
         }
         final SecurityGroupExtension securityApi = computeService.getSecurityGroupExtension().get();
         final String locationId = computeService.getContext().unwrap().getId();
@@ -296,9 +302,12 @@ public class JcloudsLocationSecurityGroupCustomizer extends BasicJcloudsLocation
         SecurityGroup machineUniqueSecurityGroup = getSecurityGroup(nodeId, securityApi, locationId);
         MutableList<IpPermission> newPermissions = MutableList.copyOf(permissions);
         Iterables.removeAll(newPermissions, machineUniqueSecurityGroup.getIpPermissions());
+        MutableMap<String, SecurityGroup> addedSecurityGroups = MutableMap.of();
         for (IpPermission permission : newPermissions) {
-            addPermission(permission, machineUniqueSecurityGroup, securityApi);
+            SecurityGroup addedPermission = addPermission(permission, machineUniqueSecurityGroup, securityApi);
+            addedSecurityGroups.put(addedPermission.getId(), addedPermission);
         }
+        return addedSecurityGroups;
     }
 
     /**

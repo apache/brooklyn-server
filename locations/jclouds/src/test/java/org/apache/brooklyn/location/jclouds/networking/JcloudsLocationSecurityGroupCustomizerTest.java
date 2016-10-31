@@ -34,6 +34,7 @@ import static org.testng.Assert.assertTrue;
 
 import java.net.URI;
 import java.util.Collections;
+import java.util.Set;
 
 import org.jclouds.aws.AWSResponseException;
 import org.jclouds.aws.domain.AWSError;
@@ -139,6 +140,9 @@ public class JcloudsLocationSecurityGroupCustomizerTest {
         SecurityGroup sharedGroup = newGroup(customizer.getNameForSharedSecurityGroup());
         SecurityGroup group = newGroup("id");
         when(securityApi.listSecurityGroupsForNode(nodeId)).thenReturn(ImmutableSet.of(sharedGroup, group));
+        SecurityGroup updatedSecurityGroup = newGroup("id", ImmutableSet.of(ssh, jmx));
+        when(securityApi.addIpPermission(ssh, group)).thenReturn(updatedSecurityGroup);
+        when(securityApi.addIpPermission(jmx, group)).thenReturn(updatedSecurityGroup);
         when(computeService.getContext().unwrap().getId()).thenReturn("aws-ec2");
 
         customizer.addPermissionsToLocation(ImmutableList.of(ssh, jmx), nodeId, computeService);
@@ -156,6 +160,9 @@ public class JcloudsLocationSecurityGroupCustomizerTest {
         SecurityGroup sharedGroup = newGroup(customizer.getNameForSharedSecurityGroup());
         SecurityGroup group = newGroup("id");
         when(securityApi.listSecurityGroupsForNode(nodeId)).thenReturn(ImmutableSet.of(sharedGroup, group));
+        SecurityGroup updatedSecurityGroup = newGroup("id", ImmutableSet.of(ssh, jmx));
+        when(securityApi.addIpPermission(ssh, group)).thenReturn(updatedSecurityGroup);
+        when(securityApi.addIpPermission(jmx, group)).thenReturn(updatedSecurityGroup);
         when(computeService.getContext().unwrap().getId()).thenReturn("aws-ec2");
 
         customizer.addPermissionsToLocation(ImmutableList.of(ssh, jmx), nodeId, computeService);
@@ -173,6 +180,9 @@ public class JcloudsLocationSecurityGroupCustomizerTest {
         SecurityGroup sharedGroup = newGroup(customizer.getNameForSharedSecurityGroup());
         SecurityGroup group = newGroup("id");
         when(securityApi.listSecurityGroupsForNode(nodeId)).thenReturn(ImmutableSet.of(sharedGroup, group));
+        SecurityGroup updatedSecurityGroup = newGroup("id", ImmutableSet.of(ssh, jmx));
+        when(securityApi.addIpPermission(ssh, group)).thenReturn(updatedSecurityGroup);
+        when(securityApi.addIpPermission(jmx, group)).thenReturn(updatedSecurityGroup);
         when(computeService.getContext().unwrap().getId()).thenReturn("aws-ec2");
 
         customizer.addPermissionsToLocation(ImmutableList.of(ssh, jmx), nodeId, computeService);
@@ -220,6 +230,10 @@ public class JcloudsLocationSecurityGroupCustomizerTest {
         customizer.customize(jcloudsLocation, computeService, template);
         reset(securityApi);
         when(securityApi.listSecurityGroupsForNode(nodeId)).thenReturn(ImmutableSet.of(uniqueGroup, sharedGroup));
+        SecurityGroup updatedSharedSecurityGroup = newGroup(sharedGroup.getId(), ImmutableSet.of(ssh));
+        when(securityApi.addIpPermission(ssh, uniqueGroup)).thenReturn(updatedSharedSecurityGroup);
+        SecurityGroup updatedUniqueSecurityGroup = newGroup("unique", ImmutableSet.of(ssh));
+        when(securityApi.addIpPermission(ssh, sharedGroup)).thenReturn(updatedUniqueSecurityGroup);
         customizer.addPermissionsToLocation(ImmutableSet.of(ssh), nodeId, computeService);
 
         // Expect the per-machine group to have been altered, not the shared group
@@ -236,6 +250,10 @@ public class JcloudsLocationSecurityGroupCustomizerTest {
 
         when(securityApi.listSecurityGroupsForNode(nodeId)).thenReturn(ImmutableSet.of(sharedGroup, uniqueGroup));
         when(computeService.getContext().unwrap().getId()).thenReturn("aws-ec2");
+        SecurityGroup updatedSecurityGroup = newGroup(uniqueGroup.getId(), ImmutableSet.of(ssh));
+        when(securityApi.addIpPermission(ssh, sharedGroup)).thenReturn(updatedSecurityGroup);
+        SecurityGroup updatedUniqueSecurityGroup = newGroup(uniqueGroup.getId(), ImmutableSet.of(ssh));
+        when(securityApi.addIpPermission(ssh, updatedUniqueSecurityGroup)).thenReturn(updatedUniqueSecurityGroup);
 
         // Expect first call to list security groups on nodeId, second to use cached version
         customizer.addPermissionsToLocation(ImmutableSet.of(ssh), nodeId, computeService);
@@ -330,6 +348,10 @@ public class JcloudsLocationSecurityGroupCustomizerTest {
     }
 
     private SecurityGroup newGroup(String id) {
+        return newGroup(id, ImmutableSet.<IpPermission>of());
+    }
+
+    private SecurityGroup newGroup(String id, Set<IpPermission> ipPermissions) {
         URI uri = null;
         String ownerId = null;
         return new SecurityGroup(
@@ -340,7 +362,7 @@ public class JcloudsLocationSecurityGroupCustomizerTest {
                 uri,
                 Collections.<String, String>emptyMap(),
                 ImmutableSet.<String>of(),
-                ImmutableSet.<IpPermission>of(),
+                ipPermissions,
                 ownerId);
     }
 

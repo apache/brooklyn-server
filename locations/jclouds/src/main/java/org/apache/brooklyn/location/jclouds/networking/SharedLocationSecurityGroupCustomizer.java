@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.location.jclouds.networking;
 
+import java.util.Collection;
 import java.util.List;
 
 import javax.annotation.Nullable;
@@ -28,6 +29,7 @@ import org.apache.brooklyn.location.jclouds.JcloudsMachineLocation;
 import org.apache.brooklyn.util.net.Cidr;
 import org.apache.brooklyn.util.net.Networking;
 import org.jclouds.compute.ComputeService;
+import org.jclouds.compute.domain.SecurityGroup;
 import org.jclouds.compute.domain.Template;
 import org.jclouds.net.domain.IpPermission;
 import org.jclouds.net.domain.IpProtocol;
@@ -76,6 +78,12 @@ public class SharedLocationSecurityGroupCustomizer extends BasicJcloudsLocationC
     private RangeSet<Integer> udpPortRanges;
 
     /**
+     * Tested only on AWS only.
+     * It depends on the cloud provider and jclouds driver whether security group allows opening ICMP.
+     */
+    private Boolean openIcmp;
+
+    /**
      * Add a flag that disables this customizer.  It's isn't currently possible to add a customizer
      * based on a flag.  This flag makes it possible to write blueprints using the customizer but still
      * be able to disable it for clouds (e.g. bluebox) where the SG implementation has known issues.
@@ -104,6 +112,10 @@ public class SharedLocationSecurityGroupCustomizer extends BasicJcloudsLocationC
 
     public void setUdpPortRanges(List<String> udpPortRanges) {
         this.udpPortRanges = Networking.portRulesToRanges(udpPortRanges);
+    }
+
+    public void setOpenIcmp(Boolean openIcmp) {
+        this.openIcmp = openIcmp;
     }
 
     /**
@@ -137,15 +149,27 @@ public class SharedLocationSecurityGroupCustomizer extends BasicJcloudsLocationC
 
     @Override
     public void customize(JcloudsLocation location, ComputeService computeService, JcloudsMachineLocation machine) {
+        applySecurityGroupCustomizations(location, computeService, machine);
+    }
+
+    public Collection<SecurityGroup> applySecurityGroupCustomizations(JcloudsLocation location, ComputeService computeService, JcloudsMachineLocation machine) {
         super.customize(location, computeService, machine);
 
-        if(!enabled) return;
+        if(!enabled) return ImmutableList.of();
 
         final JcloudsLocationSecurityGroupCustomizer instance = getInstance(getSharedGroupId(location));
 
         ImmutableList.Builder<IpPermission> builder = ImmutableList.<IpPermission>builder();
+
         builder.addAll(getIpPermissions(instance, tcpPortRanges, IpProtocol.TCP));
         builder.addAll(getIpPermissions(instance, udpPortRanges, IpProtocol.UDP));
+        if (Boolean.TRUE.equals(openIcmp)) {
+            builder.addAll(ImmutableList.of(
+                    IpPermission
+                            .builder().ipProtocol(IpProtocol.ICMP).fromPort(-1).toPort(-1)
+                            .cidrBlock(instance.getBrooklynCidrBlock())
+                            .build()));
+        }
 
         if (inboundPorts != null) {
             for (int inboundPort : inboundPorts) {
@@ -158,7 +182,7 @@ public class SharedLocationSecurityGroupCustomizer extends BasicJcloudsLocationC
                 builder.add(ipPermission);
             }
         }
-        instance.addPermissionsToLocation(machine, builder.build());
+        return instance.addPermissionsToLocationAndReturnSecurityGroup(computeService, machine, builder.build());
     }
 
     private List<IpPermission> getIpPermissions(JcloudsLocationSecurityGroupCustomizer instance, RangeSet<Integer> portRanges, IpProtocol protocol) {
@@ -200,6 +224,3 @@ public class SharedLocationSecurityGroupCustomizer extends BasicJcloudsLocationC
         return JcloudsLocationSecurityGroupCustomizer.getInstance(sharedGroupId);
     }
 }
-
-
-
