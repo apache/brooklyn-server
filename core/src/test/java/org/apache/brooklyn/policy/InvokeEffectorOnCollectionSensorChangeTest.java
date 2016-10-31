@@ -27,6 +27,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -34,6 +35,8 @@ import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.SensorEvent;
+import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.core.effector.AddEffector;
 import org.apache.brooklyn.core.effector.EffectorBody;
 import org.apache.brooklyn.core.effector.Effectors;
@@ -48,6 +51,7 @@ import org.testng.annotations.Test;
 
 import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -57,6 +61,9 @@ public class InvokeEffectorOnCollectionSensorChangeTest extends BrooklynAppUnitT
 
     private static final AttributeSensor<Collection<Integer>> DEFAULT_SENSOR = Sensors.newSensor(new TypeToken<Collection<Integer>>() {},
             "invokeeffectoronsetchangetest.sensor");
+
+    private static final AttributeSensor<Boolean> IS_BUSY_SENSOR = Sensors.newBooleanSensor(
+            "invokeeffectoronsetchangetest.isBusy");
 
     LinkedBlockingQueue<ConfigBag> onAddedParameters;
     LinkedBlockingQueue<ConfigBag> onRemovedParameters;
@@ -202,13 +209,29 @@ public class InvokeEffectorOnCollectionSensorChangeTest extends BrooklynAppUnitT
                 .configure(InvokeEffectorOnCollectionSensorChange.ON_REMOVED_EFFECTOR_NAME, onRemovedEffector.getName()));
     }
 
+    @Test
+    public void testPublishesIsBusySensor() {
+        final List<Boolean> isBusyValues = new CopyOnWriteArrayList<>();
+        testEntity.subscriptions().subscribe(testEntity, IS_BUSY_SENSOR, new SensorEventListener<Boolean>() {
+            @Override
+            public void onEvent(SensorEvent<Boolean> event) {
+                isBusyValues.add(event.getValue());
+            }
+        });
+        addSetChangePolicy(true, false);
+        testEntity.sensors().set(DEFAULT_SENSOR, ImmutableSet.of(1));
+        List<Boolean> expected = ImmutableList.of(false, true, false);
+        Asserts.eventually(Suppliers.ofInstance(isBusyValues), Predicates.equalTo(expected));
+    }
+
     private void addSetChangePolicy(boolean includeOnAdded, boolean includeOnRemoved) {
         addSetChangePolicy(DEFAULT_SENSOR, includeOnAdded, includeOnRemoved);
     }
 
     private void addSetChangePolicy(AttributeSensor<? extends Collection<?>> sensor, boolean includeOnAdded, boolean includeOnRemoved) {
         PolicySpec<InvokeEffectorOnCollectionSensorChange> policySpec = PolicySpec.create(InvokeEffectorOnCollectionSensorChange.class)
-                .configure(InvokeEffectorOnCollectionSensorChange.TRIGGER_SENSOR, sensor);
+                .configure(InvokeEffectorOnCollectionSensorChange.TRIGGER_SENSOR, sensor)
+                .configure(InvokeEffectorOnCollectionSensorChange.IS_BUSY_SENSOR_NAME, IS_BUSY_SENSOR.getName());
         if (includeOnAdded) {
             policySpec.configure(InvokeEffectorOnCollectionSensorChange.ON_ADDED_EFFECTOR_NAME, onAddedEffector.getName());
         }
