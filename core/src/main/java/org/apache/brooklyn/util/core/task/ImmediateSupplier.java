@@ -30,7 +30,7 @@ public interface ImmediateSupplier<T> {
      * Indicates that we are unable to get the value immediately, because that is not supported
      * (e.g. because the supplier is composed of sub-tasks that do not support {@link ImmediateSupplier}.  
      */
-    public static class ImmediateUnsupportedException extends RuntimeException {
+    public static class ImmediateUnsupportedException extends UnsupportedOperationException {
         private static final long serialVersionUID = -7942339715007942797L;
         
         public ImmediateUnsupportedException(String message) {

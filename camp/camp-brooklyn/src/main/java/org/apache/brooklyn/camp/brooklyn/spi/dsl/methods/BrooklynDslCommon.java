@@ -414,17 +414,7 @@ public class BrooklynDslCommon {
 
         @Override
         public Maybe<Object> getImmediately() {
-            Class<?> type = this.type;
-            if (type == null) {
-                EntityInternal entity = entity();
-                try {
-                    type = new ClassLoaderUtils(BrooklynDslCommon.class, entity).loadClass(typeName);
-                } catch (ClassNotFoundException e) {
-                    throw Exceptions.propagate(e);
-                }
-            }
-            final Class<?> clazz = type;
-
+            final Class<?> clazz = getOrLoadType();
             final ExecutionContext executionContext = ((EntityInternal)entity()).getExecutionContext();
 
             // Marker exception that one of our component-parts cannot yet be resolved - 
@@ -465,17 +455,7 @@ public class BrooklynDslCommon {
         
         @Override
         public Task<Object> newTask() {
-            Class<?> type = this.type;
-            if (type == null) {
-                EntityInternal entity = entity();
-                try {
-                    type = new ClassLoaderUtils(BrooklynDslCommon.class, entity).loadClass(typeName);
-                } catch (ClassNotFoundException e) {
-                    throw Exceptions.propagate(e);
-                }
-            }
-            final Class<?> clazz = type;
-
+            final Class<?> clazz = getOrLoadType();
             final ExecutionContext executionContext = ((EntityInternal)entity()).getExecutionContext();
             
             final Function<Object, Object> resolver = new Function<Object, Object>() {
@@ -508,6 +488,19 @@ public class BrooklynDslCommon {
                     .build();
         }
 
+        protected Class<?> getOrLoadType() {
+            Class<?> type = this.type;
+            if (type == null) {
+                EntityInternal entity = entity();
+                try {
+                    type = new ClassLoaderUtils(BrooklynDslCommon.class, entity).loadClass(typeName);
+                } catch (ClassNotFoundException e) {
+                    throw Exceptions.propagate(e);
+                }
+            }
+            return type;
+        }
+        
         public static <T> T create(Class<T> type, List<?> constructorArgs, Map<String,?> fields, Map<String,?> config) {
             try {
                 T bean = Reflections.invokeConstructorFromArgs(type, constructorArgs.toArray()).get();
@@ -603,8 +596,7 @@ public class BrooklynDslCommon {
                 .body(new Callable<Object>() {
                     @Override
                     public Object call() throws Exception {
-                        ManagementContextInternal managementContext = DslExternal.managementContext();
-                        return managementContext.getExternalConfigProviderRegistry().getConfig(providerName, key);
+                        return getImmediately().get();
                     }
                 })
                 .build();

@@ -379,12 +379,9 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
                             .tagIfNotNull(BrooklynTaskTags.getTargetOrContextEntityTag(Tasks.current()));
                     if (isTransientTask) tb.tag(BrooklynTaskTags.TRANSIENT_TASK_TAG);
                     
+                    // Note that immediate resolution is handled by using ImmediateSupplier (using an instanceof check), 
+                    // so that it executes in the current thread instead of using task execution.
                     Task<Object> vt = exec.submit(tb.build());
-                    // TODO to handle immediate resolution, it would be nice to be able to submit 
-                    // so it executes in the current thread,
-                    // or put a marker in the target thread or task while it is running that the task 
-                    // should never wait on anything other than another value being resolved 
-                    // (though either could recurse infinitely) 
                     Maybe<Object> vm = Durations.get(vt, timer);
                     vt.cancel(true);
                     if (vm.isAbsent()) return (Maybe<T>)vm;

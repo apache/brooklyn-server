@@ -88,7 +88,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
     }
 
     // ---------------------------
-    
+
     @Override
     public final Maybe<Entity> getImmediately() {
         try {
@@ -236,7 +236,11 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
 
         @Override
         public Maybe<Object> getImmediately() {
-            return Maybe.<Object>of(component.get().getId());
+            Maybe<Entity> targetEntityMaybe = component.getImmediately();
+            if (targetEntityMaybe.isAbsent()) return Maybe.absent("Target entity not available");
+            Entity targetEntity = targetEntityMaybe.get();
+
+            return Maybe.<Object>of(targetEntity.getId());
         }
         
         @Override
@@ -277,7 +281,10 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
 
         @Override
         public final Maybe<Object> getImmediately() {
-            Entity targetEntity = component.getImmediately().get();
+            Maybe<Entity> targetEntityMaybe = component.getImmediately();
+            if (targetEntityMaybe.isAbsent()) return Maybe.absent("Target entity not available");
+            Entity targetEntity = targetEntityMaybe.get();
+
             AttributeSensor<?> targetSensor = (AttributeSensor<?>) targetEntity.getEntityType().getSensor(sensorName);
             if (targetSensor == null) {
                 targetSensor = Sensors.newSensor(Object.class, sensorName);
@@ -331,7 +338,10 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
 
         @Override
         public final Maybe<Object> getImmediately() {
-            Entity targetEntity = component.get();
+            Maybe<Entity> targetEntityMaybe = component.getImmediately();
+            if (targetEntityMaybe.isAbsent()) return Maybe.absent("Target entity not available");
+            Entity targetEntity = targetEntityMaybe.get();
+            
             return Maybe.of(targetEntity.getConfig(ConfigKeys.newConfigKey(Object.class, keyName)));
         }
 
@@ -394,7 +404,10 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
             if (si instanceof Sensor) {
                 return Maybe.<Sensor<?>>of((Sensor<?>)si);
             } else if (si instanceof String) {
-                Entity targetEntity = component.get();
+                Maybe<Entity> targetEntityMaybe = component.getImmediately();
+                if (targetEntityMaybe.isAbsent()) return Maybe.absent("Target entity not available");
+                Entity targetEntity = targetEntityMaybe.get();
+
                 Sensor<?> result = null;
                 if (targetEntity!=null) {
                     result = targetEntity.getEntityType().getSensor((String)si);

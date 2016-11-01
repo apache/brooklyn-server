@@ -34,6 +34,7 @@ import org.apache.brooklyn.core.test.policy.TestEnricher;
 import org.apache.brooklyn.core.test.policy.TestPolicy;
 import org.apache.brooklyn.entity.group.BasicGroup;
 import org.apache.brooklyn.test.Asserts;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -74,6 +75,23 @@ public class EntitySubscriptionTest extends BrooklynAppUnitTestSupport {
         listener = new RecordingSensorEventListener<>();
         
         app.start(ImmutableList.of(loc));
+    }
+    
+    @AfterMethod(alwaysRun=true)
+    @Override
+    public void tearDown() throws Exception {
+        try {
+            super.tearDown();
+        } finally {
+            loc = null;
+            entity = null;
+            observedEntity = null;
+            observedChildEntity = null;
+            observedGroup = null;
+            observedMemberEntity = null;
+            otherEntity = null;
+            listener = null;
+        }
     }
     
     @Test
@@ -298,7 +316,6 @@ public class EntitySubscriptionTest extends BrooklynAppUnitTestSupport {
         entity.subscriptions().subscribeToChildren(observedEntity, TestEntity.SEQUENCE, listener);
         observedChildEntity.sensors().set(TestEntity.SEQUENCE, 123);
         assertListenerCalledOnceWithContextEntityEventually(listener, entity);
-        listener.clearEvents();
     }
     
     @Test

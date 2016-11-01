@@ -48,6 +48,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Supplier;
+import com.google.common.util.concurrent.ListenableScheduledFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 
@@ -79,7 +80,7 @@ public class DslTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testAttributeWhenReadyEmptyDoesNotBlock() throws Exception {
         BrooklynDslDeferredSupplier<?> dsl = BrooklynDslCommon.attributeWhenReady(TestApplication.MY_ATTRIBUTE.getName());
-        Maybe<?> actualValue = execDslRealRealyQuick(dsl, TestApplication.MY_ATTRIBUTE.getType(), app);
+        Maybe<?> actualValue = execDslRealRealQuick(dsl, TestApplication.MY_ATTRIBUTE.getType(), app);
         assertTrue(actualValue.isAbsent());
     }
 
@@ -100,7 +101,7 @@ public class DslTest extends BrooklynAppUnitTestSupport {
     public void testAttributeWhenReadyBlocksUntilReady() throws Exception {
         // Fewer iterations, because there is a sleep each time
         BrooklynDslDeferredSupplier<?> dsl = BrooklynDslCommon.attributeWhenReady(TestEntity.NAME.getName());
-        new AttributeWhenReadyTestWorker(app, TestEntity.NAME, dsl).eventually(true).resolverIterations(2).run();
+        new AttributeWhenReadyTestWorker(app, TestEntity.NAME, dsl).satisfiedAsynchronously(true).resolverIterations(2).run();
     }
 
     @Test(groups="Integration")
@@ -165,7 +166,7 @@ public class DslTest extends BrooklynAppUnitTestSupport {
         protected final Class<?> type;
         protected EntitySpec<TestEntity> childSpec = EntitySpec.create(TestEntity.class);
         protected int resolverIterations = MANY_RESOLVER_ITERATIONS;
-        protected boolean eventually = false;
+        protected boolean satisfiedAsynchronously = false;
         private boolean wrapInTaskForImmediately = true;
         
         public DslTestWorker(TestApplication parent, BrooklynDslDeferredSupplier<?> dsl, Class<?> type) {
@@ -179,8 +180,8 @@ public class DslTest extends BrooklynAppUnitTestSupport {
             return this;
         }
         
-        public DslTestWorker eventually(boolean val) {
-            eventually = val;
+        public DslTestWorker satisfiedAsynchronously(boolean val) {
+            satisfiedAsynchronously = val;
             return this;
         }
         
@@ -191,13 +192,10 @@ public class DslTest extends BrooklynAppUnitTestSupport {
         
         @Override
         public void run() {
-            TestEntity entity = parent.addChild(childSpec);
-            for (int i = 0; i < resolverIterations; i++) {
-                preResolve(entity);
-                Maybe<?> eventualValue = execDslEventually(dsl, type, entity, Duration.FIVE_SECONDS);//FIXME ONE_MINUTE);
-                postResolve(entity, eventualValue);
-
-                if (!eventually) {
+            try {
+                TestEntity entity = parent.addChild(childSpec);
+                for (int i = 0; i < resolverIterations; i++) {
+                    // Call dsl.getImmediately()
                     preResolve(entity);
                     Maybe<?> immediateValue;
                     try {
@@ -205,21 +203,29 @@ public class DslTest extends BrooklynAppUnitTestSupport {
                     } catch (Exception e) {
                         throw Exceptions.propagate(e);
                     }
-                    postResolve(entity, immediateValue);
+                    postResolve(entity, immediateValue, true);
+                    
+                    // Call dsl.get()
+                    preResolve(entity);
+                    Maybe<?> eventualValue = execDslEventually(dsl, type, entity, Duration.ONE_MINUTE);
+                    postResolve(entity, eventualValue, false);
                 }
+            } catch (Exception e) {
+                Exceptions.propagate(e);
             }
         }
 
-        protected void preResolve(TestEntity entity) {
+        protected void preResolve(TestEntity entity) throws Exception {
         }
 
-        protected void postResolve(TestEntity entity, Maybe<?> actualValue) {
+        protected void postResolve(TestEntity entity, Maybe<?> actualValue, boolean isImmediate) throws Exception {
         }
     }
 
     private class AttributeWhenReadyTestWorker extends DslTestWorker {
         private AttributeSensor<String> sensor;
         private String expectedValue;
+        private ListenableScheduledFuture<?> future;
 
         public AttributeWhenReadyTestWorker(TestApplication parent, AttributeSensor<String> sensor, BrooklynDslDeferredSupplier<?> dsl) {
             super(parent, dsl, sensor.getType());
@@ -234,21 +240,28 @@ public class DslTest extends BrooklynAppUnitTestSupport {
                     entity.sensors().set(sensor, expectedValue);
                 }
             };
-            if (eventually) {
-                executor.schedule(job, random.nextInt(20), TimeUnit.MILLISECONDS);
+            if (satisfiedAsynchronously) {
+                future = executor.schedule(job, random.nextInt(20), TimeUnit.MILLISECONDS);
             } else {
                 job.run();
             }
         }
 
         @Override
-        protected void postResolve(TestEntity entity, Maybe<?> actualValue) {
-            assertEquals(actualValue.get(), expectedValue);
-            
-            if (eventually) {
-                // Reset sensor - otherwise if run in a loop the old value will be picked up, before our execute sets the new value
-                entity.sensors().set(sensor, null);
+        protected void postResolve(TestEntity entity, Maybe<?> actualValue, boolean isImmediate) throws Exception {
+            if (satisfiedAsynchronously && isImmediate) {
+                // We accept a maybe.absent if we called getImmediately when satisfiedAsynchronously
+                assertTrue(actualValue.isAbsent() || expectedValue.equals(actualValue.get()), "actual="+actualValue+"; expected="+expectedValue);
+            } else {
+                assertEquals(actualValue.get(), expectedValue);
             }
+            
+            if (future != null) {
+                future.get(Asserts.DEFAULT_LONG_TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
+                future = null;
+            }
+            // Reset sensor - otherwise if run in a loop the old value will be picked up, before our execute sets the new value
+            entity.sensors().set(sensor, null);
         }
 
     }
@@ -263,7 +276,7 @@ public class DslTest extends BrooklynAppUnitTestSupport {
         }
 
         @Override
-        protected void postResolve(TestEntity entity, Maybe<?> actualValue) {
+        protected void postResolve(TestEntity entity, Maybe<?> actualValue, boolean isImmediate) {
             assertEquals(actualValue.get(), entity);
         }
 
@@ -275,7 +288,7 @@ public class DslTest extends BrooklynAppUnitTestSupport {
         }
 
         @Override
-        protected void postResolve(TestEntity entity, Maybe<?> actualValue) {
+        protected void postResolve(TestEntity entity, Maybe<?> actualValue, boolean isImmediate) {
             assertEquals(actualValue.get(), parent);
         }
     }
@@ -304,7 +317,7 @@ public class DslTest extends BrooklynAppUnitTestSupport {
         }
     }
     
-    static Maybe<?> execDslRealRealyQuick(BrooklynDslDeferredSupplier<?> dsl, Class<?> type, Entity context) {
+    static Maybe<?> execDslRealRealQuick(BrooklynDslDeferredSupplier<?> dsl, Class<?> type, Entity context) {
         return execDslEventually(dsl, type, context, ValueResolver.REAL_REAL_QUICK_WAIT);
     }
     

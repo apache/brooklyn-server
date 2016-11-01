@@ -59,11 +59,54 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
         Assert.assertEquals(result.get(), "foo");
     }
 
-    public void testNoExecutionContextOnCompleted() {
+    public void testCompletedTaskReturnsResultImmediately() {
+        // Call ValueResolver.getMaybe() from this thread, which has no execution context.
+        // However, the task has already been submitted and we have waited for it to complete.
+        // Therefore the ValueResolver can simply check for task.isDone() and return its result immediately.
         Task<String> t = newSleepTask(Duration.ZERO, "foo");
         app.getExecutionContext().submit(t).getUnchecked();
         Maybe<String> result = Tasks.resolving(t).as(String.class).timeout(Duration.ZERO).getMaybe();
         Assert.assertEquals(result.get(), "foo");
+    }
+
+    public void testUnsubmittedTaskWhenNoExecutionContextFails() {
+        // ValueResolver.getMaybe() is called with no execution context. Therefore it will not execute the task.
+        Task<String> t = newSleepTask(Duration.ZERO, "foo");
+        Maybe<String> result = Tasks.resolving(t).as(String.class).timeout(Duration.ZERO).getMaybe();
+        
+        Assert.assertTrue(result.isAbsent(), "result="+result);
+        Exception exception = ((Maybe.Absent<?>)result).getException();
+        Assert.assertTrue(exception.toString().contains("no execution context available"), "exception="+exception);
+    }
+
+    public void testUnsubmittedTaskWithExecutionContextExecutesAndReturns() {
+        // ValueResolver.getMaybe() is called in app's execution context. Therefore it will execute the task.
+        final Task<String> t = newSleepTask(Duration.ZERO, "foo");
+        
+        Maybe<String>  result = app.getExecutionContext()
+                .submit(new Callable<Maybe<String> >() {
+                    public Maybe<String>  call() throws Exception {
+                        return Tasks.resolving(t).as(String.class).timeout(Asserts.DEFAULT_LONG_TIMEOUT).getMaybe();
+                    }})
+                .getUnchecked();
+        
+        Assert.assertEquals(result.get(), "foo");
+    }
+
+    public void testUnsubmittedTaskWithExecutionContextExecutesAndTimesOut() {
+        // ValueResolver.getMaybe() is called in app's execution context. Therefore it will execute the task.
+        final Task<String> t = newSleepTask(Duration.ONE_MINUTE, "foo");
+        
+        Maybe<String>  result = app.getExecutionContext()
+                .submit(new Callable<Maybe<String> >() {
+                    public Maybe<String>  call() throws Exception {
+                        return Tasks.resolving(t).as(String.class).timeout(Duration.ZERO).getMaybe();
+                    }})
+                .getUnchecked();
+        
+        Assert.assertTrue(result.isAbsent(), "result="+result);
+        Exception exception = ((Maybe.Absent<?>)result).getException();
+        Assert.assertTrue(exception.toString().contains("not completed when immediate completion requested"), "exception="+exception);
     }
 
     public void testSwallowError() {
