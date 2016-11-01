@@ -37,6 +37,7 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.EntityManagerInternal;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.util.core.task.ImmediateSupplier;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -91,11 +92,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
 
     @Override
     public final Maybe<Entity> getImmediately() {
-        try {
-            return Maybe.of(new EntityInScopeFinder(scopeComponent, scope, componentId).call());
-        } catch (Exception e) {
-            throw Exceptions.propagate(e);
-        }
+        return new EntityInScopeFinder(scopeComponent, scope, componentId).getImmediately();
     }
 
     @Override
@@ -108,7 +105,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
                 .build();
     }
     
-    protected static class EntityInScopeFinder implements Callable<Entity> {
+    protected static class EntityInScopeFinder implements Callable<Entity>, ImmediateSupplier<Entity> {
         protected final DslComponent scopeComponent;
         protected final Scope scope;
         protected final String componentId;
@@ -119,33 +116,55 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
             this.componentId = componentId;
         }
 
-        protected EntityInternal getEntity() {
-            if (scopeComponent!=null) {
-                return (EntityInternal)scopeComponent.get();
+        @Override 
+        public Maybe<Entity> getImmediately() {
+            try {
+                return callImpl(true);
+            } catch (Exception e) {
+                throw Exceptions.propagate(e);
+            }
+        }
+
+        @Override
+        public Entity call() throws Exception {
+            return callImpl(false).get();
+        }
+
+        protected Maybe<Entity> getEntity(boolean immediate) {
+            if (scopeComponent != null) {
+                if (immediate) {
+                    return scopeComponent.getImmediately();
+                } else {
+                    return Maybe.of(scopeComponent.get());
+                }
             } else {
-                return entity();
+                return Maybe.<Entity>of(entity());
             }
         }
         
-        @Override
-        public Entity call() throws Exception {
+        protected Maybe<Entity> callImpl(boolean immediate) throws Exception {
+            Maybe<Entity> entityMaybe = getEntity(immediate);
+            if (immediate && entityMaybe.isAbsent()) {
+                return entityMaybe;
+            }
+            EntityInternal entity = (EntityInternal) entityMaybe.get();
+            
             Iterable<Entity> entitiesToSearch = null;
-            EntityInternal entity = getEntity();
             Predicate<Entity> notSelfPredicate = Predicates.not(Predicates.<Entity>equalTo(entity));
 
             switch (scope) {
                 case THIS:
-                    return entity;
+                    return Maybe.<Entity>of(entity);
                 case PARENT:
-                    return entity.getParent();
+                    return Maybe.<Entity>of(entity.getParent());
                 case GLOBAL:
                     entitiesToSearch = ((EntityManagerInternal)entity.getManagementContext().getEntityManager())
                         .getAllEntitiesInApplication( entity().getApplication() );
                     break;
                 case ROOT:
-                    return entity.getApplication();
+                    return Maybe.<Entity>of(entity.getApplication());
                 case SCOPE_ROOT:
-                    return Entities.catalogItemScopeRoot(entity);
+                    return Maybe.<Entity>of(Entities.catalogItemScopeRoot(entity));
                 case DESCENDANT:
                     entitiesToSearch = Entities.descendantsWithoutSelf(entity);
                     break;
@@ -165,8 +184,9 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
             
             Optional<Entity> result = Iterables.tryFind(entitiesToSearch, EntityPredicates.configEqualTo(BrooklynCampConstants.PLAN_ID, componentId));
             
-            if (result.isPresent())
-                return result.get();
+            if (result.isPresent()) {
+                return Maybe.of(result.get());
+            }
             
             // TODO may want to block and repeat on new entities joining?
             throw new NoSuchElementException("No entity matching id " + componentId+
@@ -340,9 +360,9 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
         public final Maybe<Object> getImmediately() {
             Maybe<Entity> targetEntityMaybe = component.getImmediately();
             if (targetEntityMaybe.isAbsent()) return Maybe.absent("Target entity not available");
-            Entity targetEntity = targetEntityMaybe.get();
+            EntityInternal targetEntity = (EntityInternal) targetEntityMaybe.get();
             
-            return Maybe.of(targetEntity.getConfig(ConfigKeys.newConfigKey(Object.class, keyName)));
+            return targetEntity.config().getNonBlocking(ConfigKeys.newConfigKey(Object.class, keyName));
         }
 
         @Override

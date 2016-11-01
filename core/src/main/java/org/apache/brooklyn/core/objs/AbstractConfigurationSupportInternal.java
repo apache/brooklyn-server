@@ -139,7 +139,7 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
         Object resolved = Tasks.resolving(unresolved)
                 .as(Object.class)
                 .defaultValue(marker)
-                .timeout(ValueResolver.REAL_REAL_QUICK_WAIT)
+                .immediately(true)
                 .context(getContext())
                 .swallowExceptions()
                 .get();

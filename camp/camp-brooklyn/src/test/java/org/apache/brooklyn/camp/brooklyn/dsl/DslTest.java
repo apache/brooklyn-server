@@ -32,6 +32,8 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
@@ -47,6 +49,8 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.ListenableScheduledFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
@@ -113,6 +117,74 @@ public class DslTest extends BrooklynAppUnitTestSupport {
                 return new AttributeWhenReadyTestWorker(app, TestEntity.NAME, dsl);
             }
         });
+    }
+
+    @Test
+    public void testConfig() throws Exception {
+        ConfigKey<String> configKey = ConfigKeys.newStringConfigKey("testConfig");
+        BrooklynDslDeferredSupplier<?> dsl = BrooklynDslCommon.config(configKey.getName());
+        new ConfigTestWorker(app, configKey, dsl).run();
+    }
+
+    @Test
+    public void testConfigWithDsl() throws Exception {
+        ConfigKey<?> configKey = ConfigKeys.newConfigKey(Entity.class, "testConfig");
+        BrooklynDslDeferredSupplier<?> dsl = BrooklynDslCommon.config(configKey.getName());
+        Supplier<ConfigValuePair> valueSupplier = new Supplier<ConfigValuePair>() {
+            @Override public ConfigValuePair get() {
+                return new ConfigValuePair(BrooklynDslCommon.root(), app);
+            }
+        };
+        new ConfigTestWorker(app, configKey, valueSupplier, dsl).run();
+    }
+
+    @Test
+    public void testConfigWithDslNotReadyImmediately() throws Exception {
+        final ConfigKey<String> configKey = ConfigKeys.newStringConfigKey("testConfig");
+        BrooklynDslDeferredSupplier<?> dsl = BrooklynDslCommon.config(configKey.getName());
+        Function<Entity, ConfigValuePair> valueSupplier = new Function<Entity, ConfigValuePair>() {
+            private ListenableScheduledFuture<?> future;
+            @Override
+            public ConfigValuePair apply(final Entity entity) {
+                try {
+                    // If executed in a loop, then wait for previous call's future to complete.
+                    // If previous assertion used getImmediately, then it won't have waited for the future to complete.
+                    if (future != null) {
+                        future.get(Asserts.DEFAULT_LONG_TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
+                        future = null;
+                    }
+    
+                    // Reset sensor - otherwise if run in a loop the old value will be picked up, before our execute sets the new value
+                    entity.sensors().set(TestApplication.MY_ATTRIBUTE, null);
+                    
+                    final String expectedValue = Identifiers.makeRandomId(10);
+                    Runnable job = new Runnable() {
+                        public void run() {
+                            entity.sensors().set(TestApplication.MY_ATTRIBUTE, expectedValue);
+                        }
+                    };
+                    future = executor.schedule(job, random.nextInt(20), TimeUnit.MILLISECONDS);
+    
+                    BrooklynDslDeferredSupplier<?> attributeDsl = BrooklynDslCommon.attributeWhenReady(TestApplication.MY_ATTRIBUTE.getName());
+                    return new ConfigValuePair(attributeDsl, expectedValue);
+
+                } catch (Exception e) {
+                    throw Exceptions.propagate(e);
+                }
+            }
+        };
+        new ConfigTestWorker(app, configKey, valueSupplier, dsl).satisfiedAsynchronously(true).resolverIterations(2).run();
+    }
+    
+    @Test
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    public void testConfigImmediatelyDoesNotBlock() throws Exception {
+        ConfigKey<String> configKey = ConfigKeys.newStringConfigKey("testConfig");
+        BrooklynDslDeferredSupplier<?> attributeDsl = BrooklynDslCommon.attributeWhenReady(TestApplication.MY_ATTRIBUTE.getName());
+        app.config().set((ConfigKey)configKey, attributeDsl); // ugly cast because val is DSL, resolving to a string
+        BrooklynDslDeferredSupplier<?> configDsl = BrooklynDslCommon.config(configKey.getName());
+        Maybe<?> actualValue = execDslImmediately(configDsl, configKey.getType(), app, true);
+        assertTrue(actualValue.isAbsent());
     }
 
     @Test
@@ -263,7 +335,6 @@ public class DslTest extends BrooklynAppUnitTestSupport {
             // Reset sensor - otherwise if run in a loop the old value will be picked up, before our execute sets the new value
             entity.sensors().set(sensor, null);
         }
-
     }
 
     private static class SelfTestWorker extends DslTestWorker {
@@ -291,6 +362,67 @@ public class DslTest extends BrooklynAppUnitTestSupport {
         protected void postResolve(TestEntity entity, Maybe<?> actualValue, boolean isImmediate) {
             assertEquals(actualValue.get(), parent);
         }
+    }
+    
+    private class ConfigTestWorker extends DslTestWorker {
+        private ConfigKey<?> config;
+        private Object expectedValue;
+        private Function<? super Entity, ConfigValuePair> valueFunction;
+        
+        public ConfigTestWorker(TestApplication parent, ConfigKey<?> config, BrooklynDslDeferredSupplier<?> dsl) {
+            this(parent, config, newRandomConfigValueSupplier(), dsl);
+        }
+
+        public ConfigTestWorker(TestApplication parent, ConfigKey<?> config, Supplier<ConfigValuePair> valueSupplier, BrooklynDslDeferredSupplier<?> dsl) {
+            this(parent, config, Functions.forSupplier(valueSupplier), dsl);
+        }
+        
+        public ConfigTestWorker(TestApplication parent, ConfigKey<?> config, Function<? super Entity, ConfigValuePair> valueFunction, BrooklynDslDeferredSupplier<?> dsl) {
+            super(parent, dsl, config.getType());
+            this.config = config;
+            this.valueFunction = valueFunction;
+        }
+
+        @Override
+        @SuppressWarnings({ "unchecked", "rawtypes" })
+        protected void preResolve(final TestEntity entity) {
+            ConfigValuePair pair = valueFunction.apply(entity);
+            expectedValue = pair.expectedResolvedVal;
+            entity.config().set((ConfigKey)config, pair.configVal); // nasty cast, because val might be a DSL
+        }
+
+        @Override
+        @SuppressWarnings({ "rawtypes", "unchecked" })
+        protected void postResolve(TestEntity entity, Maybe<?> actualValue, boolean isImmediate) throws Exception {
+            if (satisfiedAsynchronously && isImmediate) {
+                // We accept a maybe.absent if we called getImmediately when satisfiedAsynchronously
+                assertTrue(actualValue.isAbsent() || expectedValue.equals(actualValue.get()), "actual="+actualValue+"; expected="+expectedValue);
+            } else {
+                assertEquals(actualValue.get(), expectedValue);
+            }
+            
+            // Reset config - otherwise if run in a loop the old value will be picked up, before our execute sets the new value
+            entity.config().set((ConfigKey)config, (Object)null); // ugly cast from ConfigKey<?>
+        }
+    }
+
+    static class ConfigValuePair {
+        public final Object configVal;
+        public final Object expectedResolvedVal;
+        
+        public ConfigValuePair(Object configVal, Object expectedResolvedVal) {
+            this.configVal = configVal;
+            this.expectedResolvedVal = expectedResolvedVal;
+        }
+    }
+
+    private static Supplier<ConfigValuePair> newRandomConfigValueSupplier() {
+        return new Supplier<ConfigValuePair>() {
+            @Override public ConfigValuePair get() {
+                String val = Identifiers.makeRandomId(10);
+                return new ConfigValuePair(val, val);
+            }
+        };
     }
 
     static Maybe<?> execDslImmediately(final BrooklynDslDeferredSupplier<?> dsl, final Class<?> type, final Entity context, boolean execInTask) throws Exception {

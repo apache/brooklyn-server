@@ -60,29 +60,31 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
     }
 
     public void testCompletedTaskReturnsResultImmediately() {
-        // Call ValueResolver.getMaybe() from this thread, which has no execution context.
-        // However, the task has already been submitted and we have waited for it to complete.
-        // Therefore the ValueResolver can simply check for task.isDone() and return its result immediately.
         Task<String> t = newSleepTask(Duration.ZERO, "foo");
         app.getExecutionContext().submit(t).getUnchecked();
+        
+        // Below, we call ValueResolver.getMaybe() from this thread, which has no execution context.
+        // However, the task has already been submitted and we have waited for it to complete.
+        // Therefore the ValueResolver can simply check for task.isDone() and return its result immediately.
         Maybe<String> result = Tasks.resolving(t).as(String.class).timeout(Duration.ZERO).getMaybe();
         Assert.assertEquals(result.get(), "foo");
     }
 
     public void testUnsubmittedTaskWhenNoExecutionContextFails() {
-        // ValueResolver.getMaybe() is called with no execution context. Therefore it will not execute the task.
         Task<String> t = newSleepTask(Duration.ZERO, "foo");
+        
+        // Below, we call ValueResolver.getMaybe() with no execution context. Therefore it will not execute the task.
         Maybe<String> result = Tasks.resolving(t).as(String.class).timeout(Duration.ZERO).getMaybe();
         
         Assert.assertTrue(result.isAbsent(), "result="+result);
-        Exception exception = ((Maybe.Absent<?>)result).getException();
+        Exception exception = Maybe.getException(result);
         Assert.assertTrue(exception.toString().contains("no execution context available"), "exception="+exception);
     }
 
     public void testUnsubmittedTaskWithExecutionContextExecutesAndReturns() {
-        // ValueResolver.getMaybe() is called in app's execution context. Therefore it will execute the task.
         final Task<String> t = newSleepTask(Duration.ZERO, "foo");
         
+        // Below, we call ValueResolver.getMaybe() in app's execution context. Therefore it will execute the task.
         Maybe<String>  result = app.getExecutionContext()
                 .submit(new Callable<Maybe<String> >() {
                     public Maybe<String>  call() throws Exception {
@@ -94,9 +96,10 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
     }
 
     public void testUnsubmittedTaskWithExecutionContextExecutesAndTimesOut() {
-        // ValueResolver.getMaybe() is called in app's execution context. Therefore it will execute the task.
         final Task<String> t = newSleepTask(Duration.ONE_MINUTE, "foo");
         
+        // Below, we call ValueResolver.getMaybe() in app's execution context. Therefore it will execute the task.
+        // However, it will quickly timeout as the task will not have completed.
         Maybe<String>  result = app.getExecutionContext()
                 .submit(new Callable<Maybe<String> >() {
                     public Maybe<String>  call() throws Exception {
@@ -105,7 +108,7 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
                 .getUnchecked();
         
         Assert.assertTrue(result.isAbsent(), "result="+result);
-        Exception exception = ((Maybe.Absent<?>)result).getException();
+        Exception exception = Maybe.getException(result);
         Assert.assertTrue(exception.toString().contains("not completed when immediate completion requested"), "exception="+exception);
     }
 
@@ -140,11 +143,11 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
         assertContainsCallingMethod(callInfo.stackTrace, "testGetImmediately");
     }
     
-    public void testGetImmediateSupplierWithTimeoutUsesBlocking() {
+    public void testImmediateSupplierWithTimeoutUsesBlocking() {
         MyImmediateAndDeferredSupplier supplier = new MyImmediateAndDeferredSupplier();
         CallInfo callInfo = Tasks.resolving(supplier).as(CallInfo.class).context(app).timeout(Asserts.DEFAULT_LONG_TIMEOUT).get();
         assertNotNull(callInfo.task);
-        assertNotContainsCallingMethod(callInfo.stackTrace, "testGetImmediately");
+        assertNotContainsCallingMethod(callInfo.stackTrace, "testImmediateSupplierWithTimeoutUsesBlocking");
     }
     
     public void testGetImmediatelyInTask() throws Exception {
@@ -167,7 +170,7 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
         CallInfo callInfo = Tasks.resolving(supplier).as(CallInfo.class).context(app).immediately(true).get();
         assertNotNull(callInfo.task);
         assertEquals(BrooklynTaskTags.getContextEntity(callInfo.task), app);
-        assertNotContainsCallingMethod(callInfo.stackTrace, "testGetImmediately");
+        assertNotContainsCallingMethod(callInfo.stackTrace, "testGetImmediatelyFallsBackToDeferredCallInTask");
     }
     
     private static class MyImmediateAndDeferredSupplier implements ImmediateSupplier<CallInfo>, DeferredSupplier<CallInfo> {

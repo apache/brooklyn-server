@@ -584,6 +584,8 @@ public class BrooklynDslCommon {
 
         @Override
         public final Maybe<Object> getImmediately() {
+            // Note this call to getConfig() is different from entity.getConfig.
+            // We expect it to not block waiting for other entities.
             ManagementContextInternal managementContext = DslExternal.managementContext();
             return Maybe.<Object>of(managementContext.getExternalConfigProviderRegistry().getConfig(providerName, key));
         }
