@@ -80,8 +80,11 @@ public class EffectorTransformer {
     @SuppressWarnings({ "unchecked", "rawtypes" })
     protected static EffectorSummary.ParameterSummary<?> parameterSummary(Entity entity, ParameterType<?> parameterType) {
         try {
-            Maybe<?> defaultValue = Tasks.resolving(parameterType.getDefaultValue()).as(parameterType.getParameterClass())
-                .context(entity).timeout(ValueResolver.REAL_QUICK_WAIT).getMaybe();
+            Maybe<?> defaultValue = Tasks.resolving(parameterType.getDefaultValue())
+                    .as(parameterType.getParameterClass())
+                    .context(entity)
+                    .immediately(true)
+                    .getMaybe();
             return new ParameterSummary(parameterType.getName(), parameterType.getParameterClassName(), 
                 parameterType.getDescription(), 
                 WebResourceUtils.getValueForDisplay(defaultValue.orNull(), true, false),

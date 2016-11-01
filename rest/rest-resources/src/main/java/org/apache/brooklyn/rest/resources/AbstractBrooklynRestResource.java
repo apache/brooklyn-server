@@ -105,6 +105,7 @@ public abstract class AbstractBrooklynRestResource {
         private @Nullable Entity entity;
         private @Nullable Duration timeout;
         private @Nullable Object rendererHintSource;
+        private @Nullable Boolean immediately;
         
         public static RestValueResolver resolving(Object v) { return new RestValueResolver(v); }
         
@@ -130,10 +131,11 @@ public abstract class AbstractBrooklynRestResource {
         public RestValueResolver raw(Boolean raw) { this.raw = raw; return this; }
         public RestValueResolver context(Entity entity) { this.entity = entity; return this; }
         public RestValueResolver timeout(Duration timeout) { this.timeout = timeout; return this; }
+        public RestValueResolver immediately(boolean immediately) { this.immediately = immediately; return this; }
         public RestValueResolver renderAs(Object rendererHintSource) { this.rendererHintSource = rendererHintSource; return this; }
 
         public Object resolve() {
-            Object valueResult = getImmediateValue(valueToResolve, entity, timeout);
+            Object valueResult = getImmediateValue(valueToResolve, entity, immediately, timeout);
             if (valueResult==UNRESOLVED) valueResult = valueToResolve;
             if (rendererHintSource!=null && Boolean.FALSE.equals(raw)) {
                 valueResult = RendererHints.applyDisplayValueHintUnchecked(rendererHintSource, valueResult);
@@ -143,11 +145,12 @@ public abstract class AbstractBrooklynRestResource {
         
         private static Object UNRESOLVED = "UNRESOLVED".toCharArray();
         
-        private static Object getImmediateValue(Object value, @Nullable Entity context, @Nullable Duration timeout) {
+        private static Object getImmediateValue(Object value, @Nullable Entity context, @Nullable Boolean immediately, @Nullable Duration timeout) {
             return Tasks.resolving(value)
                     .as(Object.class)
                     .defaultValue(UNRESOLVED)
                     .timeout(timeout)
+                    .immediately(immediately == null ? false : immediately.booleanValue())
                     .context(context)
                     .swallowExceptions()
                     .get();
