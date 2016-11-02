@@ -113,7 +113,7 @@ public class SensorResource extends AbstractBrooklynRestResource implements Sens
         }
         
         Object value = entity.getAttribute(sensor);
-        return resolving(value).preferJson(preferJson).asJerseyOutermostReturnValue(true).raw(raw).context(entity).timeout(ValueResolver.PRETTY_QUICK_WAIT).renderAs(sensor).resolve();
+        return resolving(value).preferJson(preferJson).asJerseyOutermostReturnValue(true).raw(raw).context(entity).immediately(true).renderAs(sensor).resolve();
     }
 
     @Override

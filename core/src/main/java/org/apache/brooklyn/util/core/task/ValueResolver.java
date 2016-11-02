@@ -109,6 +109,7 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
     Boolean embedResolutionInTask;
     /** timeout on execution, if possible, or if embedResolutionInTask is true */
     Duration timeout;
+    boolean immediately;
     boolean isTransientTask = true;
     
     T defaultValue = null;
@@ -142,6 +143,7 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
         parentOriginalValue = parent.getOriginalValue();
 
         timeout = parent.timeout;
+        immediately = parent.immediately;
         parentTimer = parent.parentTimer;
         if (parentTimer!=null && parentTimer.isExpired())
             expired = true;
@@ -250,7 +252,18 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
         this.timeout = timeout;
         return this;
     }
-    
+
+    /**
+     * Whether the value should be resolved immediately (and if not available immediately,
+     * return absent).
+     */
+    @Beta
+    public ValueResolver<T> immediately(boolean val) {
+        this.immediately = val;
+        if (timeout == null) timeout = ValueResolver.NON_BLOCKING_WAIT;
+        return this;
+    }
+
     protected void checkTypeNotNull() {
         if (type==null) 
             throw new NullPointerException("type must be set to resolve, for '"+value+"'"+(description!=null ? ", "+description : ""));
@@ -300,6 +313,18 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
             return Maybe.of((T) v);
         
         try {
+            if (immediately && v instanceof ImmediateSupplier) {
+                final ImmediateSupplier<?> supplier = (ImmediateSupplier<?>) v;
+                try {
+                    Maybe<?> result = supplier.getImmediately();
+                    
+                    // Recurse: need to ensure returned value is cast, etc
+                    return (result.isPresent()) ? new ValueResolver(result.get(), type, this).getMaybe() : Maybe.<T>absent();
+                } catch (ImmediateSupplier.ImmediateUnsupportedException e) {
+                    log.debug("Unable to resolve-immediately for "+description+" ("+v+"); falling back to executing with timeout", e);
+                }
+            }
+            
             //if it's a task or a future, we wait for the task to complete
             if (v instanceof TaskAdaptable<?>) {
                 //if it's a task, we make sure it is submitted
@@ -354,12 +379,9 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
                             .tagIfNotNull(BrooklynTaskTags.getTargetOrContextEntityTag(Tasks.current()));
                     if (isTransientTask) tb.tag(BrooklynTaskTags.TRANSIENT_TASK_TAG);
                     
+                    // Note that immediate resolution is handled by using ImmediateSupplier (using an instanceof check), 
+                    // so that it executes in the current thread instead of using task execution.
                     Task<Object> vt = exec.submit(tb.build());
-                    // TODO to handle immediate resolution, it would be nice to be able to submit 
-                    // so it executes in the current thread,
-                    // or put a marker in the target thread or task while it is running that the task 
-                    // should never wait on anything other than another value being resolved 
-                    // (though either could recurse infinitely) 
                     Maybe<Object> vm = Durations.get(vt, timer);
                     vt.cancel(true);
                     if (vm.isAbsent()) return (Maybe<T>)vm;

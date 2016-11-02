@@ -37,8 +37,11 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.EntityManagerInternal;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.util.core.task.ImmediateSupplier;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 
@@ -86,7 +89,12 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
     }
 
     // ---------------------------
-    
+
+    @Override
+    public final Maybe<Entity> getImmediately() {
+        return new EntityInScopeFinder(scopeComponent, scope, componentId).getImmediately();
+    }
+
     @Override
     public Task<Entity> newTask() {
         return TaskBuilder.<Entity>builder()
@@ -97,7 +105,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
                 .build();
     }
     
-    protected static class EntityInScopeFinder implements Callable<Entity> {
+    protected static class EntityInScopeFinder implements Callable<Entity>, ImmediateSupplier<Entity> {
         protected final DslComponent scopeComponent;
         protected final Scope scope;
         protected final String componentId;
@@ -108,33 +116,55 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
             this.componentId = componentId;
         }
 
-        protected EntityInternal getEntity() {
-            if (scopeComponent!=null) {
-                return (EntityInternal)scopeComponent.get();
+        @Override 
+        public Maybe<Entity> getImmediately() {
+            try {
+                return callImpl(true);
+            } catch (Exception e) {
+                throw Exceptions.propagate(e);
+            }
+        }
+
+        @Override
+        public Entity call() throws Exception {
+            return callImpl(false).get();
+        }
+
+        protected Maybe<Entity> getEntity(boolean immediate) {
+            if (scopeComponent != null) {
+                if (immediate) {
+                    return scopeComponent.getImmediately();
+                } else {
+                    return Maybe.of(scopeComponent.get());
+                }
             } else {
-                return entity();
+                return Maybe.<Entity>of(entity());
             }
         }
         
-        @Override
-        public Entity call() throws Exception {
+        protected Maybe<Entity> callImpl(boolean immediate) throws Exception {
+            Maybe<Entity> entityMaybe = getEntity(immediate);
+            if (immediate && entityMaybe.isAbsent()) {
+                return entityMaybe;
+            }
+            EntityInternal entity = (EntityInternal) entityMaybe.get();
+            
             Iterable<Entity> entitiesToSearch = null;
-            EntityInternal entity = getEntity();
             Predicate<Entity> notSelfPredicate = Predicates.not(Predicates.<Entity>equalTo(entity));
 
             switch (scope) {
                 case THIS:
-                    return entity;
+                    return Maybe.<Entity>of(entity);
                 case PARENT:
-                    return entity.getParent();
+                    return Maybe.<Entity>of(entity.getParent());
                 case GLOBAL:
                     entitiesToSearch = ((EntityManagerInternal)entity.getManagementContext().getEntityManager())
                         .getAllEntitiesInApplication( entity().getApplication() );
                     break;
                 case ROOT:
-                    return entity.getApplication();
+                    return Maybe.<Entity>of(entity.getApplication());
                 case SCOPE_ROOT:
-                    return Entities.catalogItemScopeRoot(entity);
+                    return Maybe.<Entity>of(Entities.catalogItemScopeRoot(entity));
                 case DESCENDANT:
                     entitiesToSearch = Entities.descendantsWithoutSelf(entity);
                     break;
@@ -154,8 +184,9 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
             
             Optional<Entity> result = Iterables.tryFind(entitiesToSearch, EntityPredicates.configEqualTo(BrooklynCampConstants.PLAN_ID, componentId));
             
-            if (result.isPresent())
-                return result.get();
+            if (result.isPresent()) {
+                return Maybe.of(result.get());
+            }
             
             // TODO may want to block and repeat on new entities joining?
             throw new NoSuchElementException("No entity matching id " + componentId+
@@ -224,6 +255,15 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
         }
 
         @Override
+        public Maybe<Object> getImmediately() {
+            Maybe<Entity> targetEntityMaybe = component.getImmediately();
+            if (targetEntityMaybe.isAbsent()) return Maybe.absent("Target entity not available");
+            Entity targetEntity = targetEntityMaybe.get();
+
+            return Maybe.<Object>of(targetEntity.getId());
+        }
+        
+        @Override
         public Task<Object> newTask() {
             Entity targetEntity = component.get();
             return Tasks.create("identity", Callables.<Object>returning(targetEntity.getId()));
@@ -257,6 +297,20 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
         public AttributeWhenReady(DslComponent component, String sensorName) {
             this.component = Preconditions.checkNotNull(component);
             this.sensorName = sensorName;
+        }
+
+        @Override
+        public final Maybe<Object> getImmediately() {
+            Maybe<Entity> targetEntityMaybe = component.getImmediately();
+            if (targetEntityMaybe.isAbsent()) return Maybe.absent("Target entity not available");
+            Entity targetEntity = targetEntityMaybe.get();
+
+            AttributeSensor<?> targetSensor = (AttributeSensor<?>) targetEntity.getEntityType().getSensor(sensorName);
+            if (targetSensor == null) {
+                targetSensor = Sensors.newSensor(Object.class, sensorName);
+            }
+            Object result = targetEntity.sensors().get(targetSensor);
+            return GroovyJavaMethods.truth(result) ? Maybe.of(result) : Maybe.absent();
         }
 
         @SuppressWarnings("unchecked")
@@ -300,6 +354,15 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
         public DslConfigSupplier(DslComponent component, String keyName) {
             this.component = Preconditions.checkNotNull(component);
             this.keyName = keyName;
+        }
+
+        @Override
+        public final Maybe<Object> getImmediately() {
+            Maybe<Entity> targetEntityMaybe = component.getImmediately();
+            if (targetEntityMaybe.isAbsent()) return Maybe.absent("Target entity not available");
+            EntityInternal targetEntity = (EntityInternal) targetEntityMaybe.get();
+            
+            return targetEntity.config().getNonBlocking(ConfigKeys.newConfigKey(Object.class, keyName));
         }
 
         @Override
@@ -353,6 +416,36 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
         }
 
         @Override
+        public Maybe<Sensor<?>> getImmediately() {
+            return getImmediately(sensorName, false);
+        }
+        
+        protected Maybe<Sensor<?>> getImmediately(Object si, boolean resolved) {
+            if (si instanceof Sensor) {
+                return Maybe.<Sensor<?>>of((Sensor<?>)si);
+            } else if (si instanceof String) {
+                Maybe<Entity> targetEntityMaybe = component.getImmediately();
+                if (targetEntityMaybe.isAbsent()) return Maybe.absent("Target entity not available");
+                Entity targetEntity = targetEntityMaybe.get();
+
+                Sensor<?> result = null;
+                if (targetEntity!=null) {
+                    result = targetEntity.getEntityType().getSensor((String)si);
+                }
+                if (result!=null) return Maybe.<Sensor<?>>of(result);
+                return Maybe.<Sensor<?>>of(Sensors.newSensor(Object.class, (String)si));
+            }
+            if (!resolved) {
+                // attempt to resolve, and recurse
+                final ExecutionContext executionContext = ((EntityInternal)entity()).getExecutionContext();
+                Maybe<Object> resolvedSi = Tasks.resolving(si, Object.class).deep(true).immediately(true).context(executionContext).getMaybe();
+                if (resolvedSi.isAbsent()) return Maybe.absent();
+                return getImmediately(resolvedSi.get(), true);
+            }
+            throw new IllegalStateException("Cannot resolve '"+sensorName+"' as a sensor (got type "+(si == null ? "null" : si.getClass().getName()+")"));
+        }
+        
+        @Override
         public Task<Sensor<?>> newTask() {
             return Tasks.<Sensor<?>>builder()
                     .displayName("looking up sensor for "+sensorName)
@@ -380,7 +473,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
                                 final ExecutionContext executionContext = ((EntityInternal)entity()).getExecutionContext();
                                 return resolve(Tasks.resolveDeepValue(si, Object.class, executionContext), true);
                             }
-                            throw new IllegalStateException("Cannot resolve '"+sensorName+"' as a sensor");
+                            throw new IllegalStateException("Cannot resolve '"+sensorName+"' as a sensor (got type "+(si == null ? "null" : si.getClass().getName()+")"));
                         }})
                     .build();
         }

@@ -121,7 +121,7 @@ public class TasksTest extends BrooklynAppUnitTestSupport {
         Task<Object> t = Tasks.builder().body(Functionals.callable(EntityFunctions.config(TestEntity.CONF_OBJECT), app)).build();
         ValueResolver<Object> v = Tasks.resolving(t).as(Object.class).context(app);
         
-        ValueResolverTest.assertThrowsOnMaybe(v);
+        ValueResolverTest.assertThrowsOnGetMaybe(v);
         ValueResolverTest.assertThrowsOnGet(v);
         
         v.swallowExceptions();

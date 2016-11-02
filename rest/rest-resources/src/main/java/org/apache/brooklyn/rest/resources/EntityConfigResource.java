@@ -151,7 +151,7 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
         }
         
         Object value = ((EntityInternal)entity).config().getRaw(ck).orNull();
-        return resolving(value).preferJson(preferJson).asJerseyOutermostReturnValue(true).raw(raw).context(entity).timeout(ValueResolver.PRETTY_QUICK_WAIT).renderAs(ck).resolve();
+        return resolving(value).preferJson(preferJson).asJerseyOutermostReturnValue(true).raw(raw).context(entity).immediately(true).renderAs(ck).resolve();
     }
 
     private ConfigKey<?> findConfig(Entity entity, String configKeyName) {

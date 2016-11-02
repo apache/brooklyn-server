@@ -25,7 +25,6 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.task.Tasks;
-import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -90,7 +89,7 @@ public class Transformer<T,U> extends AbstractTransformer<T,U> {
                 return (U) Tasks.resolving(targetValueRaw).as(targetSensor.getType())
                     .context(entity)
                     .description("Computing sensor "+targetSensor+" from "+targetValueRaw)
-                    .timeout(ValueResolver.NON_BLOCKING_WAIT)
+                    .immediately(true)
                     .getMaybe().orNull();
             }
             public String toString() {

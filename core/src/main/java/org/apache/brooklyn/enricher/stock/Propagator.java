@@ -220,8 +220,8 @@ public class Propagator extends AbstractEnricher implements SensorEventListener<
         for (Map.Entry<?,?> entry : mapping.entrySet()) {
             Object keyO = entry.getKey();
             Object valueO = entry.getValue();
-            Sensor<?> key = Tasks.resolving(keyO).as(Sensor.class).timeout(ValueResolver.REAL_QUICK_WAIT).context(producer).get();
-            Sensor<?> value = Tasks.resolving(valueO).as(Sensor.class).timeout(ValueResolver.REAL_QUICK_WAIT).context(producer).get();
+            Sensor<?> key = Tasks.resolving(keyO).as(Sensor.class).immediately(true).context(producer).get();
+            Sensor<?> value = Tasks.resolving(valueO).as(Sensor.class).immediately(true).context(producer).get();
             result.put(key, value);
         }
         return result;
@@ -233,7 +233,7 @@ public class Propagator extends AbstractEnricher implements SensorEventListener<
         }
         List<Sensor<?>> result = MutableList.of();
         for (Object sensorO : sensors) {
-            Sensor<?> sensor = Tasks.resolving(sensorO).as(Sensor.class).timeout(ValueResolver.REAL_QUICK_WAIT).context(producer).get();
+            Sensor<?> sensor = Tasks.resolving(sensorO).as(Sensor.class).immediately(true).context(producer).get();
             result.add(sensor);
         }
         return result;

@@ -39,6 +39,7 @@ import org.apache.brooklyn.camp.brooklyn.spi.creation.BrooklynYamlTypeInstantiat
 import org.apache.brooklyn.camp.brooklyn.spi.creation.EntitySpecConfiguration;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.external.ExternalConfigSupplier;
 import org.apache.brooklyn.core.entity.EntityDynamicType;
 import org.apache.brooklyn.core.entity.EntityInternal;
@@ -53,7 +54,9 @@ import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.text.Strings;
@@ -252,6 +255,11 @@ public class BrooklynDslCommon {
         }
 
         @Override
+        public final Maybe<String> getImmediately() {
+            return DependentConfiguration.formatStringImmediately(pattern, args);
+        }
+
+        @Override
         public Task<String> newTask() {
             return DependentConfiguration.formatString(pattern, args);
         }
@@ -294,6 +302,11 @@ public class BrooklynDslCommon {
             this.source = source;
         }
 
+        @Override
+        public Maybe<String> getImmediately() {
+            return DependentConfiguration.regexReplacementImmediately(source, pattern, replacement);
+        }
+        
         @Override
         public Task<String> newTask() {
             return DependentConfiguration.regexReplacement(source, pattern, replacement);
@@ -398,19 +411,51 @@ public class BrooklynDslCommon {
             this.config = MutableMap.copyOf(config);
         }
 
+
+        @Override
+        public Maybe<Object> getImmediately() {
+            final Class<?> clazz = getOrLoadType();
+            final ExecutionContext executionContext = ((EntityInternal)entity()).getExecutionContext();
+
+            // Marker exception that one of our component-parts cannot yet be resolved - 
+            // throwing and catching this allows us to abort fast.
+            // A bit messy to use exceptions in normal control flow, but this allows the Maps util methods to be used.
+            @SuppressWarnings("serial")
+            class UnavailableException extends RuntimeException {
+            }
+            
+            final Function<Object, Object> resolver = new Function<Object, Object>() {
+                @Override public Object apply(Object value) {
+                    Maybe<Object> result = Tasks.resolving(value, Object.class).context(executionContext).deep(true).immediately(true).getMaybe();
+                    if (result.isAbsent()) {
+                        throw new UnavailableException();
+                    } else {
+                        return result.get();
+                    }
+                }
+            };
+            
+            try {
+                Map<String, Object> resolvedFields = MutableMap.copyOf(Maps.transformValues(fields, resolver));
+                Map<String, Object> resolvedConfig = MutableMap.copyOf(Maps.transformValues(config, resolver));
+                List<Object> resolvedConstructorArgs = MutableList.copyOf(Lists.transform(constructorArgs, resolver));
+                List<Object> resolvedFactoryMethodArgs = MutableList.copyOf(Lists.transform(factoryMethodArgs, resolver));
+    
+                Object result;
+                if (factoryMethodName == null) {
+                    result = create(clazz, resolvedConstructorArgs, resolvedFields, resolvedConfig);
+                } else {
+                    result = create(clazz, factoryMethodName, resolvedFactoryMethodArgs, resolvedFields, resolvedConfig);
+                }
+                return Maybe.of(result);
+            } catch (UnavailableException e) {
+                return Maybe.absent();
+            }
+        }
+        
         @Override
         public Task<Object> newTask() {
-            Class<?> type = this.type;
-            if (type == null) {
-                EntityInternal entity = entity();
-                try {
-                    type = new ClassLoaderUtils(BrooklynDslCommon.class, entity).loadClass(typeName);
-                } catch (ClassNotFoundException e) {
-                    throw Exceptions.propagate(e);
-                }
-            }
-            final Class<?> clazz = type;
-
+            final Class<?> clazz = getOrLoadType();
             final ExecutionContext executionContext = ((EntityInternal)entity()).getExecutionContext();
             
             final Function<Object, Object> resolver = new Function<Object, Object>() {
@@ -443,6 +488,19 @@ public class BrooklynDslCommon {
                     .build();
         }
 
+        protected Class<?> getOrLoadType() {
+            Class<?> type = this.type;
+            if (type == null) {
+                EntityInternal entity = entity();
+                try {
+                    type = new ClassLoaderUtils(BrooklynDslCommon.class, entity).loadClass(typeName);
+                } catch (ClassNotFoundException e) {
+                    throw Exceptions.propagate(e);
+                }
+            }
+            return type;
+        }
+        
         public static <T> T create(Class<T> type, List<?> constructorArgs, Map<String,?> fields, Map<String,?> config) {
             try {
                 T bean = Reflections.invokeConstructorFromArgs(type, constructorArgs.toArray()).get();
@@ -463,7 +521,7 @@ public class BrooklynDslCommon {
             }
         }
 
-        public static Object create(Class<?> type, String factoryMethodName, List<Object> factoryMethodArgs, Map<String,?> fields, Map<String,?> config) {
+        public static Object create(Class<?> type, String factoryMethodName, List<?> factoryMethodArgs, Map<String,?> fields, Map<String,?> config) {
             try {
                 Object bean = Reflections.invokeMethodFromArgs(type, factoryMethodName, factoryMethodArgs).get();
                 BeanUtils.populate(bean, fields);
@@ -525,6 +583,14 @@ public class BrooklynDslCommon {
         }
 
         @Override
+        public final Maybe<Object> getImmediately() {
+            // Note this call to getConfig() is different from entity.getConfig.
+            // We expect it to not block waiting for other entities.
+            ManagementContextInternal managementContext = DslExternal.managementContext();
+            return Maybe.<Object>of(managementContext.getExternalConfigProviderRegistry().getConfig(providerName, key));
+        }
+
+        @Override
         public Task<Object> newTask() {
             return Tasks.<Object>builder()
                 .displayName("resolving external configuration: '" + key + "' from provider '" + providerName + "'")
@@ -532,8 +598,7 @@ public class BrooklynDslCommon {
                 .body(new Callable<Object>() {
                     @Override
                     public Object call() throws Exception {
-                        ManagementContextInternal managementContext = DslExternal.managementContext();
-                        return managementContext.getExternalConfigProviderRegistry().getConfig(providerName, key);
+                        return getImmediately().get();
                     }
                 })
                 .build();
@@ -596,6 +661,11 @@ public class BrooklynDslCommon {
                 this.replacement = replacement;
             }
 
+            @Override
+            public Maybe<Function<String, String>> getImmediately() {
+                return DependentConfiguration.regexReplacementImmediately(pattern, replacement);
+            }
+            
             @Override
             public Task<Function<String, String>> newTask() {
                 return DependentConfiguration.regexReplacement(pattern, replacement);

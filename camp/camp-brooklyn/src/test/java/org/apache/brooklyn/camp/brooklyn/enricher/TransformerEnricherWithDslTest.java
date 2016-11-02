@@ -33,16 +33,17 @@ public class TransformerEnricherWithDslTest extends BrooklynAppUnitTestSupport {
 
     int START_PORT = 10000;
 
-    @Test(groups="Broken")
+    @Test
     // See https://issues.apache.org/jira/browse/BROOKLYN-356
     public void testTransformerResolvesResolvableValues() {
-        testTransformerResolvesResolvableValues(START_PORT, 200);
+        LOG.info("Starting 100 iterations of testTransformerResolvesResolvableValues");
+        testTransformerResolvesResolvableValues(START_PORT, 100);
     }
 
-    @Test(groups={"Integration", "Broken"}, invocationCount=10)
+    @Test(groups={"Integration"}, invocationCount=10)
     // See https://issues.apache.org/jira/browse/BROOKLYN-356
     public void testTransformerResolvesResolvableValuesIntegration() {
-        LOG.info("Starting 1000 iterations");
+        LOG.info("Starting 1000 iterations of testTransformerResolvesResolvableValues");
         testTransformerResolvesResolvableValues(START_PORT, 1000);
     }
 
