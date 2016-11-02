@@ -158,6 +158,14 @@ public class AbstractYamlRebindTest extends RebindTestFixture<StartableApplicati
         return app;
     }
 
+    protected Entity createStartWaitAndLogApplication(String... input) throws Exception {
+        return createStartWaitAndLogApplication(joinLines(input));
+    }
+    
+    protected Entity createStartWaitAndLogApplication(String input) throws Exception {
+        return createStartWaitAndLogApplication(new StringReader(input));
+    }
+    
     protected Entity createStartWaitAndLogApplication(Reader input) throws Exception {
         Entity app = createAndStartApplication(input);
         waitForApplicationTasks(app);
