@@ -21,6 +21,7 @@ package org.apache.brooklyn.camp.brooklyn;
 import static org.testng.Assert.assertEquals;
 
 import java.io.File;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -28,11 +29,15 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.ImplementedBy;
+import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -789,6 +794,62 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
 
         assertEquals(entity.config().get(entity.getEntityType().getConfigKey("map.type-merged")), 
                 ImmutableMap.<String, Object>of("mykey1", "myval1", "mykey2", "myval2", "mykey3", "myval3"));
+    }
+
+    // See https://issues.apache.org/jira/browse/BROOKLYN-377
+    @Test(invocationCount=20, groups="Integration")
+    public void testConfigOnParentUsesConfigKeyDeclaredOnParentManyTimes() throws Exception {
+        testConfigOnParentUsesConfigKeyDeclaredOnParent();
+    }
+    
+    // See https://issues.apache.org/jira/browse/BROOKLYN-377
+    @Test
+    public void testConfigOnParentUsesConfigKeyDeclaredOnParent() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  version: 1.0.0",
+                "  itemType: entity",
+                "  items:",
+                "  - id: test-entity",
+                "    item:",
+                "      type: "+MyTestEntity.class.getName(), 
+                "  - id: test-app",
+                "    item:",
+                "      type: " + BasicApplication.class.getName(),
+                "      brooklyn.parameters:",
+                "      - name: myParam",
+                "        type: String",
+                "        default: myVal",
+                "      brooklyn.config:",
+                "        test.confName: $brooklyn:scopeRoot().config(\"myParam\")",
+                "      brooklyn.children:",
+                "      - type: test-entity"
+                );
+
+        Entity app = createStartWaitAndLogApplication(Joiner.on("\n").join(
+                "services:",
+                "- type: "+BasicApplication.class.getName(),
+                "  brooklyn.children:",
+                "  - type: test-app"));
+        
+        MyTestEntity testEntity = (MyTestEntity) Iterables.find(Entities.descendantsAndSelf(app), Predicates.instanceOf(MyTestEntity.class));
+        assertEquals(testEntity.config().get(MyTestEntity.CONF_NAME), "myVal");
+        assertEquals(testEntity.sensors().get(MyTestEntity.MY_SENSOR), "myVal");
+    }
+
+    @ImplementedBy(MyTestEntityImpl.class)
+    public static interface MyTestEntity extends TestEntity {
+        public static final AttributeSensor<String> MY_SENSOR = Sensors.newStringSensor("myTestEntity.sensor");
+    }
+    
+    public static class MyTestEntityImpl extends TestEntityImpl implements MyTestEntity {
+        @Override
+        public void start(Collection<? extends Location> locs) {
+            String val = getConfig(CONF_NAME);
+            sensors().set(MY_SENSOR, val);
+            super.start(locs);
+            
+        }
     }
 
     protected void assertEmptySoftwareProcessConfig(Entity entity, Map<String, ?> expectedEnv, Map<String, String> expectedFiles, Map<String, ?> expectedProvisioningProps) {
