@@ -22,6 +22,7 @@ import static org.testng.Assert.assertEquals;
 
 import java.io.File;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 
@@ -121,21 +122,25 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
     
     /** As {@link #createNewManagementContext(File)} using the default memento dir */
     protected LocalManagementContext createNewManagementContext() {
-        return createNewManagementContext(mementoDir);
+        return createNewManagementContext(mementoDir, null);
     }
     
     /** @return An unstarted management context using the specified mementoDir (or default if null) */
-    protected LocalManagementContext createNewManagementContext(File mementoDir) {
-        return createNewManagementContext(mementoDir, getHaMode());
+    protected LocalManagementContext createNewManagementContext(File mementoDir, Map<?, ?> additionalProperties) {
+        return createNewManagementContext(mementoDir, getHaMode(), additionalProperties);
     }
-    
-    protected LocalManagementContext createNewManagementContext(File mementoDir, HighAvailabilityMode haMode) {
+
+    protected LocalManagementContext createNewManagementContext(File mementoDir, HighAvailabilityMode haMode, Map<?, ?> additionalProperties) {
         if (mementoDir==null) mementoDir = this.mementoDir;
+        BrooklynProperties brooklynProperties = createBrooklynProperties();
+        if (additionalProperties != null) {
+            brooklynProperties.addFrom(additionalProperties);
+        }
         return RebindTestUtils.managementContextBuilder(mementoDir, classLoader)
                 .forLive(useLiveManagementContext())
                 .haMode(haMode)
                 .emptyCatalog(useEmptyCatalog())
-                .properties(createBrooklynProperties())
+                .properties(brooklynProperties)
                 .enableOsgi(useOsgi())
                 .buildUnstarted();
     }
@@ -287,7 +292,7 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
         if (options.classLoader == null) options.classLoader(classLoader);
         if (options.mementoDir == null) options.mementoDir(mementoDir);
         if (options.origManagementContext == null) options.origManagementContext(origManagementContext);
-        if (options.newManagementContext == null) options.newManagementContext(createNewManagementContext(options.mementoDir));
+        if (options.newManagementContext == null) options.newManagementContext(createNewManagementContext(options.mementoDir, options.additionalProperties));
         
         RebindTestUtils.waitForPersisted(origApp);
         
@@ -318,9 +323,9 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
         if (options.classLoader == null) options.classLoader(classLoader);
         if (options.mementoDir == null) options.mementoDir(mementoDir);
         if (options.origManagementContext == null) options.origManagementContext(origManagementContext);
-        if (options.newManagementContext == null) options.newManagementContext(createNewManagementContext(options.mementoDir, options.haMode));
+        if (options.newManagementContext == null) options.newManagementContext(createNewManagementContext(options.mementoDir, options.haMode, options.additionalProperties));
         
-        RebindTestUtils.waitForPersisted(origApp);
+        RebindTestUtils.stopPersistence(origApp);
         
         newManagementContext = options.newManagementContext;
         newApp = (T) RebindTestUtils.rebind(options);

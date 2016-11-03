@@ -24,6 +24,7 @@ import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 import java.io.File;
+import java.util.Map;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType;
@@ -93,7 +94,7 @@ public class RebindCatalogItemTest extends RebindTestFixtureWithApp {
     }
 
     @Override
-    protected LocalManagementContext createNewManagementContext(File mementoDir, HighAvailabilityMode haMode) {
+    protected LocalManagementContext createNewManagementContext(File mementoDir, HighAvailabilityMode haMode, Map<?, ?> additionalProperties) {
         BrooklynProperties properties = BrooklynProperties.Factory.newDefault();
         properties.put(BrooklynServerConfig.BROOKLYN_CATALOG_URL, "classpath://brooklyn/entity/rebind/rebind-catalog-item-test-catalog.xml");
         return RebindTestUtils.managementContextBuilder(mementoDir, classLoader)
