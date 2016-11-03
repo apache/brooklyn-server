@@ -75,7 +75,7 @@ public class RebindEntityDynamicTypeInfoTest extends RebindTestFixtureWithApp {
         // dynamic effector
         origApp.getMutableEntityType().addEffector(SayHiBody.EFFECTOR);
         
-        RebindTestUtils.waitForPersisted(origApp);
+        RebindTestUtils.stopPersistence(origApp);
         
         File mementoFile = new File(new File(mementoDir, "entities"), origApp.getId());
         String memento = Streams.readFullyAndClose(new FileReader(mementoFile));

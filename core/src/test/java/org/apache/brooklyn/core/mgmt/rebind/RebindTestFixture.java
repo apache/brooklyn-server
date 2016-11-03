@@ -294,7 +294,7 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
         if (options.origManagementContext == null) options.origManagementContext(origManagementContext);
         if (options.newManagementContext == null) options.newManagementContext(createNewManagementContext(options.mementoDir, options.additionalProperties));
         
-        RebindTestUtils.waitForPersisted(origApp);
+        RebindTestUtils.stopPersistence(origApp);
         
         newManagementContext = options.newManagementContext;
         newApp = (T) RebindTestUtils.rebind(options);

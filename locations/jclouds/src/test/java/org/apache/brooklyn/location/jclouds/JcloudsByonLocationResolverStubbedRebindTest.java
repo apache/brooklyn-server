@@ -188,7 +188,7 @@ public class JcloudsByonLocationResolverStubbedRebindTest extends AbstractJcloud
         if (options.origManagementContext == null) options.origManagementContext(origManagementContext);
         if (options.newManagementContext == null) options.newManagementContext(createNewManagementContext(options.mementoDir));
         
-        RebindTestUtils.waitForPersisted(origApp);
+        RebindTestUtils.stopPersistence(origApp);
         
         newManagementContext = options.newManagementContext;
         newApp = RebindTestUtils.rebind(options);

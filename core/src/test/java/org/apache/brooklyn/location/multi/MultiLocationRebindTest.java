@@ -113,7 +113,7 @@ public class MultiLocationRebindTest {
     }
     
     private TestApplication rebind(boolean checkSerializable) throws Exception {
-        RebindTestUtils.waitForPersisted(origApp);
+        RebindTestUtils.stopPersistence(origApp);
         if (checkSerializable) {
             RebindTestUtils.checkCurrentMementoSerializable(origApp);
         }

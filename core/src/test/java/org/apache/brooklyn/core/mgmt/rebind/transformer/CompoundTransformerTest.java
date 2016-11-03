@@ -63,7 +63,6 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
-@SuppressWarnings("serial")
 public class CompoundTransformerTest extends RebindTestFixtureWithApp {
 
     private static final Logger LOG = LoggerFactory.getLogger(CompoundTransformerTest.class);
@@ -430,6 +429,7 @@ public class CompoundTransformerTest extends RebindTestFixtureWithApp {
     protected TestApplication transformAndRebind(CompoundTransformer transformer) throws Exception {
         RebindTestUtils.waitForPersisted(origApp);
         BrooklynMementoRawData newRawData = transform(origManagementContext, transformer);
+        RebindTestUtils.stopPersistence(origApp);
         newMementoDir = persist(newRawData);
         return rebind(newMementoDir);
     }
@@ -492,6 +492,7 @@ public class CompoundTransformerTest extends RebindTestFixtureWithApp {
     
     // Example method, similar to EntityPredicates where we want to move the annonymous inner class
     // to be a named inner class
+    @SuppressWarnings("serial")
     public static <T> Predicate<Entity> idEqualTo(final T paramVal) {
         return new SerializablePredicate<Entity>() {
             @Override
@@ -501,6 +502,7 @@ public class CompoundTransformerTest extends RebindTestFixtureWithApp {
         };
     }
 
+    @SuppressWarnings("serial")
     private static class RenamedIdEqualToPredicate implements SerializablePredicate<Entity> {
         private String val;
         

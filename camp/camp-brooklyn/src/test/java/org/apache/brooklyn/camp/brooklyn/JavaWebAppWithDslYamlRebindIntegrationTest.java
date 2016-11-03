@@ -82,7 +82,7 @@ public class JavaWebAppWithDslYamlRebindIntegrationTest extends AbstractYamlTest
     }
 
     public Application rebind(Application app) throws Exception {
-        RebindTestUtils.waitForPersisted(app);
+        RebindTestUtils.stopPersistence(app);
         // optionally for good measure can also check this:
 //        RebindTestUtils.checkCurrentMementoSerializable(app);
         Application result = RebindTestUtils.rebind(mementoDir, getClass().getClassLoader());

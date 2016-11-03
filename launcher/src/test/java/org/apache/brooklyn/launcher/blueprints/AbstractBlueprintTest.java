@@ -205,7 +205,7 @@ public abstract class AbstractBlueprintTest {
         if (options.newManagementContext == null) options.newManagementContext(newMgmt);
         
         for (Application origApp : origApps) {
-            RebindTestUtils.waitForPersisted(origApp);
+            RebindTestUtils.stopPersistence(origApp);
         }
         
         mgmt = options.newManagementContext;

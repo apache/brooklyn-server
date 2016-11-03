@@ -177,7 +177,7 @@ public class RebindLocationTest extends RebindTestFixtureWithApp {
         MyLocation.myStaticFieldNotSetFromFlag = "myval";
         origApp.start(ImmutableList.of(origLoc));
 
-        RebindTestUtils.waitForPersisted(origApp);
+        RebindTestUtils.stopPersistence(origApp);
         MyLocation.myStaticFieldNotSetFromFlag = "mynewval";
         newApp = (TestApplication) RebindTestUtils.rebind(mementoDir, getClass().getClassLoader());
         MyLocation newLoc = (MyLocation) Iterables.get(newApp.getLocations(), 0);
@@ -192,7 +192,7 @@ public class RebindLocationTest extends RebindTestFixtureWithApp {
         MyLocation origLoc = new MyLocation(MutableMap.of("myStaticFieldSetFromFlag", "myval"));
         origApp.start(ImmutableList.of(origLoc));
 
-        RebindTestUtils.waitForPersisted(origApp);
+        RebindTestUtils.stopPersistence(origApp);
         MyLocation.myStaticFieldSetFromFlag = "mynewval"; // not auto-checkpointed
         newApp = (TestApplication) RebindTestUtils.rebind(mementoDir, getClass().getClassLoader());
         MyLocation newLoc = (MyLocation) Iterables.get(newApp.getLocations(), 0);

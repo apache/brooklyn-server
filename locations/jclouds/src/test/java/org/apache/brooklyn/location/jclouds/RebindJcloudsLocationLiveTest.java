@@ -27,8 +27,6 @@ import java.io.File;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.OsDetails;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestUtils;
@@ -175,7 +173,7 @@ public class RebindJcloudsLocationLiveTest extends AbstractJcloudsLiveTest {
         // Force it to be persisted again. Expect to pesist without the NodeMetadata and Template.
         app2.getManagementContext().getRebindManager().getChangeListener().onChanged(loc2);
         app2.getManagementContext().getRebindManager().getChangeListener().onChanged(machine2);
-        RebindTestUtils.waitForPersisted(app2);
+        RebindTestUtils.stopPersistence(app2);
         
         String newMachineXml = new String(java.nio.file.Files.readAllBytes(persistedMachineFile.toPath()));
         assertFalse(newMachineXml.contains("AWSEC2TemplateOptions"), newMachineXml);
@@ -241,7 +239,7 @@ public class RebindJcloudsLocationLiveTest extends AbstractJcloudsLiveTest {
         // Force it to be persisted again. Expect to pesist without the NodeMetadata and Template.
         app2.getManagementContext().getRebindManager().getChangeListener().onChanged(loc2);
         app2.getManagementContext().getRebindManager().getChangeListener().onChanged(machine2);
-        RebindTestUtils.waitForPersisted(app2);
+        RebindTestUtils.stopPersistence(app2);
         
         String newMachineXml = new String(java.nio.file.Files.readAllBytes(persistedMachineFile.toPath()));
         assertFalse(newMachineXml.contains("NodeMetadataImpl"), newMachineXml);
@@ -327,7 +325,7 @@ public class RebindJcloudsLocationLiveTest extends AbstractJcloudsLiveTest {
     }
     
     private TestApplication rebind(RebindOptions options) throws Exception {
-        RebindTestUtils.waitForPersisted(origApp);
+        RebindTestUtils.stopPersistence(origApp);
         return (TestApplication) RebindTestUtils.rebind(options);
     }
 }

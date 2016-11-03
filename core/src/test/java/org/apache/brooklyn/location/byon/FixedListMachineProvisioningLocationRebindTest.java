@@ -113,7 +113,7 @@ public class FixedListMachineProvisioningLocationRebindTest {
     }
 
     private TestApplication rebind() throws Exception {
-        RebindTestUtils.waitForPersisted(origApp);
+        RebindTestUtils.stopPersistence(origApp);
         return (TestApplication) RebindTestUtils.rebind(mementoDir, getClass().getClassLoader());
     }
     
