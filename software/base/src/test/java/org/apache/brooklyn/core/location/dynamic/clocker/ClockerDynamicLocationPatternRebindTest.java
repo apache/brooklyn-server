@@ -57,8 +57,8 @@ public class ClockerDynamicLocationPatternRebindTest extends RebindTestFixtureWi
     }
     
     @Override
-    protected LocalManagementContext createNewManagementContext(File mementoDir, HighAvailabilityMode haMode) {
-        LocalManagementContext result = super.createNewManagementContext(mementoDir, haMode);
+    protected LocalManagementContext createNewManagementContext(File mementoDir, HighAvailabilityMode haMode, Map<?, ?> additionalProperties) {
+        LocalManagementContext result = super.createNewManagementContext(mementoDir, haMode, additionalProperties);
         StubResolver stubResolver = new StubResolver();
         ((BasicLocationRegistry)result.getLocationRegistry()).registerResolver(stubResolver);
         return result;

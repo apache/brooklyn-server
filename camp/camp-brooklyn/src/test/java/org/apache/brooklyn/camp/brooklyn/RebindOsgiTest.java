@@ -25,6 +25,7 @@ import static org.testng.Assert.assertNull;
 
 import java.io.File;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -91,8 +92,8 @@ public class RebindOsgiTest extends AbstractYamlRebindTest {
     }
     
     @Override
-    protected LocalManagementContext createNewManagementContext(File mementoDir, HighAvailabilityMode haMode) {
-        LocalManagementContext result = super.createNewManagementContext(mementoDir, haMode);
+    protected LocalManagementContext createNewManagementContext(File mementoDir, HighAvailabilityMode haMode, Map<?, ?> additionalProperties) {
+        LocalManagementContext result = super.createNewManagementContext(mementoDir, haMode, additionalProperties);
         for (String bundleUrl : bundleUrlsToInstallOnRebind) {
             try {
                 installBundle(result, bundleUrl);

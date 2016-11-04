@@ -125,7 +125,7 @@ public class RebindCatalogEntityTest extends RebindTestFixture<StartableApplicat
     //      because that won't have right catalog classpath.
     //      How to reuse that code cleanly?
     protected StartableApplication rebindWithAppClass() throws Exception {
-        RebindTestUtils.waitForPersisted(origApp);
+        RebindTestUtils.stopPersistence(origApp);
         LocalManagementContext newManagementContext = RebindTestUtils.newPersistingManagementContextUnstarted(mementoDir, classLoader);
 
         UrlClassLoader ucl = new UrlClassLoader(url);

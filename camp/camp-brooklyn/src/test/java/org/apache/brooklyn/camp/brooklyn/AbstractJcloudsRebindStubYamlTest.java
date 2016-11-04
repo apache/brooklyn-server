@@ -19,6 +19,7 @@
 package org.apache.brooklyn.camp.brooklyn;
 
 import java.io.File;
+import java.util.Map;
 
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.camp.brooklyn.AbstractJcloudsStubYamlTest.ByonComputeServiceStaticRef;
@@ -91,11 +92,11 @@ public abstract class AbstractJcloudsRebindStubYamlTest extends JcloudsRebindStu
     }
 
     @Override
-    protected LocalManagementContext createNewManagementContext(final File mementoDir, final HighAvailabilityMode haMode) {
+    protected LocalManagementContext createNewManagementContext(final File mementoDir, final HighAvailabilityMode haMode, final Map<?, ?> additionalProperties) {
         newLauncher = new BrooklynCampPlatformLauncherNoServer() {
             @Override
             protected LocalManagementContext newMgmtContext() {
-                return AbstractJcloudsRebindStubYamlTest.super.createNewManagementContext(mementoDir, haMode);
+                return AbstractJcloudsRebindStubYamlTest.super.createNewManagementContext(mementoDir, haMode, additionalProperties);
             }
         };
         newLauncher.launch();

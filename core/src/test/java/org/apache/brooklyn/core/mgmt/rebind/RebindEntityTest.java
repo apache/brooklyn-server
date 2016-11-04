@@ -370,7 +370,7 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
         MyLatchingEntityImpl.latching = true;
         
         // Serialize and rebind, but don't yet manage the app
-        RebindTestUtils.waitForPersisted(origApp);
+        RebindTestUtils.stopPersistence(origApp);
         RebindTestUtils.checkCurrentMementoSerializable(origApp);
         newManagementContext = RebindTestUtils.newPersistingManagementContextUnstarted(mementoDir, classLoader);
         Thread thread = new Thread() {
@@ -421,7 +421,7 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
         MyLatchingEntityImpl.latching = true;
 
         // Serialize and rebind, but don't yet manage the app
-        RebindTestUtils.waitForPersisted(origApp);
+        RebindTestUtils.stopPersistence(origApp);
         RebindTestUtils.checkCurrentMementoSerializable(origApp);
         newManagementContext = new LocalManagementContext();
         Thread thread = new Thread() {

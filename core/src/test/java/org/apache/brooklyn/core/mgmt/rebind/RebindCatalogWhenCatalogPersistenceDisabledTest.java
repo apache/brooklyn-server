@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.mgmt.rebind;
 import static org.testng.Assert.assertEquals;
 
 import java.io.File;
+import java.util.Map;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -58,25 +59,10 @@ public class RebindCatalogWhenCatalogPersistenceDisabledTest extends RebindTestF
     }
 
     @Override
-    protected LocalManagementContext createOrigManagementContext() {
-        BrooklynProperties properties = BrooklynProperties.Factory.newDefault();
+    protected BrooklynProperties createBrooklynProperties() {
+        BrooklynProperties properties = super.createBrooklynProperties();
         properties.put(BrooklynServerConfig.BROOKLYN_CATALOG_URL, TEST_CATALOG);
-        return RebindTestUtils.managementContextBuilder(mementoDir, classLoader)
-                .properties(properties)
-                .persistPeriodMillis(getPersistPeriodMillis())
-                .forLive(useLiveManagementContext())
-                .buildStarted();
-    }
-
-    @Override
-    protected LocalManagementContext createNewManagementContext(File mementoDir, HighAvailabilityMode haMode) {
-        BrooklynProperties properties = BrooklynProperties.Factory.newDefault();
-        properties.put(BrooklynServerConfig.BROOKLYN_CATALOG_URL, TEST_CATALOG);
-        return RebindTestUtils.managementContextBuilder(mementoDir, classLoader)
-                .properties(properties)
-                .forLive(useLiveManagementContext())
-                .haMode(haMode)
-                .buildUnstarted();
+        return properties;
     }
 
     @Test

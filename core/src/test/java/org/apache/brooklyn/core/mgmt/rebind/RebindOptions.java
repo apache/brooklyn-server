@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.mgmt.rebind;
 
 import java.io.File;
 import java.util.Collection;
+import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -46,6 +47,7 @@ public class RebindOptions {
     public PersistenceObjectStore objectStore;
     public HighAvailabilityMode haMode;
     public Function<Collection<Application>, Application> applicationChooserOnRebind;
+    public Map<?, ?> additionalProperties;
     
     public static RebindOptions create() {
         return new RebindOptions();
@@ -64,6 +66,7 @@ public class RebindOptions {
         result.objectStore(options.objectStore);
         result.haMode(options.haMode);
         result.applicationChooserOnRebind(options.applicationChooserOnRebind);
+        result.additionalProperties(options.additionalProperties);
         return result;
     }
     public RebindOptions checkSerializable(boolean val) {
@@ -110,9 +113,12 @@ public class RebindOptions {
         this.haMode = val;
         return this;
     }
-    
     public RebindOptions applicationChooserOnRebind(Function<Collection<Application>, Application> val) {
         this.applicationChooserOnRebind = val;
+        return this;
+    }
+    public RebindOptions additionalProperties(Map<?, ?> additionalProperties) {
+        this.additionalProperties = additionalProperties;
         return this;
     }
 }
