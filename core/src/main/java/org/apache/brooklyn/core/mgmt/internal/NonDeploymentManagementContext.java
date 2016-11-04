@@ -63,6 +63,7 @@ import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.internal.storage.BrooklynStorage;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.usage.UsageManager;
 import org.apache.brooklyn.core.objs.proxy.InternalEntityFactory;
@@ -74,6 +75,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 public class NonDeploymentManagementContext implements ManagementContextInternal {
 
@@ -107,7 +110,11 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
         this.entity = checkNotNull(entity, "entity");
         this.mode = checkNotNull(mode, "mode");
         qsm = new QueueingSubscriptionManager();
-        subscriptionContext = new BasicSubscriptionContext(qsm, entity);
+        
+        // For subscription flags, see AbstractManagementContext.getSubscriptionContext. This is 
+        // needed for callbacks, to ensure the correct entity context is set.
+        Map<String, ?> subscriptionFlags = ImmutableMap.of("tags", ImmutableList.of(BrooklynTaskTags.tagForContextEntity(entity)));
+        subscriptionContext = new BasicSubscriptionContext(subscriptionFlags, qsm, entity);
         entityManager = new NonDeploymentEntityManager(null);
         locationManager = new NonDeploymentLocationManager(null);
         accessManager = new NonDeploymentAccessManager(null);
