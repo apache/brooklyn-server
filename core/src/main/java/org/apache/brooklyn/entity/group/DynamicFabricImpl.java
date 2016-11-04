@@ -110,6 +110,8 @@ public class DynamicFabricImpl extends AbstractGroupImpl implements DynamicFabri
     
     @Override
     public void start(Collection<? extends Location> locsO) {
+        boolean includeInitialChildren = Boolean.TRUE.equals(config().get(INCLUDE_INITIAL_CHILDREN));
+        
         addLocations(locsO);
         List<Location> locationsToStart = MutableList.copyOf(Locations.getLocationsCheckingAncestors(locsO, this));
         
@@ -122,27 +124,50 @@ public class DynamicFabricImpl extends AbstractGroupImpl implements DynamicFabri
         try {
             Map<Entity, Task<?>> tasks = Maps.newLinkedHashMap();
             
-            // first look at existing Startable children - start them with the locations passed in here,
-            // if they have no locations yet
-            for (Entity child: getChildren()) {
-                if (child instanceof Startable) {
-                    addMember(child);
-                    Location it = null;
-                    if (child.getLocations().isEmpty())
-                        // give him any of these locations if he has none, allowing round robin here
-                        if (!locationsToStart.isEmpty()) {
-                            it = locationsToStart.get(locIndex++ % locationsToStart.size());
-                            ((EntityInternal)child).addLocations(Arrays.asList(it));
+            if (includeInitialChildren) {
+                // first look at existing Startable children - start them with the locations passed in here,
+                // if they have no locations yet
+                for (Entity child: getChildren()) {
+                    if (child instanceof Startable) {
+                        addMember(child);
+                        Location it = null;
+                        if (child.getLocations().isEmpty()) {
+                            // give him any of these locations if he has none, allowing round robin here
+                            if (!locationsToStart.isEmpty()) {
+                                it = locationsToStart.get(locIndex++ % locationsToStart.size());
+                                ((EntityInternal)child).addLocations(Arrays.asList(it));
+                            }
                         }
-                    
-                    tasks.put(child, Entities.submit(this,
-                        Effectors.invocation(child, START, ImmutableMap.of("locations", 
-                            it==null ? ImmutableList.of() : ImmutableList.of(it))).asTask()));
+                        
+                        tasks.put(child, Entities.submit(this,
+                            Effectors.invocation(child, START, ImmutableMap.of("locations", 
+                                it==null ? ImmutableList.of() : ImmutableList.of(it))).asTask()));
+                    }
+                }
+                // remove all the locations we applied to existing nodes
+                while (locIndex-->0 && !locationsToStart.isEmpty())
+                    locationsToStart.remove(0);
+                
+            } else {
+                // Start the existing children, but don't count that as "consuming" the initial
+                // locations.
+                for (Entity child : getChildren()) {
+                    if (child instanceof Startable) {
+                        Location it = null;
+                        if (child.getLocations().isEmpty()) {
+                            // give him the first location
+                            if (!locationsToStart.isEmpty()) {
+                                it = locationsToStart.get(0);
+                                ((EntityInternal)child).addLocations(Arrays.asList(it));
+                            }
+                        }
+                        
+                        tasks.put(child, Entities.submit(this,
+                            Effectors.invocation(child, START, ImmutableMap.of("locations", 
+                                it==null ? ImmutableList.of() : ImmutableList.of(it))).asTask()));
+                    }
                 }
             }
-            // remove all the locations we applied to existing nodes
-            while (locIndex-->0 && !locationsToStart.isEmpty())
-                locationsToStart.remove(0);
 
             // finally (and usually) we create new entities for locations passed in
             // (unless they were consumed by pre-existing children which didn't have locations)
