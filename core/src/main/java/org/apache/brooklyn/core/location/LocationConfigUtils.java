@@ -20,7 +20,6 @@ package org.apache.brooklyn.core.location;
 
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.security.KeyPair;
 import java.security.PublicKey;
@@ -36,8 +35,6 @@ import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
@@ -49,6 +46,8 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.text.StringFunctions;
 import org.apache.brooklyn.util.text.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Objects;
