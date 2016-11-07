@@ -34,14 +34,11 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import net.schmizz.sshj.connection.channel.direct.Session;
-
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.internal.ssh.SshException;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.internal.ssh.SshToolAbstractIntegrationTest;
-import org.apache.brooklyn.util.core.internal.ssh.sshj.SshjTool;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeTimeoutException;
 import org.apache.brooklyn.util.os.Os;
@@ -52,8 +49,10 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import net.schmizz.sshj.connection.channel.direct.Session;
+
 /**
- * Test the operation of the {@link SshJschTool} utility class.
+ * Test the operation of the {@link SshjTool} utility class.
  */
 public class SshjToolIntegrationTest extends SshToolAbstractIntegrationTest {
 
