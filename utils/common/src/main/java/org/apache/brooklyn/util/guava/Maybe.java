@@ -135,6 +135,15 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
         return ofAllowingNull(value);
     }
     
+    /**
+     * Casts the given value to the desired type. This is valid because {@link Maybe} is immutable,
+     * so things like {@code Maybe<Object>} is a super-type of {@code Maybe<String>}.
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> Maybe<T> cast(Maybe<? extends T> value) {
+        return (Maybe<T>) value;
+    }
+    
     /** Converts the given {@link Maybe} to {@link Optional}, failing if this {@link Maybe} contains null. */
     public Optional<T> toOptional() {
         if (isPresent()) return Optional.of(get());
