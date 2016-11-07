@@ -273,7 +273,7 @@ public class SshjTool extends SshAbstractTool implements SshTool {
 
     @Override
     public int copyFromServer(Map<String,?> props, String pathAndFileOnRemoteServer, File localFile) {
-        LocalDestFile localDestFile = acquire(new GetFileAction(pathAndFileOnRemoteServer));
+        LocalDestFile localDestFile = acquire(new GetFileAction(pathAndFileOnRemoteServer, localFile));
         return 0;
     }
 
@@ -697,10 +697,13 @@ public class SshjTool extends SshAbstractTool implements SshTool {
 
     private class GetFileAction implements SshAction<LocalDestFile> {
         private final String path;
+        private final File localFile;
         private SFTPClient sftp;
 
-        GetFileAction(String path) {
+
+        public GetFileAction(String path, File localFile) {
             this.path = checkNotNull(path, "path");
+            this.localFile = checkNotNull(localFile, "localFile");
         }
 
         @Override
@@ -712,7 +715,7 @@ public class SshjTool extends SshAbstractTool implements SshTool {
         @Override
         public LocalDestFile create() throws Exception {
             sftp = acquire(sftpConnection);
-            LocalDestFile localDestFile = new FileSystemFile(path);
+            LocalDestFile localDestFile = new FileSystemFile(localFile);
             sftp.get(path, localDestFile);
             return localDestFile;
         }
