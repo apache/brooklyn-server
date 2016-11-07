@@ -29,6 +29,7 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampConstants;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
@@ -361,8 +362,10 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
             Maybe<Entity> targetEntityMaybe = component.getImmediately();
             if (targetEntityMaybe.isAbsent()) return Maybe.absent("Target entity not available");
             EntityInternal targetEntity = (EntityInternal) targetEntityMaybe.get();
-            
-            return targetEntity.config().getNonBlocking(ConfigKeys.newConfigKey(Object.class, keyName));
+
+            ConfigKey<?> key = targetEntity.getEntityType().getConfigKey(keyName);
+            Maybe<? extends Object> result = targetEntity.config().getNonBlocking(key != null ? key : ConfigKeys.newConfigKey(Object.class, keyName));
+            return Maybe.<Object>cast(result);
         }
 
         @Override
@@ -376,7 +379,8 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
                         @Override
                         public Object call() throws Exception {
                             Entity targetEntity = component.get();
-                            return targetEntity.getConfig(ConfigKeys.newConfigKey(Object.class, keyName));
+                            ConfigKey<?> key = targetEntity.getEntityType().getConfigKey(keyName);
+                            return targetEntity.getConfig(key != null ? key : ConfigKeys.newConfigKey(Object.class, keyName));
                         }})
                     .build();
         }

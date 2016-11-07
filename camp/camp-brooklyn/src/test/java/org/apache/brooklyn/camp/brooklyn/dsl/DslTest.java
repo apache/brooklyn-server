@@ -35,6 +35,7 @@ import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.objs.BasicSpecParameter;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
@@ -52,6 +53,7 @@ import org.testng.annotations.Test;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Supplier;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableScheduledFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -177,6 +179,21 @@ public class DslTest extends BrooklynAppUnitTestSupport {
     }
     
     @Test
+    public void testConfigUsesParameterDefaultValue() throws Exception {
+        final ConfigKey<String> configKey = ConfigKeys.newStringConfigKey("testConfig");
+        ConfigKey<String> configParam = ConfigKeys.newStringConfigKey("testParam", "myDescription", "myDefaultConfigValue");
+        BrooklynDslDeferredSupplier<?> dsl = BrooklynDslCommon.config(configKey.getName());
+        Supplier<ConfigValuePair> valueSupplier = new Supplier<ConfigValuePair>() {
+            @Override public ConfigValuePair get() {
+                return new ConfigValuePair(BrooklynDslCommon.config("testParam"), "myDefaultConfigValue");
+            }
+        };
+        new ConfigTestWorker(app, configKey, valueSupplier, dsl)
+                .childSpec(EntitySpec.create(TestEntity.class).parameters(ImmutableList.of(new BasicSpecParameter<String>("myLabel", true, configParam))))
+                .run();
+    }
+    
+    @Test
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public void testConfigImmediatelyDoesNotBlock() throws Exception {
         ConfigKey<String> configKey = ConfigKeys.newStringConfigKey("testConfig");
@@ -236,7 +253,7 @@ public class DslTest extends BrooklynAppUnitTestSupport {
         protected final TestApplication parent;
         protected final BrooklynDslDeferredSupplier<?> dsl;
         protected final Class<?> type;
-        protected EntitySpec<TestEntity> childSpec = EntitySpec.create(TestEntity.class);
+        protected EntitySpec<? extends TestEntity> childSpec = EntitySpec.create(TestEntity.class);
         protected int resolverIterations = MANY_RESOLVER_ITERATIONS;
         protected boolean satisfiedAsynchronously = false;
         private boolean wrapInTaskForImmediately = true;
@@ -247,6 +264,11 @@ public class DslTest extends BrooklynAppUnitTestSupport {
             this.type = checkNotNull(type, "type");
         }
 
+        public DslTestWorker childSpec(EntitySpec<? extends TestEntity> val) {
+            childSpec = val;
+            return this;
+        }
+        
         public DslTestWorker resolverIterations(int val) {
             resolverIterations = val;
             return this;

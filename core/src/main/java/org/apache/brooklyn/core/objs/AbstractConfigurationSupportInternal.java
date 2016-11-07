@@ -131,6 +131,9 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
      * See {@link #getNonBlockingResolvingStructuredKey(ConfigKey)}.
      */
     protected <T> Maybe<T> getNonBlockingResolvingSimple(ConfigKey<T> key) {
+        // TODO See AbstractConfigMapImpl.getConfigImpl, for how it looks up the "container" of the
+        // key, so that it gets the right context entity etc.
+        
         // getRaw returns Maybe(val) if the key was explicitly set (where val can be null)
         // or Absent if the config key was unset.
         Object unresolved = getRaw(key).or(key.getDefaultValue());
