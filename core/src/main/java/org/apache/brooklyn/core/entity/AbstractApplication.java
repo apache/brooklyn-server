@@ -200,9 +200,9 @@ public abstract class AbstractApplication extends AbstractEntity implements Star
     public void stop() {
         logApplicationLifecycle("Stopping");
 
+        setExpectedStateAndRecordLifecycleEvent(Lifecycle.STOPPING);
         ServiceStateLogic.ServiceNotUpLogic.updateNotUpIndicator(this, Attributes.SERVICE_STATE_ACTUAL, "Application stopping");
         sensors().set(SERVICE_UP, false);
-        setExpectedStateAndRecordLifecycleEvent(Lifecycle.STOPPING);
         try {
             doStop();
         } catch (Exception e) {
