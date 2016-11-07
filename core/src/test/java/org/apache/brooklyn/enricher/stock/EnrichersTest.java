@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.enricher.stock;
 
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
+
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
@@ -185,7 +188,7 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test(groups="Integration") // because takes a second
-    public void testTransformingRespectsUnchangedButWillRepublish() {
+    public void testTransformingRespectsUnchangedButWillRepublish() throws Exception {
         RecordingSensorEventListener<String> record = new RecordingSensorEventListener<>();
         app.getManagementContext().getSubscriptionManager().subscribe(entity, STR2, record);
         
@@ -197,21 +200,26 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
                             return ("ignoredval".equals(input)) ? Entities.UNCHANGED : input;
                         }})
                 .build());
-        Asserts.assertThat(record.getEvents(), CollectionFunctionals.sizeEquals(0));
+        // check notifyOfInitialValue (set in Transformer) is null
+        Asserts.eventually(Suppliers.ofInstance(record), CollectionFunctionals.sizeEquals(1));
+        SensorEvent<String> initialEvent = Iterables.getOnlyElement(record);
+        assertEquals(initialEvent.getSensor(), STR2);
+        assertNull(initialEvent.getValue());
 
         entity.sensors().set(STR1, "myval");
-        Asserts.eventually(Suppliers.ofInstance(record), CollectionFunctionals.sizeEquals(1));
-        EntityAsserts.assertAttributeEquals(entity, STR2, "myval");
+        Asserts.eventually(Suppliers.ofInstance(record), CollectionFunctionals.sizeEquals(2));
+        EntityAsserts.assertAttributeEqualsEventually(entity, STR2, "myval");
 
         entity.sensors().set(STR1, "ignoredval");
         EntityAsserts.assertAttributeEqualsContinually(entity, STR2, "myval");
 
         entity.sensors().set(STR1, "myval2");
-        Asserts.eventually(Suppliers.ofInstance(record), CollectionFunctionals.sizeEquals(2));
-        EntityAsserts.assertAttributeEquals(entity, STR2, "myval2");
+        Asserts.eventually(Suppliers.ofInstance(record), CollectionFunctionals.sizeEquals(3));
+        EntityAsserts.assertAttributeEqualsEventually(entity, STR2, "myval2");
 
         entity.sensors().set(STR1, "myval2");
-        entity.sensors().set(STR1, "myval2");
+        // Duplicate values still trigger change events
+        // entity.sensors().set(STR1, "myval2");
         entity.sensors().set(STR1, "myval3");
         Asserts.eventually(Suppliers.ofInstance(record), CollectionFunctionals.sizeEquals(5));
     }
