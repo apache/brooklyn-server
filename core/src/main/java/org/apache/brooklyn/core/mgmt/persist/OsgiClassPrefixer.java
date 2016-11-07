@@ -48,4 +48,12 @@ public class OsgiClassPrefixer {
         }
         return Optional.absent();
     }
+    
+    public Optional<String> stripMatchingPrefix(Bundle bundle, String type) {
+        String symbolicName = bundle.getSymbolicName();
+        if (symbolicName != null && type.startsWith(symbolicName + ":")) {
+            return Optional.of(type.substring((symbolicName + ":").length()));
+        }
+        return Optional.absent();
+    }
 }
