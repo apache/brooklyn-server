@@ -21,7 +21,6 @@ package org.apache.brooklyn.camp.brooklyn;
 import java.util.Collection;
 
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
-import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.entity.stock.BasicApplication;

@@ -335,7 +335,7 @@ public class ConfigParametersYamlTest extends AbstractYamlTest {
                 "    sshToolClass: "+RecordingSshTool.class.getName(),
                 "services:",
                 "- type: sub-entity");
-        Entity app = createStartWaitAndLogApplication(yaml);
+        createStartWaitAndLogApplication(yaml);
         
         ExecCmd cmd = ExecCmdAsserts.findExecContaining(RecordingSshTool.getExecCmds(), "myLaunchCmd");
         assertEquals(cmd.env.get("KEY_IN_SUPER"), "myDefaultVal", "cmd="+cmd);

@@ -147,7 +147,7 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
     }
 
     @Test(dataProvider = "dataProvider")
-    @SuppressWarnings("deprecation")
+    @SuppressWarnings({ "deprecation", "unused" })
     public void testRebindWithCatalogAndApp(RebindWithCatalogTestMode mode, boolean useOsgi) throws Exception {
         if (mode == RebindWithCatalogTestMode.REPLACE_CATALOG_WITH_NEWER_VERSION) {
             BrooklynFeatureEnablement.enable(BrooklynFeatureEnablement.FEATURE_AUTO_FIX_CATALOG_REF_ON_REBIND);
