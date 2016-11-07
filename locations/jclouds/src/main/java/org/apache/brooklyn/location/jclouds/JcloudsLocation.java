@@ -3460,7 +3460,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
         if (sshHostAndPort.isPresent() || inferredHostAndPort != null) {
             if (isWindows(node, setup)) {
-                LOG.warn("Cannpy query aws-ec2 Windows instance "+node.getId()+"@"+node.getLocation()+" over ssh for its hostname; falling back to jclouds metadata for address");
+                LOG.warn("Error querying aws-ec2 Windows instance "+node.getId()+"@"+node.getLocation()+" over ssh for its hostname; falling back to jclouds metadata for address");
             } else {
                 HostAndPort hostAndPortToUse = sshHostAndPort.isPresent() ? sshHostAndPort.get() : inferredHostAndPort;
                 try {
