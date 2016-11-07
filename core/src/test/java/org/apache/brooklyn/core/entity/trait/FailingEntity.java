@@ -50,6 +50,8 @@ public interface FailingEntity extends TestEntity {
     @SetFromFlag("failOnRestart")
     ConfigKey<Boolean> FAIL_ON_RESTART = ConfigKeys.newBooleanConfigKey("failOnRestart", "Whether to throw exception on call to restart", false);
     
+    ConfigKey<Boolean> SET_SERVICE_DOWN_ON_FAILURE = ConfigKeys.newBooleanConfigKey("setServiceDownOnFailure", "Whether to set service-down (i.e. service.isUp=false, and thus potentially state=on-fire), when simulating a failure", true);
+
     @SetFromFlag("failOnStartCondition")
     ConfigKey<Predicate<? super FailingEntity>> FAIL_ON_START_CONDITION = (ConfigKey) ConfigKeys.newConfigKey(Predicate.class, "failOnStartCondition", "Whether to throw exception on call to start", null);
     

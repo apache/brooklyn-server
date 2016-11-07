@@ -39,9 +39,11 @@ public class FailingEntityImpl extends TestEntityImpl implements FailingEntity {
     public void start(Collection<? extends Location> locs) {
         getConfig(LISTENER).onEvent(this, "start", new Object[] {locs});
         if (getConfig(FAIL_ON_START) || (getConfig(FAIL_ON_START_CONDITION) != null && getConfig(FAIL_ON_START_CONDITION).apply(this))) {
-            ServiceStateLogic.setExpectedState(this, Lifecycle.STARTING);
-            sensors().set(SERVICE_UP, false);
-            ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
+            if (Boolean.TRUE.equals(getConfig(SET_SERVICE_DOWN_ON_FAILURE))) {
+                ServiceStateLogic.setExpectedState(this, Lifecycle.STARTING);
+                sensors().set(SERVICE_UP, false);
+                ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
+            }
             
             callHistory.add("start");
             getConfig(EXEC_ON_FAILURE).apply(this);
@@ -54,9 +56,11 @@ public class FailingEntityImpl extends TestEntityImpl implements FailingEntity {
     public void stop() {
         getConfig(LISTENER).onEvent(this, "stop", new Object[0]);
         if (getConfig(FAIL_ON_STOP) || (getConfig(FAIL_ON_STOP_CONDITION) != null && getConfig(FAIL_ON_STOP_CONDITION).apply(this))) {
-            ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPING);
-            sensors().set(SERVICE_UP, false);
-            ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPED);
+            if (Boolean.TRUE.equals(getConfig(SET_SERVICE_DOWN_ON_FAILURE))) {
+                ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPING);
+                sensors().set(SERVICE_UP, false);
+                ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPED);
+            }
             
             callHistory.add("stop");
             getConfig(EXEC_ON_FAILURE).apply(this);
@@ -69,11 +73,13 @@ public class FailingEntityImpl extends TestEntityImpl implements FailingEntity {
     public void restart() {
         getConfig(LISTENER).onEvent(this, "restart", new Object[0]);
         if (getConfig(FAIL_ON_RESTART) || (getConfig(FAIL_ON_RESTART_CONDITION) != null && getConfig(FAIL_ON_RESTART_CONDITION).apply(this))) {
-            ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPING);
-            sensors().set(SERVICE_UP, false);
-            ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPED);
-            ServiceStateLogic.setExpectedState(this, Lifecycle.STARTING);
-            ServiceStateLogic.setExpectedState(this, Lifecycle.ON_FIRE);
+            if (Boolean.TRUE.equals(getConfig(SET_SERVICE_DOWN_ON_FAILURE))) {
+                ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPING);
+                sensors().set(SERVICE_UP, false);
+                ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPED);
+                ServiceStateLogic.setExpectedState(this, Lifecycle.STARTING);
+                ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
+            }
 
             callHistory.add("restart");
             getConfig(EXEC_ON_FAILURE).apply(this);
