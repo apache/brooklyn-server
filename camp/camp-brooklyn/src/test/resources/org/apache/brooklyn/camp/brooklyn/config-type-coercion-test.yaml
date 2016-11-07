@@ -1,0 +1,47 @@
+services:
+- type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
+  shell.env:
+    EXACT_PORT_CONFIG: $brooklyn:config("exact.port")
+    EXACT_PORT_SENSOR: $brooklyn:attributeWhenReady("exact.port")
+    RANGE_PORT_CONFIG: $brooklyn:config("range.port")
+    RANGE_PORT_SENSOR: $brooklyn:attributeWhenReady("range.port")
+    INT_PORT_CONFIG: $brooklyn:config("int.port")
+    EXACT_PORT_DEFAULT_CONFIG: $brooklyn:config("exact.default.port")
+    EXACT_PORT_DEFAULT_SENSOR: $brooklyn:attributeWhenReady("exact.default.port")
+    RANGE_PORT_DEFAULT_CONFIG: $brooklyn:config("range.default.port")
+    RANGE_PORT_DEFAULT_SENSOR: $brooklyn:attributeWhenReady("range.default.port")
+    INT_PORT_DEFAULT_CONFIG: $brooklyn:config("int.default.port")
+  install.command: true
+  checkRunning.command: true
+  launch.command: |
+    echo EXACT_PORT_CONFIG is $EXACT_PORT_CONFIG
+    echo EXACT_PORT_SENSOR is $EXACT_PORT_SENSOR
+    echo RANGE_PORT_CONFIG is $RANGE_PORT_CONFIG
+    echo RANGE_PORT_SENSOR is $RANGE_PORT_SENSOR
+    echo INT_PORT_CONFIG is $INT_PORT_CONFIG
+    echo EXACT_PORT_DEFAULT_CONFIG is $EXACT_PORT_DEFAULT_CONFIG
+    echo EXACT_PORT_DEFAULT_SENSOR is $EXACT_PORT_DEFAULT_SENSOR
+    echo RANGE_PORT_DEFAULT_CONFIG is $RANGE_PORT_DEFAULT_CONFIG
+    echo RANGE_PORT_DEFAULT_SENSOR is $RANGE_PORT_DEFAULT_SENSOR
+    echo INT_PORT_DEFAULT_CONFIG is $INT_PORT_DEFAULT_CONFIG
+  brooklyn.parameters:
+  - name: int.port
+    type: int
+  # ("exact" items are put on one line so we can filter them in tests)
+  - { name: exact.port, type: port }
+  - name: range.port
+    type: port
+  - name: int.default.port
+    type: int
+    default: 30001
+  - { name: exact.default.port, type: port, default: 30002 }
+  - name: range.default.port
+    type: port
+    default: 30003+
+  brooklyn.config:
+    int.port: 20001
+    exact.port: 20002
+    range.port: 20003+
+
+# if running manually, add this:
+# location: localhost
