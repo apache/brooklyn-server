@@ -29,10 +29,13 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampConstants;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.AbstractEntity.BasicConfigurationSupport;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityPredicates;
+import org.apache.brooklyn.core.entity.internal.EntityConfigMap;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.EntityManagerInternal;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
@@ -144,7 +147,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
         
         protected Maybe<Entity> callImpl(boolean immediate) throws Exception {
             Maybe<Entity> entityMaybe = getEntity(immediate);
-            if (immediate && entityMaybe.isAbsent()) {
+            if (immediate && entityMaybe.isAbsentOrNull()) {
                 return entityMaybe;
             }
             EntityInternal entity = (EntityInternal) entityMaybe.get();
@@ -257,7 +260,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
         @Override
         public Maybe<Object> getImmediately() {
             Maybe<Entity> targetEntityMaybe = component.getImmediately();
-            if (targetEntityMaybe.isAbsent()) return Maybe.absent("Target entity not available");
+            if (targetEntityMaybe.isAbsentOrNull()) return Maybe.absent("Target entity not available");
             Entity targetEntity = targetEntityMaybe.get();
 
             return Maybe.<Object>of(targetEntity.getId());
@@ -302,7 +305,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
         @Override
         public final Maybe<Object> getImmediately() {
             Maybe<Entity> targetEntityMaybe = component.getImmediately();
-            if (targetEntityMaybe.isAbsent()) return Maybe.absent("Target entity not available");
+            if (targetEntityMaybe.isAbsentOrNull()) return Maybe.absent("Target entity not available");
             Entity targetEntity = targetEntityMaybe.get();
 
             AttributeSensor<?> targetSensor = (AttributeSensor<?>) targetEntity.getEntityType().getSensor(sensorName);
@@ -359,10 +362,10 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
         @Override
         public final Maybe<Object> getImmediately() {
             Maybe<Entity> targetEntityMaybe = component.getImmediately();
-            if (targetEntityMaybe.isAbsent()) return Maybe.absent("Target entity not available");
+            if (targetEntityMaybe.isAbsentOrNull()) return Maybe.absent("Target entity not available");
             EntityInternal targetEntity = (EntityInternal) targetEntityMaybe.get();
-            
-            return targetEntity.config().getNonBlocking(ConfigKeys.newConfigKey(Object.class, keyName));
+            ConfigKey key = targetEntity.getEntityType().getConfigKey(keyName);
+            return targetEntity.config().getNonBlocking(key != null ? key : ConfigKeys.newConfigKey(Object.class, keyName));
         }
 
         @Override
@@ -376,7 +379,8 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
                         @Override
                         public Object call() throws Exception {
                             Entity targetEntity = component.get();
-                            return targetEntity.getConfig(ConfigKeys.newConfigKey(Object.class, keyName));
+                            ConfigKey key = targetEntity.getEntityType().getConfigKey(keyName);
+                            return targetEntity.getConfig(key != null ? key : ConfigKeys.newConfigKey(Object.class, keyName));
                         }})
                     .build();
         }
@@ -425,7 +429,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
                 return Maybe.<Sensor<?>>of((Sensor<?>)si);
             } else if (si instanceof String) {
                 Maybe<Entity> targetEntityMaybe = component.getImmediately();
-                if (targetEntityMaybe.isAbsent()) return Maybe.absent("Target entity not available");
+                if (targetEntityMaybe.isAbsentOrNull()) return Maybe.absent("Target entity not available");
                 Entity targetEntity = targetEntityMaybe.get();
 
                 Sensor<?> result = null;
