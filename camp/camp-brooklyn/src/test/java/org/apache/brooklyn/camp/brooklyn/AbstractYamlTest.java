@@ -40,6 +40,7 @@ import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests.Build
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
+import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.stream.Streams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -112,7 +113,14 @@ public abstract class AbstractYamlTest {
     }
 
     protected String loadYaml(String yamlFileName, String ...extraLines) throws Exception {
-        String input = new ResourceUtils(this).getResourceAsString(yamlFileName).trim();
+        ResourceUtils ru = new ResourceUtils(this);
+        if (!ru.doesUrlExist(yamlFileName)) {
+            if (ru.doesUrlExist(Urls.mergePaths(getClass().getPackage().getName().replace('.', '/'), yamlFileName))) {
+                // look in package-specific folder if not found at root
+                yamlFileName = Urls.mergePaths(getClass().getPackage().getName().replace('.', '/'), yamlFileName);
+            }
+        }
+        String input = ru.getResourceAsString(yamlFileName).trim();
         StringBuilder builder = new StringBuilder(input);
         for (String l: extraLines)
             builder.append("\n").append(l);
