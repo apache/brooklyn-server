@@ -30,6 +30,8 @@ import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
 
 import com.google.common.base.Function;
+import com.google.common.base.Predicate;
+import com.google.common.collect.Iterables;
 
 /**
  * See {@link RebindTestFixture#rebind(RebindOptions)} and {@link RebindTestUtils#rebind(RebindOptions)}.
@@ -116,6 +118,14 @@ public class RebindOptions {
     public RebindOptions applicationChooserOnRebind(Function<Collection<Application>, Application> val) {
         this.applicationChooserOnRebind = val;
         return this;
+    }
+    public RebindOptions applicationChooserOnRebind(final Predicate<? super Application> val) {
+        Function<Collection<Application>, Application> funcVal = new Function<Collection<Application>, Application>() {
+            @Override public Application apply(Collection<Application> input) {
+                return Iterables.find(input, val);
+            }
+        };
+        return applicationChooserOnRebind(funcVal);
     }
     public RebindOptions additionalProperties(Map<?, ?> additionalProperties) {
         this.additionalProperties = additionalProperties;

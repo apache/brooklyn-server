@@ -21,6 +21,7 @@ import static org.testng.Assert.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
@@ -30,6 +31,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.camp.brooklyn.BrooklynCampConstants;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
 import org.apache.brooklyn.config.ConfigKey;
@@ -58,6 +60,13 @@ import com.google.common.util.concurrent.ListenableScheduledFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 
+/**
+ * Also see org.apache.brooklyn.camp.brooklyn.DslAndRebindYamlTest for pure-yaml tests.
+ * 
+ * The purpose of this class is to test at the java-api level, giving more control for
+ * repeated assertions etc (e.g. concurrent calls, looping round to create entities
+ * repeatedly, etc).
+ */
 public class DslTest extends BrooklynAppUnitTestSupport {
 
     private static final int MAX_PARALLEL_RESOLVERS = 50;
@@ -236,6 +245,28 @@ public class DslTest extends BrooklynAppUnitTestSupport {
                 return new ParentTestWorker(app, dsl);
             }
         });
+    }
+
+    @Test
+    public void testEntity() throws Exception {
+        TestEntity entity = app.addChild(EntitySpec.create(TestEntity.class).configure(BrooklynCampConstants.PLAN_ID, "myId"));
+        BrooklynDslDeferredSupplier<?> dsl = BrooklynDslCommon.entity("myId");
+        Maybe<?> actualValue = execDslImmediately(dsl, Entity.class, app, true);
+        assertEquals(actualValue.get(), entity);
+    }
+
+    @Test
+    public void testEntityNotFound() throws Exception {
+        BrooklynDslDeferredSupplier<?> dsl = BrooklynDslCommon.entity("myIdDoesNotExist");
+        try {
+            Maybe<?> actualValue = execDslImmediately(dsl, Entity.class, app, true);
+            Asserts.shouldHaveFailedPreviously("actual="+actualValue);
+        } catch (Exception e) {
+            NoSuchElementException nsee = Exceptions.getFirstThrowableOfType(e, NoSuchElementException.class);
+            if (nsee == null) {
+                throw e;
+            }
+        }
     }
 
     protected void runConcurrentWorker(Supplier<Runnable> taskSupplier) {

@@ -29,6 +29,7 @@ import java.util.concurrent.Callable;
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Application;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
@@ -38,6 +39,7 @@ import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoManifest;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityFunctions;
+import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
@@ -293,8 +295,9 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
         if (options.mementoDir == null) options.mementoDir(mementoDir);
         if (options.origManagementContext == null) options.origManagementContext(origManagementContext);
         if (options.newManagementContext == null) options.newManagementContext(createNewManagementContext(options.mementoDir, options.additionalProperties));
+        if (options.applicationChooserOnRebind == null && origApp != null) options.applicationChooserOnRebind(EntityPredicates.idEqualTo(origApp.getId()));
         
-        RebindTestUtils.stopPersistence(origApp);
+        RebindTestUtils.stopPersistence(options.origManagementContext);
         
         newManagementContext = options.newManagementContext;
         newApp = (T) RebindTestUtils.rebind(options);

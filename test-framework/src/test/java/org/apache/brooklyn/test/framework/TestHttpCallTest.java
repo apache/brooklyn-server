@@ -18,37 +18,37 @@
  */
 package org.apache.brooklyn.test.framework;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.test.http.TestHttpRequestHandler;
 import org.apache.brooklyn.test.http.TestHttpServer;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.http.HttpStatus;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
-public class TestHttpCallTest {
-
+public class TestHttpCallTest extends BrooklynAppUnitTestSupport {
 
     private TestHttpServer server;
-    private TestApplication app;
-    private ManagementContext managementContext;
     private LocalhostMachineProvisioningLocation loc;
     private String testId;
 
     @BeforeMethod(alwaysRun = true)
-    public void setup() {
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
         testId = Identifiers.makeRandomId(8);
         server = new TestHttpServer()
                 .handler("/201", new TestHttpRequestHandler()
@@ -62,12 +62,19 @@ public class TestHttpCallTest {
                         .response("{\"a\":\"b\",\"c\":\"d\",\"e\":123,\"g\":false}")
                         .code(200 + Identifiers.randomInt(99)))
                 .start();
-        app = TestApplication.Factory.newManagedInstanceForTests();
-        managementContext = app.getManagementContext();
-        loc = managementContext.getLocationManager().createLocation(LocationSpec.create(LocalhostMachineProvisioningLocation.class)
+        loc = mgmt.getLocationManager().createLocation(LocationSpec.create(LocalhostMachineProvisioningLocation.class)
                 .configure("name", testId));
     }
 
+    @AfterMethod(alwaysRun=true)
+    @Override
+    public void tearDown() throws Exception {
+        try {
+            super.tearDown();
+        } finally {
+            if (server != null) server.stop();
+        }
+    }
 
     @Test(groups = "Integration")
     public void testHttpBodyAssertions() {
