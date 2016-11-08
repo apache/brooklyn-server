@@ -34,6 +34,7 @@ brooklyn.catalog:
 #        waitForSshable: false
 #        templateOptions:
 #          networkMode: "brooklyn" # the default swarm network
+
 #
 # Add a location named "location-swarm-master" based on this one:
 #
@@ -48,6 +49,18 @@ brooklyn.catalog:
 ##
 
   items:
+  
+  ##
+  # Wrapper test
+  ##
+  - id: existing-swarm-tests
+    name: "Existing Swarm tests"
+    description: |
+      Tests targeting an existing swarm.
+    itemType: template
+    item:
+      services:
+        - type: jclouds-tests
 
   ##
   # Entities Under Test

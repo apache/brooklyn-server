@@ -1,6 +1,6 @@
 ###
- # Application blueprints and tests for testing deployment to Swarm endpoints, and hybrid
- # deployments that span VMs and swarm containers.
+ # Application blueprints and tests for testing deployment to Swarm or k8s endpoints, and hybrid
+ # deployments that span VMs and containers.
  #
  # It deploys a multi-node blueprint, consisting of:
  #  - a cluster of Tomcat nodes (size 1)
@@ -13,20 +13,20 @@
  #  - via nginx (and the web-app), we can write to the database and read from database
  # 
  # The different variants of the test will:
- #  - everything running in swarm;
- #    See "multi-node-app-swarm".
+ #  - everything running in cluster;
+ #    See "multi-node-app-cluster".
  #  - hybrid: comms from VM into the containers (nginx on a VM);
- #    See "multi-node-app-cloud-to-swarm".
+ #    See "multi-node-app-cloud-to-cluster".
  #  - hybrid: comms from the containers out to the VM (database on a VM);
- #    See "multi-node-app-swarm-to-cloud".
+ #    See "multi-node-app-cluster-to-cloud".
  #
- # Tests assume that there is a pre-existing location defined with the name "testing-swarm",
- # which is a swarm endpoint.
+ # Tests assume that there is a pre-existing location defined with the name "testing-cluster",
+ # which is a swarm or k8s endpoint.
  #
  # It assumes that the tests are run against a location in which VMs can be provisioned
- # (which is then overridden where "testing-swarm" should instead be used). For example,
- # "multi-node-app-cloud-to-swarm" deploys nginx to the location passed in; and 
- # deploys the tomcat-webapp-cluster to "testing-swarm".
+ # (which is then overridden where "testing-cluster" should instead be used). For example,
+ # "multi-node-app-cloud-to-cluster" deploys nginx to the location passed in; and 
+ # deploys the tomcat-webapp-cluster to "testing-cluster".
  ##
  
 brooklyn.catalog:
@@ -40,6 +40,47 @@ brooklyn.catalog:
 
   items:
   - "https://raw.githubusercontent.com/brooklyncentral/common-catalog-utils/master/common-tests/src/main/resources/commontests/common.tests.bom"
+  
+  ##
+  #Test assumtions
+  # * swarm endpoint preconfigured
+  # * cloudsoft/ubuntu:14.04 image has been pulled
+  - id: swarm-endpoint-tests
+    name: "Swarm Endpoint Deployment Tests"
+    description: |
+      Tests containers and applications can be deployed to both Swarm and
+      Cloud locations
+    itemType: template
+    item:
+      brooklyn.config:
+        timeout: 1h
+        timeout.initialStartup: 1h
+        timeout.runtimeAssertion: 1h
+      services:
+        - type: test-case
+          name: "1. Deploy Container Type Tests"
+          brooklyn.children:
+            - type: deploy-single-container-type
+        - type: test-case
+          name: "2. Deploy Blueprint Application Tests"
+          brooklyn.config:
+            dontRequireTtyForSudo: true
+          brooklyn.children:
+            - type: test-case
+              name: "2.1. Single-Node Application Test"
+              brooklyn.children:
+                - type: deploy-app-to-swarm-single-node
+            - type: test-case
+              name: "2.2. Multi-Node Application Test"
+              brooklyn.children:
+                - type: deploy-riak-cluster-to-swarm-multi-node
+                - type: deploy-multi-node-app-swarm
+            - type: test-case
+              name: "2.3 Hybrid Multi-Node Application"
+              brooklyn.children:
+                - type: deploy-multi-node-app-swarm-to-cloud
+                - type: deploy-multi-node-app-cloud-to-swarm
+  
   - id: tomcat-webapp-cluster
     name: "Tomcat Webapp Cluster"
     description: |
@@ -119,60 +160,60 @@ brooklyn.catalog:
             sensors:
               - datastore.url
 
-  - id: multi-node-app-swarm
+  - id: multi-node-app-cluster
     name: "Multi-node Application"
     description: |
       A multi-node Brooklyn app, consisting of a cluster of Tomcat servers,
-      a MySQL database and an Nginx load balancer, deployed to a swarm location.
+      a MySQL database and an Nginx load balancer, deployed to a cluster location.
     itemType: entity
     item:
       type: org.apache.brooklyn.entity.stock.BasicApplication
       brooklyn.children:
         - type: tomcat-webapp-cluster
           id: cluster
-          location: testing-swarm
+          location: testing-cluster
         - type: nginx-load-balancer
           id: nginx
-          location: testing-swarm
+          location: testing-cluster
         - type: mysql-database
           id: db
-          location: testing-swarm
+          location: testing-cluster
 
-  - id: multi-node-app-cloud-to-swarm
+  - id: multi-node-app-cloud-to-cluster
     name: "Multi-node Hybrid Application"
     description: |
       A hybrid multi-node Brooklyn app, consisting of a cluster of Tomcat servers,
       a MySQL database and an Nginx load balancer, with the load balancer deployed
-      to a cloud location and the other entities deployed to a swarm location.
+      to a cloud location and the other entities deployed to a cluster location.
     itemType: entity
     item:
       type: org.apache.brooklyn.entity.stock.BasicApplication
       brooklyn.children:
         - type: tomcat-webapp-cluster
           id: cluster
-          location: testing-swarm
+          location: testing-cluster
         - type: nginx-load-balancer
           id: nginx
         - type: mysql-database
           id: db
-          location: testing-swarm
+          location: testing-cluster
 
-  - id: multi-node-app-swarm-to-cloud
+  - id: multi-node-app-cluster-to-cloud
     name: "Multi-node Hybrid Application"
     description: |
       A multi-node Brooklyn app, consisting of a cluster of Tomcat servers,
       a MySQL database and an Nginx load balancer, with the database deployed
-      to a cloud location and the other entities deployed to a swarm location
+      to a cloud location and the other entities deployed to a cluster location
     itemType: entity
     item:
       type: org.apache.brooklyn.entity.stock.BasicApplication
       brooklyn.children:
         - type: tomcat-webapp-cluster
           id: cluster
-          location: testing-swarm
+          location: testing-cluster
         - type: nginx-load-balancer
           id: nginx
-          location: testing-swarm
+          location: testing-cluster
         - type: mysql-database
           id: db
 
@@ -206,38 +247,38 @@ brooklyn.catalog:
             - contains: "myname"
             - contains: "mymessage"
 
-  - id: deploy-multi-node-app-swarm
-    name: "Multi Node Swarm App"
+  - id: deploy-multi-node-app-cluster
+    name: "Multi Node Cluster App"
     description: |
-      Deploy a multi-node app to a Swarm location
+      Deploy a multi-node app to a cluster location
     item:
       type: test-case
       id: test-scope
-      name: "Swarm Deploy Tests"
+      name: "Cluster Deploy Tests"
       brooklyn.children:
-        - type: multi-node-app-swarm
-          id: swarm-only-app
+        - type: multi-node-app-cluster
+          id: cluster-only-app
           brooklyn.config:
             db.url: $brooklyn:ancestor("test-scope").descendant("db").attributeWhenReady("datastore.url.mapped.subnet")
             member.sensor.hostname: $brooklyn:sensor("host.subnet.address")
         - type:  test-multi-node-app
           brooklyn.config:
             timeout: 30m
-            targetId: swarm-only-app
+            targetId: cluster-only-app
             nginx.url: $brooklyn:ancestor("test-scope").descendant("nginx").attributeWhenReady("main.uri.mapped.public")
 
-  - id: deploy-multi-node-app-cloud-to-swarm
-    name: "Multi Node Cloud to Swarm App"
+  - id: deploy-multi-node-app-cloud-to-cluster
+    name: "Multi Node Cloud to Cluster App"
     description: |
-      Deploy a multi-node app to Cloud and Swarm locations, with communication
-      from the Cloud entity (Nginx) to the Swarm entities.
+      Deploy a multi-node app to Cloud and cluster locations, with communication
+      from the Cloud entity (Nginx) to the cluster entities.
     item:
       type: test-case
       id: test-scope
-      name: "Cloud to Swarm Deploy Tests"
+      name: "Cloud to Cluster Deploy Tests"
       brooklyn.children:
-        - type: multi-node-app-cloud-to-swarm
-          id: cloud-to-swarm-app
+        - type: multi-node-app-cloud-to-cluster
+          id: cloud-to-cluster-app
           brooklyn.config:
             db.url: $brooklyn:ancestor("test-scope").descendant("db").attributeWhenReady("datastore.url.mapped.subnet")
             member.sensor.hostandport: $brooklyn:sensor("http.endpoint.mapped.public")
@@ -245,43 +286,43 @@ brooklyn.catalog:
         - type:  test-multi-node-app
           brooklyn.config:
             timeout: 30m
-            targetId: cloud-to-swarm-app
+            targetId: cloud-to-cluster-app
             nginx.url: $brooklyn:ancestor("test-scope").descendant("nginx").attributeWhenReady("main.uri")
 
-  - id: deploy-multi-node-app-swarm-to-cloud
-    name: "Multi Node Swarm to Cloud App"
+  - id: deploy-multi-node-app-cluster-to-cloud
+    name: "Multi Node Cluster to Cloud App"
     description: |
-      Deploy a multi-node app to Cloud and Swarm locations, with communication
-      deom the Swarm entities to the Cloud entity (MySQL).
+      Deploy a multi-node app to Cloud and Cluster locations, with communication
+      from the Cluster entities to the Cloud entity (MySQL).
     item:
       type: test-case
       id: test-scope
-      name: "Swarm to Cloud Deploy Tests"
+      name: "Cluster to Cloud Deploy Tests"
       brooklyn.children:
-        - type: multi-node-app-swarm-to-cloud
-          id: swarm-to-cloud-app
+        - type: multi-node-app-cluster-to-cloud
+          id: cluster-to-cloud-app
           brooklyn.config:
             db.url: $brooklyn:ancestor("test-scope").descendant("db").attributeWhenReady("datastore.url")
             member.sensor.hostname: $brooklyn:sensor("host.subnet.address")
         - type:  test-multi-node-app
           brooklyn.config:
             timeout: 30m
-            targetId: swarm-to-cloud-app
+            targetId: cluster-to-cloud-app
             nginx.url: $brooklyn:ancestor("test-scope").descendant("nginx").attributeWhenReady("main.uri.mapped.public")
 
   ###
   # Deploy a single-node blueprint, and confirm SSH works.
   ##
-  - id: deploy-app-to-swarm-single-node
-    name: "Single Node App to Docker Swarm endpoint"
+  - id: deploy-app-to-cluster-single-node
+    name: "Single Node App to Cluster endpoint"
     description: |
-      Test that we can provision a simple Brooklyn SoftwareProcess to a Swarm endpoint
+      Test that we can provision a simple Brooklyn SoftwareProcess to a Cluster endpoint
     item:
       type: test-case
       name: "Single Node App Deploy Tests"
       brooklyn.children:
         - type: org.apache.brooklyn.entity.software.base.EmptySoftwareProcess
-          location: testing-swarm
+          location: testing-cluster
           id: empty
           brooklyn.config:
             onbox.base.dir.skipResolution: true
@@ -312,9 +353,9 @@ brooklyn.catalog:
   ##
   # A Riak cluster example.
   #
-  # Requires a (docker swarm) location pre-configured with cloudsoft/ubuntu:14.04 for the Riak application to deploy to.
+  # Requires a (docker swarm or k8s cluster) location pre-configured with cloudsoft/ubuntu:14.04 for the Riak application to deploy to.
   ##
-  - id: riak-cluster-to-swarm-multi-node
+  - id: riak-cluster-to-cluster-multi-node
     name: "Riak Cluster"
     description: |
       Riak cluster with load-balanced chatroom webapp
@@ -377,17 +418,17 @@ brooklyn.catalog:
             enricher.propagating.inclusions:
               - main.uri.mapped.public
 
-  - id: deploy-riak-cluster-to-swarm-multi-node
-    name: "Multi Node Riak Cluster to Swarm"
+  - id: deploy-riak-cluster-to-cluster-multi-node
+    name: "Multi Node Riak Cluster to Cluster"
     description: |
-      Deploy Riak cluster with load-balanced chatroom webapp to Swarm location
+      Deploy Riak cluster with load-balanced chatroom webapp to Cluster location
     item:
       type: test-case
       name: "Multi Node App Deploy Tests"
       brooklyn.children:
-        - type: riak-cluster-to-swarm-multi-node
+        - type: riak-cluster-to-cluster-multi-node
           id: riak-app
-          location: testing-swarm
+          location: testing-cluster
         - type: test-case
           brooklyn.config:
             timeout: 30m
@@ -429,7 +470,7 @@ brooklyn.catalog:
       name: "Deploy Container Type Tests"
       brooklyn.children:
         - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
-          location: testing-swarm
+          location: testing-cluster
           id: httpd
           name: "httpd"
           brooklyn.config:
