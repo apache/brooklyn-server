@@ -18,10 +18,14 @@
  */
 package org.apache.brooklyn.test.framework;
 
+import java.util.Map;
+
 import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
+
+import com.google.common.reflect.TypeToken;
 
 /**
  * Entity that makes a HTTP Request and tests the response
@@ -32,8 +36,33 @@ public interface TestHttpCall extends BaseTest {
     @SetFromFlag(nullable = false)
     ConfigKey<String> TARGET_URL = ConfigKeys.newStringConfigKey("url", "URL to test");
 
+    @SetFromFlag(nullable = false)
+    ConfigKey<HttpMethod> TARGET_METHOD = ConfigKeys.builder(HttpMethod.class)
+            .name("method")
+            .description("Method to request the URL: GET, POST, PUT, DELETE, etc")
+            .defaultValue(HttpMethod.GET)
+            .build();
+
+    @SetFromFlag
+    ConfigKey<Map<String, String>> TARGET_HEADERS = ConfigKeys.builder(new TypeToken<Map<String, String>>() {})
+            .name("headers")
+            .description("Headers to add to the request")
+            .build();
+
+    @SetFromFlag
+    ConfigKey<String> TARGET_BODY = ConfigKeys.newStringConfigKey("body", "The request body to send (only for POST and PUT requests)");
+
     ConfigKey<HttpAssertionTarget> ASSERTION_TARGET = ConfigKeys.newConfigKey(HttpAssertionTarget.class, "applyAssertionTo",
         "The HTTP field to apply the assertion to [body,status]", HttpAssertionTarget.body);
+
+    enum HttpMethod {
+        GET, POST, PUT, DELETE, HEAD;
+
+        @Override
+        public String toString() {
+            return this.name();
+        }
+    }
 
     enum HttpAssertionTarget {
         body("body"), status("status");

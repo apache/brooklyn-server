@@ -462,7 +462,7 @@ public class HttpTool {
     }
     
     public static class HttpPostBuilder extends HttpEntityEnclosingRequestBaseBuilder<HttpPostBuilder, HttpPost> {
-        HttpPostBuilder(URI uri) {
+        public HttpPostBuilder(URI uri) {
             super(new HttpPost(uri));
         }
     }
