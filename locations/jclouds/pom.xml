@@ -136,22 +136,6 @@
             <version>${jclouds.version}</version>
         </dependency>
 
-        <dependency>
-            <groupId>${jclouds.groupId}.labs</groupId>
-            <artifactId>abiquo</artifactId>
-            <version>${jclouds.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>${jclouds.groupId}.labs</groupId>
-            <artifactId>google-compute-engine</artifactId>
-            <version>${jclouds.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>${jclouds.groupId}.labs</groupId>
-            <artifactId>docker</artifactId>
-            <version>${jclouds.version}</version>
-        </dependency>
-
         <!-- these two seem needed here to prevent Eclipse IDE from getting wrong version of logback-core -->
         <dependency>
             <groupId>ch.qos.logback</groupId>
