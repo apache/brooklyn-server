@@ -110,43 +110,22 @@ public class DynamicFabricImpl extends AbstractGroupImpl implements DynamicFabri
     
     @Override
     public void start(Collection<? extends Location> locsO) {
+        boolean includeInitialChildren = Boolean.TRUE.equals(config().get(INCLUDE_INITIAL_CHILDREN));
+        
         addLocations(locsO);
-        List<Location> locationsToStart = MutableList.copyOf(Locations.getLocationsCheckingAncestors(locsO, this));
+        Collection<? extends Location> allLocations = Locations.getLocationsCheckingAncestors(locsO, this);
         
-        Preconditions.checkNotNull(locationsToStart, "locations must be supplied");
-        Preconditions.checkArgument(locationsToStart.size() >= 1, "One or more locations must be supplied");
-        
-        int locIndex = 0;
+        Preconditions.checkNotNull(allLocations, "locations must be supplied");
+        Preconditions.checkArgument(allLocations.size() >= 1, "One or more locations must be supplied");
         
         ServiceStateLogic.setExpectedState(this, Lifecycle.STARTING);
         try {
             Map<Entity, Task<?>> tasks = Maps.newLinkedHashMap();
-            
-            // first look at existing Startable children - start them with the locations passed in here,
-            // if they have no locations yet
-            for (Entity child: getChildren()) {
-                if (child instanceof Startable) {
-                    addMember(child);
-                    Location it = null;
-                    if (child.getLocations().isEmpty())
-                        // give him any of these locations if he has none, allowing round robin here
-                        if (!locationsToStart.isEmpty()) {
-                            it = locationsToStart.get(locIndex++ % locationsToStart.size());
-                            ((EntityInternal)child).addLocations(Arrays.asList(it));
-                        }
-                    
-                    tasks.put(child, Entities.submit(this,
-                        Effectors.invocation(child, START, ImmutableMap.of("locations", 
-                            it==null ? ImmutableList.of() : ImmutableList.of(it))).asTask()));
-                }
-            }
-            // remove all the locations we applied to existing nodes
-            while (locIndex-->0 && !locationsToStart.isEmpty())
-                locationsToStart.remove(0);
+            List<Location> locationsForMembers = startChildren(includeInitialChildren, allLocations, tasks);
 
             // finally (and usually) we create new entities for locations passed in
             // (unless they were consumed by pre-existing children which didn't have locations)
-            for (Location it : locationsToStart) {
+            for (Location it : locationsForMembers) {
                 Entity e = addCluster(it);
                 
                 ((EntityInternal)e).addLocations(Arrays.asList(it));
@@ -166,6 +145,57 @@ public class DynamicFabricImpl extends AbstractGroupImpl implements DynamicFabri
         }
     }
 
+    /**
+     * If including initial children, first look at existing Startable children - start them with 
+     * the locations passed in here (if they have no locations yet). This "consumes" a location
+     * so we won't create an additional member in that location.
+     * 
+     * If not {@code includeInitialChildren}, then start those children in the first location but
+     * don't "consume" a location - so we'll create additional members.
+     * 
+     * @param includeInitialChildren
+     * @param allLocations
+     * @param tasks side-effects this map, to add the tasks created for starting the child entities
+     * 
+     * @return unused locations
+     */
+    protected List<Location> startChildren(boolean includeInitialChildren, Collection<? extends Location> allLocations, Map<Entity, Task<?>> tasks) {
+        List<Location> locations = MutableList.copyOf(allLocations);
+        int locIndex = 0;
+        
+        for (Entity child: getChildren()) {
+            if (child instanceof Startable) {
+                if (includeInitialChildren) {
+                    addMember(child);
+                }
+                
+                Location it = null;
+                if (child.getLocations().isEmpty()) {
+                    // give him any of these locations if he has none, allowing round robin here
+                    if (!locations.isEmpty()) {
+                        if (includeInitialChildren) {
+                            it = locations.get(locIndex++ % locations.size());
+                        } else {
+                            it = locations.get(0);
+                        }
+                        ((EntityInternal)child).addLocations(Arrays.asList(it));
+                    }
+                }
+                
+                tasks.put(child, Entities.submit(this,
+                    Effectors.invocation(child, START, ImmutableMap.of("locations", 
+                        it==null ? ImmutableList.of() : ImmutableList.of(it))).asTask()));
+            }
+        }
+            
+        // remove all the locations we applied to existing nodes
+        while (locIndex-->0 && !locations.isEmpty()) {
+            locations.remove(0);
+        }
+        
+        return locations;
+    }
+    
     protected void waitForTasksOnStart(Map<Entity, Task<?>> tasks) {
         // TODO Could do best-effort for waiting for remaining tasks, rather than failing on first?
 
