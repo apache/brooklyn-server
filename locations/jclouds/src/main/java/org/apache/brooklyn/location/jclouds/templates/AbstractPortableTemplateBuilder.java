@@ -28,6 +28,7 @@ import org.jclouds.compute.domain.Template;
 import org.jclouds.compute.domain.TemplateBuilder;
 import org.jclouds.compute.options.TemplateOptions;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
@@ -63,6 +64,8 @@ public abstract class AbstractPortableTemplateBuilder<T extends AbstractPortable
     private TemplateOptions options;
     /** these are extra options that we want _added_, in order, on top of the last options set */
     private List<TemplateOptions> additionalOptions = new ArrayList<TemplateOptions>();
+    @VisibleForTesting
+    protected Boolean forceCacheReload;
     
     @Override
     public T any() {

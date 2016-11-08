@@ -19,13 +19,6 @@
 package org.apache.brooklyn.core.mgmt.persist.jclouds;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static org.jclouds.openstack.reference.AuthHeaders.URL_SUFFIX;
-
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.util.List;
-import java.util.Map.Entry;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.entity.Entities;
@@ -33,34 +26,20 @@ import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.http.HttpTool;
-import org.apache.brooklyn.util.http.HttpToolResponse;
+import org.apache.brooklyn.location.jclouds.JcloudsLocation;
+import org.apache.brooklyn.location.jclouds.JcloudsUtil;
 import org.apache.brooklyn.util.text.Identifiers;
-import org.apache.brooklyn.util.time.Duration;
-import org.apache.brooklyn.util.time.Time;
-import org.apache.http.client.HttpClient;
 import org.jclouds.blobstore.BlobStoreContext;
-import org.jclouds.blobstore.domain.PageSet;
-import org.jclouds.blobstore.domain.StorageMetadata;
-import org.jclouds.domain.Credentials;
-import org.jclouds.openstack.domain.AuthenticationResponse;
-import org.jclouds.openstack.reference.AuthHeaders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import org.apache.brooklyn.location.jclouds.JcloudsLocation;
-import org.apache.brooklyn.location.jclouds.JcloudsUtil;
 
 import com.google.common.base.Preconditions;
-import com.google.common.cache.LoadingCache;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMap.Builder;
-import com.google.inject.Inject;
 
-@Test(groups={"Live", "Live-sanity"})
+// Disabled as `swift` is not supported in jclouds 2.0.0+ 
+@Test(groups={"Live", "Live-sanity"} , enabled = false)
 public class BlobStoreExpiryTest {
 
     private static final Logger log = LoggerFactory.getLogger(BlobStoreExpiryTest.class);
@@ -121,6 +100,10 @@ public class BlobStoreExpiryTest {
         context = null;
     }
 
+    /** FIXME
+     * see comment on this class
+     */
+    /*
     public void testRenewAuthSucceedsInSwiftObjectStore() throws Exception {
         doTestRenewAuth();
     }
@@ -141,11 +124,6 @@ public class BlobStoreExpiryTest {
         assertContainerFound();
 
         context.getBlobStore().deleteContainer(testContainerName);
-    }
-
-    private void assertContainerFound() {
-        PageSet<? extends StorageMetadata> ps = context.getBlobStore().list();
-        BlobStoreTest.assertHasItemNamed(ps, testContainerName);
     }
 
     private void injectShortLivedTokenForSwiftAuth() throws Exception {
@@ -178,6 +156,11 @@ public class BlobStoreExpiryTest {
            this.authenticationResponseCache = authenticationResponseCache;
         }
     }
+
+    private void assertContainerFound() {
+        PageSet<? extends StorageMetadata> ps = context.getBlobStore().list();
+        BlobStoreTest.assertHasItemNamed(ps, testContainerName);
+    }
     
     public static HttpToolResponse requestTokenWithExplicitLifetime(URL url, String user, String key, Duration expiration) throws URISyntaxException {
         HttpClient client = HttpTool.httpClientBuilder().build();
@@ -192,5 +175,6 @@ public class BlobStoreExpiryTest {
         log.info("Requested token with explicit lifetime: "+expiration+" at "+url+"\n"+response+"\n"+response.getHeaderLists());
         return response;
     }
+    */
     
 }
