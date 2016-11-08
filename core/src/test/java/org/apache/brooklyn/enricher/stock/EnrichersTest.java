@@ -112,7 +112,7 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
         EntityAsserts.assertAttributeEqualsEventually(entity, NUM3, 1);
     }
     
-    @Test(groups="Integration") // because takes a second
+    @Test
     public void testCombiningRespectsUnchanged() {
         entity.enrichers().add(Enrichers.builder()
                 .combining(NUM1, NUM2)
@@ -132,7 +132,7 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
         EntityAsserts.assertAttributeEqualsEventually(entity, NUM3, 126);
         
         entity.sensors().set(NUM1, 2);
-        EntityAsserts.assertAttributeEqualsContinually(entity, NUM3, 126);
+        EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", "100ms"), entity, NUM3, 126);
     }
     
     @Test
@@ -187,7 +187,7 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
         EntityAsserts.assertAttributeEqualsEventually(entity, STR2, "myvalmysuffix");
     }
 
-    @Test(groups="Integration") // because takes a second
+    @Test
     public void testTransformingRespectsUnchangedButWillRepublish() throws Exception {
         RecordingSensorEventListener<String> record = new RecordingSensorEventListener<>();
         app.getManagementContext().getSubscriptionManager().subscribe(entity, STR2, record);
@@ -211,7 +211,7 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
         EntityAsserts.assertAttributeEqualsEventually(entity, STR2, "myval");
 
         entity.sensors().set(STR1, "ignoredval");
-        EntityAsserts.assertAttributeEqualsContinually(entity, STR2, "myval");
+        EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", "100ms"), entity, STR2, "myval");
 
         entity.sensors().set(STR1, "myval2");
         Asserts.eventually(Suppliers.ofInstance(record), CollectionFunctionals.sizeEquals(3));
@@ -378,7 +378,7 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
         EntityAsserts.assertAttributeEqualsEventually(group, LONG1, Long.valueOf(1));
     }
     
-    @Test(groups="Integration") // because takes a second
+    @Test
     public void testAggregatingRespectsUnchanged() {
         group.addMember(entity);
         group.enrichers().add(Enrichers.builder()
@@ -399,7 +399,7 @@ public class EnrichersTest extends BrooklynAppUnitTestSupport {
         EntityAsserts.assertAttributeEqualsEventually(group, LONG1, Long.valueOf(123));
         
         entity.sensors().set(NUM1, 987654);
-        EntityAsserts.assertAttributeEqualsContinually(group, LONG1, Long.valueOf(123));
+        EntityAsserts.assertAttributeEqualsContinually(ImmutableMap.of("timeout", "100ms"), group, LONG1, Long.valueOf(123));
     }
 
     @Test
