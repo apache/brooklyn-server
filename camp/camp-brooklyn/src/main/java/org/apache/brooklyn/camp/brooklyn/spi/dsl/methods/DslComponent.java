@@ -66,7 +66,10 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
 
     /**
      * Resolve componentId in the {@link Scope#GLOBAL} scope.
+     * 
+     * @deprecated since 0.10.0; pass the {@link Scope} explicitly.
      */
+    @Deprecated
     public DslComponent(String componentId) {
         this(Scope.GLOBAL, componentId);
     }
