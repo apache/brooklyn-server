@@ -45,7 +45,9 @@ import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.group.DynamicCluster;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -430,6 +432,78 @@ public class DslAndRebindYamlTest extends AbstractYamlRebindTest {
         
         Entity e2 = rebind(testEntity);
         Assert.assertEquals(getConfigInTask(e2, TestEntity.CONF_NAME), "hello world");
+    }
+
+    @Test
+    public void testDslEntityById() throws Exception {
+        Entity testEntity = setupAndCheckTestEntityInBasicYamlWith(
+                "  id: x",
+                "  brooklyn.config:",
+                "    test.confObject: $brooklyn:entity(\"x\")");
+        Assert.assertEquals(getConfigInTask(testEntity, TestEntity.CONF_OBJECT), testEntity);
+        
+        Entity e2 = rebind(testEntity);
+        Assert.assertEquals(getConfigInTask(e2, TestEntity.CONF_OBJECT), e2);
+    }
+
+    @Test
+    public void testDslEntityWhereIdRetrievedFromAttributeWhenReadyDsl() throws Exception {
+        Entity testEntity = setupAndCheckTestEntityInBasicYamlWith(
+                "  id: x",
+                "  brooklyn.config:",
+                "    test.confObject: $brooklyn:entity(attributeWhenReady(\"mySensor\"))");
+        testEntity.sensors().set(Sensors.newStringSensor("mySensor"), "x");
+        Assert.assertEquals(getConfigInTask(testEntity, TestEntity.CONF_OBJECT), testEntity);
+        
+        Entity e2 = rebind(testEntity);
+        Assert.assertEquals(getConfigInTask(e2, TestEntity.CONF_OBJECT), e2);
+    }
+
+    @Test
+    public void testDslEntityWhereAttributeWhenReadyDslReturnsEntity() throws Exception {
+        Entity testEntity = setupAndCheckTestEntityInBasicYamlWith(
+                "  id: x",
+                "  brooklyn.config:",
+                "    test.confObject: $brooklyn:entity(attributeWhenReady(\"mySensor\"))");
+        testEntity.sensors().set(Sensors.newSensor(Entity.class, "mySensor"), testEntity);
+        Assert.assertEquals(getConfigInTask(testEntity, TestEntity.CONF_OBJECT), testEntity);
+        
+        Entity e2 = rebind(testEntity);
+        Assert.assertEquals(getConfigInTask(e2, TestEntity.CONF_OBJECT), e2);
+    }
+
+    @Test
+    public void testDslChildWhereIdRetrievedFromAttributeWhenReadyDsl() throws Exception {
+        Entity testEntity = setupAndCheckTestEntityInBasicYamlWith(
+                "  id: x",
+                "  brooklyn.config:",
+                "    test.confObject: $brooklyn:child(attributeWhenReady(\"mySensor\"))",
+                "  brooklyn.children:",
+                "  - type: " + TestEntity.class.getName(),
+                "    id: x");
+        Entity childEntity = Iterables.getOnlyElement(testEntity.getChildren());
+        testEntity.sensors().set(Sensors.newStringSensor("mySensor"), "x");
+        Assert.assertEquals(getConfigInTask(testEntity, TestEntity.CONF_OBJECT), childEntity);
+        
+        Entity e2 = rebind(testEntity);
+        Entity child2 = Iterables.getOnlyElement(e2.getChildren());
+        Assert.assertEquals(getConfigInTask(e2, TestEntity.CONF_OBJECT), child2);
+    }
+
+    @Test
+    public void testDslChildWhereAttributeWhenReadyDslReturnsEntityOutOfScopeFails() throws Exception {
+        Entity testEntity = setupAndCheckTestEntityInBasicYamlWith(
+                "  id: x",
+                "  brooklyn.config:",
+                "    test.confObject: $brooklyn:child(attributeWhenReady(\"mySensor\"))");
+        testEntity.sensors().set(Sensors.newSensor(Entity.class, "mySensor"), testEntity);
+        try {
+            Object val = getConfigInTask(testEntity, TestEntity.CONF_OBJECT);
+            Asserts.shouldHaveFailedPreviously("actual="+val);
+        } catch (Exception e) {
+            IllegalStateException ise = Exceptions.getFirstThrowableOfType(e, IllegalStateException.class);
+            if (ise == null || !ise.toString().contains("is not in scope 'child'")) throw e;
+        }
     }
 
     /*

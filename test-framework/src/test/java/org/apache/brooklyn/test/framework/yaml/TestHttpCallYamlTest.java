@@ -90,4 +90,25 @@ public class TestHttpCallYamlTest extends AbstractYamlRebindTest {
                 "      equals: 200"
                 );
     }
+    
+    @Test
+    public void testUrlConstructedFromTargetEntity() throws Exception {
+        origApp = (BasicApplication) createStartWaitAndLogApplication(
+                "services:",
+                "- type: " + TestEntity.class.getName(),
+                "  id: target-app",
+                "  brooklyn.config:",
+                "    main.uri: " + server.getUrl(),
+                "- type: " + TestHttpCall.class.getName(),
+                "  brooklyn.config:",
+                "    targetId: target-app",
+                "    url:",
+                "      $brooklyn:formatString:",
+                "      - \"%s/index.html\"",
+                "      - $brooklyn:entity(config(\"targetId\")).config(\"main.uri\")",
+                "    applyAssertionTo: status",
+                "    assert:",
+                "      equals: 200"
+                );
+    }
 }
