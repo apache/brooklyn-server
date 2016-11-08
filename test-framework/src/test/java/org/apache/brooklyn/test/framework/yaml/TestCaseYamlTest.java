@@ -22,6 +22,7 @@ import org.apache.brooklyn.camp.brooklyn.AbstractYamlRebindTest;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.entity.machine.MachineEntity;
 import org.apache.brooklyn.entity.stock.BasicApplication;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.framework.TestCase;
 import org.apache.brooklyn.test.framework.TestEffector;
 import org.apache.brooklyn.test.framework.TestSensor;
@@ -78,6 +79,7 @@ public class TestCaseYamlTest extends AbstractYamlRebindTest {
                 "- type: " + TestCase.class.getName(),
                 "  brooklyn.config:",
                 "    targetId: target-app",
+                "    timeout: " + Asserts.DEFAULT_LONG_TIMEOUT,
                 "  brooklyn.children:",
                 "  - type: " + TestSensor.class.getName(),
                 "    brooklyn.config:",
