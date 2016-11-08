@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.test.framework;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +32,11 @@ import org.apache.brooklyn.test.http.TestHttpRequestHandler;
 import org.apache.brooklyn.test.http.TestHttpServer;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.http.HttpException;
+import org.apache.http.HttpRequest;
+import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
+import org.apache.http.protocol.HttpContext;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -61,6 +66,10 @@ public class TestHttpCallTest extends BrooklynAppUnitTestSupport {
                 .handler("/body.json", new TestHttpRequestHandler()
                         .response("{\"a\":\"b\",\"c\":\"d\",\"e\":123,\"g\":false}")
                         .code(200 + Identifiers.randomInt(99)))
+                .handler("/foo/bar", new TestHttpTestRequestHandler()
+                        .method("POST")
+                        .response("hello world")
+                        .code(201))
                 .start();
         loc = mgmt.getLocationManager().createLocation(LocationSpec.create(LocalhostMachineProvisioningLocation.class)
                 .configure("name", testId));
@@ -94,6 +103,11 @@ public class TestHttpCallTest extends BrooklynAppUnitTestSupport {
                 .configure(TestHttpCall.TARGET_URL, server.getUrl() + "/body.json")
                 .configure(TestHttpCall.TIMEOUT, new Duration(10L, TimeUnit.SECONDS))
                 .configure(TestSensor.ASSERTIONS, newAssertion("matches", ".*123.*")));
+        app.createAndManageChild(EntitySpec.create(TestHttpCall.class)
+                .configure(TestHttpCall.TARGET_URL, server.getUrl() + "/foo/bar")
+                .configure(TestHttpCall.TARGET_METHOD, TestHttpCall.HttpMethod.POST)
+                .configure(TestHttpCall.TIMEOUT, new Duration(10L, TimeUnit.SECONDS))
+                .configure(TestSensor.ASSERTIONS, newAssertion("isEqualTo", "hello world")));
         app.start(ImmutableList.of(loc));
     }
 
@@ -114,6 +128,47 @@ public class TestHttpCallTest extends BrooklynAppUnitTestSupport {
                 .configure(TestHttpCall.TIMEOUT, new Duration(10L, TimeUnit.SECONDS))
                 .configure(TestHttpCall.ASSERTION_TARGET, TestHttpCall.HttpAssertionTarget.status)
                 .configure(TestSensor.ASSERTIONS, newAssertion("matches", "2[0-9][0-9]")));
+        app.createAndManageChild(EntitySpec.create(TestHttpCall.class)
+                .configure(TestHttpCall.TARGET_URL, server.getUrl() + "/foo/bar")
+                .configure(TestHttpCall.TARGET_METHOD, TestHttpCall.HttpMethod.POST)
+                .configure(TestHttpCall.TIMEOUT, new Duration(10L, TimeUnit.SECONDS))
+                .configure(TestHttpCall.ASSERTION_TARGET, TestHttpCall.HttpAssertionTarget.status)
+                .configure(TestSensor.ASSERTIONS, newAssertion("isEqualTo", HttpStatus.SC_CREATED)));
+        app.start(ImmutableList.of(loc));
+    }
+
+    @Test(groups = "Integration")
+    public void testHttpMethodAssertions() {
+        app.createAndManageChild(EntitySpec.create(TestHttpCall.class)
+                .configure(TestHttpCall.TARGET_URL, server.getUrl() + "/foo/bar")
+                .configure(TestHttpCall.TARGET_METHOD, TestHttpCall.HttpMethod.GET)
+                .configure(TestHttpCall.TIMEOUT, new Duration(10L, TimeUnit.SECONDS))
+                .configure(TestHttpCall.ASSERTION_TARGET, TestHttpCall.HttpAssertionTarget.status)
+                .configure(TestSensor.ASSERTIONS, newAssertion("isEqualTo", HttpStatus.SC_METHOD_NOT_ALLOWED)));
+        app.createAndManageChild(EntitySpec.create(TestHttpCall.class)
+                .configure(TestHttpCall.TARGET_URL, server.getUrl() + "/foo/bar")
+                .configure(TestHttpCall.TARGET_METHOD, TestHttpCall.HttpMethod.POST)
+                .configure(TestHttpCall.TIMEOUT, new Duration(10L, TimeUnit.SECONDS))
+                .configure(TestHttpCall.ASSERTION_TARGET, TestHttpCall.HttpAssertionTarget.status)
+                .configure(TestSensor.ASSERTIONS, newAssertion("isEqualTo", HttpStatus.SC_CREATED)));
+        app.createAndManageChild(EntitySpec.create(TestHttpCall.class)
+                .configure(TestHttpCall.TARGET_URL, server.getUrl() + "/foo/bar")
+                .configure(TestHttpCall.TARGET_METHOD, TestHttpCall.HttpMethod.PUT)
+                .configure(TestHttpCall.TIMEOUT, new Duration(10L, TimeUnit.SECONDS))
+                .configure(TestHttpCall.ASSERTION_TARGET, TestHttpCall.HttpAssertionTarget.status)
+                .configure(TestSensor.ASSERTIONS, newAssertion("isEqualTo", HttpStatus.SC_METHOD_NOT_ALLOWED)));
+        app.createAndManageChild(EntitySpec.create(TestHttpCall.class)
+                .configure(TestHttpCall.TARGET_URL, server.getUrl() + "/foo/bar")
+                .configure(TestHttpCall.TARGET_METHOD, TestHttpCall.HttpMethod.DELETE)
+                .configure(TestHttpCall.TIMEOUT, new Duration(10L, TimeUnit.SECONDS))
+                .configure(TestHttpCall.ASSERTION_TARGET, TestHttpCall.HttpAssertionTarget.status)
+                .configure(TestSensor.ASSERTIONS, newAssertion("isEqualTo", HttpStatus.SC_METHOD_NOT_ALLOWED)));
+        app.createAndManageChild(EntitySpec.create(TestHttpCall.class)
+                .configure(TestHttpCall.TARGET_URL, server.getUrl() + "/foo/bar")
+                .configure(TestHttpCall.TARGET_METHOD, TestHttpCall.HttpMethod.HEAD)
+                .configure(TestHttpCall.TIMEOUT, new Duration(10L, TimeUnit.SECONDS))
+                .configure(TestHttpCall.ASSERTION_TARGET, TestHttpCall.HttpAssertionTarget.status)
+                .configure(TestSensor.ASSERTIONS, newAssertion("isEqualTo", HttpStatus.SC_METHOD_NOT_ALLOWED)));
         app.start(ImmutableList.of(loc));
     }
 
@@ -123,4 +178,26 @@ public class TestHttpCallTest extends BrooklynAppUnitTestSupport {
         return result;
     }
 
+    private class TestHttpTestRequestHandler extends TestHttpRequestHandler {
+        private String method = "GET";
+
+        public TestHttpRequestHandler method(String method) {
+            this.method = method;
+            return this;
+        }
+
+        @Override
+        public void handle(HttpRequest request, HttpResponse response, HttpContext context) throws HttpException, IOException {
+            super.handle(request, response, context);
+
+            if (!isValidRequest(request)) {
+                response.setStatusCode(405);
+                response.setEntity(null);
+            }
+        }
+
+        private boolean isValidRequest(HttpRequest request) {
+            return request.getRequestLine().getMethod().equals(this.method.toUpperCase());
+        }
+    }
 }
