@@ -417,6 +417,21 @@ public class DslAndRebindYamlTest extends AbstractYamlRebindTest {
                 "    test.confName: $brooklyn:formatString(\"hello %s\", \"world\")");
     }
 
+    @Test
+    public void testDslFormatStringWithDeferredSupplier() throws Exception {
+        Entity testEntity = setupAndCheckTestEntityInBasicYamlWith(
+                "  brooklyn.config:",
+                "    test.confObject: world",
+                "    test.confName:",
+                "      $brooklyn:formatString:",
+                "      - \"hello %s\"",
+                "      - $brooklyn:config(\"test.confObject\")");
+        Assert.assertEquals(getConfigInTask(testEntity, TestEntity.CONF_NAME), "hello world");
+        
+        Entity e2 = rebind(testEntity);
+        Assert.assertEquals(getConfigInTask(e2, TestEntity.CONF_NAME), "hello world");
+    }
+
     /*
         - type: org.apache.brooklyn.enricher.stock.Transformer
           brooklyn.config:
