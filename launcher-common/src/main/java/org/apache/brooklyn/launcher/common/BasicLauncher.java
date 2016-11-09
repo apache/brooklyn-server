@@ -43,6 +43,7 @@ import org.apache.brooklyn.camp.CampPlatform;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampPlatformLauncherNoServer;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
+import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
@@ -724,6 +725,15 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
                 try {
                     LOG.info("Starting brooklyn application {} in location{} {}", new Object[] { app, locations.size()!=1?"s":"", locations });
                     ((Startable)app).start(locations);
+                    Entities.dumpInfo(app);
+                    String sensors = "";
+                    if (app.getAttribute(Attributes.MAIN_URI_MAPPED_PUBLIC)!=null) {
+                        sensors = ": "+app.getAttribute(Attributes.MAIN_URI_MAPPED_PUBLIC);
+                    } else if (app.getAttribute(Attributes.MAIN_URI)!=null) {
+                        sensors += ": "+app.getAttribute(Attributes.MAIN_URI);
+                    }
+                    LOG.info("Started brooklyn application {} in location{} {}{}", new Object[] { app, locations.size()!=1?"s":"", locations,
+                        sensors });
                 } catch (Exception e) {
                     LOG.error("Error starting "+app+": "+Exceptions.collapseText(e), Exceptions.getFirstInteresting(e));
                     appExceptions.add(Exceptions.collapse(e));
