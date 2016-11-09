@@ -332,8 +332,9 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
                 return getKeyAtContainer(input, queryKey);
             }
         };
-        ConfigKey<T> ownKey = keyFn.apply(getContainer());
-        if (ownKey==null) ownKey = queryKey;
+        ConfigKey<T> ownKey1 = keyFn.apply(getContainer());
+        if (ownKey1==null) ownKey1 = queryKey;
+        final ConfigKey<T> ownKey = ownKey1;
         @SuppressWarnings("unchecked")
         final Class<T> type = (Class<T>) ownKey.getType();
         
@@ -356,8 +357,9 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
             
             Function<TContainer, Maybe<Object>> lookupFn = new Function<TContainer, Maybe<Object>>() {
                 @Override public Maybe<Object> apply(TContainer input) {
-                    Maybe<Object> result = getRawValueAtContainer(input, queryKey);
-                    if (!raw) result = resolveRawValueFromContainer(input, queryKey, result);
+                    // lookup against ownKey as it may do extra resolution (eg grab *.* subkeys if a map)
+                    Maybe<Object> result = getRawValueAtContainer(input, ownKey);
+                    if (!raw) result = resolveRawValueFromContainer(input, ownKey, result);
                     return result;
                 }
             };
