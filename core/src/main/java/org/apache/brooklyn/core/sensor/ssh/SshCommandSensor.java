@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.sensor.ssh;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -138,7 +139,7 @@ public final class SshCommandSensor<T> extends AddSensor<T> {
     }
 
     @Beta
-    public static String makeCommandExecutingInDirectory(String command, String executionDir, EntityLocal entity) {
+    public static String makeCommandExecutingInDirectory(String command, String executionDir, Entity entity) {
         String finalCommand = command;
         String execDir = executionDir;
         if (Strings.isBlank(execDir)) {
