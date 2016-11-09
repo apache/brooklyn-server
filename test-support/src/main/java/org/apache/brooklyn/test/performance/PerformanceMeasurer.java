@@ -72,7 +72,9 @@ public class PerformanceMeasurer {
                 LOG.info("Warm-up "+options.summary+" iteration="+warmupCounter+" at "+Time.makeTimeStringRounded(warmupWatch));
                 nextLogTime += options.logInterval.toMilliseconds();
             }
+            if (options.preJob != null) options.preJob.run();
             options.job.run();
+            if (options.postJob != null) options.postJob.run();
             warmupCounter++;
         }
         warmupWatch.stop();
@@ -96,12 +98,25 @@ public class PerformanceMeasurer {
                     LOG.info(options.summary+" iteration="+counter+" at "+Time.makeTimeStringRounded(watch));
                     nextLogTime += options.logInterval.toMilliseconds();
                 }
+                
+                if (options.preJob != null) {
+                    watch.stop();
+                    options.preJob.run();
+                    watch.start();
+                }
+
                 long before = watch.elapsed(TimeUnit.NANOSECONDS);
                 options.job.run();
                 if (options.histogram) {
                     histogram.add(watch.elapsed(TimeUnit.NANOSECONDS) - before, TimeUnit.NANOSECONDS);
                 }
                 counter++;
+                
+                if (options.postJob != null) {
+                    watch.stop();
+                    options.postJob.run();
+                    watch.start();
+                }
             }
             
             if (options.completionLatch != null) {
