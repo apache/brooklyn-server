@@ -92,6 +92,7 @@ public abstract class BrooklynRestResourceTest extends BrooklynRestApiTest {
                 clientProviders = sf.getProviders();
             }
             configureCXF(sf);
+            
             sf.setAddress(getEndpointAddress());
             sf.setFeatures(ImmutableList.of(new org.apache.cxf.feature.LoggingFeature()));
             server = sf.create();

@@ -29,6 +29,7 @@ import javax.servlet.http.HttpSessionContext;
 
 import org.apache.brooklyn.util.text.Identifiers;
 
+/** mock session, used only for performing authentication */
 public class SecurityProviderHttpSession implements HttpSession {
     String id = Identifiers.makeRandomId(5);
     Map<String, Object> attributes = new ConcurrentHashMap<>();

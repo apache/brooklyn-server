@@ -36,6 +36,7 @@ import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServiceAttributes;
+import org.apache.brooklyn.rest.filter.CsrfTokenFilter;
 import org.apache.brooklyn.rest.filter.EntitlementContextFilter;
 import org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter;
 import org.apache.brooklyn.rest.filter.LoggingFilter;
@@ -227,7 +228,8 @@ public class BrooklynRestApiLauncher {
                 new RequestTaggingRsFilter(),
                 new NoCacheFilter(),
                 new HaHotCheckResourceFilter(),
-                new EntitlementContextFilter());
+                new EntitlementContextFilter(),
+                new CsrfTokenFilter());
         RestApiSetup.installServletFilters(context, this.filters);
 
         context.setContextPath("/");

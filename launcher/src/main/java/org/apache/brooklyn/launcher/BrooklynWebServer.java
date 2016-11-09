@@ -50,6 +50,7 @@ import org.apache.brooklyn.launcher.config.CustomResourceLocator;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.rest.RestApiSetup;
+import org.apache.brooklyn.rest.filter.CsrfTokenFilter;
 import org.apache.brooklyn.rest.filter.EntitlementContextFilter;
 import org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter;
 import org.apache.brooklyn.rest.filter.LoggingFilter;
@@ -460,7 +461,8 @@ public class BrooklynWebServer {
                 new RequestTaggingRsFilter(),
                 new NoCacheFilter(),
                 new HaHotCheckResourceFilter(),
-                new EntitlementContextFilter());
+                new EntitlementContextFilter(),
+                new CsrfTokenFilter());
         RestApiSetup.installServletFilters(context,
                 RequestTaggingFilter.class,
                 LoggingFilter.class);
