@@ -57,6 +57,8 @@ public class OsgiLauncher extends BasicLauncher<OsgiLauncher> {
     private String globalBrooklynProperties;
     private String localBrooklynProperties;
 
+    private Integer port;
+
     private ConfigurationAdmin configAdmin;
     private ConfigSupplier configSupplier;
 
@@ -197,6 +199,10 @@ public class OsgiLauncher extends BasicLauncher<OsgiLauncher> {
 
     public void setLocalBrooklynProperties(String localBrooklynProperties) {
         this.localBrooklynProperties = localBrooklynProperties;
+    }
+
+    public void setPort(Integer port) {
+        this.port = port;
     }
 
 }
