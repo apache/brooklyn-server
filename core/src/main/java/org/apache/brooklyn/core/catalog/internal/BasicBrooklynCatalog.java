@@ -73,6 +73,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 
 /* TODO the complex tree-structured catalogs are only useful when we are relying on those separate catalog classloaders
  * to isolate classpaths. with osgi everything is just put into the "manual additions" catalog. */
@@ -105,6 +106,13 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     private volatile CatalogDo manualAdditionsCatalog;
     private volatile LoadedClassLoader manualAdditionsClasses;
     private final AggregateClassLoader rootClassLoader = AggregateClassLoader.newInstanceWithNoLoaders();
+    
+    /**
+     * Cache from CatalogItem id to the resolved spec for that catalog item.
+     * We assume that no-one is modifying the catalog items (once added) without going through the
+     * correct accessor methods here (e.g. no-one calling {@code getCatalogItemDo().getDto().setXyz()}).
+     */
+    private final Map<String, AbstractBrooklynObjectSpec<?,?>> specCache;
 
     public BasicBrooklynCatalog(ManagementContext mgmt) {
         this(mgmt, CatalogDto.newNamedInstance("empty catalog", "empty catalog", "empty catalog, expected to be reset later"));
@@ -113,6 +121,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     public BasicBrooklynCatalog(ManagementContext mgmt, CatalogDto dto) {
         this.mgmt = checkNotNull(mgmt, "managementContext");
         this.catalog = new CatalogDo(mgmt, dto);
+        this.specCache = Maps.newLinkedHashMap();
     }
 
     public boolean blockIfNotLoaded(Duration timeout) {
@@ -128,6 +137,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
 
     public void reset(CatalogDto dto, boolean failOnLoadError) {
+        specCache.clear();
         // Unregister all existing persisted items.
         for (CatalogItem<?, ?> toRemove : getCatalogItems()) {
             if (log.isTraceEnabled()) {
@@ -142,7 +152,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         this.catalog = catalog;
         resetRootClassLoader();
         this.manualAdditionsCatalog = null;
-
+        
         // Inject management context into and persist all the new entries.
         for (CatalogItem<?, ?> entry : getCatalogItems()) {
             boolean setManagementContext = false;
@@ -243,7 +253,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         if (manualAdditionsCatalog==null) loadManualAdditionsCatalog();
         manualAdditionsCatalog.deleteEntry(itemDto);
         
-        // Ensure the cache is de-populated
+        // Ensure the caches are de-populated
+        specCache.remove(itemDto.getCatalogItemId());
         getCatalog().deleteEntry(itemDto);
 
         // And indicate to the management context that it should be removed.
@@ -285,6 +296,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
 
     private void resetRootClassLoader() {
+        specCache.clear();
         rootClassLoader.reset(ImmutableList.of(catalog.getRootClassLoader()));
     }
 
@@ -300,16 +312,22 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public <T, SpecT extends AbstractBrooklynObjectSpec<? extends T, SpecT>> SpecT createSpec(CatalogItem<T, SpecT> item) {
         if (item == null) return null;
-        @SuppressWarnings("unchecked")
         CatalogItemDo<T,SpecT> loadedItem = (CatalogItemDo<T, SpecT>) getCatalogItemDo(item.getSymbolicName(), item.getVersion());
         if (loadedItem == null) throw new RuntimeException(item+" not in catalog; cannot create spec");
         if (loadedItem.getSpecType()==null) return null;
-
-        SpecT spec = internalCreateSpecLegacy(mgmt, loadedItem, MutableSet.<String>of(), true);
-        if (spec != null) {
-            return spec;
+        String itemId = item.getCatalogItemId();
+        
+        if (specCache.containsKey(itemId)) {
+            return (SpecT) specCache.get(itemId);
+        } else {
+            SpecT spec = internalCreateSpecLegacy(mgmt, loadedItem, MutableSet.<String>of(), true);
+            if (spec != null) {
+                specCache.put(itemId, spec);
+                return spec;
+            }
         }
 
         throw new IllegalStateException("No known mechanism to create instance of "+item);
@@ -943,6 +961,9 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             return existingDto;
         }
 
+        // Clear spec cache (in-case overwriting existing)
+        specCache.remove(itemDto.getCatalogItemId());
+        
         if (manualAdditionsCatalog==null) loadManualAdditionsCatalog();
         manualAdditionsCatalog.addEntry(itemDto);
 
@@ -989,6 +1010,9 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
     @Override @Deprecated /** @deprecated see super */
     public void addItem(CatalogItem<?,?> item) {
+        // Clear spec-cache (in-case overwriting)
+        specCache.remove(item.getCatalogItemId());
+        
         //assume forceUpdate for backwards compatibility
         log.debug("Adding manual catalog item to "+mgmt+": "+item);
         checkNotNull(item, "item");
@@ -1004,7 +1028,12 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         checkNotNull(type, "type");
         if (manualAdditionsCatalog==null) loadManualAdditionsCatalog();
         manualAdditionsClasses.addClass(type);
-        return manualAdditionsCatalog.classpath.addCatalogEntry(type);
+        CatalogItem<?, ?> result = manualAdditionsCatalog.classpath.addCatalogEntry(type);
+        
+        // Clear spec-cache (in-case overwriting)
+        specCache.remove(result.getCatalogItemId());
+        
+        return result;
     }
 
     private synchronized void loadManualAdditionsCatalog() {
