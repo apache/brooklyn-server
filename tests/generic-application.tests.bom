@@ -45,10 +45,10 @@ brooklyn.catalog:
   #Test assumtions
   # * swarm endpoint preconfigured
   # * cloudsoft/ubuntu:14.04 image has been pulled
-  - id: swarm-endpoint-tests
-    name: "Swarm Endpoint Deployment Tests"
+  - id: cluster-endpoint-tests
+    name: "Cluster Endpoint Deployment Tests"
     description: |
-      Tests containers and applications can be deployed to both Swarm and
+      Tests containers and applications can be deployed to both cluster and
       Cloud locations
     itemType: template
     item:
@@ -69,17 +69,17 @@ brooklyn.catalog:
             - type: test-case
               name: "2.1. Single-Node Application Test"
               brooklyn.children:
-                - type: deploy-app-to-swarm-single-node
+                - type: deploy-app-to-cluster-single-node
             - type: test-case
               name: "2.2. Multi-Node Application Test"
               brooklyn.children:
-                - type: deploy-riak-cluster-to-swarm-multi-node
-                - type: deploy-multi-node-app-swarm
+                - type: deploy-riak-cluster-to-cluster-multi-node
+                - type: deploy-multi-node-app-cluster
             - type: test-case
               name: "2.3 Hybrid Multi-Node Application"
               brooklyn.children:
-                - type: deploy-multi-node-app-swarm-to-cloud
-                - type: deploy-multi-node-app-cloud-to-swarm
+                - type: deploy-multi-node-app-cluster-to-cloud
+                - type: deploy-multi-node-app-cloud-to-cluster
   
   - id: tomcat-webapp-cluster
     name: "Tomcat Webapp Cluster"
