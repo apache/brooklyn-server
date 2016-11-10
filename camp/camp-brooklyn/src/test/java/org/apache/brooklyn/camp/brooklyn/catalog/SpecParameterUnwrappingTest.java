@@ -64,7 +64,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
     
     // Expect app to have the following config keys already: 
     // "application.stop.shouldDestroy", "defaultDisplayName", "quorum.running", "quorum.up", "start.latch"
-    private static final int NUM_APP_DEFAULT_CONFIG_KEYS = 5;
+    public static final int NUM_APP_DEFAULT_CONFIG_KEYS = 5;
     
     private static final String SYMBOLIC_NAME = "my.catalog.app.id.load";
 

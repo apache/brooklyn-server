@@ -47,6 +47,8 @@ import com.google.common.reflect.TypeToken;
 
 public class SpecParameterParsingTest  extends AbstractYamlTest {
 
+    private static final int NUM_APP_DEFAULT_CONFIG_KEYS = SpecParameterUnwrappingTest.NUM_APP_DEFAULT_CONFIG_KEYS;
+    
     @Override
     protected boolean disableOsgi() {
         return false;
@@ -69,7 +71,7 @@ public class SpecParameterParsingTest  extends AbstractYamlTest {
                 "      pinned: false");
         EntitySpec<?> item = mgmt().getTypeRegistry().createSpec(mgmt().getTypeRegistry().get(itemId), null, EntitySpec.class);
         List<SpecParameter<?>> inputs = item.getParameters();
-        assertEquals(inputs.size(), 6);
+        assertEquals(inputs.size(), NUM_APP_DEFAULT_CONFIG_KEYS + 3, "inputs="+inputs);
         SpecParameter<?> firstInput = inputs.get(0);
         assertEquals(firstInput.getLabel(), "simple");
         assertEquals(firstInput.isPinned(), true);
@@ -107,7 +109,7 @@ public class SpecParameterParsingTest  extends AbstractYamlTest {
                 "      type: " + OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY);
         AbstractBrooklynObjectSpec<?,?> spec = createSpec(itemId);
         List<SpecParameter<?>> inputs = spec.getParameters();
-        assertEquals(inputs.size(), 4);
+        assertEquals(inputs.size(), NUM_APP_DEFAULT_CONFIG_KEYS + 1, "inputs="+inputs);
         SpecParameter<?> firstInput = inputs.get(0);
         assertEquals(firstInput.getLabel(), "simple");
         assertTrue(firstInput.isPinned());
