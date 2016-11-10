@@ -19,6 +19,7 @@
 package org.apache.brooklyn.camp.brooklyn;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import java.util.concurrent.Callable;
@@ -26,6 +27,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.slf4j.Logger;
@@ -60,6 +62,49 @@ public class ConfigYamlTest extends AbstractYamlTest {
     public void tearDown() throws Exception {
         super.tearDown();
         if (executor != null) executor.shutdownNow();
+    }
+
+    @Test
+    public void testConfigInConfigBlock() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.config:",
+                "    test.confName: myName",
+                "    test.confObject: myObj",
+                "    test.confDynamic: myDynamic");
+
+        final Entity app = createStartWaitAndLogApplication(yaml);
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+     
+        assertEquals(entity.config().get(TestEntity.CONF_NAME), "myName"); // confName has @SetFromFlag
+        assertEquals(entity.config().get(TestEntity.CONF_OBJECT), "myObj"); // confObject does not have @SetFromFlag
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("test.confDynamic")), "myDynamic"); // not defined on entity
+    }
+
+    @Test
+    public void testConfigAtTopLevel() throws Exception {
+        // This style is discouraged - instead use a "brooklyn.config:" block.
+        // However, it's important we don't break this as blueprints in the wild rely on it!
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  test.confName: myName",
+                "  test.confObject: myObj",
+                "  test.confDynamic: myDynamic");
+
+        final Entity app = createStartWaitAndLogApplication(yaml);
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+     
+        assertEquals(entity.config().get(TestEntity.CONF_NAME), "myName"); // confName has @SetFromFlag
+        assertEquals(entity.config().get(TestEntity.CONF_OBJECT), "myObj"); // confObject does not have @SetFromFlag
+        
+        // The "dynamic" config key (i.e. not defined on the entity's type) is not picked up to 
+        // be set on the entity if it's not inside the "brooklyn.config" block. This isn't exactly
+        // desired behaviour, but it is what happens! This test is more to demonstrate the behaviour
+        // than to say it is definitely what we want! But like the comment at the start of the 
+        // method says, this style is discouraged so we don't really care.
+        assertNull(entity.config().get(ConfigKeys.newStringConfigKey("test.confDynamic"))); // not defined on entity
     }
 
     @Test
