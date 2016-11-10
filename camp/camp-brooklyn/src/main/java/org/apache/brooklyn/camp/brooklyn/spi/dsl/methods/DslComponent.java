@@ -101,7 +101,6 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
         return TaskBuilder.<Entity>builder()
                 .displayName(toString())
                 .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
-                .tagIfNotNull(BrooklynTaskTags.getTargetOrContextEntityTag(Tasks.current()))
                 .body(new EntityInScopeFinder(scopeComponent, scope, componentId))
                 .build();
     }
@@ -373,7 +372,6 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
             return Tasks.builder()
                     .displayName("retrieving config for "+keyName)
                     .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
-                    .tagIfNotNull(BrooklynTaskTags.getTargetOrContextEntityTag(Tasks.current()))
                     .dynamic(false)
                     .body(new Callable<Object>() {
                         @Override
@@ -454,7 +452,6 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
             return Tasks.<Sensor<?>>builder()
                     .displayName("looking up sensor for "+sensorName)
                     .dynamic(false)
-                    .tagIfNotNull(BrooklynTaskTags.getTargetOrContextEntityTag(Tasks.current()))
                     .body(new Callable<Sensor<?>>() {
                         @Override
                         public Sensor<?> call() throws Exception {

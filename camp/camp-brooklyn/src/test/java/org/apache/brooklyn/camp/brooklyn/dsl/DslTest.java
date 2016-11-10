@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
@@ -38,6 +39,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.objs.BasicSpecParameter;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
@@ -269,10 +271,27 @@ public class DslTest extends BrooklynAppUnitTestSupport {
         }
     }
 
+    // Different from testParentConcurrent() only in the execution context the task is submitted in (global vs app)
+    @Test(invocationCount=10)
+    public void testTaskContext() {
+        final TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        // context entity here = none
+        Task<Entity> task = Tasks.<Entity>builder()
+            .body(new Callable<Entity>() {
+                @Override
+                public Entity call() throws Exception {
+                    // context entity here = entity
+                    return BrooklynTaskTags.getContextEntity(Tasks.current());
+                }
+            }).build();
+        Task<Entity> result = entity.getExecutionContext().submit(task);
+        assertEquals(result.getUnchecked(), entity);
+    }
+
     protected void runConcurrentWorker(Supplier<Runnable> taskSupplier) {
         Collection<Task<?>> results = new ArrayList<>();
         for (int i = 0; i < MAX_PARALLEL_RESOLVERS; i++) {
-            Task<?> result = mgmt.getExecutionManager().submit(taskSupplier.get());
+            Task<?> result = app.getExecutionContext().submit(taskSupplier.get());
             results.add(result);
         }
         for (Task<?> result : results) {
