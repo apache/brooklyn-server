@@ -273,4 +273,23 @@ public class BidiSerialization {
             return mgmt.getExecutionManager().getTask((String) values.get("id"));
         }
     }
+    
+    /**
+     * Serializes a classloader to just tell us about its type; cannot deserialize it again though!
+     * 
+     * See https://issues.apache.org/jira/browse/BROOKLYN-304 - this new behaviour is better than the
+     * {@link OutOfMemoryError} we used to get.
+     */
+    public static class ClassLoaderSerialization extends AbstractWithManagementContextSerialization<ClassLoader> {
+        public ClassLoaderSerialization(ManagementContext mgmt) { 
+            super(ClassLoader.class, mgmt);
+        }
+        @Override
+        public void customWriteBody(ClassLoader value, JsonGenerator jgen, SerializerProvider provider) throws IOException {
+        }
+        @Override
+        protected ClassLoader customReadBody(String type, Map<Object, Object> values, JsonParser jp, DeserializationContext ctxt) throws IOException {
+            return null;
+        }
+    }
 }
