@@ -36,6 +36,10 @@ public class BrooklynObjectsJsonMapper {
         new BidiSerialization.ManagementContextSerialization(mgmt).install(mapperModule);
         new BidiSerialization.EntitySerialization(mgmt).install(mapperModule);
         new BidiSerialization.LocationSerialization(mgmt).install(mapperModule);
+        new BidiSerialization.PolicySerialization(mgmt).install(mapperModule);
+        new BidiSerialization.EnricherSerialization(mgmt).install(mapperModule);
+        new BidiSerialization.FeedSerialization(mgmt).install(mapperModule);
+        new BidiSerialization.TaskSerialization(mgmt).install(mapperModule);
 
         mapper.registerModule(new GuavaModule()).registerModule(mapperModule);
         return mapper;

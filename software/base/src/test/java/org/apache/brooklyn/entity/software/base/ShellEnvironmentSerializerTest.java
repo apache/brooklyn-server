@@ -60,7 +60,7 @@ public class ShellEnvironmentSerializerTest extends BrooklynAppUnitTestSupport {
         assertSerialize(app, appExpected);
         assertSerialize(ImmutableList.of(app), "[" + appExpected + "]");
         assertSerialize(ImmutableMap.of("app", app), "{\"app\":" + appExpected + "}");
-        assertSerialize(mgmt, "{\"type\":\"org.apache.brooklyn.core.test.entity.LocalManagementContextForTests\"}");
+        assertSerialize(mgmt, "{\"type\":\"org.apache.brooklyn.api.mgmt.ManagementContext\"}");
         // TODO Fails with java.lang.OutOfMemoryError: GC overhead limit exceeded
         // https://issues.apache.org/jira/browse/BROOKLYN-304
         // assertSerialize(getClass().getClassLoader(), "???");

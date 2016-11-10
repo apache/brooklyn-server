@@ -33,6 +33,8 @@ import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -87,6 +89,13 @@ public class TestEntityImpl extends AbstractEntity implements TestEntity {
         return checkNotNull(arg, "arg");
     }
     
+    @Override
+    public void sleepEffector(Duration duration) {
+        if (LOG.isTraceEnabled()) LOG.trace("In sleepEffector for {}", this);
+        callHistory.add("sleepEffector");
+        Time.sleep(duration);
+    }
+
     @Override
     public AtomicInteger getCounter() {
         return counter;

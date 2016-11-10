@@ -133,9 +133,4 @@ public class SystemServiceEnricher extends AbstractEnricher implements Enricher 
     ExecutionContext getEntityExecutionContext() {
         return getManagementContext().getExecutionContext(entity);
     }
-
-    protected Entity getEntity() {
-        return entity;
-    }
-
 }
