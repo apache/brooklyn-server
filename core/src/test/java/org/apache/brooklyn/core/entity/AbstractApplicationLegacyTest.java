@@ -20,6 +20,8 @@ package org.apache.brooklyn.core.entity;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import java.util.List;
@@ -92,8 +94,11 @@ public class AbstractApplicationLegacyTest extends BrooklynAppUnitTestSupport {
         assertTrue(Entities.isManaged(app2));
         assertTrue(Entities.isManaged(child));
         assertEquals(child.getCallHistory(), ImmutableList.of("start"));
-        assertEquals(mgmt.getEntityManager().getEntity(app2.getId()), app2);
-        assertEquals(mgmt.getEntityManager().getEntity(child.getId()), child);
+        assertNull(mgmt.getEntityManager().getEntity(app2.getId()), "app2 shouldn't be managed by mgmt");
+        assertNull(mgmt.getEntityManager().getEntity(child.getId()), "child shouldn't be managed by mgmt");
+        assertNotEquals(mgmt, app2.getManagementContext(), "managing app2 creates a new management context");
+        assertEquals(app2.getManagementContext().getEntityManager().getEntity(app2.getId()), app2);
+        assertEquals(app2.getManagementContext().getEntityManager().getEntity(child.getId()), child);
         
         app2.stop();
         assertEquals(child.getCallHistory(), ImmutableList.of("start", "stop"));
