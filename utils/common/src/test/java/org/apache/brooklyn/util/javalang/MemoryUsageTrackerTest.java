@@ -18,17 +18,21 @@
  */
 package org.apache.brooklyn.util.javalang;
 
+import static org.testng.Assert.assertTrue;
+
 import java.util.List;
 
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.javalang.MemoryUsageTracker;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
+
+import com.google.common.base.Objects;
+import com.google.common.collect.Range;
 
 public class MemoryUsageTrackerTest {
 
@@ -67,9 +71,10 @@ public class MemoryUsageTrackerTest {
             public void run() {
                 long totalMemory = Runtime.getRuntime().totalMemory();
                 long freeMemory = Runtime.getRuntime().freeMemory();
+                long usedMemory = totalMemory - freeMemory;
                 assertLessThan(MemoryUsageTracker.SOFT_REFERENCES.getBytesUsed(), maxMemory);
                 assertLessThan(MemoryUsageTracker.SOFT_REFERENCES.getBytesUsed(), totalMemory);
-                assertLessThan(MemoryUsageTracker.SOFT_REFERENCES.getBytesUsed(), totalMemory - freeMemory);
+                assertLessThan(MemoryUsageTracker.SOFT_REFERENCES.getBytesUsed(), usedMemory);
             }});
     }
 
@@ -84,36 +89,82 @@ public class MemoryUsageTrackerTest {
 
     @Test(groups="Integration")
     public void testSoftUsageAndClearance() {
-        long totalMemory = Runtime.getRuntime().totalMemory();
-        long freeMemory = Runtime.getRuntime().freeMemory();
+        MemoryUsageSummary initialMemory = new MemoryUsageSummary();
+        LOG.info("Memory usage at start of test: "+initialMemory);
+        
+        MemoryUsageSummary beforeCollectedMemory = null;
         
         List<Maybe<?>> dump = MutableList.of();
-        Maybe<byte[]> first = Maybe.soft(new byte[1000*1000]);
-        dump.add(first);
         for (int i=0; i<1000*1000; i++) {
-            totalMemory = Runtime.getRuntime().totalMemory();
-            freeMemory = Runtime.getRuntime().freeMemory();
+            beforeCollectedMemory = new MemoryUsageSummary();
             
             dump.add(Maybe.soft(new byte[1000*1000]));
-            if (first.isAbsent()) break;
+            if (containsAbsent(dump)) break;
         }
-        int cleared = 0;
-        for (Maybe<?> m: dump) { if (m.isAbsent()) cleared++; }
-        LOG.info("First soft reference cleared after "+dump.size()+" 1M blocks created; "+cleared+" of them cleared");
+        int cleared = countAbsents(dump);
+        LOG.info("First soft reference cleared after "+dump.size()+" 1M blocks created; "+cleared+" of them cleared; memory just before collected is "+beforeCollectedMemory);
         
-        Assert.assertTrue(1.0*freeMemory/totalMemory < 0.10, 
-            "Should have had less than 10% free memory before clearance, had "+Strings.makeSizeString(freeMemory)+" / "+Strings.makeSizeString(totalMemory));
+        // Expect the soft references to only have been collected when most of the JVM's memory 
+        // was being used. However, it's not necessarily "almost all" (e.g. I've seen on my 
+        // laptop the above log message show usedFraction=0.8749949398012845).
+        // For more details of when this would be triggered, see:
+        //     http://jeremymanson.blogspot.co.uk/2009/07/how-hotspot-decides-to-clear_07.html
+        // And note that we set `-XX:SoftRefLRUPolicyMSPerMB=1` to avoid:
+        //     https://issues.apache.org/jira/browse/BROOKLYN-375
+        assertUsedMemoryFractionWithinRange(beforeCollectedMemory, Range.closed(0.7, 1.0));
         
-        LOG.info("Forcing memory eviction: "+
-            MemoryUsageTracker.forceClearSoftReferences(100*1000, 10*1000*1000));
+        String clearanceResult = MemoryUsageTracker.forceClearSoftReferences(100*1000, 10*1000*1000);
+        LOG.info("Forcing memory eviction: " + clearanceResult);
         
         System.gc(); System.gc();
-        totalMemory = Runtime.getRuntime().totalMemory();
-        freeMemory = Runtime.getRuntime().freeMemory();
-        Assert.assertTrue(1.0*freeMemory/totalMemory > 0.90, 
-            "Should now have more than 90% free memory, had "+Strings.makeSizeString(freeMemory)+" / "+Strings.makeSizeString(totalMemory));
+        MemoryUsageSummary afterClearedMemory = new MemoryUsageSummary();
+        double initialUsedFraction = 1.0*initialMemory.used / afterClearedMemory.total; // re-calculate; might have grown past -Xms during test.
+        assertUsedMemoryFractionWithinRange(afterClearedMemory, Range.closed(0.0, initialUsedFraction + 0.1));
+        LOG.info("Final memory usage (after forcing clear, and GC): "+afterClearedMemory);
     }
+    
+    private static class MemoryUsageSummary {
+        final long total;
+        final long free;
+        final long used;
+        final double usedFraction;
         
+        MemoryUsageSummary() {
+            total = Runtime.getRuntime().totalMemory();
+            free = Runtime.getRuntime().freeMemory();
+            used = total - free;
+            usedFraction = 1.0*used / total;
+        }
+        @Override
+        public String toString() {
+            return Objects.toStringHelper(this)
+                    .add("total", Strings.makeSizeString(total))
+                    .add("free", Strings.makeSizeString(free))
+                    .add("used", Strings.makeSizeString(used))
+                    .add("usedFraction", usedFraction)
+                    .toString();
+        }
+    }
+
+    private void assertUsedMemoryFractionWithinRange(MemoryUsageSummary actual, Range<Double> expectedRange) {
+        assertTrue(expectedRange.contains(actual.usedFraction), "actual="+actual+"; expectedRange="+expectedRange);
+    }
+    
+    private boolean containsAbsent(Iterable<Maybe<?>> objs) {
+        for (Maybe<?> obj : objs) {
+            if (obj.isAbsent()) return true;
+        }
+        return false;
+    }
+    
+    private int countAbsents(Iterable<Maybe<?>> objs) {
+        int result = 0;
+        for (Maybe<?> obj : objs) {
+            if (obj.isAbsent()) result++;
+        }
+        return result;
+    }
+    
     private static void assertLessThan(long lhs, long rhs) {
         Assert.assertTrue(lhs<rhs, "Expected "+lhs+" < "+rhs);
     }
