@@ -41,6 +41,8 @@ import org.testng.annotations.Test;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
+@Test( // by using a different suite name we disallow interleaving other tests between the methods of this test class, which wrecks the test fixtures
+        suiteName = "SensorResourceIntegrationTest")
 public class SensorResourceIntegrationTest extends BrooklynRestResourceTest {
 
     private ManagementContext mgmt;

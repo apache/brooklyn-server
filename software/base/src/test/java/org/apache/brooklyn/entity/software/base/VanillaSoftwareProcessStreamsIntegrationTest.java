@@ -37,7 +37,10 @@ public class VanillaSoftwareProcessStreamsIntegrationTest extends AbstractSoftwa
         localhost = app.getManagementContext().getLocationRegistry().getLocationManaged("localhost");
     }
 
-    @Test(groups = "Integration")
+    // Fails on subsequent runs because "BROOKLYN" marker already created in 
+    // install folder so install step not executed.
+    // TODO Tests leave a lot of garbage in /tmp - should clean up after themselves.
+    @Test(groups = {"Integration", "Broken"})
     @Override
     public void testGetsStreams() {
         Map<String, String> cmds = getCommands();

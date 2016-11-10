@@ -131,22 +131,6 @@ public class JavaSoftwareProcessSshDriverIntegrationTest extends BrooklynAppLive
         Os.deleteRecursively(dir2);
     }
 
-    @Test(groups = "Integration")
-    public void testStartsInLegacySpecifiedDirectory() throws Exception {
-        String dir1 = Os.mergePathsUnix(Os.tmp(), "/brooklyn-test-"+Strings.makeRandomId(4));
-        String dir2 = Os.mergePathsUnix(Os.tmp(), "/brooklyn-test-"+Strings.makeRandomId(4));
-        tearDown();
-        mgmt = new LocalManagementContextForTests();
-        mgmt.getBrooklynProperties().put("brooklyn.dirs.install", dir1);
-        mgmt.getBrooklynProperties().put("brooklyn.dirs.run", dir2);
-        setUp();
-
-        app.config().set(BrooklynConfigKeys.RUN_DIR, dir2);
-        doTestSpecifiedDirectory(dir1, dir2);
-        Os.deleteRecursively(dir1);
-        Os.deleteRecursively(dir2);
-    }
-
     protected void doTestSpecifiedDirectory(final String installDirPrefix, final String runDirPrefix) throws Exception {
         final MyEntity entity = app.createAndManageChild(EntitySpec.create(MyEntity.class));
         app.start(ImmutableList.of(localhost));

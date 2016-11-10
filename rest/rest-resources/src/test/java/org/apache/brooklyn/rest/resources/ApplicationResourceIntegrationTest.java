@@ -24,13 +24,12 @@ import static org.testng.Assert.assertTrue;
 import java.net.URI;
 import java.util.Set;
 
+import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.testng.annotations.Test;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.rest.domain.ApplicationSpec;
 import org.apache.brooklyn.rest.domain.ApplicationSummary;
 import org.apache.brooklyn.rest.domain.EntitySpec;
@@ -39,27 +38,30 @@ import org.apache.brooklyn.rest.domain.SensorSummary;
 import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.testng.annotations.Test;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import javax.ws.rs.core.GenericType;
 
-@Test(singleThreaded = true)
+@Test( // by using a different suite name we disallow interleaving other tests between the methods of this test class, which wrecks the test fixtures
+        suiteName = "ApplicationResourceIntegrationTest")
 public class ApplicationResourceIntegrationTest extends BrooklynRestResourceTest {
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(ApplicationResourceIntegrationTest.class);
 
-    private final ApplicationSpec redisSpec = ApplicationSpec.builder().name("redis-app")
-            .entities(ImmutableSet.of(new EntitySpec("redis-ent", "org.apache.brooklyn.entity.nosql.redis.RedisStore")))
+    private final ApplicationSpec simpleSpec = ApplicationSpec.builder().name("simple-app")
+            .entities(ImmutableSet.of(new EntitySpec("simple-ent", EmptySoftwareProcess.class.getName())))
             .locations(ImmutableSet.of("localhost"))
             .build();
 
     @Test(groups="Integration")
-    public void testDeployRedisApplication() throws Exception {
-        Response response = clientDeploy(redisSpec);
+    public void testDeploySimpleApplication() throws Exception {
+        Response response = clientDeploy(simpleSpec);
 
         assertEquals(response.getStatus(), 201);
         assertEquals(getManagementContext().getApplications().size(), 1);
@@ -68,9 +70,9 @@ public class ApplicationResourceIntegrationTest extends BrooklynRestResourceTest
         waitForApplicationToBeRunning(response.getLocation());
     }
 
-    @Test(groups="Integration", dependsOnMethods = "testDeployRedisApplication")
+    @Test(groups="Integration", dependsOnMethods = "testDeploySimpleApplication")
     public void testListEntities() {
-        Set<EntitySummary> entities = client().path("/applications/redis-app/entities")
+        Set<EntitySummary> entities = client().path("/applications/simple-app/entities")
                 .get(new GenericType<Set<EntitySummary>>() {});
 
         for (EntitySummary entity : entities) {
@@ -83,28 +85,28 @@ public class ApplicationResourceIntegrationTest extends BrooklynRestResourceTest
         }
     }
 
-    @Test(groups="Integration", dependsOnMethods = "testDeployRedisApplication")
-    public void testListSensorsRedis() {
-        Set<SensorSummary> sensors = client().path("/applications/redis-app/entities/redis-ent/sensors")
+    @Test(groups="Integration", dependsOnMethods = "testDeploySimpleApplication")
+    public void testListSensors() {
+        Set<SensorSummary> sensors = client().path("/applications/simple-app/entities/simple-ent/sensors")
                 .get(new GenericType<Set<SensorSummary>>() {});
         assertTrue(sensors.size() > 0);
         SensorSummary uptime = Iterables.find(sensors, new Predicate<SensorSummary>() {
             @Override
             public boolean apply(SensorSummary sensorSummary) {
-                return sensorSummary.getName().equals("redis.uptime");
+                return sensorSummary.getName().equals("service.process.isRunning");
             }
         });
-        assertEquals(uptime.getType(), "java.lang.Integer");
+        assertEquals(uptime.getType(), "java.lang.Boolean");
     }
 
-    @Test(groups="Integration", dependsOnMethods = { "testListSensorsRedis", "testListEntities" })
-    public void testTriggerRedisStopEffector() throws Exception {
-        Response response = client().path("/applications/redis-app/entities/redis-ent/effectors/stop")
+    @Test(groups="Integration", dependsOnMethods = { "testListSensors", "testListEntities" })
+    public void testTriggerStopEffector() throws Exception {
+        Response response = client().path("/applications/simple-app/entities/simple-ent/effectors/stop")
                 .type(MediaType.APPLICATION_JSON_TYPE)
                 .post(toJsonEntity(ImmutableMap.of()));
         assertEquals(response.getStatus(), Response.Status.ACCEPTED.getStatusCode());
 
-        final URI stateSensor = URI.create("/applications/redis-app/entities/redis-ent/sensors/service.state");
+        final URI stateSensor = URI.create("/applications/simple-app/entities/simple-ent/sensors/service.state");
         final String expectedStatus = Lifecycle.STOPPED.toString();
         Asserts.succeedsEventually(MutableMap.of("timeout", 60 * 1000), new Runnable() {
             public void run() {
@@ -117,13 +119,13 @@ public class ApplicationResourceIntegrationTest extends BrooklynRestResourceTest
         });
     }
 
-    @Test(groups="Integration", dependsOnMethods = "testTriggerRedisStopEffector" )
-    public void testDeleteRedisApplication() throws Exception {
+    @Test(groups="Integration", dependsOnMethods = "testTriggerStopEffector" )
+    public void testDeleteApplication() throws Exception {
         int size = getManagementContext().getApplications().size();
-        Response response = client().path("/applications/redis-app")
+        Response response = client().path("/applications/simple-app")
                 .delete();
 
-        waitForPageNotFoundResponse("/applications/redis-app", ApplicationSummary.class);
+        waitForPageNotFoundResponse("/applications/simple-app", ApplicationSummary.class);
 
         assertEquals(response.getStatus(), Response.Status.ACCEPTED.getStatusCode());
         assertEquals(getManagementContext().getApplications().size(), size-1);
