@@ -246,7 +246,7 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
     @Test(groups = "Integration")
     public void testCopyStreamTo() throws Exception {
         String contents = "abc";
-        File dest = new File(Os.tmp(), "sssMachineLocationTest_dest.tmp");
+        File dest = new File(Os.tmp(), "sshMachineLocationTest_dest.tmp");
         try {
             host.copyTo(Streams.newInputStreamWithContents(contents), dest.getAbsolutePath());
             assertEquals("abc", Files.readFirstLine(dest, Charsets.UTF_8));
@@ -257,7 +257,7 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
 
     @Test(groups = "Integration")
     public void testInstallUrlTo() throws Exception {
-        File dest = new File(Os.tmp(), "sssMachineLocationTest_dir/");
+        File dest = new File(Os.tmp(), "sshMachineLocationTest_dir/");
         dest.mkdir();
         try {
             int result = host.installTo("https://raw.github.com/brooklyncentral/brooklyn/master/README.md", Urls.mergePaths(dest.getAbsolutePath(), "README.md"));
@@ -271,7 +271,7 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
     
     @Test(groups = "Integration")
     public void testInstallClasspathCopyTo() throws Exception {
-        File dest = new File(Os.tmp(), "sssMachineLocationTest_dir/");
+        File dest = new File(Os.tmp(), "sshMachineLocationTest_dir/");
         dest.mkdir();
         try {
             int result = host.installTo("classpath://brooklyn/config/sample.properties", Urls.mergePaths(dest.getAbsolutePath(), "sample.properties"));

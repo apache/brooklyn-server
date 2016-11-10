@@ -59,11 +59,12 @@ public final class SshCommandEffector extends AddEffector {
     public static final ConfigKey<String> EFFECTOR_EXECUTION_DIR = SshCommandSensor.SENSOR_EXECUTION_DIR;
     public static final MapConfigKey<Object> EFFECTOR_SHELL_ENVIRONMENT = BrooklynConfigKeys.SHELL_ENVIRONMENT;
 
-    public static enum ExecutionTarget {
+    public enum ExecutionTarget {
         ENTITY,
         MEMBERS,
         CHILDREN
     }
+
     public static final ConfigKey<ExecutionTarget> EXECUTION_TARGET = ConfigKeys.newConfigKey(ExecutionTarget.class, "executionTarget", 
         "Where this command should run; by default on this 'entity'; alternatively on all 'children' or all 'members' (if it's a group); "
         + "in the latter cases the sets are filtered by entities which have a machine and are not stopping.",
@@ -114,7 +115,7 @@ public final class SshCommandEffector extends AddEffector {
         
         public String callOne(ConfigBag params) {
             return queue(
-                makePartialTaskFactory(params)
+                makePartialTaskFactory(params, entity())
                     .summary("effector "+effector.getName()+" ssh call")
                 ).get();
         }
@@ -129,7 +130,7 @@ public final class SshCommandEffector extends AddEffector {
                 Maybe<SshMachineLocation> machine = Locations.findUniqueSshMachineLocation(target.getLocations());
                 if (machine.isAbsent()) continue;
                 
-                SshEffectorTaskFactory<String> t = makePartialTaskFactory(params);
+                SshEffectorTaskFactory<String> t = makePartialTaskFactory(params, target);
                 t.summary("effector "+effector.getName()+" at "+target); 
                 t.machine( machine.get() );
                 
@@ -138,9 +139,9 @@ public final class SshCommandEffector extends AddEffector {
             queue(ptb.build()).getUnchecked();
             return null;
         }
-        
-        public SshEffectorTaskFactory<String> makePartialTaskFactory(ConfigBag params) {
-            String sshCommand = SshCommandSensor.makeCommandExecutingInDirectory(command, executionDir, entity());
+
+        public SshEffectorTaskFactory<String> makePartialTaskFactory(ConfigBag params, Entity entity) {
+            String sshCommand = SshCommandSensor.makeCommandExecutingInDirectory(command, executionDir, entity);
 
             MutableMap<String, Object> env = MutableMap.of();
 
@@ -150,7 +151,7 @@ public final class SshCommandEffector extends AddEffector {
             }
 
             // Set things from the entity's defined shell environment, if applicable
-            env.putAll(entity().config().get(BrooklynConfigKeys.SHELL_ENVIRONMENT));
+            env.putAll(entity.config().get(BrooklynConfigKeys.SHELL_ENVIRONMENT));
 
             // Set the parameters we've been passed. This will repeat declared parameters but to no harm,
             // it may pick up additional values (could be a flag defining whether this is permitted or not.)
@@ -159,7 +160,7 @@ public final class SshCommandEffector extends AddEffector {
 
             // Add the shell environment entries from the effector configuration
             if (shellEnv != null) env.putAll(shellEnv);
-            
+
             // Add the shell environment entries from our invocation
             Map<String, Object> effectorEnv = params.get(EFFECTOR_SHELL_ENVIRONMENT);
             if (effectorEnv != null) env.putAll(effectorEnv);
@@ -173,7 +174,7 @@ public final class SshCommandEffector extends AddEffector {
 
             // Execute the effector with the serialized environment strings
             ShellEnvironmentSerializer serializer = new ShellEnvironmentSerializer(entity().getManagementContext());
-            
+
             return SshEffectorTasks.ssh(sshCommand)
                     .requiringZeroAndReturningStdout()
                     .environmentVariables(serializer.serialize(env));
