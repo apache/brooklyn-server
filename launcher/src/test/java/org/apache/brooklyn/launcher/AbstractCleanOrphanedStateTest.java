@@ -36,10 +36,10 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.commons.lang.builder.EqualsBuilder;
 
-import com.beust.jcommander.internal.Sets;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 
 public abstract class AbstractCleanOrphanedStateTest extends RebindTestFixtureWithApp {
     
