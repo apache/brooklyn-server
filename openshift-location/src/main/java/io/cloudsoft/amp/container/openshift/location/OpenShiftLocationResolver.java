@@ -1,4 +1,4 @@
-package io.cloudsoft.amp.container.kubernetes.location;
+package io.cloudsoft.amp.container.openshift.location;
 
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationResolver;

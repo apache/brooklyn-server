@@ -1,4 +1,4 @@
-package io.cloudsoft.amp.container.kubernetes.location;
+package io.cloudsoft.amp.container.openshift.location;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -10,6 +10,8 @@ import org.apache.brooklyn.util.os.Os;
 
 import com.google.common.base.Throwables;
 
+import io.cloudsoft.amp.container.kubernetes.location.KubernetesClientRegistry;
+import io.cloudsoft.amp.container.kubernetes.location.KubernetesLocationConfig;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.openshift.client.DefaultOpenShiftClient;
 import io.fabric8.openshift.client.OpenShiftConfigBuilder;
