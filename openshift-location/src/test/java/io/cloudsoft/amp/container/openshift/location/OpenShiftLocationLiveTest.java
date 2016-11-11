@@ -44,7 +44,7 @@ import com.google.common.collect.Lists;
 public class OpenShiftLocationLiveTest extends BrooklynAppLiveTestSupport {
 
     private static final Logger LOG = LoggerFactory.getLogger(OpenShiftLocationLiveTest.class);
-    
+
     private static final String OPENSHIFT_ENDPOINT = System.getProperty("test.amp.openshift.endpoint", "https://192.168.99.100:8443/");
     private static final String IDENTITY = System.getProperty("test.amp.openshift.identity", "");
     private static final String CREDENTIAL = System.getProperty("test.amp.openshift.credential", "");
@@ -72,7 +72,7 @@ public class OpenShiftLocationLiveTest extends BrooklynAppLiveTestSupport {
         }
         super.tearDown();
     }
-    
+
     protected OpenShiftLocation newOpenShiftLocation(Map<String, ?> flags) throws Exception {
         Map<String,?> allFlags = MutableMap.<String,Object>builder()
                 .put("identity", IDENTITY)
@@ -82,7 +82,7 @@ public class OpenShiftLocationLiveTest extends BrooklynAppLiveTestSupport {
                 .build();
         return (OpenShiftLocation) mgmt.getLocationRegistry().getLocationManaged("openshift", allFlags);
     }
-    
+
     private SshMachineLocation newContainerMachine(OpenShiftLocation loc, Map<?, ?> flags) throws Exception {
         MachineLocation result = loc.obtain(flags);
         machines.add(result);
@@ -100,5 +100,5 @@ public class OpenShiftLocationLiveTest extends BrooklynAppLiveTestSupport {
         String imageName = machineDetails.getOsDetails().getName();
         assertTrue("ubuntu".equalsIgnoreCase(imageName));
     }
-    
+
 }

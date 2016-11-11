@@ -33,11 +33,12 @@ import org.testng.annotations.Test;
 
 public class OpenShiftLocationResolverTest extends BrooklynMgmtUnitTestSupport {
 
-    private static final Logger log = LoggerFactory.getLogger(OpenShiftLocationResolverTest.class);
-    
+    private static final Logger LOG = LoggerFactory.getLogger(OpenShiftLocationResolverTest.class);
+
     private BrooklynProperties brooklynProperties;
 
     @BeforeMethod(alwaysRun = true)
+    @Override
     public void setUp() throws Exception {
         super.setUp();
         brooklynProperties = mgmt.getBrooklynProperties();
@@ -91,10 +92,12 @@ public class OpenShiftLocationResolverTest extends BrooklynMgmtUnitTestSupport {
     }
 
     private LocationSpec<?> getLocationSpec(String spec) {
+        LOG.debug("Obtaining location spec '{}'", spec);
         return mgmt.getLocationRegistry().getLocationSpec(spec).get();
     }
 
     private OpenShiftLocation resolve(String spec) {
+        LOG.debug("Resolving location spec '{}'", spec);
         return (OpenShiftLocation) mgmt.getLocationRegistry().getLocationManaged(spec);
     }
 }
