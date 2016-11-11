@@ -100,6 +100,9 @@ public class LocationEntityImpl extends BasicStartableImpl implements LocationEn
                 String locationType = provisioner.getClass().getSimpleName();
                 String provider = provisioner.config().get(LocationConfigKeys.CLOUD_PROVIDER);
                 Set<String> countryCodes = MutableSet.copyOf(provisioner.config().get(LocationConfigKeys.ISO_3166));
+                sensors().set(LOCATION_TYPE, locationType);
+                sensors().set(LOCATION_PROVIDER, provider);
+                sensors().set(LOCATION_COUNTRY_CODES, countryCodes);
                 EntitySpec<?> spec = specMap.get(DEFAULT);
                 if (specMap.containsKey(locationType)) {
                     LOG.debug("Matched location type {} for entity: {}", locationType, this);

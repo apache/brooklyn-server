@@ -20,6 +20,7 @@ package org.apache.brooklyn.entity.stock;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -39,6 +40,10 @@ import com.google.common.reflect.TypeToken;
  * <p>
  * Can use the class name of the {@link MachineProvisioningLocation} or the value of the
  * {@code provider} or {@code iso3166} configuration keys on the provisioning location.
+ * The values used to make the decision are set as sensors on this entity. The decision
+ * is made based on the first match found, checking the class name first, then the
+ * provider and finally the country codes, and map keys representing any or all of these
+ * can be used at the same time.
  * <pre>
  * - type: org.apache.brooklyn.entity.stock.LocationEntity
  *   brooklyn.config:
@@ -73,6 +78,11 @@ public interface LocationEntity extends BasicStartable {
     @SetFromFlag("sensorsToPropagate")
     ConfigKey<Collection<AttributeSensor<?>>> LOCATION_ENTITY_SENSOR_LIST = ConfigKeys.newConfigKey(new TypeToken<Collection<AttributeSensor<?>>>() { },
             "location.entity.sensors", "Collection of sensors that are to be propagated from the child entity (all usual sensors if not set, or empty)");
+
+    AttributeSensor<String> LOCATION_TYPE = Sensors.newStringSensor("location.entity.type", "The class name of the entity location");
+    AttributeSensor<String> LOCATION_PROVIDER = Sensors.newStringSensor("location.entity.provider", "The provider name for the entity location");
+    AttributeSensor<Set<String>> LOCATION_COUNTRY_CODES = Sensors.newSensor(new TypeToken<Set<String>>() { },
+            "location.entity.countryCode", "The ISO 3166 country codes for the entity location");
 
     AttributeSensor<Entity> LOCATION_ENTITY = Sensors.newSensor(Entity.class,
             "location.entity", "The created entity");
