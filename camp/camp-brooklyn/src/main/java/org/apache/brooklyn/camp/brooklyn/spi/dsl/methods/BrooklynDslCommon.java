@@ -39,7 +39,6 @@ import org.apache.brooklyn.camp.brooklyn.spi.creation.BrooklynYamlTypeInstantiat
 import org.apache.brooklyn.camp.brooklyn.spi.creation.EntitySpecConfiguration;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
-import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.external.ExternalConfigSupplier;
 import org.apache.brooklyn.core.entity.EntityDynamicType;
 import org.apache.brooklyn.core.entity.EntityInternal;
@@ -53,8 +52,8 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
+import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
-import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
@@ -78,31 +77,31 @@ public class BrooklynDslCommon {
     // Access specific entities
 
     public static DslComponent self() {
-        return new DslComponent(Scope.THIS, null);
+        return new DslComponent(Scope.THIS);
     }
-    public static DslComponent entity(String id) {
-        return new DslComponent(Scope.GLOBAL, id);
+    public static DslComponent entity(Object id) {
+        return DslComponent.newInstance(Scope.GLOBAL, id);
     }
     public static DslComponent parent() {
-        return new DslComponent(Scope.PARENT, null);
+        return new DslComponent(Scope.PARENT);
     }
-    public static DslComponent child(String id) {
-        return new DslComponent(Scope.CHILD, id);
+    public static DslComponent child(Object id) {
+        return DslComponent.newInstance(Scope.CHILD, id);
     }
-    public static DslComponent sibling(String id) {
-        return new DslComponent(Scope.SIBLING, id);
+    public static DslComponent sibling(Object id) {
+        return DslComponent.newInstance(Scope.SIBLING, id);
     }
-    public static DslComponent descendant(String id) {
-        return new DslComponent(Scope.DESCENDANT, id);
+    public static DslComponent descendant(Object id) {
+        return DslComponent.newInstance(Scope.DESCENDANT, id);
     }
-    public static DslComponent ancestor(String id) {
-        return new DslComponent(Scope.ANCESTOR, id);
+    public static DslComponent ancestor(Object id) {
+        return DslComponent.newInstance(Scope.ANCESTOR, id);
     }
     public static DslComponent root() {
-        return new DslComponent(Scope.ROOT, null);
+        return new DslComponent(Scope.ROOT);
     }
     public static DslComponent scopeRoot() {
-        return new DslComponent(Scope.SCOPE_ROOT, null);
+        return new DslComponent(Scope.SCOPE_ROOT);
     }
     // prefer the syntax above to the below now, but not deprecating the below
     public static DslComponent component(String id) {

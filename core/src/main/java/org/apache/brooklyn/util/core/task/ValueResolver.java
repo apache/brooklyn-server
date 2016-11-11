@@ -260,7 +260,7 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
     @Beta
     public ValueResolver<T> immediately(boolean val) {
         this.immediately = val;
-        if (timeout == null) timeout = ValueResolver.NON_BLOCKING_WAIT;
+        if (val && timeout == null) timeout = ValueResolver.NON_BLOCKING_WAIT;
         return this;
     }
 

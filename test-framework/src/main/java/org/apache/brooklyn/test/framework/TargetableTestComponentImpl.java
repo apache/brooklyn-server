@@ -28,6 +28,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
@@ -95,7 +96,7 @@ public abstract class TargetableTestComponentImpl extends AbstractEntity impleme
         }
 
         final AtomicReference<Entity> result = new AtomicReference<>();
-        final DslComponent dslComponent = new DslComponent(targetId);
+        final DslComponent dslComponent = new DslComponent(Scope.GLOBAL, targetId);
         Callable<Boolean> resolver = new Callable<Boolean>() {
             @Override public Boolean call() throws Exception {
                 Task<Entity> task = dslComponent.newTask();

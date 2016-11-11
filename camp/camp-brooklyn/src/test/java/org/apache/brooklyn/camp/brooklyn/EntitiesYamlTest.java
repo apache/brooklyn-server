@@ -423,7 +423,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         Entity root1 = Tasks.resolving(new DslComponent(Scope.ROOT, "xxx").newTask(), Entity.class).context(app).embedResolutionInTask(true).get();
         Assert.assertEquals(root1, app);
         
-        Entity c1 = Tasks.resolving(new DslComponent("c1").newTask(), Entity.class).context(app).embedResolutionInTask(true).get();
+        Entity c1 = Tasks.resolving(new DslComponent(Scope.GLOBAL, "c1").newTask(), Entity.class).context(app).embedResolutionInTask(true).get();
         Assert.assertEquals(c1, Iterables.getOnlyElement(Entities.descendantsAndSelf(app, EntityPredicates.displayNameEqualTo("child 1"))));
         
         Entity e1 = Tasks.resolving(new DslComponent(Scope.PARENT, "xxx").newTask(), Entity.class).context(c1).embedResolutionInTask(true).get();
