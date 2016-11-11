@@ -94,7 +94,7 @@ public abstract class AbstractSoftwareProcessStreamsTest extends BrooklynAppLive
             String stdout = getStreamOrFail(subTask, BrooklynTaskTags.STREAM_STDOUT);
             String stderr = getStreamOrFail(subTask, BrooklynTaskTags.STREAM_STDERR);
 //            String env = getStreamOrFail(subTask, BrooklynTaskTags.STREAM_ENV);
-            String msg = "stdin="+stdin+"; stdout="+stdout+"; stderr="+stderr; //+"; env="+env;
+            String msg = "taskName='" + taskNameRegex + "'; expected=" + echoed + "; actual=" + stdout + "\nstdin="+stdin+"\nstdout="+stdout+"\nstderr="+stderr; //+"; env="+env;
 
             assertTrue(stdin.contains("echo "+echoed), msg);
             assertTrue(stdout.contains(echoed), msg);

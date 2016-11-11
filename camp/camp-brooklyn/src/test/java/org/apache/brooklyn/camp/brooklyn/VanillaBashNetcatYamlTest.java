@@ -49,7 +49,8 @@ public class VanillaBashNetcatYamlTest extends AbstractYamlTest {
     private static final AttributeSensor<String> SENSOR_OUTPUT_ALL = Sensors.newStringSensor("output.all");
     final static Effector<String> EFFECTOR_SAY_HI = Effectors.effector(String.class, "sayHiNetcat").buildAbstract();
     
-    @Test(groups="Integration")
+    // OSX specific test because of netcat arguments
+    @Test(groups={"Integration","Broken"})
     public void testInvocationSensorAndEnricher() throws Exception {
         Preconditions.checkArgument(Networking.isPortAvailable(4321), "port 4321 must not be in use (no leaked nc instances) for this test to succeed!");
         

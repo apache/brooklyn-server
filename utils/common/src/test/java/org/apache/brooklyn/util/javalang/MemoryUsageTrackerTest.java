@@ -102,6 +102,7 @@ public class MemoryUsageTrackerTest {
             if (containsAbsent(dump)) break;
         }
         int cleared = countAbsents(dump);
+        assertTrue(cleared > 0, "No soft references cleared after trying to allocate all available memory");
         LOG.info("First soft reference cleared after "+dump.size()+" 1M blocks created; "+cleared+" of them cleared; memory just before collected is "+beforeCollectedMemory);
         
         // Expect the soft references to only have been collected when most of the JVM's memory 

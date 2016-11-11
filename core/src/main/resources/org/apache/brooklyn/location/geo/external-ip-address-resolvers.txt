@@ -18,7 +18,8 @@
 http://jsonip.com/
 http://myip.dnsomatic.com/
 http://checkip.dyndns.org/
-http://wtfismyip.com/text
+# Uses Let's Encrypt certificate supported only in Java 8u101+
+# https://wtfismyip.com/text
 http://whatismyip.akamai.com/
 http://myip.wampdeveloper.com/
 http://icanhazip.com/

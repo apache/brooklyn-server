@@ -126,4 +126,8 @@ public class RecordingSensorEventListener<T> implements SensorEventListener<T>, 
         }
     }
 
+    @Override
+    public String toString() {
+        return getClass().getSimpleName() + "[size=" + getEvents().size() + "; events=" + getEvents() + "]";
+    }
 }

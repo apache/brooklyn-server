@@ -224,6 +224,7 @@ public class SshCliTool extends SshAbstractTool implements SshTool {
         try {
             List<String> cmd = Lists.newArrayList();
             cmd.add(getOptionalVal(props, PROP_SCP_EXECUTABLE, scpExecutable));
+            cmd.add("-B");
             if (privateKeyFile != null) {
                 cmd.add("-i");
                 cmd.add(privateKeyFile.getAbsolutePath());
@@ -260,6 +261,8 @@ public class SshCliTool extends SshAbstractTool implements SshTool {
             List<String> cmd = Lists.newArrayList();
             cmd.add(getOptionalVal(props, PROP_SSH_EXECUTABLE, sshExecutable));
             String propsFlags = getOptionalVal(props, PROP_SSH_FLAGS, sshFlags);
+            cmd.add("-o");
+            cmd.add("BatchMode=yes");
             if (propsFlags!=null && propsFlags.trim().length()>0)
                 cmd.addAll(Arrays.asList(propsFlags.trim().split(" ")));
             if (privateKeyFile != null) {
