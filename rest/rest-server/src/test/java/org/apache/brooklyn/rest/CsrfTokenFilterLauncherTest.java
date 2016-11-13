@@ -23,6 +23,7 @@ import static org.testng.Assert.assertEquals;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 
 import javax.ws.rs.core.HttpHeaders;
 
@@ -48,49 +49,66 @@ public class CsrfTokenFilterLauncherTest extends BrooklynRestApiLauncherTestFixt
             .withoutJsgui()
             .start());
 
+        HttpClient client = client();
+        
         HttpToolResponse response = HttpTool.httpGet(
-            client(), URI.create(getBaseUriRest() + "server/status"),
+            client, URI.create(getBaseUriRest() + "server/status"),
             ImmutableMap.<String,String>of(
-                CsrfTokenFilter.REQUEST_CSRF_TOKEN_HEADER, CsrfTokenFilter.REQUEST_CSRF_TOKEN_HEADER_TRUE ));
+                CsrfTokenFilter.CSRF_TOKEN_REQUIRED_HEADER, CsrfTokenFilter.CsrfTokenRequiredForRequests.WRITE.toString()));
         
         // comes back okay
         assertOkayResponse(response, "MASTER");
         
-        System.out.println(response.getHeaderLists());
-        List<String> tokens = response.getHeaderLists().get(CsrfTokenFilter.REQUIRED_CSRF_TOKEN_HEADER);
-        String token = Iterables.getOnlyElement(tokens);
+        Map<String, List<String>> cookies = response.getCookieKeyValues();
+        String token = Iterables.getOnlyElement(cookies.get(CsrfTokenFilter.CSRF_TOKEN_VALUE_COOKIE));
         Assert.assertNotNull(token);
+        String tokenAngular = Iterables.getOnlyElement(cookies.get(CsrfTokenFilter.CSRF_TOKEN_VALUE_COOKIE_ANGULAR_NAME));
+        Assert.assertEquals(token, tokenAngular);
         
-        List<String> cookies = response.getHeaderLists().get(HttpHeaders.SET_COOKIE);
-        String cookie = Iterables.getOnlyElement(cookies);
-        Assert.assertNotNull(cookie);
-
         // can post subsequently with token
         response = HttpTool.httpPost(
-            client(), URI.create(getBaseUriRest() + "script/groovy"),
+            client, URI.create(getBaseUriRest() + "script/groovy"),
             ImmutableMap.<String,String>of(
                 HttpHeaders.CONTENT_TYPE, "application/text",
-                HttpHeaders.COOKIE, cookie,
-                CsrfTokenFilter.REQUIRED_CSRF_TOKEN_HEADER, token ),
+                CsrfTokenFilter.CSRF_TOKEN_VALUE_HEADER, token ),
             "return 0;".getBytes());
         assertOkayResponse(response, "{\"result\":\"0\"}");
 
         // but fails without token
         response = HttpTool.httpPost(
-            client(), URI.create(getBaseUriRest() + "script/groovy"),
+            client, URI.create(getBaseUriRest() + "script/groovy"),
             ImmutableMap.<String,String>of(
-                HttpHeaders.COOKIE, cookie,
                 HttpHeaders.CONTENT_TYPE, "application/text" ),
             "return 0;".getBytes());
         assertEquals(response.getResponseCode(), HttpStatus.SC_UNAUTHORIZED);
 
-        // but you can get subsequently without token
+        // can get without token
         response = HttpTool.httpGet(
-            client(), URI.create(getBaseUriRest() + "server/status"),
-            ImmutableMap.<String,String>of(
-                HttpHeaders.COOKIE, cookie ));
-
+            client, URI.create(getBaseUriRest() + "server/status"),
+            ImmutableMap.<String,String>of());
         assertOkayResponse(response, "MASTER");
+        
+        // but if we set required ALL then need a token to get
+        response = HttpTool.httpGet(
+            client, URI.create(getBaseUriRest() + "server/status"),
+            ImmutableMap.<String,String>of(
+                CsrfTokenFilter.CSRF_TOKEN_REQUIRED_HEADER, CsrfTokenFilter.CsrfTokenRequiredForRequests.ALL.toString().toLowerCase()
+                ));
+        assertOkayResponse(response, "MASTER");
+        response = HttpTool.httpGet(
+            client, URI.create(getBaseUriRest() + "server/status"),
+            ImmutableMap.<String,String>of());
+        assertEquals(response.getResponseCode(), HttpStatus.SC_UNAUTHORIZED);
+        
+        // however note if we use a new client, with no session, then we can post with no token
+        // (ie we don't guard against CSRF if your brooklyn is unsecured)
+        client = client();
+        response = HttpTool.httpPost(
+            client, URI.create(getBaseUriRest() + "script/groovy"),
+            ImmutableMap.<String,String>of(
+                HttpHeaders.CONTENT_TYPE, "application/text" ),
+            "return 0;".getBytes());
+        assertOkayResponse(response, "{\"result\":\"0\"}");
     }
 
     protected HttpClient client() {
