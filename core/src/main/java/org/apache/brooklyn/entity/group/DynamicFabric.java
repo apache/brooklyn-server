@@ -42,29 +42,38 @@ import com.google.common.reflect.TypeToken;
 @SuppressWarnings("serial")
 public interface DynamicFabric extends AbstractGroup, Startable, Fabric {
 
-    public static final AttributeSensor<Integer> FABRIC_SIZE = Sensors.newIntegerSensor("fabric.size", "Fabric size");
+    ConfigKey<Boolean> INCLUDE_INITIAL_CHILDREN = ConfigKeys.newBooleanConfigKey(
+            "includeInitialChildren",
+            "Whether to include the initial children when handing out the locations to new members "
+                    + "(i.e. if true, these children will each be given a location (round-robin), "
+                    + "rather than creating new members; if false then the children will be given "
+                    + "just the first location (if any), and new members will be created dynamically "
+                    + "for each given location).",
+            true);
     
     @SetFromFlag("memberSpec")
-    public static final ConfigKey<EntitySpec<?>> MEMBER_SPEC = ConfigKeys.newConfigKey(
+    ConfigKey<EntitySpec<?>> MEMBER_SPEC = ConfigKeys.newConfigKey(
             new TypeToken<EntitySpec<?>>() {}, "dynamiccfabric.memberspec", "entity spec for creating new cluster members", null);
 
     @SetFromFlag("factory")
-    public static final ConfigKey<EntityFactory<?>> FACTORY = ConfigKeys.newConfigKey(
+    ConfigKey<EntityFactory<?>> FACTORY = ConfigKeys.newConfigKey(
         new TypeToken<EntityFactory<?>>() {}, "dynamicfabric.factory", "factory for creating new cluster members", null);
 
     @SetFromFlag("displayNamePrefix")
-    public static final ConfigKey<String> DISPLAY_NAME_PREFIX = ConfigKeys.newStringConfigKey(
+    ConfigKey<String> DISPLAY_NAME_PREFIX = ConfigKeys.newStringConfigKey(
             "dynamicfabric.displayNamePrefix", "Display name prefix, for created children");
 
     @SetFromFlag("displayNameSuffix")
-    public static final ConfigKey<String> DISPLAY_NAME_SUFFIX = ConfigKeys.newStringConfigKey(
+    ConfigKey<String> DISPLAY_NAME_SUFFIX = ConfigKeys.newStringConfigKey(
             "dynamicfabric.displayNameSuffix", "Display name suffix, for created children");
 
     @SetFromFlag("customChildFlags")
-    public static final MapConfigKey<Object> CUSTOM_CHILD_FLAGS = new MapConfigKey<Object>(
+    MapConfigKey<Object> CUSTOM_CHILD_FLAGS = new MapConfigKey<Object>(
             Object.class, "dynamicfabric.customChildFlags", "Additional flags to be passed to children when they are being created", ImmutableMap.<String,Object>of());
 
-    public static final AttributeSensor<Lifecycle> SERVICE_STATE_ACTUAL = Attributes.SERVICE_STATE_ACTUAL;
+    AttributeSensor<Integer> FABRIC_SIZE = Sensors.newIntegerSensor("fabric.size", "Fabric size");
+    
+    AttributeSensor<Lifecycle> SERVICE_STATE_ACTUAL = Attributes.SERVICE_STATE_ACTUAL;
 
     public void setMemberSpec(EntitySpec<?> memberSpec);
     

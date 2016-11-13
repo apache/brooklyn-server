@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Set;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -126,7 +125,7 @@ public class SoftwareProcessEntityLatchTest extends BrooklynAppUnitTestSupport {
                 .configure(SoftwareProcess.STOP_LATCH, DependentConfiguration.attributeWhenReady(app, stopper)));
         
         final Task<Void> startTask = Entities.invokeEffector(app, app, MyService.START, ImmutableMap.of("locations", ImmutableList.of(loc)));
-        ((EntityLocal)triggerEntity).sensors().set(Attributes.SERVICE_UP, true);
+        triggerEntity.sensors().set(Attributes.SERVICE_UP, true);
         startTask.get(Duration.THIRTY_SECONDS);
 
         final Task<Void> stopTask = Entities.invokeEffector(app, app, MyService.STOP);
@@ -151,7 +150,7 @@ public class SoftwareProcessEntityLatchTest extends BrooklynAppUnitTestSupport {
         assertDriverEventsEquals(entity, preLatchEvents);
 
         assertFalse(task.isDone());
-        ((EntityLocal)triggerEntity).sensors().set(Attributes.SERVICE_UP, true);
+        triggerEntity.sensors().set(Attributes.SERVICE_UP, true);
         task.get(Duration.THIRTY_SECONDS);
         assertDriverEventsEquals(entity, ImmutableList.of("setup", "copyInstallResources", "install", "customize", "copyRuntimeResources", "launch"));
     }

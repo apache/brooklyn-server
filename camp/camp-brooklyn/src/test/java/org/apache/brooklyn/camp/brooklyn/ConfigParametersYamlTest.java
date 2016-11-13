@@ -26,29 +26,31 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
-
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
 import org.apache.brooklyn.entity.stock.BasicApplication;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecCmd;
 import org.apache.brooklyn.util.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 
 public class ConfigParametersYamlTest extends AbstractYamlTest {
     @SuppressWarnings("unused")
@@ -59,6 +61,16 @@ public class ConfigParametersYamlTest extends AbstractYamlTest {
     public void setUp() throws Exception {
         super.setUp();
         RecordingSshTool.clear();
+    }
+    
+    @AfterMethod(alwaysRun=true)
+    @Override
+    public void tearDown() throws Exception {
+        try {
+            super.tearDown();
+        } finally {
+            RecordingSshTool.clear();
+        }
     }
     
     @Test
@@ -96,6 +108,80 @@ public class ConfigParametersYamlTest extends AbstractYamlTest {
         assertEquals(entity.config().get(key), ImmutableMap.of("myDefaultKey", "myDefaultVal"));
     }
     
+    /**
+     * See comment in testConfigParametersAtRootListedInTemplateSingleEntity for why we have two 
+     * Note that (surprisingly!) it's very important that there are two entities listed under 
+     * "services". If there is just one, then the BasicApplication created to wrap it will not 
+     * have the key. Instead, the single child will have the key. This is because the top-level 
+     * app is considered "uninteresting" as it is only there to wrap a non-app entity.
+     * 
+     * @see {@link #testConfigParametersAtRootListedInTemplateSingleEntity()}
+     */
+    @Test
+    public void testConfigParametersAtRootListedInTemplateApp() throws Exception {
+        
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: template",
+                "  items:",
+                "  - id: template-with-top-level-params",
+                "    item:",
+                "      brooklyn.parameters:",
+                "      - name: test.parameter",
+                "        description: myDescription",
+                "        type: String",
+                "        default: myDefaultParamVal",
+                "      services:",
+                "      - type: "+TestEntity.class.getName(),
+                "      - type: "+TestEntity.class.getName()
+        );
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: template-with-top-level-params");
+        
+        Entity app = createStartWaitAndLogApplication(yaml);
+        
+        ConfigKey<?> key = app.getEntityType().getConfigKey("test.parameter");
+        assertNotNull(key, "No key 'test.parameter'; keys="+app.getEntityType().getConfigKeys());
+        assertEquals(key.getDescription(), "myDescription");
+        assertEquals(key.getType(), String.class);
+        assertEquals(key.getDefaultValue(), "myDefaultParamVal");
+    }
+
+    /**
+     * See comment in {@link #testConfigParametersAtRootListedInTemplateApp()} for why the key
+     * is on the child entity rather than the top-level app!
+     */
+    @Test
+    public void testConfigParametersAtRootListedInTemplateSingleEntity() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: template",
+                "  items:",
+                "  - id: template-with-top-level-params",
+                "    item:",
+                "      brooklyn.parameters:",
+                "      - name: test.parameter",
+                "        description: myDescription",
+                "        type: String",
+                "        default: myDefaultParamVal",
+                "      services:",
+                "      - type: "+TestEntity.class.getName()
+        );
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: template-with-top-level-params");
+        
+        Entity app = createStartWaitAndLogApplication(yaml);
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+        
+        ConfigKey<?> key = entity.getEntityType().getConfigKey("test.parameter");
+        assertNotNull(key, "No key 'test.parameter'; keys="+entity.getEntityType().getConfigKeys());
+        assertEquals(key.getDescription(), "myDescription");
+        assertEquals(key.getType(), String.class);
+        assertEquals(key.getDefaultValue(), "myDefaultParamVal");
+    }
+
     @Test
     public void testConfigParameterDefault() throws Exception {
         addCatalogItems(
@@ -225,6 +311,70 @@ public class ConfigParametersYamlTest extends AbstractYamlTest {
         assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("my.sub.key")), "myDefaultVal");
     }
 
+    @Test
+    public void testChildUsesDefaultsFromParent() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: template",
+                "  items:",
+                "  - id: template-with-top-level-params",
+                "    item:",
+                "      brooklyn.parameters:",
+                "      - name: test.parameter",
+                "        description: myDescription",
+                "        type: String",
+                "        default: myDefaultParamVal",
+                "      services:",
+                "      - type: "+TestEntity.class.getName(),
+                "        brooklyn.config:",
+                "          " + TestEntity.ATTRIBUTE_AND_CONF_STRING.getName() + ": $brooklyn:config(\"test.parameter\")"
+        );
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: template-with-top-level-params");
+        
+        Entity app = createStartWaitAndLogApplication(yaml);
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+        assertEquals(entity.sensors().get(TestEntity.ATTRIBUTE_AND_CONF_STRING), "myDefaultParamVal");
+    }
+
+    @Test
+    public void testChildSoftwareProcessUsesDefaultsFromParent() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: template",
+                "  items:",
+                "  - id: template-with-top-level-params",
+                "    item:",
+                "      brooklyn.parameters:",
+                "      - name: test.parameter",
+                "        description: myDescription",
+                "        type: String",
+                "        default: myDefaultParamVal",
+                "      services:",
+                "      - type: "+VanillaSoftwareProcess.class.getName(),
+                "        sshMonitoring.enabled: false",
+                "        " + BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION.getName() + ": true",
+                "        shell.env:",
+                "          TEST: $brooklyn:config(\"test.parameter\")",
+                "        launch.command: |",
+                "          true",
+                "        checkRunning.command: |",
+                "          true"
+        );
+        String yaml = Joiner.on("\n").join(
+                "location:",
+                "  localhost:",
+                "    " + SshMachineLocation.SSH_TOOL_CLASS.getName() + ": " + RecordingSshTool.class.getName(),
+                "services:",
+                "- type: template-with-top-level-params");
+        
+        createStartWaitAndLogApplication(yaml);
+        
+        Map<?, ?> env = RecordingSshTool.getLastExecCmd().env;
+        assertEquals(env.get("TEST"), "myDefaultParamVal", "env="+env);
+    }
+
     // TODO: fails; it presumably gets the config key defined in java, rather than the brooklyn.parameters key
     // See https://issues.apache.org/jira/browse/BROOKLYN-328
     @Test(groups={"WIP", "Broken"})
@@ -335,7 +485,7 @@ public class ConfigParametersYamlTest extends AbstractYamlTest {
                 "    sshToolClass: "+RecordingSshTool.class.getName(),
                 "services:",
                 "- type: sub-entity");
-        Entity app = createStartWaitAndLogApplication(yaml);
+        createStartWaitAndLogApplication(yaml);
         
         ExecCmd cmd = ExecCmdAsserts.findExecContaining(RecordingSshTool.getExecCmds(), "myLaunchCmd");
         assertEquals(cmd.env.get("KEY_IN_SUPER"), "myDefaultVal", "cmd="+cmd);

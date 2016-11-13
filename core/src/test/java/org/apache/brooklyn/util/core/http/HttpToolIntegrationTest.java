@@ -22,7 +22,13 @@ import static org.testng.Assert.assertTrue;
 
 import java.net.URI;
 
+import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
 import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpDelete;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpHead;
+import org.apache.http.client.methods.HttpOptions;
+import org.apache.http.client.methods.HttpTrace;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -51,7 +57,32 @@ public class HttpToolIntegrationTest {
         if (httpService != null) httpService.shutdown();
         if (httpsService != null) httpsService.shutdown();
     }
-    
+
+    @Test(expectedExceptions = PropagatedRuntimeException.class)
+    public void testHttpRequestBuilderThrowsExIfBodySetForGet() throws Exception {
+        new HttpTool.HttpRequestBuilder<>(HttpGet.class).body("test").build();
+    }
+
+    @Test(expectedExceptions = PropagatedRuntimeException.class)
+    public void testHttpRequestBuilderThrowsExIfBodySetForDelete() throws Exception {
+        new HttpTool.HttpRequestBuilder<>(HttpDelete.class).body("test").build();
+    }
+
+    @Test(expectedExceptions = PropagatedRuntimeException.class)
+    public void testHttpRequestBuilderThrowsExIfBodySetForHead() throws Exception {
+        new HttpTool.HttpRequestBuilder<>(HttpHead.class).body("test").build();
+    }
+
+    @Test(expectedExceptions = PropagatedRuntimeException.class)
+    public void testHttpRequestBuilderThrowsExIfBodySetForOptions() throws Exception {
+        new HttpTool.HttpRequestBuilder<>(HttpOptions.class).body("test").build();
+    }
+
+    @Test(expectedExceptions = PropagatedRuntimeException.class)
+    public void testHttpRequestBuilderThrowsExIfBodySetForTrace() throws Exception {
+        new HttpTool.HttpRequestBuilder<>(HttpTrace.class).body("test").build();
+    }
+
     @Test(groups = {"Integration"})
     public void testHttpGet() throws Exception {
         URI baseUri = new URI(httpService.getUrl());

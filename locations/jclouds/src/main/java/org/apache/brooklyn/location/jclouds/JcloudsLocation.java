@@ -224,7 +224,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     private static final int NOTES_MAX_LENGTH = 1000;
 
     @VisibleForTesting
-    static final String AWS_VPC_HELP_URL = "http://brooklyn.apache.org/v/"+BrooklynVersion.get()+"/ops/locations/more-clouds.html";
+    static final String AWS_VPC_HELP_URL = "http://brooklyn.apache.org/v/latest/ops/locations/index.html#ec2-classic-problems-with-vpc-only-hardware-instance-types";
 
     private final AtomicBoolean loggedSshKeysHint = new AtomicBoolean(false);
     private final AtomicBoolean listedAvailableTemplatesOnNoSuchTemplate = new AtomicBoolean(false);
@@ -3460,7 +3460,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
         if (sshHostAndPort.isPresent() || inferredHostAndPort != null) {
             if (isWindows(node, setup)) {
-                LOG.warn("Cannpy query aws-ec2 Windows instance "+node.getId()+"@"+node.getLocation()+" over ssh for its hostname; falling back to jclouds metadata for address");
+                LOG.warn("Error querying aws-ec2 Windows instance "+node.getId()+"@"+node.getLocation()+" over ssh for its hostname; falling back to jclouds metadata for address");
             } else {
                 HostAndPort hostAndPortToUse = sshHostAndPort.isPresent() ? sshHostAndPort.get() : inferredHostAndPort;
                 try {

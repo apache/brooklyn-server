@@ -19,6 +19,8 @@
 package org.apache.brooklyn.entity.group;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 import java.util.Collection;
 import java.util.List;
@@ -27,10 +29,12 @@ import java.util.Set;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.entity.group.DynamicRegionsFabric;
+import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.testng.annotations.BeforeMethod;
@@ -60,15 +64,97 @@ public class DynamicRegionsFabricTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
-    public void testUsesInitialLocations() throws Exception {
+    public void testUsesInitialLocationsFromStartEffectorArgs() throws Exception {
         app.start(ImmutableList.of(loc1, loc2));
 
-        assertEquals(fabric.getChildren().size(), 2, "children="+fabric.getChildren());
-        assertEquals(fabric.getMembers().size(), 2, "members="+fabric.getMembers());
-        assertEqualsIgnoringOrder(fabric.getChildren(), fabric.getMembers());
-        assertEqualsIgnoringOrder(getLocationsOfChildren(fabric), ImmutableList.of(loc1, loc2));
+        assertFabricChildren(fabric, 2, ImmutableList.of(loc1, loc2));
     }
     
+    @Test
+    @SuppressWarnings("deprecation")
+    public void testUsesInitialLocationsFromAppSpec() throws Exception {
+        TestApplication app2 = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class)
+            .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, true)
+            .child(EntitySpec.create(DynamicRegionsFabric.class)
+                .configure("memberSpec", EntitySpec.create(TestEntity.class)))
+            .locations(ImmutableList.of(loc1, loc2)));
+        DynamicRegionsFabric fabric2 = (DynamicRegionsFabric) Iterables.getOnlyElement(app2.getChildren());
+        app2.start(ImmutableList.<Location>of());
+        
+        assertFabricChildren(fabric2, 2, ImmutableList.of(loc1, loc2));
+    }
+    
+    @Test
+    @SuppressWarnings("deprecation")
+    public void testUsesInitialLocationsFromEntitySpec() throws Exception {
+        TestApplication app2 = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class)
+            .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, true)
+            .child(EntitySpec.create(DynamicRegionsFabric.class)
+                .configure("memberSpec", EntitySpec.create(TestEntity.class))
+                .locations(ImmutableList.of(loc1, loc2))));
+        DynamicRegionsFabric fabric2 = (DynamicRegionsFabric) Iterables.getOnlyElement(app2.getChildren());
+        app2.start(ImmutableList.<Location>of());
+        
+        assertFabricChildren(fabric2, 2, ImmutableList.of(loc1, loc2));
+    }
+    
+    @Test
+    public void testUsesInitialLocationsForExistingChildCreatingExtras() throws Exception {
+        // Expect existing child to be used for one location, and a second child to be created 
+        // automatically for the second location
+        runUsesInitialLocationsForExistingChildren(1);
+    }
+
+    @Test
+    public void testUsesInitialLocationsForExistingChildren() throws Exception {
+        // Expect the two existing children to be used for the two locations; no additional
+        // children should be created automatically.
+        runUsesInitialLocationsForExistingChildren(2);
+    }
+
+    @Test
+    public void testUsesInitialLocationsRoundRobinForExistingChildren() throws Exception {
+        // Expect the two locations to be used round-robin for the three existing children;
+        // no additional children should be created automatically.
+        runUsesInitialLocationsForExistingChildren(3);
+    }
+
+    @Test
+    public void testIgnoredNonStartableChildren() throws Exception {
+        // Add a basic entity; this will not count as a "member" because it is not startable.
+        // Therefore expect two new children to be created.
+        BasicEntity existingChild = fabric.addChild(EntitySpec.create(BasicEntity.class));
+        app.start(ImmutableList.of(loc1, loc2));
+        assertFabricMembers(fabric, 2, ImmutableList.of(loc1, loc2));
+        assertFalse(fabric.getMembers().contains(existingChild));
+    }
+
+    @Test
+    public void testTurnOffIncludeInitialChildren() throws Exception {
+        // Turning off "include initial children" means they will be ignored in the member-count.
+        fabric.config().set(DynamicFabric.INCLUDE_INITIAL_CHILDREN, false);
+        TestEntity existingChild = fabric.addChild(EntitySpec.create(TestEntity.class));
+        app.start(ImmutableList.of(loc1, loc2));
+        assertFabricMembers(fabric, 2, ImmutableList.of(loc1, loc2));
+        
+        assertFalse(fabric.getMembers().contains(existingChild));
+        assertEqualsIgnoringOrder(existingChild.getLocations(), ImmutableList.of(loc1));
+    }
+
+    protected void runUsesInitialLocationsForExistingChildren(int numChildren) throws Exception {
+        List<TestEntity> existingChildren = Lists.newArrayList();
+        for (int i = 0; i < numChildren; i++) {
+            existingChildren.add(fabric.addChild(EntitySpec.create(TestEntity.class)));
+        }
+        app.start(ImmutableList.of(loc1, loc2));
+
+        int expectedNumChildren = Math.max(numChildren, 2);
+        Iterable<Location> expectedChildLocations = Iterables.limit(Iterables.cycle(ImmutableList.of(loc1, loc2)), expectedNumChildren);
+        
+        assertFabricChildren(fabric, expectedNumChildren, ImmutableList.copyOf(expectedChildLocations));
+        assertTrue(fabric.getChildren().containsAll(existingChildren));
+    }
+
     @Test
     public void testDynamicallyAddLocations() throws Exception {
         app.start(ImmutableList.of(loc1));
@@ -156,9 +242,17 @@ public class DynamicRegionsFabricTest extends BrooklynAppUnitTestSupport {
     }
     
     private List<Location> getLocationsOfChildren(DynamicRegionsFabric fabric) {
+        return getLocationsOf(fabric.getChildren());
+    }
+
+    private List<Location> getLocationsOfMembers(DynamicRegionsFabric fabric) {
+        return getLocationsOf(fabric.getMembers());
+    }
+
+    private List<Location> getLocationsOf(Iterable<? extends Entity> entities) {
         List<Location> result = Lists.newArrayList();
-        for (Entity child : fabric.getChildren()) {
-            result.addAll(child.getLocations());
+        for (Entity entity : entities) {
+            result.addAll(entity.getLocations());
         }
         return result;
     }
@@ -166,5 +260,18 @@ public class DynamicRegionsFabricTest extends BrooklynAppUnitTestSupport {
     private void assertEqualsIgnoringOrder(Iterable<? extends Object> col1, Iterable<? extends Object> col2) {
         assertEquals(Iterables.size(col1), Iterables.size(col2), "col2="+col1+"; col2="+col2);
         assertEquals(MutableSet.copyOf(col1), MutableSet.copyOf(col2), "col1="+col1+"; col2="+col2);
+    }
+    
+    private void assertFabricChildren(DynamicRegionsFabric fabric, int expectedSize, List<? extends Location> expectedLocs) {
+        assertEquals(fabric.getChildren().size(), expectedSize, "children="+fabric.getChildren());
+        assertEquals(fabric.getMembers().size(), expectedSize, "members="+fabric.getMembers());
+        assertEqualsIgnoringOrder(fabric.getChildren(), fabric.getMembers());
+        assertEqualsIgnoringOrder(getLocationsOfChildren(fabric), expectedLocs);
+    }
+    
+    private void assertFabricMembers(DynamicRegionsFabric fabric, int expectedSize, List<? extends Location> expectedLocs) {
+        assertEquals(fabric.getMembers().size(), expectedSize, "members="+fabric.getMembers());
+        assertTrue(fabric.getChildren().containsAll(fabric.getMembers()));
+        assertEqualsIgnoringOrder(getLocationsOfMembers(fabric), expectedLocs);
     }
 }

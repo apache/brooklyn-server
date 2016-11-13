@@ -134,7 +134,7 @@ public class PortAttributeSensorAndConfigKey extends AttributeSensorAndConfigKey
                 LOG.warn("{}: ports not applicable, or not yet applicable, because has multiple locations {}; ignoring ", new Object[] { entity, locations, getName() });
             }
         } else {
-            LOG.warn("{}: ports not applicable, or not yet applicable, bacause has no locations; ignoring {}", entity, getName());
+            LOG.warn("{}: ports not applicable, or not yet applicable, because has no locations; ignoring {}", entity, getName());
         }
         return null;
     }

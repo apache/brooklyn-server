@@ -32,6 +32,7 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
+import org.apache.brooklyn.core.feed.ConfigToAttributes;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -120,6 +121,8 @@ public class TestEntityImpl extends AbstractEntity implements TestEntity {
 
     @Override
     public void start(Collection<? extends Location> locs) {
+        ConfigToAttributes.apply(this);
+        
         LOG.trace("Starting {}", this);
         callHistory.add("start");
         ServiceStateLogic.setExpectedState(this, Lifecycle.STARTING);

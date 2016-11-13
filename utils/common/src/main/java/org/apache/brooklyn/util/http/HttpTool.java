@@ -26,6 +26,7 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
+import java.nio.charset.Charset;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
@@ -43,6 +44,7 @@ import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLSession;
 
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.crypto.SslTrustUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.net.URLParamEncoder;
@@ -53,7 +55,6 @@ import org.apache.brooklyn.util.time.Time;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.http.ConnectionReuseStrategy;
 import org.apache.http.HttpEntity;
-import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
 import org.apache.http.auth.AuthScope;
@@ -62,11 +63,11 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpDelete;
-import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpHead;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
+import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.conn.ClientConnectionManager;
 import org.apache.http.conn.scheme.Scheme;
@@ -399,94 +400,119 @@ public class HttpTool {
         }
     }
 
-    protected static abstract class HttpRequestBuilder<B extends HttpRequestBuilder<B, R>, R extends HttpRequest> {
-        protected R req;
-        
-        protected HttpRequestBuilder(R req) {
-            this.req = req;
+    public static class HttpRequestBuilder<R extends HttpRequestBase> {
+        private Class<R> requestClass;
+        private Map<String, String> headers;
+        private URI uri;
+        private HttpEntity body;
+
+        public HttpRequestBuilder(Class<R> requestClass) {
+            this.requestClass = requestClass;
+            this.headers = MutableMap.of();
         }
-        @SuppressWarnings("unchecked")
-        protected B self() {
-            return (B) this;
+
+        public HttpRequestBuilder<R> uri(URI uri) {
+            this.uri = uri;
+            return this;
         }
-        public B headers(Map<String,String> headers) {
-            if (headers!=null) {
-                for (Map.Entry<String,String> entry : headers.entrySet()) {
-                    req.addHeader(entry.getKey(), entry.getValue());
-                }
+
+        public HttpRequestBuilder<R> headers(Map<String, String> headers) {
+            if (headers != null) {
+                this.headers.putAll(headers);
             }
-            return self();
+            return this;
         }
-        public B headers(Multimap<String,String> headers) {
-            if (headers!=null) {
+
+        public HttpRequestBuilder<R> headers(Multimap<String, String> headers) {
+            if (headers != null) {
                 for (Map.Entry<String,String> entry : headers.entries()) {
-                    req.addHeader(entry.getKey(), entry.getValue());
+                    this.headers.put(entry.getKey(), entry.getValue());
                 }
             }
-            return self();
+            return this;
         }
-        public R build() {
-            return req;
-        }
-    }
-    
-    protected static abstract class HttpEntityEnclosingRequestBaseBuilder<B extends HttpEntityEnclosingRequestBaseBuilder<B,R>, R extends HttpEntityEnclosingRequestBase> extends HttpRequestBuilder<B, R> {
-        protected HttpEntityEnclosingRequestBaseBuilder(R req) {
-            super(req);
-        }
-        public B body(byte[] body) {
+
+        public HttpRequestBuilder<R> body(byte[] body) {
             if (body != null) {
-                HttpEntity httpEntity = new ByteArrayEntity(body);
-                req.setEntity(httpEntity);
+                this.body = new ByteArrayEntity(body);
             }
-            return self();
-        }
-    }
-    
-    public static class HttpGetBuilder extends HttpRequestBuilder<HttpGetBuilder, HttpGet> {
-        public HttpGetBuilder(URI uri) {
-            super(new HttpGet(uri));
-        }
-    }
-    
-    public static class HttpHeadBuilder extends HttpRequestBuilder<HttpHeadBuilder, HttpHead> {
-        public HttpHeadBuilder(URI uri) {
-            super(new HttpHead(uri));
-        }
-    }
-    
-    public static class HttpDeleteBuilder extends HttpRequestBuilder<HttpDeleteBuilder, HttpDelete> {
-        public HttpDeleteBuilder(URI uri) {
-            super(new HttpDelete(uri));
-        }
-    }
-    
-    public static class HttpPostBuilder extends HttpEntityEnclosingRequestBaseBuilder<HttpPostBuilder, HttpPost> {
-        HttpPostBuilder(URI uri) {
-            super(new HttpPost(uri));
-        }
-    }
-
-    public static class HttpFormPostBuilder extends HttpRequestBuilder<HttpFormPostBuilder, HttpPost> {
-        HttpFormPostBuilder(URI uri) {
-            super(new HttpPost(uri));
+            return this;
         }
 
-        public HttpFormPostBuilder params(Map<String, String> params) {
-            if (params != null) {
-                Collection<NameValuePair> httpParams = new ArrayList<NameValuePair>(params.size());
-                for (Entry<String, String> param : params.entrySet()) {
+        public HttpRequestBuilder<R> body(String body) {
+            if (body != null) {
+                this.body(body.getBytes(Charset.forName("UTF-8")));
+            }
+            return this;
+        }
+
+        public HttpRequestBuilder<R> body(Map<String, String> body) {
+            if (body != null) {
+                Collection<NameValuePair> httpParams = new ArrayList<NameValuePair>(body.size());
+                for (Entry<String, String> param : body.entrySet()) {
                     httpParams.add(new BasicNameValuePair(param.getKey(), param.getValue()));
                 }
-                req.setEntity(new UrlEncodedFormEntity(httpParams));
+                this.body = new UrlEncodedFormEntity(httpParams);
             }
-            return self();
+            return this;
+        }
+
+        public R build() {
+            try {
+                R request = this.requestClass.newInstance();
+                request.setURI(this.uri);
+                for (Map.Entry<String,String> entry : this.headers.entrySet()) {
+                    request.addHeader(entry.getKey(), entry.getValue());
+                }
+                if (this.body != null) {
+                    if (request instanceof HttpPost) {
+                        ((HttpPost) request).setEntity(this.body);
+                    } else if (request instanceof HttpPut) {
+                        ((HttpPut) request).setEntity(this.body);
+                    } else {
+                        throw new Exception(this.requestClass.getSimpleName() + " does not support a request body");
+                    }
+                }
+                return request;
+            } catch (Exception e) {
+                LOG.warn("Cannot create the HTTP request for uri {}", this.uri);
+                throw Exceptions.propagate(e);
+            }
+        }
+    }
+    
+    public static class HttpGetBuilder extends HttpRequestBuilder<HttpGet> {
+        public HttpGetBuilder(URI uri) {
+            super(HttpGet.class);
+            this.uri(uri);
+        }
+    }
+    
+    public static class HttpHeadBuilder extends HttpRequestBuilder<HttpHead> {
+        public HttpHeadBuilder(URI uri) {
+            super(HttpHead.class);
+            this.uri(uri);
+        }
+    }
+    
+    public static class HttpDeleteBuilder extends HttpRequestBuilder<HttpDelete> {
+        public HttpDeleteBuilder(URI uri) {
+            super(HttpDelete.class);
+            this.uri(uri);
+        }
+    }
+    
+    public static class HttpPostBuilder extends HttpRequestBuilder<HttpPost> {
+        public HttpPostBuilder(URI uri) {
+            super(HttpPost.class);
+            this.uri(uri);
         }
     }
 
-    public static class HttpPutBuilder extends HttpEntityEnclosingRequestBaseBuilder<HttpPutBuilder, HttpPut> {
+    public static class HttpPutBuilder extends HttpRequestBuilder<HttpPut> {
         public HttpPutBuilder(URI uri) {
-            super(new HttpPut(uri));
+            super(HttpPut.class);
+            this.uri(uri);
         }
     }
     
@@ -521,7 +547,7 @@ public class HttpTool {
     }
 
     public static HttpToolResponse httpPost(HttpClient httpClient, URI uri, Map<String,String> headers, Map<String, String> params) {
-        HttpPost req = new HttpFormPostBuilder(uri).headers(headers).params(params).build();
+        HttpPost req = new HttpPostBuilder(uri).body(params).headers(headers).build();
         return execAndConsume(httpClient, req);
     }
 

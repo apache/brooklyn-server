@@ -429,8 +429,9 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     
     @Override
     public boolean equals(Object o) {
-        return (o == this || o == selfProxy) || 
-                (o instanceof Entity && Objects.equal(getId(), ((Entity)o).getId()));
+        return o != null &&
+                ((o == this || o == selfProxy) ||
+                (o instanceof Entity && Objects.equal(getId(), ((Entity)o).getId())));
     }
     
     /** internal use only */ @Beta

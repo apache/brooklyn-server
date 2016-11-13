@@ -320,7 +320,6 @@ public class InternalEntityFactory extends InternalFactory {
          * TODO It would be nice if these schedule tasks were grouped in a bucket! 
          */
         ((EntityInternal)entity).getExecutionContext().submit(Tasks.builder().dynamic(false).displayName("Entity initialization")
-                .tag(BrooklynTaskTags.tagForContextEntity(entity))
                 .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
                 .body(new Runnable() {
             @Override

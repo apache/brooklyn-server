@@ -159,11 +159,11 @@ public class EntityRefsYamlTest extends AbstractYamlTest {
         
         Entities.dumpInfo(app);
         
-        Entity entity1 = Iterables.find(Entities.descendants(app), EntityPredicates.displayNameEqualTo("entity1"));
-        Entity entity1_1 = Iterables.find(Entities.descendants(app), EntityPredicates.displayNameEqualTo("entity1.1"));
-        Entity entity2 = Iterables.find(Entities.descendants(app), EntityPredicates.displayNameEqualTo("entity2"));
-        Entity entity2_1 = Iterables.find(Entities.descendants(app), EntityPredicates.displayNameEqualTo("entity2.1"));
-        Entity entity2_2 = Iterables.find(Entities.descendants(app), EntityPredicates.displayNameEqualTo("entity2.2"));
+        Entity entity1 = Iterables.find(Entities.descendantsAndSelf(app), EntityPredicates.displayNameEqualTo("entity1"));
+        Entity entity1_1 = Iterables.find(Entities.descendantsAndSelf(app), EntityPredicates.displayNameEqualTo("entity1.1"));
+        Entity entity2 = Iterables.find(Entities.descendantsAndSelf(app), EntityPredicates.displayNameEqualTo("entity2"));
+        Entity entity2_1 = Iterables.find(Entities.descendantsAndSelf(app), EntityPredicates.displayNameEqualTo("entity2.1"));
+        Entity entity2_2 = Iterables.find(Entities.descendantsAndSelf(app), EntityPredicates.displayNameEqualTo("entity2.2"));
         
         assertEquals(entity1.getConfig(newConfigKey("conf1.sibling")), entity2);
         assertEquals(entity1.getConfig(newConfigKey("conf1.sibling2")), entity2);

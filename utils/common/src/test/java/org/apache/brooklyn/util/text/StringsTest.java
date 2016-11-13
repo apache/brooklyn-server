@@ -343,6 +343,14 @@ public class StringsTest extends FixedLocaleTest {
         Assert.assertEquals(Strings.maxlenWithEllipsis("hello world", 9), "hello ...");
         Assert.assertEquals(Strings.maxlenWithEllipsis("hello world", 7, "--"), "hello--");
     }
+    
+    public void testLines() {
+        Assert.assertEquals(Strings.lines("a", "b"), "a\nb");
+    }
+    
+    public void testRemoveLines() {
+        Assert.assertEquals(Strings.removeLines(Strings.lines("a", "b"), StringPredicates.containsLiteralIgnoreCase("A")), "b");
+    }
 
     @Test
     public void testGetRemainderOfLineAfter() {

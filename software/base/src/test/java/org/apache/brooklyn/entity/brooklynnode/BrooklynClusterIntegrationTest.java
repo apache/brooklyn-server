@@ -76,7 +76,7 @@ public class BrooklynClusterIntegrationTest extends BrooklynAppUnitTestSupport {
         }
     }
 
-    @Test(groups="Integration")
+    @Test(groups={"Integration", "Broken"})
     public void testCanStartAndStop() throws Exception {
         BrooklynCluster cluster = app.createAndManageChild(EntitySpec.create(BrooklynCluster.class)
                 .configure(BrooklynCluster.INITIAL_SIZE, 1)

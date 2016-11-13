@@ -41,6 +41,7 @@ import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.trait.Startable;
+import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.sensor.BasicNotificationSensor;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
@@ -70,7 +71,12 @@ public interface TestEntity extends Entity, Startable, EntityLocal, EntityIntern
     public static final SetConfigKey<Object> CONF_SET_OBJ_THING = new SetConfigKey<Object>(Object.class, "test.confSetObjThing", "Configuration key that's a set thing, of objects");
     public static final BasicConfigKey<Object> CONF_OBJECT = new BasicConfigKey<Object>(Object.class, "test.confObject", "Configuration key that's an object");
     public static final ConfigKey<EntitySpec<? extends Entity>> CHILD_SPEC = ConfigKeys.newConfigKey(new TypeToken<EntitySpec<? extends Entity>>() {}, "test.childSpec", "Spec to be used for creating children");
-    
+
+    public static final AttributeSensorAndConfigKey<String, String> ATTRIBUTE_AND_CONF_STRING = ConfigKeys.newStringSensorAndConfigKey(
+            "test.attributeAndConfString", 
+            "Attribute and config key", 
+            "defaultval");
+
     public static final AttributeSensor<Integer> SEQUENCE = Sensors.newIntegerSensor("test.sequence", "Test Sequence");
     public static final AttributeSensor<String> NAME = Sensors.newStringSensor("test.name", "Test name");
     public static final BasicNotificationSensor<Integer> MY_NOTIF = new BasicNotificationSensor<Integer>(Integer.class, "test.myNotif", "Test notification");

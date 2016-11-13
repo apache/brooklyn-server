@@ -21,8 +21,10 @@ import static org.testng.Assert.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
@@ -30,12 +32,14 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.camp.brooklyn.BrooklynCampConstants;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.objs.BasicSpecParameter;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
@@ -58,6 +62,13 @@ import com.google.common.util.concurrent.ListenableScheduledFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 
+/**
+ * Also see org.apache.brooklyn.camp.brooklyn.DslAndRebindYamlTest for pure-yaml tests.
+ * 
+ * The purpose of this class is to test at the java-api level, giving more control for
+ * repeated assertions etc (e.g. concurrent calls, looping round to create entities
+ * repeatedly, etc).
+ */
 public class DslTest extends BrooklynAppUnitTestSupport {
 
     private static final int MAX_PARALLEL_RESOLVERS = 50;
@@ -238,10 +249,49 @@ public class DslTest extends BrooklynAppUnitTestSupport {
         });
     }
 
+    @Test
+    public void testEntity() throws Exception {
+        TestEntity entity = app.addChild(EntitySpec.create(TestEntity.class).configure(BrooklynCampConstants.PLAN_ID, "myId"));
+        BrooklynDslDeferredSupplier<?> dsl = BrooklynDslCommon.entity("myId");
+        Maybe<?> actualValue = execDslImmediately(dsl, Entity.class, app, true);
+        assertEquals(actualValue.get(), entity);
+    }
+
+    @Test
+    public void testEntityNotFound() throws Exception {
+        BrooklynDslDeferredSupplier<?> dsl = BrooklynDslCommon.entity("myIdDoesNotExist");
+        try {
+            Maybe<?> actualValue = execDslImmediately(dsl, Entity.class, app, true);
+            Asserts.shouldHaveFailedPreviously("actual="+actualValue);
+        } catch (Exception e) {
+            NoSuchElementException nsee = Exceptions.getFirstThrowableOfType(e, NoSuchElementException.class);
+            if (nsee == null) {
+                throw e;
+            }
+        }
+    }
+
+    // Different from testParentConcurrent() only in the execution context the task is submitted in (global vs app)
+    @Test(invocationCount=10)
+    public void testTaskContext() {
+        final TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        // context entity here = none
+        Task<Entity> task = Tasks.<Entity>builder()
+            .body(new Callable<Entity>() {
+                @Override
+                public Entity call() throws Exception {
+                    // context entity here = entity
+                    return BrooklynTaskTags.getContextEntity(Tasks.current());
+                }
+            }).build();
+        Task<Entity> result = entity.getExecutionContext().submit(task);
+        assertEquals(result.getUnchecked(), entity);
+    }
+
     protected void runConcurrentWorker(Supplier<Runnable> taskSupplier) {
         Collection<Task<?>> results = new ArrayList<>();
         for (int i = 0; i < MAX_PARALLEL_RESOLVERS; i++) {
-            Task<?> result = mgmt.getExecutionManager().submit(taskSupplier.get());
+            Task<?> result = app.getExecutionContext().submit(taskSupplier.get());
             results.add(result);
         }
         for (Task<?> result : results) {

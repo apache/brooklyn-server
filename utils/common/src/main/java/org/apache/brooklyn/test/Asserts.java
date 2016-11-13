@@ -954,6 +954,7 @@ public class Asserts {
                     }
                     lastException = null;
                 } catch(Throwable e) {
+                    Exceptions.propagateIfInterrupt(e);
                     lastException = e;
                     if (log.isTraceEnabled()) log.trace("Attempt {} after {} ms: {}", new Object[] {attempt, System.currentTimeMillis() - startTime, e.getMessage()});
                     if (abortOnException) throw e;
@@ -969,10 +970,11 @@ public class Asserts {
                 throw lastException;
             throw fail("invalid results; last was: "+result);
         } catch (Throwable t) {
+            Exceptions.propagateIfInterrupt(t);
             if (logException) log.info("failed succeeds-eventually, "+attempt+" attempts, "+
                     (System.currentTimeMillis()-startTime)+"ms elapsed "+
                     "(rethrowing): "+t);
-            throw Exceptions.propagateAnnotated("failed succeeds-eventually, "+attempt+" attempts, "+
+            throw new AssertionError("failed succeeds-eventually, "+attempt+" attempts, "+
                 (System.currentTimeMillis()-startTime)+"ms elapsed: "+Exceptions.collapseText(t), t);
         }
     }

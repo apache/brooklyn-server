@@ -41,8 +41,10 @@ import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 
 public class Strings {
@@ -217,7 +219,19 @@ public class Strings {
 
     /** convenience for joining lines together */
     public static String lines(String ...lines) {
-        return Joiner.on("\n").join(Arrays.asList(lines));
+        if (lines==null) return null;
+        return lines(Arrays.asList(lines));
+    }
+    
+    /** convenience for joining lines together */
+    public static String lines(Iterable<String> lines) {
+        if (lines==null) return null;
+        return Joiner.on("\n").join(lines);
+    }
+
+    public static String removeLines(String multiline, Predicate<CharSequence> patternToRemove) {
+        if (multiline==null) return null;
+        return lines(Iterables.filter(Arrays.asList(multiline.split("\n")), Predicates.not(patternToRemove)));
     }
 
     /** NON-REGEX - replaces all key->value entries from the replacement map in source (non-regex) */
@@ -948,4 +962,5 @@ public class Strings {
         }
         return result;
     }
+
 }
