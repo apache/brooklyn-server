@@ -60,7 +60,6 @@ import org.eclipse.jetty.jaas.JAASLoginService;
 import org.eclipse.jetty.server.NetworkConnector;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.ContextHandler;
-import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.webapp.WebAppContext;
 import org.reflections.util.ClasspathHelper;
 import org.slf4j.Logger;

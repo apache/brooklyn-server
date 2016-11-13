@@ -25,7 +25,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpSession;
-import javax.servlet.http.HttpSessionContext;
 
 import org.apache.brooklyn.util.text.Identifiers;
 
@@ -63,8 +62,8 @@ public class SecurityProviderHttpSession implements HttpSession {
         return 0;
     }
 
-    @Override
-    public HttpSessionContext getSessionContext() {
+    @Deprecated //in interface
+    public javax.servlet.http.HttpSessionContext getSessionContext() {
         return null;
     }
 
