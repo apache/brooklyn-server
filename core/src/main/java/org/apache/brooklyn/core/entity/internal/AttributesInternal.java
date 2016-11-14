@@ -30,12 +30,18 @@ public interface AttributesInternal extends Attributes {
     public static final AttributeSensor<ProvisioningTaskState> INTERNAL_PROVISIONING_TASK_STATE = new BasicAttributeSensor<ProvisioningTaskState>(
             TypeToken.of(ProvisioningTaskState.class), 
             "internal.provisioning.task.state",
-            "Internal transient sensor (do not use) for tracking the provisioning of a machine (to better handle aborting/rebind)",
-            AttributeSensor.SensorPersistenceMode.NONE);
+            "Internal transient sensor (do not use) for tracking the provisioning of a machine (to better handle aborting/rebind)");
     
+    @Beta
+    public static final AttributeSensor<ProvisioningTaskState> INTERNAL_TERMINATION_TASK_STATE = new BasicAttributeSensor<ProvisioningTaskState>(
+            TypeToken.of(ProvisioningTaskState.class), 
+            "internal.termination.task.state",
+            "Internal transient sensor (do not use) for tracking the termination of a machine (to better handle aborting/rebind)");
+
     /**
      * Used only internally by {@link org.apache.brooklyn.entity.software.base.lifecycle.MachineLifecycleEffectorTasks}
-     * to track provisioning, so machine can be terminated if stopped while opaque provision call is being made.
+     * to track provisioning/termination. This is used so the machine can be terminated if stopped while opaque provision
+     * call is being made; and is used to report if termination was prematurely aborted (e.g. during Brooklyn restart).
      */
     @Beta
     @VisibleForTesting

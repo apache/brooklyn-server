@@ -26,6 +26,7 @@ import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.mgmt.rebind.RebindContext;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.EntityMemento;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
@@ -35,15 +36,18 @@ import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.entity.internal.AttributesInternal;
+import org.apache.brooklyn.core.entity.internal.AttributesInternal.ProvisioningTaskState;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.feed.AbstractFeed;
+import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.mgmt.rebind.dto.MementosGenerators;
 import org.apache.brooklyn.core.objs.AbstractBrooklynObject;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.entity.group.AbstractGroupImpl;
-import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -245,14 +249,52 @@ public class BasicEntityRebindSupport extends AbstractBrooklynObjectRebindSuppor
         Preconditions.checkState(instance == entity, "Expected %s and %s to match, but different objects", instance, entity);
         Lifecycle expectedState = ServiceStateLogic.getExpectedState(entity);
         if (expectedState == Lifecycle.STARTING || expectedState == Lifecycle.STOPPING) {
-            LOG.warn("Entity {} goes on-fire because it was in state {} on rebind", entity, expectedState);
-            LOG.warn("not-up-indicators={}", entity.getAttribute(Attributes.SERVICE_NOT_UP_INDICATORS));
-            ServiceStateLogic.setExpectedState(entity, Lifecycle.ON_FIRE);
+            // If we were previously "starting" or "stopping", then those tasks will have been 
+            // aborted. We don't want to continue showing that state (e.g. the web-console would
+            // then show the it as in-progress with the "spinning" icon).
+            // Therefore we set the entity as on-fire, and add the indicator that says why.
+            markTransitioningEntityOnFireOnRebind((EntityInternal) entity, expectedState);
+        }
+        
+        // Clear the provisioning/termination task-state; the task will have been aborted, so wrong to keep this state.
+        ((EntityInternal)entity).sensors().remove(AttributesInternal.INTERNAL_PROVISIONING_TASK_STATE);
+        ((EntityInternal)entity).sensors().remove(AttributesInternal.INTERNAL_TERMINATION_TASK_STATE);
+        
+        super.instanceRebind(instance);
+    }
+    
+    protected void markTransitioningEntityOnFireOnRebind(EntityInternal entity, Lifecycle expectedState) {
+        LOG.warn("Entity {} being marked as on-fire because it was in state {} on rebind; indicators={}", new Object[] {entity, expectedState, entity.getAttribute(Attributes.SERVICE_NOT_UP_INDICATORS)});
+        ServiceStateLogic.setExpectedState(entity, Lifecycle.ON_FIRE);
+        ServiceStateLogic.ServiceNotUpLogic.updateNotUpIndicator(
+                entity, 
+                "Task aborted on rebind", 
+                "Set to on-fire (from previous expected state "+expectedState+") because tasks aborted on rebind");
+        
+        // Check if we were in the process of provisioning a machine. If so, a VM might have
+        // been left behind. E.g. we might have submitted to jclouds the request to provision 
+        // the VM, but not yet received back the id (so have lost details of the VM).
+        // Also see MachineLifecycleEffectorTasks.ProvisionMachineTask.
+        Maybe<MachineLocation> machine = Machines.findUniqueMachineLocation(entity.getLocations());
+        ProvisioningTaskState provisioningState = entity.sensors().get(AttributesInternal.INTERNAL_PROVISIONING_TASK_STATE);
+        if (machine.isAbsent() && provisioningState == ProvisioningTaskState.RUNNING) {
+            LOG.warn("Entity {} was provisioning; VM may have been left running", entity);
             ServiceStateLogic.ServiceNotUpLogic.updateNotUpIndicator(
                     entity, 
-                    "Task aborted on rebind", 
-                    "Set to on-fire (from previous expected state "+expectedState+") because tasks aborted on rebind");
+                    "VM may be lost on rebind", 
+                    "VM provisioning may have been in-progress and now lost, because tasks aborted on rebind");
         }
-        super.instanceRebind(instance);
+
+        // Similar to the provisioning case, if we were terminating the VM then we may or may 
+        // not have finished. This means the VM might have been left running.
+        // Also see MachineLifecycleEffectorTasks.stopAnyProvisionedMachines()
+        ProvisioningTaskState terminationState = entity.sensors().get(AttributesInternal.INTERNAL_TERMINATION_TASK_STATE);
+        if (machine.isAbsent() && terminationState == ProvisioningTaskState.RUNNING) {
+            LOG.warn("Entity {} was terminating; VM may have been left running", entity);
+            ServiceStateLogic.ServiceNotUpLogic.updateNotUpIndicator(
+                    entity, 
+                    "VM may be lost on rebind", 
+                    "VM termination may have been in-progress and now lost, because tasks aborted on rebind");
+        }
     }
 }

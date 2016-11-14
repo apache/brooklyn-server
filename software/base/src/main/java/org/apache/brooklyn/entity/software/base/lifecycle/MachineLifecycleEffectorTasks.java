@@ -1001,10 +1001,17 @@ public abstract class MachineLifecycleEffectorTasks {
             log.debug("No decommissioning necessary for "+entity()+" - not a machine location ("+machine+")");
             return new StopMachineDetails<Integer>("No machine decommissioning necessary - not a machine ("+machine+")", 0);
         }
-        
-        clearEntityLocationAttributes(machine);
-        provisioner.release((MachineLocation)machine);
 
+        entity().sensors().set(AttributesInternal.INTERNAL_TERMINATION_TASK_STATE, ProvisioningTaskState.RUNNING);
+        try {
+            clearEntityLocationAttributes(machine);
+            provisioner.release((MachineLocation)machine);
+        } finally {
+            // TODO On exception, should we add the machine back to the entity (because it might not really be terminated)?
+            //      Do we need a better exception hierarchy for that?
+            entity().sensors().remove(AttributesInternal.INTERNAL_TERMINATION_TASK_STATE);
+        }
+        
         return new StopMachineDetails<Integer>("Decommissioned "+machine, 1);
     }
 
