@@ -194,6 +194,7 @@ public class BrooklynRestApiLauncher {
         if (securityProvider != null && securityProvider != AnyoneSecurityProvider.class) {
             ((BrooklynProperties) mgmt.getConfig()).put(
                     BrooklynWebConfig.SECURITY_PROVIDER_CLASSNAME, securityProvider.getName());
+            ((WebAppContext)context).addOverrideDescriptor(getClass().getResource("/web-security.xml").toExternalForm());
         } else if (context instanceof WebAppContext) {
             ((WebAppContext)context).setSecurityHandler(new NopSecurityHandler());
         }

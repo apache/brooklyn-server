@@ -49,6 +49,7 @@ public class EntityConfigApiEntitlementsTest extends AbstractRestApiEntitlements
         String path = "/v1/applications/"+app.getId()+"/entities/"+entity.getId()+"/config/"+TestEntity.CONF_NAME.getName();
         String val = "\"myname\"";
         
+        assert401(path);
         assertEquals(httpGet("myRoot", path), val);
         assertEquals(httpGet("myUser", path), val);
         assertEquals(httpGet("myReadonly", path), val);
@@ -68,6 +69,7 @@ public class EntityConfigApiEntitlementsTest extends AbstractRestApiEntitlements
         String confName = TestEntity.CONF_NAME.getName();
         String regex = ".*"+confName+".*myname.*";
         
+        assert401(path);
         Asserts.assertStringMatchesRegex(httpGet("myRoot", path), regex);
         Asserts.assertStringMatchesRegex(httpGet("myUser", path), regex);
         Asserts.assertStringMatchesRegex(httpGet("myReadonly", path), regex);

@@ -27,6 +27,7 @@ public class ServerApiEntitlementsTest extends AbstractRestApiEntitlementsTest {
     @Test(groups = "Integration")
     public void testGetHealthy() throws Exception {
         String path = "/v1/server/up";
+        assert401(path);
         assertPermitted("myRoot", path);
         assertPermitted("myUser", path);
         assertForbidden("myReadonly", path);
@@ -37,6 +38,7 @@ public class ServerApiEntitlementsTest extends AbstractRestApiEntitlementsTest {
     @Test(groups = "Integration")
     public void testReloadProperties() throws Exception {
         String resource = "/v1/server/properties/reload";
+        assert401(resource);
         assertPermittedPost("myRoot", resource, null);
         assertForbiddenPost("myUser", resource, null);
         assertForbiddenPost("myReadonly", resource, null);
@@ -48,6 +50,7 @@ public class ServerApiEntitlementsTest extends AbstractRestApiEntitlementsTest {
     public void testGetConfig() throws Exception {
         // Property set in test setup.
         String path = "/v1/server/config/" + Entitlements.GLOBAL_ENTITLEMENT_MANAGER.getName();
+        assert401(path);
         assertPermitted("myRoot", path);
         assertForbidden("myUser", path);
         assertForbidden("myReadonly", path);
