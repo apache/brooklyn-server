@@ -26,9 +26,6 @@ import io.cloudsoft.amp.container.kubernetes.location.KubernetesClientRegistry;
 
 public interface OpenShiftLocationConfig {
 
-    @SetFromFlag("openShiftUrl")
-    ConfigKey<String> OPENSHIFT_URL = ConfigKeys.newStringConfigKey("openShiftUrl");
-
     ConfigKey<KubernetesClientRegistry> OPENSHIFT_CLIENT_REGISTRY = ConfigKeys.newConfigKey(
             KubernetesClientRegistry.class, "openShiftClientRegistry",
             "Registry/Factory for creating OpenShift client; default is almost always fine, " +
