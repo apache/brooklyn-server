@@ -78,7 +78,7 @@ public class HaMasterCheckFilterTest extends BrooklynRestApiLauncherTestFixture 
     @Test(groups = "Integration")
     public void testEntitiesExistOnMasterPromotion() throws Exception {
         initHaCluster(HighAvailabilityMode.AUTO, HighAvailabilityMode.AUTO);
-        assertEntityNotFound(new ReturnCodeNotRetry());
+        assertEquals(getAppResponseCode(), 403);
         stopWriteNode();
         assertEntityExists(new ReturnCodeNotRetryAndNodeIsMaster());
         assertReadIsMaster();
@@ -122,7 +122,6 @@ public class HaMasterCheckFilterTest extends BrooklynRestApiLauncherTestFixture 
     private String createApp(ManagementContext mgmt) {
         EntityManager entityMgr = mgmt.getEntityManager();
         Entity app = entityMgr.createEntity(EntitySpec.create(BasicApplication.class));
-        entityMgr.manage(app);
         return app.getId();
     }
 
