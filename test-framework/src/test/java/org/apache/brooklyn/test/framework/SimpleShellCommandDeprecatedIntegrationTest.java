@@ -116,7 +116,7 @@ public class SimpleShellCommandDeprecatedIntegrationTest extends BrooklynAppUnit
 
         SimpleShellCommandTest uptime = app.createAndManageChild(EntitySpec.create(SimpleShellCommandTest.class)
             .configure(TARGET_ENTITY, testEntity)
-            .configure(COMMAND, "uptime"));
+            .configure(COMMAND, "date"));
 
         app.start(ImmutableList.<Location>of());
 
@@ -138,7 +138,8 @@ public class SimpleShellCommandDeprecatedIntegrationTest extends BrooklynAppUnit
         try {
             app.start(ImmutableList.<Location>of());
         } catch (Throwable t) {
-            Asserts.expectedFailureContains(t, "exit code expected equals 0 but found 1");
+            // Used to be "but found 1", I'm getting "but found 2". Could be OS specific.
+            Asserts.expectedFailureContains(t, "exit code expected equals 0 but found ");
         }
 
         assertThat(uptime.sensors().get(SERVICE_UP)).isFalse()

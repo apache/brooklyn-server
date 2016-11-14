@@ -78,7 +78,7 @@ public class BrooklynEntityMirrorIntegrationTest {
 
     
     protected void setUpServer() {
-        setUpServer(new LocalManagementContextForTests(), false);
+        setUpServer(new LocalManagementContextForTests(), true);
     }
     protected void setUpServer(ManagementContext mgmt, boolean skipSecurity) {
         try {
@@ -140,7 +140,7 @@ public class BrooklynEntityMirrorIntegrationTest {
         mgmtHttps.getBrooklynProperties().put("brooklyn.webconsole.security.users", "admin");
         mgmtHttps.getBrooklynProperties().put("brooklyn.webconsole.security.user.admin.password", "P5ssW0rd");
 
-        setUpServer(mgmtHttps, true);
+        setUpServer(mgmtHttps, false);
         Assert.assertTrue(getBaseUri().startsWith("https:"), "URL is not https: "+getBaseUri());
         // check auth is required
         HttpTestUtils.assertHttpStatusCodeEquals(getBaseUri(), 401);
