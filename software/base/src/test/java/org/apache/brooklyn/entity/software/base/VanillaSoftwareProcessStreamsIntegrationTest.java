@@ -18,14 +18,16 @@
  */
 package org.apache.brooklyn.entity.software.base;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import java.util.Map;
+
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.util.text.Identifiers;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.util.Map;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 public class VanillaSoftwareProcessStreamsIntegrationTest extends AbstractSoftwareProcessStreamsTest {
     private Location localhost;
@@ -37,14 +39,16 @@ public class VanillaSoftwareProcessStreamsIntegrationTest extends AbstractSoftwa
         localhost = app.getManagementContext().getLocationRegistry().getLocationManaged("localhost");
     }
 
-    // Fails on subsequent runs because "BROOKLYN" marker already created in 
-    // install folder so install step not executed.
     // TODO Tests leave a lot of garbage in /tmp - should clean up after themselves.
-    @Test(groups = {"Integration", "Broken"})
+    @Test(groups = {"Integration"})
     @Override
     public void testGetsStreams() {
+        // Needs the installUniqueLabel so that, if run multiple times on same machine, there won't
+        // be a "BROOKLYN" marker already in the install dir (which would cause install to be 
+        // skipped).
         Map<String, String> cmds = getCommands();
         VanillaSoftwareProcess entity = app.createAndManageChild(EntitySpec.create(VanillaSoftwareProcess.class)
+                .configure(VanillaSoftwareProcess.INSTALL_UNIQUE_LABEL, Identifiers.makeRandomId(8))
                 .configure(VanillaSoftwareProcess.PRE_INSTALL_COMMAND, "echo " + cmds.get("pre-install-command"))
                 .configure(VanillaSoftwareProcess.INSTALL_COMMAND, "echo " + cmds.get("ssh: installing.*"))
                 .configure(VanillaSoftwareProcess.POST_INSTALL_COMMAND, "echo " + cmds.get("post-install-command"))
