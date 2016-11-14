@@ -51,7 +51,7 @@ public class VanillaSoftwareProcessIntegrationTest extends BrooklynAppLiveTestSu
         super.setUp();
         localhost = app.getManagementContext().getLocationRegistry().getLocationManaged("localhost");
         
-        runRecord = Files.createTempFile("testVanillaSoftwareProcess-runRecord", ".txt");
+        runRecord = Files.createTempFile("testVanillaSoftwareProcess-runRecord-"+Identifiers.makeRandomId(8), ".txt");
     }
 
     @Override
@@ -63,6 +63,7 @@ public class VanillaSoftwareProcessIntegrationTest extends BrooklynAppLiveTestSu
     @Test(groups = "Integration")
     public void testAllCmds() throws Exception {
         app.createAndManageChild(EntitySpec.create(VanillaSoftwareProcess.class)
+                .configure(VanillaSoftwareProcess.INSTALL_UNIQUE_LABEL, Identifiers.makeRandomId(8))
                 .configure(VanillaSoftwareProcess.PRE_INSTALL_COMMAND, "echo preInstallCommand >> "+runRecord.toAbsolutePath())
                 .configure(VanillaSoftwareProcess.INSTALL_COMMAND, "echo installCommand >> "+runRecord.toAbsolutePath())
                 .configure(VanillaSoftwareProcess.POST_INSTALL_COMMAND, "echo postInstallCommand >> "+runRecord.toAbsolutePath())
@@ -98,6 +99,7 @@ public class VanillaSoftwareProcessIntegrationTest extends BrooklynAppLiveTestSu
     @Test(groups = "Integration")
     public void testRestartCmds() throws Exception {
         VanillaSoftwareProcess entity = app.createAndManageChild(EntitySpec.create(VanillaSoftwareProcess.class)
+                .configure(VanillaSoftwareProcess.INSTALL_UNIQUE_LABEL, Identifiers.makeRandomId(8))
                 .configure(VanillaSoftwareProcess.PRE_INSTALL_COMMAND, "echo preInstallCommand >> "+runRecord.toAbsolutePath())
                 .configure(VanillaSoftwareProcess.INSTALL_COMMAND, "echo installCommand >> "+runRecord.toAbsolutePath())
                 .configure(VanillaSoftwareProcess.POST_INSTALL_COMMAND, "echo postInstallCommand >> "+runRecord.toAbsolutePath())
@@ -137,7 +139,7 @@ public class VanillaSoftwareProcessIntegrationTest extends BrooklynAppLiveTestSu
 
     @Test(groups = "Integration")
     public void testDownloadOnlyCmd() throws Exception {
-        Path downloadArtifact = Files.createTempFile("testVanillaSoftwareProcess-downloadArtifact", ".txt");
+        Path downloadArtifact = Files.createTempFile("testVanillaSoftwareProcess-downloadArtifact-"+Identifiers.makeRandomId(8), ".txt");
         Files.write(downloadArtifact, "my download artifact".getBytes());
 
         try {
@@ -174,7 +176,7 @@ public class VanillaSoftwareProcessIntegrationTest extends BrooklynAppLiveTestSu
     
     @Test(groups = "Integration")
     public void testDownloadAndInstallCmds() throws Exception {
-        Path downloadArtifact = Files.createTempFile("testVanillaSoftwareProcess-downloadArtifact", ".txt");
+        Path downloadArtifact = Files.createTempFile("testVanillaSoftwareProcess-downloadArtifact-"+Identifiers.makeRandomId(8), ".txt");
         Files.write(downloadArtifact, "my download artifact".getBytes());
 
         try {
@@ -246,7 +248,7 @@ public class VanillaSoftwareProcessIntegrationTest extends BrooklynAppLiveTestSu
     
     @Test(groups = "Integration", dependsOnMethods="testDownloadOnlyCmd")
     public void testDownloadUrlUsedInHashForInstallCompletion() throws Exception {
-        testDownloadOnlyCmd();;
+        testDownloadOnlyCmd();
     }
     
     @Test(groups = "Integration", dependsOnMethods="testInstallOnlyCmd")
