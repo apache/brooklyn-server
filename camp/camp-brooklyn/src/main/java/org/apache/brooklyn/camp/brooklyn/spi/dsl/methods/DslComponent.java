@@ -276,7 +276,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
                     }
                 }
                 
-                // Support being passes an explicit entity via the DSL
+                // Support being passed an explicit entity via the DSL
                 if (maybeComponentId.get() instanceof Entity) {
                     if (Iterables.contains(entitiesToSearch, maybeComponentId.get())) {
                         return Maybe.of((Entity)maybeComponentId.get());
