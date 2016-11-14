@@ -114,7 +114,7 @@ public class CatalogPerformanceTest extends AbstractYamlTest {
     }
     
     @Test(groups={"Integration"})
-    public void testCreateSpecs() {
+    public void testPeekSpecs() {
         final AtomicInteger counter = new AtomicInteger();
         final AtomicReference<List<CatalogItem<?,?>>> items = new AtomicReference<>();
         
@@ -125,11 +125,9 @@ public class CatalogPerformanceTest extends AbstractYamlTest {
             }
         };
         Runnable job = new Runnable() {
-            @SuppressWarnings({"unchecked", "rawtypes"})
             public void run() {
                 for (CatalogItem<?, ?> item : items.get()) {
-                    CatalogItem castItem = (CatalogItem) item;
-                    mgmt().getCatalog().createSpec(castItem);
+                    mgmt().getCatalog().peekSpec(item);
                 }
             }
         };
@@ -142,23 +140,21 @@ public class CatalogPerformanceTest extends AbstractYamlTest {
                 }
             }
         };
-        runPerformanceTest("testCreateSpecs", preJob, job, postJob);
+        runPerformanceTest("testPeekSpecs", preJob, job, postJob);
     }
     
     @Test(groups={"Integration"})
-    public void testCreateSameSpecsRepeatedly() {
+    public void testPeekSameSpecsRepeatedly() {
         final List<CatalogItem<?, ?>> items = addItems(0);
         
         Runnable job = new Runnable() {
-            @SuppressWarnings({"unchecked", "rawtypes"})
             public void run() {
                 for (CatalogItem<?, ?> item : items) {
-                    CatalogItem castItem = (CatalogItem) item;
-                    mgmt().getCatalog().createSpec(castItem);
+                    mgmt().getCatalog().peekSpec(item);
                 }
             }
         };
-        runPerformanceTest("testCreateSpecs", null, job, null);
+        runPerformanceTest("testPeekSameSpecsRepeatedly", null, job, null);
     }
     
     protected void runPerformanceTest(String methodName, Runnable preJob, Runnable job, Runnable postJob) {
