@@ -35,6 +35,7 @@ import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.rest.BrooklynRestApiLauncher;
 import org.apache.brooklyn.rest.BrooklynRestApiLauncherTestFixture;
+import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.util.http.HttpAsserts;
 import org.apache.brooklyn.util.http.HttpTool;
 import org.apache.brooklyn.util.http.HttpTool.HttpClientBuilder;
@@ -65,6 +66,7 @@ public abstract class AbstractRestApiEntitlementsTest extends BrooklynRestApiLau
         props.put(PerUserEntitlementManager.PER_USER_ENTITLEMENTS_CONFIG_PREFIX+".myMinimal", "minimal");
         props.put(PerUserEntitlementManager.PER_USER_ENTITLEMENTS_CONFIG_PREFIX+".myUser", "user");
         props.put(PerUserEntitlementManager.PER_USER_ENTITLEMENTS_CONFIG_PREFIX+".myCustom", StaticDelegatingEntitlementManager.class.getName());
+        props.put(BrooklynWebConfig.SECURITY_PROVIDER_CLASSNAME, AuthenticateAnyoneSecurityProvider.class.getName());
         
         mgmt = LocalManagementContextForTests.builder(false).useProperties(props).build();
         app = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class)
@@ -75,7 +77,6 @@ public abstract class AbstractRestApiEntitlementsTest extends BrooklynRestApiLau
         useServerForTest(BrooklynRestApiLauncher.launcher()
                 .managementContext(mgmt)
                 .forceUseOfDefaultCatalogWithJavaClassPath(true)
-                .securityProvider(AuthenticateAnyoneSecurityProvider.class)
                 .start());
     }
 
