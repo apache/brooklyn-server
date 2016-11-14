@@ -42,6 +42,7 @@ import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
 import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.entity.internal.AttributesInternal;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
@@ -98,14 +99,14 @@ public class SoftwareProcessStopsDuringStartTest extends BrooklynAppUnitTestSupp
         
         entity.start(ImmutableList.<Location>of(loc));
         SshMachineLocation machine = Machines.findUniqueMachineLocation(entity.getLocations(), SshMachineLocation.class).get();
-        EntityAsserts.assertAttributeEquals(entity, MachineLifecycleEffectorTasks.INTERNAL_PROVISIONING_TASK_STATE, MachineLifecycleEffectorTasks.ProvisioningTaskState.DONE);
+        EntityAsserts.assertAttributeEquals(entity, AttributesInternal.INTERNAL_PROVISIONING_TASK_STATE, AttributesInternal.ProvisioningTaskState.DONE);
         EntityAsserts.assertAttributeEquals(entity, MachineLifecycleEffectorTasks.INTERNAL_PROVISIONED_MACHINE, machine);
         
         Stopwatch stopwatch = Stopwatch.createStarted();
         entity.stop();
         Duration stopDuration = Duration.of(stopwatch);
         assertTrue(Asserts.DEFAULT_LONG_TIMEOUT.isLongerThan(stopDuration), "stop took "+stopDuration);
-        EntityAsserts.assertAttributeEquals(entity, MachineLifecycleEffectorTasks.INTERNAL_PROVISIONING_TASK_STATE, null);
+        EntityAsserts.assertAttributeEquals(entity, AttributesInternal.INTERNAL_PROVISIONING_TASK_STATE, null);
         EntityAsserts.assertAttributeEquals(entity, MachineLifecycleEffectorTasks.INTERNAL_PROVISIONED_MACHINE, null);
         
         assertEquals(loc.getCalls(), ImmutableList.of("obtain", "release"));
@@ -119,20 +120,20 @@ public class SoftwareProcessStopsDuringStartTest extends BrooklynAppUnitTestSupp
         
         entity.start(ImmutableList.<Location>of(loc));
         SshMachineLocation machine = Machines.findUniqueMachineLocation(entity.getLocations(), SshMachineLocation.class).get();
-        EntityAsserts.assertAttributeEquals(entity, MachineLifecycleEffectorTasks.INTERNAL_PROVISIONING_TASK_STATE, MachineLifecycleEffectorTasks.ProvisioningTaskState.DONE);
+        EntityAsserts.assertAttributeEquals(entity, AttributesInternal.INTERNAL_PROVISIONING_TASK_STATE, AttributesInternal.ProvisioningTaskState.DONE);
         EntityAsserts.assertAttributeEquals(entity, MachineLifecycleEffectorTasks.INTERNAL_PROVISIONED_MACHINE, machine);
         
         entity.stop();
-        EntityAsserts.assertAttributeEquals(entity, MachineLifecycleEffectorTasks.INTERNAL_PROVISIONING_TASK_STATE, null);
+        EntityAsserts.assertAttributeEquals(entity, AttributesInternal.INTERNAL_PROVISIONING_TASK_STATE, null);
         EntityAsserts.assertAttributeEquals(entity, MachineLifecycleEffectorTasks.INTERNAL_PROVISIONED_MACHINE, null);
 
         entity.start(ImmutableList.<Location>of(loc));
         SshMachineLocation machine2 = Machines.findUniqueMachineLocation(entity.getLocations(), SshMachineLocation.class).get();
-        EntityAsserts.assertAttributeEquals(entity, MachineLifecycleEffectorTasks.INTERNAL_PROVISIONING_TASK_STATE, MachineLifecycleEffectorTasks.ProvisioningTaskState.DONE);
+        EntityAsserts.assertAttributeEquals(entity, AttributesInternal.INTERNAL_PROVISIONING_TASK_STATE, AttributesInternal.ProvisioningTaskState.DONE);
         EntityAsserts.assertAttributeEquals(entity, MachineLifecycleEffectorTasks.INTERNAL_PROVISIONED_MACHINE, machine2);
 
         entity.stop();
-        EntityAsserts.assertAttributeEquals(entity, MachineLifecycleEffectorTasks.INTERNAL_PROVISIONING_TASK_STATE, null);
+        EntityAsserts.assertAttributeEquals(entity, AttributesInternal.INTERNAL_PROVISIONING_TASK_STATE, null);
         EntityAsserts.assertAttributeEquals(entity, MachineLifecycleEffectorTasks.INTERNAL_PROVISIONED_MACHINE, null);
 
         assertEquals(loc.getCalls(), ImmutableList.of("obtain", "release", "obtain", "release"));
