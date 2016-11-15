@@ -28,10 +28,18 @@ public class OpenShiftClientRegistryImpl extends KubernetesClientRegistryImpl {
 
     public static final OpenShiftClientRegistryImpl INSTANCE = new OpenShiftClientRegistryImpl();
 
+    /**
+     * The default OpenShift URL is set using the Kubernetes
+     * {@code KubernetesLocationConfig#MASTER_URL master URL} as follows:
+     * <pre>
+     * openShiftUrl = URLUtils.join(getMasterUrl(), "oapi", oapiVersion);
+     * </pre>
+     */
     @Override
     public KubernetesClient getKubernetesClient(ConfigBag conf) {
         KubernetesClient client = super.getKubernetesClient(conf);
         OpenShiftClient oClient = client.adapt(OpenShiftClient.class);
+
         return oClient;
     }
 
