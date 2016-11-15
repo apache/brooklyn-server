@@ -27,7 +27,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.concurrent.Semaphore;
 
 import org.apache.brooklyn.api.entity.Entity;
@@ -36,16 +35,12 @@ import org.apache.brooklyn.api.mgmt.ExecutionManager;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedEntity;
-import org.apache.brooklyn.core.mgmt.internal.BrooklynGarbageCollector;
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
-import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -54,14 +49,11 @@ import org.apache.brooklyn.util.core.task.ExecutionListener;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
-import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Function;
@@ -76,30 +68,12 @@ import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Callables;
 
 /** Includes many tests for {@link BrooklynGarbageCollector} */
-public class EntityExecutionManagerTest {
+public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
     
     private static final Logger LOG = LoggerFactory.getLogger(EntityExecutionManagerTest.class);
     
-    private static final Duration TIMEOUT_MS = Duration.TEN_SECONDS;
-    
-    private ManagementContextInternal mgmt;
-    private TestApplication app;
-    private TestEntity e;
-    
-    @BeforeMethod(alwaysRun=true)
-    public void setUp() throws Exception {
-    }
-    
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        if (app != null) Entities.destroyAll(app.getManagementContext());
-        app = null;
-        if (mgmt != null) Entities.destroyAll(mgmt);
-    }
-
     @Test
     public void testOnDoneCallback() throws InterruptedException {
-        mgmt = LocalManagementContextForTests.newInstance();
         ExecutionManager em = mgmt.getExecutionManager();
         BasicExecutionManager bem = (BasicExecutionManager)em;
         final Map<Task<?>,Duration> completedTasks = MutableMap.of();
@@ -123,7 +97,7 @@ public class EntityExecutionManagerTest {
     }
     
     protected void forceGc() {
-        ((LocalManagementContext)app.getManagementContext()).getGarbageCollector().gcIteration();
+        ((LocalManagementContext)mgmt).getGarbageCollector().gcIteration();
     }
 
     protected static Task<?> runEmptyTaskWithNameAndTags(Entity target, String name, Object ...tags) {
@@ -137,39 +111,34 @@ public class EntityExecutionManagerTest {
     protected static TaskBuilder<Object> newEmptyTask(String name) {
         return Tasks.builder().displayName(name).dynamic(false).body(Callables.returning(null));
     }
-    
-    protected void assertTaskCountForEntitySoon(final Entity entity, final int expectedCount) {
+
+    protected void assertTaskCountForEntityEventually(final Entity entity, final int expectedCount) {
         // Dead task (and initialization task) should have been GC'd on completion.
         // However, the GC'ing happens in a listener, executed in a different thread - the task.get()
         // doesn't block for it. Therefore can't always guarantee it will be GC'ed by now.
-        Repeater.create().backoff(Duration.millis(10), 2, Duration.millis(500)).limitTimeTo(Duration.TEN_SECONDS).until(new Callable<Boolean>() {
-            @Override
-            public Boolean call() throws Exception {
+        Asserts.succeedsEventually(new Runnable() {
+            @Override public void run() {
                 forceGc();
                 Collection<Task<?>> tasks = BrooklynTaskTags.getTasksInEntityContext(((EntityInternal)entity).getManagementContext().getExecutionManager(), entity);
                 Assert.assertEquals(tasks.size(), expectedCount, "Tasks were "+tasks);
-                return true;
-            }
-        }).runRequiringTrue();
+            }});
     }
 
     @Test
     public void testGetTasksAndGcBoringTags() throws Exception {
-        app = TestApplication.Factory.newManagedInstanceForTests();
-        e = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        TestEntity e = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         
         final Task<?> task = runEmptyTaskWithNameAndTags(e, "should-be-kept", ManagementContextInternal.NON_TRANSIENT_TASK_TAG);
         runEmptyTaskWithNameAndTags(e, "should-be-gcd", ManagementContextInternal.TRANSIENT_TASK_TAG);
         
-        assertTaskCountForEntitySoon(e, 1);
+        assertTaskCountForEntityEventually(e, 1);
         Collection<Task<?>> tasks = BrooklynTaskTags.getTasksInEntityContext(app.getManagementContext().getExecutionManager(), e);
         assertEquals(tasks, ImmutableList.of(task), "Mismatched tasks, got: "+tasks);
     }
 
     @Test
     public void testGcTaskAtNormalTagLimit() throws Exception {
-        app = TestApplication.Factory.newManagedInstanceForTests();
-        e = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        TestEntity e = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         
         ((BrooklynProperties)app.getManagementContext().getConfig()).put(
             BrooklynGarbageCollector.MAX_TASKS_PER_TAG, 2);
@@ -177,13 +146,12 @@ public class EntityExecutionManagerTest {
         for (int count=0; count<5; count++)
             runEmptyTaskWithNameAndTags(e, "task"+count, ManagementContextInternal.NON_TRANSIENT_TASK_TAG, "boring-tag");
 
-        assertTaskCountForEntitySoon(e, 2);
+        assertTaskCountForEntityEventually(e, 2);
     }
     
     @Test
     public void testGcTaskAtEntityLimit() throws Exception {
-        app = TestApplication.Factory.newManagedInstanceForTests();
-        e = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        TestEntity e = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         
         ((BrooklynProperties)app.getManagementContext().getConfig()).put(
             BrooklynGarbageCollector.MAX_TASKS_PER_ENTITY, 2);
@@ -193,14 +161,13 @@ public class EntityExecutionManagerTest {
         for (int count=0; count<5; count++)
             runEmptyTaskWithNameAndTags(app, "task-app-"+count, ManagementContextInternal.NON_TRANSIENT_TASK_TAG, "boring-tag");
         
-        assertTaskCountForEntitySoon(app, 2);
-        assertTaskCountForEntitySoon(e, 2);
+        assertTaskCountForEntityEventually(app, 2);
+        assertTaskCountForEntityEventually(e, 2);
     }
     
     @Test
     public void testGcTaskWithTagAndEntityLimit() throws Exception {
-        app = TestApplication.Factory.newManagedInstanceForTests();
-        e = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        TestEntity e = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         
         ((BrooklynProperties)app.getManagementContext().getConfig()).put(
             BrooklynGarbageCollector.MAX_TASKS_PER_ENTITY, 6);
@@ -229,19 +196,18 @@ public class EntityExecutionManagerTest {
         runEmptyTaskWithNameAndTags(app, "task-"+(count++), ManagementContextInternal.NON_TRANSIENT_TASK_TAG, "another-tag-app", "another-tag");
         runEmptyTaskWithNameAndTags(app, "task-"+(count++), ManagementContextInternal.NON_TRANSIENT_TASK_TAG, "another-tag-app", "another-tag");
         
-        assertTaskCountForEntitySoon(e, 6);
-        assertTaskCountForEntitySoon(app, 3);
+        assertTaskCountForEntityEventually(e, 6);
+        assertTaskCountForEntityEventually(app, 3);
         
         // now with a lowered limit, we should remove one more e
         ((BrooklynProperties)app.getManagementContext().getConfig()).put(
             BrooklynGarbageCollector.MAX_TASKS_PER_ENTITY, 5);
-        assertTaskCountForEntitySoon(e, 5);
+        assertTaskCountForEntityEventually(e, 5);
     }
     
     @Test
     public void testGcDynamicTaskAtNormalTagLimit() throws Exception {
-        app = TestApplication.Factory.newManagedInstanceForTests();
-        e = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        TestEntity e = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         
         ((BrooklynProperties)app.getManagementContext().getConfig()).put(
             BrooklynGarbageCollector.MAX_TASKS_PER_TAG, 2);
@@ -254,13 +220,12 @@ public class EntityExecutionManagerTest {
 
         // might need an eventually here, if the internal job completion and GC is done in the background
         // (if there are no test failures for a few months, since Sept 2014, then we can remove this comment)
-        assertTaskCountForEntitySoon(e, 2);
+        assertTaskCountForEntityEventually(e, 2);
     }
     
     @Test
     public void testUnmanagedEntityCanBeGcedEvenIfPreviouslyTagged() throws Exception {
-        app = TestApplication.Factory.newManagedInstanceForTests();
-        e = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        TestEntity e = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         String eId = e.getId();
         
         e.invoke(TestEntity.MY_EFFECTOR, ImmutableMap.<String,Object>of()).get();
@@ -289,7 +254,6 @@ public class EntityExecutionManagerTest {
     
     @Test(groups="Integration")
     public void testSubscriptionAndEffectorTasksGced() throws Exception {
-        app = TestApplication.Factory.newManagedInstanceForTests();
         BasicExecutionManager em = (BasicExecutionManager) app.getManagementContext().getExecutionManager();
         // allow background enrichers to complete
         Time.sleep(Duration.ONE_SECOND);
@@ -313,16 +277,18 @@ public class EntityExecutionManagerTest {
      */
     @Test(groups="Integration")
     public void testEffectorTasksGcedSoNoOome() throws Exception {
+        String classAndMethodName = JavaClassNames.niceClassAndMethod();
         
         BrooklynProperties brooklynProperties = BrooklynProperties.Factory.newEmpty();
         brooklynProperties.put(BrooklynGarbageCollector.GC_PERIOD, Duration.ONE_MILLISECOND);
         brooklynProperties.put(BrooklynGarbageCollector.MAX_TASKS_PER_TAG, 2);
         
-        app = ApplicationBuilder.newManagedApp(TestApplication.class, LocalManagementContextForTests.newInstance(brooklynProperties));
+        replaceManagementContext(LocalManagementContextForTests.newInstance(brooklynProperties));
+        setUpApp();
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         
         for (int i = 0; i < 1000; i++) {
-            if (i%100==0) LOG.info(JavaClassNames.niceClassAndMethod()+": iteration "+i);
+            if (i%100==0) LOG.info(classAndMethodName+": iteration "+i);
             try {
                 LOG.debug("testEffectorTasksGced: iteration="+i);
                 entity.invoke(TestEntity.IDENTITY_EFFECTOR, ImmutableMap.of("arg", new BigObject(10*1000*1000))).get();
@@ -330,7 +296,7 @@ public class EntityExecutionManagerTest {
                 Time.sleep(Duration.ONE_MILLISECOND); // Give GC thread a chance to run
                 forceGc();
             } catch (OutOfMemoryError e) {
-                LOG.warn(JavaClassNames.niceClassAndMethod()+": OOME at iteration="+i);
+                LOG.warn(classAndMethodName+": OOME at iteration="+i);
                 throw e;
             }
         }
@@ -338,14 +304,12 @@ public class EntityExecutionManagerTest {
     
     @Test(groups="Integration")
     public void testUnmanagedEntityGcedOnUnmanageEvenIfEffectorInvoked() throws Exception {
-        app = TestApplication.Factory.newManagedInstanceForTests();
-        
+        String classAndMethodName = JavaClassNames.niceClassAndMethod();
         BasicAttributeSensor<Object> byteArrayAttrib = new BasicAttributeSensor<Object>(Object.class, "test.byteArray", "");
-
         for (int i = 0; i < 1000; i++) {
-            if (i<100 && i%10==0 || i%100==0) LOG.info(JavaClassNames.niceClassAndMethod()+": iteration "+i);
+            if (i<100 && i%10==0 || i%100==0) LOG.info(classAndMethodName+": iteration "+i);
             try {
-                LOG.debug(JavaClassNames.niceClassAndMethod()+": iteration="+i);
+                LOG.debug(classAndMethodName+": iteration="+i);
                 TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
                 entity.sensors().set(byteArrayAttrib, new BigObject(10*1000*1000));
                 entity.invoke(TestEntity.MY_EFFECTOR, ImmutableMap.<String,Object>of()).get();
@@ -361,10 +325,9 @@ public class EntityExecutionManagerTest {
                 Entities.unmanage(entity);
                 
                 forceGc();
-                // previously we did an extra GC but it was crazy slow, shouldn't be needed
-//                System.gc(); System.gc();
+                // previously we did an extra System.gc() but it was crazy slow, shouldn't be needed
             } catch (OutOfMemoryError e) {
-                LOG.warn(JavaClassNames.niceClassAndMethod()+": OOME at iteration="+i);
+                LOG.warn(classAndMethodName+": OOME at iteration="+i);
                 ExecutionManager em = app.getManagementContext().getExecutionManager();
                 Collection<Task<?>> tasks = ((BasicExecutionManager)em).getAllTasks();
                 LOG.info("TASKS count "+tasks.size()+": "+tasks);
@@ -380,7 +343,8 @@ public class EntityExecutionManagerTest {
         brooklynProperties.put(BrooklynGarbageCollector.GC_PERIOD, Duration.ONE_SECOND);
         brooklynProperties.put(BrooklynGarbageCollector.MAX_TASKS_PER_TAG, 2);
         
-        app = ApplicationBuilder.newManagedApp(TestApplication.class, LocalManagementContextForTests.newInstance(brooklynProperties));
+        replaceManagementContext(LocalManagementContextForTests.newInstance(brooklynProperties));
+        setUpApp();
         final TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         
         List<Task<?>> tasks = Lists.newArrayList();
@@ -403,7 +367,7 @@ public class EntityExecutionManagerTest {
         
         // Then oldest should be GC'ed to leave only maxNumTasks
         final List<Task<?>> recentTasks = tasks.subList(tasks.size()-maxNumTasks, tasks.size());
-        Asserts.succeedsEventually(ImmutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
+        Asserts.succeedsEventually(new Runnable() {
             @Override public void run() {
                 Set<Task<?>> storedTasks2 = app.getManagementContext().getExecutionManager().getTasksWithAllTags(
                        ImmutableList.of(BrooklynTaskTags.tagForContextEntity(entity), ManagementContextInternal.EFFECTOR_TAG));
@@ -418,7 +382,7 @@ public class EntityExecutionManagerTest {
             }});
     }
     
-    private String taskToVerboseString(Task t) {
+    private String taskToVerboseString(Task<?> t) {
         return Objects.toStringHelper(t)
                 .add("id", t.getId())
                 .add("displayName", t.getDisplayName())
@@ -439,14 +403,15 @@ public class EntityExecutionManagerTest {
         brooklynProperties.put(BrooklynGarbageCollector.GC_PERIOD, Duration.ONE_MILLISECOND);
         brooklynProperties.put(BrooklynGarbageCollector.MAX_TASK_AGE, maxTaskAge);
         
-        app = ApplicationBuilder.newManagedApp(TestApplication.class, LocalManagementContextForTests.newInstance(brooklynProperties));
+        replaceManagementContext(LocalManagementContextForTests.newInstance(brooklynProperties));
+        setUpApp();
         final TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         
         Stopwatch stopwatch = Stopwatch.createStarted();
         Task<?> oldTask = entity.invoke(TestEntity.MY_EFFECTOR, ImmutableMap.<String,Object>of());
         oldTask.get();
         
-        Asserts.succeedsEventually(ImmutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
+        Asserts.succeedsEventually(new Runnable() {
             @Override public void run() {
                 Set<Task<?>> storedTasks = app.getManagementContext().getExecutionManager().getTasksWithAllTags(ImmutableList.of(
                         BrooklynTaskTags.tagForTargetEntity(entity), 
