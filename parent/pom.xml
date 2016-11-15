@@ -728,18 +728,6 @@
                     <groupId>org.apache.rat</groupId>
                     <artifactId>apache-rat-plugin</artifactId>
                     <version>0.11</version>
-                    <configuration>
-                        <excludes combine.children="append">
-                            <!-- Exclude sandbox because not part of distribution: not in tgz, and not uploaded to maven-central -->
-                            <exclude>sandbox/**</exclude>
-                            <!-- Exclude release because not part of distribution: not in tgz, and not uploaded to maven-central -->
-                            <exclude>release/**</exclude>
-                            <exclude>README.md</exclude>
-                            <!-- Exclude netbeans config files (not part of the project, but often on users' drives -->
-                            <exclude>**/nbactions.xml</exclude>
-                            <exclude>**/nb-configuration.xml</exclude>
-                        </excludes>
-                    </configuration>
                 </plugin>
 
                 <!-- This is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
@@ -1043,6 +1031,11 @@
                      so that the child pom entries replace the parent entries
                  -->
                 <excludes combine.children="append">
+                  <!-- Exclude sandbox because not part of distribution: not in tgz, and not uploaded to maven-central -->
+                  <exclude>sandbox/**</exclude>
+                  <!-- Exclude release because not part of distribution: not in tgz, and not uploaded to maven-central -->
+                  <exclude>release/**</exclude>
+                  <exclude>README.md</exclude>
                   <!-- git and IDE project files -->
                   <!-- see https://issues.apache.org/jira/browse/RAT-107 -->
                   <exclude>**/.git/**</exclude>
@@ -1056,9 +1049,13 @@
                   <exclude>**/*.log</exclude>
                   <exclude>**/brooklyn*.log.*</exclude>
                   <exclude>**/target/**</exclude>
+                  <!-- Exclude netbeans config files (not part of the project, but often on users' drives -->
+                  <exclude>**/nbactions.xml</exclude>
+                  <exclude>**/nb-configuration.xml</exclude>
                   <!-- files not requiring licence -->
                   <exclude>ignored/**</exclude>
                   <exclude>LICENSE.md</exclude>
+                  <exclude>.mvn/jvm.config</exclude>
                   <exclude>**/src/main/license/**</exclude>
                   <exclude>**/src/test/license/**</exclude>
                   <exclude>**/MANIFEST.MF</exclude>
