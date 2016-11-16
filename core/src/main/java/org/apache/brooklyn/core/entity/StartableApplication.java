@@ -20,12 +20,26 @@ package org.apache.brooklyn.core.entity;
 
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.trait.Startable;
+import org.apache.brooklyn.util.collections.QuorumCheck;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 
 public interface StartableApplication extends Application, Startable {
     
+    ConfigKey<QuorumCheck> UP_QUORUM_CHECK = ConfigKeys.builder(QuorumCheck.class, "quorum.up")
+            .description("Logic for checking whether this service is up, based on children and members, defaulting to all must be up")
+            .defaultValue(QuorumCheck.QuorumChecks.all())
+            .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED)
+            .build();
+    
+    ConfigKey<QuorumCheck> RUNNING_QUORUM_CHECK = ConfigKeys.builder(QuorumCheck.class, "quorum.running") 
+            .description("Logic for checking whether this service is healthy, based on children and members running, defaulting to requiring none to be ON-FIRE")
+            .defaultValue(QuorumCheck.QuorumChecks.all())
+            .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED)
+            .build();
+
     ConfigKey<Boolean> DESTROY_ON_STOP = ConfigKeys.newBooleanConfigKey("application.stop.shouldDestroy",
         "Whether the app should be removed from management after a successful stop (if it is a root); "
         + "true by default.", true);

@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.util.collections;
 
-import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -48,6 +47,41 @@ public class CollectionFunctionalsTest {
     public void testMapSizeOfNull() {
         Assert.assertEquals(CollectionFunctionals.mapSize().apply(null), null);
         Assert.assertEquals(CollectionFunctionals.mapSize(-1).apply(null), (Integer)(-1));
+    }
+
+    @Test
+    public void testListEmpty() {
+        Assert.assertFalse(CollectionFunctionals.empty().apply(null));
+        Assert.assertTrue(CollectionFunctionals.empty().apply(ImmutableList.of()));
+        Assert.assertFalse(CollectionFunctionals.empty().apply(ImmutableList.of("x")));
+    }
+
+    @Test
+    public void testListEmptyOrNull() {
+        Assert.assertTrue(CollectionFunctionals.emptyOrNull().apply(null));
+        Assert.assertTrue(CollectionFunctionals.emptyOrNull().apply(ImmutableList.of()));
+        Assert.assertFalse(CollectionFunctionals.emptyOrNull().apply(ImmutableList.of("x")));
+    }
+
+    @Test
+    public void testListNotEmpty() {
+        Assert.assertFalse(CollectionFunctionals.notEmpty().apply(null));
+        Assert.assertFalse(CollectionFunctionals.notEmpty().apply(ImmutableList.of()));
+        Assert.assertTrue(CollectionFunctionals.notEmpty().apply(ImmutableList.of("x")));
+    }
+
+    @Test
+    public void testMapEmptyOrNull() {
+        Assert.assertTrue(CollectionFunctionals.mapEmptyOrNull().apply(null));
+        Assert.assertTrue(CollectionFunctionals.mapEmptyOrNull().apply(ImmutableMap.of()));
+        Assert.assertFalse(CollectionFunctionals.<String>mapEmptyOrNull().apply(ImmutableMap.of("mykey", "myval")));
+    }
+
+    @Test
+    public void testMapNotEmpty() {
+        Assert.assertEquals(CollectionFunctionals.mapNotEmpty().apply(null), false);
+        Assert.assertEquals(CollectionFunctionals.mapNotEmpty().apply(ImmutableMap.of()), false);
+        Assert.assertEquals(CollectionFunctionals.<String>mapNotEmpty().apply(ImmutableMap.of("mykey", "myval")), true);
     }
 
     @Test

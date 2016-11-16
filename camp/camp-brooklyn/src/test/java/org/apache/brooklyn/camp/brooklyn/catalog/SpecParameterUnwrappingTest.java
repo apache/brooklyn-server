@@ -61,6 +61,11 @@ import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicStartable;
 
 public class SpecParameterUnwrappingTest extends AbstractYamlTest {
+    
+    // Expect app to have the following config keys already: 
+    // "application.stop.shouldDestroy", "defaultDisplayName", "quorum.running", "quorum.up", "start.latch"
+    public static final int NUM_APP_DEFAULT_CONFIG_KEYS = 5;
+    
     private static final String SYMBOLIC_NAME = "my.catalog.app.id.load";
 
     private static final ConfigKey<String> SHARED_CONFIG = ConfigKeys.newStringConfigKey("sample.config");
@@ -141,7 +146,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         CatalogItem<?, ?> item = catalog.getCatalogItem(SYMBOLIC_NAME, TEST_VERSION);
         AbstractBrooklynObjectSpec<?,?> spec = createSpec(item);
         List<SpecParameter<?>> params = spec.getParameters();
-        assertEquals(params.size(), 4);
+        assertEquals(params.size(), NUM_APP_DEFAULT_CONFIG_KEYS + 1, "params="+params);
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());
     }
 
@@ -356,7 +361,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         EntitySpec<?> parentSpec = (EntitySpec<?>) catalog.createSpec((CatalogItem)item);
         EntitySpec<?> spec = parentSpec.getChildren().get(0);
         List<SpecParameter<?>> params = spec.getParameters();
-        assertEquals(params.size(), 3);
+        assertEquals(params.size(), 3, "params="+params);
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());
         assertTrue(Iterables.tryFind(params, labelEqualTo("simple")).isPresent());
     }
@@ -377,7 +382,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
                 "services:",
                 "- type: " + ver(SYMBOLIC_NAME));
         List<SpecParameter<?>> params = spec.getParameters();
-        assertEquals(params.size(), 4);
+        assertEquals(params.size(), NUM_APP_DEFAULT_CONFIG_KEYS + 1, "params="+params);
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());
         assertTrue(Iterables.tryFind(params, labelEqualTo("simple")).isPresent());
     }
@@ -399,7 +404,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
                 "services:",
                 "- type: " + ver(SYMBOLIC_NAME));
         List<SpecParameter<?>> params = spec.getParameters();
-        assertEquals(params.size(), 4);
+        assertEquals(params.size(), NUM_APP_DEFAULT_CONFIG_KEYS + 1, "params="+params);
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());
         assertTrue(Iterables.tryFind(params, labelEqualTo("simple")).isPresent());
     }
@@ -421,7 +426,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
                 "services:",
                 "- type: " + ver(SYMBOLIC_NAME));
         List<SpecParameter<?>> params = spec.getParameters();
-        assertEquals(params.size(), 4);
+        assertEquals(params.size(), NUM_APP_DEFAULT_CONFIG_KEYS + 1, "params="+params);
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());
         assertTrue(Iterables.tryFind(params, labelEqualTo("simple")).isPresent());
     }
@@ -448,7 +453,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
                 "services:",
                 "- type: " + ver(SYMBOLIC_NAME));
         List<SpecParameter<?>> params = spec.getParameters();
-        assertEquals(params.size(), 4, "Wrong number of params: "+params); // sample + defaultDisplayName + destroy_on_stop + start.latch
+        assertEquals(params.size(), NUM_APP_DEFAULT_CONFIG_KEYS + 1, "params="+params);
         assertEquals(ImmutableSet.copyOf(params), ImmutableSet.copyOf(BasicSpecParameter.fromClass(mgmt(), ConfigAppForTest.class)));
     }
 
@@ -571,9 +576,10 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
                 "- simple",
                 "services:",
                 "- type: " + BasicApplication.class.getName());
-        List<SpecParameter<?>> inputs = spec.getParameters();
-        assertEquals(inputs.size(), 4);
-        SpecParameter<?> firstInput = inputs.get(0);
+        List<SpecParameter<?>> params = spec.getParameters();
+        assertEquals(params.size(), NUM_APP_DEFAULT_CONFIG_KEYS + 1, "params="+params);
+
+        SpecParameter<?> firstInput = params.get(0);
         assertEquals(firstInput.getLabel(), "simple");
     }
 
@@ -584,9 +590,9 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
                 "- type: " + BasicApplication.class.getName(),
                 "  brooklyn.parameters:",
                 "  - simple");
-        List<SpecParameter<?>> inputs = spec.getParameters();
-        assertEquals(inputs.size(), 4);
-        SpecParameter<?> firstInput = inputs.get(0);
+        List<SpecParameter<?>> params = spec.getParameters();
+        assertEquals(params.size(), NUM_APP_DEFAULT_CONFIG_KEYS + 1, "params="+params);
+        SpecParameter<?> firstInput = params.get(0);
         assertEquals(firstInput.getLabel(), "simple");
     }
 
