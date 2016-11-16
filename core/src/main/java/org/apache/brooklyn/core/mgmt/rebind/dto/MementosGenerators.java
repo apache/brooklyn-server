@@ -178,6 +178,8 @@ public class MementosGenerators {
         
         builder.isTopLevelApp = (entity instanceof Application && entity.getParent() == null);
 
+        builder.configKeys.addAll(entity.getEntityType().getConfigKeys());
+        
         Map<ConfigKey<?>, ?> localConfig = entity.config().getAllLocalRaw();
         for (Map.Entry<ConfigKey<?>, ?> entry : localConfig.entrySet()) {
             ConfigKey<?> key = checkNotNull(entry.getKey(), localConfig);

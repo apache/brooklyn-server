@@ -30,17 +30,18 @@ import org.apache.brooklyn.api.mgmt.rebind.mementos.EntityMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.TreeNode;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.objs.BrooklynTypes;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.google.common.base.Objects.ToStringHelper;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
@@ -66,6 +67,7 @@ public class BasicEntityMemento extends AbstractTreeNodeMemento implements Entit
 
     public static class Builder extends AbstractTreeNodeMemento.Builder<Builder> {
         protected Boolean isTopLevelApp;
+        protected List<ConfigKey<?>> configKeys = Lists.newArrayList();
         protected Map<ConfigKey<?>, Object> config = Maps.newLinkedHashMap();
         protected Map<String, Object> configUnmatched = Maps.newLinkedHashMap();
         protected Map<AttributeSensor<?>, Object> attributes = Maps.newLinkedHashMap();
@@ -117,6 +119,7 @@ public class BasicEntityMemento extends AbstractTreeNodeMemento implements Entit
     private transient Map<String, Sensor<?>> staticSensorKeys;
     private List<Effector<?>> effectors;
     
+    private transient List<ConfigKey<?>> allConfigKeys;
     private transient Map<ConfigKey<?>, Object> configByKey;
     private transient Map<String, Object> configUnmatched;
     private transient Map<AttributeSensor<?>, Object> attributesByKey;
@@ -139,17 +142,28 @@ public class BasicEntityMemento extends AbstractTreeNodeMemento implements Entit
         
         effectors = toPersistedList(builder.effectors);
         
+        allConfigKeys = builder.configKeys;
         configByKey = builder.config;
         configUnmatched = builder.configUnmatched;
         attributesByKey = builder.attributes;
         
+        staticConfigKeys = getStaticConfigKeys();
+        staticSensorKeys = getStaticSensorKeys();
+        
         if (configByKey!=null) {
             configKeys = Maps.newLinkedHashMap();
             config = Maps.newLinkedHashMap();
+            
+            for (ConfigKey<?> key : allConfigKeys) {
+                if (!key.equals(staticConfigKeys.get(key.getName()))) {
+                    configKeys.put(key.getName(), key);
+                }
+            }
             for (Map.Entry<ConfigKey<?>, Object> entry : configByKey.entrySet()) {
                 ConfigKey<?> key = entry.getKey();
-                if (!key.equals(getStaticConfigKeys().get(key.getName())))
+                if (!configKeys.containsKey(key) && !key.equals(staticConfigKeys.get(key.getName()))) {
                     configKeys.put(key.getName(), key);
+                }
                 config.put(key.getName(), entry.getValue());
             }
             configKeys = toPersistedMap(configKeys);
@@ -165,7 +179,7 @@ public class BasicEntityMemento extends AbstractTreeNodeMemento implements Entit
             attributes = Maps.newLinkedHashMap();
             for (Map.Entry<AttributeSensor<?>, Object> entry : attributesByKey.entrySet()) {
                 AttributeSensor<?> key = entry.getKey();
-                if (!key.equals(getStaticSensorKeys().get(key.getName())))
+                if (!key.equals(staticSensorKeys.get(key.getName())))
                     attributeKeys.put(key.getName(), key);
                 attributes.put(key.getName(), entry.getValue());
             }
@@ -259,6 +273,11 @@ public class BasicEntityMemento extends AbstractTreeNodeMemento implements Entit
     @Override
     public boolean isTopLevelApp() {
         return isTopLevelApp!=null ? isTopLevelApp : getParent()==null;
+    }
+    
+    @Override
+    public List<ConfigKey<?>> getDynamicConfigKeys() {
+        return (configKeys == null) ? ImmutableList.<ConfigKey<?>>of() : ImmutableList.copyOf(configKeys.values());
     }
     
     @Override

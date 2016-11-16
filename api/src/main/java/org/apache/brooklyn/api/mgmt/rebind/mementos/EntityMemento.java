@@ -39,6 +39,9 @@ public interface EntityMemento extends Memento, TreeNode {
     /** all dynamic effectors (ie differences between those registered on the entity type */ 
     public List<Effector<?>> getEffectors();
 
+    /** all dynamic config keys (i.e. differences between those registered on the entity type) */
+    public List<ConfigKey<?>> getDynamicConfigKeys();
+
     public Map<ConfigKey<?>, Object> getConfig();
 
     /** true if the entity is top-level (parentless) and an application
