@@ -43,6 +43,7 @@ import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.text.Strings;
+import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.ComputeServiceContext;
 import org.jclouds.compute.callables.RunScriptOnNode;
 import org.jclouds.compute.domain.ExecResponse;
@@ -212,11 +213,22 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
         _image = Optional.fromNullable(template.getImage());
     }
 
+    protected ComputeService getComputeServiceOrNull() {
+        JcloudsLocation parent = getParent();
+        return (parent != null) ? parent.getComputeService() : null;
+    }
+    
     @Override
     public Optional<NodeMetadata> getOptionalNode() {
       if (_node == null) {
           try {
-              _node = Optional.fromNullable(getParent().getComputeService().getNodeMetadata(nodeId));
+              ComputeService computeService = getComputeServiceOrNull();
+              if (computeService == null) {
+                  if (LOG.isDebugEnabled()) LOG.debug("Cannot get node for {}, because cannot get compute-service from parent {}", this, getParent());
+                  _node = Optional.absent();
+              } else {
+                  _node = Optional.fromNullable(computeService.getNodeMetadata(nodeId));
+              }
           } catch (Exception e) {
               Exceptions.propagateIfFatal(e);
               if (LOG.isDebugEnabled()) LOG.debug("Problem getting node-metadata for " + this + ", node id " + nodeId + " (continuing)", e);
@@ -232,7 +244,13 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
               _image = Optional.absent(); // can happen with JcloudsLocation.resumeMachine() usage
           } else {
               try {
-                  _image = Optional.fromNullable(getParent().getComputeService().getImage(imageId));
+                  ComputeService computeService = getComputeServiceOrNull();
+                  if (computeService == null) {
+                      if (LOG.isDebugEnabled()) LOG.debug("Cannot get image (with id {}) for {}, because cannot get compute-service from parent {}", new Object[] {imageId, this, getParent()});
+                      _node = Optional.absent();
+                  } else {
+                      _image = Optional.fromNullable(computeService.getImage(imageId));
+                  }
               } catch (Exception e) {
                   Exceptions.propagateIfFatal(e);
                   if (LOG.isDebugEnabled()) LOG.debug("Problem getting image for " + this + ", image id " + imageId + " (continuing)", e);
@@ -440,7 +458,7 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
         Optional<NodeMetadata> node = getOptionalNode();
 
         if (!node.isPresent()) {
-            throw new IllegalStateException("Node "+nodeId+" not present in "+getParent());
+            throw new IllegalStateException("Node "+nodeId+" not present in "+jcloudsParent);
         }
         if (jcloudsParent == null) {
             throw new IllegalStateException("No jclouds parent location for "+this+"; cannot retrieve jclouds script-runner");
@@ -596,16 +614,16 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
 
     @Override
     public Map<String, String> toMetadataRecord() {
+        JcloudsLocation parent = getParent();
         Optional<NodeMetadata> node = getOptionalNode();
-        
         Optional<Hardware> hardware = getOptionalHardware();
         List<? extends Processor> processors = hardware.isPresent() ? hardware.get().getProcessors() : null;
         
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
         builder.putAll(super.toMetadataRecord());
-        putIfNotNull(builder, "provider", getParent().getProvider());
-        putIfNotNull(builder, "account", getParent().getIdentity());
-        putIfNotNull(builder, "region", getParent().getRegion());
+        putIfNotNull(builder, "provider", (parent != null) ? parent.getProvider() : null);
+        putIfNotNull(builder, "account", (parent != null) ? parent.getIdentity() : null);
+        putIfNotNull(builder, "region", (parent != null) ? parent.getRegion() : null);
         putIfNotNull(builder, "serverId", getJcloudsId());
         putIfNotNull(builder, "imageId", getImageId());
         putIfNotNull(builder, "instanceTypeName", (hardware.isPresent() ? hardware.get().getName() : null));

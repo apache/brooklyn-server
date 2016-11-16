@@ -891,6 +891,17 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
 
     @Override
     public void addLocations(Collection<? extends Location> newLocations) {
+        addLocationsImpl(newLocations, true);
+    }
+
+    @Override
+    @Beta
+    public void addLocationsWithoutPublishing(Collection<? extends Location> newLocations) {
+        addLocationsImpl(newLocations, false);
+    }
+    
+    @Beta
+    protected void addLocationsImpl(Collection<? extends Location> newLocations, boolean publish) {
         if (newLocations==null || newLocations.isEmpty()) {
             return;
         }
@@ -918,18 +929,23 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
                 locations.set(ImmutableList.<Location>builder().addAll(oldLocations).addAll(trulyNewLocations).build());
             }
             
-            for (Location loc : trulyNewLocations) {
-                sensors().emit(AbstractEntity.LOCATION_ADDED, loc);
+            if (publish) {
+                for (Location loc : trulyNewLocations) {
+                    sensors().emit(AbstractEntity.LOCATION_ADDED, loc);
+                }
             }
         }
         
-        if (getManagementSupport().isDeployed()) {
-            for (Location newLocation : newLocations) {
-                // Location is now reachable, so manage it
-                // TODO will not be required in future releases when creating locations always goes through LocationManager.createLocation(LocationSpec).
-                Locations.manage(newLocation, getManagementContext());
+        if (publish) {
+            if (getManagementSupport().isDeployed()) {
+                for (Location newLocation : newLocations) {
+                    // Location is now reachable, so manage it
+                    // TODO will not be required in future releases when creating locations always goes through LocationManager.createLocation(LocationSpec).
+                    Locations.manage(newLocation, getManagementContext());
+                }
             }
         }
+        
         getManagementSupport().getEntityChangeListener().onLocationsChanged();
     }
 
