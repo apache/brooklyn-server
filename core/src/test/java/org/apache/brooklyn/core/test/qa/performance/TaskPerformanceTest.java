@@ -29,7 +29,6 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.apache.brooklyn.util.core.task.SingleThreadedScheduler;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
