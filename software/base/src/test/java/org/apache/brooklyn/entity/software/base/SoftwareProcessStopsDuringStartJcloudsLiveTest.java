@@ -142,7 +142,7 @@ public class SoftwareProcessStopsDuringStartJcloudsLiveTest extends BrooklynAppL
             }
         }, Asserts.DEFAULT_LONG_TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
         EntityAsserts.assertEntityHealthy(entity);
-        assertEquals(entity.getAttribute(AttributesInternal.INTERNAL_PROVISIONING_TASK_STATE), AttributesInternal.ProvisioningTaskState.DONE);
+        assertEquals(entity.getAttribute(AttributesInternal.INTERNAL_PROVISIONING_TASK_STATE), null);
         assertEquals(entity.getAttribute(MachineLifecycleEffectorTasks.INTERNAL_PROVISIONED_MACHINE), Machines.findUniqueMachineLocation(entity.getLocations(), SshMachineLocation.class).get());
 
         executeInLimitedTime(new Callable<Void>() {

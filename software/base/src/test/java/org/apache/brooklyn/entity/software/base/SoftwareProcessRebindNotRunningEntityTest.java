@@ -47,6 +47,7 @@ import org.apache.brooklyn.core.entity.internal.AttributesInternal;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.location.AbstractLocation;
+import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixtureWithApp;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
@@ -62,6 +63,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Predicate;
@@ -87,6 +89,11 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
     // TODO Longer term, we should investigate/fix that so tearDown finishes promptly no matter what!
     private List<CountDownLatch> latches;
     
+    @DataProvider
+    public Object[][] terminateOrigManagementContextProvider() {
+        return new Object[][]{{false}, {true}};
+    }
+
     @BeforeMethod(alwaysRun=true)
     @Override
     public void setUp() throws Exception {
@@ -133,8 +140,8 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
         return HighAvailabilityMode.MASTER;
     }
 
-    @Test
-    public void testRebindWhileWaitingForCheckRunning() throws Exception {
+    @Test(dataProvider="terminateOrigManagementContextProvider")
+    public void testRebindWhileWaitingForCheckRunning(boolean terminateOrigManagementContext) throws Exception {
         final CountDownLatch checkRunningCalledLatch = newLatch(1);
         RecordingSshTool.setCustomResponse(".*myCheckRunning.*", new CustomResponseGenerator() {
             @Override
@@ -152,15 +159,15 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
 
         EntityAsserts.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STARTING);
 
-        TestApplication newApp = rebind();
+        TestApplication newApp = rebind(RebindOptions.create().terminateOrigManagementContext(terminateOrigManagementContext));
         final VanillaSoftwareProcess newEntity = (VanillaSoftwareProcess) Iterables.find(newApp.getChildren(), Predicates.instanceOf(VanillaSoftwareProcess.class));
 
         assertMarkedAsOnfire(newEntity, Lifecycle.STARTING);
         assertMarkedAsOnfire(newApp, Lifecycle.STARTING);
     }
 
-    @Test
-    public void testRebindWhileLaunching() throws Exception {
+    @Test(dataProvider="terminateOrigManagementContextProvider")
+    public void testRebindWhileLaunching(boolean terminateOrigManagementContext) throws Exception {
         final CountDownLatch launchCalledLatch = newLatch(1);
         final CountDownLatch launchBlockedLatch = newLatch(1);
         RecordingSshTool.setCustomResponse(".*myLaunch.*", new CustomResponseGenerator() {
@@ -180,15 +187,15 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
 
         EntityAsserts.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STARTING);
 
-        TestApplication newApp = rebind();
+        TestApplication newApp = rebind(RebindOptions.create().terminateOrigManagementContext(terminateOrigManagementContext));
         final VanillaSoftwareProcess newEntity = (VanillaSoftwareProcess) Iterables.find(newApp.getChildren(), Predicates.instanceOf(VanillaSoftwareProcess.class));
 
         assertMarkedAsOnfire(newEntity, Lifecycle.STARTING);
         assertMarkedAsOnfire(newApp, Lifecycle.STARTING);
     }
 
-    @Test
-    public void testRebindWhileStoppingProcess() throws Exception {
+    @Test(dataProvider="terminateOrigManagementContextProvider")
+    public void testRebindWhileStoppingProcess(boolean terminateOrigManagementContext) throws Exception {
         final CountDownLatch stopCalledLatch = newLatch(1);
         final CountDownLatch stopBlockedLatch = newLatch(1);
         RecordingSshTool.setCustomResponse(".*myStop.*", new CustomResponseGenerator() {
@@ -210,7 +217,7 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
 
         EntityAsserts.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPING);
 
-        TestApplication newApp = rebind();
+        TestApplication newApp = rebind(RebindOptions.create().terminateOrigManagementContext(terminateOrigManagementContext));
         final VanillaSoftwareProcess newEntity = (VanillaSoftwareProcess) Iterables.find(newApp.getChildren(), Predicates.instanceOf(VanillaSoftwareProcess.class));
 
         assertMarkedAsOnfire(newEntity, Lifecycle.STOPPING);
@@ -218,6 +225,11 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
 
     @Test
     public void testRebindWhileProvisioning() throws Exception {
+        testRebindWhileProvisioning(true);
+    }
+    
+    @Test(dataProvider="terminateOrigManagementContextProvider")
+    public void testRebindWhileProvisioning(boolean terminateOrigManagementContext) throws Exception {
         final CountDownLatch obtainCalledLatch = newLatch(1);
         final CountDownLatch obtainBlockedLatch = newLatch(1);
         MyProvisioningLocation blockingProvisioner = mgmt().getLocationManager().createLocation(LocationSpec.create(MyProvisioningLocation.class)
@@ -233,8 +245,9 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
         awaitOrFail(obtainCalledLatch, Asserts.DEFAULT_LONG_TIMEOUT);
 
         EntityAsserts.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STARTING);
+        EntityAsserts.assertAttributeEquals(entity, AttributesInternal.INTERNAL_PROVISIONING_TASK_STATE, AttributesInternal.ProvisioningTaskState.RUNNING);
 
-        TestApplication newApp = rebind();
+        TestApplication newApp = rebind(RebindOptions.create().terminateOrigManagementContext(terminateOrigManagementContext));
         final VanillaSoftwareProcess newEntity = (VanillaSoftwareProcess) Iterables.find(newApp.getChildren(), Predicates.instanceOf(VanillaSoftwareProcess.class));
 
         assertMarkedAsOnfire(newEntity, Lifecycle.STARTING);
@@ -246,8 +259,8 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
         EntityAsserts.assertAttributeEquals(newEntity, AttributesInternal.INTERNAL_TERMINATION_TASK_STATE, null);
     }
 
-    @Test
-    public void testRebindWhileTerminatingVm() throws Exception {
+    @Test(dataProvider="terminateOrigManagementContextProvider")
+    public void testRebindWhileTerminatingVm(boolean terminateOrigManagementContext) throws Exception {
         final CountDownLatch releaseCalledLatch = newLatch(1);
         final CountDownLatch obtainBlockedLatch = newLatch(1);
         MyProvisioningLocation blockingProvisioner = mgmt().getLocationManager().createLocation(LocationSpec.create(MyProvisioningLocation.class)
@@ -265,8 +278,9 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
         awaitOrFail(releaseCalledLatch, Asserts.DEFAULT_LONG_TIMEOUT);
 
         EntityAsserts.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPING);
+        EntityAsserts.assertAttributeEquals(entity, AttributesInternal.INTERNAL_TERMINATION_TASK_STATE, AttributesInternal.ProvisioningTaskState.RUNNING);
 
-        TestApplication newApp = rebind();
+        TestApplication newApp = rebind(RebindOptions.create().terminateOrigManagementContext(terminateOrigManagementContext));
         final VanillaSoftwareProcess newEntity = (VanillaSoftwareProcess) Iterables.find(newApp.getChildren(), Predicates.instanceOf(VanillaSoftwareProcess.class));
         
         
@@ -338,12 +352,12 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
         EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
         EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, false);
         assertNotUpIndicatorIncludesEventually(entity, "Task aborted on rebind",
-                "Set to on-fire (from previous expected state "+previousState+") because tasks aborted on rebind");
+                "Set to on-fire (from previous expected state "+previousState+") because tasks aborted on shutdown");
     }
 
     protected void assertMarkedAsVmLost(Entity entity, Lifecycle previousState) throws Exception {
         String expectedReason = "VM " + (previousState == Lifecycle.STARTING ? "provisioning" : "termination") 
-                + " may have been in-progress and now lost, because tasks aborted on rebind";
+                + " may have been in-progress and now lost, because tasks aborted on shutdown";
         assertNotUpIndicatorIncludesEventually(entity, "VM may be lost on rebind", expectedReason);
     }
 

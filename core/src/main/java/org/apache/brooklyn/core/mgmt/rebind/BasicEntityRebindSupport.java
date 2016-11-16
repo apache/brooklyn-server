@@ -269,7 +269,7 @@ public class BasicEntityRebindSupport extends AbstractBrooklynObjectRebindSuppor
         ServiceStateLogic.ServiceNotUpLogic.updateNotUpIndicator(
                 entity, 
                 "Task aborted on rebind", 
-                "Set to on-fire (from previous expected state "+expectedState+") because tasks aborted on rebind");
+                "Set to on-fire (from previous expected state "+expectedState+") because tasks aborted on shutdown");
         
         // Check if we were in the process of provisioning a machine. If so, a VM might have
         // been left behind. E.g. we might have submitted to jclouds the request to provision 
@@ -282,7 +282,7 @@ public class BasicEntityRebindSupport extends AbstractBrooklynObjectRebindSuppor
             ServiceStateLogic.ServiceNotUpLogic.updateNotUpIndicator(
                     entity, 
                     "VM may be lost on rebind", 
-                    "VM provisioning may have been in-progress and now lost, because tasks aborted on rebind");
+                    "VM provisioning may have been in-progress and now lost, because tasks aborted on shutdown");
         }
 
         // Similar to the provisioning case, if we were terminating the VM then we may or may 
@@ -294,7 +294,7 @@ public class BasicEntityRebindSupport extends AbstractBrooklynObjectRebindSuppor
             ServiceStateLogic.ServiceNotUpLogic.updateNotUpIndicator(
                     entity, 
                     "VM may be lost on rebind", 
-                    "VM termination may have been in-progress and now lost, because tasks aborted on rebind");
+                    "VM termination may have been in-progress and now lost, because tasks aborted on shutdown");
         }
     }
 }

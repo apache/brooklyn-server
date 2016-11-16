@@ -414,7 +414,7 @@ public abstract class MachineLifecycleEffectorTasks {
                 machine = Tasks.withBlockingDetails("Provisioning machine in " + location, new ObtainLocationTask(location, flags));
                 entity().sensors().set(INTERNAL_PROVISIONED_MACHINE, machine);
             } finally {
-                entity().sensors().set(AttributesInternal.INTERNAL_PROVISIONING_TASK_STATE, ProvisioningTaskState.DONE);
+                entity().sensors().remove(AttributesInternal.INTERNAL_PROVISIONING_TASK_STATE);
             }
             
             if (machine == null) {
@@ -774,7 +774,7 @@ public abstract class MachineLifecycleEffectorTasks {
                         @Override
                         public Boolean call() throws Exception {
                             ProvisioningTaskState state = entity().sensors().get(AttributesInternal.INTERNAL_PROVISIONING_TASK_STATE);
-                            return (state == ProvisioningTaskState.DONE);
+                            return (state != ProvisioningTaskState.RUNNING);
                         }})
                     .backoffTo(Duration.FIVE_SECONDS)
                     .limitTimeTo(maxWait)

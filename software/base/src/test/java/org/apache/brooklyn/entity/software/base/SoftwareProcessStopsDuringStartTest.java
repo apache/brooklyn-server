@@ -99,7 +99,7 @@ public class SoftwareProcessStopsDuringStartTest extends BrooklynAppUnitTestSupp
         
         entity.start(ImmutableList.<Location>of(loc));
         SshMachineLocation machine = Machines.findUniqueMachineLocation(entity.getLocations(), SshMachineLocation.class).get();
-        EntityAsserts.assertAttributeEquals(entity, AttributesInternal.INTERNAL_PROVISIONING_TASK_STATE, AttributesInternal.ProvisioningTaskState.DONE);
+        EntityAsserts.assertAttributeEquals(entity, AttributesInternal.INTERNAL_PROVISIONING_TASK_STATE, null);
         EntityAsserts.assertAttributeEquals(entity, MachineLifecycleEffectorTasks.INTERNAL_PROVISIONED_MACHINE, machine);
         
         Stopwatch stopwatch = Stopwatch.createStarted();
@@ -120,7 +120,7 @@ public class SoftwareProcessStopsDuringStartTest extends BrooklynAppUnitTestSupp
         
         entity.start(ImmutableList.<Location>of(loc));
         SshMachineLocation machine = Machines.findUniqueMachineLocation(entity.getLocations(), SshMachineLocation.class).get();
-        EntityAsserts.assertAttributeEquals(entity, AttributesInternal.INTERNAL_PROVISIONING_TASK_STATE, AttributesInternal.ProvisioningTaskState.DONE);
+        EntityAsserts.assertAttributeEquals(entity, AttributesInternal.INTERNAL_PROVISIONING_TASK_STATE, null);
         EntityAsserts.assertAttributeEquals(entity, MachineLifecycleEffectorTasks.INTERNAL_PROVISIONED_MACHINE, machine);
         
         entity.stop();
@@ -129,7 +129,7 @@ public class SoftwareProcessStopsDuringStartTest extends BrooklynAppUnitTestSupp
 
         entity.start(ImmutableList.<Location>of(loc));
         SshMachineLocation machine2 = Machines.findUniqueMachineLocation(entity.getLocations(), SshMachineLocation.class).get();
-        EntityAsserts.assertAttributeEquals(entity, AttributesInternal.INTERNAL_PROVISIONING_TASK_STATE, AttributesInternal.ProvisioningTaskState.DONE);
+        EntityAsserts.assertAttributeEquals(entity, AttributesInternal.INTERNAL_PROVISIONING_TASK_STATE, null);
         EntityAsserts.assertAttributeEquals(entity, MachineLifecycleEffectorTasks.INTERNAL_PROVISIONED_MACHINE, machine2);
 
         entity.stop();
