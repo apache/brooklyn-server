@@ -109,7 +109,32 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         assertKeyEquals(newEntity, "testConfigParametersListedInType.mykey", "myDescription", String.class, "myDefaultVal", "myOverridingVal");
     }
     
+    @Test
+    public void testConfigParameterOverridingJavaListedInType() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  items:",
+                "  - id: entity-with-keys",
+                "    item:",
+                "      type: "+TestEntity.class.getName(),
+                "      brooklyn.parameters:",
+                "      - name: " + TestEntity.CONF_NAME.getName(),
+                "        description: myDescription",
+                "        type: String",
+                "        default: myDefaultYamlVal");
+        
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: entity-with-keys");
+        
+        Entity app = createStartWaitAndLogApplication(yaml);
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
 
+        // Check config key is listed
+        assertKeyEquals(entity, TestEntity.CONF_NAME.getName(), "myDescription", String.class, "myDefaultYamlVal", "myDefaultYamlVal");
+    }
+    
     @Test
     public void testConfigParametersListedInType() throws Exception {
         addCatalogItems(
