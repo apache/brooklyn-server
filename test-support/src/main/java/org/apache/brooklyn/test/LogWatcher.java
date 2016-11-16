@@ -130,6 +130,10 @@ public class LogWatcher implements Closeable {
         }
     }
     
+    public void assertHasEvent() {
+        assertFalse(events.isEmpty());
+    }
+
     public void assertHasEventEventually() {
         Asserts.succeedsEventually(new Runnable() {
             public void run() {

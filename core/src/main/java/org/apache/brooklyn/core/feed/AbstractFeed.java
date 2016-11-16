@@ -180,6 +180,7 @@ public abstract class AbstractFeed extends AbstractEntityAdjunct implements Feed
         return activated;
     }
     
+    @Override
     public EntityLocal getEntity() {
         return entity;
     }

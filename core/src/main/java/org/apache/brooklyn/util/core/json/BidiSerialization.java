@@ -24,7 +24,14 @@ import java.util.Map;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
+import org.apache.brooklyn.api.policy.Policy;
+import org.apache.brooklyn.api.sensor.Enricher;
+import org.apache.brooklyn.api.sensor.Feed;
+import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -33,6 +40,7 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.google.common.base.Optional;
 
 public class BidiSerialization {
 
@@ -101,8 +109,12 @@ public class BidiSerialization {
         }
 
         protected void writeBody(T value, JsonGenerator jgen, SerializerProvider provider) throws IOException {
-            jgen.writeStringField("type", value.getClass().getCanonicalName());
+            jgen.writeStringField("type", customType(value));
             customWriteBody(value, jgen, provider);
+        }
+
+        protected String customType(T value) throws IOException {
+            return value.getClass().getCanonicalName();
         }
 
         public abstract void customWriteBody(T value, JsonGenerator jgen, SerializerProvider provider) throws IOException;
@@ -125,7 +137,12 @@ public class BidiSerialization {
     public static class ManagementContextSerialization extends AbstractWithManagementContextSerialization<ManagementContext> {
         public ManagementContextSerialization(ManagementContext mgmt) { super(ManagementContext.class, mgmt); }
         @Override
-        public void customWriteBody(ManagementContext value, JsonGenerator jgen, SerializerProvider provider) throws IOException {}
+        protected String customType(ManagementContext value) throws IOException {
+            return type.getCanonicalName();
+        }
+        @Override
+        public void customWriteBody(ManagementContext value, JsonGenerator jgen, SerializerProvider provider) throws IOException {
+        }
         @Override
         protected ManagementContext customReadBody(String type, Map<Object, Object> values, JsonParser jp, DeserializationContext ctxt) throws IOException {
             return mgmt;
@@ -137,9 +154,8 @@ public class BidiSerialization {
             super(type, mgmt);
         }
         @Override
-        protected void writeBody(T value, JsonGenerator jgen, SerializerProvider provider) throws IOException {
-            jgen.writeStringField("type", type.getCanonicalName());
-            customWriteBody(value, jgen, provider);
+        protected String customType(T value) throws IOException {
+            return type.getCanonicalName();
         }
         @Override
         public void customWriteBody(T value, JsonGenerator jgen, SerializerProvider provider) throws IOException {
@@ -152,22 +168,128 @@ public class BidiSerialization {
         protected abstract T getInstanceFromId(String id);
     }
 
+    public abstract static class AbstractBrooklynAdjunctSerialization<T extends BrooklynObject & EntityAdjunct> extends AbstractWithManagementContextSerialization<T> {
+        public AbstractBrooklynAdjunctSerialization(Class<T> type, ManagementContext mgmt) { 
+            super(type, mgmt);
+        }
+        @Override
+        protected String customType(T value) throws IOException {
+            return type.getCanonicalName();
+        }
+        @Override
+        public void customWriteBody(T value, JsonGenerator jgen, SerializerProvider provider) throws IOException {
+            Optional<String> entityId = getEntityId(value);
+            jgen.writeStringField("id", value.getId());
+            if (entityId.isPresent()) jgen.writeStringField("entityId", entityId.get());
+        }
+        @Override
+        protected T customReadBody(String type, Map<Object, Object> values, JsonParser jp, DeserializationContext ctxt) throws IOException {
+            Optional<String> entityId = Optional.fromNullable((String) values.get("entityId"));
+            Optional<Entity> entity = Optional.fromNullable(entityId.isPresent() ? null: mgmt.getEntityManager().getEntity(entityId.get()));
+            String id = (String) values.get("id");
+            return getInstanceFromId(entity, id);
+        }
+        protected Optional<String> getEntityId(T value) {
+            if (value instanceof AbstractEntityAdjunct) {
+                Entity entity = ((AbstractEntityAdjunct)value).getEntity();
+                return Optional.fromNullable(entity == null ? null : entity.getId());
+            }
+            return Optional.absent();
+        }
+        protected abstract T getInstanceFromId(Optional<Entity> entity, String id);
+    }
+
     public static class EntitySerialization extends AbstractBrooklynObjectSerialization<Entity> {
         public EntitySerialization(ManagementContext mgmt) { super(Entity.class, mgmt); }
         @Override protected Entity getInstanceFromId(String id) { return mgmt.getEntityManager().getEntity(id); }
     }
+    
     public static class LocationSerialization extends AbstractBrooklynObjectSerialization<Location> {
         public LocationSerialization(ManagementContext mgmt) { super(Location.class, mgmt); }
         @Override protected Location getInstanceFromId(String id) { return mgmt.getLocationManager().getLocation(id); }
     }
-    // TODO how to look up policies and enrichers? (not essential...)
-//    public static class PolicySerialization extends AbstractBrooklynObjectSerialization<Policy> {
-//        public EntitySerialization(ManagementContext mgmt) { super(Policy.class, mgmt); }
-//        @Override protected Policy getKind(String id) { return mgmt.getEntityManager().getEntity(id); }
-//    }
-//    public static class EnricherSerialization extends AbstractBrooklynObjectSerialization<Enricher> {
-//        public EntitySerialization(ManagementContext mgmt) { super(Entity.class, mgmt); }
-//        @Override protected Enricher getKind(String id) { return mgmt.getEntityManager().getEntity(id); }
-//    }
-
+    
+    public static class PolicySerialization extends AbstractBrooklynAdjunctSerialization<Policy> {
+        public PolicySerialization(ManagementContext mgmt) {
+            super(Policy.class, mgmt);
+        }
+        @Override protected Policy getInstanceFromId(Optional<Entity> entity, String id) {
+            if (id == null || !entity.isPresent()) return null;
+            for (Policy policy : entity.get().policies()) {
+                if (id.equals(policy.getId())) {
+                    return policy;
+                }
+            }
+            return null;
+        }
+    }
+    
+    public static class EnricherSerialization extends AbstractBrooklynAdjunctSerialization<Enricher> {
+        public EnricherSerialization(ManagementContext mgmt) {
+            super(Enricher.class, mgmt);
+        }
+        @Override protected Enricher getInstanceFromId(Optional<Entity> entity, String id) {
+            if (id == null || !entity.isPresent()) return null;
+            for (Enricher enricher : entity.get().enrichers()) {
+                if (id.equals(enricher.getId())) {
+                    return enricher;
+                }
+            }
+            return null;
+        }
+    }
+    
+    public static class FeedSerialization extends AbstractBrooklynAdjunctSerialization<Feed> {
+        public FeedSerialization(ManagementContext mgmt) {
+            super(Feed.class, mgmt);
+        }
+        @Override protected Feed getInstanceFromId(Optional<Entity> entity, String id) {
+            if (id == null || !entity.isPresent()) return null;
+            for (Feed feed : ((EntityInternal)entity).feeds().getFeeds()) {
+                if (id.equals(feed.getId())) {
+                    return feed;
+                }
+            }
+            return null;
+        }
+    }
+    
+    public static class TaskSerialization extends AbstractWithManagementContextSerialization<Task<?>> {
+        @SuppressWarnings("unchecked")
+        public TaskSerialization(ManagementContext mgmt) { 
+            super((Class<Task<?>>)(Class<?>)Task.class, mgmt);
+        }
+        @Override
+        protected String customType(Task<?> value) throws IOException {
+            return type.getCanonicalName();
+        }
+        @Override
+        public void customWriteBody(Task<?> value, JsonGenerator jgen, SerializerProvider provider) throws IOException {
+            jgen.writeStringField("id", value.getId());
+            jgen.writeStringField("displayName", value.getDisplayName());
+        }
+        @Override
+        protected Task<?> customReadBody(String type, Map<Object, Object> values, JsonParser jp, DeserializationContext ctxt) throws IOException {
+            return mgmt.getExecutionManager().getTask((String) values.get("id"));
+        }
+    }
+    
+    /**
+     * Serializes a classloader to just tell us about its type; cannot deserialize it again though!
+     * 
+     * See https://issues.apache.org/jira/browse/BROOKLYN-304 - this new behaviour is better than the
+     * {@link OutOfMemoryError} we used to get.
+     */
+    public static class ClassLoaderSerialization extends AbstractWithManagementContextSerialization<ClassLoader> {
+        public ClassLoaderSerialization(ManagementContext mgmt) { 
+            super(ClassLoader.class, mgmt);
+        }
+        @Override
+        public void customWriteBody(ClassLoader value, JsonGenerator jgen, SerializerProvider provider) throws IOException {
+        }
+        @Override
+        protected ClassLoader customReadBody(String type, Map<Object, Object> values, JsonParser jp, DeserializationContext ctxt) throws IOException {
+            return null;
+        }
+    }
 }
