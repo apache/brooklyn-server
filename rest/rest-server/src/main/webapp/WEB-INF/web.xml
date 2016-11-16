@@ -75,6 +75,7 @@
                 org.apache.brooklyn.rest.filter.NoCacheFilter,
                 org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter,
                 org.apache.brooklyn.rest.filter.EntitlementContextFilter,
+                org.apache.brooklyn.rest.filter.CsrfTokenFilter,
                 org.apache.brooklyn.rest.util.ManagementContextProvider
                 <!-- org.apache.brooklyn.rest.util.ShutdownHandlerProvider -->
             </param-value>

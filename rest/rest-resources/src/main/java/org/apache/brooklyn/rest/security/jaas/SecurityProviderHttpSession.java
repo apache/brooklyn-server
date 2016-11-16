@@ -25,10 +25,10 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpSession;
-import javax.servlet.http.HttpSessionContext;
 
 import org.apache.brooklyn.util.text.Identifiers;
 
+/** mock session, used only for performing authentication */
 public class SecurityProviderHttpSession implements HttpSession {
     String id = Identifiers.makeRandomId(5);
     Map<String, Object> attributes = new ConcurrentHashMap<>();
@@ -62,8 +62,8 @@ public class SecurityProviderHttpSession implements HttpSession {
         return 0;
     }
 
-    @Override
-    public HttpSessionContext getSessionContext() {
+    @Deprecated //in interface
+    public javax.servlet.http.HttpSessionContext getSessionContext() {
         return null;
     }
 

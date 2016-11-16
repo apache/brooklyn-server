@@ -30,23 +30,35 @@ import javax.ws.rs.core.UriInfo;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext;
 import org.apache.brooklyn.rest.api.LogoutApi;
+import org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 
+import com.google.common.net.HttpHeaders;
+
 public class LogoutResource extends AbstractBrooklynRestResource implements LogoutApi {
+    
+    private static final String BASIC_REALM_WEBCONSOLE = "Basic realm=\""+BrooklynLoginModule.DEFAULT_ROLE+"\"";
+    
     @Context HttpServletRequest req;
     @Context UriInfo uri;
 
     @Override
     public Response logout() {
         WebEntitlementContext ctx = (WebEntitlementContext) Entitlements.getEntitlementContext();
+        
+        if (ctx==null) {
+            return Response.status(Status.BAD_REQUEST)
+                .entity("No user logged in")
+                .header(HttpHeaders.WWW_AUTHENTICATE, BASIC_REALM_WEBCONSOLE)
+                .build();            
+        }
+        
         URI dest = uri.getBaseUriBuilder().path(LogoutApi.class).path(LogoutApi.class, "logoutUser").build(ctx.user());
 
         // When execution gets here we don't know whether this is the first fetch of logout() or a subsequent one
         // with a re-authenticated user. The only way to tell is compare if user names changed. So redirect to an URL
         // which contains the user name.
-        return Response.status(Status.TEMPORARY_REDIRECT)
-                .header("Location", dest.toASCIIString())
-                .build();
+        return Response.temporaryRedirect(dest).build();
     }
 
     @Override
@@ -58,7 +70,7 @@ public class LogoutResource extends AbstractBrooklynRestResource implements Logo
             doLogout();
 
             return Response.status(Status.UNAUTHORIZED)
-                    .header("WWW-Authenticate", "Basic realm=\"webconsole\"")
+                    .header(HttpHeaders.WWW_AUTHENTICATE, BASIC_REALM_WEBCONSOLE)
                     .build();
         } else {
             return Response.temporaryRedirect(uri.getAbsolutePathBuilder().replacePath("/").build()).build();

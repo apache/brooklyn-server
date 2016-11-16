@@ -101,6 +101,7 @@ limitations under the License.
                 TODO ShutdownHandlerProvider, sync with init work.
                 Needs to be custom OSGi implementation?
             -->
+            <bean class="org.apache.brooklyn.rest.filter.CsrfTokenFilter" />
             <bean class="org.apache.brooklyn.rest.filter.RequestTaggingRsFilter" />
             <bean class="org.apache.brooklyn.rest.filter.NoCacheFilter" />
             <bean class="org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter" />

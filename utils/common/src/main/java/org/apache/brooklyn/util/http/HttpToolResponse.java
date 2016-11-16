@@ -39,8 +39,10 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Objects;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.io.ByteStreams;
+import com.google.common.net.HttpHeaders;
 
 /**
  * A response class for use with {@link HttpTool}.
@@ -147,6 +149,30 @@ public class HttpToolResponse {
             }
         }
         return headerLists;
+    }
+    
+    public Map<String, List<String>> getCookieKeyValues() {
+        List<String> cookiesRaw = getHeaderLists().get(HttpHeaders.SET_COOKIE);
+        Map<String, List<String>> result = Maps.newLinkedHashMap();
+        for (String c: cookiesRaw) {
+            // poor man's parse; would need to copy routines in jetty's CookieCutter (not in scope) or similar
+            // to treat quotes/escapes correctly, and ideally return typed cookies
+            
+            int keyI = c.indexOf('=');
+            if (keyI<0) continue; //not a valid cookie
+            String key = c.substring(0,  keyI);
+            String value = c.substring(keyI+1);
+            int flagsI = value.indexOf(';');
+            if (flagsI>=0) value = value.substring(0, flagsI);
+            
+            List<String> values = result.get(key);
+            if (values==null) {
+                values = Lists.newArrayList();
+                result.put(key, values);
+            }
+            values.add(value);
+        }
+        return result;
     }
     
     public byte[] getContent() {
