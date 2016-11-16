@@ -93,7 +93,12 @@ public class CatalogEntitySummary extends CatalogItemSummary {
     @Override
     public String toString() {
         return "CatalogEntitySummary{" +
-                "config=" + config +
+                "id='" + getId() + '\'' +
+                ", symbolicName='" + getSymbolicName() + '\'' +
+                ", version='" + getVersion() + '\'' +
+                ", type='" + getType() + '\'' +
+                ", name='" + getName() + '\'' +
+                ", config=" + config +
                 ", sensors=" + sensors +
                 ", effectors=" + effectors +
                 '}';

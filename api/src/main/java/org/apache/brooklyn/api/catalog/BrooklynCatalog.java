@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.NoSuchElementException;
 
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
@@ -65,9 +66,28 @@ public interface BrooklynCatalog {
      * so it is safe for callers to keep a handle on this. */
     public ClassLoader getRootClassLoader();
 
-    /** creates a spec for the given catalog item, throwing exceptions if any problems */
-    // TODO this should be cached on the item and renamed getSpec(...), else we re-create it too often (every time catalog is listed)
+    /**
+     * Creates a spec for the given catalog item, throwing exceptions if any problems.
+     * 
+     * Use of this method is strongly discouraged. It causes the catalog item to be re-parsed 
+     * every time, which is very inefficient.
+     * 
+     * @deprecated since 0.10.0; use {@link #peekSpec(CatalogItem)} for a preview of what the item
+     *             corresponds to.
+     */
     <T, SpecT extends AbstractBrooklynObjectSpec<? extends T, SpecT>> SpecT createSpec(CatalogItem<T, SpecT> item);
+
+    /** 
+     * Creates a spec for the given catalog item, throwing exceptions if any problems. The returned 
+     * spec is intended for getting additional information about the item. It should not be used 
+     * for creating entities/apps!
+     * 
+     * See {@code EntityManagementUtils.createEntitySpecForApplication(ManagementContext mgmt, String plan)}
+     * for how apps are deployed.
+     * 
+     * @since 0.10.0
+     */
+    AbstractBrooklynObjectSpec<?, ?> peekSpec(CatalogItem<?, ?> item);
 
     /**
      * Adds an item (represented in yaml) to the catalog.

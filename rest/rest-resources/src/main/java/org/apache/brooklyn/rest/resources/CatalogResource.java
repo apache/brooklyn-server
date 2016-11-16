@@ -30,6 +30,7 @@ import javax.annotation.Nullable;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
+import javax.ws.rs.core.UriInfo;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Application;
@@ -63,6 +64,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
@@ -75,8 +77,6 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.io.Files;
-import javax.ws.rs.core.UriInfo;
-import org.apache.brooklyn.util.guava.Maybe;
 
 @HaHotStateRequired
 public class CatalogResource extends AbstractBrooklynRestResource implements CatalogApi {
@@ -386,7 +386,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    private <T,SpecT> List<CatalogItemSummary> getCatalogItemSummariesMatchingRegexFragment(Predicate<CatalogItem<T,SpecT>> type, String regex, String fragment, boolean allVersions) {
+    private <T,SpecT> List<CatalogItemSummary> getCatalogItemSummariesMatchingRegexFragment(Predicate<? super CatalogItem<T,SpecT>> type, String regex, String fragment, boolean allVersions) {
         List filters = new ArrayList();
         filters.add(type);
         if (Strings.isNonEmpty(regex))

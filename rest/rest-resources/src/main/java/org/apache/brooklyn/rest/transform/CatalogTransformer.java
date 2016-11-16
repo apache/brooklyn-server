@@ -79,7 +79,7 @@ public class CatalogTransformer {
         EntitySpec<?> spec = null;
 
         try {
-            spec = (EntitySpec<?>) b.getCatalog().createSpec((CatalogItem) item);
+            spec = (EntitySpec<?>) b.getCatalog().peekSpec(item);
             EntityDynamicType typeMap = BrooklynTypes.getDefinedEntityType(spec.getType());
             EntityType type = typeMap.getSnapshot();
 
@@ -136,7 +136,7 @@ public class CatalogTransformer {
     public static CatalogPolicySummary catalogPolicySummary(BrooklynRestResourceUtils b, CatalogItem<? extends Policy,PolicySpec<?>> item, UriBuilder ub) {
         final Set<PolicyConfigSummary> config = Sets.newLinkedHashSet();
         try{
-            final PolicySpec<?> spec = (PolicySpec<?>) b.getCatalog().createSpec((CatalogItem) item);
+            final PolicySpec<?> spec = (PolicySpec<?>) b.getCatalog().peekSpec(item);
             for (final SpecParameter<?> input : spec.getParameters()){
                 config.add(EntityTransformer.policyConfigSummary(input));
             }

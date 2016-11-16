@@ -22,8 +22,6 @@ import java.util.Map;
 
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.internal.ssh.SshToolAbstractPerformanceTest;
-import org.apache.brooklyn.util.core.internal.ssh.cli.SshCliTool;
-import org.testng.annotations.Test;
 
 /**
  * Test the performance of different variants of invoking the sshj tool.
@@ -35,10 +33,5 @@ public class SshCliToolPerformanceTest extends SshToolAbstractPerformanceTest {
     @Override
     protected SshTool newSshTool(Map<String,?> flags) {
         return new SshCliTool(flags);
-    }
-    
-    // Need to have at least one test method here (rather than just inherited) for eclipse to recognize it
-    @Test(enabled = false)
-    public void testDummy() throws Exception {
     }
 }

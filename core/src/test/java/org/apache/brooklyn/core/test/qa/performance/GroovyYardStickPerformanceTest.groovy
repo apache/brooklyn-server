@@ -57,7 +57,7 @@ public class GroovyYardStickPerformanceTest extends AbstractPerformanceTest {
         double minRatePerSec = 1000000 * PERFORMANCE_EXPECTATION;
         AtomicInteger i = new AtomicInteger();
         
-        measure(MeasurementOptions.create()
+        measure(PerformanceTestDescriptor.create()
                 .summary("GroovyYardStickPerformanceTest.noop")
                 .iterations(numIterations)
                 .minAcceptablePerSecond(minRatePerSec)
