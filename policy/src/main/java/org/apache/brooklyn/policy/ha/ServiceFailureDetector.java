@@ -108,6 +108,15 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
             .description("Publish failed state periodically at the specified intervals, null to disable.")
             .build();
 
+    /**
+     * Indicates the last event that was published (so we don't accidentally publish repeated
+     * ENTITY_FAILED, etc). Needs to be persisted so that on rebind we don't publish a duplicate
+     * (we'll only publish again if we are in a different state from before Brooklyn was last
+     * shutdown).
+     */
+    @SetFromFlag
+    protected LastPublished lastPublished = LastPublished.NONE;
+
     protected Long firstUpTime;
     
     protected Long currentFailureStartTime = null;
@@ -117,8 +126,6 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
     protected Long publishEntityRecoveredTime = null;
     protected Long setEntityOnFireTime = null;
     
-    protected LastPublished lastPublished = LastPublished.NONE;
-
     private final AtomicBoolean executorQueued = new AtomicBoolean(false);
     private volatile long executorTime = 0;
 
@@ -230,6 +237,7 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
                     }
                     lastPublished = LastPublished.FAILED;
                     entity.sensors().emit(HASensors.ENTITY_FAILED, new HASensors.FailureDescriptor(entity, getFailureDescription(now)));
+                    requestPersist();
                 } else {
                     recomputeIn = Math.min(recomputeIn, delayBeforeCheck);
                 }
@@ -241,6 +249,7 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
                     publishEntityRecoveredTime = null;
                     lastPublished = LastPublished.RECOVERED;
                     entity.sensors().emit(HASensors.ENTITY_RECOVERED, new HASensors.FailureDescriptor(entity, null));
+                    requestPersist();
                 } else {
                     recomputeIn = Math.min(recomputeIn, delayBeforeCheck);
                 }
