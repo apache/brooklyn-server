@@ -72,6 +72,7 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.guava.Suppliers;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.StringPredicates;
@@ -192,6 +193,9 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
         }
     }
 
+    // Unused as of Brooklyn 0.10.0 but kept to maintain persistence backwards compatibility
+    // when rebinding NEXT_CLUSTER_MEMBER_ID.
+    @Deprecated
     private static class NextClusterMemberIdSupplier implements Supplier<Integer> {
         private AtomicInteger nextId = new AtomicInteger(0);
 
@@ -214,7 +218,7 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
     private void initialiseMemberId() {
         synchronized (mutex) {
             if (sensors().get(NEXT_CLUSTER_MEMBER_ID) == null) {
-                sensors().set(NEXT_CLUSTER_MEMBER_ID, new NextClusterMemberIdSupplier());
+                sensors().set(NEXT_CLUSTER_MEMBER_ID, Suppliers.incrementing());
             }
         }
     }
