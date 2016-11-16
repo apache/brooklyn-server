@@ -82,6 +82,7 @@ public class AbstractYamlRebindTest extends RebindTestFixture<StartableApplicati
         }
     }
 
+    @Override
     protected StartableApplication rebind(RebindOptions options) throws Exception {
         StartableApplication result = super.rebind(options);
         if (launcher != null) {

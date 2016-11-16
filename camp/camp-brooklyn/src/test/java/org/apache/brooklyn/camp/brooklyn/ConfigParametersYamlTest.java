@@ -55,7 +55,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
-public class ConfigParametersYamlTest extends AbstractYamlTest {
+public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
     @SuppressWarnings("unused")
     private static final Logger LOG = LoggerFactory.getLogger(ConfigParametersYamlTest.class);
 
@@ -76,6 +76,40 @@ public class ConfigParametersYamlTest extends AbstractYamlTest {
         }
     }
     
+    @Test
+    public void testConfigParameterWithOverriddenValueListedInType() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  items:",
+                "  - id: entity-with-keys",
+                "    item:",
+                "      type: "+TestEntity.class.getName(),
+                "      brooklyn.parameters:",
+                "      - name: testConfigParametersListedInType.mykey",
+                "        description: myDescription",
+                "        type: String",
+                "        default: myDefaultVal",
+                "      brooklyn.config:",
+                "        testConfigParametersListedInType.mykey: myOverridingVal");
+        
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: entity-with-keys");
+        
+        Entity app = createStartWaitAndLogApplication(yaml);
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+
+        // Check config key is listed
+        assertKeyEquals(entity, "testConfigParametersListedInType.mykey", "myDescription", String.class, "myDefaultVal", "myOverridingVal");
+
+        // Rebind, and then check again that the config key is listed
+        Entity newApp = rebind();
+        TestEntity newEntity = (TestEntity) Iterables.getOnlyElement(newApp.getChildren());
+        assertKeyEquals(newEntity, "testConfigParametersListedInType.mykey", "myDescription", String.class, "myDefaultVal", "myOverridingVal");
+    }
+    
+
     @Test
     public void testConfigParametersListedInType() throws Exception {
         addCatalogItems(
@@ -100,19 +134,17 @@ public class ConfigParametersYamlTest extends AbstractYamlTest {
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
 
         // Check config key is listed
-        ConfigKey<?> key = entity.getEntityType().getConfigKey("testConfigParametersListedInType.mykey");
-        assertNotNull(key);
-        assertEquals(key.getName(), "testConfigParametersListedInType.mykey");
-        assertEquals(key.getDescription(), "myDescription");
-        assertEquals(key.getType(), Map.class);
-        assertEquals(key.getDefaultValue(), ImmutableMap.of("myDefaultKey", "myDefaultVal"));
-        
-        // Check get default value
-        assertEquals(entity.config().get(key), ImmutableMap.of("myDefaultKey", "myDefaultVal"));
+        Map<?,?> expectedVal = ImmutableMap.of("myDefaultKey", "myDefaultVal");
+        assertKeyEquals(entity, "testConfigParametersListedInType.mykey", "myDescription", Map.class, expectedVal, expectedVal);
+
+        // Rebind, and then check again that the config key is listed
+        Entity newApp = rebind();
+        TestEntity newEntity = (TestEntity) Iterables.getOnlyElement(newApp.getChildren());
+        assertKeyEquals(newEntity, "testConfigParametersListedInType.mykey", "myDescription", Map.class, expectedVal, expectedVal);
     }
     
     /**
-     * See comment in testConfigParametersAtRootListedInTemplateSingleEntity for why we have two 
+     * See comment in testConfigParametersAtRootListedInTemplateSingleEntity for why we have two. 
      * Note that (surprisingly!) it's very important that there are two entities listed under 
      * "services". If there is just one, then the BasicApplication created to wrap it will not 
      * have the key. Instead, the single child will have the key. This is because the top-level 
@@ -144,11 +176,11 @@ public class ConfigParametersYamlTest extends AbstractYamlTest {
         
         Entity app = createStartWaitAndLogApplication(yaml);
         
-        ConfigKey<?> key = app.getEntityType().getConfigKey("test.parameter");
-        assertNotNull(key, "No key 'test.parameter'; keys="+app.getEntityType().getConfigKeys());
-        assertEquals(key.getDescription(), "myDescription");
-        assertEquals(key.getType(), String.class);
-        assertEquals(key.getDefaultValue(), "myDefaultParamVal");
+        assertKeyEquals(app, "test.parameter", "myDescription", String.class, "myDefaultParamVal", "myDefaultParamVal");
+
+        // After rebind, check config key is listed
+        newApp = rebind();
+        assertKeyEquals(newApp, "test.parameter", "myDescription", String.class, "myDefaultParamVal", "myDefaultParamVal");
     }
 
     /**
@@ -178,11 +210,12 @@ public class ConfigParametersYamlTest extends AbstractYamlTest {
         Entity app = createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         
-        ConfigKey<?> key = entity.getEntityType().getConfigKey("test.parameter");
-        assertNotNull(key, "No key 'test.parameter'; keys="+entity.getEntityType().getConfigKeys());
-        assertEquals(key.getDescription(), "myDescription");
-        assertEquals(key.getType(), String.class);
-        assertEquals(key.getDefaultValue(), "myDefaultParamVal");
+        assertKeyEquals(entity, "test.parameter", "myDescription", String.class, "myDefaultParamVal", "myDefaultParamVal");
+        
+        // After rebind, check config key is listed
+        newApp = rebind();
+        TestEntity newEntity = (TestEntity) Iterables.getOnlyElement(newApp.getChildren());
+        assertKeyEquals(newEntity, "test.parameter", "myDescription", String.class, "myDefaultParamVal", "myDefaultParamVal");
     }
 
     @Test
@@ -613,5 +646,17 @@ public class ConfigParametersYamlTest extends AbstractYamlTest {
 
         assertEquals(entity.config().get(ConfigKeys.newConfigKey(Object.class, "my.param.key")), PortRanges.fromInteger(1234));
         assertEquals(entity.sensors().get(Sensors.newSensor(Object.class, "my.param.key")), 1234);
+    }
+
+    protected <T> void assertKeyEquals(Entity entity, String keyName, String expectedDescription, Class<T> expectedType, T expectedDefaultVal, T expectedEntityVal) {
+        ConfigKey<?> key = entity.getEntityType().getConfigKey(keyName);
+        assertNotNull(key, "No key '"+keyName+"'; keys="+entity.getEntityType().getConfigKeys());
+
+        assertEquals(key.getName(), keyName);
+        assertEquals(key.getDescription(), expectedDescription);
+        assertEquals(key.getType(), expectedType);
+        assertEquals(key.getDefaultValue(), expectedDefaultVal);
+        
+        assertEquals(entity.config().get(key), expectedEntityVal);
     }
 }

@@ -386,6 +386,7 @@ public class DslAndRebindYamlTest extends AbstractYamlRebindTest {
         Entity e2 = rebind(testEntity);
 
         Assert.assertEquals(getConfigInTask(e2, TestEntity.CONF_NAME), "bar");
+        Assert.assertEquals(e2.getConfig(TestEntity.CONF_NAME), "bar");
     }
 
     private Entity entityWithConfigFromRoot() throws Exception {
@@ -397,6 +398,23 @@ public class DslAndRebindYamlTest extends AbstractYamlRebindTest {
                 "  foo: bar");
     }
 
+    @Test
+    public void testDslConfigWithBrooklynParameterDefault() throws Exception {
+        Entity testEntity = setupAndCheckTestEntityInBasicYamlWith(
+                "  id: x",
+                "  brooklyn.parameters:",
+                "  - name: test.param",
+                "    type: String",
+                "    default: myDefaultVal",
+                "  brooklyn.config:",
+                "    test.confName: $brooklyn:config(\"test.param\")");
+        Assert.assertEquals(getConfigInTask(testEntity, TestEntity.CONF_NAME), "myDefaultVal");
+        Assert.assertEquals(testEntity.config().get(TestEntity.CONF_NAME), "myDefaultVal");
+        
+        Entity e2 = rebind(testEntity);
+        Assert.assertEquals(getConfigInTask(e2, TestEntity.CONF_NAME), "myDefaultVal");
+        Assert.assertEquals(e2.config().get(TestEntity.CONF_NAME), "myDefaultVal");
+    }
 
     @Test
     public void testDslFormatString() throws Exception {
