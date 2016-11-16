@@ -42,6 +42,8 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimap;
 import com.google.common.io.ByteStreams;
 import com.google.mockwebserver.MockResponse;
 import com.google.mockwebserver.RecordedRequest;
@@ -53,6 +55,8 @@ public class HttpExecutorImplTest {
     protected URL baseUrl;
     protected HttpExecutorFactoryImpl factory;
 
+    protected String HTTP_RESPONSE_CUSTOM_HEADER_KEY = "Custom-Header";
+    protected String HTTP_RESPONSE_CUSTOM_HEADER_VALUE = "Custom Value";
     protected String HTTP_RESPONSE_HEADER_KEY = "content-type";
     protected String HTTP_RESPONSE_HEADER_VALUE = "application/json";
     protected String HTTP_BODY = "{\"foo\":\"myfoo\"}";
@@ -68,6 +72,36 @@ public class HttpExecutorImplTest {
     @AfterMethod(alwaysRun=true)
     public void afterMethod() throws Exception {
         if (server != null) server.shutdown();
+    }
+
+    @Test
+    public void testHttpResponse() throws Exception {
+        Multimap<String, String> responseHeaders = ArrayListMultimap.<String, String>create();
+        responseHeaders.put(HTTP_RESPONSE_CUSTOM_HEADER_KEY, HTTP_RESPONSE_CUSTOM_HEADER_VALUE);
+        HttpResponse httpResponse = new HttpResponse.Builder()
+                .headers(responseHeaders)
+                .header(HTTP_RESPONSE_HEADER_KEY, HTTP_RESPONSE_HEADER_VALUE)
+                .build();
+
+        MockResponse serverResponse = new MockResponse()
+                .setResponseCode(200)
+                .setBody(HTTP_BODY);
+        
+        for (Map.Entry<String, String> entry : httpResponse.headers().entries()) {
+            serverResponse.addHeader(entry.getKey(), entry.getValue());
+        }
+        server.enqueue(serverResponse);
+        HttpExecutor executor = factory.getHttpExecutor(getProps());
+        HttpRequest executorRequest = new HttpRequest.Builder()
+                .method("GET")
+                .uri(baseUrl.toURI())
+                .build();
+        HttpResponse executorResponse = executor.execute(executorRequest);
+        assertTrue(executorResponse.headers().containsKey(HTTP_RESPONSE_CUSTOM_HEADER_KEY));
+        assertTrue(Iterables.getOnlyElement(executorResponse.headers().get(HTTP_RESPONSE_HEADER_KEY)).equals(HTTP_RESPONSE_HEADER_VALUE));
+
+        assertTrue(executorResponse.headers().containsKey(HTTP_RESPONSE_HEADER_KEY));
+        assertTrue(Iterables.getOnlyElement(executorResponse.headers().get(HTTP_RESPONSE_CUSTOM_HEADER_KEY)).equals(HTTP_RESPONSE_CUSTOM_HEADER_VALUE));
     }
 
     @Test
