@@ -301,37 +301,46 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
         return description;
     }
     
-    @SuppressWarnings({ "unchecked", "rawtypes" })
+    @SuppressWarnings({ "rawtypes" })
     protected void recomputeAfterDelay(long delay) {
-        if (isRunning() && executorQueued.compareAndSet(false, true)) {
-            long now = System.currentTimeMillis();
-            delay = Math.max(0, Math.max(delay, (executorTime + MIN_PERIOD_BETWEEN_EXECS_MILLIS) - now));
-            if (LOG.isTraceEnabled()) LOG.trace("{} scheduling publish in {}ms", this, delay);
-            
-            Runnable job = new Runnable() {
-                @Override public void run() {
-                    try {
-                        executorTime = System.currentTimeMillis();
-                        executorQueued.set(false);
+        // TODO Execute in same thread as other onEvent calls are done in (i.e. same conceptually 
+        // single-threaded executor as the subscription-manager will use).
+        //
+        // TODO Disabling the use of executorQueued check - it was causing assertions to fail that 
+        // we'd triggered the ENTITY_FAILED/ENTITY_RECOVERED. Previously used:
+        //    if (executorQueued.compareAndSet(false, true)) {
+        // My guess is that the next call to onEvent() didn't always call recomputeAfterDelay with
+        // the recalculated desired delay, as desired by the skipped call. But not sure why.
+        
+        if (!isRunning()) return;
 
-                        onEvent(null);
-                        
-                    } catch (Exception e) {
-                        if (isRunning()) {
-                            LOG.error("Error in enricher "+this+": "+e, e);
-                        } else {
-                            if (LOG.isDebugEnabled()) LOG.debug("Error in enricher "+this+" (but no longer running): "+e, e);
-                        }
-                    } catch (Throwable t) {
-                        LOG.error("Error in enricher "+this+": "+t, t);
-                        throw Exceptions.propagate(t);
+        long now = System.currentTimeMillis();
+        delay = Math.max(0, Math.max(delay, (executorTime + MIN_PERIOD_BETWEEN_EXECS_MILLIS) - now));
+        if (LOG.isTraceEnabled()) LOG.trace("{} scheduling publish in {}ms", this, delay);
+        
+        Runnable job = new Runnable() {
+            @Override public void run() {
+                try {
+                    executorTime = System.currentTimeMillis();
+                    executorQueued.set(false);
+
+                    onEvent(null);
+                    
+                } catch (Exception e) {
+                    if (isRunning()) {
+                        LOG.error("Error in enricher "+this+": "+e, e);
+                    } else {
+                        if (LOG.isDebugEnabled()) LOG.debug("Error in enricher "+this+" (but no longer running): "+e, e);
                     }
+                } catch (Throwable t) {
+                    LOG.error("Error in enricher "+this+": "+t, t);
+                    throw Exceptions.propagate(t);
                 }
-            };
-            
-            ScheduledTask task = new ScheduledTask(MutableMap.of("delay", Duration.of(delay, TimeUnit.MILLISECONDS)), new BasicTask(job));
-            ((EntityInternal)entity).getExecutionContext().submit(task);
-        }
+            }
+        };
+        
+        ScheduledTask task = new ScheduledTask(MutableMap.of("delay", Duration.of(delay, TimeUnit.MILLISECONDS)), new BasicTask(job));
+        ((EntityInternal)entity).getExecutionContext().submit(task);
     }
     
     private String getTimeStringSince(Long time) {
