@@ -20,11 +20,14 @@ package org.apache.brooklyn.util.time;
 
 import java.util.Date;
 import java.util.TimeZone;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.brooklyn.util.time.Duration;
-import org.apache.brooklyn.util.time.Time;
 import org.testng.Assert;
 import org.testng.annotations.Test;
+
+import com.google.common.base.Stopwatch;
+import com.google.common.base.Ticker;
 
 @Test
 public class TimeTest {
@@ -139,6 +142,30 @@ public class TimeTest {
     public void testMakeStringRoundedZero() { checkR(0, "0ms"); }
     @Test
     public void testMakeStringRoundedNegative() { checkR(-1, "-1ms"); }
+
+    @Test
+    public void testMakeTimeStringFromDuration() {
+        Assert.assertNull(Time.makeTimeStringExact((Duration)null));
+        Assert.assertEquals(Time.makeTimeStringExact(Duration.millis(1100)), "1s 100ms");
+        
+        Assert.assertNull(Time.makeTimeStringRounded((Duration)null));
+        Assert.assertEquals(Time.makeTimeStringRounded(Duration.millis(1100)), "1.10s");
+    }
+
+    @Test
+    public void testMakeTimeStringFromStopwatch() {
+        final AtomicLong time = new AtomicLong();
+        Ticker ticker = new Ticker() {
+            @Override public long read() {
+                return time.get();
+            }
+        };
+        Assert.assertNull(Time.makeTimeStringRounded((Stopwatch)null));
+        
+        Stopwatch stopwatch = Stopwatch.createStarted(ticker);
+        time.set(TimeUnit.MILLISECONDS.toNanos(1100));
+        Assert.assertEquals(Time.makeTimeStringRounded(stopwatch), "1.10s");
+    }
 
     @Test
     public void testElapsedSince() {
