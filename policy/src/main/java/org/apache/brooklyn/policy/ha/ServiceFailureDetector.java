@@ -35,6 +35,7 @@ import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ComputeServic
 import org.apache.brooklyn.core.sensor.BasicNotificationSensor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.brooklyn.policy.autoscaling.AutoScalerPolicy;
 import org.apache.brooklyn.policy.ha.HASensors.FailureDescriptor;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -114,8 +115,11 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
      * (we'll only publish again if we are in a different state from before Brooklyn was last
      * shutdown).
      */
-    @SetFromFlag
-    protected LastPublished lastPublished = LastPublished.NONE;
+    public static final ConfigKey<LastPublished> LAST_PUBLISHED = ConfigKeys.newConfigKey(
+            LastPublished.class,
+            "lastPublished",
+            "Indicates the last published event (entity 'failed', 'recovered', or none); used like an attribute (i.e. expect to be set on-the-fly)",
+            LastPublished.NONE);
 
     protected Long firstUpTime;
     
@@ -138,6 +142,15 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
      * e.g. see `ServiceFailureDetectorTest.testNotifiedOfFailureOnStateOnFire`, where we get two notifications.
      */
     private final Object mutex = new Object();
+    
+    @Override
+    protected <T> void doReconfigureConfig(ConfigKey<T> key, T val) {
+        if (key.equals(LAST_PUBLISHED)) {
+            // find to modify this on-the-fly; no additional work required
+        } else {
+            super.doReconfigureConfig(key, val);
+        }
+    }
     
     public ServiceFailureDetector() {
         this(new ConfigBag());
@@ -172,7 +185,7 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
 
         synchronized (mutex) {
             if (state.orNull() == Lifecycle.ON_FIRE) {
-                if (lastPublished == LastPublished.FAILED) {
+                if (config().get(LAST_PUBLISHED) == LastPublished.FAILED) {
                     if (currentRecoveryStartTime != null) {
                         if (LOG.isDebugEnabled()) LOG.debug("{} health-check for {}, component was recovering, now failing: {}", new Object[] {this, entity, getExplanation(state)});
                         currentRecoveryStartTime = null;
@@ -198,7 +211,7 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
                 publishEntityRecoveredTime = null;
                 
             } else if (state.orNull() == Lifecycle.RUNNING) {
-                if (lastPublished == LastPublished.FAILED) {
+                if (config().get(LAST_PUBLISHED) == LastPublished.FAILED) {
                     if (currentRecoveryStartTime == null) {
                         if (LOG.isDebugEnabled()) LOG.debug("{} health-check for {}, component now recovering: {}", new Object[] {this, entity, getExplanation(state)});
                         currentRecoveryStartTime = now;
@@ -235,9 +248,8 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
                         publishEntityFailedTime = now + republishDelay.toMilliseconds();
                         recomputeIn = Math.min(recomputeIn, republishDelay.toMilliseconds());
                     }
-                    lastPublished = LastPublished.FAILED;
                     entity.sensors().emit(HASensors.ENTITY_FAILED, new HASensors.FailureDescriptor(entity, getFailureDescription(now)));
-                    requestPersist();
+                    config().set(LAST_PUBLISHED, LastPublished.FAILED);
                 } else {
                     recomputeIn = Math.min(recomputeIn, delayBeforeCheck);
                 }
@@ -247,9 +259,8 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
                     if (LOG.isDebugEnabled()) LOG.debug("{} publishing recovered (state={}; currentRecoveryStartTime={}; now={}", 
                             new Object[] {this, state, Time.makeDateString(currentRecoveryStartTime), Time.makeDateString(now)});
                     publishEntityRecoveredTime = null;
-                    lastPublished = LastPublished.RECOVERED;
                     entity.sensors().emit(HASensors.ENTITY_RECOVERED, new HASensors.FailureDescriptor(entity, null));
-                    requestPersist();
+                    config().set(LAST_PUBLISHED, LastPublished.RECOVERED);
                 } else {
                     recomputeIn = Math.min(recomputeIn, delayBeforeCheck);
                 }
@@ -283,7 +294,7 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
                     "currentFailurePeriod=%s; currentRecoveryPeriod=%s",
                 entity.getLocations(), 
                 (state.orNull() != null ? state : "<unreported>"),
-                lastPublished,
+                config().get(LAST_PUBLISHED),
                 Time.makeDateString(System.currentTimeMillis()),
                 (currentFailureStartTime != null ? getTimeStringSince(currentFailureStartTime) : "<none>") + " (stabilization "+Time.makeTimeStringRounded(serviceFailedStabilizationDelay) + ")",
                 (currentRecoveryStartTime != null ? getTimeStringSince(currentRecoveryStartTime) : "<none>") + " (stabilization "+Time.makeTimeStringRounded(serviceRecoveredStabilizationDelay) + ")");

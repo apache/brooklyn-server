@@ -26,6 +26,7 @@ import java.util.Map;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.entity.RecordingSensorEventListener;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceNotUpLogic;
 import org.apache.brooklyn.core.sensor.SensorEventPredicates;
@@ -61,6 +62,7 @@ public class ServiceFailureDetectorYamlTest extends AbstractYamlTest {
             "  itemType: entity",
             "  item:",
             "    type: " + TestEntity.class.getName(),
+            "    name: targetEntity",
             "    brooklyn.enrichers:",
             "    - type: " + ServiceFailureDetector.class.getName());
 
@@ -72,6 +74,7 @@ public class ServiceFailureDetectorYamlTest extends AbstractYamlTest {
             "  item:",
             "    services:",
             "    - type: " + TestEntity.class.getName(),//FailingEntity.class.getName(),
+            "      name: targetEntity",
             "      brooklyn.parameters:",
             "      - name: custom.stabilizationDelay",
             "        type: " + Duration.class.getName(),
@@ -87,6 +90,11 @@ public class ServiceFailureDetectorYamlTest extends AbstractYamlTest {
             "          entityRecovered.stabilizationDelay: $brooklyn:config(\"custom.stabilizationDelay\")",
             "          entityFailed.republishTime: $brooklyn:config(\"custom.republishTime\")");
 
+    /*
+     * TODO Currently have to use `scopeRoot`. The brooklyn.parameter defined on the parent entity 
+     * isn't inherited, so when the child does `$brooklyn:config("custom.stabilizationDelay")` it 
+     * doesn't find a default value - we get null.
+     */
     static final String catalogYamlWithDslReferenceParentDefault = Joiner.on("\n").join(
             "brooklyn.catalog:",
             "  id: my-app",
@@ -101,14 +109,17 @@ public class ServiceFailureDetectorYamlTest extends AbstractYamlTest {
             "      type: " + Duration.class.getName(),
             "      default: 1m",
             "    services:",
-            "    - type: " + TestEntity.class.getName(),//FailingEntity.class.getName(),
+            "    - type: " + TestEntity.class.getName(),
+            "      name: ignored",
+            "    - type: " + TestEntity.class.getName(),
+            "      name: targetEntity",
             "      brooklyn.enrichers:",
             "      - type: " + ServiceFailureDetector.class.getName(),
             "        brooklyn.config:",
-            "          serviceOnFire.stabilizationDelay: $brooklyn:config(\"custom.stabilizationDelay\")",
-            "          entityFailed.stabilizationDelay: $brooklyn:config(\"custom.stabilizationDelay\")",
-            "          entityRecovered.stabilizationDelay: $brooklyn:config(\"custom.stabilizationDelay\")",
-            "          entityFailed.republishTime: $brooklyn:config(\"custom.republishTime\")");
+            "          serviceOnFire.stabilizationDelay: $brooklyn:scopeRoot().config(\"custom.stabilizationDelay\")",
+            "          entityFailed.stabilizationDelay: $brooklyn:scopeRoot().config(\"custom.stabilizationDelay\")",
+            "          entityRecovered.stabilizationDelay: $brooklyn:scopeRoot().config(\"custom.stabilizationDelay\")",
+            "          entityFailed.republishTime: $brooklyn:scopeRoot().config(\"custom.republishTime\")");
 
     @Test
     public void testDefaults() throws Exception {
@@ -119,7 +130,7 @@ public class ServiceFailureDetectorYamlTest extends AbstractYamlTest {
     public void testWithDslConfig() throws Exception {
         Entity app = runTest(catalogYamlWithDsl, appVersionedId);
         
-        TestEntity newEntity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+        TestEntity newEntity = (TestEntity) Iterables.find(app.getChildren(), EntityPredicates.displayNameEqualTo("targetEntity"));
         ServiceFailureDetector newEnricher = assertHasEnricher(newEntity, ServiceFailureDetector.class);
         assertEnricherConfigMatchesDsl(newEnricher);
     }
@@ -128,7 +139,7 @@ public class ServiceFailureDetectorYamlTest extends AbstractYamlTest {
     public void testWithDslConfigReferenceParentDefault() throws Exception {
         Entity app = runTest(catalogYamlWithDslReferenceParentDefault, appVersionedId);
         
-        TestEntity newEntity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+        TestEntity newEntity = (TestEntity) Iterables.find(app.getChildren(), EntityPredicates.displayNameEqualTo("targetEntity"));
         ServiceFailureDetector newEnricher = assertHasEnricher(newEntity, ServiceFailureDetector.class);
         assertEnricherConfigMatchesDsl(newEnricher);
     }
@@ -140,7 +151,7 @@ public class ServiceFailureDetectorYamlTest extends AbstractYamlTest {
                 "services:",
                 "- type: " + appId);
         Entity app = createStartWaitAndLogApplication(appYaml);
-        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+        TestEntity entity = (TestEntity) Iterables.find(app.getChildren(), EntityPredicates.displayNameEqualTo("targetEntity"));
         assertHasEnricher(entity, ServiceFailureDetector.class);
         
         // Confirm ServiceFailureDetector triggers event

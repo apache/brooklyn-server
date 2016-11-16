@@ -133,6 +133,11 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
 
         // Check config key is listed
         assertKeyEquals(entity, TestEntity.CONF_NAME.getName(), "myDescription", String.class, "myDefaultYamlVal", "myDefaultYamlVal");
+
+        // Rebind, and then check again that the config key is listed
+        Entity newApp = rebind();
+        TestEntity newEntity = (TestEntity) Iterables.getOnlyElement(newApp.getChildren());
+        assertKeyEquals(newEntity, TestEntity.CONF_NAME.getName(), "myDescription", String.class, "myDefaultYamlVal", "myDefaultYamlVal");
     }
     
     @Test

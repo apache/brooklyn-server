@@ -28,6 +28,7 @@ import static org.apache.brooklyn.camp.brooklyn.ServiceFailureDetectorYamlTest.s
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.rebind.RebindManager.RebindFailureMode;
+import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.entity.RecordingSensorEventListener;
 import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceNotUpLogic;
@@ -57,7 +58,7 @@ public class ServiceFailureDetectorYamlRebindTest extends AbstractYamlRebindTest
     public void testRebindWhenHealthyWithDslConfig() throws Exception {
         runRebindWhenHealthy(catalogYamlWithDsl, appVersionedId);
         
-        TestEntity newEntity = (TestEntity) Iterables.getOnlyElement(app().getChildren());
+        TestEntity newEntity = (TestEntity) Iterables.find(app().getChildren(), EntityPredicates.displayNameEqualTo("targetEntity"));
         ServiceFailureDetector newEnricher = assertHasEnricher(newEntity, ServiceFailureDetector.class);
         assertEnricherConfigMatchesDsl(newEnricher);
     }
@@ -66,7 +67,7 @@ public class ServiceFailureDetectorYamlRebindTest extends AbstractYamlRebindTest
     public void testRebindWhenHealthyWithDslConfigReferenceParentDefault() throws Exception {
         runRebindWhenHealthy(catalogYamlWithDslReferenceParentDefault, appVersionedId);
         
-        TestEntity newEntity = (TestEntity) Iterables.getOnlyElement(app().getChildren());
+        TestEntity newEntity = (TestEntity) Iterables.find(app().getChildren(), EntityPredicates.displayNameEqualTo("targetEntity"));
         ServiceFailureDetector newEnricher = assertHasEnricher(newEntity, ServiceFailureDetector.class);
         assertEnricherConfigMatchesDsl(newEnricher);
     }
@@ -98,7 +99,7 @@ public class ServiceFailureDetectorYamlRebindTest extends AbstractYamlRebindTest
 
         // Rebind
         StartableApplication newApp = rebind();
-        TestEntity newEntity = (TestEntity) Iterables.getOnlyElement(newApp.getChildren());
+        TestEntity newEntity = (TestEntity) Iterables.find(newApp.getChildren(), EntityPredicates.displayNameEqualTo("targetEntity"));
         assertHasEnricher(newEntity, ServiceFailureDetector.class);
         
         // Confirm ServiceFailureDetector still functions
@@ -118,14 +119,14 @@ public class ServiceFailureDetectorYamlRebindTest extends AbstractYamlRebindTest
         Entity app = createStartWaitAndLogApplication(appYaml);
         
         // Make entity go on-fire
-        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+        TestEntity entity = (TestEntity) Iterables.find(app.getChildren(), EntityPredicates.displayNameEqualTo("targetEntity"));
         RecordingSensorEventListener<Object> listener = subscribeToHaSensors(entity);
         ServiceNotUpLogic.updateNotUpIndicator(entity, INDICATOR_KEY_1, "Simulating a problem");
         listener.assertHasEventEventually(SensorEventPredicates.sensorEqualTo(HASensors.ENTITY_FAILED));
 
         // Rebind
         StartableApplication newApp = rebind();
-        TestEntity newEntity = (TestEntity) Iterables.getOnlyElement(newApp.getChildren());
+        TestEntity newEntity = (TestEntity) Iterables.find(newApp.getChildren(), EntityPredicates.displayNameEqualTo("targetEntity"));
         assertHasEnricher(newEntity, ServiceFailureDetector.class);
         
         // Confirm ServiceFailureDetector still functions

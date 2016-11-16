@@ -150,29 +150,28 @@ public class BasicEntityMemento extends AbstractTreeNodeMemento implements Entit
         staticConfigKeys = getStaticConfigKeys();
         staticSensorKeys = getStaticSensorKeys();
         
-        if (configByKey!=null) {
-            configKeys = Maps.newLinkedHashMap();
-            config = Maps.newLinkedHashMap();
-            
+        configKeys = Maps.newLinkedHashMap();
+        config = Maps.newLinkedHashMap();
+        
+        if (allConfigKeys != null) {
             for (ConfigKey<?> key : allConfigKeys) {
-                if (!key.equals(staticConfigKeys.get(key.getName()))) {
+                if (key != staticConfigKeys.get(key.getName())) {
                     configKeys.put(key.getName(), key);
                 }
             }
+        }
+        if (configByKey != null) {
             for (Map.Entry<ConfigKey<?>, Object> entry : configByKey.entrySet()) {
                 ConfigKey<?> key = entry.getKey();
-                if (!configKeys.containsKey(key) && !key.equals(staticConfigKeys.get(key.getName()))) {
+                if (!configKeys.containsKey(key) && key != staticConfigKeys.get(key.getName())) {
                     configKeys.put(key.getName(), key);
                 }
                 config.put(key.getName(), entry.getValue());
             }
-            configKeys = toPersistedMap(configKeys);
-            config = toPersistedMap(config);
         }
-        if (configUnmatched!=null) {
-            if (config == null) config = Maps.newLinkedHashMap();
+        
+        if (configUnmatched != null) {
             config.putAll(configUnmatched);
-            config = toPersistedMap(config);
         }
         if (attributesByKey!=null) {
             attributeKeys = Maps.newLinkedHashMap();
@@ -183,9 +182,12 @@ public class BasicEntityMemento extends AbstractTreeNodeMemento implements Entit
                     attributeKeys.put(key.getName(), key);
                 attributes.put(key.getName(), entry.getValue());
             }
-            attributeKeys = toPersistedMap(attributeKeys);
-            attributes = toPersistedMap(attributes);
         }
+        
+        configKeys = toPersistedMap(configKeys);
+        config = toPersistedMap(config);
+        attributeKeys = toPersistedMap(attributeKeys);
+        attributes = toPersistedMap(attributes);
     }
 
     protected synchronized Map<String, ConfigKey<?>> getStaticConfigKeys() {
