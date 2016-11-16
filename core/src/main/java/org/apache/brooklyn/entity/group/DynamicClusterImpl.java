@@ -787,7 +787,8 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
         Collection<Entity> removedEntities = pickAndRemoveMembers(delta * -1);
 
         // FIXME symmetry in order of added as child, managed, started, and added to group
-        Task<?> invoke = Entities.invokeEffector(this, (Iterable<Entity>)(Iterable<?>)Iterables.filter(removedEntities, Startable.class), Startable.STOP, Collections.<String,Object>emptyMap());
+        final Iterable<Entity> removedStartables = (Iterable<Entity>) (Iterable<?>) Iterables.filter(removedEntities, Startable.class);
+        Task<?> invoke = Entities.invokeEffector(this, removedStartables, Startable.STOP, Collections.<String,Object>emptyMap());
         try {
             invoke.get();
             return removedEntities;
