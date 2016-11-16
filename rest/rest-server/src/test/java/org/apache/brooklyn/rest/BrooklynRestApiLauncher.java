@@ -120,6 +120,9 @@ public class BrooklynRestApiLauncher {
         return this;
     }
 
+    /**
+     * Note: Lost on brooklyn.properties reload
+     */
     public BrooklynRestApiLauncher securityProvider(Class<? extends SecurityProvider> securityProvider) {
         this.securityProvider = securityProvider;
         return this;
@@ -191,9 +194,15 @@ public class BrooklynRestApiLauncher {
                     : "from custom context";
         }
 
-        if (securityProvider != null && securityProvider != AnyoneSecurityProvider.class) {
-            ((BrooklynProperties) mgmt.getConfig()).put(
-                    BrooklynWebConfig.SECURITY_PROVIDER_CLASSNAME, securityProvider.getName());
+        Maybe<Object> configSecurityProvider = mgmt.getConfig().getConfigLocalRaw(BrooklynWebConfig.SECURITY_PROVIDER_CLASSNAME);
+        boolean hasConfigSecurityProvider = configSecurityProvider.isPresent();
+        boolean hasOverrideSecurityProvider = (securityProvider != null && securityProvider != AnyoneSecurityProvider.class);
+        if (hasOverrideSecurityProvider || hasConfigSecurityProvider) {
+            ((WebAppContext)context).addOverrideDescriptor(getClass().getResource("/web-security.xml").toExternalForm());
+            if (hasOverrideSecurityProvider) {
+                ((BrooklynProperties) mgmt.getConfig()).put(
+                        BrooklynWebConfig.SECURITY_PROVIDER_CLASSNAME, securityProvider.getName());
+            }
         } else if (context instanceof WebAppContext) {
             ((WebAppContext)context).setSecurityHandler(new NopSecurityHandler());
         }

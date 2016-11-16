@@ -87,7 +87,7 @@ public class ServerResourceIntegrationTest extends BrooklynRestApiLauncherTestFi
                     uri, args, args);
             HttpAsserts.assertHealthyStatusCode(response.getResponseCode());
     
-            // Has no gone back to credentials from brooklynProperties; TestSecurityProvider credentials no longer work
+            // Has now gone back to credentials from brooklynProperties; TestSecurityProvider credentials no longer work
             response = HttpTool.httpPost(httpClientBuilder().uri(baseUri).credentials(defaultCredential).build(), 
                     uri, args, args);
             HttpAsserts.assertHealthyStatusCode(response.getResponseCode());

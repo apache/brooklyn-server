@@ -75,6 +75,7 @@ public class ActivityApiEntitlementsTest extends AbstractRestApiEntitlementsTest
     @Test(groups = "Integration")
     public void testGetTask() throws Exception {
         String path = "/v1/activities/"+subTask.getId();
+        assert401(path);
         assertPermitted("myRoot", path);
         assertPermitted("myUser", path);
         assertPermitted("myReadonly", path);
@@ -88,18 +89,20 @@ public class ActivityApiEntitlementsTest extends AbstractRestApiEntitlementsTest
         for (Map.Entry<String, String> entry : streams.entrySet()) {
             String streamId = entry.getKey();
             String expectedStream = entry.getValue();
+            String path = pathPrefix+streamId;
 
-            assertEquals(httpGet("myRoot", pathPrefix+streamId), expectedStream);
-            assertEquals(httpGet("myUser", pathPrefix+streamId), expectedStream);
-            assertEquals(httpGet("myReadonly", pathPrefix+streamId), expectedStream);
-            assertForbidden("myMinimal", pathPrefix+streamId);
-            assertForbidden("unrecognisedUser", pathPrefix+streamId);
+            assert401(path);
+            assertEquals(httpGet("myRoot", path), expectedStream);
+            assertEquals(httpGet("myUser", path), expectedStream);
+            assertEquals(httpGet("myReadonly", path), expectedStream);
+            assertForbidden("myMinimal", path);
+            assertForbidden("unrecognisedUser", path);
             
             StaticDelegatingEntitlementManager.setDelegate(new SeeSelectiveStreams(streamId));
-            assertEquals(httpGet("myCustom", pathPrefix+streamId), expectedStream);
+            assertEquals(httpGet("myCustom", path), expectedStream);
             
             StaticDelegatingEntitlementManager.setDelegate(new SeeSelectiveStreams("differentStreamId"));
-            assertForbidden("myCustom", pathPrefix+streamId);
+            assertForbidden("myCustom", path);
         }
     }
     

@@ -52,6 +52,7 @@ public class SensorApiEntitlementsTest extends AbstractRestApiEntitlementsTest {
         String path = "/v1/applications/"+app.getId()+"/entities/"+entity.getId()+"/sensors/"+sensorName;
         String val = "\"myval\"";
         
+        assert401(path);
         assertEquals(httpGet("myRoot", path), val);
         assertEquals(httpGet("myUser", path), val);
         assertEquals(httpGet("myReadonly", path), val);
@@ -73,6 +74,7 @@ public class SensorApiEntitlementsTest extends AbstractRestApiEntitlementsTest {
         String sensorName = TestEntity.NAME.getName();
         String regex = ".*"+sensorName+".*myval.*";
         
+        assert401(path);
         Asserts.assertStringMatchesRegex(httpGet("myRoot", path), regex);
         Asserts.assertStringMatchesRegex(httpGet("myUser", path), regex);
         Asserts.assertStringMatchesRegex(httpGet("myReadonly", path), regex);
