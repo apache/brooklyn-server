@@ -97,11 +97,9 @@ public class HttpExecutorImplTest {
                 .uri(baseUrl.toURI())
                 .build();
         HttpResponse executorResponse = executor.execute(executorRequest);
-        assertTrue(executorResponse.headers().containsKey(HTTP_RESPONSE_CUSTOM_HEADER_KEY));
-        assertTrue(Iterables.getOnlyElement(executorResponse.headers().get(HTTP_RESPONSE_HEADER_KEY)).equals(HTTP_RESPONSE_HEADER_VALUE));
-
-        assertTrue(executorResponse.headers().containsKey(HTTP_RESPONSE_HEADER_KEY));
-        assertTrue(Iterables.getOnlyElement(executorResponse.headers().get(HTTP_RESPONSE_CUSTOM_HEADER_KEY)).equals(HTTP_RESPONSE_CUSTOM_HEADER_VALUE));
+        Multimap<String, String> actualHeaders = executorResponse.headers();
+        assertEquals(Iterables.getOnlyElement(actualHeaders.get(HTTP_RESPONSE_CUSTOM_HEADER_KEY)), HTTP_RESPONSE_CUSTOM_HEADER_VALUE);
+        assertEquals(Iterables.getOnlyElement(actualHeaders.get(HTTP_RESPONSE_HEADER_KEY)), HTTP_RESPONSE_HEADER_VALUE);
     }
 
     @Test
