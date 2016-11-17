@@ -140,6 +140,78 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         assertKeyEquals(newEntity, TestEntity.CONF_NAME.getName(), "myDescription", String.class, "myDefaultYamlVal", "myDefaultYamlVal");
     }
     
+    // See https://issues.apache.org/jira/browse/BROOKLYN-345, and the breakage that 
+    // fix originally caused - discussed in https://github.com/apache/brooklyn-server/pull/440.
+    //
+    // When brooklyn.parameters defines TestEntity.CONF_MAP_THING, it now means that this redefined
+    // config key is used for lookup. This now has type `BasicConfigKey<Map>` rather than 
+    // `MapConfigKey`. However, when the data was being written (via `entity.config().set(key, val)`)
+    // it was using the `MapConfigKey`. Unfortunately the `MapConfigKey` uses a different structure
+    // for storing its data (flattening out the map). So the subsequent lookup failed.
+    //
+    // There are three parts to fixing this:
+    //  1. [DONE] In `entity.config().set(key, val)`, replace `key` with the entity's own key  
+    //     (i.e. the same logic that will subsequently be used in the `get`).
+    //  2. [DONE] In `BrooklynComponentTemplateResolver.findAllFlagsAndConfigKeyValues`, respect  
+    //     the precedence of the config keys - prefer the `brooklyn.parameters` over the key defined
+    //     in the super-type (e.g. in the java class).
+    //  3. [TODO] Investigate rebind: the entity's ownConfig ends up with the "test.confMapThing.mykey=myval",
+    //     so it has populated it using the MayConfigKey structure rather than the override config key.
+    //  4. [TODO] Major overhaul of the ConfigKey name versus `SetFromFlag` alias. It is currently
+    //     confusing in when reading the config values what the precedence is because there are 
+    //     different names that are only understood by some things.
+    @Test(groups="Broken")
+    public void testConfigParameterOverridingJavaMapConfigKey() throws Exception {
+        runConfigParameterOverridingJavaMapConfigKey(true);
+    }
+    
+    @Test
+    public void testConfigParameterOverridingJavaMapConfigKeyWithoutRebindValueCheck() throws Exception {
+        // A cut-down test of what is actually working just now (so we can detect any 
+        // further regressions!)
+        runConfigParameterOverridingJavaMapConfigKey(false);
+    }
+    
+    protected void runConfigParameterOverridingJavaMapConfigKey(boolean assertReboundVal) throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  items:",
+                "  - id: entity-with-keys",
+                "    item:",
+                "      type: "+TestEntity.class.getName(),
+                "      brooklyn.parameters:",
+                "      - name: " + TestEntity.CONF_MAP_THING.getName(),
+                "        description: myDescription",
+                "        type: java.util.Map",
+                "      brooklyn.config:",
+                "        "+TestEntity.CONF_MAP_THING.getName()+":",
+                "          mykey: myval");
+        
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: entity-with-keys");
+        
+        Entity app = createStartWaitAndLogApplication(yaml);
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+
+        // Check config key is listed
+        assertKeyEquals(entity, TestEntity.CONF_MAP_THING.getName(), "myDescription", java.util.Map.class, null, ImmutableMap.of("mykey", "myval"));
+
+        // Rebind, and then check again that the config key is listed
+        Entity newApp = rebind();
+        TestEntity newEntity = (TestEntity) Iterables.getOnlyElement(newApp.getChildren());
+        if (assertReboundVal) {
+            assertKeyEquals(newEntity, TestEntity.CONF_MAP_THING.getName(), "myDescription", java.util.Map.class, null, ImmutableMap.of("mykey", "myval"));
+        } else {
+            // TODO delete duplication from `assertKeyEquals`, when the above works!
+            ConfigKey<?> key = newEntity.getEntityType().getConfigKey(TestEntity.CONF_MAP_THING.getName());
+            assertEquals(key.getDescription(), "myDescription");
+            assertEquals(key.getType(), java.util.Map.class);
+            assertEquals(key.getDefaultValue(), null);
+        }
+    }
+    
     @Test
     public void testConfigParametersListedInType() throws Exception {
         addCatalogItems(
@@ -441,9 +513,8 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         assertEquals(env.get("TEST"), "myDefaultParamVal", "env="+env);
     }
 
-    // TODO: fails; it presumably gets the config key defined in java, rather than the brooklyn.parameters key
     // See https://issues.apache.org/jira/browse/BROOKLYN-328
-    @Test(groups={"WIP", "Broken"})
+    @Test
     public void testConfigParameterOverridingJavaConfig() throws Exception {
         String confName = TestEntity.CONF_OBJECT.getName();
         addCatalogItems(
