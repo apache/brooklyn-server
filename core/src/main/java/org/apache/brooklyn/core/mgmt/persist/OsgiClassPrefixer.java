@@ -18,11 +18,16 @@
  */
 package org.apache.brooklyn.core.mgmt.persist;
 
+import javax.annotation.Nullable;
+
 import org.apache.brooklyn.core.mgmt.rebind.dto.MementosGenerators;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.osgi.framework.Bundle;
 
+import com.google.common.annotations.Beta;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
 
 /**
@@ -33,27 +38,41 @@ import com.google.common.base.Optional;
  * In that situation, the code writing the field must include the prefix (e.g. see
  * {@link MementosGenerators}.
  */
+@Beta
 public class OsgiClassPrefixer {
 
+    private static final String DELIMITER = ":";
+    
     private final ClassLoaderUtils whiteListRetriever;
+    private final Function<Class<?>, Optional<Bundle>> bundleRetriever;
     
     public OsgiClassPrefixer() {
-        whiteListRetriever = new ClassLoaderUtils(getClass());
+        this(null);
+    }
+    
+    @VisibleForTesting
+    protected OsgiClassPrefixer(@Nullable Function<Class<?>, Optional<Bundle>> bundleRetriever) {
+        this.whiteListRetriever = new ClassLoaderUtils(getClass());
+        this.bundleRetriever = bundleRetriever;
     }
     
     public Optional<String> getPrefix(Class<?> type) {
-        Optional<Bundle> bundle  = Osgis.getBundleOf(type);
+        Optional<Bundle> bundle  = (bundleRetriever != null) ? bundleRetriever.apply(type) : Osgis.getBundleOf(type);
         if (bundle.isPresent() && !whiteListRetriever.isBundleWhiteListed(bundle.get())) {
-            return Optional.of(bundle.get().getSymbolicName() + ":");
+            return Optional.of(bundle.get().getSymbolicName() + DELIMITER);
         }
         return Optional.absent();
     }
     
     public Optional<String> stripMatchingPrefix(Bundle bundle, String type) {
         String symbolicName = bundle.getSymbolicName();
-        if (symbolicName != null && type.startsWith(symbolicName + ":")) {
-            return Optional.of(type.substring((symbolicName + ":").length()));
+        if (symbolicName != null && type.startsWith(symbolicName + DELIMITER)) {
+            return Optional.of(type.substring(type.lastIndexOf(DELIMITER) + 1));
         }
         return Optional.absent();
+    }
+    
+    public boolean hasPrefix(String type) {
+        return type != null && type.contains(":");
     }
 }

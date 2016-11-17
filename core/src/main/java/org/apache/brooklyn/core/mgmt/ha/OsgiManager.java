@@ -43,6 +43,7 @@ import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.core.osgi.Osgis.BundleFinder;
 import org.apache.brooklyn.util.core.osgi.SystemFrameworkLoader;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.os.Os.DeletionResult;
@@ -195,6 +196,10 @@ public class OsgiManager {
                     Bundle b = bundle.get();
                     Optional<String> strippedType = osgiClassPrefixer.stripMatchingPrefix(b, type);
                     String typeToLoad = strippedType.isPresent() ? strippedType.get() : type;
+                    if (osgiClassPrefixer.hasPrefix(typeToLoad)) {
+                        bundleProblems.put(osgiBundle, new UserFacingException("Bundle does not match prefix in type name '"+typeToLoad+"'"));
+                        continue;
+                    }
                     //Extension bundles don't support loadClass.
                     //Instead load from the app classpath.
                     Class<T> clazz = SystemFrameworkLoader.get().loadClassFromBundle(typeToLoad, b);
