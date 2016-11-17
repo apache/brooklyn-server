@@ -264,12 +264,7 @@ public interface SoftwareProcess extends Entity, Startable {
             .build();
 
     @SetFromFlag("provisioningProperties")
-    MapConfigKey<Object> PROVISIONING_PROPERTIES = new MapConfigKey.Builder<Object>(Object.class, "provisioning.properties")
-            .description("Custom properties to be passed in when provisioning a new machine")
-            .defaultValue(ImmutableMap.<String, Object>of())
-            .typeInheritance(BasicConfigInheritance.DEEP_MERGE)
-            .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED_ELSE_DEEP_MERGE)
-            .build();
+    MapConfigKey<Object> PROVISIONING_PROPERTIES = BrooklynConfigKeys.PROVISIONING_PROPERTIES;
 
     @SetFromFlag("maxRebindSensorsDelay")
     ConfigKey<Duration> MAXIMUM_REBIND_SENSOR_CONNECT_DELAY = ConfigKeys.newConfigKey(Duration.class,
