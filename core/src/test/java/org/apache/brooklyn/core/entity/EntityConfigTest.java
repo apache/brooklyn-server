@@ -42,6 +42,7 @@ import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensorAndConfigKey.IntegerAttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.task.BasicTask;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
@@ -533,4 +534,13 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
         @SetFromFlag("mychildconfigflagname")
         public static final ConfigKey<String> MY_CHILD_CONFIG_WITH_FLAGNAME = ConfigKeys.newStringConfigKey("mychildentity.myconfigwithflagname");
     }
+    
+    @Test
+    public void testInheritedDefault() {
+        final Entity e1 = app.addChild(EntitySpec.create(MyBaseEntity.class));
+        final Entity e2 = e1.addChild(EntitySpec.create(BasicEntity.class));
+        Assert.assertEquals(e2.config().get(MyBaseEntity.SUPER_KEY_1), MyBaseEntity.SUPER_KEY_1.getDefaultValue());
+        Assert.assertEquals(e2.config().get(ConfigKeys.newStringConfigKey(MyBaseEntity.SUPER_KEY_1.getName())), MyBaseEntity.SUPER_KEY_1.getDefaultValue());
+    }
+    
 }

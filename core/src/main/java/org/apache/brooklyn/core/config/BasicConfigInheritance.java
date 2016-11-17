@@ -184,12 +184,6 @@ public class BasicConfigInheritance implements ConfigInheritance {
     @Nonnull
     protected final Boolean ancestorDefaultInheritable;
     
-    /* TODO
-     * - document key definition inference vs explicitness (conflict resolution is inferred from nearest descendant explicit key; whereas other values don't apply if no explicit key)
-     * - ancestor default value inheritance -- https://issues.apache.org/jira/browse/BROOKLYN-267
-     * - immediate config evaluation
-     */
-
     @Deprecated /** @deprecated since 0.10.0 use four-arg constructor */
     protected BasicConfigInheritance(boolean isReinherited, @Nullable String conflictResolutionStrategy, boolean localDefaultResolvesWithAncestorValue) {
         this(isReinherited, conflictResolutionStrategy, localDefaultResolvesWithAncestorValue, true);
@@ -252,8 +246,12 @@ public class BasicConfigInheritance implements ConfigInheritance {
         
         checkInheritanceContext(local, context);
         
-        if (!parent.isValueExplicitlySet() && !getLocalDefaultResolvesWithAncestorValue()) 
+        if (!parent.isValueExplicitlySet() && !getLocalDefaultResolvesWithAncestorValue()) {
+            if (getAncestorDefaultInheritable() && !local.isValueExplicitlySet() && local.getDefaultValue().isAbsentOrNull() && parent.getDefaultValue().isPresentAndNonNull()) {
+                return ReferenceWithError.newInstanceWithoutError(new BasicConfigValueAtContainer<TContainer,TValue>(parent));
+            }
             return ReferenceWithError.newInstanceWithoutError(new BasicConfigValueAtContainer<TContainer,TValue>(local));
+        }
         
         // parent explicitly set (or we might have to merge defaults), 
         // and by the contract of this method we can assume reinheritable
@@ -266,7 +264,8 @@ public class BasicConfigInheritance implements ConfigInheritance {
             BasicConfigValueAtContainer<TContainer, TValue> result = new BasicConfigValueAtContainer<TContainer,TValue>(local);
             ReferenceWithError<Maybe<? extends TValue>> resolvedValue = deepMerge(
                 local.isValueExplicitlySet() ? local.asMaybe() : local.getDefaultValue(), 
-                    parent.isValueExplicitlySet() ? parent.asMaybe() : parent.getDefaultValue());
+                    parent.isValueExplicitlySet() ? parent.asMaybe() : 
+                        getAncestorDefaultInheritable() ? parent.getDefaultValue() : Maybe.<TValue>absent());
             result.setValue(resolvedValue.getWithoutError());
             return ReferenceWithError.newInstanceThrowingError(result, resolvedValue.getError());
         }

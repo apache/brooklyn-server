@@ -457,6 +457,8 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
         Maybe<?> other = (Maybe<?>)obj;
         if (!isPresent()) 
             return !other.isPresent();
+        if (!other.isPresent())
+            return false;
         return Objects.equal(get(), other.get());
     }
 
