@@ -23,7 +23,6 @@ import static org.apache.brooklyn.core.config.ConfigKeys.newConfigKey;
 import static org.apache.brooklyn.core.config.ConfigKeys.newConfigKeyWithPrefix;
 import static org.apache.brooklyn.core.config.ConfigKeys.newStringConfigKey;
 
-import com.google.common.annotations.Beta;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigInheritance;
@@ -37,6 +36,7 @@ import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.time.Duration;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 
@@ -236,5 +236,14 @@ public class BrooklynConfigKeys {
     public static final ConfigKey<String> SSH_CONFIG_SCRIPT_HEADER = newConfigKeyWithPrefix(BROOKLYN_SSH_CONFIG_KEY_PREFIX, ShellTool.PROP_SCRIPT_HEADER);
     public static final ConfigKey<String> SSH_CONFIG_DIRECT_HEADER = newConfigKeyWithPrefix(BROOKLYN_SSH_CONFIG_KEY_PREFIX, ShellTool.PROP_DIRECT_HEADER);
     public static final ConfigKey<Boolean> SSH_CONFIG_NO_DELETE_SCRIPT = newConfigKeyWithPrefix(BROOKLYN_SSH_CONFIG_KEY_PREFIX, ShellTool.PROP_NO_DELETE_SCRIPT);
+
+    public static final MapConfigKey<Object> PROVISIONING_PROPERTIES = new MapConfigKey.Builder<Object>(Object.class, "provisioning.properties")
+            .description("Custom properties to be passed in when provisioning a new machine")
+            .defaultValue(ImmutableMap.<String, Object>of())
+            .typeInheritance(BasicConfigInheritance.DEEP_MERGE)
+            .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED_ELSE_DEEP_MERGE)
+            .build();
+
+    private BrooklynConfigKeys() {}
 
 }
