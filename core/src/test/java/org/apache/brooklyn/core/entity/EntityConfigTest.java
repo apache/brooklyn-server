@@ -28,6 +28,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -36,6 +37,7 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.mgmt.ExecutionManager;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.ConfigPredicates;
@@ -47,13 +49,17 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.task.BasicTask;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
+import org.apache.brooklyn.util.core.task.InterruptingImmediateSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -63,6 +69,8 @@ import groovy.lang.Closure;
 
 public class EntityConfigTest extends BrooklynAppUnitTestSupport {
 
+    private static final Logger log = LoggerFactory.getLogger(EntityConfigTest.class);
+    
     private static final int TIMEOUT_MS = 10*1000;
 
     private ExecutorService executor;
@@ -244,58 +252,144 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
     // of the previous "test.confMapThing.obj".
     //
     // Presumably an earlier call to task.get() timed out, causing it to cancel the task?
+    // Alex: yes, a task.cancel is performed for maps in
+    // AbstractEntity$BasicConfigurationSupport(AbstractConfigurationSupportInternal).getNonBlockingResolvingStructuredKey(ConfigKey<T>)    
+ 
+    //
     // I (Aled) question whether we want to support passing a task (rather than a 
     // DeferredSupplier or TaskFactory, for example). Our EntitySpec.configure is overloaded
     // to take a Task, but that feels wrong!?
-    @Test(groups="Broken")
-    public void testGetTaskNonBlocking() throws Exception {
-        final CountDownLatch latch = new CountDownLatch(1);
-        Task<String> task = Tasks.<String>builder().body(
+    //
+    // If starting clean I (Alex) would agree, we should use TaskFactory. However the
+    // DependentConfiguration methods -- including the ubiquitous AttributeWhenReady --
+    // return Task instances so they should survive a getNonBlocking or get with a short timeout 
+    // access, and if a value is subsequently available it should be returned 
+    // (which this test asserts, but is currently failing). If TaskFactory is used the
+    // intended semantics are clear -- you create a new task on each access, and can interrupt it
+    // and discard it if needed. For a Task it's less clear: probably the semantics are that the
+    // first returned value is what the value is forevermore. Probably it should not be interrupted
+    // on a non-blocking / short-wait access, or possibly it should simply be re-run if a previous
+    // execution was interrupted (but take care if we have a simultaneous non-blocking and blocking
+    // access, if the first one interrupts the second one should still get a value).
+    // I tend to think ideally we should switch to using TaskFactory in DependentConfiguration.
+    class ConfigNonBlockingFixture {
+        final Semaphore latch = new Semaphore(0);
+        final String expectedVal = "myval";
+        Object blockingVal;
+
+        protected ConfigNonBlockingFixture usingTask() {
+            blockingVal = taskFactory().newTask();
+            return this;
+        }
+
+        protected ConfigNonBlockingFixture usingTaskFactory() {
+            blockingVal = taskFactory();
+            return this;
+        }
+
+        protected ConfigNonBlockingFixture usingDeferredSupplier() {
+            blockingVal = deferredSupplier();
+            return this;
+        }
+        
+        protected ConfigNonBlockingFixture usingImmediateSupplier() {
+            blockingVal = new InterruptingImmediateSupplier<String>(deferredSupplier());
+            return this;
+        }
+
+        private TaskFactory<Task<String>> taskFactory() {
+            return Tasks.<String>builder().body(
                 new Callable<String>() {
                     @Override
                     public String call() throws Exception {
-                        latch.await();
+                        if (!latch.tryAcquire()) latch.acquire();
+                        latch.release();
                         return "myval";
                     }})
-                .build();
-        runGetConfigNonBlocking(latch, task, "myval");
-    }
-    
-    @Test
-    public void testGetDeferredSupplierNonBlocking() throws Exception {
-        final CountDownLatch latch = new CountDownLatch(1);
-        DeferredSupplier<String> task = new DeferredSupplier<String>() {
-            @Override public String get() {
-                try {
-                    latch.await();
-                } catch (InterruptedException e) {
-                    throw Exceptions.propagate(e);
+                .buildFactory();
+        }
+        
+        private DeferredSupplier<String> deferredSupplier() {
+            return new DeferredSupplier<String>() {
+                @Override public String get() {
+                    try {
+                        log.info("acquiring");
+                        if (!latch.tryAcquire()) latch.acquire();
+                        latch.release();
+                        log.info("acquired and released");
+                    } catch (InterruptedException e) {
+                        log.info("interrupted");
+                        throw Exceptions.propagate(e);
+                    }
+                    return "myval";
                 }
-                return "myval";
-            }
-        };
-        runGetConfigNonBlocking(latch, task, "myval");
+            };
+        }
+        
+        protected void runGetConfigNonBlockingInKey() throws Exception {
+            Preconditions.checkNotNull(blockingVal, "Fixture must set blocking val before running this");
+            
+            @SuppressWarnings("unchecked")
+            TestEntity entity = (TestEntity) mgmt.getEntityManager().createEntity(EntitySpec.create(TestEntity.class)
+                    .configure((ConfigKey<Object>)(ConfigKey<?>)TestEntity.CONF_NAME, blockingVal));
+            
+            log.info("get non-blocking");
+            // Will initially return absent, because task is not done
+            assertTrue(entity.config().getNonBlocking(TestEntity.CONF_NAME).isAbsent());
+            log.info("got absent");
+            
+            latch.release();
+            
+            // Can now finish task, so will return expectedVal
+            log.info("get blocking");
+            assertEquals(entity.config().get(TestEntity.CONF_NAME), expectedVal);
+            log.info("got blocking");
+            assertEquals(entity.config().getNonBlocking(TestEntity.CONF_NAME).get(), expectedVal);
+            
+            latch.acquire();
+            log.info("finished");
+        }
+        
+        protected void runGetConfigNonBlockingInMap() throws Exception {
+            Preconditions.checkNotNull(blockingVal, "Fixture must set blocking val before running this");
+            
+            TestEntity entity = (TestEntity) mgmt.getEntityManager().createEntity(EntitySpec.create(TestEntity.class)
+                    .configure(TestEntity.CONF_MAP_OBJ_THING, ImmutableMap.<String, Object>of("mysub", blockingVal)));
+            
+            // Will initially return absent, because task is not done
+            assertTrue(entity.config().getNonBlocking(TestEntity.CONF_MAP_OBJ_THING).isAbsent());
+            assertTrue(entity.config().getNonBlocking(TestEntity.CONF_MAP_OBJ_THING.subKey("mysub")).isAbsent());
+            
+            latch.release();
+            
+            // Can now finish task, so will return expectedVal
+            assertEquals(entity.config().get(TestEntity.CONF_MAP_OBJ_THING), ImmutableMap.of("mysub", expectedVal));
+            assertEquals(entity.config().get(TestEntity.CONF_MAP_OBJ_THING.subKey("mysub")), expectedVal);
+            
+            assertEquals(entity.config().getNonBlocking(TestEntity.CONF_MAP_OBJ_THING).get(), ImmutableMap.of("mysub", expectedVal));
+            assertEquals(entity.config().getNonBlocking(TestEntity.CONF_MAP_OBJ_THING.subKey("mysub")).get(), expectedVal);
+        }
     }
     
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    protected void runGetConfigNonBlocking(CountDownLatch latch, Object blockingVal, String expectedVal) throws Exception {
-        TestEntity entity = (TestEntity) mgmt.getEntityManager().createEntity(EntitySpec.create(TestEntity.class)
-                .configure(TestEntity.CONF_MAP_OBJ_THING, ImmutableMap.<String, Object>of("mysub", blockingVal))
-                .configure((ConfigKey)TestEntity.CONF_NAME, blockingVal));
-        
-        // Will initially return absent, because task is not done
-        assertTrue(entity.config().getNonBlocking(TestEntity.CONF_MAP_OBJ_THING).isAbsent());
-        assertTrue(entity.config().getNonBlocking(TestEntity.CONF_MAP_OBJ_THING.subKey("mysub")).isAbsent());
-        
-        latch.countDown();
-        
-        // Can now finish task, so will return expectedVal
-        assertEquals(entity.config().get(TestEntity.CONF_MAP_OBJ_THING), ImmutableMap.of("mysub", expectedVal));
-        assertEquals(entity.config().get(TestEntity.CONF_MAP_OBJ_THING.subKey("mysub")), expectedVal);
-        
-        assertEquals(entity.config().getNonBlocking(TestEntity.CONF_MAP_OBJ_THING).get(), ImmutableMap.of("mysub", expectedVal));
-        assertEquals(entity.config().getNonBlocking(TestEntity.CONF_MAP_OBJ_THING.subKey("mysub")).get(), expectedVal);
-    }
+    @Test public void testGetTaskNonBlockingKey() throws Exception {
+        new ConfigNonBlockingFixture().usingTask().runGetConfigNonBlockingInKey(); }
+    @Test public void testGetTaskNonBlockingMap() throws Exception {
+        new ConfigNonBlockingFixture().usingTask().runGetConfigNonBlockingInMap(); }
+    
+    @Test public void testGetTaskFactoryNonBlockingKey() throws Exception {
+        new ConfigNonBlockingFixture().usingTaskFactory().runGetConfigNonBlockingInKey(); }
+    @Test public void testGetTaskFactoryNonBlockingMap() throws Exception {
+        new ConfigNonBlockingFixture().usingTaskFactory().runGetConfigNonBlockingInMap(); }
+    
+    @Test public void testGetSupplierNonBlockingKey() throws Exception {
+        new ConfigNonBlockingFixture().usingDeferredSupplier().runGetConfigNonBlockingInKey(); }
+    @Test public void testGetSuppierNonBlockingMap() throws Exception {
+        new ConfigNonBlockingFixture().usingDeferredSupplier().runGetConfigNonBlockingInMap(); }
+    
+    @Test public void testGetImmediateSupplierNonBlockingKey() throws Exception {
+        new ConfigNonBlockingFixture().usingImmediateSupplier().runGetConfigNonBlockingInKey(); }
+    @Test public void testGetImmediateSupplierNonBlockingMap() throws Exception {
+        new ConfigNonBlockingFixture().usingImmediateSupplier().runGetConfigNonBlockingInMap(); }
     
     @Test
     public void testGetConfigKeysReturnsFromSuperAndInterfacesAndSubClass() throws Exception {

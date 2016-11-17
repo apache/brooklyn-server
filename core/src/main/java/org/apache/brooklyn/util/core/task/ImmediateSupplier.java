@@ -27,7 +27,8 @@ import org.apache.brooklyn.util.guava.Maybe;
 public interface ImmediateSupplier<T> {
     
     /**
-     * Indicates that we are unable to get the value immediately, because that is not supported
+     * Indicates that a supplier does not support immediate evaluation,
+     * i.e. it may need to block to evaluate even if there is a value available
      * (e.g. because the supplier is composed of sub-tasks that do not support {@link ImmediateSupplier}.  
      */
     public static class ImmediateUnsupportedException extends UnsupportedOperationException {
@@ -44,7 +45,7 @@ public interface ImmediateSupplier<T> {
     /**
      * Gets the value promptly, or returns {@link Maybe#absent()} if the value is not yet available.
      * 
-     * @throws ImmediateUnsupportedException if cannot determinte the value immediately
+     * @throws ImmediateUnsupportedException if cannot determine whether a value is immediately available
      */
     Maybe<T> getImmediately();
 }
