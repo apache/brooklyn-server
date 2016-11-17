@@ -60,7 +60,7 @@ public interface HttpResponse extends Closeable {
         }
 
         public Builder headers(Multimap<String, String> val) {
-            headers.putAll(headers);
+            headers.putAll(val);
             return this;
         }
 
