@@ -20,6 +20,8 @@ import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.location.PortRanges;
+import org.apache.brooklyn.core.location.access.PortForwardManager;
+import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
@@ -43,6 +45,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.io.BaseEncoding;
+import com.google.common.net.HostAndPort;
 
 import io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer;
 import io.fabric8.kubernetes.api.model.Container;
@@ -51,6 +54,7 @@ import io.fabric8.kubernetes.api.model.ContainerPort;
 import io.fabric8.kubernetes.api.model.ContainerPortBuilder;
 import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.EnvVarBuilder;
+import io.fabric8.kubernetes.api.model.IntOrString;
 import io.fabric8.kubernetes.api.model.Namespace;
 import io.fabric8.kubernetes.api.model.NamespaceBuilder;
 import io.fabric8.kubernetes.api.model.PersistentVolume;
@@ -213,9 +217,32 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         Service service = exposeService(namespace.getMetadata().getName(), metadata, deploymentName, inboundPorts);
         Pod pod = getPod(namespace.getMetadata().getName(), metadata);
         LocationSpec<SshMachineLocation> locationSpec = prepareLocationSpec(entity, setup, namespace, deployment, service, pod);
-        return getManagementContext().getLocationManager().createLocation(locationSpec);
+        SshMachineLocation machine = getManagementContext().getLocationManager().createLocation(locationSpec);
+        registerPortMappings(machine, service);
+        return machine;
     }
 
+    protected void registerPortMappings(SshMachineLocation machine, Service service) {
+        PortForwardManager portForwardManager = (PortForwardManager) getManagementContext().getLocationRegistry()
+                .getLocationManaged(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
+        List<ServicePort> ports = service.getSpec().getPorts();
+        String publicHostText = machine.getSshHostAndPort().getHostText();
+        log.info("Recording port-mappings for container {} of {}: {}", new Object[] {machine, this, ports});
+        
+        for (ServicePort port : ports) {
+            String protocol = port.getProtocol();
+            IntOrString targetPortObj = port.getTargetPort();
+            Integer targetPort = targetPortObj.getIntVal();
+            if (!"TCP".equalsIgnoreCase(protocol)) {
+                log.debug("Ignoring port mapping {} for {} because only TCP is currently supported", port, machine);
+            } else if (targetPort == null) {
+                log.debug("Ignoring port mapping {} for {} because targetPort.intValue is null", port, machine);
+            } else {
+                portForwardManager.associate(publicHostText, HostAndPort.fromParts(publicHostText, port.getNodePort()), machine, targetPort);
+            }
+        }
+    }
+    
     private String findDeploymentName(Entity entity, ConfigBag setup) {
         return firstNonNull(setup.get(KubernetesLocationConfig.DEPLOYMENT), entity.getId());
     }
