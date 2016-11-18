@@ -33,6 +33,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -73,6 +75,7 @@ import io.fabric8.kubernetes.client.KubernetesClientException;
 public class KubernetesLocation extends AbstractLocation implements MachineProvisioningLocation<MachineLocation>, KubernetesLocationConfig {
 
     public static final Logger log = LoggerFactory.getLogger(KubernetesLocation.class);
+
     public static final String SERVER_TYPE = "NodePort";
     public static final String IMMUTABLE_CONTAINER_KEY = "immutable-container";
     public static final String SSHABLE_CONTAINER = "sshable-container";
@@ -382,9 +385,23 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                     .configure(KubernetesLocationConfig.SERVICE, service.getMetadata().getName())
                     .configure(CALLER_CONTEXT, setup.get(CALLER_CONTEXT));
             if (!isDockerContainer(entity)) {
+                Optional<ServicePort> sshPort = Iterables.tryFind(service.getSpec().getPorts(), new Predicate<ServicePort>() {
+                        @Override
+                        public boolean apply(ServicePort input) {
+                            return input.getProtocol().equalsIgnoreCase("TCP") && input.getPort() == 22;
+                        }
+                    });
+                Optional<Integer> sshPortNumber;
+                if (sshPort.isPresent()) {
+                    sshPortNumber = Optional.of(sshPort.get().getNodePort());
+                } else {
+                    log.warn("No port-mapping found to ssh port 22, for container {}", service);
+                    sshPortNumber = Optional.absent();
+                }
+                
                 locationSpec.configure(CloudLocationConfig.USER, setup.get(KubernetesLocationConfig.LOGIN_USER))
                         .configure(SshMachineLocation.PASSWORD, setup.get(KubernetesLocationConfig.LOGIN_USER_PASSWORD))
-                        .configure(SshMachineLocation.SSH_PORT, service.getSpec().getPorts().get(0).getNodePort())
+                        .configureIfNotNull(SshMachineLocation.SSH_PORT, sshPortNumber.orNull())
                         .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, true)
                         .configure(BrooklynConfigKeys.ONBOX_BASE_DIR, "/tmp")
                         .configure(SshMachineLocation.UNIQUE_ID, entity.getId());
