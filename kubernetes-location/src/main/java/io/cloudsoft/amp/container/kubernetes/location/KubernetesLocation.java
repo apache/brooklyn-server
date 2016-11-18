@@ -38,6 +38,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -378,8 +379,10 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     private LocationSpec<SshMachineLocation> prepareLocationSpec(Entity entity, ConfigBag setup, Namespace namespace, Deployment deployment, Service service, Pod pod) {
         try {
             InetAddress node = InetAddress.getByName(pod.getSpec().getNodeName());
+            String podAddress = pod.getStatus().getPodIP();
             LocationSpec<SshMachineLocation> locationSpec = LocationSpec.create(SshMachineLocation.class)
                     .configure("address", node)
+                    .configure(SshMachineLocation.PRIVATE_ADDRESSES, ImmutableSet.of(podAddress))
                     .configure(KubernetesLocationConfig.NAMESPACE, namespace.getMetadata().getName())
                     .configure(KubernetesLocationConfig.DEPLOYMENT, deployment.getMetadata().getName())
                     .configure(KubernetesLocationConfig.SERVICE, service.getMetadata().getName())
