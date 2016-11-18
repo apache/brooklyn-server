@@ -270,6 +270,25 @@ public class RebindLocationTest extends RebindTestFixtureWithApp {
         Asserts.assertEqualsIgnoringOrder(newLoc.tags().getTags(), ImmutableSet.of("foo", newApp));
     }
 
+    // See https://issues.apache.org/jira/browse/BROOKLYN-396
+    @Test
+    public void testFlagFieldsNotReturnedInConfig() throws Exception {
+        MyLocation origLoc = mgmt().getLocationManager().createLocation(LocationSpec.create(MyLocation.class));
+        origLoc.myfield = "myval";
+        origLoc.requestPersist();
+
+        // Check (before rebind) that the 'myfield' isn't also in the config
+        assertNull(origLoc.config().getBag().getStringKey("myfield"));
+
+        // Check after rebind that we are the same: 'myfield' isn't also in the config
+        rebind();
+        MyLocation newLoc = (MyLocation) mgmt().getLocationManager().getLocation(origLoc.getId());
+        
+        assertEquals(newLoc.myfield, "myval");
+        assertNull(newLoc.config().getBag().getStringKey("myfield"));
+    }
+    
+
     public static class LocationChecksIsRebinding extends AbstractLocation {
         boolean isRebindingValWhenRebinding;
         
@@ -327,6 +346,11 @@ public class RebindLocationTest extends RebindTestFixtureWithApp {
         
         public MyLocation(Map<?,?> flags) {
             super(flags);
+        }
+        
+        @Override
+        public void requestPersist() {
+            super.requestPersist();
         }
     }
     

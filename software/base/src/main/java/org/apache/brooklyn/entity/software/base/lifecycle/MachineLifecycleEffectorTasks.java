@@ -420,11 +420,12 @@ public abstract class MachineLifecycleEffectorTasks {
             if (machine == null) {
                 throw new NoMachinesAvailableException("Failed to obtain machine in " + location.toString());
             }
-            if (log.isDebugEnabled())
+            if (log.isDebugEnabled()) {
                 log.debug("While starting {}, obtained new location instance {}", entity(),
                         (machine instanceof SshMachineLocation
                                 ? machine + ", details " + ((SshMachineLocation) machine).getUser() + ":" + Sanitizer.sanitize(((SshMachineLocation) machine).config().getLocalBag())
                                 : machine));
+            }
             return machine;
         }
     }
