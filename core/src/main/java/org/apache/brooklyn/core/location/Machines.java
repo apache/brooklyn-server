@@ -49,8 +49,13 @@ public class Machines {
             hostname = ((HasSubnetHostname) where).getSubnetHostname();
         }
         if (hostname == null && where instanceof MachineLocation) {
-            InetAddress addr = ((MachineLocation) where).getAddress();
-            if (addr != null) hostname = addr.getHostAddress();
+            Maybe<String> subnetIp = getSubnetIp(where);
+            if (subnetIp.isPresent()) {
+                hostname = subnetIp.get();
+            } else {
+                InetAddress addr = ((MachineLocation) where).getAddress();
+                if (addr != null) hostname = addr.getHostAddress();
+            }
         }
         log.debug("computed subnet hostname {} for {}", hostname, where);
         // TODO if Maybe.absent(message) appears, could/should use that
