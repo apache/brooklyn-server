@@ -67,16 +67,17 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
         return (KubernetesLocation) mgmt.getLocationRegistry().getLocationManaged("kubernetes", allFlags);
     }
 
-    // TODO Fails because can't ssh to container
-    @Test(groups={"Live", "Broken"}, enabled=false)
+    @Test(groups={"Live"})
     public void testDefaultImage() throws Exception {
+        // Default is "cloudsoft/centos:7"
         loc = newKubernetesLocation(ImmutableMap.<String, Object>of());
         SshMachineLocation machine = newContainerMachine(loc, ImmutableMap.<String, Object>builder()
+                .put(KubernetesLocationConfig.LOGIN_USER_PASSWORD.getName(), "p4ssw0rd")
                 .put(LocationConfigKeys.CALLER_CONTEXT.getName(), app)
                 .build());
 
         assertTrue(machine.isSshable());
-        assertOsNameContains(machine, "ubuntu");
+        assertOsNameContains(machine, "centos");
     }
 
     @Test(groups={"Live"})
