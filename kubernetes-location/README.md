@@ -1,4 +1,4 @@
-# Kubernetes location
+# Kubernetes Location
 
 This project contains entities and other items for using Cloudsoft AMP in a Kubernetes ecosystem.
 

@@ -15,7 +15,7 @@ import org.testng.annotations.Test;
 
 public class KubernetesLocationResolverTest extends BrooklynMgmtUnitTestSupport {
 
-    private static final Logger log = LoggerFactory.getLogger(KubernetesLocationResolverTest.class);
+    private static final Logger LOG = LoggerFactory.getLogger(KubernetesLocationResolverTest.class);
     
     private BrooklynProperties brooklynProperties;
 
@@ -73,10 +73,12 @@ public class KubernetesLocationResolverTest extends BrooklynMgmtUnitTestSupport 
     }
 
     private LocationSpec<?> getLocationSpec(String spec) {
+        LOG.debug("Obtaining location spec '{}'", spec);
         return mgmt.getLocationRegistry().getLocationSpec(spec).get();
     }
 
     private KubernetesLocation resolve(String spec) {
+        LOG.debug("Resolving location spec '{}'", spec);
         return (KubernetesLocation) mgmt.getLocationRegistry().getLocationManaged(spec);
     }
 }

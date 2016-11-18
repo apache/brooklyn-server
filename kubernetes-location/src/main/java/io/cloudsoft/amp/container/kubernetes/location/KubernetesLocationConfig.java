@@ -33,7 +33,7 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
 
     @SetFromFlag("clientCertUrl")
     ConfigKey<String> CLIENT_CERT = ConfigKeys.builder(String.class)
-            .name("kubernetes.clientCer")
+            .name("kubernetes.clientCert")
             .description("URL of resource containing client certificate data")
             .defaultValue("~/.minikube/apiserver.crt")
             .constraint(Predicates.<String>notNull())
@@ -50,13 +50,14 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
     @SetFromFlag("namespace")
     ConfigKey<String> NAMESPACE = ConfigKeys.builder(String.class)
             .name("kubernetes.namespace")
-            .description("Namespace where resources will live. Default is `amp`")
+            .description("Namespace where resources will live; the default is 'amp'")
             .defaultValue("amp")
             .constraint(Predicates.<String>notNull())
             .build();
 
     @SetFromFlag("persistentVolumes")
-    ConfigKey<List<String>> PERSISTENT_VOLUMES = ConfigKeys.builder(new TypeToken<List<String>>() { })
+    @SuppressWarnings("serial")
+    ConfigKey<List<String>> PERSISTENT_VOLUMES = ConfigKeys.builder(new TypeToken<List<String>>() {})
             .name("kubernetes.persistent.volumes")
             .description("Set up persistent volumes.")
             .constraint(Predicates.<List<String>>notNull())
@@ -93,15 +94,17 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
             .build();
 
     @SetFromFlag("secrets")
+    @SuppressWarnings("serial")
     ConfigKey<Map<String, String>> SECRETS = ConfigKeys.builder(
-            new TypeToken<Map<String, String>>() { })
+            new TypeToken<Map<String, String>>() {})
             .name("kubernetes.secrets")
             .description("Kubernetes secrets to be added to the pod")
             .build();
 
     @SetFromFlag("limits")
+    @SuppressWarnings("serial")
     ConfigKey<Map<String, String>> LIMITS = ConfigKeys.builder(
-            new TypeToken<Map<String, String>>() { })
+            new TypeToken<Map<String, String>>() {})
             .name("kubernetes.limits")
             .description("Kubernetes resource limits")
             .build();
@@ -120,8 +123,7 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
 
     ConfigKey<String> LOGIN_USER = ConfigKeys.builder(String.class)
             .name("kubernetes.loginUser")
-            .description(
-            "Override the user who logs in initially to perform setup")
+            .description("Override the user who logs in initially to perform setup")
             .defaultValue("root")
             .constraint(Predicates.<String>notNull())
             .build();

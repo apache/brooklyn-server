@@ -15,6 +15,7 @@ import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
+import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
@@ -207,8 +208,8 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         Deployment deployment = deploy(namespace.getMetadata().getName(), metadata, deploymentName, container, replicas, secrets);
         Service service = exposeService(namespace.getMetadata().getName(), metadata, deploymentName, inboundPorts);
         Pod pod = getPod(namespace.getMetadata().getName(), metadata);
-        LocationSpec locationSpec = prepareLocationSpec(entity, setup, namespace, deployment, service, pod);
-        return (SshMachineLocation) getManagementContext().getLocationManager().createLocation(locationSpec);
+        LocationSpec<SshMachineLocation> locationSpec = prepareLocationSpec(entity, setup, namespace, deployment, service, pod);
+        return getManagementContext().getLocationManager().createLocation(locationSpec);
     }
 
     private String findDeploymentName(Entity entity, ConfigBag setup) {
@@ -296,7 +297,9 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 .withImage(imageName)
                 .addToPorts(Iterables.toArray(containerPorts, ContainerPort.class))
                 .addToEnv(Iterables.toArray(envVars, EnvVar.class))
-                .withNewSecurityContext().withPrivileged(privileged).endSecurityContext();
+                .withNewSecurityContext()
+                        .withPrivileged(privileged)
+                        .endSecurityContext();
 
         if (limits != null) {
             for (Map.Entry<String, String> nameValueEntry : limits.entrySet()) {
@@ -369,10 +372,10 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         return client.services().inNamespace(namespace).withName(serviceName).get();
     }
 
-    private LocationSpec prepareLocationSpec(Entity entity, ConfigBag setup, Namespace namespace, Deployment deployment, Service service, Pod pod) {
+    private LocationSpec<SshMachineLocation> prepareLocationSpec(Entity entity, ConfigBag setup, Namespace namespace, Deployment deployment, Service service, Pod pod) {
         try {
             InetAddress node = InetAddress.getByName(pod.getSpec().getNodeName());
-            LocationSpec locationSpec = LocationSpec.create(SshMachineLocation.class)
+            LocationSpec<SshMachineLocation> locationSpec = LocationSpec.create(SshMachineLocation.class)
                     .configure("address", node)
                     .configure(KubernetesLocationConfig.NAMESPACE, namespace.getMetadata().getName())
                     .configure(KubernetesLocationConfig.DEPLOYMENT, deployment.getMetadata().getName())
@@ -455,13 +458,18 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
             return inboundPorts;
         }
         else {
-            Map<String, Object> allConfig = setup.getAllConfig();
-            if (allConfig.containsKey(INBOUND_PORTS.getName())) {
-                return (Iterable<Integer>) allConfig.get(INBOUND_PORTS.getName());
+            if (setup.containsKey(INBOUND_PORTS)) {
+                return toIntPortList(setup.get(INBOUND_PORTS));
             } else {
                 return ImmutableList.of(22);
             }
         }
+    }
+
+    static List<Integer> toIntPortList(Object v) {
+        if (v == null) return ImmutableList.of();
+        PortRange portRange = PortRanges.fromIterable(ImmutableList.of(v));
+        return ImmutableList.copyOf(portRange);
     }
 
     private String findImageName(Entity entity, ConfigBag setup) {
