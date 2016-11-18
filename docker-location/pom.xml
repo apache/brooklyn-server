@@ -35,6 +35,18 @@
                 </exclusion>
             </exclusions>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.brooklyn</groupId>
+            <artifactId>brooklyn-core</artifactId>
+            <version>${brooklyn.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.brooklyn</groupId>
+            <artifactId>brooklyn-software-base</artifactId>
+            <version>${brooklyn.version}</version>
+        </dependency>
     
         <dependency>
             <groupId>org.apache.brooklyn</groupId>
@@ -65,6 +77,13 @@
         </dependency>
 
         <dependency>
+            <groupId>org.apache.brooklyn</groupId>
+            <artifactId>brooklyn-utils-test-support</artifactId>
+            <version>${brooklyn.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
             <version>${testng.version}</version>
@@ -77,12 +96,6 @@
             <version>${brooklyn.version}</version>
             <classifier>tests</classifier>
             <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.brooklyn</groupId>
-            <artifactId>brooklyn-software-base</artifactId>
-            <version>${brooklyn.version}</version>
         </dependency>
 
         <dependency>
