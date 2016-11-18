@@ -14,20 +14,13 @@ import com.google.common.reflect.TypeToken;
 
 public interface KubernetesLocationConfig extends CloudLocationConfig {
 
-    @SetFromFlag("identity")
-    ConfigKey<String> ACCESS_IDENTITY = CloudLocationConfig.ACCESS_IDENTITY;
-
-    @SetFromFlag("credential")
-    ConfigKey<String> ACCESS_CREDENTIAL = CloudLocationConfig.ACCESS_CREDENTIAL;
-
-    @SetFromFlag("enpoint")
+    @SetFromFlag("endpoint")
     ConfigKey<String> MASTER_URL = LocationConfigKeys.CLOUD_ENDPOINT;
 
     @SetFromFlag("caCertUrl")
     ConfigKey<String> CA_CERT = ConfigKeys.builder(String.class)
             .name("kubernetes.caCert")
             .description("URL of resource containing CA certificate data")
-            .defaultValue("~/.minikube/ca.crt")
             .constraint(Predicates.<String>notNull())
             .build();
 
@@ -35,7 +28,6 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
     ConfigKey<String> CLIENT_CERT = ConfigKeys.builder(String.class)
             .name("kubernetes.clientCert")
             .description("URL of resource containing client certificate data")
-            .defaultValue("~/.minikube/apiserver.crt")
             .constraint(Predicates.<String>notNull())
             .build();
 
@@ -43,7 +35,6 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
     ConfigKey<String> CLIENT_KEY = ConfigKeys.builder(String.class)
             .name("kubernetes.clientKey")
             .description("URL of resource containing client key data")
-            .defaultValue("~/.minikube/apiserver.key")
             .constraint(Predicates.<String>notNull())
             .build();
 

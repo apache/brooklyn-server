@@ -7,6 +7,7 @@ import java.net.URL;
 
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.base.Throwables;
 
@@ -21,12 +22,6 @@ public class KubernetesClientRegistryImpl implements KubernetesClientRegistry {
     @Override
     public KubernetesClient getKubernetesClient(ConfigBag conf) {
         String masterUrl = checkNotNull(conf.get(KubernetesLocationConfig.MASTER_URL), "master url must not be null");
-        String username = conf.get(KubernetesLocationConfig.ACCESS_IDENTITY);
-        String password = conf.get(KubernetesLocationConfig.ACCESS_CREDENTIAL);
-
-        ConfigBuilder configBuilder = new ConfigBuilder()
-                .withMasterUrl(masterUrl)
-                .withTrustCerts(false);
 
         URL url;
         try {
@@ -35,19 +30,27 @@ public class KubernetesClientRegistryImpl implements KubernetesClientRegistry {
             throw Throwables.propagate(e);
         }
 
-        if (url.getProtocol().equals("https")) {
-            String caCert = checkNotNull(conf.get(KubernetesLocationConfig.CA_CERT), "caCertl must not be null");
-            String clientCert = checkNotNull(conf.get(KubernetesLocationConfig.CLIENT_CERT), "clientCert must not be null");
-            String clientKey = checkNotNull(conf.get(KubernetesLocationConfig.CLIENT_KEY), "clientKey must not be null");
+        ConfigBuilder configBuilder = new ConfigBuilder()
+                .withMasterUrl(masterUrl)
+                .withTrustCerts(false);
 
-            configBuilder.withCaCertFile(Os.tidyPath(caCert))
-                    .withClientCertFile(Os.tidyPath(clientCert))
-                    .withClientKeyFile(Os.tidyPath(clientKey));
-        } else if(username != null && password != null) {
-            configBuilder.withUsername(username).withPassword(password);
+        if (url.getProtocol().equals("https")) {
+            String caCert = conf.get(KubernetesLocationConfig.CA_CERT);
+            if (Strings.isNonBlank(caCert)) configBuilder.withCaCertFile(Os.tidyPath(caCert));
+
+            String clientCert = conf.get(KubernetesLocationConfig.CLIENT_CERT);
+            if (Strings.isNonBlank(clientCert)) configBuilder.withClientCertFile(Os.tidyPath(clientCert));
+
+            String clientKey = conf.get(KubernetesLocationConfig.CLIENT_KEY);
+            if (Strings.isNonBlank(clientKey)) configBuilder.withClientKeyFile(Os.tidyPath(clientKey));
         }
+
+        String username = conf.get(KubernetesLocationConfig.ACCESS_IDENTITY);
+        if (Strings.isNonBlank(username)) configBuilder.withUsername(username);
+
+        String password = conf.get(KubernetesLocationConfig.ACCESS_CREDENTIAL);
+        if (Strings.isNonBlank(password)) configBuilder.withPassword(password);
 
         return new DefaultKubernetesClient(configBuilder.build());
     }
-
 }
