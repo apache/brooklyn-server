@@ -1,11 +1,11 @@
 location:
   openshift:
     endpoint: "http://10.101.0.236:8080/"
-    # default `image` is tutum/ubuntu
+    kubernetes.loginUser.password: "password"
 
 services:
 - serviceType: org.apache.brooklyn.entity.software.base.EmptySoftwareProcess
   name: Server
-  env: { ROOT_PASS : password }
-
-
+  brooklyn.config:
+    shell.env:
+      CLOUDSOFT_ROOT_PASSWORD : "password"

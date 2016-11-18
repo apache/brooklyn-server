@@ -3,17 +3,19 @@ location:
     endpoint: "https://192.168.99.100:8443/"
     identity: "test"
     credential: "test"
+    kubernetes.loginUser.password: "password"
 
 services:
 - type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
   name: Simple Netcat Server
-  env: { ROOT_PASS : password }
-
   brooklyn.config:
+    shell.env:
+      CLOUDSOFT_ROOT_PASSWORD: "password"
     provisioning.properties:
-      inboundPorts: [22, 4321]
-
-  launch.command: |
-    echo hello | nc -l 4321 &
-    echo $! > $PID_FILE
-
+      inboundPorts:
+        - 22
+        - 4321
+    launch.command: |
+      yum install -y nc
+      echo hello | nc -l 4321 &
+      echo $! > $PID_FILE
