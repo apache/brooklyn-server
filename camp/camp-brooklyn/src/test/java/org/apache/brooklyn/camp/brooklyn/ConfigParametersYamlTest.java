@@ -32,7 +32,10 @@ import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
+import org.apache.brooklyn.core.location.PortRanges;
+import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
@@ -582,5 +585,33 @@ public class ConfigParametersYamlTest extends AbstractYamlTest {
 
         Entity child = entity.addChild((EntitySpec<?>)defaultVal);
         assertTrue(child instanceof BasicApplication, "child="+child);
+    }
+    
+    @Test
+    public void testPortSetAsAttributeOnSoftwareProcess() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  items:",
+                "  - id: entity-with-keys",
+                "    item:",
+                "      type: "+EmptySoftwareProcess.class.getName(),
+                "      brooklyn.parameters:",
+                "      - name: my.param.key",
+                "        type: port",
+                "        default: 1234");
+
+        String yaml = Joiner.on("\n").join(
+                "location:",
+                "  localhost:",
+                "    " + SshMachineLocation.SSH_TOOL_CLASS.getName() + ": " + RecordingSshTool.class.getName(),
+                "services:",
+                "- type: entity-with-keys");
+
+        Entity app = createStartWaitAndLogApplication(yaml);
+        EmptySoftwareProcess entity = (EmptySoftwareProcess) Iterables.getOnlyElement(app.getChildren());
+
+        assertEquals(entity.config().get(ConfigKeys.newConfigKey(Object.class, "my.param.key")), PortRanges.fromInteger(1234));
+        assertEquals(entity.sensors().get(Sensors.newSensor(Object.class, "my.param.key")), 1234);
     }
 }
