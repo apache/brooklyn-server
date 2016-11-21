@@ -51,6 +51,8 @@ public interface TestHttpCall extends BaseTest {
             .defaultValue(HttpMethod.GET)
             .build();
 
+    ConfigKey<Boolean> TRUST_ALL = ConfigKeys.newBooleanConfigKey("trustAll","Trust all certificates used to sign this request",true);
+
     ConfigKey<Map<String, String>> TARGET_HEADERS = ConfigKeys.builder(new TypeToken<Map<String, String>>() {})
             .name("headers")
             .description("Headers to add to the request")

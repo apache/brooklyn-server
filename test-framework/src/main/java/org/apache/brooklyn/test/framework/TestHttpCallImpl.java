@@ -65,11 +65,12 @@ public class TestHttpCallImpl extends TargetableTestComponentImpl implements Tes
             final List<Map<String, Object>> assertions = getAssertions(this, ASSERTIONS);
             final Duration timeout = getConfig(TIMEOUT);
             final HttpAssertionTarget target = getRequiredConfig(ASSERTION_TARGET);
+            final boolean trustAll = getRequiredConfig(TRUST_ALL);
             if (!getChildren().isEmpty()) {
                 throw new RuntimeException(String.format("The entity [%s] cannot have child entities", getClass().getName()));
             }
             
-            doRequestAndCheckAssertions(ImmutableMap.of("timeout", timeout), assertions, target, method, url, headers, body);
+            doRequestAndCheckAssertions(ImmutableMap.of("timeout", timeout), assertions, target, method, url, headers, trustAll, body);
             setUpAndRunState(true, Lifecycle.RUNNING);
 
         } catch (Throwable t) {
@@ -84,7 +85,7 @@ public class TestHttpCallImpl extends TargetableTestComponentImpl implements Tes
     }
 
     private void doRequestAndCheckAssertions(Map<String, Duration> flags, List<Map<String, Object>> assertions,
-                                             HttpAssertionTarget target, final HttpMethod method, final String url, final Map<String, String> headers, final String body) {
+                                             HttpAssertionTarget target, final HttpMethod method, final String url, final Map<String, String> headers, final boolean trustAll, final String body) {
         switch (target) {
             case body:
                 Supplier<String> getBody = new Supplier<String>() {
@@ -92,7 +93,7 @@ public class TestHttpCallImpl extends TargetableTestComponentImpl implements Tes
                     public String get() {
                         try {
                             final HttpRequestBase httpMethod = createHttpMethod(method, url, headers, body);
-                            return HttpTool.execAndConsume(HttpTool.httpClientBuilder().build(), httpMethod).getContentAsString();
+                            return HttpTool.execAndConsume(HttpTool.httpClientBuilder().trustAll(trustAll).build(), httpMethod).getContentAsString();
                         } catch (Exception e) {
                             LOG.info("HTTP call to [{}] failed due to [{}]", url, e.getMessage());
                             throw Exceptions.propagate(e);
@@ -108,7 +109,7 @@ public class TestHttpCallImpl extends TargetableTestComponentImpl implements Tes
                     public Integer get() {
                         try {
                             final HttpRequestBase httpMethod = createHttpMethod(method, url, headers, body);
-                            final Maybe<HttpResponse> response = HttpTool.execAndConsume(HttpTool.httpClientBuilder().build(), httpMethod).getResponse();
+                            final Maybe<HttpResponse> response = HttpTool.execAndConsume(HttpTool.httpClientBuilder().trustAll(trustAll).build(), httpMethod).getResponse();
                             if (response.isPresentAndNonNull()) {
                                 return response.get().getStatusLine().getStatusCode();
                             } else {
