@@ -91,25 +91,25 @@ public class LocalEntityManager implements EntityManagerInternal {
     private final InternalPolicyFactory policyFactory;
     
     /** Entities that have been created, but have not yet begun to be managed */
-    protected final Map<String,Entity> preRegisteredEntitiesById = Collections.synchronizedMap(new WeakHashMap<String, Entity>());
+    private final Map<String,Entity> preRegisteredEntitiesById = Collections.synchronizedMap(new WeakHashMap<String, Entity>());
 
     /** Entities that are in the process of being managed, but where management is not yet complete */
-    protected final Map<String,Entity> preManagedEntitiesById = Collections.synchronizedMap(new WeakHashMap<String, Entity>());
+    private final Map<String,Entity> preManagedEntitiesById = Collections.synchronizedMap(new WeakHashMap<String, Entity>());
     
     /** Proxies of the managed entities */
-    protected final ConcurrentMap<String,Entity> entityProxiesById = Maps.newConcurrentMap();
+    private final ConcurrentMap<String,Entity> entityProxiesById = Maps.newConcurrentMap();
     
     /** Real managed entities */
-    protected final Map<String,Entity> entitiesById = Maps.newLinkedHashMap();
+    private final Map<String,Entity> entitiesById = Maps.newLinkedHashMap();
     
     /** Management mode for each entity */
-    protected final Map<String,ManagementTransitionMode> entityModesById = Collections.synchronizedMap(Maps.<String,ManagementTransitionMode>newLinkedHashMap());
+    private final Map<String,ManagementTransitionMode> entityModesById = Collections.synchronizedMap(Maps.<String,ManagementTransitionMode>newLinkedHashMap());
 
     /** Proxies of the managed entities */
-    protected final ObservableList entities = new ObservableList();
+    private final ObservableList entities = new ObservableList();
     
     /** Proxies of the managed entities that are applications */
-    protected final Set<Application> applications = Sets.newConcurrentHashSet();
+    private final Set<Application> applications = Sets.newConcurrentHashSet();
 
     private final BrooklynStorage storage;
     private final Map<String,String> entityTypes;
