@@ -34,6 +34,7 @@ import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.feed.ConfigToAttributes;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
@@ -47,12 +48,18 @@ import com.google.common.collect.Lists;
 public class TestEntityImpl extends AbstractEntity implements TestEntity {
     private static final Logger LOG = LoggerFactory.getLogger(TestEntityImpl.class);
 
+    @SetFromFlag
+    private String myField;
+    
+    @SetFromFlag("myField2Alias")
+    private String myField2;
+    
     protected int sequenceValue = 0;
     protected AtomicInteger counter = new AtomicInteger(0);
     protected Map<?,?> constructorProperties;
     protected Map<?,?> configureProperties;
     protected List<String> callHistory = Collections.synchronizedList(Lists.<String>newArrayList());
-    
+
     public TestEntityImpl() {
         super();
     }
@@ -95,6 +102,16 @@ public class TestEntityImpl extends AbstractEntity implements TestEntity {
         if (LOG.isTraceEnabled()) LOG.trace("In sleepEffector for {}", this);
         callHistory.add("sleepEffector");
         Time.sleep(duration);
+    }
+
+    @Override
+    public String getMyField() {
+        return myField;
+    }
+    
+    @Override
+    public String getMyField2() {
+        return myField2;
     }
 
     @Override
@@ -192,5 +209,4 @@ public class TestEntityImpl extends AbstractEntity implements TestEntity {
         @Override
         protected void initEnrichers() {}
     }
-    
 }
