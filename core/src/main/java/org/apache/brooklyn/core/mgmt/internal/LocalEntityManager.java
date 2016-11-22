@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.mgmt.internal;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+
 import groovy.util.ObservableList;
 
 import java.lang.reflect.Proxy;
@@ -73,8 +74,8 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -212,13 +213,41 @@ public class LocalEntityManager implements EntityManagerInternal {
 
     @Override
     public Iterable<Entity> getAllEntitiesInApplication(Application application) {
+        // To fix https://issues.apache.org/jira/browse/BROOKLYN-352, we need to synchronize on
+        // preRegisteredEntitiesById and preManagedEntitiesById while iterating over them (because
+        // they are synchronizedMaps). entityProxiesById is a ConcurrentMap, so no need to 
+        // synchronize on that.
+        // Only synchronize on one at a time, to avoid the risk of deadlock.
+        
         Predicate<Entity> predicate = EntityPredicates.applicationIdEqualTo(application.getId());
-        Iterable<Entity> allentities = Iterables.concat(preRegisteredEntitiesById.values(), preManagedEntitiesById.values(), entityProxiesById.values());
-        Iterable<Entity> result = Iterables.filter(allentities, predicate);
-        return ImmutableSet.copyOf(Iterables.transform(result, new Function<Entity, Entity>() {
-            @Override public Entity apply(Entity input) {
-                return Entities.proxy(input);
-            }}));
+        Set<Entity> result = Sets.newLinkedHashSet();
+        
+        synchronized (preRegisteredEntitiesById) {
+            for (Entity entity : preRegisteredEntitiesById.values()) {
+                if (predicate.apply(entity)) {
+                    result.add(entity);
+                }
+            }
+        }
+        synchronized (preManagedEntitiesById) {
+            for (Entity entity : preManagedEntitiesById.values()) {
+                if (predicate.apply(entity)) {
+                    result.add(entity);
+                }
+            }
+        }
+        for (Entity entity : entityProxiesById.values()) {
+            if (predicate.apply(entity)) {
+                result.add(entity);
+            }
+        }
+        
+        return FluentIterable.from(result)
+                .transform(new Function<Entity, Entity>() {
+                    @Override public Entity apply(Entity input) {
+                        return Entities.proxy(input);
+                    }})
+                .toSet();
     }
 
     @Override
