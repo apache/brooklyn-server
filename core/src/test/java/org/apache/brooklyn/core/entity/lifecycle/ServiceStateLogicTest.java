@@ -18,17 +18,26 @@
  */
 package org.apache.brooklyn.core.entity.lifecycle;
 
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Enricher;
+import org.apache.brooklyn.api.sensor.EnricherSpec;
+import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ComputeServiceIndicatorsFromChildrenAndMembers;
+import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ComputeServiceIndicatorsFromChildrenAndMembersSpec;
+import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ComputeServiceState;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceNotUpLogic;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceProblemsLogic;
 import org.apache.brooklyn.core.sensor.Sensors;
@@ -36,6 +45,7 @@ import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl.TestEntityWithoutEnrichers;
 import org.apache.brooklyn.entity.group.DynamicCluster;
+import org.apache.brooklyn.util.collections.QuorumCheck;
 import org.apache.brooklyn.util.collections.QuorumCheck.QuorumChecks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
@@ -279,6 +289,35 @@ public class ServiceStateLogicTest extends BrooklynAppUnitTestSupport {
         child.sensors().set(stateSensor, "running");
 
         EntityAsserts.assertAttributeEqualsContinually(cluster, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+    }
+
+    public static class CountingComputeServiceState extends ComputeServiceState {
+        AtomicInteger cntCalled = new AtomicInteger();
+        AtomicInteger cntCalledWithNull = new AtomicInteger();
+
+        public CountingComputeServiceState() {}
+
+        @Override
+        public void onEvent(SensorEvent<Object> event) {
+            cntCalled.incrementAndGet();
+            if (event == null) {
+                cntCalledWithNull.incrementAndGet();
+            }
+            super.onEvent(event);
+        }
+    }
+
+    @Test
+    public void testServiceStateNotCalledExplicitly() throws Exception {
+        EnricherSpec<CountingComputeServiceState> enricherSpec = EnricherSpec.create(CountingComputeServiceState.class);
+        CountingComputeServiceState enricher = mgmt.getEntityManager().createEnricher(enricherSpec);
+        app.enrichers().add(enricher);
+
+        ServiceStateLogic.setExpectedState(entity, Lifecycle.RUNNING);
+        assertAttributeEqualsEventually(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+
+        assertTrue(enricher.cntCalled.get() > 0);
+        assertEquals(enricher.cntCalledWithNull.get(), 0);
     }
 
     private static <T> void assertAttributeEqualsEventually(Entity x, AttributeSensor<T> sensor, T value) {
