@@ -23,6 +23,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.annotation.Nullable;
 
@@ -45,7 +46,6 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle.Transition;
@@ -72,6 +72,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.reflect.TypeToken;
 
@@ -154,11 +155,6 @@ public class ServiceStateLogic {
     public static void setExpectedState(Entity entity, Lifecycle state) {
         waitBrieflyForServiceUpIfStateIsRunning(entity, state);
         ((EntityInternal)entity).sensors().set(Attributes.SERVICE_STATE_EXPECTED, new Lifecycle.Transition(state, new Date()));
-        
-        Maybe<Enricher> enricher = EntityAdjuncts.tryFindWithUniqueTag(entity.enrichers(), ComputeServiceState.DEFAULT_ENRICHER_UNIQUE_TAG);
-        if (enricher.isPresent() && enricher.get() instanceof ComputeServiceState) {
-            ((ComputeServiceState)enricher.get()).onEvent(null);
-        }
     }
     
     public static Lifecycle getExpectedState(Entity entity) {
@@ -258,8 +254,10 @@ public class ServiceStateLogic {
      * {@link ServiceStateLogic#newEnricherForServiceState(Class)} and added to an entity.
      */
     public static class ComputeServiceState extends AbstractEnricher implements SensorEventListener<Object> {
-        
+        private static final Logger log = LoggerFactory.getLogger(ComputeServiceState.class);
         public static final String DEFAULT_ENRICHER_UNIQUE_TAG = "service.state.actual";
+
+        private final AtomicInteger warnCounter = new AtomicInteger();
 
         public ComputeServiceState() {}
         public ComputeServiceState(Map<?,?> flags) { super(flags); }
@@ -278,14 +276,18 @@ public class ServiceStateLogic {
                 suppressDuplicates = true;
             }
             
-            subscriptions().subscribe(entity, SERVICE_PROBLEMS, this);
-            subscriptions().subscribe(entity, SERVICE_UP, this);
-            subscriptions().subscribe(entity, SERVICE_STATE_EXPECTED, this);
-            onEvent(null);
+            Map<String, ?> notifyOfInitialValue = ImmutableMap.of("notifyOfInitialValue", Boolean.TRUE);
+            subscriptions().subscribe(notifyOfInitialValue, entity, SERVICE_PROBLEMS, this);
+            subscriptions().subscribe(notifyOfInitialValue, entity, SERVICE_UP, this);
+            subscriptions().subscribe(notifyOfInitialValue, entity, SERVICE_STATE_EXPECTED, this);
         }
 
         @Override
         public void onEvent(@Nullable SensorEvent<Object> event) {
+            if (event == null && warnCounter.getAndIncrement() % 1000 == 0) {
+                log.warn("Deprecated since 0.10.0. Calling ServiceStateLogic.onEvent explicitly is deprecated to guarantee event ordering.");
+            }
+//            Preconditions.checkNotNull(event, "Calling onEvent explicitly no longer supported. Can only be called as an event handler to guarantee ordering.");
             Preconditions.checkNotNull(entity, "Cannot handle subscriptions or compute state until associated with an entity");
             
             Map<String, Object> serviceProblems = entity.getAttribute(SERVICE_PROBLEMS);
