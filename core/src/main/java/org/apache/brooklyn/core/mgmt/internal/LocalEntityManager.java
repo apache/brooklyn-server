@@ -742,7 +742,7 @@ public class LocalEntityManager implements EntityManagerInternal {
             if (e instanceof Group) {
                 Collection<Entity> members = ((Group)e).getMembers();
                 for (Entity member : members) {
-                    if (!Entities.isNoLongerManaged(member)) member.removeGroup((Group)e);
+                    if (!Entities.isNoLongerManaged(member)) ((EntityInternal)member).groups().remove((Group)e);
                 }
             }
         } else {

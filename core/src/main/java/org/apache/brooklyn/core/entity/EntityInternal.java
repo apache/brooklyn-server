@@ -163,6 +163,9 @@ public interface EntityInternal extends BrooklynObjectInternal, EntityLocal, Reb
     @Override
     EnricherSupportInternal enrichers();
 
+    @Override
+    GroupSupportInternal groups();
+
     @Beta
     public interface EntitySubscriptionSupportInternal extends BrooklynObjectInternal.SubscriptionSupportInternal {
         public SubscriptionContext getSubscriptionContext();

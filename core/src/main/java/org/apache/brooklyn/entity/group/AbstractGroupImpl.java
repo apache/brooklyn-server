@@ -31,6 +31,7 @@ import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.entity.stock.DelegateEntity;
@@ -143,7 +144,7 @@ public abstract class AbstractGroupImpl extends AbstractEntity implements Abstra
                 }
             }
 
-            member.addGroup((Group)getProxyIfAvailable());
+            ((EntityInternal)member).groups().add((Group)getProxyIfAvailable());
             boolean changed = addMemberInternal(member);
             if (changed) {
                 log.debug("Group {} got new member {}", this, member);
@@ -216,7 +217,7 @@ public abstract class AbstractGroupImpl extends AbstractEntity implements Abstra
             Exception errorRemoving = null;
             // suppress errors if member is being unmanaged in parallel
             try {
-                member.removeGroup((Group)getProxyIfAvailable());
+                ((EntityInternal)member).groups().remove((Group)getProxyIfAvailable());
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
                 errorRemoving = e;
