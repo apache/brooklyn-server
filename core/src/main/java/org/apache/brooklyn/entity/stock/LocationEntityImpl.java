@@ -79,17 +79,17 @@ public class LocationEntityImpl extends BasicStartableImpl implements LocationEn
             if (child == null && specMap.size() > 0) {
                 // Determine provisioning location
                 MachineProvisioningLocation<?> provisioner = null;
-                Maybe<? extends Location> location = Machines.findUniqueElement(locations, MachineLocation.class);
+                Maybe<? extends Location> location = Machines.findUniqueElement(locations, MachineProvisioningLocation.class);
                 if (location.isPresent()) {
-                    Location parent = location.get().getParent();
-                    while (parent != null && ! (parent instanceof MachineProvisioningLocation)) {
-                        parent = parent.getParent();
-                    }
-                    provisioner = (MachineProvisioningLocation<?>) parent;
+                    provisioner = (MachineProvisioningLocation<?>) location.get();
                 } else {
-                    location = Machines.findUniqueElement(locations, MachineProvisioningLocation.class);
+                    location = Machines.findUniqueElement(locations, MachineLocation.class);
                     if (location.isPresent()) {
-                        provisioner = (MachineProvisioningLocation<?>) location.get();
+                        Location parent = location.get().getParent();
+                        while (parent != null && ! (parent instanceof MachineProvisioningLocation)) {
+                            parent = parent.getParent();
+                        }
+                        provisioner = (MachineProvisioningLocation<?>) parent;
                     }
                 }
                 if (provisioner == null) {
