@@ -102,6 +102,16 @@ public class JcloudsAwsImageChoiceStubbedLiveTest extends AbstractJcloudsStubbed
         assertUbuntu(image, "14.04");
     }
     
+    // TODO See https://issues.apache.org/jira/browse/BROOKLYN-400
+    @Test(groups={"Broken", "Live", "Live-sanity"})
+    public void testUbuntu16() throws Exception {
+        obtainMachine(ImmutableMap.of(JcloudsLocation.OS_FAMILY, "ubuntu", JcloudsLocation.OS_VERSION_REGEX, "16.*"));
+        Image image = template.getImage();
+
+        LOG.info("ubuntu_16="+image);
+        assertUbuntu(image, "16.04");
+    }
+    
     // See testCentos7
     @Test(groups={"Live", "Live-sanity"})
     public void testCentos() throws Exception {
