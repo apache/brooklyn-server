@@ -134,6 +134,15 @@ public class ApplicationLifecycleStateTest extends BrooklynMgmtUnitTestSupport {
         assertHealthEventually(app, Lifecycle.ON_FIRE, false);
     }
 
+    // TODO Fails in a full `mvn clean install`, but I can't get it to fail in Eclipse running 
+    // lots of times, or with `mvn test -Dtest=ApplicationLifecycleStateTest`. The failure is:
+    //     java.lang.AssertionError: (Dumped entity info - see log); entity=Application[6q37l8cu]; state=on-fire; up=true; notUpIndicators={}; serviceProblems={service-lifecycle-indicators-from-children-and-members=Required entity not healthy: FailingEntityImpl{id=exz9n1pti0}}
+    //     at org.apache.brooklyn.core.entity.ApplicationLifecycleStateTest.assertUpAndRunningEventually(ApplicationLifecycleStateTest.java:204)
+    //     at org.apache.brooklyn.core.entity.ApplicationLifecycleStateTest.testChildFailuresOnStartButWithQuorumCausesAppToSucceed(ApplicationLifecycleStateTest.java:146)
+    //
+    // See https://github.com/apache/brooklyn-server/pull/452 and https://github.com/apache/brooklyn-server/pull/454 
+    // for further discussion of fix/issue.
+    @Test(groups="Broken")
     public void testChildFailuresOnStartButWithQuorumCausesAppToSucceed() throws Exception {
         TestApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class)
                 .configure(StartableApplication.UP_QUORUM_CHECK, QuorumCheck.QuorumChecks.atLeastOne())
