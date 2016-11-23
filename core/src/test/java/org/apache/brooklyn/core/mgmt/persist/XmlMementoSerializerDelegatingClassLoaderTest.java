@@ -30,6 +30,7 @@ import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.core.mgmt.persist.XmlMementoSerializer.OsgiClassLoader;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
@@ -59,6 +60,8 @@ public class XmlMementoSerializerDelegatingClassLoaderTest {
     
     @Test
     public void testLoadClassFromBundle() throws Exception {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
+
         ClassLoader classLoader = getClass().getClassLoader();
         Bundle apiBundle = getBundle(mgmt, "org.apache.brooklyn.api");
         Bundle coreBundle = getBundle(mgmt, "org.apache.brooklyn.core");
