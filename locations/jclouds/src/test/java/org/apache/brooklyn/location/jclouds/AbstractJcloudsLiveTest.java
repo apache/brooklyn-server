@@ -57,6 +57,7 @@ public class AbstractJcloudsLiveTest {
     public static final String AWS_EC2_MEDIUM_HARDWARE_ID = "m3.medium";
     public static final String AWS_EC2_EUWEST_REGION_NAME = "eu-west-1";
     public static final String AWS_EC2_USEAST_REGION_NAME = "us-east-1";
+    public static final String AWS_EC2_SINGAPORE_REGION_NAME = "ap-southeast-1";
 
     public static final String RACKSPACE_PROVIDER = "rackspace-cloudservers-uk";
     
@@ -97,6 +98,7 @@ public class AbstractJcloudsLiveTest {
                 LOG.warn("Error destroying management context", e);
                 exceptions.add(e);
             }
+            managementContext = null;
         }
         
         // TODO Debate about whether to:
