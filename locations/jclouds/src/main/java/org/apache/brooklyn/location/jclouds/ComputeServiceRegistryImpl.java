@@ -72,6 +72,18 @@ public class ComputeServiceRegistryImpl implements ComputeServiceRegistry, Jclou
         properties.setProperty(Constants.PROPERTY_RELAX_HOSTNAME, Boolean.toString(true));
         properties.setProperty("jclouds.ssh.max-retries", conf.getStringKey("jclouds.ssh.max-retries") != null ? 
                 conf.getStringKey("jclouds.ssh.max-retries").toString() : "50");
+        
+        // See https://issues.apache.org/jira/browse/BROOKLYN-394
+        // For retries, the backoff times are:
+        //   Math.min(2^failureCount * retryDelayStart, retryDelayStart * 10) + random(10%)
+        // Therefore the backoff times will be: 500ms, 1s, 2s, 4s, 5s, 5s.
+        // The defaults (if not overridden here) are 50ms and 5 retires. This gives backoff
+        // times of 50ms, 100ms, 200ms, 400ms, 500ms (so a total backoff time of 1.25s), 
+        // which is not long when you're being rate-limited and there are multiple thread all 
+        // retrying their API calls.
+        properties.setProperty(Constants.PROPERTY_RETRY_DELAY_START, "500");
+        properties.setProperty(Constants.PROPERTY_MAX_RETRIES, "6");
+        
         // Enable aws-ec2 lazy image fetching, if given a specific imageId; otherwise customize for specific owners; or all as a last resort
         // See https://issues.apache.org/jira/browse/WHIRR-416
         if ("aws-ec2".equals(provider)) {
