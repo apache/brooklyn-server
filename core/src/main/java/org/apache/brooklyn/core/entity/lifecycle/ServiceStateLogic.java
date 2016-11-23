@@ -46,6 +46,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle.Transition;
@@ -155,6 +156,11 @@ public class ServiceStateLogic {
     public static void setExpectedState(Entity entity, Lifecycle state) {
         waitBrieflyForServiceUpIfStateIsRunning(entity, state);
         ((EntityInternal)entity).sensors().set(Attributes.SERVICE_STATE_EXPECTED, new Lifecycle.Transition(state, new Date()));
+        
+        Maybe<Enricher> enricher = EntityAdjuncts.tryFindWithUniqueTag(entity.enrichers(), ComputeServiceState.DEFAULT_ENRICHER_UNIQUE_TAG);
+        if (enricher.isPresent() && enricher.get() instanceof ComputeServiceState) {
+            ((ComputeServiceState)enricher.get()).onEvent(null);
+        }
     }
     
     public static Lifecycle getExpectedState(Entity entity) {
@@ -284,10 +290,6 @@ public class ServiceStateLogic {
 
         @Override
         public void onEvent(@Nullable SensorEvent<Object> event) {
-            if (event == null && warnCounter.getAndIncrement() % 1000 == 0) {
-                log.warn("Deprecated since 0.10.0. Calling ServiceStateLogic.onEvent explicitly is deprecated to guarantee event ordering.");
-            }
-//            Preconditions.checkNotNull(event, "Calling onEvent explicitly no longer supported. Can only be called as an event handler to guarantee ordering.");
             Preconditions.checkNotNull(entity, "Cannot handle subscriptions or compute state until associated with an entity");
             
             Map<String, Object> serviceProblems = entity.getAttribute(SERVICE_PROBLEMS);
