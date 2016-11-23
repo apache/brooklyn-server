@@ -31,6 +31,7 @@ import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.jclouds.Constants;
 import org.jclouds.ContextBuilder;
@@ -38,6 +39,7 @@ import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.ComputeServiceContext;
 import org.jclouds.ec2.reference.EC2Constants;
 import org.jclouds.encryption.bouncycastle.config.BouncyCastleCryptoModule;
+import org.jclouds.location.reference.LocationConstants;
 import org.jclouds.logging.slf4j.config.SLF4JLoggingModule;
 import org.jclouds.sshj.config.SshjSshClientModule;
 import org.slf4j.Logger;
@@ -109,6 +111,12 @@ public class ComputeServiceRegistryImpl implements ComputeServiceRegistry, Jclou
                  * Filter.2.Name=state&Filter.2.Value.1=available&
                  * Filter.3.Name=image-type&Filter.3.Value.1=machine&
                  */
+            }
+            
+            // See https://issues.apache.org/jira/browse/BROOKLYN-399
+            String region = conf.get(CLOUD_REGION_ID);
+            if (Strings.isNonBlank(region)) {
+                properties.setProperty(LocationConstants.PROPERTY_REGIONS, region);
             }
             
             // occasionally can get com.google.common.util.concurrent.UncheckedExecutionException: java.lang.RuntimeException: 
