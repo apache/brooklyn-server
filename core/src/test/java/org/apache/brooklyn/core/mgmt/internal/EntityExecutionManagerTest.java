@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -124,6 +125,20 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
             }});
     }
 
+    // Needed because of https://issues.apache.org/jira/browse/BROOKLYN-401
+    protected void assertTaskMaxCountForEntityEventually(final Entity entity, final int expectedMaxCount) {
+        // Dead task (and initialization task) should have been GC'd on completion.
+        // However, the GC'ing happens in a listener, executed in a different thread - the task.get()
+        // doesn't block for it. Therefore can't always guarantee it will be GC'ed by now.
+        Asserts.succeedsEventually(new Runnable() {
+            @Override public void run() {
+                forceGc();
+                Collection<Task<?>> tasks = BrooklynTaskTags.getTasksInEntityContext(((EntityInternal)entity).getManagementContext().getExecutionManager(), entity);
+                Assert.assertTrue(tasks.size() <= expectedMaxCount, 
+                        "Expected tasks count max of " + expectedMaxCount + ". Tasks were "+tasks);
+            }});
+    }
+
     @Test
     public void testGetTasksAndGcBoringTags() throws Exception {
         TestEntity e = app.createAndManageChild(EntitySpec.create(TestEntity.class));
@@ -143,26 +158,45 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         ((BrooklynProperties)app.getManagementContext().getConfig()).put(
             BrooklynGarbageCollector.MAX_TASKS_PER_TAG, 2);
 
+        AtomicBoolean stopCondition = new AtomicBoolean();
+        scheduleRecursiveTemporaryTask(stopCondition, e, "boring-tag");
+        scheduleRecursiveTemporaryTask(stopCondition, e, "boring-tag");
+        
         for (int count=0; count<5; count++)
             runEmptyTaskWithNameAndTags(e, "task"+count, ManagementContextInternal.NON_TRANSIENT_TASK_TAG, "boring-tag");
 
-        assertTaskCountForEntityEventually(e, 2);
+        // Makes sure there's a GC while the transient tasks are running
+        forceGc();
+
+        stopCondition.set(true);
+
+        assertTaskMaxCountForEntityEventually(e, 2);
     }
     
     @Test
     public void testGcTaskAtEntityLimit() throws Exception {
-        TestEntity e = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        final TestEntity e = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         
         ((BrooklynProperties)app.getManagementContext().getConfig()).put(
             BrooklynGarbageCollector.MAX_TASKS_PER_ENTITY, 2);
         
+        AtomicBoolean stopCondition = new AtomicBoolean();
+        scheduleRecursiveTemporaryTask(stopCondition, e, "boring-tag");
+        scheduleRecursiveTemporaryTask(stopCondition, e, "boring-tag");
+        scheduleRecursiveTemporaryTask(stopCondition, app, "boring-tag");
+        scheduleRecursiveTemporaryTask(stopCondition, app, "boring-tag");
+
         for (int count=0; count<5; count++)
             runEmptyTaskWithNameAndTags(e, "task-e-"+count, ManagementContextInternal.NON_TRANSIENT_TASK_TAG, "boring-tag");
         for (int count=0; count<5; count++)
             runEmptyTaskWithNameAndTags(app, "task-app-"+count, ManagementContextInternal.NON_TRANSIENT_TASK_TAG, "boring-tag");
-        
-        assertTaskCountForEntityEventually(app, 2);
-        assertTaskCountForEntityEventually(e, 2);
+
+        // Makes sure there's a GC while the transient tasks are running
+        forceGc();
+        stopCondition.set(true);
+
+        assertTaskMaxCountForEntityEventually(app, 2);
+        assertTaskMaxCountForEntityEventually(e, 2);
     }
     
     @Test
@@ -173,6 +207,12 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
             BrooklynGarbageCollector.MAX_TASKS_PER_ENTITY, 6);
         ((BrooklynProperties)app.getManagementContext().getConfig()).put(
             BrooklynGarbageCollector.MAX_TASKS_PER_TAG, 2);
+
+        AtomicBoolean stopCondition = new AtomicBoolean();
+        scheduleRecursiveTemporaryTask(stopCondition, e, "boring-tag");
+        scheduleRecursiveTemporaryTask(stopCondition, e, "boring-tag");
+        scheduleRecursiveTemporaryTask(stopCondition, app, "boring-tag");
+        scheduleRecursiveTemporaryTask(stopCondition, app, "boring-tag");
 
         int count=0;
         
@@ -196,13 +236,17 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         runEmptyTaskWithNameAndTags(app, "task-"+(count++), ManagementContextInternal.NON_TRANSIENT_TASK_TAG, "another-tag-app", "another-tag");
         runEmptyTaskWithNameAndTags(app, "task-"+(count++), ManagementContextInternal.NON_TRANSIENT_TASK_TAG, "another-tag-app", "another-tag");
         
-        assertTaskCountForEntityEventually(e, 6);
-        assertTaskCountForEntityEventually(app, 3);
+        // Makes sure there's a GC while the transient tasks are running
+        forceGc();
+        stopCondition.set(true);
+
+        assertTaskMaxCountForEntityEventually(e, 6);
+        assertTaskMaxCountForEntityEventually(app, 3);
         
         // now with a lowered limit, we should remove one more e
         ((BrooklynProperties)app.getManagementContext().getConfig()).put(
             BrooklynGarbageCollector.MAX_TASKS_PER_ENTITY, 5);
-        assertTaskCountForEntityEventually(e, 5);
+        assertTaskMaxCountForEntityEventually(e, 5);
     }
     
     @Test
@@ -212,15 +256,23 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         ((BrooklynProperties)app.getManagementContext().getConfig()).put(
             BrooklynGarbageCollector.MAX_TASKS_PER_TAG, 2);
 
+        AtomicBoolean stopCondition = new AtomicBoolean();
+        scheduleRecursiveTemporaryTask(stopCondition, e, "foo");
+        scheduleRecursiveTemporaryTask(stopCondition, e, "foo");
+
         for (int count=0; count<5; count++) {
             TaskBuilder<Object> tb = Tasks.builder().displayName("task-"+count).dynamic(true).body(new Runnable() { @Override public void run() {}})
                 .tag(ManagementContextInternal.NON_TRANSIENT_TASK_TAG).tag("foo");
             ((EntityInternal)e).getExecutionContext().submit(tb.build()).getUnchecked();
         }
 
+        // Makes sure there's a GC while the transient tasks are running
+        forceGc();
+        stopCondition.set(true);
+
         // might need an eventually here, if the internal job completion and GC is done in the background
         // (if there are no test failures for a few months, since Sept 2014, then we can remove this comment)
-        assertTaskCountForEntityEventually(e, 2);
+        assertTaskMaxCountForEntityEventually(e, 2);
     }
     
     @Test
@@ -439,4 +491,25 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
             return "BigObject["+sizeBytes+"/"+data.length+"]";
         }
     }
+
+    private Task<?> scheduleRecursiveTemporaryTask(final AtomicBoolean stopCondition, final Entity e, final Object... additionalTags) {
+        // TODO Could alternate the test with expiring tasks in addition to transient
+        TaskBuilder<Object> tb = Tasks.builder()
+                .displayName("recursive")
+                .dynamic(false)
+                .tag(ManagementContextInternal.TRANSIENT_TASK_TAG)
+                .body(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (!stopCondition.get()) {
+                            scheduleRecursiveTemporaryTask(stopCondition, e, additionalTags);
+                        }
+                    }
+                });
+        for (Object t : additionalTags) {
+            tb.tag(t);
+        }
+        return ((EntityInternal)e).getExecutionContext().submit(tb.build());
+    }
+    
 }
