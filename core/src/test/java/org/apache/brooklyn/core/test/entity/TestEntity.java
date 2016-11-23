@@ -59,6 +59,9 @@ import com.google.common.reflect.TypeToken;
 @ImplementedBy(TestEntityImpl.class)
 public interface TestEntity extends Entity, Startable, EntityLocal, EntityInternal {
 
+    @SetFromFlag("confStringAlias")
+    public static final ConfigKey<String> CONF_STRING = ConfigKeys.newStringConfigKey("test.confString", "Configuration string", "defaultStringVal");
+
     @SetFromFlag("confName")
     public static final ConfigKey<String> CONF_NAME = ConfigKeys.newStringConfigKey("test.confName", "Configuration key, my name", "defaultval");
     public static final BasicConfigKey<Map> CONF_MAP_PLAIN = new BasicConfigKey<Map>(Map.class, "test.confMapPlain", "Configuration key that's a plain map", ImmutableMap.of());
@@ -120,4 +123,8 @@ public interface TestEntity extends Entity, Startable, EntityLocal, EntityIntern
     public Entity createAndManageChildFromConfig();
     
     public List<String> getCallHistory();
+    
+    public String getMyField();
+    
+    public String getMyField2();
 }
