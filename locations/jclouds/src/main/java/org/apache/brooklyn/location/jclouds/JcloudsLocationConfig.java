@@ -293,6 +293,12 @@ public interface JcloudsLocationConfig extends CloudLocationConfig {
     public static final ConfigKey<Map<String,Object>> TEMPLATE_OPTIONS = ConfigKeys.newConfigKey(
             new TypeToken<Map<String, Object>>() {}, "templateOptions", "Additional jclouds template options");
 
+    @Beta
+    public static final ConfigKey<Boolean> USE_PUBLIC_ENDPOINT_AS_PRIVATE_ENDPOINT = ConfigKeys.newBooleanConfigKey(
+            "usePublicEndpointAsPrivateEndpoint",
+            "When true we will use the public IP/Hostname of a JClouds Location as the private IP/Hostname",
+            false);
+
     // TODO
     
 //  "noDefaultSshKeys" - hints that local ssh keys should not be read as defaults

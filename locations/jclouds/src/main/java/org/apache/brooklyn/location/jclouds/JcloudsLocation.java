@@ -3356,6 +3356,12 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     }
     
     protected String getPrivateHostname(NodeMetadata node, Optional<HostAndPort> sshHostAndPort, Supplier<? extends LoginCredentials> userCredentials, ConfigBag setup) {
+        Boolean usePublicEndpointAsPrivateEndpoint = (setup != null) ? setup.get(USE_PUBLIC_ENDPOINT_AS_PRIVATE_ENDPOINT) : false;
+        if(usePublicEndpointAsPrivateEndpoint) {
+            LOG.debug("Overriding private hostname as public hostname because config "+USE_PUBLIC_ENDPOINT_AS_PRIVATE_ENDPOINT+" is set to true");
+            return getPublicHostname(node, sshHostAndPort, userCredentials, setup);
+        }
+
         String provider = (setup != null) ? setup.get(CLOUD_PROVIDER) : null;
         Boolean lookupAwsHostname = (setup != null) ? setup.get(LOOKUP_AWS_HOSTNAME) : null;
         if (provider == null) provider = getProvider();
