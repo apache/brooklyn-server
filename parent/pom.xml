@@ -727,7 +727,7 @@
                 <plugin>
                     <groupId>org.apache.rat</groupId>
                     <artifactId>apache-rat-plugin</artifactId>
-                    <version>0.11</version>
+                    <version>0.12</version>
                 </plugin>
 
                 <!-- This is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
@@ -1025,6 +1025,7 @@
                 </execution>
               </executions>
               <configuration>
+                <consoleOutput>true</consoleOutput>
                 <!--
                      If you wish to override this list in the component (child) pom, ensure you use
                          <excludes combine.children="merge">
@@ -1717,26 +1718,6 @@
             <id>apache-repo</id>
             <activation> <property><name>brooklyn.deployTo</name><value>apache</value></property> </activation>
             <!-- distributionManagement configured by the parent Apache POM -->
-        </profile>
-        <profile>
-            <id>rat-check</id>
-            <build>
-                <plugins>
-                    <plugin>
-                      <groupId>org.apache.rat</groupId>
-                      <artifactId>apache-rat-plugin</artifactId>
-                      <executions>
-                        <execution>
-                          <id>rat-check</id>
-                          <phase>verify</phase>
-                          <goals>
-                            <goal>check</goal>
-                          </goals>
-                        </execution>
-                      </executions>
-                    </plugin>
-                </plugins>
-            </build>
         </profile>
         <profile>
             <id>eclipse-compiler</id>
