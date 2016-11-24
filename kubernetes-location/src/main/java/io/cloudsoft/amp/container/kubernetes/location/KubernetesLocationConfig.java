@@ -40,6 +40,13 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
             .constraint(Predicates.<String>notNull())
             .build();
 
+    @SetFromFlag("oauthToken")
+    ConfigKey<String> OAUTH_TOKEN = ConfigKeys.builder(String.class)
+            .name("kubernetes.oauthToken")
+            .description("The OAuth token data for the current user")
+            .constraint(Predicates.<String>notNull())
+            .build();
+
     @SetFromFlag("namespace")
     ConfigKey<String> NAMESPACE = ConfigKeys.builder(String.class)
             .name("kubernetes.namespace")

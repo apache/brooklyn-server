@@ -51,6 +51,9 @@ public class KubernetesClientRegistryImpl implements KubernetesClientRegistry {
         String password = conf.get(KubernetesLocationConfig.ACCESS_CREDENTIAL);
         if (Strings.isNonBlank(password)) configBuilder.withPassword(password);
 
+        String token = conf.get(KubernetesLocationConfig.OAUTH_TOKEN);
+        if (Strings.isNonBlank(token)) configBuilder.withOauthToken(token);
+
         return new DefaultKubernetesClient(configBuilder.build());
     }
 }
