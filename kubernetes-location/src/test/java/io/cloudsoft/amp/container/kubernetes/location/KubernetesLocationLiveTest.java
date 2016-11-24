@@ -1,5 +1,7 @@
 package io.cloudsoft.amp.container.kubernetes.location;
 
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import java.util.List;
@@ -10,6 +12,8 @@ import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.OsDetails;
 import org.apache.brooklyn.core.location.BasicMachineDetails;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
+import org.apache.brooklyn.core.location.access.PortForwardManager;
+import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
 import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -19,8 +23,10 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import com.google.common.net.HostAndPort;
 
 /**
  * Assumes that a pre-existing kubernetes endpoint is available. See system properties and the defaults below.
@@ -91,6 +97,28 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
 
         assertTrue(machine.isSshable(), "not sshable machine="+machine);
         assertOsNameContains(machine, "centos");
+    }
+
+    @Test(groups={"Live"})
+    public void testOpenPorts() throws Exception {
+        List<Integer> inboundPorts = ImmutableList.of(22, 443, 8000, 8081);
+        loc = newKubernetesLocation(ImmutableMap.<String, Object>of());
+        SshMachineLocation machine = newContainerMachine(loc, ImmutableMap.<String, Object>builder()
+                .put(KubernetesLocationConfig.IMAGE.getName(), "cloudsoft/centos:7")
+                .put(KubernetesLocationConfig.LOGIN_USER_PASSWORD.getName(), "p4ssw0rd")
+                .put(KubernetesLocationConfig.INBOUND_PORTS.getName(), inboundPorts)
+                .put(LocationConfigKeys.CALLER_CONTEXT.getName(), app)
+                .build());
+        assertTrue(machine.isSshable());
+        
+        String publicHostText = machine.getSshHostAndPort().getHostText();
+        PortForwardManager pfm = (PortForwardManager) mgmt.getLocationRegistry().getLocationManaged(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
+        for (int targetPort : inboundPorts) {
+            HostAndPort mappedPort = pfm.lookup(machine, targetPort);
+            assertNotNull(mappedPort, "no mapping for targetPort "+targetPort);
+            assertEquals(mappedPort.getHostText(), publicHostText);
+            assertTrue(mappedPort.hasPort(), "no port-part in "+mappedPort+" for targetPort "+targetPort);
+        }
     }
 
     protected void assertOsNameContains(SshMachineLocation machine, String expectedNamePart) {
