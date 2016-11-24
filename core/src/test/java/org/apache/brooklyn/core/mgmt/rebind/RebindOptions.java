@@ -37,6 +37,10 @@ import com.google.common.collect.Iterables;
  * See {@link RebindTestFixture#rebind(RebindOptions)} and {@link RebindTestUtils#rebind(RebindOptions)}.
  */
 public class RebindOptions {
+    /** whether to keep the same instance, rather than make a copy; 
+     * if true, this {@link RebindOptions} may be changed in-place when passed to {@link RebindTestUtils#rebind(RebindOptions)} */
+    public boolean keepSameInstance;
+    
     public boolean checkSerializable;
     public boolean terminateOrigManagementContext;
     public RebindExceptionHandler exceptionHandler;
@@ -55,6 +59,8 @@ public class RebindOptions {
         return new RebindOptions();
     }
     public static RebindOptions create(RebindOptions options) {
+        if (options.keepSameInstance) return options;
+        
         RebindOptions result = create();
         result.checkSerializable(options.checkSerializable);
         result.terminateOrigManagementContext(options.terminateOrigManagementContext);

@@ -26,6 +26,7 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.config.ConfigInheritances.BasicConfigValueAtContainer;
 import org.apache.brooklyn.util.collections.CollectionMerger;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
@@ -47,11 +48,11 @@ public interface ConfigInheritance extends Serializable {
         DEEP_MERGE
     }
     
-    /** @deprecated since 0.10.0 see implementations of this interface */ @Deprecated
+    /** @deprecated since 0.10.0 see implementations of this interface (look for NOT_REINHERITED, or possibly NEVER_REINHERITED) */ @Deprecated
     public static final ConfigInheritance NONE = new Legacy.None();
-    /** @deprecated since 0.10.0 see implementations of this interface */ @Deprecated
+    /** @deprecated since 0.10.0 see implementations of this interface (look for OVERWRITE) */ @Deprecated
     public static final ConfigInheritance ALWAYS = new Legacy.Always();
-    /** @deprecated since 0.10.0 see implementations of this interface */ @Deprecated
+    /** @deprecated since 0.10.0 see implementations of this interface (look for the same name, DEEP_MERGE) */ @Deprecated
     public static final ConfigInheritance DEEP_MERGE = new Legacy.Merged();
     
     /** @deprecated since 0.10.0 more complex inheritance conditions now require other methods */
@@ -133,6 +134,16 @@ public interface ConfigInheritance extends Serializable {
                 throw new IllegalArgumentException("Invalid config-inheritance '"+val+"' (legal values are none, always or merge)");
             }
         }
+        private static Map<ConfigInheritance,ConfigInheritance> REPLACEMENTS = MutableMap.of();
+        /** used to assist in migration to new classes */
+        public static void registerReplacement(ConfigInheritance old, ConfigInheritance replacement) {
+            REPLACEMENTS.put(old, replacement);
+        }
+        private static ConfigInheritance orReplacement(ConfigInheritance orig) {
+            ConfigInheritance repl = REPLACEMENTS.get(orig);
+            if (repl!=null) return repl;
+            return orig;
+        }
         private abstract static class LegacyAbstractConversion implements ConfigInheritance {
 
             @Override
@@ -200,17 +211,29 @@ public interface ConfigInheritance extends Serializable {
             public InheritanceMode getMode() {
                 return InheritanceMode.IF_NO_EXPLICIT_VALUE;
             }
+            @SuppressWarnings("unused") // standard deserialization method
+            private ConfigInheritance readResolve() {
+                return orReplacement(ConfigInheritance.ALWAYS);
+            }
         }
         private static class None extends LegacyAbstractConversion {
             @Override
             public InheritanceMode getMode() {
                 return InheritanceMode.NONE;
             }
+            @SuppressWarnings("unused") // standard deserialization method
+            private ConfigInheritance readResolve() {
+                return orReplacement(ConfigInheritance.NONE);
+            }
         }
         private static class Merged extends LegacyAbstractConversion {
             @Override
             public InheritanceMode getMode() {
                 return InheritanceMode.DEEP_MERGE;
+            }
+            @SuppressWarnings("unused") // standard deserialization method
+            private ConfigInheritance readResolve() {
+                return orReplacement(ConfigInheritance.DEEP_MERGE);
             }
         }
     }
