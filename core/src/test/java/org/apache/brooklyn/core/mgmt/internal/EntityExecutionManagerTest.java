@@ -27,7 +27,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.brooklyn.api.entity.Entity;
@@ -69,32 +71,47 @@ import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Callables;
 
 /** Includes many tests for {@link BrooklynGarbageCollector} */
+@Test
 public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
     
     private static final Logger LOG = LoggerFactory.getLogger(EntityExecutionManagerTest.class);
-    
-    @Test
+
     public void testOnDoneCallback() throws InterruptedException {
         ExecutionManager em = mgmt.getExecutionManager();
         BasicExecutionManager bem = (BasicExecutionManager)em;
         final Map<Task<?>,Duration> completedTasks = MutableMap.of();
-        final Semaphore sema4 = new Semaphore(-1);
+        final CountDownLatch latch = new CountDownLatch(2);
         bem.addListener(new ExecutionListener() {
             @Override
             public void onTaskDone(Task<?> task) {
                 Assert.assertTrue(task.isDone());
-                Assert.assertEquals(task.getUnchecked(), "foo");
-                completedTasks.put(task, Duration.sinceUtc(task.getEndTimeUtc()));
-                sema4.release();
+                Object result = task.getUnchecked();
+                if (result != null && result.equals("foo")) {
+                    synchronized (completedTasks) {
+                        completedTasks.put(task, Duration.sinceUtc(task.getEndTimeUtc()));
+                    }
+                    latch.countDown();
+                }
             }
         });
-        Task<String> t1 = em.submit( Tasks.<String>builder().displayName("t1").dynamic(false).body(Callables.returning("foo")).build() );
-        t1.getUnchecked();
-        Task<String> t2 = em.submit( Tasks.<String>builder().displayName("t2").dynamic(false).body(Callables.returning("foo")).build() );
-        sema4.acquire();
-        Assert.assertEquals(completedTasks.size(), 2, "completed tasks are: "+completedTasks);
-        completedTasks.get(t1).isShorterThan(Duration.TEN_SECONDS);
-        completedTasks.get(t2).isShorterThan(Duration.TEN_SECONDS);
+        Task<String> t1 = em.submit(
+            Tasks.<String>builder()
+                .displayName("t1")
+                .dynamic(false)
+                .body(Callables.returning("foo"))
+                .build());
+        Task<String> t2 = em.submit(
+            Tasks.<String>builder()
+                .displayName("t2")
+                .dynamic(false)
+                .body(Callables.returning("foo"))
+                .build());
+        latch.await(Asserts.DEFAULT_LONG_TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
+        synchronized (completedTasks) {
+            Assert.assertEquals(completedTasks.size(), 2, "completed tasks should be 2 but are: "+completedTasks);
+            completedTasks.get(t1).isShorterThan(Duration.TEN_SECONDS);
+            completedTasks.get(t2).isShorterThan(Duration.TEN_SECONDS);
+        }
     }
     
     protected void forceGc() {
@@ -134,12 +151,11 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
             @Override public void run() {
                 forceGc();
                 Collection<Task<?>> tasks = BrooklynTaskTags.getTasksInEntityContext(((EntityInternal)entity).getManagementContext().getExecutionManager(), entity);
-                Assert.assertTrue(tasks.size() <= expectedMaxCount, 
+                Assert.assertTrue(tasks.size() <= expectedMaxCount,
                         "Expected tasks count max of " + expectedMaxCount + ". Tasks were "+tasks);
             }});
     }
 
-    @Test
     public void testGetTasksAndGcBoringTags() throws Exception {
         TestEntity e = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         
@@ -151,7 +167,6 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         assertEquals(tasks, ImmutableList.of(task), "Mismatched tasks, got: "+tasks);
     }
 
-    @Test
     public void testGcTaskAtNormalTagLimit() throws Exception {
         TestEntity e = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         
@@ -161,7 +176,7 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         AtomicBoolean stopCondition = new AtomicBoolean();
         scheduleRecursiveTemporaryTask(stopCondition, e, "boring-tag");
         scheduleRecursiveTemporaryTask(stopCondition, e, "boring-tag");
-        
+
         for (int count=0; count<5; count++)
             runEmptyTaskWithNameAndTags(e, "task"+count, ManagementContextInternal.NON_TRANSIENT_TASK_TAG, "boring-tag");
 
@@ -172,8 +187,7 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
 
         assertTaskMaxCountForEntityEventually(e, 2);
     }
-    
-    @Test
+
     public void testGcTaskAtEntityLimit() throws Exception {
         final TestEntity e = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         
@@ -198,8 +212,7 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         assertTaskMaxCountForEntityEventually(app, 2);
         assertTaskMaxCountForEntityEventually(e, 2);
     }
-    
-    @Test
+
     public void testGcTaskWithTagAndEntityLimit() throws Exception {
         TestEntity e = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         
@@ -248,8 +261,7 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
             BrooklynGarbageCollector.MAX_TASKS_PER_ENTITY, 5);
         assertTaskMaxCountForEntityEventually(e, 5);
     }
-    
-    @Test
+
     public void testGcDynamicTaskAtNormalTagLimit() throws Exception {
         TestEntity e = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         
@@ -274,8 +286,7 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         // (if there are no test failures for a few months, since Sept 2014, then we can remove this comment)
         assertTaskMaxCountForEntityEventually(e, 2);
     }
-    
-    @Test
+
     public void testUnmanagedEntityCanBeGcedEvenIfPreviouslyTagged() throws Exception {
         TestEntity e = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         String eId = e.getId();
@@ -303,7 +314,7 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         }
         return;
     }
-    
+
     @Test(groups="Integration")
     public void testSubscriptionAndEffectorTasksGced() throws Exception {
         BasicExecutionManager em = (BasicExecutionManager) app.getManagementContext().getExecutionManager();
@@ -311,7 +322,7 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         Time.sleep(Duration.ONE_SECOND);
         forceGc();
         List<Task<?>> t1 = em.getAllTasks();
-        
+
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         entity.sensors().set(TestEntity.NAME, "bob");
         entity.invoke(TestEntity.MY_EFFECTOR, ImmutableMap.<String,Object>of()).get();
@@ -319,7 +330,7 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         Time.sleep(Duration.ONE_SECOND);
         forceGc();
         List<Task<?>> t2 = em.getAllTasks();
-        
+
         Assert.assertEquals(t1.size(), t2.size(), "lists are different:\n"+t1+"\n"+t2+"\n");
     }
 
@@ -330,21 +341,21 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
     @Test(groups="Integration")
     public void testEffectorTasksGcedSoNoOome() throws Exception {
         String classAndMethodName = JavaClassNames.niceClassAndMethod();
-        
+
         BrooklynProperties brooklynProperties = BrooklynProperties.Factory.newEmpty();
         brooklynProperties.put(BrooklynGarbageCollector.GC_PERIOD, Duration.ONE_MILLISECOND);
         brooklynProperties.put(BrooklynGarbageCollector.MAX_TASKS_PER_TAG, 2);
-        
+
         replaceManagementContext(LocalManagementContextForTests.newInstance(brooklynProperties));
         setUpApp();
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
-        
+
         for (int i = 0; i < 1000; i++) {
             if (i%100==0) LOG.info(classAndMethodName+": iteration "+i);
             try {
                 LOG.debug("testEffectorTasksGced: iteration="+i);
                 entity.invoke(TestEntity.IDENTITY_EFFECTOR, ImmutableMap.of("arg", new BigObject(10*1000*1000))).get();
-                
+
                 Time.sleep(Duration.ONE_MILLISECOND); // Give GC thread a chance to run
                 forceGc();
             } catch (OutOfMemoryError e) {
@@ -353,7 +364,7 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
             }
         }
     }
-    
+
     @Test(groups="Integration")
     public void testUnmanagedEntityGcedOnUnmanageEvenIfEffectorInvoked() throws Exception {
         String classAndMethodName = JavaClassNames.niceClassAndMethod();
@@ -365,17 +376,17 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
                 TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
                 entity.sensors().set(byteArrayAttrib, new BigObject(10*1000*1000));
                 entity.invoke(TestEntity.MY_EFFECTOR, ImmutableMap.<String,Object>of()).get();
-                
+
                 // we get exceptions because tasks are still trying to publish after deployment;
                 // this should prevent them
 //                ((LocalEntityManager)app.getManagementContext().getEntityManager()).stopTasks(entity, Duration.ONE_SECOND);
 //                Entities.destroy(entity);
-                
+
                 // alternatively if we 'unmanage' instead of destroy, there are usually not errors
-                // (the errors come from the node transitioning to a 'stopping' state on destroy, 
+                // (the errors come from the node transitioning to a 'stopping' state on destroy,
                 // and publishing lots of info then)
                 Entities.unmanage(entity);
-                
+
                 forceGc();
                 // previously we did an extra System.gc() but it was crazy slow, shouldn't be needed
             } catch (OutOfMemoryError e) {
@@ -394,29 +405,29 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         BrooklynProperties brooklynProperties = BrooklynProperties.Factory.newEmpty();
         brooklynProperties.put(BrooklynGarbageCollector.GC_PERIOD, Duration.ONE_SECOND);
         brooklynProperties.put(BrooklynGarbageCollector.MAX_TASKS_PER_TAG, 2);
-        
+
         replaceManagementContext(LocalManagementContextForTests.newInstance(brooklynProperties));
         setUpApp();
         final TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
-        
+
         List<Task<?>> tasks = Lists.newArrayList();
-        
+
         for (int i = 0; i < (maxNumTasks+1); i++) {
             Task<?> task = entity.invoke(TestEntity.MY_EFFECTOR, ImmutableMap.<String,Object>of());
             task.get();
             tasks.add(task);
-            
+
             // TASKS_OLDEST_FIRST_COMPARATOR is based on comparing EndTimeUtc; but two tasks executed in
             // rapid succession could finish in same millisecond
             // (especially when using System.currentTimeMillis, which can return the same time for several millisconds).
             Thread.sleep(10);
         }
-        
+
         // Should initially have all tasks
         Set<Task<?>> storedTasks = app.getManagementContext().getExecutionManager().getTasksWithAllTags(
                 ImmutableList.of(BrooklynTaskTags.tagForContextEntity(entity), ManagementContextInternal.EFFECTOR_TAG));
         assertEquals(storedTasks, ImmutableSet.copyOf(tasks), "storedTasks="+storedTasks+"; expected="+tasks);
-        
+
         // Then oldest should be GC'ed to leave only maxNumTasks
         final List<Task<?>> recentTasks = tasks.subList(tasks.size()-maxNumTasks, tasks.size());
         Asserts.succeedsEventually(new Runnable() {
@@ -433,7 +444,7 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
                 assertEquals(storedTasks2, ImmutableSet.copyOf(recentTasks), "storedTasks="+storedTasks2Str+"; expected="+recentTasks);
             }});
     }
-    
+
     private String taskToVerboseString(Task<?> t) {
         return Objects.toStringHelper(t)
                 .add("id", t.getId())
@@ -445,7 +456,7 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
                 .add("tags", t.getTags())
                 .toString();
     }
-            
+
     @Test(groups="Integration")
     public void testEffectorTasksGcedForAge() throws Exception {
         Duration maxTaskAge = Duration.millis(100);
@@ -454,19 +465,19 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         BrooklynProperties brooklynProperties = BrooklynProperties.Factory.newEmpty();
         brooklynProperties.put(BrooklynGarbageCollector.GC_PERIOD, Duration.ONE_MILLISECOND);
         brooklynProperties.put(BrooklynGarbageCollector.MAX_TASK_AGE, maxTaskAge);
-        
+
         replaceManagementContext(LocalManagementContextForTests.newInstance(brooklynProperties));
         setUpApp();
         final TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
-        
+
         Stopwatch stopwatch = Stopwatch.createStarted();
         Task<?> oldTask = entity.invoke(TestEntity.MY_EFFECTOR, ImmutableMap.<String,Object>of());
         oldTask.get();
-        
+
         Asserts.succeedsEventually(new Runnable() {
             @Override public void run() {
                 Set<Task<?>> storedTasks = app.getManagementContext().getExecutionManager().getTasksWithAllTags(ImmutableList.of(
-                        BrooklynTaskTags.tagForTargetEntity(entity), 
+                        BrooklynTaskTags.tagForTargetEntity(entity),
                         ManagementContextInternal.EFFECTOR_TAG));
                 assertEquals(storedTasks, ImmutableSet.of(), "storedTasks="+storedTasks);
             }});
@@ -475,7 +486,7 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         assertTrue(timeToGc.isLongerThan(maxTaskAge.subtract(earlyReturnGrace)), "timeToGc="+timeToGc+"; maxTaskAge="+maxTaskAge);
         assertTrue(timeToGc.isShorterThan(maxTaskAge.add(maxOverhead)), "timeToGc="+timeToGc+"; maxTaskAge="+maxTaskAge);
     }
-    
+
     private static class BigObject implements Serializable {
         private static final long serialVersionUID = -4021304829674972215L;
         private final int sizeBytes;
@@ -511,5 +522,5 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         }
         return ((EntityInternal)e).getExecutionContext().submit(tb.build());
     }
-    
+
 }
