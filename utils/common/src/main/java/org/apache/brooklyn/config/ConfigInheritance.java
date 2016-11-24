@@ -61,14 +61,18 @@ public interface ConfigInheritance extends Serializable {
 
     /** Returns whether any value from the given node or ancestors can be considered 
      * for inheritance by descendants, according to the {@link ConfigInheritance} defined there.
-     * Implementations should not normally consider the value here
-     * as there may be other ancestors whose values have not yet been considered and are not supplied.
+     * The implementation of this method is usually a constant depending on the inheritance in effect;
+     * in particular it will not normally consider any values or inform whether something should be inherited:
+     * it is only advising whether inheritance is permitted <i>from</i> a given point in the inheritance hierarchy.
      * <p> 
      * If there is a {@link ConfigInheritance} defined at this node,
      * this method must be called on that instance and that instance only.
      * In that case it is an error to invoke this method on any other {@link ConfigInheritance} instance. 
-     * If there is not one, the config generally should be considered reinheritable;
-     * callers will typically not invoke this method from a descendant inheritance context.
+     * If there is not one, the config generally should be considered reinheritable.
+     * <p>
+     * Key inference (continuing from the above): Callers should not try to infer any descendant key and look at 
+     * what it says about reinheritability;
+     * if a container does not define a key it would be pointless for it not to be reinheritable).
      * <p>
      * Consumers will typically find the methods in {@link ConfigInheritances} more convenient. */
     public <TContainer,TValue> boolean isReinheritable(
@@ -85,7 +89,10 @@ public interface ConfigInheritance extends Serializable {
      * <p>
      * If there is a {@link ConfigInheritance} defined at the local container,
      * this method must be called on that instance and that instance only.
-     * In that case it is an error to invoke this method on any other {@link ConfigInheritance} instance. 
+     * In that case it is an error to invoke this method on any other {@link ConfigInheritance} instance.
+     * <p>
+     * Key inference: if a container does not define a key, the inheritance in the key definition in the nearest descendant
+     * of that container should be used.
      * <p>
      * Consumers should consider this in conjuction with the 
      * {@link #isReinheritable(ConfigValueAtContainer, ConfigInheritanceContext)}
@@ -111,6 +118,9 @@ public interface ConfigInheritance extends Serializable {
      * If there is a {@link ConfigInheritance} defined at the local container,
      * this method must be called on that instance and that instance only.
      * In that case it is an error to invoke this method on any other {@link ConfigInheritance} instance. 
+     * <p>
+     * Key inference: if a container does not define a key, the inheritance in the key definition in the nearest descendant
+     * of that container should be used.
      * <p>
      * Consumers will typically find the methods in {@link ConfigInheritances} more convenient. */
     public <TContainer,TValue> ReferenceWithError<ConfigValueAtContainer<TContainer,TValue>> resolveWithParent(
