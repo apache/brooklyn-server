@@ -29,15 +29,23 @@ import com.google.common.collect.Lists;
 import com.google.common.net.HostAndPort;
 
 /**
- * Assumes that a pre-existing kubernetes endpoint is available. See system properties and the defaults below.
+/**
+ * Live tests for deploying simple containers. Particularly useful during dev, but not so useful
+ * after that (because assumes the existence of a kubernetes endpoint). It needs configured with 
+ * something like:
+ * 
+ *   {@code =Dtest.amp.kubernetes.endpoint=http://10.104.2.206:8080}).
+ * 
+ * The QA Framework is more important for that - hence these tests (trying to be) kept simple 
+ * and focused.
  */
 public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
 
     private static final Logger LOG = LoggerFactory.getLogger(KubernetesLocationLiveTest.class);
     
-    private static final String KUBERNETES_ENDPOINT = System.getProperty("test.amp.kubernetes.endpoint", "https://192.168.99.100:8443/");
-    private static final String IDENTITY = System.getProperty("test.amp.kubernetes.identity", "");
-    private static final String CREDENTIAL = System.getProperty("test.amp.kubernetes.credential", "");
+    public static final String KUBERNETES_ENDPOINT = System.getProperty("test.amp.kubernetes.endpoint", "https://192.168.99.100:8443/");
+    public static final String IDENTITY = System.getProperty("test.amp.kubernetes.identity", "");
+    public static final String CREDENTIAL = System.getProperty("test.amp.kubernetes.credential", "");
 
     protected KubernetesLocation loc;
     protected List<MachineLocation> machines;
