@@ -884,8 +884,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         assertEquals(child.config().get(ConfigKeys.newStringConfigKey("myconf3.from.root")), "myval");
         assertEquals(app.config().get(ConfigKeys.newStringConfigKey("myconf2")), "myval");
         
-        // TODO Because of https://issues.apache.org/jira/browse/BROOKLYN-267, the assertion below fails: 
-        // assertEquals(child.config().get(ConfigKeys.newStringConfigKey("myconf3")), "myval");
+        assertEquals(child.config().get(ConfigKeys.newStringConfigKey("myconf3")), "myval");
         
         mgmt().getCatalog().deleteCatalogItem(id, version);
     }
