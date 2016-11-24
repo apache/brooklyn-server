@@ -50,9 +50,8 @@ public abstract class BrooklynRestApiLauncherTestFixture {
     
     protected Server newServer() {
         try {
-            Server server = BrooklynRestApiLauncher.launcher()
+            Server server = baseLauncher()
                     .forceUseOfDefaultCatalogWithJavaClassPath(true)
-                    .securityProvider(AnyoneSecurityProvider.class)
                     .start();
             return server;
         } catch (Exception e) {
@@ -67,6 +66,11 @@ public abstract class BrooklynRestApiLauncherTestFixture {
             this.server = server;
         }
         return server;
+    }
+    
+    protected BrooklynRestApiLauncher baseLauncher() {
+        return BrooklynRestApiLauncher.launcher()
+                .securityProvider(AnyoneSecurityProvider.class);
     }
     
     /** @deprecated since 0.9.0 use {@link #getBaseUriHostAndPost(Server)} or {@link #getBaseUriRest(Server)} */

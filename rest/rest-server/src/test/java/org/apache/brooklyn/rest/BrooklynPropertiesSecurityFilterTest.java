@@ -97,8 +97,7 @@ public class BrooklynPropertiesSecurityFilterTest extends BrooklynRestApiLaunche
     public void testInteractionOfSecurityFilterAndFormMapProvider() throws Exception {
         Stopwatch stopwatch = Stopwatch.createStarted();
         try {
-            Server server = useServerForTest(BrooklynRestApiLauncher.launcher()
-                    .securityProvider(AnyoneSecurityProvider.class)
+            Server server = useServerForTest(baseLauncher()
                     .forceUseOfDefaultCatalogWithJavaClassPath(true)
                     .withoutJsgui()
                     .start());

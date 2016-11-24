@@ -45,7 +45,7 @@ public class CsrfTokenFilterLauncherTest extends BrooklynRestApiLauncherTestFixt
 
     @Test
     public void testRequestToken() {
-        useServerForTest(BrooklynRestApiLauncher.launcher()
+        useServerForTest(baseLauncher()
             .withoutJsgui()
             .start());
 

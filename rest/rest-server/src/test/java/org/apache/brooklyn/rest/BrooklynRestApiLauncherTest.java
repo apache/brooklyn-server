@@ -24,7 +24,6 @@ import static org.apache.brooklyn.rest.BrooklynRestApiLauncher.StartMode.WEB_XML
 import java.util.concurrent.Callable;
 
 import org.apache.brooklyn.entity.brooklynnode.BrooklynNode;
-import org.apache.brooklyn.rest.security.provider.AnyoneSecurityProvider;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.http.HttpAsserts;
 import org.apache.brooklyn.util.http.HttpTool;
@@ -45,10 +44,10 @@ public class BrooklynRestApiLauncherTest extends BrooklynRestApiLauncherTestFixt
         checkRestCatalogEntities(useServerForTest(baseLauncher().mode(WEB_XML).start()));
     }
 
-    private BrooklynRestApiLauncher baseLauncher() {
-        return BrooklynRestApiLauncher.launcher()
-                .securityProvider(AnyoneSecurityProvider.class)
-                .forceUseOfDefaultCatalogWithJavaClassPath(true);
+    @Override
+    protected BrooklynRestApiLauncher baseLauncher() {
+        return super.baseLauncher()
+            .forceUseOfDefaultCatalogWithJavaClassPath(true);
     }
     
     private static void checkRestCatalogEntities(Server server) throws Exception {

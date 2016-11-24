@@ -159,9 +159,9 @@ public class HaMasterCheckFilterTest extends BrooklynRestApiLauncherTestFixture 
             readMgmt = createManagementContext(mementoDir, readMode);
         }
 
-        server = useServerForTest(BrooklynRestApiLauncher.launcher()
-                .managementContext(readMgmt)
+        server = useServerForTest(baseLauncher()
                 .securityProvider(AnyoneSecurityProvider.class)
+                .managementContext(readMgmt)
                 .forceUseOfDefaultCatalogWithJavaClassPath(true)
                 .withoutJsgui()
                 .disableHighAvailability(false)
