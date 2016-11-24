@@ -29,6 +29,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
+import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -74,6 +75,7 @@ import io.fabric8.kubernetes.api.model.ServicePort;
 import io.fabric8.kubernetes.api.model.ServicePortBuilder;
 import io.fabric8.kubernetes.api.model.extensions.Deployment;
 import io.fabric8.kubernetes.api.model.extensions.DeploymentBuilder;
+import io.fabric8.kubernetes.api.model.extensions.DeploymentStatus;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 
@@ -143,19 +145,27 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         final String service = machine.config().get(SERVICE);
 
         client.extensions().deployments().inNamespace(namespace).withName(deployment).delete();
-        Callable<Boolean> exitCondition = new Callable<Boolean>() {
+        ExitCondition exitCondition = new ExitCondition() {
             @Override
             public Boolean call() {
                 return client.extensions().deployments().inNamespace(namespace).withName(deployment).get() == null;
+            }
+            @Override
+            public String getFailureMessage() {
+                return "No deployment with namespace=" + namespace + ", deployment=" + deployment;
             }
         };
         waitForExitCondition(exitCondition);
 
         client.services().inNamespace(namespace).withName(service).delete();
-        exitCondition = new Callable<Boolean>() {
+        exitCondition = new ExitCondition() {
             @Override
             public Boolean call() {
                 return client.services().inNamespace(namespace).withName(service).get() == null;
+            }
+            @Override
+            public String getFailureMessage() {
+                return "No service with namespace=" + namespace + ", serviceName=" + service;
             }
         };
         waitForExitCondition(exitCondition);
@@ -167,10 +177,14 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         if (!namespace.equals("default") && isNamespaceEmpty(namespace)) {
             if (client.namespaces().withName(namespace).get() != null && !client.namespaces().withName(namespace).get().getStatus().getPhase().equals("Terminating")) {
                 client.namespaces().withName(namespace).delete();
-                Callable<Boolean> exitCondition = new Callable<Boolean>() {
+                ExitCondition exitCondition = new ExitCondition() {
                     @Override
                     public Boolean call() {
                         return client.namespaces().withName(namespace).get() == null;
+                    }
+                    @Override
+                    public String getFailureMessage() {
+                        return "Namespace " + namespace + " still present";
                     }
                 };
                 waitForExitCondition(exitCondition);
@@ -249,10 +263,16 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
 
     private synchronized Namespace createOrGetNamespace(final String ns) {
         Namespace namespace = client.namespaces().withName(ns).get();
-        Callable<Boolean> namespaceReady = new Callable<Boolean>() {
+        ExitCondition namespaceReady = new ExitCondition() {
             @Override
             public Boolean call() {
-                return client.namespaces().withName(ns).get().getStatus().getPhase().equals("Active");
+                Namespace actualNamespace = client.namespaces().withName(ns).get();
+                return actualNamespace != null && actualNamespace.getStatus().getPhase().equals("Active");
+            }
+            @Override
+            public String getFailureMessage() {
+                Namespace actualNamespace = client.namespaces().withName(ns).get();
+                return "Namespace for " + ns + " " + (actualNamespace == null ? "absent" : " status " + actualNamespace.getStatus()); 
             }
         };
         if (namespace != null) {
@@ -302,10 +322,14 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 throw Throwables.propagate(e);
             }
         }
-        Callable<Boolean> exitCondition = new Callable<Boolean>() {
+        ExitCondition exitCondition = new ExitCondition() {
             @Override
             public Boolean call() {
                 return client.secrets().inNamespace(namespace).withName(secretName).get() != null;
+            }
+            @Override
+            public String getFailureMessage() {
+                return "Absent namespace=" + namespace + ", secretName=" + secretName;
             }
         };
         waitForExitCondition(exitCondition);
@@ -366,11 +390,20 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 .endSpec()
                 .build();
         client.extensions().deployments().inNamespace(namespace).create(deployment);
-        Callable<Boolean> exitCondition = new Callable<Boolean>() {
+        ExitCondition exitCondition = new ExitCondition() {
             @Override
             public Boolean call() {
                 Deployment dep = client.extensions().deployments().inNamespace(namespace).withName(deploymentName).get();
-                return dep != null && dep.getStatus() != null && dep.getStatus().getAvailableReplicas() == replicas;
+                DeploymentStatus status = (dep == null) ? null : dep.getStatus();
+                return status != null && status.getAvailableReplicas() == replicas;
+            }
+            @Override
+            public String getFailureMessage() {
+                Deployment dep = client.extensions().deployments().inNamespace(namespace).withName(deploymentName).get();
+                DeploymentStatus status = (dep == null) ? null : dep.getStatus();
+                return "Namespace=" + namespace + "; deploymentName= " + deploymentName + "; Deployment=" + dep
+                        + "; status=" + status
+                        + "; availableReplicas=" + (status == null ? "null" : status.getAvailableReplicas());
             }
         };
         waitForExitCondition(exitCondition);
@@ -391,10 +424,17 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 .endSpec()
                 .build();
         client.services().inNamespace(namespace).create(service);
-        Callable<Boolean> exitCondition = new Callable<Boolean>() {
+        ExitCondition exitCondition = new ExitCondition() {
             @Override
             public Boolean call() {
-                return client.services().inNamespace(namespace).withName(serviceName).get().getStatus() != null;
+                Service actualService = client.services().inNamespace(namespace).withName(serviceName).get();
+                return actualService != null && actualService.getStatus() != null;
+            }
+            @Override
+            public String getFailureMessage() {
+                Service s = client.services().inNamespace(namespace).withName(serviceName).get();
+                return "Namespace=" + namespace + "; serviceName= " + serviceName + "; service=" + s
+                        + "; status=" + (s == null ? "null" : s.getStatus());
             }
         };
         waitForExitCondition(exitCondition);
@@ -456,12 +496,17 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                     .endSpec()
                     .build();
             client.persistentVolumes().create(volume);
-            Callable<Boolean> exitCondition = new Callable<Boolean>() {
+            ExitCondition exitCondition = new ExitCondition() {
                 @Override
                 public Boolean call() {
                     PersistentVolume pv = client.persistentVolumes().withName(persistentVolume).get();
                     return pv != null && pv.getStatus() != null
                             && pv.getStatus().getPhase().equals("Available");
+                }
+                @Override
+                public String getFailureMessage() {
+                    PersistentVolume pv = client.persistentVolumes().withName(persistentVolume).get();
+                    return "PersistentVolume for " + persistentVolume + " " + (pv == null ? "absent" : "pv=" + pv);
                 }
             };
             waitForExitCondition(exitCondition);
@@ -532,16 +577,24 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         return null;
     }
 
-    private void waitForExitCondition(Callable<Boolean> exitCondition) {
-        waitForExitCondition(Duration.ONE_SECOND, Duration.FIVE_MINUTES, exitCondition);
+    private void waitForExitCondition(ExitCondition exitCondition) {
+        waitForExitCondition(exitCondition, Duration.ONE_SECOND, Duration.FIVE_MINUTES);
     }
 
-    private void waitForExitCondition(Duration finalDelay, Duration duration, Callable<Boolean> exitCondition) {
-        Repeater.create()
+    private void waitForExitCondition(ExitCondition exitCondition, Duration finalDelay, Duration duration) {
+        ReferenceWithError<Boolean> result = Repeater.create()
                 .backoffTo(finalDelay)
                 .limitTimeTo(duration)
                 .until(exitCondition)
-                .runRequiringTrue();
+                .runKeepingError();
+        if (!result.get()) {
+            String err = "Exit condition unsatisfied after " + duration + ": " + exitCondition.getFailureMessage();
+            log.info(err + " (rethrowing)");
+            throw new IllegalStateException(err);
+        }
     }
 
+    private static interface ExitCondition extends Callable<Boolean> {
+        public String getFailureMessage();
+    }
 }
