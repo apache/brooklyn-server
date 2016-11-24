@@ -125,7 +125,7 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
     ConfigKey<String> LOGIN_USER_PASSWORD = ConfigKeys.builder(String.class)
             .name("kubernetes.loginUser.password")
             .description("Custom password for the user who logs in initially")
-            .defaultValue("password")
+            .defaultValue("p4ssw0rd")
             .constraint(Predicates.<String>notNull())
             .build();
 }
