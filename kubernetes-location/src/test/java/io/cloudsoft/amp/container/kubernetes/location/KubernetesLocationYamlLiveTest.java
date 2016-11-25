@@ -202,7 +202,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
 
 
     @Test(groups={"Live"})
-    public void testWordpress() throws Exception {
+    public void testWordpressInPod() throws Exception {
         // TODO docker.container.inboundPorts doesn't accept list of ints - need to use quotes
         String yaml = Joiner.on("\n").join(
                 locationYaml,
@@ -232,6 +232,45 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "        env:",
                 "          WORDPRESS_DB_HOST: \"wordpress-mysql\"",
                 "          WORDPRESS_DB_PASSWORD: \"password\"");
+        
+        runWordpress(yaml);
+    }
+
+    @Test(groups={"Live"})
+    public void testWordpressInSeperatePods() throws Exception {
+        // TODO docker.container.inboundPorts doesn't accept list of ints - need to use quotes
+        String yaml = Joiner.on("\n").join(
+                locationYaml,
+                "services:",
+                "- type: " + DockerContainer.class.getName(),
+                "  id: wordpress-mysql",
+                "  name: mysql",
+                "  brooklyn.config:",
+                "    docker.container.imageName: mysql:5.6",
+                "    docker.container.inboundPorts:",
+                "    - \"3306\"",
+                "    provisioning.properties:",
+                "      env:",
+                "        MYSQL_ROOT_PASSWORD: \"password\"",
+                "- type: " + DockerContainer.class.getName(),
+                "  id: wordpress",
+                "  name: wordpress",
+                "  brooklyn.config:",
+                "    docker.container.imageName: wordpress:4.4-apache",
+                "    docker.container.inboundPorts:",
+                "    - \"80\"",
+                "    provisioning.properties:",
+                "      env:",
+                "        WORDPRESS_DB_HOST: \"wordpress-mysql\"",
+                "        WORDPRESS_DB_PASSWORD: \"password\"");
+        runWordpress(yaml);
+    }
+
+    /**
+     * Assumes that the {@link DockerContainer} entities have display names of "mysql" and "wordpress",
+     * and that they use ports 3306 and 80 respectively.
+     */
+    protected void runWordpress(String  yaml) throws Exception {
         Entity app = createStartWaitAndLogApplication(yaml);
         Entities.dumpInfo(app);
         
