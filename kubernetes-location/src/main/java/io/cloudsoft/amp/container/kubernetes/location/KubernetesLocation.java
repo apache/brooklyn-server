@@ -81,6 +81,18 @@ import io.fabric8.kubernetes.client.KubernetesClientException;
 
 public class KubernetesLocation extends AbstractLocation implements MachineProvisioningLocation<MachineLocation>, KubernetesLocationConfig {
 
+    /*
+     * TODOs:
+     *  - Ignores config such as "user" and "password"; just uses "loginUser" for connecting to the container.
+     *    Does not create a user (so behaves differently from things that use JcloudsLocation).
+     *  - Does not use ssh keys (only passwords).
+     *  - "cloudsoft/*" containers use "root" (which is discouraged).
+     *  - Error handling needs revisited.
+     *    For example, if provisioning fails then it waits for five minutes and then fails without a reason why.
+     *    e.g. try launching a container with an incorrect image name.
+     *  - 
+     */
+
     public static final Logger log = LoggerFactory.getLogger(KubernetesLocation.class);
 
     public static final String SERVER_TYPE = "NodePort";
