@@ -13,4 +13,5 @@ services:
       # FIXME "iron/runner" does not exist in docker-hub
       docker.container.imageName: iron/runner
       docker.container.inboundPorts: [ "8080" ]
-      env: { CLUSTER_ID: "id", CLUSTER_TOKEN : "token" }
+      provisioning.properties:
+        env: { CLUSTER_ID: "id", CLUSTER_TOKEN : "token" }

@@ -10,6 +10,7 @@ import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 
 public interface KubernetesLocationConfig extends CloudLocationConfig {
@@ -85,6 +86,13 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
             .defaultValue(DEFAULT_SSHABLE_DOCKER_IMAGE)
             .build();
 
+    @SuppressWarnings("serial")
+    public static final ConfigKey<Map<String, ?>> ENV = ConfigKeys.newConfigKey(
+            new TypeToken<Map<String, ?>>() {},
+            "env", 
+            "Environment variables to inject when starting the container", 
+            ImmutableMap.<String, Object>of());
+
     @SetFromFlag("replicas")
     ConfigKey<Integer> REPLICAS = ConfigKeys.builder(Integer.class)
             .name("kubernetes.replicas")
@@ -116,10 +124,12 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
             .defaultValue(false)
             .build();
 
-    ConfigKey<KubernetesClientRegistry> KUBERNETES_CLIENT_REGISTRY = ConfigKeys.newConfigKey(
-            KubernetesClientRegistry.class, "kubernetesClientRegistry",
-            "Registry/Factory for creating Kubernetes client; default is almost always fine, " +
-                    "except where tests want to customize behaviour", KubernetesClientRegistryImpl.INSTANCE);
+    ConfigKey<KubernetesClientRegistry> KUBERNETES_CLIENT_REGISTRY = ConfigKeys.builder(KubernetesClientRegistry.class) 
+            .name("kubernetesClientRegistry")
+            .description("Registry/Factory for creating Kubernetes client; default is almost always fine, "
+                    + "except where tests want to customize behaviour") 
+            .defaultValue(KubernetesClientRegistryImpl.INSTANCE)
+            .build();
 
     ConfigKey<String> LOGIN_USER = ConfigKeys.builder(String.class)
             .name("kubernetes.loginUser")

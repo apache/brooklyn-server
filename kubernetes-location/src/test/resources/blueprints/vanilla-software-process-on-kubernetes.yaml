@@ -3,14 +3,14 @@ location:
     endpoint: "https://192.168.99.100:8443/"
     identity: "test"
     credential: "test"
+    env:
+      CLOUDSOFT_ROOT_PASSWORD: "password"
     kubernetes.loginUser.password: "password"
 
 services:
 - type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
   name: Simple Netcat Server
   brooklyn.config:
-    shell.env:
-      CLOUDSOFT_ROOT_PASSWORD: "password"
     provisioning.properties:
       inboundPorts:
         - 22

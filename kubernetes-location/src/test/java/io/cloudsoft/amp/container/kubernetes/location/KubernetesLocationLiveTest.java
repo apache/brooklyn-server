@@ -34,7 +34,7 @@ import com.google.common.net.HostAndPort;
  * after that (because assumes the existence of a kubernetes endpoint). It needs configured with 
  * something like:
  * 
- *   {@code =Dtest.amp.kubernetes.endpoint=http://10.104.2.206:8080}).
+ *   {@code -Dtest.amp.kubernetes.endpoint=http://10.104.2.206:8080}).
  * 
  * The QA Framework is more important for that - hence these tests (trying to be) kept simple 
  * and focused.
@@ -82,29 +82,49 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
     }
 
     @Test(groups={"Live"})
-    public void testDefaultImage() throws Exception {
+    public void testDefault() throws Exception {
         // Default is "cloudsoft/centos:7"
-        loc = newKubernetesLocation(ImmutableMap.<String, Object>of());
-        SshMachineLocation machine = newContainerMachine(loc, ImmutableMap.<String, Object>builder()
-                .put(KubernetesLocationConfig.LOGIN_USER_PASSWORD.getName(), "p4ssw0rd")
-                .put(LocationConfigKeys.CALLER_CONTEXT.getName(), app)
-                .build());
-
-        assertTrue(machine.isSshable());
-        assertOsNameContains(machine, "centos");
+        runImage(ImmutableMap.<String, Object>of(), "centos", "7");
     }
 
     @Test(groups={"Live"})
-    public void testCloudsoftCentosImage() throws Exception {
+    public void testCloudsoftCentos7() throws Exception {
+        runImage(ImmutableMap.of(KubernetesLocationConfig.IMAGE.getName(), "cloudsoft/centos:7"), "centos", "7");
+    }
+
+    @Test(groups={"Live"})
+    public void testCloudsoftUbuntu14() throws Exception {
+        runImage(ImmutableMap.of(KubernetesLocationConfig.IMAGE.getName(), "cloudsoft/ubuntu:14.04"), "ubuntu", "14.04");
+    }
+
+    @Test(groups={"Live"})
+    public void testCloudsoftUbuntu16() throws Exception {
+        runImage(ImmutableMap.of(KubernetesLocationConfig.IMAGE.getName(), "cloudsoft/ubuntu:16.04"), "ubuntu", "16.04");
+    }
+
+    protected void runImage(Map<String, ?> config, String expectedOs, String expectedVersion) throws Exception {
         loc = newKubernetesLocation(ImmutableMap.<String, Object>of());
         SshMachineLocation machine = newContainerMachine(loc, ImmutableMap.<String, Object>builder()
-                .put(KubernetesLocationConfig.IMAGE.getName(), "cloudsoft/centos:7")
-                .put(KubernetesLocationConfig.LOGIN_USER_PASSWORD.getName(), "p4ssw0rd")
+                .putAll(config)
                 .put(LocationConfigKeys.CALLER_CONTEXT.getName(), app)
                 .build());
 
         assertTrue(machine.isSshable(), "not sshable machine="+machine);
-        assertOsNameContains(machine, "centos");
+        assertOsNameContains(machine, expectedOs, expectedVersion);
+    }
+
+    @Test(groups={"Live"})
+    protected void testUsesSuppliedLoginPassword() throws Exception {
+        String password = "myCustomP4ssword";
+        loc = newKubernetesLocation(ImmutableMap.<String, Object>of());
+        SshMachineLocation machine = newContainerMachine(loc, ImmutableMap.<String, Object>builder()
+                .put(KubernetesLocationConfig.LOGIN_USER_PASSWORD.getName(), password)
+                .put(KubernetesLocationConfig.ENV.getName(), ImmutableMap.of("CLOUDSOFT_ROOT_PASSWORD", password))
+                .put(LocationConfigKeys.CALLER_CONTEXT.getName(), app)
+                .build());
+
+        assertTrue(machine.isSshable(), "not sshable machine="+machine);
+        assertEquals(machine.config().get(SshMachineLocation.PASSWORD), password);
     }
 
     @Test(groups={"Live"})
@@ -129,13 +149,15 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
         }
     }
 
-    protected void assertOsNameContains(SshMachineLocation machine, String expectedNamePart) {
+    protected void assertOsNameContains(SshMachineLocation machine, String expectedNamePart, String expectedVersionPart) {
         MachineDetails machineDetails = app.getExecutionContext()
                 .submit(BasicMachineDetails.taskForSshMachineLocation(machine))
                 .getUnchecked();
         OsDetails osDetails = machineDetails.getOsDetails();
         String osName = osDetails.getName();
+        String osVersion = osDetails.getVersion();
         assertTrue(osName != null && osName.toLowerCase().contains(expectedNamePart), "osDetails="+osDetails);
+        assertTrue(osVersion != null && osVersion.toLowerCase().contains(expectedVersionPart), "osDetails="+osDetails);
     }
     
     protected SshMachineLocation newContainerMachine(KubernetesLocation loc, Map<?, ?> flags) throws Exception {

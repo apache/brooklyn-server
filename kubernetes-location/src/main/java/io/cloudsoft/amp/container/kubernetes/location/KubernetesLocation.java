@@ -23,7 +23,6 @@ import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
-import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -135,7 +134,6 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
 
     @Override
     public MachineLocation obtain(Map<?, ?> flags) throws NoMachinesAvailableException {
-
         ConfigBag setupRaw = ConfigBag.newInstanceExtending(config().getBag(), flags);
         ConfigBag setup = ResolvingConfigBag.newInstanceExtending(getManagementContext(), setupRaw);
 
@@ -225,7 +223,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         Boolean privileged = setup.get(KubernetesLocationConfig.PRIVILEGED);
         String imageName = findImageName(entity, setup);
         Iterable<Integer> inboundPorts = findInboundPorts(entity, setup);
-        Map<String, Object> env = findEnvironmentVariables(entity);
+        Map<String, ?> env = findEnvironmentVariables(setup);
         Map<String, String> metadata = findMetadata(entity, deploymentName);
 
         if (volumes != null) {
@@ -348,14 +346,14 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         return client.secrets().inNamespace(namespace).withName(secretName).get();
     }
 
-    private Container buildContainer(String namespace, Map<String, String> metadata, String deploymentName, String imageName, Iterable<Integer> inboundPorts, Map<String, Object> env, Map<String, String> limits, boolean privileged) {
+    private Container buildContainer(String namespace, Map<String, String> metadata, String deploymentName, String imageName, Iterable<Integer> inboundPorts, Map<String, ?> env, Map<String, String> limits, boolean privileged) {
         List<ContainerPort> containerPorts = Lists.newArrayList();
         for (Integer inboundPort : inboundPorts) {
             containerPorts.add(new ContainerPortBuilder().withContainerPort(inboundPort).build());
         }
 
         List<EnvVar> envVars = Lists.newArrayList();
-        for (Map.Entry<String, Object> envVarEntry : env.entrySet()) {
+        for (Map.Entry<String, ?> envVarEntry : env.entrySet()) {
             envVars.add(new EnvVarBuilder().withName(envVarEntry.getKey()).withValue(envVarEntry.getValue().toString()).build());
         }
 
@@ -545,8 +543,8 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         return metadata;
     }
 
-    private Map<String, Object> findEnvironmentVariables(Entity entity) {
-        return firstNonNull(entity.getConfig(SoftwareProcess.SHELL_ENVIRONMENT), ImmutableMap.<String, Object> of());
+    private Map<String, ?> findEnvironmentVariables(ConfigBag config) {
+        return firstNonNull(config.get(ENV), ImmutableMap.<String, Object> of());
     }
 
     private Iterable<Integer> findInboundPorts(Entity entity, ConfigBag setup) {
