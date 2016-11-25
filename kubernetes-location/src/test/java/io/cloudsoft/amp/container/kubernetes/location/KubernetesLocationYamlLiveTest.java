@@ -302,51 +302,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         // TODO more assertions (e.g. wordpress can successfully reach the database)
     }
 
-
-    // TODO start effector failed, in KubernetesLocation.waitForExitCondition, waiting for deploy.
-    // It's waiting for availableReplicas == 1.
-    // Is there a better way to detect failure, rather than just timing out after 5 minutes?
-    //
-    // Could it be because "iron/runner" doesn't exist in dockerhub?
-    // 
-    //   Exit condition unsatisfied after 5m: 
-    //   Namespace=amp;
-    
-    //   deploymentName= e6d08wu7oz; 
-    //   
-    //   Deployment=Deployment(apiVersion=extensions/v1beta1, kind=Deployment, metadata=ObjectMeta(annotations={deployment.kubernetes.io/revision=1}, 
-    //   creationTimestamp=2016-11-24T13:34:23Z, deletionGracePeriodSeconds=null, deletionTimestamp=null, finalizers=[], 
-    //   generateName=null, generation=2, labels={immutable-container=e6d08wu7oz}, name=e6d08wu7oz, namespace=amp, 
-    //   ownerReferences=[], resourceVersion=149490, selfLink=/apis/extensions/v1beta1/namespaces/amp/deployments/e6d08wu7oz, 
-    //   uid=b661c59b-b24a-11e6-afea-fa163edf798b, additionalProperties={}), spec=DeploymentSpec(minReadySeconds=null, 
-    //   paused=null, replicas=1, revisionHistoryLimit=null, rollbackTo=null, selector=LabelSelector(matchExpressions=[], 
-    //   matchLabels={immutable-container=e6d08wu7oz}, additionalProperties={}), 
-    //   strategy=DeploymentStrategy(rollingUpdate=RollingUpdateDeployment(
-    //   maxSurge=IntOrString(IntVal=1, Kind=null, StrVal=null, additionalProperties={}), 
-    //   maxUnavailable=IntOrString(IntVal=1, Kind=null, StrVal=null, additionalProperties={}), additionalProperties={}), 
-    //   type=RollingUpdate, additionalProperties={}), 
-    //   template=PodTemplateSpec(metadata=ObjectMeta(annotations=null, creationTimestamp=null, deletionGracePeriodSeconds=null, 
-    //   deletionTimestamp=null, finalizers=[], generateName=null, generation=null, labels={immutable-container=e6d08wu7oz}, 
-    //   name=null, namespace=null, ownerReferences=[], resourceVersion=null, selfLink=null, uid=null, additionalProperties={}), 
-    //   spec=PodSpec(activeDeadlineSeconds=null, containers=[Container(args=[], command=[], env=[EnvVar(name=CLUSTER_ID, 
-    //   value=id, valueFrom=null, additionalProperties={}), EnvVar(name=CLUSTER_TOKEN, value=token, valueFrom=null, 
-    //   additionalProperties={})], image=iron/runner, imagePullPolicy=Always, lifecycle=null, livenessProbe=null, 
-    //   name=e6d08wu7oz, ports=[ContainerPort(containerPort=8080, hostIP=null, hostPort=null, name=null, protocol=TCP, 
-    //   additionalProperties={})], readinessProbe=null, resources=ResourceRequirements(limits=null, requests=null, additionalProperties={}), 
-    //   securityContext=SecurityContext(capabilities=null, privileged=false, readOnlyRootFilesystem=null, runAsNonRoot=null, 
-    //   runAsUser=null, seLinuxOptions=null, additionalProperties={}), stdin=null, stdinOnce=null, terminationMessagePath=/dev/termination-log, 
-    //   tty=null, volumeMounts=[], workingDir=null, additionalProperties={})], dnsPolicy=ClusterFirst, host=null, hostIPC=null, 
-    //   hostNetwork=null, hostPID=null, hostname=null, imagePullSecrets=[], nodeName=null, nodeSelector=null, restartPolicy=Always, 
-    //   securityContext=PodSecurityContext(fsGroup=null, runAsNonRoot=null, runAsUser=null, seLinuxOptions=null, supplementalGroups=[], 
-    //   additionalProperties={}), serviceAccount=null, serviceAccountName=null, subdomain=null, terminationGracePeriodSeconds=30, volumes=[], 
-    //   additionalProperties={}), additionalProperties={}), additionalProperties={}), status=DeploymentStatus(availableReplicas=null, 
-    //   observedGeneration=2, replicas=1, unavailableReplicas=1, updatedReplicas=1, additionalProperties={}), additionalProperties={});
-    //
-    //   status=DeploymentStatus(availableReplicas=null, observedGeneration=2, replicas=1, unavailableReplicas=1, updatedReplicas=1, additionalProperties={});
-    //
-    //   availableReplicas=null
-    @Test(groups={"Broken", "Live"})
-    @SuppressWarnings("unused")
+    @Test(groups={"Live"})
     public void testPod() throws Exception {
         String yaml = Joiner.on("\n").join(
                 locationYaml,
@@ -355,7 +311,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "  brooklyn.children:",
                 "  - type: " + DockerContainer.class.getName(),
                 "    brooklyn.config:",
-                "      docker.container.imageName: iron/runner",
+                "      docker.container.imageName: tomcat",
                 "      docker.container.inboundPorts:",
                 "      - \"8080\"",
                 "      env:",
@@ -363,6 +319,13 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "        CLUSTER_TOKEN: \"token\"");
         Entity app = createStartWaitAndLogApplication(yaml);
         DockerContainer container = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, DockerContainer.class));
+        
+        Entities.dumpInfo(app);
+        String publicMapped = EntityAsserts.assertAttributeEventuallyNonNull(container, Sensors.newStringSensor("docker.port.8080.mapped.public"));
+        HostAndPort publicPort = HostAndPort.fromString(publicMapped);
+        
+        assertReachableEventually(publicPort);
+        HttpAsserts.assertHttpStatusCodeEventuallyEquals("http://"+publicPort.getHostText()+":"+publicPort.getPort(), 200);
     }
     
     protected void assertReachableEventually(final HostAndPort hostAndPort) {
