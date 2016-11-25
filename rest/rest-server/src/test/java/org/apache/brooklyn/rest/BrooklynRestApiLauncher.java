@@ -342,16 +342,20 @@ public class BrooklynRestApiLauncher {
         log.info("Press Ctrl-C to quit.");
     }
 
+    public static BrooklynRestApiLauncher launcherServlet() {
+        return new BrooklynRestApiLauncher().mode(StartMode.SERVLET);
+    }
+    
     public static Server startRestResourcesViaServlet() throws Exception {
-        return new BrooklynRestApiLauncher()
-                .mode(StartMode.SERVLET)
-                .start();
+        return launcherServlet().start();
     }
 
+    public static BrooklynRestApiLauncher launcherWebXml() {
+        return new BrooklynRestApiLauncher().mode(StartMode.WEB_XML);
+    }
+    
     public static Server startRestResourcesViaWebXml() throws Exception {
-        return new BrooklynRestApiLauncher()
-                .mode(StartMode.WEB_XML)
-                .start();
+        return launcherWebXml().start();
     }
 
     /** look for the JS GUI webapp in common source places, returning path to it if found, or null.
