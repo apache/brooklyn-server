@@ -16,6 +16,7 @@ import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
 import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -88,6 +89,32 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
     }
 
     @Test(groups={"Live"})
+    public void testMatchesCentos() throws Exception {
+        runImage(ImmutableMap.<String, Object>of(KubernetesLocationConfig.OS_FAMILY.getName(), "centos"), "centos", "7");
+    }
+
+    @Test(groups={"Live"})
+    public void testMatchesCentos7() throws Exception {
+        ImmutableMap<String, Object> conf = ImmutableMap.<String, Object>of(
+                KubernetesLocationConfig.OS_FAMILY.getName(), "centos",
+                KubernetesLocationConfig.OS_VERSION_REGEX.getName(), "7.*");
+        runImage(conf, "centos", "7");
+    }
+
+    @Test(groups={"Live"})
+    public void testMatchesUbuntu() throws Exception {
+        runImage(ImmutableMap.<String, Object>of(KubernetesLocationConfig.OS_FAMILY.getName(), "ubuntu"), "ubuntu", "14.04");
+    }
+
+    @Test(groups={"Live"})
+    public void testMatchesUbuntu16() throws Exception {
+        ImmutableMap<String, Object> conf = ImmutableMap.<String, Object>of(
+                KubernetesLocationConfig.OS_FAMILY.getName(), "ubuntu",
+                KubernetesLocationConfig.OS_VERSION_REGEX.getName(), "16.*");
+        runImage(conf, "ubuntu", "16.04");
+    }
+
+    @Test(groups={"Live"})
     public void testCloudsoftCentos7() throws Exception {
         runImage(ImmutableMap.of(KubernetesLocationConfig.IMAGE.getName(), "cloudsoft/centos:7"), "centos", "7");
     }
@@ -100,6 +127,18 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
     @Test(groups={"Live"})
     public void testCloudsoftUbuntu16() throws Exception {
         runImage(ImmutableMap.of(KubernetesLocationConfig.IMAGE.getName(), "cloudsoft/ubuntu:16.04"), "ubuntu", "16.04");
+    }
+
+    @Test(groups={"Live"})
+    public void testFailsForNonMatching() throws Exception {
+        ImmutableMap<String, Object> conf = ImmutableMap.<String, Object>of(
+                KubernetesLocationConfig.OS_FAMILY.getName(), "weirdOsFamiliy");
+        try {
+            runImage(conf, null, null);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "No matching image found");
+        }
     }
 
     protected void runImage(Map<String, ?> config, String expectedOs, String expectedVersion) throws Exception {

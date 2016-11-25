@@ -631,7 +631,19 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     }
 
     private String findImageName(Entity entity, ConfigBag setup) {
-        return firstNonNull(entity.config().get(DockerContainer.IMAGE_NAME), setup.get(IMAGE));
+        String result = entity.config().get(DockerContainer.IMAGE_NAME);
+        if (Strings.isNonBlank(result)) return result;
+        
+        result = setup.get(IMAGE);
+        if (Strings.isNonBlank(result)) return result;
+        
+        String osFamily = setup.get(OS_FAMILY);
+        String osVersion = setup.get(OS_VERSION_REGEX);
+        Optional<String> imageName = new ImageChooser().chooseImage(osFamily, osVersion);
+        if (imageName.isPresent()) return imageName.get();
+        
+        throw new IllegalStateException("No matching image found for " + entity 
+                + " (no explicit image name, osFamily=" + osFamily + "; osVersion=" + osVersion + ")");
     }
 
     private boolean isDockerContainer(Entity entity) {

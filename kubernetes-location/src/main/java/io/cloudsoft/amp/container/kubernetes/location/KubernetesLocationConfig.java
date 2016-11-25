@@ -15,8 +15,6 @@ import com.google.common.reflect.TypeToken;
 
 public interface KubernetesLocationConfig extends CloudLocationConfig {
 
-    String DEFAULT_SSHABLE_DOCKER_IMAGE = "cloudsoft/centos:7";
-
     @SetFromFlag("endpoint")
     ConfigKey<String> MASTER_URL = LocationConfigKeys.CLOUD_ENDPOINT;
 
@@ -81,9 +79,20 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
     @SetFromFlag("image")
     ConfigKey<String> IMAGE = ConfigKeys.builder(String.class)
             .name("kubernetes.image")
-            .description("Docker image to be deployed into the pod for SSHable containers")
+            .description("Docker image to be deployed into the pod")
             .constraint(Predicates.<String>notNull())
-            .defaultValue(DEFAULT_SSHABLE_DOCKER_IMAGE)
+            .build();
+
+    @SetFromFlag("osFamily")
+    ConfigKey<String> OS_FAMILY = ConfigKeys.builder(String.class)
+            .name("kubernetes.osFamily")
+            .description("OS family, e.g. CentOS, Ubuntu")
+            .build();
+    
+    @SetFromFlag("osVersionRegex")
+    ConfigKey<String> OS_VERSION_REGEX = ConfigKeys.builder(String.class)
+            .name("kubernetes.osVersionRegex")
+            .description("Regular expression for the OS version to load")
             .build();
 
     @SuppressWarnings("serial")
