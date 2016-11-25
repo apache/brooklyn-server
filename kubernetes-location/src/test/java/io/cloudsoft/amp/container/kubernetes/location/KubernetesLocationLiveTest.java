@@ -111,15 +111,17 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
 
         assertTrue(machine.isSshable(), "not sshable machine="+machine);
         assertOsNameContains(machine, expectedOs, expectedVersion);
+        assertMachinePasswordSecure(machine);
     }
 
     @Test(groups={"Live"})
     protected void testUsesSuppliedLoginPassword() throws Exception {
+        // Because defaulting to "cloudsoft/centos:7", it knows to set the loginUserPassword
+        // on container creation.
         String password = "myCustomP4ssword";
         loc = newKubernetesLocation(ImmutableMap.<String, Object>of());
         SshMachineLocation machine = newContainerMachine(loc, ImmutableMap.<String, Object>builder()
                 .put(KubernetesLocationConfig.LOGIN_USER_PASSWORD.getName(), password)
-                .put(KubernetesLocationConfig.ENV.getName(), ImmutableMap.of("CLOUDSOFT_ROOT_PASSWORD", password))
                 .put(LocationConfigKeys.CALLER_CONTEXT.getName(), app)
                 .build());
 
@@ -164,5 +166,19 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
         MachineLocation result = loc.obtain(flags);
         machines.add(result);
         return (SshMachineLocation) result;
+    }
+    
+    protected void assertMachinePasswordSecure(SshMachineLocation machine) {
+        String password = machine.config().get(SshMachineLocation.PASSWORD);
+        assertTrue(password.length() > 10, "password="+password);
+        boolean hasUpper = false;
+        boolean hasLower = false;
+        boolean hasNonAlphabetic = false;
+        for (char c : password.toCharArray()) {
+            if (Character.isUpperCase(c)) hasUpper = true;
+            if (Character.isLowerCase(c)) hasLower = true;
+            if (!Character.isAlphabetic(c)) hasNonAlphabetic = true;
+        }
+        assertTrue(hasUpper && hasLower && hasNonAlphabetic, "password="+password);
     }
 }

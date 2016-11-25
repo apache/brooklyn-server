@@ -61,8 +61,6 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "location:",
                 "  kubernetes:",
                 "    " + KubernetesLocationConfig.CLOUD_ENDPOINT.getName() + ": \"" + KUBERNETES_ENDPOINT + "\"",
-                "    " + KubernetesLocationConfig.IMAGE.getName() + ": cloudsoft/centos:7",
-                "    " + KubernetesLocationConfig.LOGIN_USER_PASSWORD.getName() + ": p4ssw0rd",
                 "    " + (Strings.isBlank(IDENTITY) ? "" : "identity: "+IDENTITY),
                 "    " + (Strings.isBlank(CREDENTIAL) ? "" : "credential: "+CREDENTIAL));
     }
@@ -77,9 +75,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "- type: " + EmptySoftwareProcess.class.getName(),
                 "  brooklyn.config:",
                 "    provisioning.properties:",
-                "      " + KubernetesLocationConfig.LOGIN_USER_PASSWORD.getName() + ": " + customPassword,
-                "      env:",
-                "        CLOUDSOFT_ROOT_PASSWORD: " + customPassword);
+                "      " + KubernetesLocationConfig.LOGIN_USER_PASSWORD.getName() + ": " + customPassword);
         Entity app = createStartWaitAndLogApplication(yaml);
         EmptySoftwareProcess entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, EmptySoftwareProcess.class));
         

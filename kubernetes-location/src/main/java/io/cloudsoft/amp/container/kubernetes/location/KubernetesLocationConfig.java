@@ -142,8 +142,12 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
     ConfigKey<String> LOGIN_USER_PASSWORD = ConfigKeys.builder(String.class)
             .name("kubernetes.loginUser.password")
             .description("Custom password for the user who logs in initially")
-            .defaultValue("p4ssw0rd")
             .constraint(Predicates.<String>notNull())
+            .build();
+    
+    public static final ConfigKey<Boolean> INJECT_LOGIN_CREDENTIAL = ConfigKeys.builder(Boolean.class)
+            .name("injectLoginCredential") 
+            .description("Whether to inject login credentials (if null, will infer from image choice); ignored if explicit 'loginUser.password' supplied")
             .build();
 }
 

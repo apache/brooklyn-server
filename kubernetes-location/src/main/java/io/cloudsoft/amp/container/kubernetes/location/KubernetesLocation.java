@@ -30,6 +30,8 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.repeat.Repeater;
+import org.apache.brooklyn.util.text.Identifiers;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,6 +50,7 @@ import com.google.common.io.BaseEncoding;
 import com.google.common.net.HostAndPort;
 
 import io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer;
+import io.cloudsoft.amp.containerservice.dockerlocation.DockerJcloudsLocation;
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
 import io.fabric8.kubernetes.api.model.ContainerPort;
@@ -97,6 +100,13 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     public static final String SERVER_TYPE = "NodePort";
     public static final String IMMUTABLE_CONTAINER_KEY = "immutable-container";
     public static final String SSHABLE_CONTAINER = "sshable-container";
+
+    /**
+     * The regex for the image descriptions that support us injecting login credentials.
+     */
+    private static final List<String> IMAGE_DESCRIPTION_REGEXES_REQUIRING_INJECTED_LOGIN_CREDS = ImmutableList.of(
+            "cloudsoft/centos.*",
+            "cloudsoft/ubuntu.*");
 
     private KubernetesClient client;
 
@@ -223,7 +233,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         Boolean privileged = setup.get(KubernetesLocationConfig.PRIVILEGED);
         String imageName = findImageName(entity, setup);
         Iterable<Integer> inboundPorts = findInboundPorts(entity, setup);
-        Map<String, ?> env = findEnvironmentVariables(setup);
+        Map<String, ?> env = findEnvironmentVariables(setup, imageName);
         Map<String, String> metadata = findMetadata(entity, deploymentName);
 
         if (volumes != null) {
@@ -543,8 +553,54 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         return metadata;
     }
 
-    private Map<String, ?> findEnvironmentVariables(ConfigBag config) {
-        return firstNonNull(config.get(ENV), ImmutableMap.<String, Object> of());
+    /**
+     * Appends the config's "env" with the {@code CLOUDSOFT_ROOT_PASSWORD} env if appropriate.
+     * This is (approximately) the same behaviour as the {@link DockerJcloudsLocation} used for 
+     * Swarm.
+     * 
+     * Side-effects the {@code config}, to set the loginPassword if one is auto-generated.
+     * 
+     * TODO Longer term, we'll add a config key to the `DockerContainer` entity for env variables.
+     * We'll inject those when launching the container (and will do the same in 
+     * `DockerJcloudsLocation` for Swarm). What would the precedence be? Would we prefer the
+     * entity's config over the location's (or vice versa)? I think the entity's would take
+     * precedence, as a location often applies to a whole app so we might well want to override
+     * or augment it for specific entities.
+     */
+    private Map<String, Object> findEnvironmentVariables(ConfigBag config, String imageName) {
+        String loginUser = config.get(LOGIN_USER);
+        String loginPassword = config.get(LOGIN_USER_PASSWORD);
+        Map<String, Object> injections = Maps.newLinkedHashMap();
+        
+        // Check if login credentials should be injected
+        Boolean injectLoginCredentials = config.get(INJECT_LOGIN_CREDENTIAL);
+        if (injectLoginCredentials == null) {
+            for (String regex : IMAGE_DESCRIPTION_REGEXES_REQUIRING_INJECTED_LOGIN_CREDS) {
+                if (imageName != null && imageName.matches(regex)) {
+                    injectLoginCredentials = true;
+                    break;
+                }
+            }
+        }
+        
+        if (Boolean.TRUE.equals(injectLoginCredentials)) {
+            if ((Strings.isBlank(loginUser) || "root".equals(loginUser))) {
+                loginUser = "root";
+                config.configure(LOGIN_USER, loginUser);
+                
+                if (Strings.isBlank(loginPassword)) {
+                    loginPassword = Identifiers.makeRandomPassword(12);
+                    config.configure(LOGIN_USER_PASSWORD, loginPassword);
+                }
+                
+                injections.put("CLOUDSOFT_ROOT_PASSWORD", loginPassword);
+            }
+        }
+
+        return MutableMap.<String, Object>builder()
+                .putAll(injections)
+                .putAll(firstNonNull(config.get(ENV), ImmutableMap.<String, Object> of()))
+                .build();
     }
 
     private Iterable<Integer> findInboundPorts(Entity entity, ConfigBag setup) {
