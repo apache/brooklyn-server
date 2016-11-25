@@ -172,11 +172,29 @@ public class SetHostnameCustomizer extends BasicMachineLocationCustomizer {
         
         boolean hasDomain = Strings.isNonBlank(domainFixed);
         String fqdn = hasDomain ? hostName+"."+domainFixed : hostName;
+
+        if (execAllowingNonZeroExitCode(machine, true,
+                BashCommands.sudo(String.format("[ -e /etc/hosts ]"))).getExitCode() != 0) {
+            exec(machine, true,
+                    BashCommands.sudo(String.format("echo \"127.0.0.1 %s %s\" | sudo tee /etc/hosts", fqdn, hostName)));
+
+        } else {
+            exec(machine, true,
+                    BashCommands.sudo(String.format("sed -i.bak -e '1i127.0.0.1 %s %s' -e '/^127.0.0.1/d' /etc/hosts", fqdn, hostName)));
+        }
+
+        if (execAllowingNonZeroExitCode(machine, true,
+                BashCommands.sudo(String.format("[ -e /etc/sysconfig/network ]"))).getExitCode() != 0) {
+            exec(machine, true,
+                    BashCommands.sudo(String.format("echo HOSTNAME=%s | sudo tee /etc/sysconfig/network", fqdn)),
+                    BashCommands.sudo("echo NETWORKING=yes | sudo tee -a /etc/sysconfig/network"),
+                    BashCommands.sudo("echo NOZEROCONF=true  | sudo tee -a /etc/sysconfig/network"));
+        } else {
+            exec(machine, true,
+                    BashCommands.sudo(String.format("sed -i.bak -e 's/^HOSTNAME=.*$/HOSTNAME=%s/' /etc/sysconfig/network", fqdn)));
+        }
         
-        exec(machine, true, 
-                BashCommands.sudo(String.format("sed -i.bak -e '1i127.0.0.1 %s %s' -e '/^127.0.0.1/d' /etc/hosts", fqdn, hostName)),
-                BashCommands.sudo(String.format("sed -i.bak -e 's/^HOSTNAME=.*$/HOSTNAME=%s/' /etc/sysconfig/network", fqdn)),
-                BashCommands.sudo(String.format("hostname %s", fqdn)));
+        exec(machine, true, BashCommands.sudo(String.format("hostname %s", fqdn)));
 
         return hostName;
     }
@@ -222,13 +240,20 @@ public class SetHostnameCustomizer extends BasicMachineLocationCustomizer {
     }
     
     protected ProcessTaskWrapper<Integer> exec(SshMachineLocation machine, boolean asRoot, String... cmds) {
-        SshEffectorTaskFactory<Integer> taskFactory = SshEffectorTasks.ssh(machine, cmds);
-        if (asRoot) taskFactory.runAsRoot();
-        ProcessTaskWrapper<Integer> result = DynamicTasks.queue(taskFactory).block();
+        ProcessTaskWrapper<Integer> result = execAllowingNonZeroExitCode(machine, asRoot, cmds);
+
         if (result.get() != 0) {
             throw new IllegalStateException("SetHostnameCustomizer got exit code "+result.get()+" executing on machine "+machine
                     +"; cmds="+Arrays.asList(cmds)+"; stdout="+result.getStdout()+"; stderr="+result.getStderr());
         }
+        return result;
+    }
+
+    protected ProcessTaskWrapper<Integer> execAllowingNonZeroExitCode(SshMachineLocation machine, boolean asRoot, String... cmds) {
+        SshEffectorTaskFactory<Integer> taskFactory = SshEffectorTasks.ssh(machine, cmds);
+        if (asRoot) taskFactory.runAsRoot();
+        ProcessTaskWrapper<Integer> result = DynamicTasks.queue(taskFactory).block();
+
         return result;
     }
 }
