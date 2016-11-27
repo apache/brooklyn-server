@@ -18,14 +18,14 @@ services:
   name: Simple Netcat Server
 
   brooklyn.config:
-    env:
-      ROOT_PASS: password
     provisioning.properties:
       inboundPorts: [22, 4321]
 
     launch.command: |
       echo hello | nc -l 4321 &
       echo $! > $PID_FILE
+    checkRunning.command: |
+      true
 ```
 
 For each entity AMP will create
@@ -60,15 +60,21 @@ services:
     name: MySQL
     brooklyn.config:
       docker.container.imageName: mysql:5.6
-      docker.container.inboundPorts: [ "3306" ]
-      env: { MYSQL_ROOT_PASSWORD: "password" }
+      docker.container.inboundPorts:
+      - "3306"
       provisioning.properties:
+        env:
+          MYSQL_ROOT_PASSWORD: "password"
         kubernetes.deployment: wordpress-mysql
   - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
     id: wordpress
     name: Wordpress
     brooklyn.config:
       docker.container.imageName: wordpress:4.4-apache
-      docker.container.inboundPorts: [ "80" ]
-      env: { WORDPRESS_DB_HOST: "wordpress-mysql", WORDPRESS_DB_PASSWORD: "password" }
+      docker.container.inboundPorts:
+      - "80"
+      provisioning.properties:
+        env:
+          WORDPRESS_DB_HOST: "wordpress-mysql"
+          WORDPRESS_DB_PASSWORD: "password"
 ```
