@@ -18,21 +18,51 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
     @SetFromFlag("endpoint")
     ConfigKey<String> MASTER_URL = LocationConfigKeys.CLOUD_ENDPOINT;
 
-    ConfigKey<String> CA_CERT = ConfigKeys.builder(String.class)
-            .name("caCert")
+    ConfigKey<String> CA_CERT_DATA = ConfigKeys.builder(String.class)
+            .name("caCertData")
+            .description("Data for CA certificate")
+            .constraint(Predicates.<String>notNull())
+            .build();
+
+    ConfigKey<String> CA_CERT_FILE = ConfigKeys.builder(String.class)
+            .name("caCertFile")
             .description("URL of resource containing CA certificate data")
             .constraint(Predicates.<String>notNull())
             .build();
 
-    ConfigKey<String> CLIENT_CERT = ConfigKeys.builder(String.class)
-            .name("clientCert")
+    ConfigKey<String> CLIENT_CERT_DATA = ConfigKeys.builder(String.class)
+            .name("clientCertData")
+            .description("Data for client certificate")
+            .constraint(Predicates.<String>notNull())
+            .build();
+
+    ConfigKey<String> CLIENT_CERT_FILE = ConfigKeys.builder(String.class)
+            .name("clientCertFile")
             .description("URL of resource containing client certificate data")
             .constraint(Predicates.<String>notNull())
             .build();
 
-    ConfigKey<String> CLIENT_KEY = ConfigKeys.builder(String.class)
-            .name("clientKey")
+    ConfigKey<String> CLIENT_KEY_DATA = ConfigKeys.builder(String.class)
+            .name("clientKeyData")
+            .description("Data for client key")
+            .constraint(Predicates.<String>notNull())
+            .build();
+
+    ConfigKey<String> CLIENT_KEY_FILE = ConfigKeys.builder(String.class)
+            .name("clientKeyFile")
             .description("URL of resource containing client key data")
+            .constraint(Predicates.<String>notNull())
+            .build();
+
+    ConfigKey<String> CLIENT_KEY_ALGO = ConfigKeys.builder(String.class)
+            .name("clientKeyAlgo")
+            .description("Algorithm used for the client key")
+            .constraint(Predicates.<String>notNull())
+            .build();
+
+    ConfigKey<String> CLIENT_KEY_PASSPHRASE = ConfigKeys.builder(String.class)
+            .name("clientKeyPassphrase")
+            .description("Passphrase used for the client key")
             .constraint(Predicates.<String>notNull())
             .build();
 

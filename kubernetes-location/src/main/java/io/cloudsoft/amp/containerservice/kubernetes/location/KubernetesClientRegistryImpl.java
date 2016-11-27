@@ -6,7 +6,6 @@ import java.net.MalformedURLException;
 import java.net.URL;
 
 import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.base.Throwables;
@@ -35,14 +34,12 @@ public class KubernetesClientRegistryImpl implements KubernetesClientRegistry {
                 .withTrustCerts(false);
 
         if (url.getProtocol().equals("https")) {
-            String caCert = conf.get(KubernetesLocationConfig.CA_CERT);
-            if (Strings.isNonBlank(caCert)) configBuilder.withCaCertFile(Os.tidyPath(caCert));
-
-            String clientCert = conf.get(KubernetesLocationConfig.CLIENT_CERT);
-            if (Strings.isNonBlank(clientCert)) configBuilder.withClientCertFile(Os.tidyPath(clientCert));
-
-            String clientKey = conf.get(KubernetesLocationConfig.CLIENT_KEY);
-            if (Strings.isNonBlank(clientKey)) configBuilder.withClientKeyFile(Os.tidyPath(clientKey));
+            KubernetesCerts certs = new KubernetesCerts(conf);
+            if (certs.caCertData.isPresent()) configBuilder.withCaCertData(certs.caCertData.get());
+            if (certs.clientCertData.isPresent()) configBuilder.withClientCertData(certs.clientCertData.get());
+            if (certs.clientKeyData.isPresent()) configBuilder.withClientKeyData(certs.clientKeyData.get());
+            if (certs.clientKeyAlgo.isPresent()) configBuilder.withClientKeyAlgo(certs.clientKeyAlgo.get());
+            if (certs.clientKeyPassphrase.isPresent()) configBuilder.withClientKeyPassphrase(certs.clientKeyPassphrase.get());
         }
 
         String username = conf.get(KubernetesLocationConfig.ACCESS_IDENTITY);
