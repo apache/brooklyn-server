@@ -104,7 +104,7 @@ public class GroupTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testAddingUnmanagedGroupDoesNotFailBadly() throws Exception {
         Entities.unmanage(group);
-        entity1.addGroup(group);
+        entity1.groups().add(group);
         Entities.unmanage(entity1);
     }
     
