@@ -1,4 +1,4 @@
-package io.cloudsoft.amp.container.kubernetes.entity;
+package io.cloudsoft.amp.containerservice.kubernetes.entity;
 
 import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.entity.stock.BasicStartable;

@@ -1,10 +1,12 @@
-package io.cloudsoft.amp.container.kubernetes.location;
+package io.cloudsoft.amp.containerservice.kubernetes.location;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+
+import io.cloudsoft.amp.containerservice.kubernetes.location.ImageChooser;
 
 public class ImageChooserTest {
 

@@ -53,7 +53,7 @@ location:
     endpoint: "https://192.168.99.100:8443/"
 
 services:
-- type: io.cloudsoft.amp.container.kubernetes.entity.KubernetesPod
+- type: io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesPod
   brooklyn.children:
   - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
     id: wordpress-mysql

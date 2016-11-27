@@ -3,7 +3,7 @@ location:
     endpoint: "http://10.101.0.236:8080/"
 
 services:
-- type: io.cloudsoft.amp.container.kubernetes.entity.KubernetesPod
+- type: io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesPod
   brooklyn.children:
   - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
     id: wordpress-mysql

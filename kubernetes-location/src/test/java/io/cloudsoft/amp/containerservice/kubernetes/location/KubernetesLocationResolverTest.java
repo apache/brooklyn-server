@@ -1,4 +1,4 @@
-package io.cloudsoft.amp.container.kubernetes.location;
+package io.cloudsoft.amp.containerservice.kubernetes.location;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -12,6 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+
+import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocation;
 
 public class KubernetesLocationResolverTest extends BrooklynMgmtUnitTestSupport {
 

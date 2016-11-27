@@ -1,8 +1,8 @@
-package io.cloudsoft.amp.container.kubernetes.location;
+package io.cloudsoft.amp.containerservice.kubernetes.location;
 
-import static io.cloudsoft.amp.container.kubernetes.location.KubernetesLocationLiveTest.CREDENTIAL;
-import static io.cloudsoft.amp.container.kubernetes.location.KubernetesLocationLiveTest.IDENTITY;
-import static io.cloudsoft.amp.container.kubernetes.location.KubernetesLocationLiveTest.KUBERNETES_ENDPOINT;
+import static io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationLiveTest.CREDENTIAL;
+import static io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationLiveTest.IDENTITY;
+import static io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationLiveTest.KUBERNETES_ENDPOINT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -33,8 +33,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.net.HostAndPort;
 
-import io.cloudsoft.amp.container.kubernetes.entity.KubernetesPod;
 import io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer;
+import io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesPod;
+import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocation;
+import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationConfig;
 
 /**
  * Live tests for deploying simple blueprints. Particularly useful during dev, but not so useful

@@ -1,4 +1,4 @@
-package io.cloudsoft.amp.container.kubernetes.location;
+package io.cloudsoft.amp.containerservice.kubernetes.location;
 
 import java.util.List;
 import java.util.Map;

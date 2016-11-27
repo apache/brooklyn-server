@@ -1,1 +1,1 @@
-io.cloudsoft.amp.container.kubernetes.location.KubernetesLocationResolver
+io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationResolver

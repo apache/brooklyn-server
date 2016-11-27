@@ -9,7 +9,7 @@
 
 
     <bean id="kubernetesLocationResolver" scope="prototype"
-          class="io.cloudsoft.amp.container.kubernetes.location.KubernetesLocationResolver"/>
+          class="io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationResolver"/>
     <service id="kubernetesLocationResolverService" ref="kubernetesLocationResolver"
              interface="org.apache.brooklyn.api.location.LocationResolver"/>
 
