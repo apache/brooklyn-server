@@ -18,80 +18,71 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
     @SetFromFlag("endpoint")
     ConfigKey<String> MASTER_URL = LocationConfigKeys.CLOUD_ENDPOINT;
 
-    @SetFromFlag("caCertUrl")
     ConfigKey<String> CA_CERT = ConfigKeys.builder(String.class)
-            .name("kubernetes.caCert")
+            .name("caCert")
             .description("URL of resource containing CA certificate data")
             .constraint(Predicates.<String>notNull())
             .build();
 
-    @SetFromFlag("clientCertUrl")
     ConfigKey<String> CLIENT_CERT = ConfigKeys.builder(String.class)
-            .name("kubernetes.clientCert")
+            .name("clientCert")
             .description("URL of resource containing client certificate data")
             .constraint(Predicates.<String>notNull())
             .build();
 
-    @SetFromFlag("clientKeyUrl")
     ConfigKey<String> CLIENT_KEY = ConfigKeys.builder(String.class)
-            .name("kubernetes.clientKey")
+            .name("clientKey")
             .description("URL of resource containing client key data")
             .constraint(Predicates.<String>notNull())
             .build();
 
-    @SetFromFlag("oauthToken")
     ConfigKey<String> OAUTH_TOKEN = ConfigKeys.builder(String.class)
-            .name("kubernetes.oauthToken")
+            .name("oauthToken")
             .description("The OAuth token data for the current user")
             .constraint(Predicates.<String>notNull())
             .build();
 
-    @SetFromFlag("namespace")
     ConfigKey<String> NAMESPACE = ConfigKeys.builder(String.class)
-            .name("kubernetes.namespace")
+            .name("namespace")
             .description("Namespace where resources will live; the default is 'amp'")
             .defaultValue("amp")
             .constraint(Predicates.<String>notNull())
             .build();
 
-    @SetFromFlag("persistentVolumes")
     @SuppressWarnings("serial")
     ConfigKey<List<String>> PERSISTENT_VOLUMES = ConfigKeys.builder(new TypeToken<List<String>>() {})
-            .name("kubernetes.persistent.volumes")
+            .name("persistentVolumes")
             .description("Set up persistent volumes.")
             .constraint(Predicates.<List<String>>notNull())
             .build();
 
-    @SetFromFlag("deployment")
     ConfigKey<String> DEPLOYMENT = ConfigKeys.builder(String.class)
-            .name("kubernetes.deployment")
+            .name("deployment")
             .description("Deployment where resources will live.")
             .constraint(Predicates.<String>notNull())
             .build();
 
-    @SetFromFlag("service")
+    // TODO Move to a KubernetesSshMachineLocation?
     ConfigKey<String> SERVICE = ConfigKeys.builder(String.class)
-            .name("kubernetes.service")
-            .description("Service that exposes the deployment.")
+            .name("service")
+            .description("Service (auto-set on the container location) that exposes the deployment.")
             .constraint(Predicates.<String>notNull())
             .build();
 
     @SetFromFlag("image")
     ConfigKey<String> IMAGE = ConfigKeys.builder(String.class)
-            .name("kubernetes.image")
+            .name("image")
             .description("Docker image to be deployed into the pod")
             .constraint(Predicates.<String>notNull())
             .build();
 
-    @SetFromFlag("osFamily")
     ConfigKey<String> OS_FAMILY = ConfigKeys.builder(String.class)
-            .name("kubernetes.osFamily")
+            .name("osFamily")
             .description("OS family, e.g. CentOS, Ubuntu")
             .build();
     
-    @SetFromFlag("osVersionRegex")
     ConfigKey<String> OS_VERSION_REGEX = ConfigKeys.builder(String.class)
-            .name("kubernetes.osVersionRegex")
+            .name("osVersionRegex")
             .description("Regular expression for the OS version to load")
             .build();
 
@@ -102,33 +93,29 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
             "Environment variables to inject when starting the container", 
             ImmutableMap.<String, Object>of());
 
-    @SetFromFlag("replicas")
     ConfigKey<Integer> REPLICAS = ConfigKeys.builder(Integer.class)
-            .name("kubernetes.replicas")
+            .name("replicas")
             .description("Number of replicas into the pod")
             .constraint(Predicates.notNull())
             .defaultValue(1)
             .build();
 
-    @SetFromFlag("secrets")
     @SuppressWarnings("serial")
     ConfigKey<Map<String, String>> SECRETS = ConfigKeys.builder(
             new TypeToken<Map<String, String>>() {})
-            .name("kubernetes.secrets")
+            .name("secrets")
             .description("Kubernetes secrets to be added to the pod")
             .build();
 
-    @SetFromFlag("limits")
     @SuppressWarnings("serial")
     ConfigKey<Map<String, String>> LIMITS = ConfigKeys.builder(
             new TypeToken<Map<String, String>>() {})
-            .name("kubernetes.limits")
+            .name("limits")
             .description("Kubernetes resource limits")
             .build();
 
-    @SetFromFlag("privileged")
     ConfigKey<Boolean> PRIVILEGED = ConfigKeys.builder(Boolean.class)
-            .name("kubernetes.privileged")
+            .name("privileged")
             .description("Kubernetes resource limits")
             .defaultValue(false)
             .build();
@@ -141,15 +128,14 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
             .build();
 
     ConfigKey<String> LOGIN_USER = ConfigKeys.builder(String.class)
-            .name("kubernetes.loginUser")
+            .name("loginUser")
             .description("Override the user who logs in initially to perform setup")
             .defaultValue("root")
             .constraint(Predicates.<String>notNull())
             .build();
 
-    @SetFromFlag("loginUserPassword")
     ConfigKey<String> LOGIN_USER_PASSWORD = ConfigKeys.builder(String.class)
-            .name("kubernetes.loginUser.password")
+            .name("loginUser.password")
             .description("Custom password for the user who logs in initially")
             .constraint(Predicates.<String>notNull())
             .build();

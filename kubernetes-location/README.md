@@ -65,7 +65,7 @@ services:
       provisioning.properties:
         env:
           MYSQL_ROOT_PASSWORD: "password"
-        kubernetes.deployment: wordpress-mysql
+        deployment: wordpress-mysql
   - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
     id: wordpress
     name: Wordpress

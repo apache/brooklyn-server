@@ -219,7 +219,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "      docker.container.inboundPorts:",
                 "      - \"3306\"",
                 "      provisioning.properties:",
-                "        kubernetes.deployment: wordpress-mysql",
+                "        deployment: wordpress-mysql",
                 "        env:",
                 "          MYSQL_ROOT_PASSWORD: \"password\"",
                 "  - type: " + DockerContainer.class.getName(),
@@ -230,7 +230,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "      docker.container.inboundPorts:",
                 "      - \"80\"",
                 "      provisioning.properties:",
-                "        kubernetes.deployment: wordpress",
+                "        deployment: wordpress",
                 "        env:",
                 "          WORDPRESS_DB_HOST: \"wordpress-mysql\"",
                 "          WORDPRESS_DB_PASSWORD: \"password\"");
