@@ -40,48 +40,6 @@ brooklyn.catalog:
 
   items:
   - "https://raw.githubusercontent.com/brooklyncentral/common-catalog-utils/master/common-tests/src/main/resources/commontests/common.tests.bom"
-  
-  ##
-  #Test assumtions
-  # * swarm endpoint preconfigured
-  # * cloudsoft/ubuntu:14.04 image has been pulled
-  - id: cluster-endpoint-tests
-    name: "Cluster Endpoint Deployment Tests"
-    description: |
-      Tests containers and applications can be deployed to both cluster and
-      Cloud locations
-    itemType: template
-    item:
-      brooklyn.config:
-        timeout: 1h
-        timeout.initialStartup: 1h
-        timeout.runtimeAssertion: 1h
-      services:
-        - type: test-case
-          name: "1. Deploy Container Type Tests"
-          brooklyn.children:
-            - type: deploy-single-container-type
-        - type: test-case
-          name: "2. Deploy Blueprint Application Tests"
-          brooklyn.config:
-            dontRequireTtyForSudo: true
-          brooklyn.children:
-            - type: test-case
-              name: "2.1. Single-Node Application Test"
-              brooklyn.children:
-                - type: deploy-app-to-cluster-single-node
-            - type: test-case
-              name: "2.2. Multi-Node Application Test"
-              brooklyn.children:
-                # remove this because of https://issues.apache.org/jira/browse/BROOKLYN-311
-                #- type: deploy-riak-cluster-to-cluster-multi-node
-                - type: deploy-multi-node-app-cluster
-            - type: test-case
-              name: "2.3 Hybrid Multi-Node Application"
-              brooklyn.children:
-                - type: deploy-multi-node-app-cluster-to-cloud
-                - type: deploy-multi-node-app-cloud-to-cluster
-  
   - id: tomcat-webapp-cluster
     name: "Tomcat Webapp Cluster"
     description: |
