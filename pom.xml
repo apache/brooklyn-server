@@ -152,7 +152,6 @@
         <jax-rs-api.version>2.0.1</jax-rs-api.version>
         <maxmind.version>2.8.0-rc1</maxmind.version>
         <maxmind-db.version>1.2.1</maxmind-db.version>
-        <jna.version>4.0.0</jna.version>
         <winrm4j.version>0.4.0</winrm4j.version>
         <karaf.version>4.0.4</karaf.version>
         <felix-osgi-compendium.version>1.4.0</felix-osgi-compendium.version>
