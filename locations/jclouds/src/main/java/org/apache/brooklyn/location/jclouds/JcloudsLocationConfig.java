@@ -293,9 +293,14 @@ public interface JcloudsLocationConfig extends CloudLocationConfig {
     public static final ConfigKey<Map<String,Object>> TEMPLATE_OPTIONS = ConfigKeys.newConfigKey(
             new TypeToken<Map<String, Object>>() {}, "templateOptions", "Additional jclouds template options");
 
+    /*
+         The purpose of this config is to aid deployment of blueprints to clouds where it is difficult to get nodes to
+         communicate via private IPs. This config allows a user to overwrite private IPs as public IPs, thus ensuring
+         that any blueprints they wish to deploy which may use private IPs still work in these clouds.
+     */
     @Beta
-    public static final ConfigKey<Boolean> USE_PUBLIC_ENDPOINT_AS_PRIVATE_ENDPOINT = ConfigKeys.newBooleanConfigKey(
-            "usePublicEndpointAsPrivateEndpoint",
+    public static final ConfigKey<Boolean> USE_MACHINE_PUBLIC_ADDRESS_AS_PRIVATE_ADDRESS = ConfigKeys.newBooleanConfigKey(
+            "useMachinePublicAddressAsPrivateAddress",
             "When true we will use the public IP/Hostname of a JClouds Location as the private IP/Hostname",
             false);
 

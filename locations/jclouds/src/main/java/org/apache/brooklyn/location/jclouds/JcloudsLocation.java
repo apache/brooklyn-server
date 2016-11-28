@@ -60,7 +60,6 @@ import org.apache.brooklyn.api.mgmt.AccessController;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
-import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.location.AbstractLocation;
@@ -3356,9 +3355,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     }
     
     protected String getPrivateHostname(NodeMetadata node, Optional<HostAndPort> sshHostAndPort, Supplier<? extends LoginCredentials> userCredentials, ConfigBag setup) {
-        Boolean usePublicEndpointAsPrivateEndpoint = (setup != null) ? setup.get(USE_PUBLIC_ENDPOINT_AS_PRIVATE_ENDPOINT) : false;
-        if(usePublicEndpointAsPrivateEndpoint) {
-            LOG.debug("Overriding private hostname as public hostname because config "+USE_PUBLIC_ENDPOINT_AS_PRIVATE_ENDPOINT+" is set to true");
+        Boolean useMachinePublicAddressAsPrivateAddress = (setup != null) ? setup.get(USE_MACHINE_PUBLIC_ADDRESS_AS_PRIVATE_ADDRESS) : false;
+        if(useMachinePublicAddressAsPrivateAddress) {
+            LOG.debug("Overriding private hostname as public hostname because config "+ USE_MACHINE_PUBLIC_ADDRESS_AS_PRIVATE_ADDRESS.getName()+" is set to true");
             return getPublicHostname(node, sshHostAndPort, userCredentials, setup);
         }
 

@@ -27,26 +27,20 @@ import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 
 import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.NodeMetadata.Status;
 import org.jclouds.compute.domain.NodeMetadataBuilder;
-import org.jclouds.compute.domain.OsFamily;
 import org.jclouds.compute.domain.Template;
 import org.jclouds.domain.LoginCredentials;
 
+import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.AbstractNodeCreator;
 import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.NodeCreator;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
-import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
-import org.apache.brooklyn.util.core.internal.ssh.SshTool;
-import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
 
-public class JcloudsSshMachineLocationEndpointOverwriteTest extends AbstractJcloudsStubbedUnitTest {
+public class JcloudsSshMachineLocationAddressOverwriteTest extends AbstractJcloudsStubbedUnitTest {
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(JcloudsImageChoiceStubbedLiveTest.class);
@@ -59,7 +53,7 @@ public class JcloudsSshMachineLocationEndpointOverwriteTest extends AbstractJclo
         super.setUp();
         privateAddresses = ImmutableList.of("172.168.10.11");
         publicAddresses = ImmutableList.of("173.194.32.123");
-        initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of(JcloudsLocationConfig.USE_PUBLIC_ENDPOINT_AS_PRIVATE_ENDPOINT.getName(), true));
+        initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of(JcloudsLocationConfig.USE_MACHINE_PUBLIC_ADDRESS_AS_PRIVATE_ADDRESS.getName(), true));
     }
     
     protected NodeCreator newNodeCreator() {
@@ -83,11 +77,19 @@ public class JcloudsSshMachineLocationEndpointOverwriteTest extends AbstractJclo
     public void testSetPrivateIpToPublicIp() throws Exception {
         JcloudsSshMachineLocation machine = obtainMachine(ImmutableMap.of());
 
+        assertEquals(publicAddresses, machine.getPublicAddresses());
+
         assertEquals(machine.getPublicAddresses().size(), 1);
         String publicAddress = machine.getPublicAddresses().iterator().next();
 
         assertEquals(machine.getPrivateAddress().get(), publicAddress);
         assertEquals(machine.getSubnetHostname(), machine.getHostname());
         assertEquals(machine.getSubnetIp(), publicAddress);
+
+        assertEquals(Machines.getSubnetHostname(machine).get(), machine.getHostname());
+        assertEquals(Machines.getSubnetIp(machine).get(), publicAddress);
+        assertEquals(machine.getPrivateAddresses().size(), 1);
+        assertEquals(machine.getPrivateAddresses().iterator().next(), publicAddress);
+
     }
 }

@@ -18,7 +18,7 @@
  */
 package org.apache.brooklyn.location.jclouds;
 
-import static org.apache.brooklyn.location.jclouds.JcloudsLocationConfig.USE_PUBLIC_ENDPOINT_AS_PRIVATE_ENDPOINT;
+import static org.apache.brooklyn.location.jclouds.JcloudsLocationConfig.USE_MACHINE_PUBLIC_ADDRESS_AS_PRIVATE_ADDRESS;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 
 import java.util.List;
@@ -205,9 +205,9 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
         publicAddresses = node.getPublicAddresses();
         _node = Optional.of(node);
 
-        Boolean usePublicEndpointAsPrivateEndpoint = config().get(USE_PUBLIC_ENDPOINT_AS_PRIVATE_ENDPOINT);
-        if(usePublicEndpointAsPrivateEndpoint) {
-            LOG.debug("Overriding private address ["+node.getPrivateAddresses()+"] as public address ["+node.getPublicAddresses()+"] as config "+USE_PUBLIC_ENDPOINT_AS_PRIVATE_ENDPOINT+" is set to true");
+        Boolean useMachinePublicAddressAsPrivateAddress = config().get(USE_MACHINE_PUBLIC_ADDRESS_AS_PRIVATE_ADDRESS);
+        if(useMachinePublicAddressAsPrivateAddress) {
+            LOG.debug("Overriding private address ["+node.getPrivateAddresses()+"] as public address ["+node.getPublicAddresses()+"] as config "+ USE_MACHINE_PUBLIC_ADDRESS_AS_PRIVATE_ADDRESS +" is set to true");
             privateAddresses = node.getPublicAddresses();
         } else {
             privateAddresses = node.getPrivateAddresses();
