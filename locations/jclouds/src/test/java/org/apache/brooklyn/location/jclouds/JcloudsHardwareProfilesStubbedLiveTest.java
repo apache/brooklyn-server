@@ -21,19 +21,14 @@ package org.apache.brooklyn.location.jclouds;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.AbstractNodeCreator;
+import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.BasicNodeCreator;
 import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.NodeCreator;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.jclouds.compute.domain.NodeMetadata;
-import org.jclouds.compute.domain.NodeMetadata.Status;
-import org.jclouds.compute.domain.NodeMetadataBuilder;
 import org.jclouds.compute.domain.Template;
-import org.jclouds.domain.LoginCredentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
-
-import com.google.common.collect.ImmutableList;
 
 public class JcloudsHardwareProfilesStubbedLiveTest extends AbstractJcloudsStubbedLiveTest {
 
@@ -44,19 +39,10 @@ public class JcloudsHardwareProfilesStubbedLiveTest extends AbstractJcloudsStubb
     
     @Override
     protected NodeCreator newNodeCreator() {
-        return new AbstractNodeCreator() {
+        return new BasicNodeCreator() {
             @Override protected NodeMetadata newNode(String group, Template template) {
                 JcloudsHardwareProfilesStubbedLiveTest.this.template = template;
-                
-                NodeMetadata result = new NodeMetadataBuilder()
-                        .id("myid")
-                        .credentials(LoginCredentials.builder().identity("myuser").credential("mypassword").build())
-                        .loginPort(22)
-                        .status(Status.RUNNING)
-                        .publicAddresses(ImmutableList.of("173.194.32.123"))
-                        .privateAddresses(ImmutableList.of("172.168.10.11"))
-                        .build();
-                return result;
+                return super.newNode(group, template);
             }
         };
     }
