@@ -63,7 +63,7 @@ public class ServerResourceIntegrationTest extends BrooklynRestApiLauncherTestFi
         ManagementContext mgmt = new LocalManagementContext(brooklynProperties);
         
         try {
-            Server server = useServerForTest(BrooklynRestApiLauncher.launcher()
+            Server server = useServerForTest(baseLauncher()
                     .managementContext(mgmt)
                     .withoutJsgui()
                     .securityProvider(TestSecurityProvider.class)
@@ -103,7 +103,7 @@ public class ServerResourceIntegrationTest extends BrooklynRestApiLauncherTestFi
 
     @Test(groups = "Integration")
     public void testGetUser() throws Exception {
-        Server server = useServerForTest(BrooklynRestApiLauncher.launcher()
+        Server server = useServerForTest(baseLauncher()
                 .securityProvider(TestSecurityProvider.class)
                 .withoutJsgui()
                 .start());

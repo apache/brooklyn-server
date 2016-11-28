@@ -74,7 +74,7 @@ public abstract class AbstractRestApiEntitlementsTest extends BrooklynRestApiLau
                         .configure(TestEntity.CONF_NAME, "myname"));
         entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         
-        useServerForTest(BrooklynRestApiLauncher.launcher()
+        useServerForTest(baseLauncher()
                 .managementContext(mgmt)
                 .forceUseOfDefaultCatalogWithJavaClassPath(true)
                 .start());

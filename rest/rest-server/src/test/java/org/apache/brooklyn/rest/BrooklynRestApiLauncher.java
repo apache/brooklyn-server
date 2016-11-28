@@ -196,8 +196,10 @@ public class BrooklynRestApiLauncher {
 
         Maybe<Object> configSecurityProvider = mgmt.getConfig().getConfigLocalRaw(BrooklynWebConfig.SECURITY_PROVIDER_CLASSNAME);
         boolean hasConfigSecurityProvider = configSecurityProvider.isPresent();
-        boolean hasOverrideSecurityProvider = (securityProvider != null && securityProvider != AnyoneSecurityProvider.class);
-        if (hasOverrideSecurityProvider || hasConfigSecurityProvider) {
+        boolean hasOverrideSecurityProvider = securityProvider != null;
+        boolean hasAnyoneOverrideSecurityProvide = (securityProvider == AnyoneSecurityProvider.class) ||
+            (!hasOverrideSecurityProvider && hasConfigSecurityProvider && AnyoneSecurityProvider.class.getName().equals(configSecurityProvider.get()));
+        if (!hasAnyoneOverrideSecurityProvide && (hasOverrideSecurityProvider || hasConfigSecurityProvider)) {
             ((WebAppContext)context).addOverrideDescriptor(getClass().getResource("/web-security.xml").toExternalForm());
             if (hasOverrideSecurityProvider) {
                 ((BrooklynProperties) mgmt.getConfig()).put(
@@ -340,16 +342,20 @@ public class BrooklynRestApiLauncher {
         log.info("Press Ctrl-C to quit.");
     }
 
+    public static BrooklynRestApiLauncher launcherServlet() {
+        return new BrooklynRestApiLauncher().mode(StartMode.SERVLET);
+    }
+    
     public static Server startRestResourcesViaServlet() throws Exception {
-        return new BrooklynRestApiLauncher()
-                .mode(StartMode.SERVLET)
-                .start();
+        return launcherServlet().start();
     }
 
+    public static BrooklynRestApiLauncher launcherWebXml() {
+        return new BrooklynRestApiLauncher().mode(StartMode.WEB_XML);
+    }
+    
     public static Server startRestResourcesViaWebXml() throws Exception {
-        return new BrooklynRestApiLauncher()
-                .mode(StartMode.WEB_XML)
-                .start();
+        return launcherWebXml().start();
     }
 
     /** look for the JS GUI webapp in common source places, returning path to it if found, or null.

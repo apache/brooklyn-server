@@ -20,16 +20,17 @@ package org.apache.brooklyn.rest.jsgui;
 
 import java.net.InetSocketAddress;
 
-import org.apache.brooklyn.rest.NopSecurityHandler;
-import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.webapp.WebAppContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.rest.BrooklynRestApiLauncher;
+import org.apache.brooklyn.rest.NopSecurityHandler;
+import org.apache.brooklyn.rest.security.provider.AnyoneSecurityProvider;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.os.Os;
 import org.eclipse.jetty.server.NetworkConnector;
+import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.webapp.WebAppContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** launches Javascript GUI programmatically. and used for tests.
  * see {@link BrooklynRestApiLauncher} for more information.
@@ -65,7 +66,9 @@ public class BrooklynJavascriptGuiLauncher {
     
     /** due to the relative path search in {@link BrooklynRestApiLauncher} we can just call that method */ 
     public static Server startJavascriptAndRest() throws Exception {
-        return BrooklynRestApiLauncher.startRestResourcesViaServlet();
+        return BrooklynRestApiLauncher.launcherServlet()
+            .securityProvider(AnyoneSecurityProvider.class)
+            .start();
     }
 
     /** not much fun without a REST server. 
