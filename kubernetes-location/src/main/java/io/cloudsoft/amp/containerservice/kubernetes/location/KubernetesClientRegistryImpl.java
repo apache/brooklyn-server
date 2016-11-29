@@ -9,6 +9,7 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.base.Throwables;
+import com.google.common.io.BaseEncoding;
 
 import io.fabric8.kubernetes.client.ConfigBuilder;
 import io.fabric8.kubernetes.client.DefaultKubernetesClient;
@@ -35,9 +36,9 @@ public class KubernetesClientRegistryImpl implements KubernetesClientRegistry {
 
         if (url.getProtocol().equals("https")) {
             KubernetesCerts certs = new KubernetesCerts(conf);
-            if (certs.caCertData.isPresent()) configBuilder.withCaCertData(certs.caCertData.get());
-            if (certs.clientCertData.isPresent()) configBuilder.withClientCertData(certs.clientCertData.get());
-            if (certs.clientKeyData.isPresent()) configBuilder.withClientKeyData(certs.clientKeyData.get());
+            if (certs.caCertData.isPresent()) configBuilder.withCaCertData(toBase64Encoding(certs.caCertData.get()));
+            if (certs.clientCertData.isPresent()) configBuilder.withClientCertData(toBase64Encoding(certs.clientCertData.get()));
+            if (certs.clientKeyData.isPresent()) configBuilder.withClientKeyData(toBase64Encoding(certs.clientKeyData.get()));
             if (certs.clientKeyAlgo.isPresent()) configBuilder.withClientKeyAlgo(certs.clientKeyAlgo.get());
             if (certs.clientKeyPassphrase.isPresent()) configBuilder.withClientKeyPassphrase(certs.clientKeyPassphrase.get());
         }
@@ -52,5 +53,9 @@ public class KubernetesClientRegistryImpl implements KubernetesClientRegistry {
         if (Strings.isNonBlank(token)) configBuilder.withOauthToken(token);
 
         return new DefaultKubernetesClient(configBuilder.build());
+    }
+    
+    private String toBase64Encoding(String val) {
+        return BaseEncoding.base64().encode(val.getBytes());
     }
 }
