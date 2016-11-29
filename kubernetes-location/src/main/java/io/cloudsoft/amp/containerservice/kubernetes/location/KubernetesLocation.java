@@ -2,13 +2,17 @@ package io.cloudsoft.amp.containerservice.kubernetes.location;
 
 import static com.google.common.base.Objects.firstNonNull;
 
+import java.io.IOException;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.net.UnknownHostException;
 import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.LocationSpec;
@@ -39,6 +43,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
+import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -57,7 +62,6 @@ import io.fabric8.kubernetes.api.model.ContainerPort;
 import io.fabric8.kubernetes.api.model.ContainerPortBuilder;
 import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.EnvVarBuilder;
-import io.fabric8.kubernetes.api.model.IntOrString;
 import io.fabric8.kubernetes.api.model.Namespace;
 import io.fabric8.kubernetes.api.model.NamespaceBuilder;
 import io.fabric8.kubernetes.api.model.PersistentVolume;
@@ -250,10 +254,44 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         Deployment deployment = deploy(namespace.getMetadata().getName(), metadata, deploymentName, container, replicas, secrets);
         Service service = exposeService(namespace.getMetadata().getName(), metadata, deploymentName, inboundPorts);
         Pod pod = getPod(namespace.getMetadata().getName(), metadata);
+
         LocationSpec<SshMachineLocation> locationSpec = prepareLocationSpec(entity, setup, namespace, deployment, service, pod);
         SshMachineLocation machine = getManagementContext().getLocationManager().createLocation(locationSpec);
         registerPortMappings(machine, service);
+        if (!isDockerContainer(entity)) {
+            waitUntilReachable(machine);
+        }
+
         return machine;
+    }
+
+    protected void waitUntilReachable(final SshMachineLocation machine) {
+        InetAddress addr = machine.getAddress();
+        int port = machine.getPort();
+        final InetSocketAddress target = new InetSocketAddress(addr, port);
+
+        Callable<Boolean> checker = new Callable<Boolean>() {
+            public Boolean call() {
+                try (Socket socket = new Socket()) {
+                    socket.connect(target, 1000);
+                    return socket.isConnected();
+                } catch (IOException | IllegalArgumentException e) {
+                    return false;
+                }
+            }};
+
+        Stopwatch stopwatch = Stopwatch.createStarted();
+
+        ReferenceWithError<Boolean> reachable = new Repeater("container-reachable")
+                .backoff(Duration.ONE_SECOND, 2, Duration.TEN_SECONDS) // exponential backoff, to 10 seconds
+                .until(checker)
+                .limitTimeTo(Duration.THIRTY_SECONDS)
+                .runKeepingError();
+
+        if (!reachable.getWithoutError()) {
+            throw new IllegalStateException("Connection failed for "
+                    +target.toString()+" after waiting "+stopwatch.elapsed(TimeUnit.SECONDS), reachable.getError());
+        }
     }
 
     protected void registerPortMappings(SshMachineLocation machine, Service service) {
@@ -262,11 +300,10 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         List<ServicePort> ports = service.getSpec().getPorts();
         String publicHostText = machine.getSshHostAndPort().getHostText();
         log.info("Recording port-mappings for container {} of {}: {}", new Object[] {machine, this, ports});
-        
+
         for (ServicePort port : ports) {
             String protocol = port.getProtocol();
-            IntOrString targetPortObj = port.getTargetPort();
-            Integer targetPort = targetPortObj.getIntVal();
+            Integer targetPort = port.getTargetPort().getIntVal();
             if (!"TCP".equalsIgnoreCase(protocol)) {
                 log.debug("Ignoring port mapping {} for {} because only TCP is currently supported", port, machine);
             } else if (targetPort == null) {
