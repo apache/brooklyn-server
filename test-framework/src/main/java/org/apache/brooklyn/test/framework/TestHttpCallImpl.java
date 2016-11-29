@@ -93,7 +93,7 @@ public class TestHttpCallImpl extends TargetableTestComponentImpl implements Tes
                     public String get() {
                         try {
                             final HttpRequestBase httpMethod = createHttpMethod(method, url, headers, body);
-                            return HttpTool.execAndConsume(HttpTool.httpClientBuilder().trustAll(trustAll).build(), httpMethod).getContentAsString();
+                            return HttpTool.execAndConsume(HttpTool.httpClientBuilder().uri(url).trustAll(trustAll).build(), httpMethod).getContentAsString();
                         } catch (Exception e) {
                             LOG.info("HTTP call to [{}] failed due to [{}]", url, e.getMessage());
                             throw Exceptions.propagate(e);
@@ -109,7 +109,7 @@ public class TestHttpCallImpl extends TargetableTestComponentImpl implements Tes
                     public Integer get() {
                         try {
                             final HttpRequestBase httpMethod = createHttpMethod(method, url, headers, body);
-                            final Maybe<HttpResponse> response = HttpTool.execAndConsume(HttpTool.httpClientBuilder().trustAll(trustAll).build(), httpMethod).getResponse();
+                            final Maybe<HttpResponse> response = HttpTool.execAndConsume(HttpTool.httpClientBuilder().uri(url).trustAll(trustAll).build(), httpMethod).getResponse();
                             if (response.isPresentAndNonNull()) {
                                 return response.get().getStatusLine().getStatusCode();
                             } else {
