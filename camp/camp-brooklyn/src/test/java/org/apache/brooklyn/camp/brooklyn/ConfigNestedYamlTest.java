@@ -87,7 +87,7 @@ public class ConfigNestedYamlTest extends AbstractYamlTest {
     @Test
     public void testCatalogParameterFromSuperYamlTypeAsSoftware() throws Exception {
         addCatalogItems( loadYaml("config-nested-test.bom") );
-        Entity ent = doTestWithBlueprint( "services: [ { type: test-map-parameter-software } ]", true);
+        Entity ent = doTestWithBlueprint( "services: [ { type: test-map-parameter-software } ]", false);
         Entities.dumpInfo(ent);
     }
 

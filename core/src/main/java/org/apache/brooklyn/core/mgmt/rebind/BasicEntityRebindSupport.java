@@ -24,7 +24,6 @@ import java.util.Map;
 
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.mgmt.rebind.RebindContext;
@@ -58,7 +57,7 @@ public class BasicEntityRebindSupport extends AbstractBrooklynObjectRebindSuppor
 
     private static final Logger LOG = LoggerFactory.getLogger(BasicEntityRebindSupport.class);
     
-    private final EntityLocal entity;
+    private final EntityInternal entity;
     
     public BasicEntityRebindSupport(AbstractEntity entity) {
         super(entity);
@@ -84,8 +83,11 @@ public class BasicEntityRebindSupport extends AbstractBrooklynObjectRebindSuppor
     @Override
     @SuppressWarnings("unchecked")
     protected void addCustoms(RebindContext rebindContext, EntityMemento memento) {
-        for (Effector<?> eff: memento.getEffectors()) {
-            ((EntityInternal)entity).getMutableEntityType().addEffector(eff);
+        for (ConfigKey<?> key : memento.getDynamicConfigKeys()) {
+            entity.getMutableEntityType().addConfigKey(key);
+        }
+        for (Effector<?> eff : memento.getEffectors()) {
+            entity.getMutableEntityType().addEffector(eff);
         }
     
         for (Map.Entry<AttributeSensor<?>, Object> entry : memento.getAttributes().entrySet()) {
@@ -94,7 +96,7 @@ public class BasicEntityRebindSupport extends AbstractBrooklynObjectRebindSuppor
                 Object value = entry.getValue();
                 @SuppressWarnings("unused") // just to ensure we can load the declared type? or maybe not needed
                 Class<?> type = (key.getType() != null) ? key.getType() : rebindContext.loadClass(key.getTypeName());
-                ((EntityInternal)entity).sensors().setWithoutPublishing((AttributeSensor<Object>)key, value);
+                entity.sensors().setWithoutPublishing((AttributeSensor<Object>)key, value);
             } catch (Exception e) {
                 LOG.warn("Error adding custom sensor "+entry+" when rebinding "+entity+" (rethrowing): "+e);
                 throw Exceptions.propagate(e);
@@ -124,8 +126,8 @@ public class BasicEntityRebindSupport extends AbstractBrooklynObjectRebindSuppor
             }
         }
         
-        ((EntityInternal)entity).config().putAll(memento.getConfigUnmatched());
-        ((EntityInternal)entity).config().refreshInheritedConfig();
+        entity.config().putAll(memento.getConfigUnmatched());
+        entity.config().refreshInheritedConfig();
     }
     
     @Override
@@ -169,7 +171,7 @@ public class BasicEntityRebindSupport extends AbstractBrooklynObjectRebindSuppor
             AbstractFeed feed = (AbstractFeed) rebindContext.lookup().lookupFeed(feedId);
             if (feed != null) {
                 try {
-                    ((EntityInternal)entity).feeds().addFeed(feed);
+                    entity.feeds().add(feed);
                 } catch (Exception e) {
                     rebindContext.getExceptionHandler().onAddFeedFailed(entity, feed, e);
                 }
@@ -236,7 +238,7 @@ public class BasicEntityRebindSupport extends AbstractBrooklynObjectRebindSuppor
         for (String id : memento.getLocations()) {
             Location loc = rebindContext.lookup().lookupLocation(id);
             if (loc != null) {
-                ((EntityInternal)entity).addLocationsWithoutPublishing(ImmutableList.of(loc));
+                entity.addLocationsWithoutPublishing(ImmutableList.of(loc));
             } else {
                 LOG.warn("Location not found; discarding location {} of entity {}({})",
                         new Object[] {id, memento.getType(), memento.getId()});

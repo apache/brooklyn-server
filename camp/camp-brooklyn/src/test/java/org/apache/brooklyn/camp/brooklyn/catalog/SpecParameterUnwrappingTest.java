@@ -244,13 +244,16 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         List<SpecParameter<?>> params = spec.getParameters();
         switch (type.getSimpleName()) {
             case "ConfigEntityForTest":
-                assertEquals(params.size(), 4);
+                // expect: own "simple"; super-type's "sample.config"; and generic "defaultDisplayName"
+                assertEquals(params.size(), 3, "params="+params);
                 break;
             case "ConfigPolicyForTest":
-                assertEquals(params.size(), 3);
+                // expect: own "simple"; and super-type's "sample.config"
+                assertEquals(params.size(), 2, "params="+params);
                 break;
             case "ConfigLocationForTest":
-                assertEquals(params.size(), 8);
+                // Expect: own "simple"; super-type's "sample.config"; and generic "parentLocation" + "spec.final" + "spec.named.name" + "spec.original" + "temporaryLocation"
+                assertEquals(params.size(), 7, "params="+params);
                 break;
         }
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());

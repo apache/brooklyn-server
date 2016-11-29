@@ -163,13 +163,18 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         return putAllOwnConfigIntoSafely(ConfigBag.newInstance()).seal();
     }
 
-    public Object setConfig(ConfigKey<?> key, Object v) {
-        Object val = coerceConfigVal(key, v);
+    public Object setConfig(final ConfigKey<?> key, Object v) {
+        // Use our own key for writing, (e.g. in-case it should (or should not) be a structured key like MapConfigKey).
+        // This is same logic as for getConfig, except we only have to look at our own container.
+        ConfigKey<?> ownKey = getKeyAtContainer(getContainer(), key);
+        if (ownKey==null) ownKey = key;
+
+        Object val = coerceConfigVal(ownKey, v);
         Object oldVal;
-        if (key instanceof StructuredConfigKey) {
-            oldVal = ((StructuredConfigKey)key).applyValueToMap(val, ownConfig);
+        if (ownKey instanceof StructuredConfigKey) {
+            oldVal = ((StructuredConfigKey)ownKey).applyValueToMap(val, ownConfig);
         } else {
-            oldVal = ownConfig.put(key, val);
+            oldVal = ownConfig.put(ownKey, val);
         }
         postSetConfig();
         return oldVal;

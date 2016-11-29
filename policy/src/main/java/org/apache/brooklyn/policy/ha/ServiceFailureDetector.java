@@ -35,6 +35,7 @@ import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ComputeServic
 import org.apache.brooklyn.core.sensor.BasicNotificationSensor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.brooklyn.policy.autoscaling.AutoScalerPolicy;
 import org.apache.brooklyn.policy.ha.HASensors.FailureDescriptor;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -108,6 +109,18 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
             .description("Publish failed state periodically at the specified intervals, null to disable.")
             .build();
 
+    /**
+     * Indicates the last event that was published (so we don't accidentally publish repeated
+     * ENTITY_FAILED, etc). Needs to be persisted so that on rebind we don't publish a duplicate
+     * (we'll only publish again if we are in a different state from before Brooklyn was last
+     * shutdown).
+     */
+    public static final ConfigKey<LastPublished> LAST_PUBLISHED = ConfigKeys.newConfigKey(
+            LastPublished.class,
+            "lastPublished",
+            "Indicates the last published event (entity 'failed', 'recovered', or none); used like an attribute (i.e. expect to be set on-the-fly)",
+            LastPublished.NONE);
+
     protected Long firstUpTime;
     
     protected Long currentFailureStartTime = null;
@@ -117,8 +130,6 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
     protected Long publishEntityRecoveredTime = null;
     protected Long setEntityOnFireTime = null;
     
-    protected LastPublished lastPublished = LastPublished.NONE;
-
     private final AtomicBoolean executorQueued = new AtomicBoolean(false);
     private volatile long executorTime = 0;
 
@@ -131,6 +142,15 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
      * e.g. see `ServiceFailureDetectorTest.testNotifiedOfFailureOnStateOnFire`, where we get two notifications.
      */
     private final Object mutex = new Object();
+    
+    @Override
+    protected <T> void doReconfigureConfig(ConfigKey<T> key, T val) {
+        if (key.equals(LAST_PUBLISHED)) {
+            // find to modify this on-the-fly; no additional work required
+        } else {
+            super.doReconfigureConfig(key, val);
+        }
+    }
     
     public ServiceFailureDetector() {
         this(new ConfigBag());
@@ -165,7 +185,7 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
 
         synchronized (mutex) {
             if (state.orNull() == Lifecycle.ON_FIRE) {
-                if (lastPublished == LastPublished.FAILED) {
+                if (config().get(LAST_PUBLISHED) == LastPublished.FAILED) {
                     if (currentRecoveryStartTime != null) {
                         if (LOG.isDebugEnabled()) LOG.debug("{} health-check for {}, component was recovering, now failing: {}", new Object[] {this, entity, getExplanation(state)});
                         currentRecoveryStartTime = null;
@@ -191,7 +211,7 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
                 publishEntityRecoveredTime = null;
                 
             } else if (state.orNull() == Lifecycle.RUNNING) {
-                if (lastPublished == LastPublished.FAILED) {
+                if (config().get(LAST_PUBLISHED) == LastPublished.FAILED) {
                     if (currentRecoveryStartTime == null) {
                         if (LOG.isDebugEnabled()) LOG.debug("{} health-check for {}, component now recovering: {}", new Object[] {this, entity, getExplanation(state)});
                         currentRecoveryStartTime = now;
@@ -228,8 +248,8 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
                         publishEntityFailedTime = now + republishDelay.toMilliseconds();
                         recomputeIn = Math.min(recomputeIn, republishDelay.toMilliseconds());
                     }
-                    lastPublished = LastPublished.FAILED;
                     entity.sensors().emit(HASensors.ENTITY_FAILED, new HASensors.FailureDescriptor(entity, getFailureDescription(now)));
+                    config().set(LAST_PUBLISHED, LastPublished.FAILED);
                 } else {
                     recomputeIn = Math.min(recomputeIn, delayBeforeCheck);
                 }
@@ -239,8 +259,8 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
                     if (LOG.isDebugEnabled()) LOG.debug("{} publishing recovered (state={}; currentRecoveryStartTime={}; now={}", 
                             new Object[] {this, state, Time.makeDateString(currentRecoveryStartTime), Time.makeDateString(now)});
                     publishEntityRecoveredTime = null;
-                    lastPublished = LastPublished.RECOVERED;
                     entity.sensors().emit(HASensors.ENTITY_RECOVERED, new HASensors.FailureDescriptor(entity, null));
+                    config().set(LAST_PUBLISHED, LastPublished.RECOVERED);
                 } else {
                     recomputeIn = Math.min(recomputeIn, delayBeforeCheck);
                 }
@@ -274,7 +294,7 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
                     "currentFailurePeriod=%s; currentRecoveryPeriod=%s",
                 entity.getLocations(), 
                 (state.orNull() != null ? state : "<unreported>"),
-                lastPublished,
+                config().get(LAST_PUBLISHED),
                 Time.makeDateString(System.currentTimeMillis()),
                 (currentFailureStartTime != null ? getTimeStringSince(currentFailureStartTime) : "<none>") + " (stabilization "+Time.makeTimeStringRounded(serviceFailedStabilizationDelay) + ")",
                 (currentRecoveryStartTime != null ? getTimeStringSince(currentRecoveryStartTime) : "<none>") + " (stabilization "+Time.makeTimeStringRounded(serviceRecoveredStabilizationDelay) + ")");
@@ -301,37 +321,46 @@ public class ServiceFailureDetector extends ServiceStateLogic.ComputeServiceStat
         return description;
     }
     
-    @SuppressWarnings({ "unchecked", "rawtypes" })
+    @SuppressWarnings({ "rawtypes" })
     protected void recomputeAfterDelay(long delay) {
-        if (isRunning() && executorQueued.compareAndSet(false, true)) {
-            long now = System.currentTimeMillis();
-            delay = Math.max(0, Math.max(delay, (executorTime + MIN_PERIOD_BETWEEN_EXECS_MILLIS) - now));
-            if (LOG.isTraceEnabled()) LOG.trace("{} scheduling publish in {}ms", this, delay);
-            
-            Runnable job = new Runnable() {
-                @Override public void run() {
-                    try {
-                        executorTime = System.currentTimeMillis();
-                        executorQueued.set(false);
+        // TODO Execute in same thread as other onEvent calls are done in (i.e. same conceptually 
+        // single-threaded executor as the subscription-manager will use).
+        //
+        // TODO Disabling the use of executorQueued check - it was causing assertions to fail that 
+        // we'd triggered the ENTITY_FAILED/ENTITY_RECOVERED. Previously used:
+        //    if (executorQueued.compareAndSet(false, true)) {
+        // My guess is that the next call to onEvent() didn't always call recomputeAfterDelay with
+        // the recalculated desired delay, as desired by the skipped call. But not sure why.
+        
+        if (!isRunning()) return;
 
-                        onEvent(null);
-                        
-                    } catch (Exception e) {
-                        if (isRunning()) {
-                            LOG.error("Error in enricher "+this+": "+e, e);
-                        } else {
-                            if (LOG.isDebugEnabled()) LOG.debug("Error in enricher "+this+" (but no longer running): "+e, e);
-                        }
-                    } catch (Throwable t) {
-                        LOG.error("Error in enricher "+this+": "+t, t);
-                        throw Exceptions.propagate(t);
+        long now = System.currentTimeMillis();
+        delay = Math.max(0, Math.max(delay, (executorTime + MIN_PERIOD_BETWEEN_EXECS_MILLIS) - now));
+        if (LOG.isTraceEnabled()) LOG.trace("{} scheduling publish in {}ms", this, delay);
+        
+        Runnable job = new Runnable() {
+            @Override public void run() {
+                try {
+                    executorTime = System.currentTimeMillis();
+                    executorQueued.set(false);
+
+                    onEvent(null);
+                    
+                } catch (Exception e) {
+                    if (isRunning()) {
+                        LOG.error("Error in enricher "+this+": "+e, e);
+                    } else {
+                        if (LOG.isDebugEnabled()) LOG.debug("Error in enricher "+this+" (but no longer running): "+e, e);
                     }
+                } catch (Throwable t) {
+                    LOG.error("Error in enricher "+this+": "+t, t);
+                    throw Exceptions.propagate(t);
                 }
-            };
-            
-            ScheduledTask task = new ScheduledTask(MutableMap.of("delay", Duration.of(delay, TimeUnit.MILLISECONDS)), new BasicTask(job));
-            ((EntityInternal)entity).getExecutionContext().submit(task);
-        }
+            }
+        };
+        
+        ScheduledTask task = new ScheduledTask(MutableMap.of("delay", Duration.of(delay, TimeUnit.MILLISECONDS)), new BasicTask(job));
+        ((EntityInternal)entity).getExecutionContext().submit(task);
     }
     
     private String getTimeStringSince(Long time) {

@@ -22,26 +22,33 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.rebind.RebindManager;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
-import org.apache.brooklyn.core.mgmt.rebind.RebindExceptionHandlerImpl;
+import org.apache.brooklyn.api.policy.Policy;
+import org.apache.brooklyn.api.sensor.Enricher;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 public class RecordingRebindExceptionHandler extends RebindExceptionHandlerImpl {
 
-    protected final List<Exception> loadMementoFailures = Lists.newArrayList();
-    protected final Map<String, Exception> createFailures = Maps.newLinkedHashMap();
-    protected final Map<BrooklynObject, Exception> rebindFailures = Maps.newLinkedHashMap();
-    protected final Map<BrooklynObject, Exception> manageFailures = Maps.newLinkedHashMap();
-    protected final Map<String, Exception> notFoundFailures = Maps.newLinkedHashMap();
-    protected Exception failed;
+    public final List<Exception> loadMementoFailures = Lists.newArrayList();
+    public final Map<String, Exception> createFailures = Maps.newLinkedHashMap();
+    public final Map<BrooklynObject, Exception> rebindFailures = Maps.newLinkedHashMap();
+    public final Map<BrooklynObject, Exception> manageFailures = Maps.newLinkedHashMap();
+    public final Map<BrooklynObject, Exception> addFailures = Maps.newLinkedHashMap();
+    public final Map<String, Exception> notFoundFailures = Maps.newLinkedHashMap();
+    public Exception failed;
     
     public RecordingRebindExceptionHandler(RebindManager.RebindFailureMode danglingRefFailureMode, RebindManager.RebindFailureMode rebindFailureMode) {
         super(builder().danglingRefFailureMode(danglingRefFailureMode).rebindFailureMode(rebindFailureMode));
+    }
+
+    public RecordingRebindExceptionHandler(Builder builder) {
+        super(builder);
     }
 
     @Override
@@ -88,5 +95,17 @@ public class RecordingRebindExceptionHandler extends RebindExceptionHandlerImpl 
     public RuntimeException onFailed(Exception e) {
         failed = e;
         return super.onFailed(e);
+    }
+    
+    @Override
+    public void onAddEnricherFailed(EntityLocal entity, Enricher enricher, Exception e) {
+        addFailures.put(enricher, e);
+        super.onAddEnricherFailed(entity, enricher, e);
+    }
+    
+    @Override
+    public void onAddPolicyFailed(EntityLocal entity, Policy policy, Exception e) {
+        addFailures.put(policy, e);
+        super.onAddPolicyFailed(entity, policy, e);
     }
 }

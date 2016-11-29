@@ -137,8 +137,10 @@ public class Duration implements Comparable<Duration>, Serializable {
 
     /** 
      * See {@link Time#parseElapsedTime(String)}; 
-     * also accepts "forever" (and for those who prefer things exceedingly accurate, "practically_forever"). 
-     * Also see {@link #of(Object)}. */
+     * also accepts "forever" (and for those who prefer things exceedingly accurate, "practically_forever").
+     * If null or blank or 'null' is passed in, then null will be returned. 
+     * Also see {@link #of(Object)}.
+     */
     public static Duration parse(String textualDescription) {
         if (Strings.isBlank(textualDescription)) return null;
         if ("null".equalsIgnoreCase(textualDescription)) return null;

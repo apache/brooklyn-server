@@ -118,7 +118,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(label, pinned, configKey);
+        return Objects.hashCode(configKey);
     }
 
     @Override

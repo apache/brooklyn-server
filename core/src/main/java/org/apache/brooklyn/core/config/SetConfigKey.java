@@ -64,6 +64,11 @@ public class SetConfigKey<V> extends AbstractCollectionConfigKey<Set<? extends V
     }
 
     @Override
+    public String toString() {
+        return String.format("%s[SetConfigKey:%s]", name, getTypeName());
+    }
+
+    @Override
     protected Set<Object> merge(boolean unmodifiable, Iterable<?>... sets) {
         MutableSet<Object> result = MutableSet.of();
         for (Iterable<?> set: sets) result.addAll(set);
