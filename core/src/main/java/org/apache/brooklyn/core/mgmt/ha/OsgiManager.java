@@ -34,6 +34,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynVersion;
+import org.apache.brooklyn.core.mgmt.persist.OsgiClassPrefixer;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServerPaths;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -42,6 +43,7 @@ import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.core.osgi.Osgis.BundleFinder;
 import org.apache.brooklyn.util.core.osgi.SystemFrameworkLoader;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.os.Os.DeletionResult;
@@ -53,6 +55,7 @@ import org.osgi.framework.launch.Framework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
@@ -64,12 +67,14 @@ public class OsgiManager {
     
     /* see Osgis for info on starting framework etc */
     
-    protected ManagementContext mgmt;
+    protected final ManagementContext mgmt;
+    protected final OsgiClassPrefixer osgiClassPrefixer;
     protected Framework framework;
     protected File osgiCacheDir;
-
+    
     public OsgiManager(ManagementContext mgmt) {
         this.mgmt = mgmt;
+        this.osgiClassPrefixer = new OsgiClassPrefixer();
     }
 
     public void start() {
@@ -189,10 +194,15 @@ public class OsgiManager {
                 Maybe<Bundle> bundle = findBundle(osgiBundle);
                 if (bundle.isPresent()) {
                     Bundle b = bundle.get();
-                    Class<T> clazz;
+                    Optional<String> strippedType = osgiClassPrefixer.stripMatchingPrefix(b, type);
+                    String typeToLoad = strippedType.isPresent() ? strippedType.get() : type;
+                    if (osgiClassPrefixer.hasPrefix(typeToLoad)) {
+                        bundleProblems.put(osgiBundle, new UserFacingException("Bundle does not match prefix in type name '"+typeToLoad+"'"));
+                        continue;
+                    }
                     //Extension bundles don't support loadClass.
                     //Instead load from the app classpath.
-                    clazz = SystemFrameworkLoader.get().loadClassFromBundle(type, b);
+                    Class<T> clazz = SystemFrameworkLoader.get().loadClassFromBundle(typeToLoad, b);
                     return Maybe.of(clazz);
                 } else {
                     bundleProblems.put(osgiBundle, Maybe.getException(bundle));

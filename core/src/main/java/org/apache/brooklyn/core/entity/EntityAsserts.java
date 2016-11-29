@@ -33,9 +33,10 @@ import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
-import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.Map;
@@ -51,6 +52,7 @@ import static org.apache.brooklyn.test.Asserts.*;
  */
 public class EntityAsserts {
 
+    private static final Logger LOG = LoggerFactory.getLogger(EntityAsserts.class);
 
     public static <T> void assertAttributeEquals(Entity entity, AttributeSensor<T> attribute, T expected) {
         assertEquals(entity.getAttribute(attribute), expected, "entity=" + entity + "; attribute=" + attribute);
@@ -66,7 +68,7 @@ public class EntityAsserts {
 
     public static <T> void assertAttributeEqualsEventually(Map<?,?> flags, final Entity entity, final AttributeSensor<T> attribute, final T expected) {
         // Not using assertAttributeEventually(predicate) so get nicer error message
-        Asserts.succeedsEventually((Map) flags, new Runnable() {
+        Asserts.succeedsEventually(castToMapWithStringKeys(flags), new Runnable() {
             @Override
             public void run() {
                 assertAttributeEquals(entity, attribute, expected);
@@ -88,10 +90,9 @@ public class EntityAsserts {
 
     public static <T> T assertAttributeEventually(Map<?,?> flags, final Entity entity, final AttributeSensor<T> attribute, final Predicate<? super T> predicate) {
         final AtomicReference<T> result = new AtomicReference<T>();
-        Asserts.succeedsEventually((Map)flags, new Runnable() {
+        Asserts.succeedsEventually(castToMapWithStringKeys(flags), new Runnable() {
             @Override public void run() {
-                T val = entity.getAttribute(attribute);
-                Asserts.assertTrue(predicate.apply(val), "val=" + val);
+                T val = assertAttribute(entity, attribute, predicate);
                 result.set(val);
             }});
         return result.get();
@@ -99,24 +100,24 @@ public class EntityAsserts {
 
     public static <T> T assertAttribute(final Entity entity, final AttributeSensor<T> attribute, final Predicate<? super T> predicate) {
         T val = entity.getAttribute(attribute);
-        Asserts.assertTrue(predicate.apply(val), "val=" + val);
+        Asserts.assertTrue(predicate.apply(val), "attribute="+attribute+"; val=" + val);
         return val;
     }
 
 
     public static <T extends Entity> void assertPredicateEventuallyTrue(final T entity, final Predicate<? super T> predicate) {
-        assertPredicateEventuallyTrue(Maps.newLinkedHashMap(), entity, predicate);
+        assertPredicateEventuallyTrue(ImmutableMap.of(), entity, predicate);
     }
 
     public static <T extends Entity> void assertPredicateEventuallyTrue(Map<?,?> flags, final T entity, final Predicate<? super T> predicate) {
-        Asserts.succeedsEventually((Map)flags, new Runnable() {
+        Asserts.succeedsEventually(castToMapWithStringKeys(flags), new Runnable() {
             @Override public void run() {
-                Asserts.assertTrue(predicate.apply(entity), "predicate unsatisfied");
+                Asserts.assertTrue(predicate.apply(entity), "predicate " + predicate + " unsatisfied for "+ entity);
             }});
     }
 
     public static <T> void assertAttributeEqualsContinually(final Entity entity, final AttributeSensor<T> attribute, final T expected) {
-        assertAttributeEqualsContinually(Maps.newLinkedHashMap(), entity, attribute, expected);
+        assertAttributeEqualsContinually(ImmutableMap.of(), entity, attribute, expected);
     }
 
     public static <T> void assertAttributeEqualsContinually(Map<?,?> flags, final Entity entity, final AttributeSensor<T> attribute, final T expected) {
@@ -131,13 +132,12 @@ public class EntityAsserts {
     }
 
     public static void assertGroupSizeEqualsEventually(Map<?,?> flags, final Group group, final int expected) {
-        Asserts.succeedsEventually((Map)flags, new Runnable() {
+        Asserts.succeedsEventually(castToMapWithStringKeys(flags), new Runnable() {
             @Override public void run() {
                 Collection<Entity> members = group.getMembers();
                 assertEquals(members.size(), expected, "members=" + members);
             }});
     }
-
 
     /**
      * Asserts that the entity's value for this attribute changes, by registering a subscription and checking the value.
@@ -253,4 +253,18 @@ public class EntityAsserts {
         assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
     }
 
+    @SuppressWarnings("unchecked")
+    private static Map<String, ?> castToMapWithStringKeys(Map<?, ?> map) {
+        // TODO when checking that all keys are strings
+        if (map == null) return ImmutableMap.of();
+        for (Object key : map.keySet()) {
+            if (!(key instanceof String)) {
+                IllegalArgumentException e = new IllegalArgumentException("Invalid non-string key(s), type " + key.getClass().getName()+" in map");
+                e.fillInStackTrace();
+                LOG.warn("Deprecated: invalid key(s) in map (continuing)", e);
+                break;
+            }
+        }
+        return (Map<String, ?>) map;
+    }
 }
