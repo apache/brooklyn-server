@@ -625,7 +625,7 @@ public class Entities {
     /**
      * Return all descendants of given entity matching the given predicate and optionally the entity itself.
      * 
-     * @see {@link EntityPredicates} for useful second arguments.
+     * @see EntityPredicates
      */
     @SuppressWarnings("unused")
     public static Iterable<Entity> descendants(Entity root, Predicate<? super Entity> matching, boolean includeSelf) {
