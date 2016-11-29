@@ -79,8 +79,8 @@ public class BasicConfigInheritance implements ConfigInheritance {
      */
     
     private static class NotReinherited extends DelegatingConfigInheritance {
-        final transient BasicConfigInheritance delegate = new BasicConfigInheritance(false, CONFLICT_RESOLUTION_STRATEGY_OVERWRITE, false, true); 
-        @Override protected ConfigInheritance getDelegate() { return delegate; }
+        final static BasicConfigInheritance DELEGATE = new BasicConfigInheritance(false, CONFLICT_RESOLUTION_STRATEGY_OVERWRITE, false, true); 
+        @Override protected ConfigInheritance getDelegate() { return DELEGATE; }
     }
     /** Indicates that a config key value should not be passed down from a container where it is defined.
      * Unlike {@link #NEVER_INHERITED} these values can be passed down if set as anonymous keys at a container
@@ -90,35 +90,35 @@ public class BasicConfigInheritance implements ConfigInheritance {
     public static ConfigInheritance NOT_REINHERITED = new NotReinherited();
     
     private static class NotReinheritedElseDeepMerge extends DelegatingConfigInheritance {
-        final transient BasicConfigInheritance delegate = new BasicConfigInheritance(false, CONFLICT_RESOLUTION_STRATEGY_DEEP_MERGE, false, true); 
-        @Override protected ConfigInheritance getDelegate() { return delegate; }
+        final static BasicConfigInheritance DELEGATE = new BasicConfigInheritance(false, CONFLICT_RESOLUTION_STRATEGY_DEEP_MERGE, false, true); 
+        @Override protected ConfigInheritance getDelegate() { return DELEGATE; }
     }
     /** As {@link #NOT_REINHERITED} but in cases where a value is inherited because a parent did not recognize it,
      * if the inheritor also defines a value the two values should be merged. */
     public static ConfigInheritance NOT_REINHERITED_ELSE_DEEP_MERGE = new NotReinheritedElseDeepMerge();
     
     private static class NeverInherited extends DelegatingConfigInheritance {
-        final transient BasicConfigInheritance delegate = new BasicConfigInheritance(false, CONFLICT_RESOLUTION_STRATEGY_OVERWRITE, true, false);
-        @Override protected ConfigInheritance getDelegate() { return delegate; }
+        final static BasicConfigInheritance DELEGATE = new BasicConfigInheritance(false, CONFLICT_RESOLUTION_STRATEGY_OVERWRITE, true, false);
+        @Override protected ConfigInheritance getDelegate() { return DELEGATE; }
     }
     /** Indicates that a key's value should never be inherited, even if inherited from a value set on a container that does not know the key.
      * (Most usages will prefer {@link #NOT_REINHERITED}.) */
     public static ConfigInheritance NEVER_INHERITED = new NeverInherited();
     
     private static class Overwrite extends DelegatingConfigInheritance {
-        final transient BasicConfigInheritance delegate = new BasicConfigInheritance(true, CONFLICT_RESOLUTION_STRATEGY_OVERWRITE, false, true);
-        @Override protected ConfigInheritance getDelegate() { return delegate; }
+        final static BasicConfigInheritance DELEGATE = new BasicConfigInheritance(true, CONFLICT_RESOLUTION_STRATEGY_OVERWRITE, false, true);
+        @Override protected ConfigInheritance getDelegate() { return DELEGATE; }
     }
     /** Indicates that if a key has a value at both an ancestor and a descendant, the descendant and his descendants
      * will prefer the value at the descendant. */
     public static ConfigInheritance OVERWRITE = new Overwrite();
     
     private static class DeepMerge extends DelegatingConfigInheritance {
-        final transient BasicConfigInheritance delegate = new BasicConfigInheritance(true, CONFLICT_RESOLUTION_STRATEGY_DEEP_MERGE, false, true);
-        @Override protected ConfigInheritance getDelegate() { return delegate; }
+        final static BasicConfigInheritance DELEGATE = new BasicConfigInheritance(true, CONFLICT_RESOLUTION_STRATEGY_DEEP_MERGE, false, true);
+        @Override protected ConfigInheritance getDelegate() { return DELEGATE; }
     }
     /** Indicates that if a key has a value at both an ancestor and a descendant, the descendant and his descendants
-     * should attempt to merge the values. If the values are not mergable behaviour is undefined
+     * should attempt to merge the values. If the values are not mergeable behaviour is undefined
      * (and often the descendant's value will simply overwrite). */
     public static ConfigInheritance DEEP_MERGE = new DeepMerge();
 
