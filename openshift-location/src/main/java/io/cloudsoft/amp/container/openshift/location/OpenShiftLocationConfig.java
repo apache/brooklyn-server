@@ -3,7 +3,7 @@ package io.cloudsoft.amp.container.openshift.location;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 
-import io.cloudsoft.amp.container.kubernetes.location.KubernetesClientRegistry;
+import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesClientRegistry;
 
 public interface OpenShiftLocationConfig {
 

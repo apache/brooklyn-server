@@ -1,7 +1,7 @@
 location:
   openshift:
     endpoint: "http://10.101.0.236:8080/"
-    kubernetes.loginUser.password: "password"
+    loginUser.password: "password"
 
 services:
 - serviceType: org.apache.brooklyn.entity.software.base.EmptySoftwareProcess

@@ -117,7 +117,7 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
             .build();
 
     @SuppressWarnings("serial")
-    public static final ConfigKey<Map<String, ?>> ENV = ConfigKeys.newConfigKey(
+    ConfigKey<Map<String, ?>> ENV = ConfigKeys.newConfigKey(
             new TypeToken<Map<String, ?>>() {},
             "env", 
             "Environment variables to inject when starting the container", 
@@ -170,7 +170,7 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
             .constraint(Predicates.<String>notNull())
             .build();
     
-    public static final ConfigKey<Boolean> INJECT_LOGIN_CREDENTIAL = ConfigKeys.builder(Boolean.class)
+    ConfigKey<Boolean> INJECT_LOGIN_CREDENTIAL = ConfigKeys.builder(Boolean.class)
             .name("injectLoginCredential") 
             .description("Whether to inject login credentials (if null, will infer from image choice); ignored if explicit 'loginUser.password' supplied")
             .build();

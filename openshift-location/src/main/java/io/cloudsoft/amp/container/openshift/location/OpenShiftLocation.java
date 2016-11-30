@@ -7,8 +7,8 @@ import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.cloudsoft.amp.container.kubernetes.location.KubernetesClientRegistry;
-import io.cloudsoft.amp.container.kubernetes.location.KubernetesLocation;
+import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesClientRegistry;
+import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocation;
 import io.fabric8.kubernetes.client.KubernetesClient;
 
 public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLocationConfig {

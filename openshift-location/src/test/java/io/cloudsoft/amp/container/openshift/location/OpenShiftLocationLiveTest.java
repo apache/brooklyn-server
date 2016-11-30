@@ -7,7 +7,7 @@ import org.apache.brooklyn.util.os.Os;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.cloudsoft.amp.container.kubernetes.location.KubernetesLocationLiveTest;
+import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationLiveTest;
 
 /**
  * Tests deploying containers via the {@code openshift"} location, to an OpenShift endpoint. 
@@ -29,9 +29,9 @@ public class OpenShiftLocationLiveTest extends KubernetesLocationLiveTest {
     protected OpenShiftLocation newKubernetesLocation(Map<String, ?> flags) throws Exception {
         Map<String,?> allFlags = MutableMap.<String,Object>builder()
                 .put("endpoint", OPENSHIFT_ENDPOINT)
-                .put("kubernetes.caCert", CA_CERT_FILE)
-                .put("kubernetes.clientCert", CLIENT_CERT_FILE)
-                .put("kubernetes.clientKey", CLIENT_KEY_FILE)
+                .put("caCert", CA_CERT_FILE)
+                .put("clientCert", CLIENT_CERT_FILE)
+                .put("clientKey", CLIENT_KEY_FILE)
                 .put("kubernetes.namespace", NAMESPACE)
                 .put("kubernetes.privileged", "true")
                 .putAll(flags)

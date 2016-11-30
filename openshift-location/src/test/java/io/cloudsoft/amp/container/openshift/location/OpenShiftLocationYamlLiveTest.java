@@ -10,7 +10,7 @@ import org.testng.annotations.BeforeMethod;
 
 import com.google.common.base.Joiner;
 
-import io.cloudsoft.amp.container.kubernetes.location.KubernetesLocationYamlLiveTest;
+import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationYamlLiveTest;
 
 /**
  * Tests YAML apps via the {@code openshift"} location, to an OpenShift endpoint.
@@ -57,11 +57,11 @@ public class OpenShiftLocationYamlLiveTest extends KubernetesLocationYamlLiveTes
                 "location:",
                 "  openshift:",
                 "    " + OpenShiftLocation.CLOUD_ENDPOINT.getName() + ": \"" + OPENSHIFT_ENDPOINT + "\"",
-                "    " + OpenShiftLocation.CA_CERT.getName() + ": \"" + CA_CERT_FILE + "\"",
-                "    " + OpenShiftLocation.CLIENT_CERT.getName() + ": \"" + CLIENT_CERT_FILE + "\"",
-                "    " + OpenShiftLocation.CLIENT_KEY.getName() + ": \"" + CLIENT_KEY_FILE + "\"",
+                "    " + OpenShiftLocation.CA_CERT_FILE.getName() + ": \"" + CA_CERT_FILE + "\"",
+                "    " + OpenShiftLocation.CLIENT_CERT_FILE.getName() + ": \"" + CLIENT_CERT_FILE + "\"",
+                "    " + OpenShiftLocation.CLIENT_KEY_FILE.getName() + ": \"" + CLIENT_KEY_FILE + "\"",
                 "    " + OpenShiftLocation.NAMESPACE.getName() + ": \"" + NAMESPACE + "\"",
-                "    kubernetes.privileged: true",
+                "    " + OpenShiftLocation.PRIVILEGED.getName() + ": true",
                 "    " + OpenShiftLocation.LOGIN_USER_PASSWORD.getName() + ": p4ssw0rd");
     }
 }
