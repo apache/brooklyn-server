@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -41,12 +42,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.SensorEvent;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
@@ -59,6 +64,7 @@ import org.apache.brooklyn.core.entity.trait.FailingEntity;
 import org.apache.brooklyn.core.entity.trait.Resizable;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl;
@@ -67,10 +73,15 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.collections.QuorumCheck.QuorumChecks;
+import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Time;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Function;
@@ -1223,6 +1234,127 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
             if ("non-first".equals(e.getConfig(TestEntity.CONF_NAME))) found.add(e);
         }
         assertEquals(found.size(), expectedNonFirstCount);
+    }
+
+    @DataProvider
+    public Object[][] maxConcurrentCommandsTestProvider() {
+        return new Object[][]{{1}, {2}, {3}};
+    }
+
+    @Test(dataProvider = "maxConcurrentCommandsTestProvider")
+    public void testEntitiesStartAndStopSequentiallyWhenMaxConcurrentCommandsIsOne(int maxConcurrentCommands) {
+        EntitySpec<ThrowOnAsyncStartEntity> memberSpec = EntitySpec.create(ThrowOnAsyncStartEntity.class)
+                .configure(ThrowOnAsyncStartEntity.MAX_CONCURRENCY, maxConcurrentCommands)
+                .configure(ThrowOnAsyncStartEntity.COUNTER, new AtomicInteger());
+        DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
+                .configure(DynamicCluster.MAX_CONCURRENT_CHILD_COMMANDS, maxConcurrentCommands)
+                .configure(DynamicCluster.INITIAL_SIZE, 10)
+                .configure(DynamicCluster.MEMBER_SPEC, memberSpec));
+        app.start(ImmutableList.of(app.newSimulatedLocation()));
+        assertEquals(cluster.sensors().get(Attributes.SERVICE_STATE_ACTUAL), Lifecycle.RUNNING);
+    }
+
+    // Tests handling of the first member of a cluster by asserting that a group, whose
+    // other members wait for the first, always starts.
+    @Test
+    public void testFirstMemberInFirstBatchWhenMaxConcurrentCommandsSet() throws Exception {
+        final AtomicInteger counter = new AtomicInteger();
+        final DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
+                .configure(DynamicCluster.MAX_CONCURRENT_CHILD_COMMANDS, 1)
+                .configure(DynamicCluster.INITIAL_SIZE, 3));
+
+        Task<Boolean> firstMemberUp = Tasks.<Boolean>builder()
+                .body(new Callable<Boolean>() {
+                    @Override
+                    public Boolean call() throws Exception {
+                        Task<Entity> first = DependentConfiguration.attributeWhenReady(cluster, DynamicCluster.FIRST);
+                        DynamicTasks.queueIfPossible(first).orSubmitAsync();
+                        final Entity source = first.get();
+                        final Task<Boolean> booleanTask = DependentConfiguration.attributeWhenReady(source, Attributes.SERVICE_UP);
+                        DynamicTasks.queueIfPossible(booleanTask).orSubmitAsync();
+                        return booleanTask.get();
+                    }
+                })
+                .build();
+
+        EntitySpec<ThrowOnAsyncStartEntity> firstMemberSpec = EntitySpec.create(ThrowOnAsyncStartEntity.class)
+                .configure(ThrowOnAsyncStartEntity.COUNTER, counter)
+                .configure(ThrowOnAsyncStartEntity.START_LATCH, true);
+
+        EntitySpec<ThrowOnAsyncStartEntity> memberSpec = EntitySpec.create(ThrowOnAsyncStartEntity.class)
+                .configure(ThrowOnAsyncStartEntity.COUNTER, counter)
+                .configure(ThrowOnAsyncStartEntity.START_LATCH, firstMemberUp);
+
+        cluster.config().set(DynamicCluster.FIRST_MEMBER_SPEC, firstMemberSpec);
+        cluster.config().set(DynamicCluster.MEMBER_SPEC, memberSpec);
+
+        // app.start blocks so in the failure case this test would block forever.
+        Asserts.assertReturnsEventually(new Runnable() {
+            public void run() {
+                app.start(ImmutableList.of(app.newSimulatedLocation()));
+                EntityAsserts.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+            }
+        }, Asserts.DEFAULT_LONG_TIMEOUT);
+    }
+
+    @Test
+    public void testChildCommandPermitNotReleasedWhenMemberStartTaskCancelledBeforeSubmission() {
+        // Tests that permits are not released when their start task is cancelled.
+        // Expected behaviour is:
+        // - permit obtained for first member. cancelled task submitted. permit released.
+        // - no permit obtained for second member. cancelled task submitted. no permit released.
+        DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(CancelEffectorInvokeCluster.class)
+                .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(TestEntity.class))
+                .configure(DynamicCluster.INITIAL_SIZE, 2)
+                .configure(DynamicCluster.MAX_CONCURRENT_CHILD_COMMANDS, 1));
+        final DynamicClusterImpl clusterImpl = DynamicClusterImpl.class.cast(Entities.deproxy(cluster));
+        assertNotNull(clusterImpl.getChildTaskSemaphore());
+        assertEquals(clusterImpl.getChildTaskSemaphore().availablePermits(), 1);
+        try {
+            app.start(ImmutableList.<Location>of(app.newSimulatedLocation()));
+            Asserts.shouldHaveFailedPreviously("Cluster start should have failed because the member start was cancelled");
+        } catch (Exception e) {
+            // ignored.
+        }
+        assertEquals(clusterImpl.getChildTaskSemaphore().availablePermits(), 1);
+    }
+
+    @ImplementedBy(ThrowOnAsyncStartEntityImpl.class)
+    public interface ThrowOnAsyncStartEntity extends TestEntity {
+        ConfigKey<Integer> MAX_CONCURRENCY = ConfigKeys.newConfigKey(Integer.class, "concurrency", "max concurrency", 1);
+        ConfigKey<AtomicInteger> COUNTER = ConfigKeys.newConfigKey(AtomicInteger.class, "counter");
+        ConfigKey<Boolean> START_LATCH = ConfigKeys.newConfigKey(Boolean.class, "startlatch");
+    }
+
+    public static class ThrowOnAsyncStartEntityImpl extends TestEntityImpl implements ThrowOnAsyncStartEntity {
+        private static final Logger LOG = LoggerFactory.getLogger(ThrowOnAsyncStartEntityImpl.class);
+        @Override
+        public void start(Collection<? extends Location> locs) {
+            int count = config().get(COUNTER).incrementAndGet();
+            try {
+                LOG.debug("{} starting (first={})", new Object[]{this, sensors().get(AbstractGroup.FIRST_MEMBER)});
+                config().get(START_LATCH);
+                // Throw if more than one entity is starting at the same time as this.
+                assertTrue(count <= config().get(MAX_CONCURRENCY), "expected " + count + " <= " + config().get(MAX_CONCURRENCY));
+                super.start(locs);
+            } finally {
+                config().get(COUNTER).decrementAndGet();
+            }
+        }
+    }
+
+    /** Used in {@link #testChildCommandPermitNotReleasedWhenMemberStartTaskCancelledBeforeSubmission}. */
+    @ImplementedBy(CancelEffectorInvokeClusterImpl.class)
+    public interface CancelEffectorInvokeCluster extends DynamicCluster {}
+
+    /** Overrides {@link DynamicClusterImpl#newThrottledEffectorTask} to cancel each task before it's submitted. */
+    public static class CancelEffectorInvokeClusterImpl extends DynamicClusterImpl implements CancelEffectorInvokeCluster {
+        @Override
+        protected <T> Task<?> newThrottledEffectorTask(Entity target, Effector<T> effector, Map<?, ?> arguments, boolean isPrivileged) {
+            Task<?> unsubmitted = super.newThrottledEffectorTask(target, effector, arguments, isPrivileged);
+            unsubmitted.cancel(true);
+            return unsubmitted;
+        }
     }
 
 }
