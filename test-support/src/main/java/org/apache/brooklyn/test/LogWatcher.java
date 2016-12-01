@@ -27,6 +27,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
@@ -37,6 +38,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
@@ -150,16 +152,36 @@ public class LogWatcher implements Closeable {
         assertFalse(events.isEmpty());
     }
 
-    public void assertHasEventEventually() {
+    public List<ILoggingEvent> assertHasEventEventually() {
         Asserts.succeedsEventually(new Runnable() {
             public void run() {
                 assertFalse(events.isEmpty());
             }});
+        return getEvents();
+    }
+
+    public List<ILoggingEvent> assertHasEventEventually(final Predicate<? super ILoggingEvent> filter) {
+        final AtomicReference<List<ILoggingEvent>> result = new AtomicReference<>();
+        Asserts.succeedsEventually(new Runnable() {
+            public void run() {
+                synchronized (events) {
+                    Iterable<ILoggingEvent> filtered = Iterables.filter(events, filter);
+                    assertFalse(Iterables.isEmpty(filtered));
+                    result.set(ImmutableList.copyOf(filtered));
+                }
+            }});
+        return result.get();
     }
 
     public List<ILoggingEvent> getEvents() {
         synchronized (events) {
             return ImmutableList.copyOf(events);
+        }
+    }
+    
+    public List<ILoggingEvent> getEvents(Predicate<? super ILoggingEvent> filter) {
+        synchronized (events) {
+            return ImmutableList.copyOf(Iterables.filter(events, filter));
         }
     }
 }

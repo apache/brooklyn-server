@@ -315,6 +315,7 @@ public class Repeater implements Callable<Boolean> {
         Preconditions.checkState(exitCondition != null, "until() method has not been called to set the exit condition");
         Preconditions.checkState(delayOnIteration != null, "every() method (or other delaySupplier() / backoff() method) has not been called to set the loop delay");
 
+        boolean hasLoggedTransientException = false;
         Throwable lastError = null;
         int iterations = 0;
         CountdownTimer timer = timeLimit!=null ? CountdownTimer.newInstanceStarted(timeLimit) : CountdownTimer.newInstancePaused(Duration.PRACTICALLY_FOREVER);
@@ -334,8 +335,14 @@ public class Repeater implements Callable<Boolean> {
             try {
                 lastError = null;
                 done = exitCondition.call();
+                hasLoggedTransientException = false;
             } catch (Throwable e) {
-                if (log.isDebugEnabled()) log.debug(description, e);
+                if (hasLoggedTransientException) {
+                    if (log.isDebugEnabled()) log.debug(description + " (repeated failure; excluding stacktrace): " + e);
+                } else {
+                    if (log.isDebugEnabled()) log.debug(description, e);
+                    hasLoggedTransientException = true;
+                }
                 lastError = e;
                 if (rethrowImmediatelyCondition.apply(e)) throw Exceptions.propagate(e);
             }
