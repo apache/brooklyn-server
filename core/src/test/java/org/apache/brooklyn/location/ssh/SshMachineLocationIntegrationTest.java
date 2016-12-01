@@ -103,6 +103,13 @@ public class SshMachineLocationIntegrationTest extends SshMachineLocationTest {
         super.testIsSshableWhenTrue();
     }
 
+    // Overridden just to make it integration (because `newHost()` returns a real ssh'ing host)
+    @Test(groups="Integration")
+    @Override
+    public void testDoesNotLogPasswordsInEnvironmentVariables() {
+        super.testDoesNotLogPasswordsInEnvironmentVariables();
+    }
+
     // Overrides super, because expect real machine details (rather than asserting our stub data)
     @Test(groups = "Integration")
     @Override

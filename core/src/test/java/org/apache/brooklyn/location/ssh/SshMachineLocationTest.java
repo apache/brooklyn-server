@@ -40,6 +40,7 @@ import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineDetails;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.PortRange;
+import org.apache.brooklyn.core.BrooklynLogging;
 import org.apache.brooklyn.core.effector.EffectorBody;
 import org.apache.brooklyn.core.effector.EffectorTaskTest;
 import org.apache.brooklyn.core.effector.Effectors;
@@ -53,10 +54,13 @@ import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.test.LogWatcher;
+import org.apache.brooklyn.test.LogWatcher.EventPredicates;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.CustomResponse;
+import org.apache.brooklyn.util.core.internal.ssh.sshj.SshjTool;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -70,9 +74,15 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+
+import ch.qos.logback.classic.spi.ILoggingEvent;
 
 /**
  * Test the {@link SshMachineLocation} implementation of the {@link Location} interface.
@@ -272,5 +282,29 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
         host = new SshMachineLocation(MutableMap.of("address", Networking.getLocalHost(), "usedPorts", ImmutableSet.of(8000)));
         assertEquals(host.obtainPort(PortRanges.fromString("8000")), -1);
         assertEquals(host.obtainPort(PortRanges.fromString("8000+")), 8001);
+    }
+    
+    @Test
+    public void testDoesNotLogPasswordsInEnvironmentVariables() {
+        List<String> loggerNames = ImmutableList.of(
+                SshMachineLocation.class.getName(), 
+                BrooklynLogging.SSH_IO, 
+                SshjTool.class.getName());
+        ch.qos.logback.classic.Level logLevel = ch.qos.logback.classic.Level.DEBUG;
+        Predicate<ILoggingEvent> filter = Predicates.or(
+                EventPredicates.containsMessage("DB_PASSWORD"), 
+                EventPredicates.containsMessage("mypassword"));
+        LogWatcher watcher = new LogWatcher(loggerNames, logLevel, filter);
+
+        watcher.start();
+        try {
+            host.execCommands("mySummary", ImmutableList.of("true"), ImmutableMap.of("DB_PASSWORD", "mypassword"));
+            watcher.assertHasEventEventually();
+            
+            Optional<ILoggingEvent> eventWithPasswd = Iterables.tryFind(watcher.getEvents(), EventPredicates.containsMessage("mypassword"));
+            assertFalse(eventWithPasswd.isPresent(), "event="+eventWithPasswd);
+        } finally {
+            watcher.close();
+        }
     }
 }

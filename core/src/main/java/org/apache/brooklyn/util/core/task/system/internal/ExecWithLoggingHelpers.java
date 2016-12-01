@@ -27,6 +27,7 @@ import java.util.Map;
 
 import org.slf4j.Logger;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -112,7 +113,7 @@ public abstract class ExecWithLoggingHelpers {
             String allcmds = (Strings.isBlank(expectedCommandHeaders) ? "" : expectedCommandHeaders + " ; ") + Strings.join(commands, " ; ");
             commandLogger.debug("{}, initiating "+shortName.toLowerCase()+" on machine {}{}: {}",
                     new Object[] {summaryForLogging, getTargetName(),
-                    env!=null && !env.isEmpty() ? " (env "+env+")": "", allcmds});
+                    env!=null && !env.isEmpty() ? " (env "+Sanitizer.sanitize(env)+")": "", allcmds});
         }
 
         if (commands.isEmpty()) {

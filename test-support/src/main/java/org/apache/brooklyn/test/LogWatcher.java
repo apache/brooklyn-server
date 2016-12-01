@@ -25,6 +25,7 @@ import static org.testng.Assert.assertFalse;
 import java.io.Closeable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.mockito.Mockito;
@@ -37,6 +38,7 @@ import com.google.common.annotations.Beta;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.spi.ILoggingEvent;
@@ -88,13 +90,20 @@ public class LogWatcher implements Closeable {
     private final List<ILoggingEvent> events = Collections.synchronizedList(Lists.<ILoggingEvent>newLinkedList());
     private final AtomicBoolean closed = new AtomicBoolean();
     private final ch.qos.logback.classic.Level loggerLevel;
-    private final ch.qos.logback.classic.Logger watchedLogger;
     private final Appender<ILoggingEvent> appender;
-    private volatile Level origLevel;
+    private final List<ch.qos.logback.classic.Logger> watchedLoggers = Lists.newArrayList();
+    private volatile Map<ch.qos.logback.classic.Logger, Level> origLevels = Maps.newLinkedHashMap();
+
+    public LogWatcher(String loggerName, ch.qos.logback.classic.Level loggerLevel, final Predicate<? super ILoggingEvent> filter) {
+        this(ImmutableList.of(checkNotNull(loggerName, "loggerName")), loggerLevel, filter);
+    }
     
     @SuppressWarnings("unchecked")
-    public LogWatcher(String loggerName, ch.qos.logback.classic.Level loggerLevel, final Predicate<? super ILoggingEvent> filter) {
-        this.watchedLogger = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(checkNotNull(loggerName, "loggerName"));
+    public LogWatcher(Iterable<String> loggerNames, ch.qos.logback.classic.Level loggerLevel, final Predicate<? super ILoggingEvent> filter) {
+        for (String loggerName : loggerNames) {
+            Logger logger = LoggerFactory.getLogger(checkNotNull(loggerName, "loggerName"));
+            watchedLoggers.add((ch.qos.logback.classic.Logger) logger);
+        }
         this.loggerLevel = checkNotNull(loggerLevel, "loggerLevel");
         this.appender = Mockito.mock(Appender.class);
         
@@ -115,18 +124,25 @@ public class LogWatcher implements Closeable {
     
     public void start() {
         checkState(!closed.get(), "Cannot start LogWatcher after closed");
-        origLevel = watchedLogger.getLevel();
-        watchedLogger.setLevel(loggerLevel);
-        watchedLogger.addAppender(appender);
+        for (ch.qos.logback.classic.Logger watchedLogger : watchedLoggers) {
+            origLevels.put(watchedLogger, watchedLogger.getLevel());
+            watchedLogger.setLevel(loggerLevel);
+            watchedLogger.addAppender(appender);
+        }
     }
     
     @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
-            if (watchedLogger != null) {
-                if (origLevel != null) watchedLogger.setLevel(origLevel);
-                watchedLogger.detachAppender(appender);
+            if (watchedLoggers != null) {
+                for (ch.qos.logback.classic.Logger watchedLogger : watchedLoggers) {
+                    Level origLevel = origLevels.get(watchedLogger);
+                    if (origLevel != null) watchedLogger.setLevel(origLevel);
+                    watchedLogger.detachAppender(appender);
+                }
             }
+            watchedLoggers.clear();
+            origLevels.clear();
         }
     }
     
