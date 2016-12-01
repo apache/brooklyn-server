@@ -101,10 +101,13 @@ public class TestWinrmCommandImpl extends TargetableTestComponentImpl implements
             final WinRmMachineLocation machineLocation =
                     Machines.findUniqueMachineLocation(resolveTarget().getLocations(), WinRmMachineLocation.class).get();
             final Duration timeout = getRequiredConfig(TIMEOUT);
+            final Duration backoffToPeriod = getRequiredConfig(BACKOFF_TO_PERIOD);
 
+            // TODO use TestFrameworkAssertions (or use Repeater in the same way as that does)?
+            // See identical comment in `TestSshCommandImpl`.
             ReferenceWithError<Boolean> result = Repeater.create("Running winrm-command tests")
                     .limitTimeTo(timeout)
-                    .every(timeout.multiply(0.1))
+                    .backoffTo((backoffToPeriod != null) ? backoffToPeriod : Duration.millis(500))
                     .until(new Callable<Boolean>() {
                         @Override
                         public Boolean call() throws Exception {

@@ -68,6 +68,7 @@ public class TestEndpointReachableImpl extends TargetableTestComponentImpl imple
         final String endpoint = getConfig(ENDPOINT);
         final Object endpointSensor = getConfig(ENDPOINT_SENSOR);
         final Duration timeout = getConfig(TIMEOUT);
+        final Duration backoffToPeriod = getConfig(BACKOFF_TO_PERIOD);
         final List<Map<String, Object>> assertions = getAssertions(this, ASSERTIONS);
         
         final Entity target = resolveTarget();
@@ -101,7 +102,9 @@ public class TestEndpointReachableImpl extends TargetableTestComponentImpl imple
         }
 
         try {
-            Asserts.succeedsEventually(ImmutableMap.of("timeout", timeout), new Runnable() {
+            // TODO use TestFrameworkAssertions (or use Repeater in the same way as that does)?
+            ImmutableMap<String, Duration> flags = ImmutableMap.of("timeout", timeout, "maxPeriod", backoffToPeriod);
+            Asserts.succeedsEventually(flags, new Runnable() {
                 @Override
                 public void run() {
                     HostAndPort val = supplier.get();

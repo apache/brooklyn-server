@@ -84,6 +84,10 @@ public class TestFrameworkAssertions {
             this.flags.put("timeout", val);
             return this;
         }
+        public AssertionOptions backoffToPeriod(Duration val) {
+            this.flags.put("backoffToPeriod", val);
+            return this;
+        }
         public AssertionOptions assertions(Map<String, ?> val) {
             this.assertions = ImmutableList.of(val);
             return this;
@@ -227,13 +231,10 @@ public class TestFrameworkAssertions {
         }
         Map<String, ?> flags = options.flags;
         
-        // To speed up tests, default is for the period to start small and increase...
-        // TODO ignoring "period" and "maxAttempts"
+        // To speed up tests, the period starts small and increases.
         Integer maxAttempts = (Integer) flags.get("maxAttempts");
         Duration timeout = toDuration(flags.get("timeout"), (maxAttempts == null ? Asserts.DEFAULT_LONG_TIMEOUT : Duration.PRACTICALLY_FOREVER));
-        Duration fixedPeriod = toDuration(flags.get("period"), null);
-        Duration minPeriod = (fixedPeriod != null) ? fixedPeriod : toDuration(flags.get("minPeriod"), Duration.millis(1));
-        Duration maxPeriod = (fixedPeriod != null) ? fixedPeriod : toDuration(flags.get("maxPeriod"), Duration.millis(500));
+        Duration backoffToPeriod = toDuration(flags.get("backoffToPeriod"), Duration.millis(500));
         Predicate<Throwable> rethrowImmediatelyPredicate = Predicates.or(ImmutableList.of(
                 Predicates.instanceOf(AbortError.class), 
                 Predicates.instanceOf(InterruptedException.class), 
@@ -261,7 +262,7 @@ public class TestFrameworkAssertions {
                         }})
                     .limitIterationsTo(maxAttempts != null ? maxAttempts : Integer.MAX_VALUE)
                     .limitTimeTo(timeout)
-                    .backoff(minPeriod, 1.2, maxPeriod)
+                    .backoffTo(backoffToPeriod)
                     .rethrowExceptionImmediately(rethrowImmediatelyPredicate)
                     .runRequiringTrue();
 

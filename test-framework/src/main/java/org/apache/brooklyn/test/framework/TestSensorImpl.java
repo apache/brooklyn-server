@@ -61,6 +61,7 @@ public class TestSensorImpl extends TargetableTestComponentImpl implements TestS
             sensor.set(getRequiredConfig(SENSOR_NAME));
             final Entity target = resolveTarget();
             final Duration timeout = getConfig(TIMEOUT);
+            final Duration backoffToPeriod = getConfig(BACKOFF_TO_PERIOD);
             final List<Map<String, Object>> assertions = getAssertions(this, ASSERTIONS);
             final List<Map<String, Object>> abortConditions = getAbortConditions(this, ABORT_CONDITIONS);
             if (!getChildren().isEmpty()) {
@@ -74,7 +75,8 @@ public class TestSensorImpl extends TargetableTestComponentImpl implements TestS
                     return sensorValue;
                 }
             };
-            TestFrameworkAssertions.checkAssertionsEventually(new AssertionOptions(sensor.get(), supplier).timeout(timeout)
+            TestFrameworkAssertions.checkAssertionsEventually(new AssertionOptions(sensor.get(), supplier)
+                    .timeout(timeout).backoffToPeriod(backoffToPeriod)
                     .assertions(assertions).abortConditions(abortConditions));
 
             setUpAndRunState(true, Lifecycle.RUNNING);

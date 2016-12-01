@@ -18,8 +18,14 @@
  */
 package org.apache.brooklyn.test.framework;
 
-import com.google.common.base.Supplier;
-import com.google.common.collect.ImmutableMap;
+import static org.testng.Assert.assertTrue;
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.framework.TestFrameworkAssertions.AssertionOptions;
 import org.apache.brooklyn.util.text.Identifiers;
@@ -30,11 +36,11 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import com.google.common.base.Stopwatch;
+import com.google.common.base.Supplier;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 
 public class TestFrameworkAssertionsTest {
     private static final Logger LOG = LoggerFactory.getLogger(TestFrameworkAssertionsTest.class);
@@ -79,7 +85,8 @@ public class TestFrameworkAssertionsTest {
             }
         };
         TestFrameworkAssertions.checkAssertionsEventually(new AssertionOptions(Objects.toString(data), supplier)
-                .timeout(Asserts.DEFAULT_LONG_TIMEOUT).assertions(assertions));
+                .timeout(Asserts.DEFAULT_LONG_TIMEOUT)
+                .assertions(assertions));
     }
 
     @Test(dataProvider = "positiveTestsDP")
@@ -150,7 +157,8 @@ public class TestFrameworkAssertionsTest {
         Duration timeout = Duration.millis(1);
         
         try {
-            TestFrameworkAssertions.checkAssertionsEventually(new AssertionOptions(Objects.toString(data), supplier).timeout(timeout).assertions(assertions));
+            TestFrameworkAssertions.checkAssertionsEventually(new AssertionOptions(Objects.toString(data), supplier)
+                    .timeout(timeout).assertions(assertions));
             Asserts.shouldHaveFailedPreviously();
         } catch (AssertionError e) {
             Asserts.expectedFailureContains(e, Objects.toString(data), condition, expected.toString());
@@ -174,7 +182,8 @@ public class TestFrameworkAssertionsTest {
         // aborting.
         try {
             TestFrameworkAssertions.checkAssertionsEventually(new AssertionOptions(Objects.toString(data), supplier)
-                    .timeout(timeout).abortConditions(assertions)
+                    .timeout(timeout)
+                    .abortConditions(assertions)
                     .assertions(assertions));
             Asserts.shouldHaveFailedPreviously();
         } catch (AssertionError e) {
@@ -205,5 +214,78 @@ public class TestFrameworkAssertionsTest {
         }
     }
 
+    // Integration because test is time-sensitive. May fail sometimes on highly contended hardware.
+    // Also test takes a second to run.
+    @Test(groups="Integration")
+    public void testRetryBackoffs() {
+        final Stopwatch stopwatch = Stopwatch.createStarted();
+        final List<Duration> timestamps = Lists.newArrayList();
+        
+        final Supplier<Object> supplier = new Supplier<Object>() {
+            @Override
+            public Object get() {
+                timestamps.add(Duration.of(stopwatch));
+                return "myActualVal";
+            }
+        };
+        
+        try {
+            TestFrameworkAssertions.checkAssertionsEventually(new AssertionOptions("myTarget", supplier)
+                    .timeout(Duration.seconds(1))
+                    .backoffToPeriod(Duration.millis(100))
+                    .assertions(Arrays.asList(ImmutableMap.of("isEqualTo", "myExpectedVal"))));
+            Asserts.shouldHaveFailedPreviously();
+        } catch (AssertionError e) {
+            Asserts.expectedFailureContains(e, "myTarget expected isEqualTo myExpectedVal but found myActualVal");
+        }
 
+        List<Duration> timestampDiffs = getDiffsBetweenTimes(timestamps);
+        LOG.info("timestampDiffs="+timestampDiffs + "; timestamps="+timestamps);
+        
+        // Assert delays increase exponentially.
+        Duration initialDelay = Duration.millis(10);
+        Duration finalDelay = Duration.millis(100);
+        Duration earlyTollerance = Duration.millis(10);
+        Duration lateTollerance = Duration.millis(50);
+        Duration firstLateTollerance = Duration.millis(250); // first can cause class-loading etc; accept slower
+        double multiplier = 1.2;
+        
+        for (int iteration = 1; iteration < timestampDiffs.size(); iteration++) {
+            Duration actualDelay = timestampDiffs.get(iteration);
+            Duration expectedDelay = initialDelay;
+            for (int i = 0; i < iteration; i++) {
+                expectedDelay = expectedDelay.multiply(multiplier);
+                if (finalDelay!=null && expectedDelay.compareTo(finalDelay) > 0) {
+                    expectedDelay = finalDelay;
+                    break;
+                }
+            }
+            Duration min = Duration.max(expectedDelay.subtract(earlyTollerance), Duration.ZERO);
+            Duration max = expectedDelay.add((iteration == 0) ? firstLateTollerance : lateTollerance);
+            String errMsg = "invalid time-diff at " + iteration+": " + timestampDiffs;
+            assertOrdered(ImmutableList.of(min, actualDelay, max), errMsg);
+        }
+    }
+    
+    private void assertOrdered(List<Duration> timestamps, String errMsg) {
+        Duration prev = null;
+        for (Duration timestamp : timestamps) {
+            if (prev != null) {
+                assertTrue(prev.toMilliseconds() <= timestamp.toMilliseconds(), errMsg);
+            }
+            prev = timestamp;
+        }
+    }
+    
+    private List<Duration> getDiffsBetweenTimes(List<Duration> timestamps) {
+        List<Duration> result = Lists.newArrayList();
+        Duration prev = null;
+        for (Duration timestamp : timestamps) {
+            if (prev != null) {
+                result.add(timestamp.subtract(prev));
+            }
+            prev = timestamp;
+        }
+        return result;
+    }
 }

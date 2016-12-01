@@ -60,6 +60,7 @@ public class TestEffectorImpl extends TargetableTestComponentImpl implements Tes
             final String effectorName = getRequiredConfig(EFFECTOR_NAME);
             final Map<String, ?> effectorParams = getConfig(EFFECTOR_PARAMS);
             final Duration timeout = getConfig(TIMEOUT);
+            final Duration backoffToPeriod = getConfig(BACKOFF_TO_PERIOD);
             if (!getChildren().isEmpty()) {
                 throw new RuntimeException(String.format("The entity [%s] cannot have child entities", getClass().getName()));
             }
@@ -87,7 +88,9 @@ public class TestEffectorImpl extends TargetableTestComponentImpl implements Tes
             if(assertions != null && !assertions.isEmpty()){
                 Supplier<?> supplier = Suppliers.ofInstance(effectorResult);
                 TestFrameworkAssertions.checkAssertionsEventually(new AssertionOptions(effectorName, supplier)
-                        .timeout(timeout).assertions(assertions));
+                        .timeout(timeout)
+                        .backoffToPeriod(backoffToPeriod)
+                        .assertions(assertions));
             }
 
             //Add result of effector to sensor
