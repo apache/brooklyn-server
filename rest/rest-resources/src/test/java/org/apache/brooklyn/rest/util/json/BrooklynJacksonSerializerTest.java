@@ -32,6 +32,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.json.BidiSerialization;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.net.UserAndHostAndPort;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
@@ -200,6 +201,14 @@ public class BrooklynJacksonSerializerTest {
         log.info("multimap serialized as: " + result);
         Assert.assertFalse(result.contains("error"), "Shouldn't have had an error, instead got: "+result);
         Assert.assertEquals(Strings.collapseWhitespace(result, ""), "{\"bob\":[24,25]}");
+    }
+
+    @Test
+    public void testUserHostAndPortSerialization() throws Exception {
+        String result = checkSerializesAs(UserAndHostAndPort.fromParts("testHostUser", "1.2.3.4", 22), null);
+        log.info("UserHostAndPort serialized as: " + result);
+        Assert.assertFalse(result.contains("error"), "Shouldn't have had an error, instead got: "+result);
+        Assert.assertEquals(Strings.collapseWhitespace(result, ""), "{\"user\":\"testHostUser\",\"hostAndPort\":{\"host\":\"1.2.3.4\",\"port\":22,\"hasBracketlessColons\":false}}");
     }
 
     @Test

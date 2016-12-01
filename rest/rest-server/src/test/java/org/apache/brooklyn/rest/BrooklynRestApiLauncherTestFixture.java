@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.rest;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
@@ -27,12 +28,22 @@ import org.apache.brooklyn.core.server.BrooklynServiceAttributes;
 import org.apache.brooklyn.rest.security.provider.AnyoneSecurityProvider;
 import org.apache.brooklyn.util.core.osgi.Compat;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.http.HttpAsserts;
+import org.apache.brooklyn.util.http.HttpTool;
+import org.apache.brooklyn.util.http.HttpToolResponse;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.HttpClient;
 import org.eclipse.jetty.server.NetworkConnector;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.ContextHandler;
 import org.reflections.util.ClasspathHelper;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
+
+import java.net.URI;
+
+import static org.apache.brooklyn.util.http.HttpTool.httpClientBuilder;
+import static org.testng.Assert.assertTrue;
 
 public abstract class BrooklynRestApiLauncherTestFixture {
 
@@ -47,7 +58,7 @@ public abstract class BrooklynRestApiLauncherTestFixture {
             server = null;
         }
     }
-    
+
     protected Server newServer() {
         try {
             Server server = baseLauncher()
@@ -71,6 +82,35 @@ public abstract class BrooklynRestApiLauncherTestFixture {
     protected BrooklynRestApiLauncher baseLauncher() {
         return BrooklynRestApiLauncher.launcher()
                 .securityProvider(AnyoneSecurityProvider.class);
+    }
+
+    protected HttpClient newClient(String user) throws Exception {
+        HttpTool.HttpClientBuilder builder = httpClientBuilder()
+                .uri(getBaseUriRest());
+        if (user != null) {
+            builder.credentials(new UsernamePasswordCredentials(user, "ignoredPassword"));
+        }
+        return builder.build();
+    }
+
+    protected String httpGet(String path) throws Exception {
+        return httpGet(null, path);
+    }
+
+    protected String httpGet(String user, String path) throws Exception {
+        HttpToolResponse response = HttpTool.httpGet(newClient(user), URI.create(getBaseUriRest()).resolve(path), ImmutableMap.<String, String>of());
+        assertHealthyStatusCode(response);
+        return response.getContentAsString();
+    }
+
+    protected HttpToolResponse httpPost(String user, String path, byte[] body) throws Exception {
+        final ImmutableMap<String, String> headers = ImmutableMap.of();
+        final URI uri = URI.create(getBaseUriRest()).resolve(path);
+        return HttpTool.httpPost(newClient(user), uri, headers, body);
+    }
+
+    protected void assertHealthyStatusCode(HttpToolResponse response) {
+        assertTrue(HttpAsserts.isHealthyStatusCode(response.getResponseCode()), "code="+response.getResponseCode()+"; reason="+response.getReasonPhrase());
     }
     
     /** @deprecated since 0.9.0 use {@link #getBaseUriHostAndPost(Server)} or {@link #getBaseUriRest(Server)} */
