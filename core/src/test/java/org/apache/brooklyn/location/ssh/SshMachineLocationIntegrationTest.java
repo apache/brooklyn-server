@@ -185,14 +185,18 @@ public class SshMachineLocationIntegrationTest extends SshMachineLocationTest {
         }
     }
 
-    // Note: on some (home/airport) networks, `ssh 123.123.123.123` hangs seemingly forever.
-    // Make sure we fail, waiting for longer than the 70 second TCP timeout.
+    // See http://superuser.com/a/698251/497648 for choice of unreachable IP.
+    // Even with 240.0.0.0, it takes a long time (75 seconds in office network).
     //
-    // Times out in 2m7s on Ubuntu Vivid (syn retries set to 6)
+    // Previously, "123.123.123.123" would seemingly hang on some (home/airport) networks.
+    // Times out (with 123.123.123.123) in 2m7s on Ubuntu Vivid (syn retries set to 6)
+    //
+    // Make sure we fail, waiting for longer than the 70 second TCP timeout.
     @Test(groups = "Integration")
     public void testIsSshableWhenFalse() throws Exception {
-        byte[] unreachableIp = new byte[] {123,123,123,123};
-        final SshMachineLocation unreachableHost = new SshMachineLocation(MutableMap.of("address", InetAddress.getByAddress("unreachablename", unreachableIp)));
+        String unreachableIp = "240.0.0.0";
+        final SshMachineLocation unreachableHost = new SshMachineLocation(MutableMap.of("address", InetAddress.getByName(unreachableIp)));
+        System.out.println(unreachableHost.getAddress());
         Asserts.assertReturnsEventually(new Runnable() {
             public void run() {
                 assertFalse(unreachableHost.isSshable());
