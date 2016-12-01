@@ -30,7 +30,6 @@ import java.io.OutputStream;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.io.Reader;
-import java.io.StringReader;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
