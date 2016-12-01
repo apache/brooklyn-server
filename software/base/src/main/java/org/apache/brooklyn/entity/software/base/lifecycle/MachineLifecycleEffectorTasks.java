@@ -115,7 +115,7 @@ import com.google.common.reflect.TypeToken;
  *  <li> {@link #preStopCustom()}
  *  <li> {@link #postStopCustom()}
  * </ul>
- * Note methods at this level typically look after the {@link Attributes#SERVICE_STATE} sensor.
+ * Note methods at this level typically look after the {@link Attributes#SERVICE_STATE_ACTUAL} sensor.
  *
  * @since 0.6.0
  */
@@ -489,7 +489,8 @@ public abstract class MachineLifecycleEffectorTasks {
             entity().sensors().set(Attributes.ADDRESS, machine.getAddress().getHostAddress());
             if (machine instanceof SshMachineLocation) {
                 SshMachineLocation sshMachine = (SshMachineLocation) machine;
-                UserAndHostAndPort sshAddress = UserAndHostAndPort.fromParts(sshMachine.getUser(), sshMachine.getAddress().getHostName(), sshMachine.getPort());
+                UserAndHostAndPort sshAddress = UserAndHostAndPort.fromParts(
+                        sshMachine.getUser(), sshMachine.getAddress().getHostName(), sshMachine.getPort());
                 entity().sensors().set(Attributes.SSH_ADDRESS, sshAddress);
             }
 

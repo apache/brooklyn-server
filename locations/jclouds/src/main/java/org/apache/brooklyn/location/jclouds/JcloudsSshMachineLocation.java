@@ -420,9 +420,10 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
     protected Optional<String> getPrivateAddress() {
         for (String p : getPrivateAddresses()) {
             // disallow local only addresses
-            if (Networking.isLocalOnly(p)) continue;
-            // other things may be public or private, but either way, return it
-            return Optional.of(p);
+            if (!Networking.isLocalOnly(p)) {
+                // other things may be public or private, but either way, return it
+                return Optional.of(p);
+            }
         }
         return Optional.absent();
     }
