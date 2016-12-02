@@ -197,7 +197,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         deleteNamespace(namespace);
     }
 
-    private synchronized void deleteNamespace(final String namespace) {
+    protected synchronized void deleteNamespace(final String namespace) {
         if (!namespace.equals("default") && isNamespaceEmpty(namespace)) {
             if (client.namespaces().withName(namespace).get() != null && !client.namespaces().withName(namespace).get().getStatus().getPhase().equals("Terminating")) {
                 client.namespaces().withName(namespace).delete();
@@ -216,7 +216,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         }
     }
 
-    private boolean isNamespaceEmpty(String namespace) {
+    protected boolean isNamespaceEmpty(String namespace) {
         return client.extensions().deployments().inNamespace(namespace).list().getItems().isEmpty() &&
                client.services().inNamespace(namespace).list().getItems().isEmpty() &&
                client.secrets().inNamespace(namespace).list().getItems().isEmpty();
@@ -314,11 +314,11 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         }
     }
     
-    private String findDeploymentName(Entity entity, ConfigBag setup) {
+    protected String findDeploymentName(Entity entity, ConfigBag setup) {
         return firstNonNull(setup.get(KubernetesLocationConfig.DEPLOYMENT), entity.getId());
     }
 
-    private synchronized Namespace createOrGetNamespace(final String ns) {
+    protected synchronized Namespace createOrGetNamespace(final String ns) {
         Namespace namespace = client.namespaces().withName(ns).get();
         ExitCondition namespaceReady = new ExitCondition() {
             @Override
@@ -342,7 +342,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         return client.namespaces().withName(ns).get();
     }
 
-    private Pod getPod(String namespace, Map<String, String> metadata) {
+    protected Pod getPod(String namespace, Map<String, String> metadata) {
         PodList result = client.pods().inNamespace(namespace).withLabels(metadata).list();
         if (result.getItems().isEmpty() || result.getItems().size() > 1) {
             throw new IllegalStateException("Cannot find pod  Pod with metadata: " + Joiner.on(" ").withKeyValueSeparator("=").join(metadata));
@@ -350,13 +350,13 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         return result.getItems().get(0);
     }
 
-    private void createSecrets(String namespace, Map<String, String> secrets) {
+    protected void createSecrets(String namespace, Map<String, String> secrets) {
         for (Map.Entry<String, String> nameAuthEntry : secrets.entrySet()) {
             createSecret(namespace, nameAuthEntry.getKey(), nameAuthEntry.getValue());
         }
     }
 
-    private Secret createSecret(final String namespace, final String secretName, String auth) {
+    protected Secret createSecret(final String namespace, final String secretName, String auth) {
         Secret secret = client.secrets().inNamespace(namespace).withName(secretName).get();
         if (secret != null) return secret;
 
@@ -393,7 +393,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         return client.secrets().inNamespace(namespace).withName(secretName).get();
     }
 
-    private Container buildContainer(String namespace, Map<String, String> metadata, String deploymentName, String imageName, Iterable<Integer> inboundPorts, Map<String, ?> env, Map<String, String> limits, boolean privileged) {
+    protected Container buildContainer(String namespace, Map<String, String> metadata, String deploymentName, String imageName, Iterable<Integer> inboundPorts, Map<String, ?> env, Map<String, String> limits, boolean privileged) {
         List<ContainerPort> containerPorts = Lists.newArrayList();
         for (Integer inboundPort : inboundPorts) {
             containerPorts.add(new ContainerPortBuilder().withContainerPort(inboundPort).build());
@@ -423,7 +423,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         return containerBuilder.build();
     }
 
-    private Deployment deploy(final String namespace, Map<String, String> metadata, final String deploymentName, Container container, final Integer replicas, Map<String, String> secrets) {
+    protected Deployment deploy(final String namespace, Map<String, String> metadata, final String deploymentName, Container container, final Integer replicas, Map<String, String> secrets) {
         PodTemplateSpecBuilder podTemplateSpecBuilder = new PodTemplateSpecBuilder()
                 .withNewMetadata().addToLabels(metadata).endMetadata()
                 .withNewSpec()
@@ -468,7 +468,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         return client.extensions().deployments().inNamespace(namespace).withName(deploymentName).get();
     }
 
-    private Service exposeService(final String namespace, Map<String, String> metadata, final String serviceName, Iterable<Integer> inboundPorts) {
+    protected Service exposeService(final String namespace, Map<String, String> metadata, final String serviceName, Iterable<Integer> inboundPorts) {
         List<ServicePort> servicePorts = Lists.newArrayList();
         for (Integer inboundPort : inboundPorts) {
             servicePorts.add(new ServicePortBuilder().withName(inboundPort+"").withPort(inboundPort).build());
@@ -500,7 +500,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         return client.services().inNamespace(namespace).withName(serviceName).get();
     }
 
-    private LocationSpec<SshMachineLocation> prepareLocationSpec(Entity entity, ConfigBag setup, Namespace namespace, Deployment deployment, Service service, Pod pod) {
+    protected LocationSpec<SshMachineLocation> prepareLocationSpec(Entity entity, ConfigBag setup, Namespace namespace, Deployment deployment, Service service, Pod pod) {
         try {
             InetAddress node = InetAddress.getByName(pod.getSpec().getNodeName());
             String podAddress = pod.getStatus().getPodIP();
@@ -539,7 +539,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         }
     }
 
-    private void createPersistentVolumes(List<String> volumes) {
+    protected void createPersistentVolumes(List<String> volumes) {
         for (final String persistentVolume : volumes) {
             PersistentVolume volume = new PersistentVolumeBuilder()
                     .withNewMetadata()
@@ -570,7 +570,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         }
     }
 
-    private Entity validateCallerContext(ConfigBag setup) {
+    protected Entity validateCallerContext(ConfigBag setup) {
         // Lookup entity flags
         Object callerContext = setup.get(LocationConfigKeys.CALLER_CONTEXT);
         if (callerContext == null || !(callerContext instanceof Entity)) {
@@ -580,7 +580,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     }
 
 
-    private Map<String, String> findMetadata(Entity entity, String value) {
+    protected Map<String, String> findMetadata(Entity entity, String value) {
         Map<String, String> metadata = Maps.newHashMap();
         if (!isDockerContainer(entity)) {
             metadata.put(SSHABLE_CONTAINER, value);
@@ -604,7 +604,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
      * precedence, as a location often applies to a whole app so we might well want to override
      * or augment it for specific entities.
      */
-    private Map<String, Object> findEnvironmentVariables(ConfigBag config, String imageName) {
+    protected Map<String, Object> findEnvironmentVariables(ConfigBag config, String imageName) {
         String loginUser = config.get(LOGIN_USER);
         String loginPassword = config.get(LOGIN_USER_PASSWORD);
         Map<String, Object> injections = Maps.newLinkedHashMap();
@@ -640,7 +640,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 .build();
     }
 
-    private Iterable<Integer> findInboundPorts(Entity entity, ConfigBag setup) {
+    protected Iterable<Integer> findInboundPorts(Entity entity, ConfigBag setup) {
         Iterable<String> inboundTcpPorts = entity.config().get(DockerContainer.INBOUND_TCP_PORTS);
         if (inboundTcpPorts != null) {
             List<Integer> inboundPorts = Lists.newArrayList();
@@ -661,13 +661,13 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         }
     }
 
-    static List<Integer> toIntPortList(Object v) {
+    public static List<Integer> toIntPortList(Object v) {
         if (v == null) return ImmutableList.of();
         PortRange portRange = PortRanges.fromIterable(ImmutableList.of(v));
         return ImmutableList.copyOf(portRange);
     }
 
-    private String findImageName(Entity entity, ConfigBag setup) {
+    protected String findImageName(Entity entity, ConfigBag setup) {
         String result = entity.config().get(DockerContainer.IMAGE_NAME);
         if (Strings.isNonBlank(result)) return result;
         
@@ -683,7 +683,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 + " (no explicit image name, osFamily=" + osFamily + "; osVersion=" + osVersion + ")");
     }
 
-    private boolean isDockerContainer(Entity entity) {
+    protected boolean isDockerContainer(Entity entity) {
         return entity.getEntityType().getName().equalsIgnoreCase(DockerContainer.class.getName());
     }
 
@@ -692,11 +692,11 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         return null;
     }
 
-    private void waitForExitCondition(ExitCondition exitCondition) {
+    protected void waitForExitCondition(ExitCondition exitCondition) {
         waitForExitCondition(exitCondition, Duration.ONE_SECOND, Duration.FIVE_MINUTES);
     }
 
-    private void waitForExitCondition(ExitCondition exitCondition, Duration finalDelay, Duration duration) {
+    protected void waitForExitCondition(ExitCondition exitCondition, Duration finalDelay, Duration duration) {
         ReferenceWithError<Boolean> result = Repeater.create()
                 .backoffTo(finalDelay)
                 .limitTimeTo(duration)
@@ -709,7 +709,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         }
     }
 
-    private static interface ExitCondition extends Callable<Boolean> {
+    public static interface ExitCondition extends Callable<Boolean> {
         public String getFailureMessage();
     }
 }

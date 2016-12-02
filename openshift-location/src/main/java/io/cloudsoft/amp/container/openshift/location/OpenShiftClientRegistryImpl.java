@@ -21,7 +21,6 @@ public class OpenShiftClientRegistryImpl extends KubernetesClientRegistryImpl {
     public KubernetesClient getKubernetesClient(ConfigBag conf) {
         KubernetesClient client = super.getKubernetesClient(conf);
         OpenShiftClient oClient = client.adapt(OpenShiftClient.class);
-
         return oClient;
     }
 
