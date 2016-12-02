@@ -391,6 +391,9 @@ public class BrooklynComponentTemplateResolver {
         // relying on ordering. We should also respect the ordered returned by 
         // EntityDynamicType.getConfigKeys, which is much better (it respects `BasicConfigKeyOverwriting` 
         // etc).
+    	//  Or rather if the parameter fields are incomplete they might be merged with those defined 
+    	// on the type (eg description, default value) or ancestor, so that it isn't necessary for users
+    	// to re-declare those in a parameter definition, just anything they wish to overwrite.
         // 
         // However, that is hard/fiddly because of the way a config key can be referenced by
         // its real name or flag-name.
@@ -404,7 +407,8 @@ public class BrooklynComponentTemplateResolver {
         //
         // I plan to propose a change on dev@brooklyn, to replace `@SetFromFlag`!
         
-        Set<FlagConfigKeyAndValueRecord> allKeys = MutableSet.of();
+    	// need to de-dupe? (can't use Set bc FCKVR doesn't impl equals/hashcode)
+        List<FlagConfigKeyAndValueRecord> allKeys = MutableList.of();
         allKeys.addAll(FlagUtils.findAllParameterConfigKeys(spec.getParameters(), bagFlags));
         if (spec.getImplementation() != null) {
             allKeys.addAll(FlagUtils.findAllFlagsAndConfigKeys(null, spec.getImplementation(), bagFlags));
