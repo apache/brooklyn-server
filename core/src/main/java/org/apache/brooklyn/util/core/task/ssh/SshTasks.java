@@ -34,7 +34,6 @@ import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.api.mgmt.TaskQueueingContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.StringConfigMap;
-import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
@@ -129,12 +128,12 @@ public class SshTasks {
         Set<ConfigKey<?>> sshConfig = MutableSet.of();
         
         StringConfigMap mgmtConfig = null;
-        sshConfig.addAll(location.config().findKeys(ConfigPredicates.nameStartsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)));
+        sshConfig.addAll(location.config().findKeysDeclared(ConfigPredicates.nameStartsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)));
         if (location instanceof AbstractLocation) {
             ManagementContext mgmt = ((AbstractLocation)location).getManagementContext();
             if (mgmt!=null) {
                 mgmtConfig = mgmt.getConfig();
-                sshConfig.addAll(mgmtConfig.findKeys(ConfigPredicates.nameStartsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)));
+                sshConfig.addAll(mgmtConfig.findKeysDeclared(ConfigPredicates.nameStartsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)));
             }
         }
         

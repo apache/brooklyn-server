@@ -43,6 +43,7 @@ import org.apache.brooklyn.core.sensor.BasicAttributeSensorAndConfigKey.IntegerA
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.stock.BasicEntity;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.task.BasicTask;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
@@ -354,17 +355,26 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
         assertEquals(entity.getConfig(MySubEntity.SUPER_KEY_2), "changed");
     }
     
-    // Sept 2016 previously tested submap here, but we've deprecated that 
-    // (it was failing also due to the new approach, and not worth fixing)
     @Test
-    public void testConfigFilter() throws Exception {
+    public void testConfigFilterPresent() throws Exception {
         MySubEntity entity = app.addChild(EntitySpec.create(MySubEntity.class));
         entity.config().set(MyBaseEntity.SUPER_KEY_1, "s1");
         entity.config().set(MySubEntity.SUB_KEY_2, "s2");
-        Set<ConfigKey<?>> filteredKeys = entity.config().getInternalConfigMap().findKeys(ConfigPredicates.nameMatchesGlob("sup*"));
+        Set<ConfigKey<?>> filteredKeys = entity.config().getInternalConfigMap().findKeysPresent(ConfigPredicates.nameMatchesGlob("sup*"));
         Assert.assertTrue(filteredKeys.contains(MyBaseEntity.SUPER_KEY_1));
         Assert.assertFalse(filteredKeys.contains(MySubEntity.SUB_KEY_2));
-        Assert.assertEquals(filteredKeys.size(), 1);
+        Assert.assertFalse(filteredKeys.contains(MyBaseEntity.SUPER_KEY_2));
+        Asserts.assertSize(filteredKeys, 1);
+    }
+
+    @Test
+    public void testConfigFilterDeclared() throws Exception {
+        MySubEntity entity = app.addChild(EntitySpec.create(MySubEntity.class));
+        Set<ConfigKey<?>> filteredKeys = entity.config().getInternalConfigMap().findKeysDeclared(ConfigPredicates.nameMatchesGlob("sup*"));
+        Assert.assertTrue(filteredKeys.contains(MyBaseEntity.SUPER_KEY_1));
+        Assert.assertTrue(filteredKeys.contains(MyBaseEntity.SUPER_KEY_2));
+        Assert.assertFalse(filteredKeys.contains(MySubEntity.SUB_KEY_2));
+        Asserts.assertSize(filteredKeys, 2);
     }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })

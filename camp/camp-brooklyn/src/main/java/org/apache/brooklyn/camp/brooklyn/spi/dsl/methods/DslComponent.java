@@ -635,6 +635,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
         DESCENDANT,
         ANCESTOR,
         ROOT,
+        /** highest ancestor where all items come from the same catalog item ID */
         SCOPE_ROOT,
         THIS;
 

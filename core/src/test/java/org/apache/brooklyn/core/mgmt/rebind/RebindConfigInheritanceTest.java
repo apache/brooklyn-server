@@ -82,7 +82,7 @@ public class RebindConfigInheritanceTest extends RebindTestFixtureWithApp {
     public void testPreBasicConfigInheritance_2016_07() throws Exception {
         doReadConfigInheritance("prebasic-2016-07", "toruf2wxg4");
         
-        ConfigKey<?> k = Iterables.getOnlyElement( rebindedApp.config().findKeys(ConfigPredicates.nameEqualTo("my.config.inheritanceMerged")) );
+        ConfigKey<?> k = Iterables.getOnlyElement( rebindedApp.config().findKeysDeclared(ConfigPredicates.nameEqualTo("my.config.inheritanceMerged")) );
         
         Asserts.assertStringContains(origMemento, "<parentInheritance class=\"org.apache.brooklyn.config.ConfigInheritance$Merged\"/>");
         Asserts.assertStringDoesNotContain(origMemento, BasicConfigInheritance.DEEP_MERGE.getClass().getName());

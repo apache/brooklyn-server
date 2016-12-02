@@ -296,13 +296,13 @@ public class SshEffectorTasks {
     public static Map<String, Object> getSshFlags(Entity entity, Location optionalLocation) {
         Set<ConfigKey<?>> sshConfig = MutableSet.of();
         
-        sshConfig.addAll(((EntityInternal)entity).config().findKeys(ConfigPredicates.nameStartsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)));
+        sshConfig.addAll(((EntityInternal)entity).config().findKeysDeclared(ConfigPredicates.nameStartsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)));
         
         if (optionalLocation!=null)
-            sshConfig.addAll(optionalLocation.config().findKeys(ConfigPredicates.nameStartsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)));
+            sshConfig.addAll(optionalLocation.config().findKeysDeclared(ConfigPredicates.nameStartsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)));
         
         StringConfigMap globalConfig = ((EntityInternal)entity).getManagementContext().getConfig();
-        sshConfig.addAll(globalConfig.findKeys(ConfigPredicates.nameStartsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)));
+        sshConfig.addAll(globalConfig.findKeysDeclared(ConfigPredicates.nameStartsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)));
         
         Map<String, Object> result = Maps.newLinkedHashMap();
         for (ConfigKey<?> key : sshConfig) {

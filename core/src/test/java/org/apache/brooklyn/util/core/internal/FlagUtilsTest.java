@@ -406,10 +406,21 @@ public class FlagUtilsTest {
                 return set(key.getConfigKey(), val);
             }
 
-            @Override
-            public Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> predicate) {
-                return MutableSet.copyOf(Iterables.filter(bag.getAllConfigAsConfigKeyMap().keySet(), predicate));
+            @Override @Deprecated
+            public Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> filter) {
+            	return findKeysDeclared(filter);
             }
+            
+            @Override
+            public Set<ConfigKey<?>> findKeysDeclared(Predicate<? super ConfigKey<?>> filter) {
+            	return MutableSet.copyOf(Iterables.filter(bag.getAllConfigAsConfigKeyMap().keySet(), filter));
+            }
+            
+            @Override
+            public Set<ConfigKey<?>> findKeysPresent(Predicate<? super ConfigKey<?>> filter) {
+            	return findKeysDeclared(filter);
+            }
+
         }
     }
     
