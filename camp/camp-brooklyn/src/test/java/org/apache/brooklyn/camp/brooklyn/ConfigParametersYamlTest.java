@@ -39,7 +39,6 @@ import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
-import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
@@ -56,7 +55,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
 public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
-    @SuppressWarnings("unused")
+	
     private static final Logger LOG = LoggerFactory.getLogger(ConfigParametersYamlTest.class);
 
     @BeforeMethod(alwaysRun=true)
@@ -538,11 +537,8 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("my.other.obj")), "myDefaultObj");
     }
-    
-    // TODO: fails; times out getting config. Problem is that scopeRoot() resolves to entity-with-keys!
-    // Presumably because it is resolved from inside the entity-with-keys?
-    // https://issues.apache.org/jira/browse/BROOKLYN-329
-    @Test(groups={"WIP", "Broken"})
+
+    @Test
     public void testConfigParameterPassedFromOuterConfigParameter() throws Exception {
         addCatalogItems(
                 "brooklyn.catalog:",
@@ -568,9 +564,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "      - name: my.param.key",
                 "        type: string",
                 "        default: myDefaultValInOuter",
-                "      type: entity-with-keys",
-                "      brooklyn.config:",
-                "        my.param.key: $brooklyn:scopeRoot().config(\"my.param.key\")");
+                "      type: entity-with-keys");
         
         String yaml = Joiner.on("\n").join(
                 "services:",
@@ -578,11 +572,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         
         Entity app = createStartWaitAndLogApplication(yaml);
         final TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
-        Asserts.assertReturnsEventually(new Runnable() {
-            public void run() {
-                assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("my.other.key")), "myDefaultValInOuter");
-            }},
-            Asserts.DEFAULT_LONG_TIMEOUT);
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("my.other.key")), "myDefaultValInOuter");
     }
     
     @Test
