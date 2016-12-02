@@ -79,6 +79,20 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
             .constraint(Predicates.<String>notNull())
             .build();
 
+    ConfigKey<Boolean> CREATE_NAMESPACE = ConfigKeys.builder(Boolean.class)
+            .name("namespace.create")
+            .description("Whether to create the namespace if it does not exist")
+            .defaultValue(true)
+            .constraint(Predicates.<Boolean>notNull())
+            .build();
+
+    ConfigKey<Boolean> DELETE_EMPTY_NAMESPACE = ConfigKeys.builder(Boolean.class)
+            .name("namespace.deleteEmpty")
+            .description("Whether to delete an empty namespace when releasing resources")
+            .defaultValue(false)
+            .constraint(Predicates.<Boolean>notNull())
+            .build();
+
     @SuppressWarnings("serial")
     ConfigKey<List<String>> PERSISTENT_VOLUMES = ConfigKeys.builder(new TypeToken<List<String>>() {})
             .name("persistentVolumes")

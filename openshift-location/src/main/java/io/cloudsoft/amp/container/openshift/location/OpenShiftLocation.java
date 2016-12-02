@@ -9,9 +9,7 @@ import org.slf4j.LoggerFactory;
 
 import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesClientRegistry;
 import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocation;
-import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocation.ExitCondition;
 import io.fabric8.kubernetes.api.model.Namespace;
-import io.fabric8.kubernetes.api.model.NamespaceBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.openshift.api.model.Project;
 import io.fabric8.openshift.api.model.ProjectBuilder;
@@ -41,43 +39,46 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
     }
 
     @Override
-    protected synchronized Namespace createOrGetNamespace(final String namespace) {
-        Project project = client.projects().withName(namespace).get();
+    protected synchronized Namespace createOrGetNamespace(final String name, Boolean create) {
+        Project project = client.projects().withName(name).get();
         ExitCondition projectReady = new ExitCondition() {
             @Override
             public Boolean call() {
-                Project actualProject = client.projects().withName(namespace).get();
+                Project actualProject = client.projects().withName(name).get();
                 return actualProject != null && actualProject.getStatus().getPhase().equals("Active");
             }
             @Override
             public String getFailureMessage() {
-                Project actualProject = client.projects().withName(namespace).get();
-                return "Project for " + namespace + " " + (actualProject == null ? "absent" : " status " + actualProject.getStatus());
+                Project actualProject = client.projects().withName(name).get();
+                return "Project for " + name+ " " + (actualProject == null ? "absent" : " status " + actualProject.getStatus());
             }
         };
         if (project != null) {
             log.debug("Found project {}, returning it.", project);
-        } else {
-            project = client.projects().create(new ProjectBuilder().withNewMetadata().withName(namespace).endMetadata().build());
+        } else if (create) {
+            project = client.projects().create(new ProjectBuilder().withNewMetadata().withName(name).endMetadata().build());
             log.debug("Created project {}.", project);
+        } else {
+            throw new IllegalStateException("Project " + name + " does not exist and namespace.create is not set");
         }
         waitForExitCondition(projectReady);
-        return client.namespaces().withName(namespace).get();
+        return client.namespaces().withName(name).get();
     }
 
     @Override
-    protected synchronized void deleteNamespace(final String namespace) {
-        if (!namespace.equals("default") && isNamespaceEmpty(namespace)) {
-            if (client.projects().withName(namespace).get() != null && !client.projects().withName(namespace).get().getStatus().getPhase().equals("Terminating")) {
-                client.projects().withName(namespace).delete();
+    protected synchronized void deleteEmptyNamespace(final String name) {
+        if (!name.equals("default") && isNamespaceEmpty(name)) {
+            if (client.projects().withName(name).get() != null &&
+                    !client.projects().withName(name).get().getStatus().getPhase().equals("Terminating")) {
+                client.projects().withName(name).delete();
                 ExitCondition exitCondition = new ExitCondition() {
                     @Override
                     public Boolean call() {
-                        return client.projects().withName(namespace).get() == null;
+                        return client.projects().withName(name).get() == null;
                     }
                     @Override
                     public String getFailureMessage() {
-                        return "Project " + namespace + " still present";
+                        return "Project " + name+ " still present";
                     }
                 };
                 waitForExitCondition(exitCondition);

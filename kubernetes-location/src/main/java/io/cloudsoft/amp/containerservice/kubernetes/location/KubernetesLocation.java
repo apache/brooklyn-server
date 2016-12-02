@@ -194,21 +194,25 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         };
         waitForExitCondition(exitCondition);
 
-        deleteNamespace(namespace);
+        Boolean delete = machine.config().get(DELETE_EMPTY_NAMESPACE);
+        if (delete) {
+            deleteEmptyNamespace(namespace);
+        }
     }
 
-    protected synchronized void deleteNamespace(final String namespace) {
-        if (!namespace.equals("default") && isNamespaceEmpty(namespace)) {
-            if (client.namespaces().withName(namespace).get() != null && !client.namespaces().withName(namespace).get().getStatus().getPhase().equals("Terminating")) {
-                client.namespaces().withName(namespace).delete();
+    protected synchronized void deleteEmptyNamespace(final String name) {
+        if (!name.equals("default") && isNamespaceEmpty(name)) {
+            if (client.namespaces().withName(name).get() != null &&
+                    !client.namespaces().withName(name).get().getStatus().getPhase().equals("Terminating")) {
+                client.namespaces().withName(name).delete();
                 ExitCondition exitCondition = new ExitCondition() {
                     @Override
                     public Boolean call() {
-                        return client.namespaces().withName(namespace).get() == null;
+                        return client.namespaces().withName(name).get() == null;
                     }
                     @Override
                     public String getFailureMessage() {
-                        return "Namespace " + namespace + " still present";
+                        return "Namespace " + name + " still present";
                     }
                 };
                 waitForExitCondition(exitCondition);
@@ -216,10 +220,10 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         }
     }
 
-    protected boolean isNamespaceEmpty(String namespace) {
-        return client.extensions().deployments().inNamespace(namespace).list().getItems().isEmpty() &&
-               client.services().inNamespace(namespace).list().getItems().isEmpty() &&
-               client.secrets().inNamespace(namespace).list().getItems().isEmpty();
+    protected boolean isNamespaceEmpty(String name) {
+        return client.extensions().deployments().inNamespace(name).list().getItems().isEmpty() &&
+               client.services().inNamespace(name).list().getItems().isEmpty() &&
+               client.secrets().inNamespace(name).list().getItems().isEmpty();
     }
 
     @Override
@@ -244,7 +248,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
           createPersistentVolumes(volumes);
         }
 
-        Namespace namespace = createOrGetNamespace(setup.get(NAMESPACE));
+        Namespace namespace = createOrGetNamespace(setup.get(NAMESPACE), setup.get(CREATE_NAMESPACE));
 
         if (secrets != null) {
           createSecrets(namespace.getMetadata().getName(), secrets);
@@ -318,28 +322,30 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         return firstNonNull(setup.get(KubernetesLocationConfig.DEPLOYMENT), entity.getId());
     }
 
-    protected synchronized Namespace createOrGetNamespace(final String ns) {
-        Namespace namespace = client.namespaces().withName(ns).get();
+    protected synchronized Namespace createOrGetNamespace(final String name, Boolean create) {
+        Namespace namespace = client.namespaces().withName(name).get();
         ExitCondition namespaceReady = new ExitCondition() {
             @Override
             public Boolean call() {
-                Namespace actualNamespace = client.namespaces().withName(ns).get();
+                Namespace actualNamespace = client.namespaces().withName(name).get();
                 return actualNamespace != null && actualNamespace.getStatus().getPhase().equals("Active");
             }
             @Override
             public String getFailureMessage() {
-                Namespace actualNamespace = client.namespaces().withName(ns).get();
-                return "Namespace for " + ns + " " + (actualNamespace == null ? "absent" : " status " + actualNamespace.getStatus()); 
+                Namespace actualNamespace = client.namespaces().withName(name).get();
+                return "Namespace for " + name + " " + (actualNamespace == null ? "absent" : " status " + actualNamespace.getStatus()); 
             }
         };
         if (namespace != null) {
             log.debug("Found namespace {}, returning it.", namespace);
-        } else {
-            namespace = client.namespaces().create(new NamespaceBuilder().withNewMetadata().withName(ns).endMetadata().build());
+        } else if (create) {
+            namespace = client.namespaces().create(new NamespaceBuilder().withNewMetadata().withName(name).endMetadata().build());
             log.debug("Created namespace {}.", namespace);
+        } else {
+            throw new IllegalStateException("Namespace " + name + " does not exist and namespace.create is not set");
         }
         waitForExitCondition(namespaceReady);
-        return client.namespaces().withName(ns).get();
+        return client.namespaces().withName(name).get();
     }
 
     protected Pod getPod(String namespace, Map<String, String> metadata) {
