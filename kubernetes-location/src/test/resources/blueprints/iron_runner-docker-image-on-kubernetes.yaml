@@ -6,12 +6,13 @@ location:
     limits: { "memory" : "64M" }
 
 services:
-- type: io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesPod
-  brooklyn.children:
-  - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
-    brooklyn.config:
-      # FIXME "iron/runner" does not exist in docker-hub
-      docker.container.imageName: iron/runner
-      docker.container.inboundPorts: [ "8080" ]
-      provisioning.properties:
-        env: { CLUSTER_ID: "id", CLUSTER_TOKEN : "token" }
+  - type: io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesPod
+    brooklyn.children:
+      - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
+        brooklyn.config:
+          # FIXME "iron/runner" does not exist in docker-hub
+          docker.container.imageName: iron/runner
+          docker.container.inboundPorts: [ "8080" ]
+          docker.container.environment:
+            CLUSTER_ID: "id"
+            CLUSTER_TOKEN: "token"

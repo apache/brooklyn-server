@@ -1,11 +1,11 @@
 location:
   kubernetes:
-    endpoint: "https://192.168.99.100:8443/"
+    endpoint: "http://192.168.99.100:8080/"
     identity: "test"
     credential: "test"
 
 services:
-- type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
-  brooklyn.config:
-    docker.container.imageName: tomcat
-    docker.container.inboundPorts: [ "8080" ]
+  - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
+    brooklyn.config:
+      docker.container.imageName: tomcat
+      docker.container.inboundPorts: [ "8080" ]

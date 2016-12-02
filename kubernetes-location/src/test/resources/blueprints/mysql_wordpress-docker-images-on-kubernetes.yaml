@@ -3,21 +3,24 @@ location:
     endpoint: "http://10.101.0.236:8080/"
 
 services:
-- type: io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesPod
-  brooklyn.children:
-  - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
-    id: wordpress-mysql
-    brooklyn.config:
-      docker.container.imageName: mysql:5.6
-      docker.container.inboundPorts: [ "3306" ]
-      provisioning.properties:
-        kubernetes.deployment: wordpress-mysql
-        env: { MYSQL_ROOT_PASSWORD: "password" }
-  - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
-    id: wordpress
-    brooklyn.config:
-      docker.container.imageName: wordpress:4.4-apache
-      docker.container.inboundPorts: [ "80" ]
-      provisioning.properties:
-        kubernetes.deployment: wordpress
-        env: { WORDPRESS_DB_HOST: "wordpress-mysql", WORDPRESS_DB_PASSWORD: "password" }
+  - type: io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesPod
+    brooklyn.children:
+      - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
+        id: wordpress-mysql
+        brooklyn.config:
+          docker.container.imageName: mysql:5.6
+          docker.container.inboundPorts: [ "3306" ]
+          docker.container.environment:
+            MYSQL_ROOT_PASSWORD: "password"
+          provisioning.properties:
+            deployment: wordpress-mysql
+      - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
+        id: wordpress
+        brooklyn.config:
+          docker.container.imageName: wordpress:4.4-apache
+          docker.container.inboundPorts: [ "80" ]
+          docker.container.environment:
+            WORDPRESS_DB_HOST: "wordpress-mysql"
+            WORDPRESS_DB_PASSWORD: "password"
+          provisioning.properties:
+            deployment: wordpress

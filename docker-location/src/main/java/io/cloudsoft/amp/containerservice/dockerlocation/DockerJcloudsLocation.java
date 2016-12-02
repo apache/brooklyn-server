@@ -4,16 +4,20 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 import javax.annotation.Nullable;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.location.jclouds.JcloudsLocation;
 import org.apache.brooklyn.location.jclouds.JcloudsLocationCustomizer;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
@@ -25,7 +29,11 @@ import org.jclouds.docker.compute.options.DockerTemplateOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
+
+import io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer;
 
 /**
  * For provisioning docker containers, using the jclouds-docker integration.
@@ -129,7 +137,9 @@ public class DockerJcloudsLocation extends JcloudsLocation {
         String loginKeyData = config.get(JcloudsLocation.LOGIN_USER_PRIVATE_KEY_DATA);
 
         Template template = super.buildTemplate(computeService, config, customizers);
+        DockerTemplateOptions templateOptions = (DockerTemplateOptions) template.getOptions();
         Image image = template.getImage();
+        List<String> env = MutableList.copyOf(templateOptions.getEnv());
 
         // Inject login credentials, if required
         Boolean injectLoginCredentials = config.get(INJECT_LOGIN_CREDENTIAL);
@@ -146,18 +156,30 @@ public class DockerJcloudsLocation extends JcloudsLocation {
             if (Boolean.TRUE.equals(injectLoginCredentials)) {
                 loginUser = "root";
                 loginPassword = Identifiers.makeRandomPassword(12);
-                DockerTemplateOptions templateOptions = (DockerTemplateOptions) template.getOptions();
                 templateOptions.overrideLoginUser(loginUser);
                 templateOptions.overrideLoginPassword(loginPassword);
-                
-                List<String> origEnv = templateOptions.getEnv();
-                templateOptions.env(MutableList.<String>builder()
-                        .addAll(origEnv != null ? origEnv : ImmutableList.<String>of())
-                        .add("CLOUDSOFT_ROOT_PASSWORD="+loginPassword)
-                        .build());
+
+                env.add("CLOUDSOFT_ROOT_PASSWORD="+loginPassword);
             }
         }
 
+        Entity context = validateCallerContext(config);
+        Map<String,Object> containerEnv = MutableMap.copyOf(context.config().get(DockerContainer.CONTAINER_ENVIRONMENT));
+        for (Map.Entry<String,String> entry : Maps.transformValues(containerEnv, Functions.toStringFunction()).entrySet()) {
+            env.add(String.format("%s=%s", entry.getKey(), entry.getValue()));
+        }
+        templateOptions.env(env);
+
         return template;
+    }
+
+
+    private Entity validateCallerContext(ConfigBag setup) {
+        // Lookup entity flags
+        Object callerContext = setup.get(LocationConfigKeys.CALLER_CONTEXT);
+        if (callerContext == null || !(callerContext instanceof Entity)) {
+            throw new IllegalStateException("Invalid caller context: " + callerContext);
+        }
+        return (Entity) callerContext;
     }
 }

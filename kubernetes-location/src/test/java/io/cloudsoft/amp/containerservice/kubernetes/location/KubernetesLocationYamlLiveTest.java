@@ -218,10 +218,10 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "      docker.container.imageName: mysql:5.6",
                 "      docker.container.inboundPorts:",
                 "      - \"3306\"",
+                "      docker.container.environment:",
+                "        MYSQL_ROOT_PASSWORD: \"password\"",
                 "      provisioning.properties:",
                 "        deployment: wordpress-mysql",
-                "        env:",
-                "          MYSQL_ROOT_PASSWORD: \"password\"",
                 "  - type: " + DockerContainer.class.getName(),
                 "    id: wordpress",
                 "    name: wordpress",
@@ -229,11 +229,11 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "      docker.container.imageName: wordpress:4.4-apache",
                 "      docker.container.inboundPorts:",
                 "      - \"80\"",
+                "      docker.container.environment:",
+                "        WORDPRESS_DB_HOST: \"wordpress-mysql\"",
+                "        WORDPRESS_DB_PASSWORD: \"password\"",
                 "      provisioning.properties:",
-                "        deployment: wordpress",
-                "        env:",
-                "          WORDPRESS_DB_HOST: \"wordpress-mysql\"",
-                "          WORDPRESS_DB_PASSWORD: \"password\"");
+                "        deployment: wordpress");
         
         runWordpress(yaml);
     }
@@ -251,9 +251,8 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "    docker.container.imageName: mysql:5.6",
                 "    docker.container.inboundPorts:",
                 "    - \"3306\"",
-                "    provisioning.properties:",
-                "      env:",
-                "        MYSQL_ROOT_PASSWORD: \"password\"",
+                "    docker.container.environment:",
+                "      MYSQL_ROOT_PASSWORD: \"password\"",
                 "- type: " + DockerContainer.class.getName(),
                 "  id: wordpress",
                 "  name: wordpress",
@@ -261,10 +260,9 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "    docker.container.imageName: wordpress:4.4-apache",
                 "    docker.container.inboundPorts:",
                 "    - \"80\"",
-                "    provisioning.properties:",
-                "      env:",
-                "        WORDPRESS_DB_HOST: \"wordpress-mysql\"",
-                "        WORDPRESS_DB_PASSWORD: \"password\"");
+                "    docker.container.environment:",
+                "      WORDPRESS_DB_HOST: \"wordpress-mysql\"",
+                "      WORDPRESS_DB_PASSWORD: \"password\"");
         runWordpress(yaml);
     }
 
@@ -301,7 +299,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "      docker.container.imageName: tomcat",
                 "      docker.container.inboundPorts:",
                 "      - \"8080\"",
-                "      env:",
+                "      shell.env:",
                 "        CLUSTER_ID: \"id\"",
                 "        CLUSTER_TOKEN: \"token\"");
         Entity app = createStartWaitAndLogApplication(yaml);

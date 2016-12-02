@@ -40,6 +40,7 @@ import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
@@ -241,7 +242,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         Boolean privileged = setup.get(KubernetesLocationConfig.PRIVILEGED);
         String imageName = findImageName(entity, setup);
         Iterable<Integer> inboundPorts = findInboundPorts(entity, setup);
-        Map<String, ?> env = findEnvironmentVariables(setup, imageName);
+        Map<String, String> env = findEnvironmentVariables(entity, setup, imageName);
         Map<String, String> metadata = findMetadata(entity, deploymentName);
 
         if (volumes != null) {
@@ -610,11 +611,11 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
      * precedence, as a location often applies to a whole app so we might well want to override
      * or augment it for specific entities.
      */
-    protected Map<String, Object> findEnvironmentVariables(ConfigBag config, String imageName) {
+    protected Map<String, String> findEnvironmentVariables(Entity entity, ConfigBag config, String imageName) {
         String loginUser = config.get(LOGIN_USER);
         String loginPassword = config.get(LOGIN_USER_PASSWORD);
-        Map<String, Object> injections = Maps.newLinkedHashMap();
-        
+        Map<String, String> injections = Maps.newLinkedHashMap();
+
         // Check if login credentials should be injected
         Boolean injectLoginCredentials = config.get(INJECT_LOGIN_CREDENTIAL);
         if (injectLoginCredentials == null) {
@@ -625,25 +626,27 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 }
             }
         }
-        
+
         if (Boolean.TRUE.equals(injectLoginCredentials)) {
             if ((Strings.isBlank(loginUser) || "root".equals(loginUser))) {
                 loginUser = "root";
                 config.configure(LOGIN_USER, loginUser);
-                
+
                 if (Strings.isBlank(loginPassword)) {
                     loginPassword = Identifiers.makeRandomPassword(12);
                     config.configure(LOGIN_USER_PASSWORD, loginPassword);
                 }
-                
+
                 injections.put("CLOUDSOFT_ROOT_PASSWORD", loginPassword);
             }
         }
 
-        return MutableMap.<String, Object>builder()
+        Map<String,Object> rawEnv = MutableMap.<String, Object>builder()
                 .putAll(injections)
-                .putAll(firstNonNull(config.get(ENV), ImmutableMap.<String, Object> of()))
+                .putAll(MutableMap.copyOf(config.get(ENV)))
+                .putAll(MutableMap.copyOf(entity.config().get(DockerContainer.CONTAINER_ENVIRONMENT)))
                 .build();
+        return Maps.transformValues(rawEnv, Functions.toStringFunction());
     }
 
     protected Iterable<Integer> findInboundPorts(Entity entity, ConfigBag setup) {

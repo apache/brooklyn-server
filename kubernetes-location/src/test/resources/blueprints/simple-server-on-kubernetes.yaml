@@ -1,7 +1,11 @@
 location:
   kubernetes:
     endpoint: "http://10.101.0.236:8080/"
+    loginUser.password: "password"
 
 services:
-- serviceType: org.apache.brooklyn.entity.software.base.EmptySoftwareProcess
-  name: Server
+  - serviceType: org.apache.brooklyn.entity.software.base.EmptySoftwareProcess
+    name: Server
+    brooklyn.config:
+      docker.container.environment:
+        CLOUDSOFT_ROOT_PASSWORD: "password"
