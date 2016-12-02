@@ -344,6 +344,26 @@ public class TypeCoercionsTest {
     }
 
     @Test
+    public void testFromThrowingException() {
+        String expectedGenericErr = "Cannot coerce type class " + String.class.getName() + " to " + WithFromThrowingException.class.getCanonicalName();
+        String expectedSpecificErr = "Simulating problem in fromString";
+        
+        try {
+            coercer.coerce("myval", WithFromThrowingException.class);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (ClassCoercionException e) {
+            Asserts.expectedFailureContains(e, expectedGenericErr, expectedSpecificErr);
+        }
+        
+        try {
+            coercer.tryCoerce("myval", WithFromThrowingException.class).get();
+            Asserts.shouldHaveFailedPreviously();
+        } catch (ClassCoercionException e) {
+            Asserts.expectedFailureContains(e, expectedGenericErr, expectedSpecificErr);
+        }
+    }
+
+    @Test
     public void testCoerceStringToNumber() {
         assertEquals(coerce("1", Number.class), (Number) Double.valueOf(1));
         assertEquals(coerce("1.0", Number.class), (Number) Double.valueOf(1.0));
@@ -376,4 +396,10 @@ public class TypeCoercionsTest {
         }
     }
 
+    public static class WithFromThrowingException {
+        int value;
+        public static WithFrom fromString(String s) {
+            throw new RuntimeException("Simulating problem in fromString(\"" + s + "\")");
+        }
+    }
 }
