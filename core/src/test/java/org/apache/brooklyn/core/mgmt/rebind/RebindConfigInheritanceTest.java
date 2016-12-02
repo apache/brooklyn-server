@@ -122,12 +122,9 @@ public class RebindConfigInheritanceTest extends RebindTestFixtureWithApp {
     public void testBasicConfigInheritanceProgrammatic() throws Exception {
         origApp.config().set(key1, "1");
         
-        RebindOptions opts = RebindOptions.create();
-        opts.keepSameInstance = true;
+        rebind();
         
-        rebind(opts);
-        
-        String entityFile = Streams.readFully(new FileReader(new File(opts.mementoDir, "entities/"+origApp.getApplicationId())));
+        String entityFile = Streams.readFully(new FileReader(new File(mementoDir, "entities/"+origApp.getApplicationId())));
         log.info("persisted file with config inheritance programmatic:\n"+entityFile);
         
         checkNewAppNonInheritingKey1(newApp);
