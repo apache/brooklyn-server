@@ -120,8 +120,21 @@ public class TypeCoercerExtensible implements TypeCoercer {
         if (targetTypeToken.getType() instanceof ParameterizedType) {
             if (value instanceof Collection && Collection.class.isAssignableFrom(targetType)) {
                 result = tryCoerceCollection(value, targetTypeToken, targetType);
+                
+                if (result != null && result.isAbsent() && targetType.isInstance(value)) {
+                    log.warn("Failed to coerce collection from " + value.getClass().getName() + " to " + targetTypeToken  
+                            + "; returning uncoerced result to preserve (deprecated) backwards compatibility", 
+                            Maybe.getException(result));
+                }
+                
             } else if (value instanceof Map && Map.class.isAssignableFrom(targetType)) {
                 result = tryCoerceMap(value, targetTypeToken);
+                
+                if (result != null && result.isAbsent() && targetType.isInstance(value)) {
+                    log.warn("Failed to coerce map from " + value.getClass().getName() + " to " + targetTypeToken  
+                            + "; returning uncoerced result to preserve (deprecated) backwards compatibility", 
+                            Maybe.getException(result));
+                }
             }
         }
         if (result!=null && result.isPresent()) return result;
