@@ -68,8 +68,25 @@ public class BasicConfigInheritance implements ConfigInheritance {
         public boolean equals(Object obj) {
             return super.equals(obj) || getDelegate().equals(obj);
         }
+        
+        // standard deserialization method
+        protected ConfigInheritance readResolve() {
+            return returnEquivalentConstant(this);
+        }
     }
 
+    private static ConfigInheritance returnEquivalentConstant(ConfigInheritance candidate) {
+        for (ConfigInheritance knownMode: Arrays.asList(
+                NOT_REINHERITED, NOT_REINHERITED_ELSE_DEEP_MERGE, NEVER_INHERITED, OVERWRITE, BasicConfigInheritance.DEEP_MERGE)) {
+            if (candidate.equals(knownMode)) return knownMode;
+        }
+        if (candidate.equals(new BasicConfigInheritance(false, CONFLICT_RESOLUTION_STRATEGY_OVERWRITE, true, true))) {
+            // ignore the ancestor flag for this mode
+            return NEVER_INHERITED;
+        }
+        return candidate;
+    }
+    
     /*
      * use of delegate is so that stateless classes can be defined to make the serialization nice,
      * both the name and hiding the implementation detail (also making it easier for that detail to change);
@@ -359,17 +376,8 @@ public class BasicConfigInheritance implements ConfigInheritance {
         } catch (Exception e) {
             throw Exceptions.propagate(e);
         }
-        
-        for (ConfigInheritance knownMode: Arrays.asList(
-                NOT_REINHERITED, NOT_REINHERITED_ELSE_DEEP_MERGE, NEVER_INHERITED, OVERWRITE, DEEP_MERGE)) {
-            if (equals(knownMode)) return knownMode;
-        }
-        if (equals(new BasicConfigInheritance(false, CONFLICT_RESOLUTION_STRATEGY_OVERWRITE, true, true))) {
-            // ignore the ancestor flag for this mode
-            return NEVER_INHERITED;
-        }
-        
-        return this;
+                
+        return returnEquivalentConstant(this);
     }
 
     @Override
