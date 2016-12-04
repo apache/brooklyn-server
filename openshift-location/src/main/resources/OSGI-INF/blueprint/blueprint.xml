@@ -8,7 +8,7 @@
              ">
 
     <bean id="openshiftLocationResolver" scope="prototype"
-          class="io.cloudsoft.amp.container.openshift.location.OpenShiftLocationResolver"/>
+          class="io.cloudsoft.amp.containerservice.openshift.location.OpenShiftLocationResolver"/>
     <service id="openshiftLocationResolverService" ref="openshiftLocationResolver"
              interface="org.apache.brooklyn.api.location.LocationResolver"/>
 

@@ -7,7 +7,6 @@
              http://aries.apache.org/schemas/blueprint-cm/blueprint-cm-1.1.0.xsd
              ">
 
-
     <bean id="kubernetesLocationResolver" scope="prototype"
           class="io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationResolver"/>
     <service id="kubernetesLocationResolverService" ref="kubernetesLocationResolver"

@@ -1,16 +1,17 @@
-package io.cloudsoft.amp.container.openshift.location;
+package io.cloudsoft.amp.containerservice.openshift.location;
 
-import static io.cloudsoft.amp.container.openshift.location.OpenShiftLocationLiveTest.CA_CERT_FILE;
-import static io.cloudsoft.amp.container.openshift.location.OpenShiftLocationLiveTest.CLIENT_CERT_FILE;
-import static io.cloudsoft.amp.container.openshift.location.OpenShiftLocationLiveTest.CLIENT_KEY_FILE;
-import static io.cloudsoft.amp.container.openshift.location.OpenShiftLocationLiveTest.NAMESPACE;
-import static io.cloudsoft.amp.container.openshift.location.OpenShiftLocationLiveTest.OPENSHIFT_ENDPOINT;
+import static io.cloudsoft.amp.containerservice.openshift.location.OpenShiftLocationLiveTest.CA_CERT_FILE;
+import static io.cloudsoft.amp.containerservice.openshift.location.OpenShiftLocationLiveTest.CLIENT_CERT_FILE;
+import static io.cloudsoft.amp.containerservice.openshift.location.OpenShiftLocationLiveTest.CLIENT_KEY_FILE;
+import static io.cloudsoft.amp.containerservice.openshift.location.OpenShiftLocationLiveTest.NAMESPACE;
+import static io.cloudsoft.amp.containerservice.openshift.location.OpenShiftLocationLiveTest.OPENSHIFT_ENDPOINT;
 
 import org.testng.annotations.BeforeMethod;
 
 import com.google.common.base.Joiner;
 
 import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationYamlLiveTest;
+import io.cloudsoft.amp.containerservice.openshift.location.OpenShiftLocation;
 
 /**
  * Tests YAML apps via the {@code openshift"} location, to an OpenShift endpoint.

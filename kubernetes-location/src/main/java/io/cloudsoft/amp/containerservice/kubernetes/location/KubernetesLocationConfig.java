@@ -160,7 +160,7 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
 
     ConfigKey<Boolean> PRIVILEGED = ConfigKeys.builder(Boolean.class)
             .name("privileged")
-            .description("Kubernetes resource limits")
+            .description("Whether Kubernetes should allow privileged containers")
             .defaultValue(false)
             .build();
 

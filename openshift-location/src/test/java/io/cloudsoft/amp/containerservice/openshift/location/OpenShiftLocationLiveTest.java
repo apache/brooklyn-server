@@ -1,4 +1,4 @@
-package io.cloudsoft.amp.container.openshift.location;
+package io.cloudsoft.amp.containerservice.openshift.location;
 
 import java.util.Map;
 
@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationLiveTest;
+import io.cloudsoft.amp.containerservice.openshift.location.OpenShiftLocation;
 
 /**
  * Tests deploying containers via the {@code openshift"} location, to an OpenShift endpoint. 

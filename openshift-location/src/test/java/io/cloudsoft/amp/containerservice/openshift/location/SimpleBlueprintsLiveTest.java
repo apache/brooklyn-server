@@ -1,4 +1,4 @@
-package io.cloudsoft.amp.container.openshift.location;
+package io.cloudsoft.amp.containerservice.openshift.location;
 
 import org.apache.brooklyn.launcher.blueprints.AbstractBlueprintTest;
 import org.testng.annotations.Test;
