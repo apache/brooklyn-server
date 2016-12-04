@@ -38,7 +38,7 @@ import com.google.common.base.Preconditions;
 
 public class JmxmpSslSupport {
 
-    final static String BROOKLYN_VERSION = "0.10.0-SNAPSHOT";  // BROOKLYN_VERSION (updated by script)
+    final static String BROOKLYN_VERSION = "0.10.0";  // BROOKLYN_VERSION (updated by script)
     
     private final JmxSupport jmxSupport;
     
