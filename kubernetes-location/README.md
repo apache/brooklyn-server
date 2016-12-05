@@ -14,25 +14,23 @@ AMP Deploys to a Kubernetes cluster by modelling a `KubernetesPod` entity which 
 
 Standard AMP blueprints can be deployed within a K8s cluster, here's a simple example:
 
-```YAML
-location:
-  kubernetes:
-    endpoint: "https://192.168.99.100:8443/"
+    location:
+      kubernetes:
+        endpoint: "https://192.168.99.100:8443/"
 
-services:
-- type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
-  name: Simple Netcat Server
+    services:
+    - type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
+      name: Simple Netcat Server
 
-  brooklyn.config:
-    provisioning.properties:
-      inboundPorts: [22, 4321]
+      brooklyn.config:
+        provisioning.properties:
+          inboundPorts: [22, 4321]
 
-    launch.command: |
-      echo hello | nc -l 4321 &
-      echo $! > $PID_FILE
-    checkRunning.command: |
-      true
-```
+        launch.command: |
+          echo hello | nc -l 4321 &
+          echo $! > $PID_FILE
+        checkRunning.command: |
+          true
 
 For each entity AMP will create
 a [deployment](http://kubernetes.io/docs/user-guide/deployments/)
@@ -52,34 +50,32 @@ To explain the config options:
 
 Alternatively AMP can launch instances based on a `DockerContainer`, this means additional configuration such as custom docker images can be specified. Here's an example which sets up a [Wordpress](https://wordpress.org/) instance:
 
-```YAML
-location:
-  kubernetes:
-    endpoint: "https://192.168.99.100:8443/"
+    location:
+      kubernetes:
+        endpoint: "https://192.168.99.100:8443/"
 
-services:
-- type: io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesPod
-  brooklyn.children:
-  - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
-    id: wordpress-mysql
-    name: MySQL
-    brooklyn.config:
-      docker.container.imageName: mysql:5.6
-      docker.container.inboundPorts:
-      - "3306"
-      provisioning.properties:
-        env:
-          MYSQL_ROOT_PASSWORD: "password"
-        deployment: wordpress-mysql
-  - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
-    id: wordpress
-    name: Wordpress
-    brooklyn.config:
-      docker.container.imageName: wordpress:4.4-apache
-      docker.container.inboundPorts:
-      - "80"
-      provisioning.properties:
-        env:
-          WORDPRESS_DB_HOST: "wordpress-mysql"
-          WORDPRESS_DB_PASSWORD: "password"
-```
+    services:
+    - type: io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesPod
+      brooklyn.children:
+      - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
+        id: wordpress-mysql
+        name: MySQL
+        brooklyn.config:
+          docker.container.imageName: mysql:5.6
+          docker.container.inboundPorts:
+          - "3306"
+          provisioning.properties:
+            env:
+              MYSQL_ROOT_PASSWORD: "password"
+            deployment: wordpress-mysql
+      - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
+        id: wordpress
+        name: Wordpress
+        brooklyn.config:
+          docker.container.imageName: wordpress:4.4-apache
+          docker.container.inboundPorts:
+          - "80"
+          provisioning.properties:
+            env:
+              WORDPRESS_DB_HOST: "wordpress-mysql"
+              WORDPRESS_DB_PASSWORD: "password"
