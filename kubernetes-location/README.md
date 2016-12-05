@@ -4,13 +4,13 @@ section_type: inline
 section_position: 2.1
 ---
 
-# Kubernetes Location
+### Kubernetes Location
 
 Cloudsoft AMP can deploy applications to [Kubernetes](http://kubernetes.io/) (k8s) clusters both provisioned by Cloudsoft AMP and set up manually.
 
 AMP Deploys to a Kubernetes cluster by modelling a `KubernetesPod` entity which is made up of multiple heterogeneous `DockerContainer` entities.
 
-## Plain-AMP blueprints
+#### Plain-AMP blueprints
 
 Standard AMP blueprints can be deployed within a K8s cluster, here's a simple example:
 
@@ -48,7 +48,7 @@ To explain the config options:
 * `inboundPorts` The set of ports that should be exposed by the service.
 
 
-## Docker Container based blueprints
+#### Docker Container based blueprints
 
 Alternatively AMP can launch instances based on a `DockerContainer`, this means additional configuration such as custom docker images can be specified. Here's an example which sets up a [Wordpress](https://wordpress.org/) instance:
 
