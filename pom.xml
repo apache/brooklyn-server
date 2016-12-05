@@ -158,6 +158,11 @@
         <maxmind-db.version>1.2.1</maxmind-db.version>
         <winrm4j.version>0.4.0</winrm4j.version>
         <karaf.version>4.0.4</karaf.version>
+        <!--
+            Fixes double User-Agent issue leading to split Nexus repo.
+            Caused by karaf-maven-plugin depending on wagon-http 2.8 having the bug.
+         -->
+        <karaf.plugin.version>4.0.6</karaf.plugin.version>
         <felix-osgi-compendium.version>1.4.0</felix-osgi-compendium.version>
         <!-- Transitive dependencies, declared explicitly to avoid version mismatch -->
         <clojure.version>1.4.0</clojure.version>
