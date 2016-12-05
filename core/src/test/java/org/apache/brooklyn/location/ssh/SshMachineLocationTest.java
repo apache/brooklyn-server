@@ -240,11 +240,6 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
     }
     
     @Test
-    public void testIsSshableWhenTrue() throws Exception {
-        assertTrue(host.isSshable());
-    }
-    
-    @Test
     public void obtainSpecificPortGivesOutPortOnlyOnce() {
         int port = 2345;
         assertTrue(host.obtainSpecificPort(port));
