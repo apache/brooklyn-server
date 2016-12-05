@@ -31,6 +31,7 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.sensor.Sensors;
@@ -51,6 +52,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
@@ -573,6 +575,49 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         Entity app = createStartWaitAndLogApplication(yaml);
         final TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("my.other.key")), "myDefaultValInOuter");
+    }
+    
+    @Test
+    public void testConfigParameterInSubInheritsDefaultFromYaml() throws Exception {
+    	// TODO note that the corresponding functionality to inherit config info from a *java* config key is not supported
+    	// see notes in BasicParameterSpec
+    	
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  items:",
+                "  - id: entity-with-keys",
+                "    item:",
+                "      type: "+TestEntity.class.getName(),
+                "      brooklyn.parameters:",
+                "      - name: my.param.key",
+                "        type: string",
+                "        description: description one",
+                "        default: myDefaultVal",
+                "      brooklyn.config:",
+                "        my.other.key: $brooklyn:config(\"my.param.key\")");
+
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  items:",
+                "  - id: wrapper-entity",
+                "    item:",
+                "      brooklyn.parameters:",
+                "      - name: my.param.key",
+                "        description: description two",
+                "      type: entity-with-keys");
+        
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: wrapper-entity");
+        
+        Entity app = createStartWaitAndLogApplication(yaml);
+        final TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+        LOG.info("Config keys declared on "+entity+": "+entity.config().findKeysDeclared(Predicates.alwaysTrue()));
+        ConfigKey<?> key = Iterables.getOnlyElement( entity.config().findKeysDeclared(ConfigPredicates.nameEqualTo("my.param.key")) );
+        assertEquals(key.getDescription(), "description two");
+        assertEquals(entity.config().get(key), "myDefaultVal");
     }
     
     @Test

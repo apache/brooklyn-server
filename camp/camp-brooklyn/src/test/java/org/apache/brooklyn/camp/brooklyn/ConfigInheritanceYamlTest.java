@@ -519,7 +519,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
                 "        default: {myDefaultKey: myDefaultVal}",
                 "      - name: map.type-never",
                 "        type: java.util.Map",
-                "        inheritance.parent: none",
+                "        inheritance.parent: never",
                 "        default: {myDefaultKey: myDefaultVal}");
         
         // Test retrieval of defaults

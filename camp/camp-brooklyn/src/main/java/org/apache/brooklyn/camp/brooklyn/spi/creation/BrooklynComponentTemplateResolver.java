@@ -197,7 +197,7 @@ public class BrooklynComponentTemplateResolver {
         List<EntitySpecResolver> overrides = new ArrayList<>();
         Iterable<ServiceTypeResolver> loader = FrameworkLookup.lookupAll(ServiceTypeResolver.class, mgmt.getCatalogClassLoader());
         for (ServiceTypeResolver resolver : loader) {
-           overrides.add(new ServiceTypeResolverAdaptor(this, resolver));
+            overrides.add(new ServiceTypeResolverAdaptor(this, resolver));
         }
         return overrides;
     }
@@ -222,7 +222,9 @@ public class BrooklynComponentTemplateResolver {
             for (Map<String,?> childAttrs : children) {
                 BrooklynComponentTemplateResolver entityResolver = BrooklynComponentTemplateResolver.Factory.newInstance(loader, childAttrs);
                 // encounteredRegisteredTypeIds must contain the items currently being loaded (the dependency chain),
-                // but not parent items in this type already resolved.
+                // but not parent items in this type already resolved (this is because an item's definition should
+                // not include itself here, as a defined child, as that would create an endless loop; 
+                // use in a member spec is fine)
                 EntitySpec<? extends Entity> childSpec = entityResolver.resolveSpec(encounteredRegisteredTypeIds);
                 spec.child(EntityManagementUtils.unwrapEntity(childSpec));
             }
@@ -284,15 +286,15 @@ public class BrooklynComponentTemplateResolver {
                 bag.putAsStringKeyIfAbsent(r.getFlagName(), r.getFlagMaybeValue().get());
         }
 
-        
+
         // now set configuration for all the items in the bag
         Map<String, ConfigKey<?>> entityConfigKeys = findAllConfigKeys(spec);
-        
+
         Collection<FlagConfigKeyAndValueRecord> records = findAllFlagsAndConfigKeyValues(spec, bag);
         Set<String> keyNamesUsed = new LinkedHashSet<String>();
         for (FlagConfigKeyAndValueRecord r: records) {
             // flags and config keys tracked separately, look at each (may be overkill but it's what we've always done)
-            
+
             Function<Maybe<Object>, Maybe<Object>> rawConvFn = Functions.identity();
             if (r.getFlagMaybeValue().isPresent()) {
                 final String flag = r.getFlagName();
@@ -307,20 +309,20 @@ public class BrooklynComponentTemplateResolver {
                     }
                 };
                 Iterable<? extends ConfigValueAtContainer<EntitySpec<?>,Object>> ckvi = MutableList.of(
-                    new LazyContainerAndKeyValue<EntitySpec<?>,Object>(key, null, rawEvalFn, rawConvFn));
-                
+                        new LazyContainerAndKeyValue<EntitySpec<?>,Object>(key, null, rawEvalFn, rawConvFn));
+
                 ConfigValueAtContainer<EntitySpec<?>,Object> combinedVal = ConfigInheritances.resolveInheriting(
-                    null, key, Maybe.ofAllowingNull(ownValueF), Maybe.<Object>absent(),
-                    ckvi.iterator(), InheritanceContext.TYPE_DEFINITION, getDefaultConfigInheritance()).getWithoutError();
-                
+                        null, key, Maybe.ofAllowingNull(ownValueF), Maybe.<Object>absent(),
+                        ckvi.iterator(), InheritanceContext.TYPE_DEFINITION, getDefaultConfigInheritance()).getWithoutError();
+
                 spec.configure(flag, combinedVal.get());
                 keyNamesUsed.add(flag);
             }
-            
+
             if (r.getConfigKeyMaybeValue().isPresent()) {
                 final ConfigKey<Object> key = (ConfigKey<Object>) r.getConfigKey();
                 final Object ownValueF = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getConfigKeyMaybeValue().get());
-                
+
                 Function<EntitySpec<?>, Maybe<Object>> rawEvalFn = new Function<EntitySpec<?>,Maybe<Object>>() {
                     @Override
                     public Maybe<Object> apply(EntitySpec<?> input) {
@@ -328,12 +330,12 @@ public class BrooklynComponentTemplateResolver {
                     }
                 };
                 Iterable<? extends ConfigValueAtContainer<EntitySpec<?>,Object>> ckvi = MutableList.of(
-                    new LazyContainerAndKeyValue<EntitySpec<?>,Object>(key, null, rawEvalFn, rawConvFn));
-                
+                        new LazyContainerAndKeyValue<EntitySpec<?>,Object>(key, null, rawEvalFn, rawConvFn));
+
                 ConfigValueAtContainer<EntitySpec<?>,Object> combinedVal = ConfigInheritances.resolveInheriting(
-                    null, key, Maybe.ofAllowingNull(ownValueF), Maybe.<Object>absent(),
-                    ckvi.iterator(), InheritanceContext.TYPE_DEFINITION, getDefaultConfigInheritance()).getWithoutError();
-                
+                        null, key, Maybe.ofAllowingNull(ownValueF), Maybe.<Object>absent(),
+                        ckvi.iterator(), InheritanceContext.TYPE_DEFINITION, getDefaultConfigInheritance()).getWithoutError();
+
                 spec.configure(key, combinedVal.get());
                 keyNamesUsed.add(key.getName());
             }
@@ -352,7 +354,7 @@ public class BrooklynComponentTemplateResolver {
                 spec.removeFlag(key.getName());
             }
         }
-        
+
         // set unused keys as anonymous config keys -
         // they aren't flags or known config keys, so must be passed as config keys in order for
         // EntitySpec to know what to do with them (as they are passed to the spec as flags)
@@ -386,14 +388,14 @@ public class BrooklynComponentTemplateResolver {
         // a key in `EntitySpec.config`, then the put will replace the value and leave the key
         // as-is (so the default-value and description of the key will remain as whatever the
         // first put said).
-        
+
         // TODO We should remove duplicates, rather than just doing the `put` multiple times, 
         // relying on ordering. We should also respect the ordered returned by 
         // EntityDynamicType.getConfigKeys, which is much better (it respects `BasicConfigKeyOverwriting` 
         // etc).
-    	//  Or rather if the parameter fields are incomplete they might be merged with those defined 
-    	// on the type (eg description, default value) or ancestor, so that it isn't necessary for users
-    	// to re-declare those in a parameter definition, just anything they wish to overwrite.
+        //  Or rather if the parameter fields are incomplete they might be merged with those defined 
+        // on the type (eg description, default value) or ancestor, so that it isn't necessary for users
+        // to re-declare those in a parameter definition, just anything they wish to overwrite.
         // 
         // However, that is hard/fiddly because of the way a config key can be referenced by
         // its real name or flag-name.
@@ -406,8 +408,9 @@ public class BrooklynComponentTemplateResolver {
         // name "B" the "val2" then applies to both!
         //
         // I plan to propose a change on dev@brooklyn, to replace `@SetFromFlag`!
-        
-    	// need to de-dupe? (can't use Set bc FCKVR doesn't impl equals/hashcode)
+
+        // need to de-dupe? (can't use Set bc FCKVR doesn't impl equals/hashcode)
+        // TODO merge *bagFlags* with existing spec params, merge yaml w yaml parent params elsewhere
         List<FlagConfigKeyAndValueRecord> allKeys = MutableList.of();
         allKeys.addAll(FlagUtils.findAllParameterConfigKeys(spec.getParameters(), bagFlags));
         if (spec.getImplementation() != null) {
@@ -421,13 +424,23 @@ public class BrooklynComponentTemplateResolver {
     }
 
     private Map<String, ConfigKey<?>> findAllConfigKeys(EntitySpec<?> spec) {
+        // TODO use in BasicSpecParameter to resolve ancestor config keys ?
         Set<Class<?>> types = MutableSet.<Class<?>>builder()
-                .add(spec.getType())
                 .add(spec.getImplementation())
+                .add(spec.getType())
                 .addAll(spec.getAdditionalInterfaces())
                 .remove(null)
                 .build();
+        // order above is important, respected below to take the first one defined 
         MutableMap<String, ConfigKey<?>> result = MutableMap.copyOf(FlagUtils.findAllConfigKeys(null, types));
+
+        // put parameters atop config keys
+        // TODO currently at this point parameters have been merged with ancestor spec parameters,
+        // but *not* with config keys defined on the java type
+        // see comments in BasicSpecParameter;
+        // one way to fix would be to record in BasicSpecParameter which type fields are explicitly set
+        // and to do a further merge here with  result.remove(param.getConfigKey().getName());
+        // another way, probably simpler, would be to do the above result computation in BasicSpecParameter
         for (SpecParameter<?> param : spec.getParameters()) {
             result.put(param.getConfigKey().getName(), param.getConfigKey());
         }
@@ -497,7 +510,7 @@ public class BrooklynComponentTemplateResolver {
                 Map<String, Object> resolvedConfig = (Map<String, Object>)transformSpecialFlags(specConfig.getSpecConfiguration());
                 specConfig.setSpecConfiguration(resolvedConfig);
                 EntitySpec<?> entitySpec = Factory.newInstance(getLoader(), specConfig.getSpecConfiguration()).resolveSpec(encounteredRegisteredTypeIds);
-                
+
                 return EntityManagementUtils.unwrapEntity(entitySpec);
             }
             if (flag instanceof ManagementContextInjectable) {

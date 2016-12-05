@@ -35,6 +35,7 @@ import org.apache.brooklyn.util.collections.CollectionMerger;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -398,4 +399,28 @@ public class BasicConfigInheritance implements ConfigInheritance {
     public String toString() {
         return super.toString()+"[reinherit="+isReinherited()+"; strategy="+getConflictResolutionStrategy()+"; localDefaultResolvesWithAncestor="+localDefaultResolvesWithAncestorValue+"]";
     }
+    
+    public static ConfigInheritance fromString(String val) {
+        if (Strings.isBlank(val)) return null;
+        // in all cases below the first value is preferred, but to preserve backwards compatibility we
+        // need to support some of the other names/strategies; yoml should give us a way to migrate to canonical form
+        switch (val.toLowerCase().trim()) {
+        case "not_reinherited":
+        case "notreinherited":
+        case "none":
+            return NOT_REINHERITED;
+        case "never":
+            return NEVER_INHERITED;
+        case "overwrite": 
+        case "always": 
+            return OVERWRITE;
+        case "deep_merge":
+        case "merge":
+        case "deepmerge":
+            return DEEP_MERGE;
+        default:
+            throw new IllegalArgumentException("Invalid config-inheritance '"+val+"' (legal values are none, always or deep_merge)");
+        }
+    }
+    
 }

@@ -130,6 +130,7 @@ public interface ConfigInheritance extends Serializable {
 
     /** @deprecated since 0.10.0 see implementations of this interface */ @Deprecated
     public static class Legacy {
+        /** @deprecated since 0.10.0 see fromString in selected subclasses of {@link ConfigInheritance} eg BasicConfigInheritance */
         public static ConfigInheritance fromString(String val) {
             if (Strings.isBlank(val)) return null;
             switch (val.toLowerCase().trim()) {
