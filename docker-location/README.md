@@ -1,7 +1,7 @@
 ---
 section: Docker Swarm Location
 section_type: inline
-section_position: 2.1.2
+section_position: 2.1
 ---
 
 ### Docker Swarm Location
