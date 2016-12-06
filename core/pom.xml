@@ -31,7 +31,7 @@
     <parent>
         <groupId>org.apache.brooklyn</groupId>
         <artifactId>brooklyn-parent</artifactId>
-        <version>0.10.0-SNAPSHOT</version>  <!-- BROOKLYN_VERSION -->
+        <version>0.11.0-SNAPSHOT</version>  <!-- BROOKLYN_VERSION -->
         <relativePath>../parent/pom.xml</relativePath>
     </parent>
 
@@ -162,10 +162,6 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.datatype</groupId>
-            <artifactId>jackson-datatype-guava</artifactId>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>

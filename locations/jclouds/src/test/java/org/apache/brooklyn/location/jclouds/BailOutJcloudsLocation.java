@@ -22,7 +22,6 @@ package org.apache.brooklyn.location.jclouds;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.location.LocationSpec;
@@ -49,9 +48,6 @@ import com.google.common.reflect.TypeToken;
 
 public class BailOutJcloudsLocation extends JcloudsLocation {
 
-    public static final String ERROR_MESSAGE = "early termination for test";
-    public static final RuntimeException BAIL_OUT_FOR_TESTING = new RuntimeException(ERROR_MESSAGE);
-    
     // Don't care which image; not actually provisioning
     private static final String US_EAST_IMAGE_ID = "us-east-1/ami-7d7bfc14";
 
@@ -82,7 +78,7 @@ public class BailOutJcloudsLocation extends JcloudsLocation {
         if (Boolean.TRUE.equals(getConfig(BUILD_TEMPLATE))) {
             template = super.buildTemplate(computeService, config, customizers);
         }
-        throw new RuntimeException(BAIL_OUT_FOR_TESTING);
+        throw new BailOutException("early termination for test");
     }
 
     public Template getTemplate() {
@@ -190,6 +186,12 @@ public class BailOutJcloudsLocation extends JcloudsLocation {
                 .build();
 
         return newBailOutJcloudsLocation(mgmt, allConfig);
+    }
+
+    public static class BailOutException extends RuntimeException {
+        public BailOutException(String message) {
+            super(message);
+        }
     }
 
 }

@@ -19,6 +19,9 @@
 
 package org.apache.brooklyn.test.framework;
 
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -28,20 +31,25 @@ import java.util.concurrent.Executors;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.test.LogWatcher;
+import org.apache.brooklyn.test.LogWatcher.EventPredicates;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
+import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -50,10 +58,13 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+
+import ch.qos.logback.classic.spi.ILoggingEvent;
 
 public class TestSensorTest extends BrooklynAppUnitTestSupport {
 
@@ -332,6 +343,55 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
         assertStartFails(app, NullPointerException.class, Asserts.DEFAULT_LONG_TIMEOUT);
     }
 
+    @Test
+    public void testDoesNotLogStacktraceRepeatedly() throws Exception {
+        final long time = System.currentTimeMillis();
+        final String sensorValue = String.format("%s%s%s", Identifiers.makeRandomId(8), time, Identifiers.makeRandomId(8));
+        
+        // Test case will repeatedly fail until we have finished our logging assertions.
+        // Then we'll let it complete by setting the sensor.
+        TestSensor testCase = app.createAndManageChild(EntitySpec.create(TestSensor.class)
+                .configure(TestSensor.TIMEOUT, Asserts.DEFAULT_LONG_TIMEOUT)
+                .configure(TestSensor.TARGET_ENTITY, app)
+                .configure(TestSensor.SENSOR_NAME, STRING_SENSOR.getName())
+                .configure(TestSensor.ASSERTIONS, newListAssertion("matches", String.format(".*%s.*", time))));
+
+        String loggerName = Repeater.class.getName();
+        ch.qos.logback.classic.Level logLevel = ch.qos.logback.classic.Level.DEBUG;
+        Predicate<ILoggingEvent> repeatedFailureMsgMatcher = EventPredicates.containsMessage("repeated failure; excluding stacktrace");
+        Predicate<ILoggingEvent> stacktraceMatcher = EventPredicates.containsExceptionStackLine(TestFrameworkAssertions.class, "checkActualAgainstAssertions");
+        Predicate<ILoggingEvent> filter = Predicates.or(repeatedFailureMsgMatcher, stacktraceMatcher);
+        LogWatcher watcher = new LogWatcher(loggerName, logLevel, filter);
+
+        watcher.start();
+        try {
+            // Invoke async; will let it complete after we see the log messages we expect
+            Task<?> task = Entities.invokeEffector(app, app, Startable.START, ImmutableMap.of("locations", locs));
+
+            // Expect "excluding stacktrace" message at least once
+            List<ILoggingEvent> repeatedFailureMsgEvents = watcher.assertHasEventEventually(repeatedFailureMsgMatcher);
+            assertTrue(repeatedFailureMsgEvents.size() > 0, "repeatedFailureMsgEvents="+repeatedFailureMsgEvents.size());
+
+            // Expect stacktrace just once
+            List<ILoggingEvent> stacktraceEvents = watcher.assertHasEventEventually(stacktraceMatcher);
+            assertEquals(Integer.valueOf(stacktraceEvents.size()), Integer.valueOf(1), "stacktraceEvents="+stacktraceEvents.size());
+            
+            //Set STRING sensor
+            app.sensors().set(STRING_SENSOR, sensorValue);
+            task.get(Asserts.DEFAULT_LONG_TIMEOUT);
+            
+            assertTestSensorSucceeds(testCase);
+            
+            // And for good measure (in case we just checked too early last time), check again 
+            // that we didn't get another stacktrace
+            stacktraceEvents = watcher.getEvents(stacktraceMatcher);
+            assertEquals(Integer.valueOf(stacktraceEvents.size()), Integer.valueOf(1), "stacktraceEvents="+stacktraceEvents.size());
+            
+        } finally {
+            watcher.close();
+        }
+    }
+
     protected void assertStartFails(TestApplication app, Class<? extends Throwable> clazz) throws Exception {
         assertStartFails(app, clazz, null);
     }
@@ -360,7 +420,7 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
         Entity entity = Iterables.find(Entities.descendantsWithoutSelf(app), Predicates.instanceOf(TestSensor.class));
         assertTestSensorFails((TestSensor) entity);
     }
-
+    
     protected void assertTestSensorSucceeds(TestSensor entity) {
         EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
         EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, true);

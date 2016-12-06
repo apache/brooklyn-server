@@ -171,6 +171,11 @@ public class MapConfigKey<V> extends AbstractStructuredConfigKey<Map<String,V>,M
         super((Class)Map.class, subType, name, description, defaultValue);
     }
 
+    @Override
+    public String toString() {
+        return String.format("%s[MapConfigKey:%s]", name, getTypeName());
+    }
+
     public ConfigKey<V> subKey(String subName) {
         return super.subKey(subName);
     }

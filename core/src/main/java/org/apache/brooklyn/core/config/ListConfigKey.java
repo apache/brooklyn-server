@@ -96,6 +96,11 @@ public class ListConfigKey<V> extends AbstractCollectionConfigKey<List<? extends
     }
     
     @Override
+    public String toString() {
+        return String.format("%s[ListConfigKey:%s]", name, getTypeName());
+    }
+
+    @Override
     protected List<Object> merge(boolean unmodifiable, Iterable<?>... sets) {
         MutableList<Object> result = MutableList.of();
         for (Iterable<?> set: sets) result.addAll(set);

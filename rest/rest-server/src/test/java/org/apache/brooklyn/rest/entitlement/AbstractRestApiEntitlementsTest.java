@@ -35,8 +35,10 @@ import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.rest.BrooklynRestApiLauncher;
 import org.apache.brooklyn.rest.BrooklynRestApiLauncherTestFixture;
+import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.util.http.HttpAsserts;
 import org.apache.brooklyn.util.http.HttpTool;
+import org.apache.brooklyn.util.http.HttpTool.HttpClientBuilder;
 import org.apache.brooklyn.util.http.HttpToolResponse;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.HttpClient;
@@ -64,17 +66,17 @@ public abstract class AbstractRestApiEntitlementsTest extends BrooklynRestApiLau
         props.put(PerUserEntitlementManager.PER_USER_ENTITLEMENTS_CONFIG_PREFIX+".myMinimal", "minimal");
         props.put(PerUserEntitlementManager.PER_USER_ENTITLEMENTS_CONFIG_PREFIX+".myUser", "user");
         props.put(PerUserEntitlementManager.PER_USER_ENTITLEMENTS_CONFIG_PREFIX+".myCustom", StaticDelegatingEntitlementManager.class.getName());
+        props.put(BrooklynWebConfig.SECURITY_PROVIDER_CLASSNAME, AuthenticateAnyoneSecurityProvider.class.getName());
         
-        mgmt = LocalManagementContextForTests.builder(true).useProperties(props).build();
+        mgmt = LocalManagementContextForTests.builder(false).useProperties(props).build();
         app = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class)
                 .child(EntitySpec.create(TestEntity.class))
                         .configure(TestEntity.CONF_NAME, "myname"));
         entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         
-        useServerForTest(BrooklynRestApiLauncher.launcher()
+        useServerForTest(baseLauncher()
                 .managementContext(mgmt)
                 .forceUseOfDefaultCatalogWithJavaClassPath(true)
-                .securityProvider(AuthenticateAnyoneSecurityProvider.class)
                 .start());
     }
 
@@ -83,25 +85,6 @@ public abstract class AbstractRestApiEntitlementsTest extends BrooklynRestApiLau
         if (mgmt != null) Entities.destroyAll(mgmt);
     }
     
-    protected HttpClient newClient(String user) throws Exception {
-        return httpClientBuilder()
-                .uri(getBaseUriRest())
-                .credentials(new UsernamePasswordCredentials(user, "ignoredPassword"))
-                .build();
-    }
-
-    protected String httpGet(String user, String path) throws Exception {
-        HttpToolResponse response = HttpTool.httpGet(newClient(user), URI.create(getBaseUriRest()).resolve(path), ImmutableMap.<String, String>of());
-        assertHealthyStatusCode(response);
-        return response.getContentAsString();
-    }
-
-    protected HttpToolResponse httpPost(String user, String path, byte[] body) throws Exception {
-        final ImmutableMap<String, String> headers = ImmutableMap.of();
-        final URI uri = URI.create(getBaseUriRest()).resolve(path);
-        return HttpTool.httpPost(newClient(user), uri, headers, body);
-    }
-
     protected String assertPermitted(String user, String path) throws Exception {
         return httpGet(user, path);
     }
@@ -109,10 +92,6 @@ public abstract class AbstractRestApiEntitlementsTest extends BrooklynRestApiLau
     public void assertPermittedPost(String user, String path, byte[] body) throws Exception {
         HttpToolResponse response = httpPost(user, path, body);
         assertHealthyStatusCode(response);
-    }
-
-    protected void assertHealthyStatusCode(HttpToolResponse response) {
-        assertTrue(HttpAsserts.isHealthyStatusCode(response.getResponseCode()), "code="+response.getResponseCode()+"; reason="+response.getReasonPhrase());
     }
 
     protected void assertForbidden(String user, String path) throws Exception {
@@ -128,6 +107,11 @@ public abstract class AbstractRestApiEntitlementsTest extends BrooklynRestApiLau
     protected void assert404(String user, String path) throws Exception {
         HttpToolResponse response = HttpTool.httpGet(newClient(user), URI.create(getBaseUriRest()).resolve(path), ImmutableMap.<String, String>of());
         assertStatusCodeEquals(response, 404);
+    }
+
+    protected void assert401(String path) throws Exception {
+        HttpToolResponse response = HttpTool.httpGet(newClient(null), URI.create(getBaseUriRest()).resolve(path), ImmutableMap.<String, String>of());
+        assertStatusCodeEquals(response, 401);
     }
 
     protected void assertStatusCodeEquals(HttpToolResponse response, int expected) {

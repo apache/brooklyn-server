@@ -39,6 +39,7 @@ import org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
@@ -641,8 +642,7 @@ public class Main extends AbstractMain {
                         // and additionally they might contain multiple items in which case
                         // the validation below won't work anyway (you need to go via a deployment plan)
                     } else {
-                        @SuppressWarnings({ "unchecked", "rawtypes" })
-                        Object spec = catalog.createSpec((CatalogItem)item);
+                        AbstractBrooklynObjectSpec<?, ?> spec = catalog.peekSpec(item);
                         if (spec instanceof EntitySpec) {
                             BrooklynTypes.getDefinedEntityType(((EntitySpec<?>)spec).getType());
                         }

@@ -22,6 +22,7 @@ import java.util.Collection;
 
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestApplicationNoEnrichersImpl;
 
@@ -31,8 +32,18 @@ import com.google.common.collect.Iterables;
 
 public class RebindTestFixtureWithApp extends RebindTestFixture<TestApplication> {
 
+    /** set null not to set, or a boolean to set explicitly */
+    protected Boolean shouldSkipOnBoxBaseDirResolution() {
+        // TODO Change default to true; starting with this as null for backwards compatibility!
+        return null;
+    }
+
     protected TestApplication createApp() {
-        return origManagementContext.getEntityManager().createEntity(EntitySpec.create(TestApplication.class, TestApplicationNoEnrichersImpl.class));
+        EntitySpec<TestApplication> spec = EntitySpec.create(TestApplication.class, TestApplicationNoEnrichersImpl.class);
+        if (shouldSkipOnBoxBaseDirResolution()!=null) {
+            spec.configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, shouldSkipOnBoxBaseDirResolution());
+        }
+        return origManagementContext.getEntityManager().createEntity(spec);
     }
     
     @Override

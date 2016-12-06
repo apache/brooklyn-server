@@ -21,10 +21,16 @@ package org.apache.brooklyn.core.mgmt.persist;
 import static org.testng.Assert.assertEquals;
 
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.Writer;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore.StoreObjectAccessorWithLock;
 import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.Test;
 
@@ -35,8 +41,17 @@ import com.google.common.io.Files;
 @Test
 public class FileBasedStoreObjectAccessorWriterTest extends PersistenceStoreObjectAccessorWriterTestFixture {
 
+    private static final Duration FILE_OPERATION_TIMEOUT = Duration.seconds(20);
+    private static final String TEST_FILE_CONTENT = generateContent();
+
     private File file;
-    
+
+    private static String generateContent() {
+        final char[] charArray = new char[4096];
+        java.util.Arrays.fill(charArray, ' ');
+        return new String(charArray);
+    }
+
     protected StoreObjectAccessorWithLock newPersistenceStoreObjectAccessor() throws IOException {
         file = Os.newTempFile(getClass(), "txt");
         return new StoreObjectAccessorLocking(new FileBasedStoreObjectAccessor(file, ".tmp"));
@@ -61,6 +76,31 @@ public class FileBasedStoreObjectAccessorWriterTest extends PersistenceStoreObje
         FileBasedObjectStoreTest.assertFilePermission600(file);
     }
 
+    // Fails ~3 times on 5000 runs in Virtualbox (Ubuntu Xenial).
+    // Fails only with multiple threads.
+    // Illustrates the problem which led to the increase of {@link RebindTestUtils#TIMEOUT} from 20 to 40 seconds.
+    @Test(groups={"Integration", "Broken"}, invocationCount=5000)
+    public void testSimpleOperationsDelay() throws Exception {
+        Callable<Void> r = new Callable<Void>() {
+            @Override
+            public Void call() throws Exception {
+                File tmp = Os.newTempFile(getClass(), "txt");
+                try(Writer out = new FileWriter(tmp)) {
+                    out.write(TEST_FILE_CONTENT);
+                }
+                tmp.delete();
+                return null;
+            }
+        };
+
+        final Future<Void> f1 = executor.submit(r);
+        final Future<Void> f2 = executor.submit(r);
+
+        CountdownTimer time = CountdownTimer.newInstanceStarted(FILE_OPERATION_TIMEOUT);
+        f1.get(time.getDurationRemaining().toMilliseconds(), TimeUnit.MILLISECONDS);
+        f2.get(time.getDurationRemaining().toMilliseconds(), TimeUnit.MILLISECONDS);
+    }
+    
     @Test(groups="Integration")
     public void testPutCreatesNewFile() throws Exception {
         File nonExistantFile = Os.newTempFile(getClass(), "txt");

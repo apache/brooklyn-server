@@ -20,9 +20,11 @@ package org.apache.brooklyn.location.jclouds;
 
 import java.util.Map;
 
+import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.NodeCreator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 
 import com.google.common.collect.ImmutableMap;
@@ -52,11 +54,34 @@ public abstract class AbstractJcloudsStubbedLiveTest extends AbstractJcloudsLive
         nodeCreator = newNodeCreator();
         computeServiceRegistry = new StubbedComputeServiceRegistry(nodeCreator);
 
+        jcloudsLocation = replaceJcloudsLocation(getLocationSpec());
+    }
+    
+    @AfterMethod(alwaysRun=true)
+    @Override
+    public void tearDown() throws Exception {
+        try {
+            super.tearDown();
+        } finally {
+            nodeCreator = null;
+            computeServiceRegistry = null;
+            jcloudsLocation = null;
+        }
+    }
+    
+    protected JcloudsLocation replaceJcloudsLocation(String locationSpec) {
+        if (machines != null && machines.size() > 0) {
+            throw new IllegalStateException("Cannot replace jcloudsLocation after provisioning machine with old one");
+        }
+        if (jcloudsLocation != null) {
+            Locations.unmanage(jcloudsLocation);
+        }
         jcloudsLocation = (JcloudsLocation) managementContext.getLocationRegistry().getLocationManaged(
-                getLocationSpec(), 
+                locationSpec,
                 jcloudsLocationConfig(ImmutableMap.<Object, Object>of(
                         JcloudsLocationConfig.COMPUTE_SERVICE_REGISTRY, computeServiceRegistry,
                         JcloudsLocationConfig.WAIT_FOR_SSHABLE, "false")));
+        return jcloudsLocation;
     }
     
     /**

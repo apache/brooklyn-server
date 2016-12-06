@@ -23,6 +23,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.annotation.Nullable;
 
@@ -72,6 +73,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.reflect.TypeToken;
 
@@ -258,8 +260,10 @@ public class ServiceStateLogic {
      * {@link ServiceStateLogic#newEnricherForServiceState(Class)} and added to an entity.
      */
     public static class ComputeServiceState extends AbstractEnricher implements SensorEventListener<Object> {
-        
+        private static final Logger log = LoggerFactory.getLogger(ComputeServiceState.class);
         public static final String DEFAULT_ENRICHER_UNIQUE_TAG = "service.state.actual";
+
+        private final AtomicInteger warnCounter = new AtomicInteger();
 
         public ComputeServiceState() {}
         public ComputeServiceState(Map<?,?> flags) { super(flags); }
@@ -278,10 +282,10 @@ public class ServiceStateLogic {
                 suppressDuplicates = true;
             }
             
-            subscriptions().subscribe(entity, SERVICE_PROBLEMS, this);
-            subscriptions().subscribe(entity, SERVICE_UP, this);
-            subscriptions().subscribe(entity, SERVICE_STATE_EXPECTED, this);
-            onEvent(null);
+            Map<String, ?> notifyOfInitialValue = ImmutableMap.of("notifyOfInitialValue", Boolean.TRUE);
+            subscriptions().subscribe(notifyOfInitialValue, entity, SERVICE_PROBLEMS, this);
+            subscriptions().subscribe(notifyOfInitialValue, entity, SERVICE_UP, this);
+            subscriptions().subscribe(notifyOfInitialValue, entity, SERVICE_STATE_EXPECTED, this);
         }
 
         @Override

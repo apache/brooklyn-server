@@ -68,7 +68,9 @@ public class RebindTestUtils {
 
     private static final Logger LOG = LoggerFactory.getLogger(RebindTestUtils.class);
 
-    private static final Duration TIMEOUT = Duration.seconds(20);
+    // Virtualbox sometimes hangs for exactly 30 seconds on rename(3) or delete(3), confirmed by strace.
+    // See FileBasedStoreObjectAccessorWriterTest.testSimpleOperationsDelay() for a simple test to reproduce it.
+    private static final Duration TIMEOUT = Duration.seconds(40);
 
     public static <T> T serializeAndDeserialize(T memento) throws Exception {
         ObjectReplacer replacer = new ObjectReplacer() {

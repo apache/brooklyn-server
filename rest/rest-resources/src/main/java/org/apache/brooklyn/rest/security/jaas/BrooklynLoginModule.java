@@ -139,7 +139,6 @@ public class BrooklynLoginModule implements LoginModule {
     private Map<String, ?> options;
     private BundleContext bundleContext;
 
-    private static DelegatingSecurityProvider defaultProvider;
     private HttpSession providerSession;
 
     private SecurityProvider provider;
@@ -152,18 +151,8 @@ public class BrooklynLoginModule implements LoginModule {
     public BrooklynLoginModule() {
     }
 
-    private SecurityProvider getDefaultProvider() {
-        if (defaultProvider == null) {
-            createDefaultSecurityProvider(getManagementContext());
-        }
-        return defaultProvider;
-    }
-
     private synchronized static SecurityProvider createDefaultSecurityProvider(ManagementContext mgmt) {
-        if (defaultProvider == null) {
-            defaultProvider = new DelegatingSecurityProvider(mgmt);
-        }
-        return defaultProvider;
+        return new DelegatingSecurityProvider(mgmt);
     }
 
     private ManagementContext getManagementContext() {
@@ -218,7 +207,7 @@ public class BrooklynLoginModule implements LoginModule {
             }
         } else {
             log.debug("Delegating security provider loading to Brooklyn.");
-            provider = getDefaultProvider();
+            provider = createDefaultSecurityProvider(getManagementContext());
         }
 
         log.debug("Using security provider " + provider);

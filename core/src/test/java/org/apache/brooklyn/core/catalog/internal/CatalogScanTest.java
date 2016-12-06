@@ -121,8 +121,7 @@ public class CatalogScanTest {
         
         Assert.assertEquals(s1.getDescription(), "Some silly app test");
         
-        @SuppressWarnings({ "unchecked", "rawtypes" })
-        Class<?> app = c.createSpec((CatalogItem)s1).getType();
+        Class<?> app = c.peekSpec(s1).getType();
         Assert.assertEquals(MySillyAppTemplate.class, app);
         
         String xml = ((BasicBrooklynCatalog)c).toXmlString();

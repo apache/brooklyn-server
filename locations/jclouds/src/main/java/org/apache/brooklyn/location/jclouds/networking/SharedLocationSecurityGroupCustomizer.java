@@ -182,7 +182,7 @@ public class SharedLocationSecurityGroupCustomizer extends BasicJcloudsLocationC
                 builder.add(ipPermission);
             }
         }
-        return instance.addPermissionsToLocationAndReturnSecurityGroup(computeService, machine, builder.build());
+        return instance.addPermissionsToLocationAndReturnSecurityGroup(machine, builder.build());
     }
 
     private List<IpPermission> getIpPermissions(JcloudsLocationSecurityGroupCustomizer instance, RangeSet<Integer> portRanges, IpProtocol protocol) {

@@ -31,6 +31,7 @@ import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.jclouds.Constants;
 import org.jclouds.ContextBuilder;
@@ -38,6 +39,7 @@ import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.ComputeServiceContext;
 import org.jclouds.ec2.reference.EC2Constants;
 import org.jclouds.encryption.bouncycastle.config.BouncyCastleCryptoModule;
+import org.jclouds.location.reference.LocationConstants;
 import org.jclouds.logging.slf4j.config.SLF4JLoggingModule;
 import org.jclouds.sshj.config.SshjSshClientModule;
 import org.slf4j.Logger;
@@ -72,6 +74,18 @@ public class ComputeServiceRegistryImpl implements ComputeServiceRegistry, Jclou
         properties.setProperty(Constants.PROPERTY_RELAX_HOSTNAME, Boolean.toString(true));
         properties.setProperty("jclouds.ssh.max-retries", conf.getStringKey("jclouds.ssh.max-retries") != null ? 
                 conf.getStringKey("jclouds.ssh.max-retries").toString() : "50");
+        
+        // See https://issues.apache.org/jira/browse/BROOKLYN-394
+        // For retries, the backoff times are:
+        //   Math.min(2^failureCount * retryDelayStart, retryDelayStart * 10) + random(10%)
+        // Therefore the backoff times will be: 500ms, 1s, 2s, 4s, 5s, 5s.
+        // The defaults (if not overridden here) are 50ms and 5 retires. This gives backoff
+        // times of 50ms, 100ms, 200ms, 400ms, 500ms (so a total backoff time of 1.25s), 
+        // which is not long when you're being rate-limited and there are multiple thread all 
+        // retrying their API calls.
+        properties.setProperty(Constants.PROPERTY_RETRY_DELAY_START, "500");
+        properties.setProperty(Constants.PROPERTY_MAX_RETRIES, "6");
+        
         // Enable aws-ec2 lazy image fetching, if given a specific imageId; otherwise customize for specific owners; or all as a last resort
         // See https://issues.apache.org/jira/browse/WHIRR-416
         if ("aws-ec2".equals(provider)) {
@@ -97,6 +111,12 @@ public class ComputeServiceRegistryImpl implements ComputeServiceRegistry, Jclou
                  * Filter.2.Name=state&Filter.2.Value.1=available&
                  * Filter.3.Name=image-type&Filter.3.Value.1=machine&
                  */
+            }
+            
+            // See https://issues.apache.org/jira/browse/BROOKLYN-399
+            String region = conf.get(CLOUD_REGION_ID);
+            if (Strings.isNonBlank(region)) {
+                properties.setProperty(LocationConstants.PROPERTY_REGIONS, region);
             }
             
             // occasionally can get com.google.common.util.concurrent.UncheckedExecutionException: java.lang.RuntimeException: 

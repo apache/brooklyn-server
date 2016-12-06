@@ -128,7 +128,10 @@ public abstract class AbstractApplication extends AbstractEntity implements Star
         super.initEnrichers();
 
         // default app logic; easily overridable by adding a different enricher with the same tag
-        ServiceStateLogic.newEnricherFromChildren().checkChildrenAndMembers().addTo(this);
+        ServiceStateLogic.newEnricherFromChildren().checkChildrenAndMembers()
+                .configure(ServiceStateLogic.ComputeServiceIndicatorsFromChildrenAndMembers.UP_QUORUM_CHECK, config().get(UP_QUORUM_CHECK))
+                .configure(ServiceStateLogic.ComputeServiceIndicatorsFromChildrenAndMembers.RUNNING_QUORUM_CHECK, config().get(RUNNING_QUORUM_CHECK))
+                .addTo(this);
         ServiceStateLogic.ServiceNotUpLogic.updateNotUpIndicator(this, Attributes.SERVICE_STATE_ACTUAL, "Application created but not yet started, at "+Time.makeDateString());
     }
 

@@ -525,6 +525,8 @@ public class BrooklynGarbageCollector {
         if (taskTagsInCategoryOverCapacity.isEmpty())
             return 0;
         
+        // TODO Skip tasks that will be evicted anyway (transient, expired)
+        // https://issues.apache.org/jira/browse/BROOKLYN-401
         Collection<Task<?>> tasks = executionManager.allTasksLive();
         List<Task<?>> tasksToConsiderDeleting = MutableList.of();
         try {

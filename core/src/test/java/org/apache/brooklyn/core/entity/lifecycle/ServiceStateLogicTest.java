@@ -18,17 +18,25 @@
  */
 package org.apache.brooklyn.core.entity.lifecycle;
 
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Enricher;
+import org.apache.brooklyn.api.sensor.EnricherSpec;
+import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ComputeServiceIndicatorsFromChildrenAndMembers;
+import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ComputeServiceState;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceNotUpLogic;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceProblemsLogic;
 import org.apache.brooklyn.core.sensor.Sensors;
@@ -43,9 +51,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 
 @Test
 public class ServiceStateLogicTest extends BrooklynAppUnitTestSupport {
@@ -279,6 +289,45 @@ public class ServiceStateLogicTest extends BrooklynAppUnitTestSupport {
         child.sensors().set(stateSensor, "running");
 
         EntityAsserts.assertAttributeEqualsContinually(cluster, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+    }
+
+    public static class CountingComputeServiceState extends ComputeServiceState {
+        AtomicInteger cntCalled = new AtomicInteger();
+        AtomicInteger cntCalledWithNull = new AtomicInteger();
+
+        public CountingComputeServiceState() {}
+
+        @Override
+        public void onEvent(SensorEvent<Object> event) {
+            cntCalled.incrementAndGet();
+            if (event == null) {
+                cntCalledWithNull.incrementAndGet();
+            }
+            super.onEvent(event);
+        }
+    }
+
+    // TODO Reverted part of the change in https://github.com/apache/brooklyn-server/pull/452  
+    // (where this test was added), so this now fails.
+    @Test(groups={"WIP", "Broken"})
+    public void testServiceStateNotCalledExplicitly() throws Exception {
+        ComputeServiceState oldEnricher = (ComputeServiceState) Iterables.find(app.enrichers(), Predicates.instanceOf(ComputeServiceState.class));
+        String oldUniqueTag = oldEnricher.getUniqueTag();
+        
+        CountingComputeServiceState enricher = app.enrichers().add(EnricherSpec.create(CountingComputeServiceState.class)
+                .uniqueTag(oldUniqueTag));
+        
+        // Confirm that we only have one enricher now (i.e. we've replaced the original)
+        Iterable<Enricher> newEnrichers = Iterables.filter(app.enrichers(), Predicates.instanceOf(ComputeServiceState.class));
+        assertEquals(Iterables.size(newEnrichers), 1, "newEnrichers="+newEnrichers);
+        assertEquals(Iterables.getOnlyElement(newEnrichers), enricher, "newEnrichers="+newEnrichers);
+
+        // When setting the expected state, previously that caused a onEvent(null) to be triggered synchronously
+        ServiceStateLogic.setExpectedState(app, Lifecycle.RUNNING);
+        assertAttributeEqualsEventually(app, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
+
+        assertTrue(enricher.cntCalled.get() > 0);
+        assertEquals(enricher.cntCalledWithNull.get(), 0);
     }
 
     private static <T> void assertAttributeEqualsEventually(Entity x, AttributeSensor<T> sensor, T value) {

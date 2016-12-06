@@ -19,11 +19,13 @@
 package org.apache.brooklyn.location.byon;
 
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.assertNull;
 
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
+import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixtureWithApp;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.testng.annotations.Test;
@@ -34,15 +36,34 @@ public class ByonLocationResolverRebindTest extends RebindTestFixtureWithApp {
 
     @Test
     public void testRebindByon() throws Exception {
-        String spec = "byon(hosts=\"1.1.1.1\")";
+        String spec = "byon(hosts=\"1.1.1.1,1.1.1.2\")";
         MachineProvisioningLocation<MachineLocation> provisioner = resolve(spec);
-        
+        MachineLocation machine1 = provisioner.obtain(ImmutableMap.of());
+        machine1.config().set(ConfigKeys.newStringConfigKey("mykey1"), "myval1");
+
         rebind();
         
         @SuppressWarnings("unchecked")
         MachineProvisioningLocation<MachineLocation> newProvisioner = (MachineProvisioningLocation<MachineLocation>) mgmt().getLocationManager().getLocation(provisioner.getId());
-        MachineLocation newLocation = newProvisioner.obtain(ImmutableMap.of());
-        assertTrue(newLocation instanceof SshMachineLocation, "Expected location to be SshMachineLocation, found " + newLocation);
+        
+        SshMachineLocation newMachine1 = (SshMachineLocation) mgmt().getLocationManager().getLocation(machine1.getId());
+        assertEquals(newMachine1.config().get(ConfigKeys.newStringConfigKey("mykey1")), "myval1");
+        
+        SshMachineLocation newMachine2 = (SshMachineLocation) newProvisioner.obtain(ImmutableMap.of());
+        
+        // See https://issues.apache.org/jira/browse/BROOKLYN-396 (though didn't fail for byon, only localhost)
+        ((LocationInternal)newProvisioner).config().getLocalBag().toString();
+        ((LocationInternal)newMachine1).config().getLocalBag().toString();
+        ((LocationInternal)newMachine2).config().getLocalBag().toString();
+        
+        // Confirm when machine is released that we get it back (without the modifications to config)
+        newMachine1.config().set(ConfigKeys.newStringConfigKey("mykey2"), "myval2");
+        newProvisioner.release(newMachine1);
+        
+        MachineLocation newMachine1b = newProvisioner.obtain(ImmutableMap.of());
+        assertEquals(newMachine1b.getAddress(), machine1.getAddress());
+        assertNull(newMachine1b.config().get(ConfigKeys.newStringConfigKey("mykey1")));
+        assertNull(newMachine1b.config().get(ConfigKeys.newStringConfigKey("mykey2")));
     }
 
     @Test

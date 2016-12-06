@@ -109,7 +109,8 @@ public interface ServerApi {
 
     @GET
     @Path("/up/extended")
-    @ApiOperation(value = "Returns extended server-up information, a map including up (/up), shuttingDown (/shuttingDown), healthy (/healthy), and ha (/ha/states) (qv)")
+    @ApiOperation(value = "Returns extended server-up information, a map including up (/up), shuttingDown (/shuttingDown), healthy (/healthy), and ha (/ha/states) (qv)"
+        + "; also forces a session, so a useful general-purpose call for a UI client to do when starting")
     public Map<String,Object> getUpExtended();
 
     @GET
@@ -198,7 +199,8 @@ public interface ServerApi {
 
     @GET
     @Path("/user")
-    @ApiOperation(value = "Return user information for this Brooklyn instance", 
+    @ApiOperation(value = "Return user information for this Brooklyn instance"
+                + "; also forces a session, so a useful general-purpose call for a UI client to do when starting", 
             response = String.class,
             responseContainer = "List")
     public String getUser(); 

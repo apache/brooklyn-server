@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.mgmt.internal;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+
 import groovy.util.ObservableList;
 
 import java.lang.reflect.Proxy;
@@ -73,8 +74,8 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -90,25 +91,25 @@ public class LocalEntityManager implements EntityManagerInternal {
     private final InternalPolicyFactory policyFactory;
     
     /** Entities that have been created, but have not yet begun to be managed */
-    protected final Map<String,Entity> preRegisteredEntitiesById = Collections.synchronizedMap(new WeakHashMap<String, Entity>());
+    private final Map<String,Entity> preRegisteredEntitiesById = Collections.synchronizedMap(new WeakHashMap<String, Entity>());
 
     /** Entities that are in the process of being managed, but where management is not yet complete */
-    protected final Map<String,Entity> preManagedEntitiesById = Collections.synchronizedMap(new WeakHashMap<String, Entity>());
+    private final Map<String,Entity> preManagedEntitiesById = Collections.synchronizedMap(new WeakHashMap<String, Entity>());
     
     /** Proxies of the managed entities */
-    protected final ConcurrentMap<String,Entity> entityProxiesById = Maps.newConcurrentMap();
+    private final ConcurrentMap<String,Entity> entityProxiesById = Maps.newConcurrentMap();
     
     /** Real managed entities */
-    protected final Map<String,Entity> entitiesById = Maps.newLinkedHashMap();
+    private final Map<String,Entity> entitiesById = Maps.newLinkedHashMap();
     
     /** Management mode for each entity */
-    protected final Map<String,ManagementTransitionMode> entityModesById = Collections.synchronizedMap(Maps.<String,ManagementTransitionMode>newLinkedHashMap());
+    private final Map<String,ManagementTransitionMode> entityModesById = Collections.synchronizedMap(Maps.<String,ManagementTransitionMode>newLinkedHashMap());
 
     /** Proxies of the managed entities */
-    protected final ObservableList entities = new ObservableList();
+    private final ObservableList entities = new ObservableList();
     
     /** Proxies of the managed entities that are applications */
-    protected final Set<Application> applications = Sets.newConcurrentHashSet();
+    private final Set<Application> applications = Sets.newConcurrentHashSet();
 
     private final BrooklynStorage storage;
     private final Map<String,String> entityTypes;
@@ -212,13 +213,41 @@ public class LocalEntityManager implements EntityManagerInternal {
 
     @Override
     public Iterable<Entity> getAllEntitiesInApplication(Application application) {
+        // To fix https://issues.apache.org/jira/browse/BROOKLYN-352, we need to synchronize on
+        // preRegisteredEntitiesById and preManagedEntitiesById while iterating over them (because
+        // they are synchronizedMaps). entityProxiesById is a ConcurrentMap, so no need to 
+        // synchronize on that.
+        // Only synchronize on one at a time, to avoid the risk of deadlock.
+        
         Predicate<Entity> predicate = EntityPredicates.applicationIdEqualTo(application.getId());
-        Iterable<Entity> allentities = Iterables.concat(preRegisteredEntitiesById.values(), preManagedEntitiesById.values(), entityProxiesById.values());
-        Iterable<Entity> result = Iterables.filter(allentities, predicate);
-        return ImmutableSet.copyOf(Iterables.transform(result, new Function<Entity, Entity>() {
-            @Override public Entity apply(Entity input) {
-                return Entities.proxy(input);
-            }}));
+        Set<Entity> result = Sets.newLinkedHashSet();
+        
+        synchronized (preRegisteredEntitiesById) {
+            for (Entity entity : preRegisteredEntitiesById.values()) {
+                if (predicate.apply(entity)) {
+                    result.add(entity);
+                }
+            }
+        }
+        synchronized (preManagedEntitiesById) {
+            for (Entity entity : preManagedEntitiesById.values()) {
+                if (predicate.apply(entity)) {
+                    result.add(entity);
+                }
+            }
+        }
+        for (Entity entity : entityProxiesById.values()) {
+            if (predicate.apply(entity)) {
+                result.add(entity);
+            }
+        }
+        
+        return FluentIterable.from(result)
+                .transform(new Function<Entity, Entity>() {
+                    @Override public Entity apply(Entity input) {
+                        return Entities.proxy(input);
+                    }})
+                .toSet();
     }
 
     @Override
@@ -713,7 +742,7 @@ public class LocalEntityManager implements EntityManagerInternal {
             if (e instanceof Group) {
                 Collection<Entity> members = ((Group)e).getMembers();
                 for (Entity member : members) {
-                    if (!Entities.isNoLongerManaged(member)) member.removeGroup((Group)e);
+                    if (!Entities.isNoLongerManaged(member)) ((EntityInternal)member).groups().remove((Group)e);
                 }
             }
         } else {

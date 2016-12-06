@@ -28,9 +28,9 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.test.performance.PerformanceMeasurer;
 import org.apache.brooklyn.test.performance.PerformanceTestDescriptor;
 import org.apache.brooklyn.test.performance.PerformanceTestResult;
-import org.apache.brooklyn.test.performance.PerformanceMeasurer;
 import org.apache.brooklyn.util.internal.DoubleSystemProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,7 +87,7 @@ public class AbstractPerformanceTest {
 
     protected PerformanceTestResult measure(PerformanceTestDescriptor options) {
         PerformanceTestResult result = PerformanceMeasurer.run(options);
-        System.out.println("test="+options+"; result="+result);
+        LOG.info("test="+options+"; result="+result);
         return result;
     }
 

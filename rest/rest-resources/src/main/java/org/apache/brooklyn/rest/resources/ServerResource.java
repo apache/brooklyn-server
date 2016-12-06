@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -94,6 +95,9 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
     @Context
     private ContextResolver<ShutdownHandler> shutdownHandler;
 
+    @Context
+    private HttpServletRequest request;
+    
     @Override
     public void reloadBrooklynProperties() {
         if (Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ALL_SERVER_INFO, null)) {
@@ -365,6 +369,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
     
     @Override
     public Map<String,Object> getUpExtended() {
+        request.getSession();
         return MutableMap.<String,Object>of(
             "up", isUp(),
             "shuttingDown", isShuttingDown(),
@@ -451,6 +456,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
 
     @Override
     public String getUser() {
+        request.getSession();
         EntitlementContext entitlementContext = Entitlements.getEntitlementContext();
         if (entitlementContext!=null && entitlementContext.user()!=null){
             return entitlementContext.user();

@@ -49,6 +49,7 @@ public class OsgiStandaloneTest extends OsgiTestBase {
     public static final String BROOKLYN_OSGI_TEST_A_0_1_0_URL = "classpath:"+BROOKLYN_OSGI_TEST_A_0_1_0_PATH;
 
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_PATH = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_PATH;
+    public static final String BROOKLYN_TEST_OSGI_ENTITIES_SYMBOLIC_NAME_FULL = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SYMBOLIC_NAME_FULL;
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_URL = "classpath:"+BROOKLYN_TEST_OSGI_ENTITIES_PATH;
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_NAME = "org.apache.brooklyn.test.resources.osgi.brooklyn-test-osgi-entities";
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_VERSION = "0.1.0";
@@ -87,7 +88,7 @@ public class OsgiStandaloneTest extends OsgiTestBase {
 
     @Test
     public void testDuplicateBundle() throws Exception {
-        MavenArtifact artifact = new MavenArtifact("org.apache.brooklyn", "brooklyn-api", "jar", "0.10.0-SNAPSHOT"); // BROOKLYN_VERSION
+        MavenArtifact artifact = new MavenArtifact("org.apache.brooklyn", "brooklyn-api", "jar", "0.11.0-SNAPSHOT"); // BROOKLYN_VERSION
         String localUrl = MavenRetriever.localUrl(artifact);
         if ("file".equals(Urls.getProtocol(localUrl))) {
             helperDuplicateBundle(localUrl);
@@ -98,7 +99,7 @@ public class OsgiStandaloneTest extends OsgiTestBase {
 
     @Test(groups="Integration")
     public void testRemoteDuplicateBundle() throws Exception {
-        helperDuplicateBundle(MavenRetriever.hostedUrl(new MavenArtifact("org.apache.brooklyn", "brooklyn-api", "jar", "0.10.0-SNAPSHOT"))); // BROOKLYN_VERSION
+        helperDuplicateBundle(MavenRetriever.hostedUrl(new MavenArtifact("org.apache.brooklyn", "brooklyn-api", "jar", "0.11.0-SNAPSHOT"))); // BROOKLYN_VERSION
     }
 
     public void helperDuplicateBundle(String url) throws Exception {

@@ -18,17 +18,13 @@
  */
 package org.apache.brooklyn.launcher;
 
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.internal.BrooklynProperties;
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.net.SocketException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.security.KeyStore;
@@ -38,24 +34,31 @@ import java.util.Map;
 
 import javax.net.ssl.SSLHandshakeException;
 
+import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.internal.BrooklynProperties;
+import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
+import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.rest.BrooklynWebConfig;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.http.HttpTool;
+import org.apache.brooklyn.util.http.HttpToolResponse;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.conn.ssl.SSLSocketFactory;
-import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
-import org.apache.brooklyn.rest.BrooklynWebConfig;
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.http.HttpTool;
-import org.apache.brooklyn.util.http.HttpToolResponse;
-import org.apache.brooklyn.util.exceptions.Exceptions;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-import java.net.SocketException;
 
 public class BrooklynWebServerTest {
 
@@ -92,8 +95,40 @@ public class BrooklynWebServerTest {
         try {
             webServer.start();
 
-            HttpToolResponse response = HttpTool.execAndConsume(new DefaultHttpClient(), new HttpGet(webServer.getRootUrl()));
+            HttpToolResponse response = HttpTool.execAndConsume(HttpTool.httpClientBuilder().build(), new HttpGet(webServer.getRootUrl()));
             assertEquals(response.getResponseCode(), 200);
+        } finally {
+            webServer.stop();
+        }
+    }
+
+    @Test
+    public void verifySecurityInitialized() throws Exception {
+        webServer = new BrooklynWebServer(newManagementContext(brooklynProperties));
+        webServer.start();
+        try {
+            HttpToolResponse response = HttpTool.execAndConsume(HttpTool.httpClientBuilder().build(), new HttpGet(webServer.getRootUrl()));
+            assertEquals(response.getResponseCode(), 401);
+        } finally {
+            webServer.stop();
+        }
+    }
+
+    @Test
+    public void verifySecurityInitializedExplicitUser() throws Exception {
+        webServer = new BrooklynWebServer(newManagementContext(brooklynProperties));
+        webServer.start();
+
+        CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+        credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials("myuser", "somepass"));
+        HttpClient client = HttpTool.httpClientBuilder()
+            .credentials(new UsernamePasswordCredentials("myuser", "somepass"))
+            .uri(webServer.getRootUrl())
+            .build();
+
+        try {
+            HttpToolResponse response = HttpTool.execAndConsume(client, new HttpGet(webServer.getRootUrl()));
+            assertEquals(response.getResponseCode(), 401);
         } finally {
             webServer.stop();
         }

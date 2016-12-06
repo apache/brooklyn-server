@@ -62,6 +62,10 @@ public class CatalogPredicates {
         public boolean apply(@Nullable CatalogItem<T,SpecT> item) {
             return (item != null) && item.getCatalogItemType()==ciType;
         }
+        @Override
+        public String toString() {
+            return "CatalogItemTypeEqualTo("+ciType+")";
+        }
     }
 
     public static <T,SpecT> Predicate<CatalogItem<T,SpecT>> deprecated(final boolean deprecated) {
@@ -88,6 +92,10 @@ public class CatalogPredicates {
         public boolean apply(@Nullable CatalogItem<T,SpecT> item) {
             return (item != null) && item.isDeprecated() == deprecated;
         }
+        @Override
+        public String toString() {
+            return "DeprecatedEqualTo("+deprecated+")";
+        }
     }
 
     /**
@@ -109,6 +117,10 @@ public class CatalogPredicates {
         @Override
         public boolean apply(@Nullable CatalogItem<T,SpecT> item) {
             return (item != null) && item.isDisabled() == disabled;
+        }
+        @Override
+        public String toString() {
+            return "DisabledEqualTo("+disabled+")";
         }
     }
 
@@ -178,6 +190,10 @@ public class CatalogPredicates {
         public boolean apply(@Nullable CatalogItem<T,SpecT> item) {
             return (item != null) && filter.apply(item.getDisplayName());
         }
+        @Override
+        public String toString() {
+            return "DisplayNameMatches("+filter+")";
+        }
     }
 
     @Deprecated
@@ -209,6 +225,10 @@ public class CatalogPredicates {
         public boolean apply(@Nullable CatalogItem<T,SpecT> item) {
             return (item != null) && filter.apply(item.getSymbolicName());
         }
+        @Override
+        public String toString() {
+            return "SymbolicNameMatches("+filter+")";
+        }
     }
 
     public static <T,SpecT> Predicate<CatalogItem<T,SpecT>> javaType(final Predicate<? super String> filter) {
@@ -235,6 +255,10 @@ public class CatalogPredicates {
         public boolean apply(@Nullable CatalogItem<T,SpecT> item) {
             return (item != null) && filter.apply(item.getJavaType());
         }
+        @Override
+        public String toString() {
+            return "JavaTypeMatches("+filter+")";
+        }
     }
 
     public static <T,SpecT> Predicate<CatalogItem<T,SpecT>> xml(final Predicate<? super String> filter) {
@@ -260,6 +284,10 @@ public class CatalogPredicates {
         @Override
         public boolean apply(@Nullable CatalogItem<T,SpecT> item) {
             return (item != null) && filter.apply(item.toXmlString());
+        }
+        @Override
+        public String toString() {
+            return "XmlMatches("+filter+")";
         }
     }
 
@@ -289,6 +317,10 @@ public class CatalogPredicates {
             return (item != null) && 
                     Entitlements.isEntitled(mgmt.getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, item.getCatalogItemId());
         }
+        @Override
+        public String toString() {
+            return "EntitledToSee()";
+        }
     }
  
     public static <T,SpecT> Predicate<CatalogItem<T,SpecT>> isBestVersion(final ManagementContext mgmt) {
@@ -314,6 +346,10 @@ public class CatalogPredicates {
         @Override
         public boolean apply(@Nullable CatalogItem<T,SpecT> item) {
             return CatalogUtils.isBestVersion(mgmt, item);
+        }
+        @Override
+        public String toString() {
+            return "IsBestVersion()";
         }
     }
 }

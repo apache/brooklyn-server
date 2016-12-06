@@ -152,12 +152,24 @@ public class CollectionFunctionals {
         return sizeEquals(0);
     }
 
+    public static Predicate<Iterable<?>> emptyOrNull() {
+        return Predicates.or(Predicates.isNull(), sizeEquals(0));
+    }
+
     public static Predicate<Iterable<?>> notEmpty() {
-        return Predicates.not(empty());
+        return Predicates.not(emptyOrNull());
     }
 
     public static <K> Predicate<Map<K,?>> mapSizeEquals(int targetSize) {
         return Predicates.compose(Predicates.equalTo(targetSize), CollectionFunctionals.<K>mapSize());
+    }
+
+    public static <K> Predicate<Map<K,?>> mapEmptyOrNull() {
+        return Predicates.<Map<K,?>>or(Predicates.isNull(), CollectionFunctionals.<K>mapSizeEquals(0));
+    }
+
+    public static <K> Predicate<Map<K,?>> mapNotEmpty() {
+        return Predicates.not(CollectionFunctionals.<K>mapEmptyOrNull());
     }
 
     public static <T,I extends Iterable<T>> Function<I, List<T>> limit(final int max) {

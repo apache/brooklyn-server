@@ -18,19 +18,73 @@
  */
 package org.apache.brooklyn.location.jclouds;
 
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntityInitializer;
+import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
+import org.apache.brooklyn.core.location.LocationConfigKeys;
+import org.apache.brooklyn.core.objs.BasicConfigurableObject;
+import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.domain.Template;
 import org.jclouds.compute.domain.TemplateBuilder;
 import org.jclouds.compute.options.TemplateOptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.core.location.LocationConfigKeys;
-import org.apache.brooklyn.core.objs.BasicConfigurableObject;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 
 /**
- * A default no-op implementation, which can be extended to override the appropriate methods.
+ * A default no-op location customizer, which can be extended to override the appropriate methods.
+ * <p>
+ * When the class is used as an {@link EntityInitializer} it inserts itself into the entity's
+ * {@link JcloudsLocationConfig#JCLOUDS_LOCATION_CUSTOMIZERS} under the
+ * {@link BrooklynConfigKeys#PROVISIONING_PROPERTIES} key.
  */
-public class BasicJcloudsLocationCustomizer extends BasicConfigurableObject implements JcloudsLocationCustomizer {
+public class BasicJcloudsLocationCustomizer extends BasicConfigurableObject implements JcloudsLocationCustomizer, EntityInitializer {
+
+    private static final Logger LOG = LoggerFactory.getLogger(BasicJcloudsLocationCustomizer.class);
+
+    public BasicJcloudsLocationCustomizer() {
+        this(ImmutableMap.<String, String>of());
+    }
+
+    public BasicJcloudsLocationCustomizer(Map<String, String> params) {
+        this(ConfigBag.newInstance(params));
+    }
+
+    public BasicJcloudsLocationCustomizer(final ConfigBag params) {
+        for (Map.Entry<String, Object> entry : params.getAllConfig().entrySet()) {
+            config().set(ConfigKeys.newConfigKey(Object.class, entry.getKey()), entry.getValue());
+        }
+    }
+
+    @Override
+    public void apply(EntityLocal entity) {
+        ConfigKey<Object> subkey = BrooklynConfigKeys.PROVISIONING_PROPERTIES.subKey(JcloudsLocationConfig.JCLOUDS_LOCATION_CUSTOMIZERS.getName());
+        // newInstance handles the case that provisioning properties is null.
+        ConfigBag provisioningProperties = ConfigBag.newInstance(entity.config().get(BrooklynConfigKeys.PROVISIONING_PROPERTIES));
+        Collection<JcloudsLocationCustomizer> existingCustomizers = provisioningProperties.get(JcloudsLocationConfig.JCLOUDS_LOCATION_CUSTOMIZERS);
+        List<? super JcloudsLocationCustomizer> merged;
+        if (existingCustomizers == null) {
+            merged = ImmutableList.<JcloudsLocationCustomizer>of(this);
+        } else {
+            merged = Lists.newArrayListWithCapacity(1 + existingCustomizers.size());
+            merged.addAll(existingCustomizers);
+            merged.add(this);
+        }
+        LOG.debug("{} set location customizers on {}: {}", new Object[]{this, entity, Iterables.toString(merged)});
+        entity.config().set(subkey, merged);
+    }
 
     @Override
     public void customize(JcloudsLocation location, ComputeService computeService, TemplateBuilder templateBuilder) {
@@ -62,7 +116,9 @@ public class BasicJcloudsLocationCustomizer extends BasicConfigurableObject impl
         // no-op
     }
 
-    /** @return the calling entity */
+    /**
+     * @return the calling entity
+     */
     protected Entity getCallerContext(JcloudsMachineLocation machine) {
         SudoTtyFixingCustomizer s;
 

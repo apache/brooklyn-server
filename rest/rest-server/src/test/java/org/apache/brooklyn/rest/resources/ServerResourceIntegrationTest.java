@@ -63,7 +63,7 @@ public class ServerResourceIntegrationTest extends BrooklynRestApiLauncherTestFi
         ManagementContext mgmt = new LocalManagementContext(brooklynProperties);
         
         try {
-            Server server = useServerForTest(BrooklynRestApiLauncher.launcher()
+            Server server = useServerForTest(baseLauncher()
                     .managementContext(mgmt)
                     .withoutJsgui()
                     .securityProvider(TestSecurityProvider.class)
@@ -87,7 +87,7 @@ public class ServerResourceIntegrationTest extends BrooklynRestApiLauncherTestFi
                     uri, args, args);
             HttpAsserts.assertHealthyStatusCode(response.getResponseCode());
     
-            // Has no gone back to credentials from brooklynProperties; TestSecurityProvider credentials no longer work
+            // Has now gone back to credentials from brooklynProperties; TestSecurityProvider credentials no longer work
             response = HttpTool.httpPost(httpClientBuilder().uri(baseUri).credentials(defaultCredential).build(), 
                     uri, args, args);
             HttpAsserts.assertHealthyStatusCode(response.getResponseCode());
@@ -103,7 +103,7 @@ public class ServerResourceIntegrationTest extends BrooklynRestApiLauncherTestFi
 
     @Test(groups = "Integration")
     public void testGetUser() throws Exception {
-        Server server = useServerForTest(BrooklynRestApiLauncher.launcher()
+        Server server = useServerForTest(baseLauncher()
                 .securityProvider(TestSecurityProvider.class)
                 .withoutJsgui()
                 .start());

@@ -36,6 +36,7 @@ import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServiceAttributes;
+import org.apache.brooklyn.rest.filter.CsrfTokenFilter;
 import org.apache.brooklyn.rest.filter.EntitlementContextFilter;
 import org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter;
 import org.apache.brooklyn.rest.filter.LoggingFilter;
@@ -59,7 +60,6 @@ import org.eclipse.jetty.jaas.JAASLoginService;
 import org.eclipse.jetty.server.NetworkConnector;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.ContextHandler;
-import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.webapp.WebAppContext;
 import org.reflections.util.ClasspathHelper;
 import org.slf4j.Logger;
@@ -120,6 +120,9 @@ public class BrooklynRestApiLauncher {
         return this;
     }
 
+    /**
+     * Note: Lost on brooklyn.properties reload
+     */
     public BrooklynRestApiLauncher securityProvider(Class<? extends SecurityProvider> securityProvider) {
         this.securityProvider = securityProvider;
         return this;
@@ -191,9 +194,17 @@ public class BrooklynRestApiLauncher {
                     : "from custom context";
         }
 
-        if (securityProvider != null && securityProvider != AnyoneSecurityProvider.class) {
-            ((BrooklynProperties) mgmt.getConfig()).put(
-                    BrooklynWebConfig.SECURITY_PROVIDER_CLASSNAME, securityProvider.getName());
+        Maybe<Object> configSecurityProvider = mgmt.getConfig().getConfigLocalRaw(BrooklynWebConfig.SECURITY_PROVIDER_CLASSNAME);
+        boolean hasConfigSecurityProvider = configSecurityProvider.isPresent();
+        boolean hasOverrideSecurityProvider = securityProvider != null;
+        boolean hasAnyoneOverrideSecurityProvide = (securityProvider == AnyoneSecurityProvider.class) ||
+            (!hasOverrideSecurityProvider && hasConfigSecurityProvider && AnyoneSecurityProvider.class.getName().equals(configSecurityProvider.get()));
+        if (!hasAnyoneOverrideSecurityProvide && (hasOverrideSecurityProvider || hasConfigSecurityProvider)) {
+            ((WebAppContext)context).addOverrideDescriptor(getClass().getResource("/web-security.xml").toExternalForm());
+            if (hasOverrideSecurityProvider) {
+                ((BrooklynProperties) mgmt.getConfig()).put(
+                        BrooklynWebConfig.SECURITY_PROVIDER_CLASSNAME, securityProvider.getName());
+            }
         } else if (context instanceof WebAppContext) {
             ((WebAppContext)context).setSecurityHandler(new NopSecurityHandler());
         }
@@ -227,7 +238,8 @@ public class BrooklynRestApiLauncher {
                 new RequestTaggingRsFilter(),
                 new NoCacheFilter(),
                 new HaHotCheckResourceFilter(),
-                new EntitlementContextFilter());
+                new EntitlementContextFilter(),
+                new CsrfTokenFilter());
         RestApiSetup.installServletFilters(context, this.filters);
 
         context.setContextPath("/");
@@ -330,16 +342,20 @@ public class BrooklynRestApiLauncher {
         log.info("Press Ctrl-C to quit.");
     }
 
+    public static BrooklynRestApiLauncher launcherServlet() {
+        return new BrooklynRestApiLauncher().mode(StartMode.SERVLET);
+    }
+    
     public static Server startRestResourcesViaServlet() throws Exception {
-        return new BrooklynRestApiLauncher()
-                .mode(StartMode.SERVLET)
-                .start();
+        return launcherServlet().start();
     }
 
+    public static BrooklynRestApiLauncher launcherWebXml() {
+        return new BrooklynRestApiLauncher().mode(StartMode.WEB_XML);
+    }
+    
     public static Server startRestResourcesViaWebXml() throws Exception {
-        return new BrooklynRestApiLauncher()
-                .mode(StartMode.WEB_XML)
-                .start();
+        return launcherWebXml().start();
     }
 
     /** look for the JS GUI webapp in common source places, returning path to it if found, or null.

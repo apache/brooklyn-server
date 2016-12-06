@@ -28,10 +28,13 @@ import java.util.Objects;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.testng.Assert;
 
 import com.google.common.base.Function;
+import com.google.common.base.Predicate;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -96,6 +99,26 @@ public class RecordingSensorEventListener<T> implements SensorEventListener<T>, 
         Collections.sort(copy, new EventTimestampComparator());
         return FluentIterable.from(copy)
                 .transform(new GetValueFunction<T>());
+    }
+
+    public void assertHasEvent(Predicate<? super SensorEvent<T>> filter) {
+        for (SensorEvent<T> event : events) {
+            if (filter.apply(event)) {
+                return;
+            }
+        }
+        Assert.fail("No event matching filter "+ filter);
+    }
+
+    public void assertHasEventEventually(final Predicate<? super SensorEvent<T>> filter) {
+        Asserts.succeedsEventually(new Runnable() {
+            public void run() {
+                assertHasEvent(filter);
+            }});
+    }
+    
+    public void assertEventCount(int expected) {
+        Assert.assertEquals(events.size(), expected, "events="+events);
     }
 
     /**

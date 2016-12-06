@@ -103,7 +103,7 @@ public interface DynamicCluster extends AbstractGroup, Cluster, MemberReplaceabl
             "dynamiccluster.restartMode", 
             "How this cluster should handle restarts; "
             + "by default it is disallowed, but this key can specify a different mode. "
-            + "Modes supported by dynamic cluster are 'off', 'sequqential', or 'parallel'. "
+            + "Modes supported by dynamic cluster are 'off', 'sequential', or 'parallel'. "
             + "However subclasses can define their own modes or may ignore this.", null);
 
     @SetFromFlag("quarantineFailedEntities")
@@ -182,6 +182,15 @@ public interface DynamicCluster extends AbstractGroup, Cluster, MemberReplaceabl
     @SetFromFlag("clusterMemberId")
     ConfigKey<Integer> CLUSTER_MEMBER_ID = ConfigKeys.newIntegerConfigKey(
             "cluster.member.id", "The unique ID number (sequential) of a member of a cluster");
+
+    @Beta
+    @SetFromFlag("maxConcurrentChildCommands")
+    ConfigKey<Integer> MAX_CONCURRENT_CHILD_COMMANDS = ConfigKeys.builder(Integer.class)
+            .name("dynamiccluster.maxConcurrentChildCommands")
+            .description("[Beta] The maximum number of effector invocations that will be made on children at once " +
+                    "(e.g. start, stop, restart). Any value null or less than or equal to zero means invocations are unbounded")
+            .defaultValue(0)
+            .build();
 
     AttributeSensor<List<Location>> SUB_LOCATIONS = new BasicAttributeSensor<List<Location>>(
             new TypeToken<List<Location>>() {},

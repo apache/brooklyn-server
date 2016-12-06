@@ -38,13 +38,26 @@ import com.google.common.collect.Lists;
  * order they were passed as arguments.
  */
 public class ParallelTask<T> extends CompoundTask<T> {
-    public ParallelTask(Object... tasks) { super(tasks); }
-    
-    public ParallelTask(Map<String,?> flags, Collection<? extends Object> tasks) { super(flags, tasks); }
-    public ParallelTask(Collection<? extends Object> tasks) { super(tasks); }
-    
-    public ParallelTask(Map<String,?> flags, Iterable<? extends Object> tasks) { super(flags, ImmutableList.copyOf(tasks)); }
-    public ParallelTask(Iterable<? extends Object> tasks) { super(ImmutableList.copyOf(tasks)); }
+
+    public ParallelTask(Object... tasks) {
+        super(tasks);
+    }
+
+    public ParallelTask(Map<String, ?> flags, Collection<?> tasks) {
+        super(flags, tasks);
+    }
+
+    public ParallelTask(Collection<?> tasks) {
+        super(tasks);
+    }
+
+    public ParallelTask(Map<String, ?> flags, Iterable<?> tasks) {
+        super(flags, ImmutableList.copyOf(tasks));
+    }
+
+    public ParallelTask(Iterable<?> tasks) {
+        super(ImmutableList.copyOf(tasks));
+    }
 
     @Override
     protected List<T> runJobs() throws InterruptedException, ExecutionException {

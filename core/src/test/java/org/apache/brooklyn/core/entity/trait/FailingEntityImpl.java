@@ -23,6 +23,8 @@ import java.util.Collection;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -37,6 +39,12 @@ public class FailingEntityImpl extends TestEntityImpl implements FailingEntity {
     public void start(Collection<? extends Location> locs) {
         getConfig(LISTENER).onEvent(this, "start", new Object[] {locs});
         if (getConfig(FAIL_ON_START) || (getConfig(FAIL_ON_START_CONDITION) != null && getConfig(FAIL_ON_START_CONDITION).apply(this))) {
+            if (Boolean.TRUE.equals(getConfig(SET_SERVICE_DOWN_ON_FAILURE))) {
+                ServiceStateLogic.setExpectedState(this, Lifecycle.STARTING);
+                sensors().set(SERVICE_UP, false);
+                ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
+            }
+            
             callHistory.add("start");
             getConfig(EXEC_ON_FAILURE).apply(this);
             throw fail("Simulating entity start failure for test");
@@ -48,6 +56,12 @@ public class FailingEntityImpl extends TestEntityImpl implements FailingEntity {
     public void stop() {
         getConfig(LISTENER).onEvent(this, "stop", new Object[0]);
         if (getConfig(FAIL_ON_STOP) || (getConfig(FAIL_ON_STOP_CONDITION) != null && getConfig(FAIL_ON_STOP_CONDITION).apply(this))) {
+            if (Boolean.TRUE.equals(getConfig(SET_SERVICE_DOWN_ON_FAILURE))) {
+                ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPING);
+                sensors().set(SERVICE_UP, false);
+                ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPED);
+            }
+            
             callHistory.add("stop");
             getConfig(EXEC_ON_FAILURE).apply(this);
             throw fail("Simulating entity stop failure for test");
@@ -59,6 +73,14 @@ public class FailingEntityImpl extends TestEntityImpl implements FailingEntity {
     public void restart() {
         getConfig(LISTENER).onEvent(this, "restart", new Object[0]);
         if (getConfig(FAIL_ON_RESTART) || (getConfig(FAIL_ON_RESTART_CONDITION) != null && getConfig(FAIL_ON_RESTART_CONDITION).apply(this))) {
+            if (Boolean.TRUE.equals(getConfig(SET_SERVICE_DOWN_ON_FAILURE))) {
+                ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPING);
+                sensors().set(SERVICE_UP, false);
+                ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPED);
+                ServiceStateLogic.setExpectedState(this, Lifecycle.STARTING);
+                ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
+            }
+
             callHistory.add("restart");
             getConfig(EXEC_ON_FAILURE).apply(this);
             throw fail("Simulating entity restart failure for test");

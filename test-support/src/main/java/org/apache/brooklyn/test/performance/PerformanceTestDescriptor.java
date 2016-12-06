@@ -53,6 +53,8 @@ public class PerformanceTestDescriptor {
     public Duration duration;
     public Integer iterations;
     public Runnable job;
+    public Runnable preJob;
+    public Runnable postJob;
     public CountDownLatch completionLatch;
     public Duration completionLatchTimeout = Duration.FIVE_MINUTES;
     public Double minAcceptablePerSecond;
@@ -117,6 +119,22 @@ public class PerformanceTestDescriptor {
     public PerformanceTestDescriptor job(Runnable val) {
         if (sealed) throw new IllegalStateException("Should not modify after sealed (e.g. after use)");
         this.job = val; return this;
+    }
+    
+    /**
+     * To be run each time before the job (pausing the timer while this is run).
+     */
+    public PerformanceTestDescriptor preJob(Runnable val) {
+        if (sealed) throw new IllegalStateException("Should not modify after sealed (e.g. after use)");
+        this.preJob = val; return this;
+    }
+    
+    /**
+     * To be run each time after the job (pausing the timer while this is run).
+     */
+    public PerformanceTestDescriptor postJob(Runnable val) {
+        if (sealed) throw new IllegalStateException("Should not modify after sealed (e.g. after use)");
+        this.postJob = val; return this;
     }
     
     /**

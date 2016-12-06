@@ -61,11 +61,9 @@ import org.apache.brooklyn.core.mgmt.rebind.dto.BasicPolicyMemento;
 import org.apache.brooklyn.core.mgmt.rebind.dto.MutableBrooklynMemento;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
-import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.core.xstream.XmlSerializer;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
-import org.osgi.framework.Bundle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -76,14 +74,11 @@ import com.thoughtworks.xstream.converters.MarshallingContext;
 import com.thoughtworks.xstream.converters.SingleValueConverter;
 import com.thoughtworks.xstream.converters.UnmarshallingContext;
 import com.thoughtworks.xstream.converters.reflection.ReflectionConverter;
-import com.thoughtworks.xstream.core.ClassLoaderReference;
 import com.thoughtworks.xstream.core.ReferencingMarshallingContext;
-import com.thoughtworks.xstream.core.util.Primitives;
 import com.thoughtworks.xstream.io.HierarchicalStreamReader;
 import com.thoughtworks.xstream.io.HierarchicalStreamWriter;
 import com.thoughtworks.xstream.io.path.PathTrackingReader;
 import com.thoughtworks.xstream.mapper.CannotResolveClassException;
-import com.thoughtworks.xstream.mapper.DefaultMapper;
 import com.thoughtworks.xstream.mapper.Mapper;
 import com.thoughtworks.xstream.mapper.MapperWrapper;
 
@@ -407,11 +402,11 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
     }
 
     public class OsgiClassnameMapper extends MapperWrapper {
-        private final ClassLoaderUtils whiteListRetriever;
+        private final OsgiClassPrefixer prefixer;
         
         OsgiClassnameMapper(MapperWrapper mapper) {
             super(mapper);
-            whiteListRetriever = new ClassLoaderUtils(getClass());
+            prefixer = new OsgiClassPrefixer();
         }
         
         @Override
@@ -420,9 +415,9 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
             // For example the "outer class renaming stuff"?!
             String superResult = super.serializedClass(type);
             if (type != null && type.getName().equals(superResult)) {
-                Optional<Bundle> bundle  = Osgis.getBundleOf(type);
-                if (bundle.isPresent() && !whiteListRetriever.isBundleWhiteListed(bundle.get())) {
-                    return bundle.get().getSymbolicName() + ":" + superResult;
+                Optional<String> prefix = prefixer.getPrefix(type);
+                if (prefix.isPresent()) {
+                    return prefix.get() + superResult;
                 }
             }
             return superResult;

@@ -29,7 +29,7 @@
     <parent>
         <groupId>org.apache.brooklyn</groupId>
         <artifactId>brooklyn-parent</artifactId>
-        <version>0.10.0-SNAPSHOT</version>  <!-- BROOKLYN_VERSION -->
+        <version>0.11.0-SNAPSHOT</version>  <!-- BROOKLYN_VERSION -->
         <relativePath>../../parent/pom.xml</relativePath>
     </parent>
 
@@ -122,26 +122,6 @@
         <dependency>
             <groupId>${jclouds.groupId}.driver</groupId>
             <artifactId>jclouds-sshj</artifactId>
-            <exclusions>
-                <!-- provided versions are LGPL-only -->
-                <exclusion>
-                    <groupId>net.java.dev.jna</groupId>
-                    <artifactId>jna</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>net.java.dev.jna</groupId>
-                    <artifactId>platform</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <!-- dual-licensed under LGPL and ASL 2 -->
-        <dependency>
-            <groupId>net.java.dev.jna</groupId>
-            <artifactId>jna</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>net.java.dev.jna</groupId>
-            <artifactId>jna-platform</artifactId>
         </dependency>
 
         <dependency>

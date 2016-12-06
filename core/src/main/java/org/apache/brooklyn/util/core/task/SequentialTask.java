@@ -28,19 +28,30 @@ import org.apache.brooklyn.api.mgmt.Task;
 
 import com.google.common.collect.ImmutableList;
 
-
 /** runs tasks in order, waiting for one to finish before starting the next; return value here is TBD;
  * (currently is all the return values of individual tasks, but we
  * might want some pipeline support and eventually only to return final value...) */
 public class SequentialTask<T> extends CompoundTask<T> {
 
-    public SequentialTask(Object... tasks) { super(tasks); }
-    
-    public SequentialTask(Map<String,?> flags, Collection<? extends Object> tasks) { super(flags, tasks); }
-    public SequentialTask(Collection<? extends Object> tasks) { super(tasks); }
-    
-    public SequentialTask(Map<String,?> flags, Iterable<? extends Object> tasks) { super(flags, ImmutableList.copyOf(tasks)); }
-    public SequentialTask(Iterable<? extends Object> tasks) { super(ImmutableList.copyOf(tasks)); }
+    public SequentialTask(Object... tasks) {
+        super(tasks);
+    }
+
+    public SequentialTask(Map<String, ?> flags, Collection<?> tasks) {
+        super(flags, tasks);
+    }
+
+    public SequentialTask(Collection<?> tasks) {
+        super(tasks);
+    }
+
+    public SequentialTask(Map<String, ?> flags, Iterable<?> tasks) {
+        super(flags, ImmutableList.copyOf(tasks));
+    }
+
+    public SequentialTask(Iterable<?> tasks) {
+        super(ImmutableList.copyOf(tasks));
+    }
     
     protected List<T> runJobs() throws InterruptedException, ExecutionException {
         setBlockingDetails("Executing "+

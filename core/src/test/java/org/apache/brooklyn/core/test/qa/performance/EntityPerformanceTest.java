@@ -41,6 +41,9 @@ import com.google.common.collect.Lists;
 
 public class EntityPerformanceTest extends AbstractPerformanceTest {
 
+    // TODO could have variant with a much larger numIterations, as a longevity test.
+    // e.g. will we eventually get OOME when storing all tasks relating to effector calls?
+
     private static final long TIMEOUT_MS = 10*1000;
     
     TestEntity entity;

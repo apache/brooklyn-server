@@ -27,37 +27,30 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.core.entity.Attributes;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.trait.FailingEntity;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.policy.ha.HASensors.FailureDescriptor;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import org.apache.brooklyn.policy.ha.HASensors.FailureDescriptor;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
-public class ServiceRestarterTest {
+public class ServiceRestarterTest extends BrooklynAppUnitTestSupport {
 
     private static final int TIMEOUT_MS = 10*1000;
 
-    private ManagementContext managementContext;
-    private TestApplication app;
     private TestEntity e1;
     private ServiceRestarter policy;
     private SensorEventListener<Object> eventListener;
@@ -65,8 +58,7 @@ public class ServiceRestarterTest {
     
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
-        managementContext = new LocalManagementContextForTests();
-        app = ApplicationBuilder.newManagedApp(TestApplication.class, managementContext);
+        super.setUp();
         e1 = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         events = Lists.newCopyOnWriteArrayList();
         eventListener = new SensorEventListener<Object>() {
@@ -74,11 +66,6 @@ public class ServiceRestarterTest {
                 events.add(event);
             }
         };
-    }
-    
-    @AfterMethod(alwaysRun=true)
-    public void tearDown() throws Exception {
-        if (managementContext != null) Entities.destroyAll(managementContext);
     }
     
     @Test
@@ -131,6 +118,7 @@ public class ServiceRestarterTest {
     @Test
     public void testDoesNotSetOnFireOnFailure() throws Exception {
         final FailingEntity e2 = app.createAndManageChild(EntitySpec.create(FailingEntity.class)
+                .configure(FailingEntity.SET_SERVICE_DOWN_ON_FAILURE, false)
                 .configure(FailingEntity.FAIL_ON_RESTART, true));
         app.subscriptions().subscribe(e2, ServiceRestarter.ENTITY_RESTART_FAILED, eventListener);
 

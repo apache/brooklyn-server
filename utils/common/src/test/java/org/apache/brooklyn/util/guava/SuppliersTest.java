@@ -16,17 +16,31 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.location.jclouds.networking;
+
+package org.apache.brooklyn.util.guava;
+
+import static org.testng.Assert.assertEquals;
 
 import org.testng.annotations.Test;
 
-@Test(groups = {"Live", "WIP"})
-public class SecurityGroupLiveTest {
+import com.google.common.base.Supplier;
 
-    public void testCreateEc2WithSecurityGroup() {
-        SecurityGroupDefinition sgDef = new SecurityGroupDefinition()
-            .allowingInternalPorts(8097, 8098).allowingInternalPortRange(6000, 7999)
-            .allowingPublicPort(8099);
-        // TODO create machine and test
+public class SuppliersTest {
+
+    @Test
+    public void testIncrementing() throws Exception {
+        Supplier<Integer> supplier = Suppliers.incrementing();
+        assertEquals(supplier.get(), Integer.valueOf(0));
+        assertEquals(supplier.get(), Integer.valueOf(1));
+        assertEquals(supplier.get(), Integer.valueOf(2));
     }
+
+    @Test
+    public void testIncrementingFrom() throws Exception {
+        Supplier<Integer> supplier = Suppliers.incrementing(9876);
+        assertEquals(supplier.get(), Integer.valueOf(9876));
+        assertEquals(supplier.get(), Integer.valueOf(9877));
+        assertEquals(supplier.get(), Integer.valueOf(9878));
+    }
+
 }

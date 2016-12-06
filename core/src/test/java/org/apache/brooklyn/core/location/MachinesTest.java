@@ -87,24 +87,29 @@ public class MachinesTest extends BrooklynAppUnitTestSupport {
         assertEquals(Machines.findUniqueMachineLocation(ImmutableList.of(l1, l2), SshMachineLocation.class).get(), l1);
         assertFalse(Machines.findUniqueMachineLocation(ImmutableList.of(l2), LocalhostMachine.class).isPresent());
     }
-    
+
     @Test
     public void testFindSubnetIpFromAttribute() throws Exception {
         TestEntity entity = app.addChild(EntitySpec.create(TestEntity.class)
                 .location(sshMachineSpec));
         entity.sensors().set(Attributes.SUBNET_ADDRESS, "myaddr");
-        
         assertEquals(Machines.findSubnetIp(entity).get(), "myaddr");
     }
-    
+
     @Test
     public void testFindSubnetIpFromLocation() throws Exception {
         TestEntity entity = app.addChild(EntitySpec.create(TestEntity.class)
                 .location(sshMachineSpec));
-        
         assertEquals(Machines.findSubnetIp(entity).get(), privateAddr);
     }
-    
+
+    @Test
+    public void testFindSubnetIpFromLocationWithoutPrivate() throws Exception {
+        TestEntity entity = app.addChild(EntitySpec.create(TestEntity.class)
+                .location(sshMachineWithoutPrivateSpec));
+        assertEquals(Machines.findSubnetIp(entity).get(), publicAddr);
+    }
+
     @Test
     public void testFindSubnetHostnameFromAttribute() throws Exception {
         TestEntity entity = app.addChild(EntitySpec.create(TestEntity.class)
@@ -112,15 +117,21 @@ public class MachinesTest extends BrooklynAppUnitTestSupport {
         entity.sensors().set(Attributes.SUBNET_HOSTNAME, "myval");
         assertEquals(Machines.findSubnetHostname(entity).get(), "myval");
     }
-    
+
     @Test
     public void testFindSubnetHostnameFromLocation() throws Exception {
         TestEntity entity = app.addChild(EntitySpec.create(TestEntity.class)
                 .location(sshMachineSpec));
-        
+        assertEquals(Machines.findSubnetHostname(entity).get(), privateAddr);
+    }
+
+    @Test
+    public void testFindSubnetHostnameFromLocationWithoutPrivate() throws Exception {
+        TestEntity entity = app.addChild(EntitySpec.create(TestEntity.class)
+                .location(sshMachineWithoutPrivateSpec));
         assertEquals(Machines.findSubnetHostname(entity).get(), publicAddr);
     }
-    
+
     @Test
     public void testFindSubnetOrPrivateIpWithAddressAttributePrefersLocationPrivateIp() throws Exception {
         TestEntity entity = app.addChild(EntitySpec.create(TestEntity.class)

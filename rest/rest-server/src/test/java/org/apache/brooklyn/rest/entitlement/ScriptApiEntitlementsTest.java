@@ -36,14 +36,16 @@ public class ScriptApiEntitlementsTest extends AbstractRestApiEntitlementsTest {
     @Test(groups = "Integration")
     public void testGroovy() throws Exception {
         String script = "1 + 1";
-        HttpToolResponse rootRepsonse = httpPost("myRoot", "/v1/script/groovy", script.getBytes());
+        String path = "/v1/script/groovy";
+        HttpToolResponse rootRepsonse = httpPost("myRoot", path, script.getBytes());
         assertHealthyStatusCode(rootRepsonse);
-        Map groovyOutput = new Gson().fromJson(rootRepsonse.getContentAsString(), Map.class);
+        Map<?, ?> groovyOutput = new Gson().fromJson(rootRepsonse.getContentAsString(), Map.class);
         assertEquals(groovyOutput.get("result"), "2");
-        assertForbiddenPost("myUser", "/v1/script/groovy", script.getBytes());
-        assertForbiddenPost("myReadonly", "/v1/script/groovy", script.getBytes());
-        assertForbiddenPost("myMinimal", "/v1/script/groovy", script.getBytes());
-        assertForbiddenPost("unrecognisedUser", "/v1/script/groovy", script.getBytes());
+        assert401(path);
+        assertForbiddenPost("myUser", path, script.getBytes());
+        assertForbiddenPost("myReadonly", path, script.getBytes());
+        assertForbiddenPost("myMinimal", path, script.getBytes());
+        assertForbiddenPost("unrecognisedUser", path, script.getBytes());
     }
 
     @Override

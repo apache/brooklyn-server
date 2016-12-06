@@ -73,13 +73,13 @@ public abstract class BrooklynRestResourceTest extends BrooklynRestApiTest {
     };
 
     @Override
-    public void initClass() throws Exception {
+    protected void initClass() throws Exception {
         super.initClass();
         startServer();
     }
 
     @Override
-    public void destroyClass() throws Exception {
+    protected void destroyClass() throws Exception {
         stopServer();
         super.destroyClass();
     }
@@ -92,6 +92,7 @@ public abstract class BrooklynRestResourceTest extends BrooklynRestApiTest {
                 clientProviders = sf.getProviders();
             }
             configureCXF(sf);
+            
             sf.setAddress(getEndpointAddress());
             sf.setFeatures(ImmutableList.of(new org.apache.cxf.feature.LoggingFeature()));
             server = sf.create();

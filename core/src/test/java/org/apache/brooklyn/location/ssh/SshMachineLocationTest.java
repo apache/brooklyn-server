@@ -26,9 +26,7 @@ import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.OutputStream;
-import java.net.InetAddress;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -42,12 +40,13 @@ import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineDetails;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.PortRange;
+import org.apache.brooklyn.core.BrooklynLogging;
 import org.apache.brooklyn.core.effector.EffectorBody;
 import org.apache.brooklyn.core.effector.EffectorTaskTest;
 import org.apache.brooklyn.core.effector.Effectors;
+import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.core.entity.factory.ApplicationBuilder;
 import org.apache.brooklyn.core.location.BasicHardwareDetails;
 import org.apache.brooklyn.core.location.BasicMachineDetails;
 import org.apache.brooklyn.core.location.BasicOsDetails;
@@ -55,42 +54,49 @@ import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
-import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.test.LogWatcher;
+import org.apache.brooklyn.test.LogWatcher.EventPredicates;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.core.file.ArchiveUtils;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
-import org.apache.brooklyn.util.core.internal.ssh.SshException;
+import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.CustomResponse;
+import org.apache.brooklyn.util.core.internal.ssh.sshj.SshjTool;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.net.Networking;
-import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.stream.Streams;
-import org.apache.brooklyn.util.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import com.google.common.base.Charsets;
+import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.Files;
+import com.google.common.collect.Iterables;
+
+import ch.qos.logback.classic.spi.ILoggingEvent;
 
 /**
  * Test the {@link SshMachineLocation} implementation of the {@link Location} interface.
  */
 public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
 
-    private SshMachineLocation host;
+    private static final Logger LOG = LoggerFactory.getLogger(AbstractEntity.class);
+
+    protected SshMachineLocation host;
     
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();
-        host = mgmt.getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
-                .configure("address", Networking.getLocalHost()));
+        host = newHost();
         RecordingSshTool.clear();
     }
 
@@ -104,8 +110,22 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
         }
     }
 
-    @Test(groups = "Integration")
+    protected SshMachineLocation newHost() {
+        return mgmt.getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
+                .configure("address", Networking.getLocalHost())
+                .configure(SshMachineLocation.SSH_TOOL_CLASS, RecordingSshTool.class.getName()));
+    }
+    
+    @Test
     public void testGetMachineDetails() throws Exception {
+        String response = Joiner.on("\n").join(
+                "name:Test OS Y",
+                "version:1.2.3",
+                "architecture:x86_64",
+                "ram:1234",
+                "cpus:3");
+        RecordingSshTool.setCustomResponse(".*uname.*", new CustomResponse(0, response, ""));
+
         BasicExecutionManager execManager = new BasicExecutionManager("mycontextid");
         BasicExecutionContext execContext = new BasicExecutionContext(execManager);
         try {
@@ -113,12 +133,19 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
                 public MachineDetails call() {
                     return host.getMachineDetails();
                 }}).get();
+            LOG.info("machineDetails="+details);
             assertNotNull(details);
+            
+            assertEquals(details.getOsDetails().getName(), "Test OS Y", "details="+details);
+            assertEquals(details.getOsDetails().getVersion(), "1.2.3", "details="+details);
+            assertEquals(details.getOsDetails().getArch(), "x86_64", "details="+details);
+            assertEquals(details.getHardwareDetails().getCpuCount(), Integer.valueOf(3), "details="+details);
+            assertEquals(details.getHardwareDetails().getRam(), Integer.valueOf(1234), "details="+details);
         } finally {
             execManager.shutdownNow();
         }
     }
-    
+
     @Test
     public void testSupplyingMachineDetails() throws Exception {
         MachineDetails machineDetails = new BasicMachineDetails(new BasicHardwareDetails(1, 1024), new BasicOsDetails("myname", "myarch", "myversion"));
@@ -136,12 +163,14 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
                 .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, true));
 
         assertEquals(host2.getPrivateAddresses(), ImmutableSet.of("1.2.3.4"));
+        assertEquals(Machines.getSubnetIp(host2).get(), "1.2.3.4");
+        assertEquals(Machines.getSubnetHostname(host2).get(), "1.2.3.4");
     }
     
     // Wow, this is hard to test (until I accepted creating the entity + effector)! Code smell?
     // Need to call getMachineDetails in a DynamicSequentialTask so that the "innessential" takes effect,
     // to not fail its caller. But to get one of those outside of an effector is non-obvious.
-    @Test(groups = "Integration")
+    @Test
     public void testGetMachineIsInessentialOnFailure() throws Exception {
         SshMachineLocation host2 = mgmt.getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
                 .configure("address", Networking.getLocalHost())
@@ -167,7 +196,7 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
                             ((EntityInternal)entity).getMutableEntityType().addEffector(EffectorTaskTest.DOUBLE_1);
                         }});
 
-        TestApplication app = ApplicationBuilder.newManagedApp(appSpec, mgmt);
+        TestApplication app = mgmt.getEntityManager().createEntity(appSpec);
 
         app.start(ImmutableList.of(host2));
         
@@ -186,122 +215,28 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
         }
     }
     
-    // Note: requires `ssh localhost` to be setup such that no password is required    
-    @Test(groups = "Integration")
+    @Test
     public void testSshExecScript() throws Exception {
-        OutputStream outStream = new ByteArrayOutputStream();
         String expectedName = Os.user();
+        RecordingSshTool.setCustomResponse(".*whoami.*", new CustomResponse(0, expectedName, ""));
+        
+        OutputStream outStream = new ByteArrayOutputStream();
         host.execScript(MutableMap.of("out", outStream), "mysummary", ImmutableList.of("whoami; exit"));
         String outString = outStream.toString();
         
         assertTrue(outString.contains(expectedName), outString);
     }
     
-    // Note: requires `ssh localhost` to be setup such that no password is required    
-    @Test(groups = "Integration")
+    @Test
     public void testSshExecCommands() throws Exception {
-        OutputStream outStream = new ByteArrayOutputStream();
         String expectedName = Os.user();
+        RecordingSshTool.setCustomResponse(".*whoami.*", new CustomResponse(0, expectedName, ""));
+        
+        OutputStream outStream = new ByteArrayOutputStream();
         host.execCommands(MutableMap.of("out", outStream), "mysummary", ImmutableList.of("whoami; exit"));
         String outString = outStream.toString();
         
         assertTrue(outString.contains(expectedName), outString);
-    }
-    
-    // For issue #230
-    @Test(groups = "Integration")
-    public void testOverridingPropertyOnExec() throws Exception {
-        SshMachineLocation host = new SshMachineLocation(MutableMap.of("address", Networking.getLocalHost(), "sshPrivateKeyData", "wrongdata"));
-        
-        OutputStream outStream = new ByteArrayOutputStream();
-        String expectedName = Os.user();
-        host.execCommands(MutableMap.of("sshPrivateKeyData", null, "out", outStream), "my summary", ImmutableList.of("whoami"));
-        String outString = outStream.toString();
-        
-        assertTrue(outString.contains(expectedName), "outString="+outString);
-    }
-
-    @Test(groups = "Integration", expectedExceptions={IllegalStateException.class, SshException.class})
-    public void testSshRunWithInvalidUserFails() throws Exception {
-        SshMachineLocation badHost = new SshMachineLocation(MutableMap.of("user", "doesnotexist", "address", Networking.getLocalHost()));
-        badHost.execScript("mysummary", ImmutableList.of("whoami; exit"));
-    }
-    
-    // Note: requires `ssh localhost` to be setup such that no password is required    
-    @Test(groups = "Integration")
-    public void testCopyFileTo() throws Exception {
-        File dest = Os.newTempFile(getClass(), ".dest.tmp");
-        File src = Os.newTempFile(getClass(), ".src.tmp");
-        try {
-            Files.write("abc", src, Charsets.UTF_8);
-            host.copyTo(src, dest);
-            assertEquals("abc", Files.readFirstLine(dest, Charsets.UTF_8));
-        } finally {
-            src.delete();
-            dest.delete();
-        }
-    }
-
-    // Note: requires `ssh localhost` to be setup such that no password is required    
-    @Test(groups = "Integration")
-    public void testCopyStreamTo() throws Exception {
-        String contents = "abc";
-        File dest = new File(Os.tmp(), "sshMachineLocationTest_dest.tmp");
-        try {
-            host.copyTo(Streams.newInputStreamWithContents(contents), dest.getAbsolutePath());
-            assertEquals("abc", Files.readFirstLine(dest, Charsets.UTF_8));
-        } finally {
-            dest.delete();
-        }
-    }
-
-    @Test(groups = "Integration")
-    public void testInstallUrlTo() throws Exception {
-        File dest = new File(Os.tmp(), "sshMachineLocationTest_dir/");
-        dest.mkdir();
-        try {
-            int result = host.installTo("https://raw.github.com/brooklyncentral/brooklyn/master/README.md", Urls.mergePaths(dest.getAbsolutePath(), "README.md"));
-            assertEquals(result, 0);
-            String contents = ArchiveUtils.readFullyString(new File(dest, "README.md"));
-            assertTrue(contents.contains("http://brooklyncentral.github.com"), "contents missing expected phrase; contains:\n"+contents);
-        } finally {
-            dest.delete();
-        }
-    }
-    
-    @Test(groups = "Integration")
-    public void testInstallClasspathCopyTo() throws Exception {
-        File dest = new File(Os.tmp(), "sshMachineLocationTest_dir/");
-        dest.mkdir();
-        try {
-            int result = host.installTo("classpath://brooklyn/config/sample.properties", Urls.mergePaths(dest.getAbsolutePath(), "sample.properties"));
-            assertEquals(result, 0);
-            String contents = ArchiveUtils.readFullyString(new File(dest, "sample.properties"));
-            assertTrue(contents.contains("Property 1"), "contents missing expected phrase; contains:\n"+contents);
-        } finally {
-            dest.delete();
-        }
-    }
-
-    // Note: requires `ssh localhost` to be setup such that no password is required    
-    @Test(groups = "Integration")
-    public void testIsSshableWhenTrue() throws Exception {
-        assertTrue(host.isSshable());
-    }
-    
-    // Note: on some (home/airport) networks, `ssh 123.123.123.123` hangs seemingly forever.
-    // Make sure we fail, waiting for longer than the 70 second TCP timeout.
-    //
-    // Times out in 2m7s on Ubuntu Vivid (syn retries set to 6)
-    @Test(groups = "Integration")
-    public void testIsSshableWhenFalse() throws Exception {
-        byte[] unreachableIp = new byte[] {123,123,123,123};
-        final SshMachineLocation unreachableHost = new SshMachineLocation(MutableMap.of("address", InetAddress.getByAddress("unreachablename", unreachableIp)));
-        Asserts.assertReturnsEventually(new Runnable() {
-            public void run() {
-                assertFalse(unreachableHost.isSshable());
-            }},
-            Duration.minutes(3));
     }
     
     @Test
@@ -342,5 +277,29 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
         host = new SshMachineLocation(MutableMap.of("address", Networking.getLocalHost(), "usedPorts", ImmutableSet.of(8000)));
         assertEquals(host.obtainPort(PortRanges.fromString("8000")), -1);
         assertEquals(host.obtainPort(PortRanges.fromString("8000+")), 8001);
+    }
+    
+    @Test
+    public void testDoesNotLogPasswordsInEnvironmentVariables() {
+        List<String> loggerNames = ImmutableList.of(
+                SshMachineLocation.class.getName(), 
+                BrooklynLogging.SSH_IO, 
+                SshjTool.class.getName());
+        ch.qos.logback.classic.Level logLevel = ch.qos.logback.classic.Level.DEBUG;
+        Predicate<ILoggingEvent> filter = Predicates.or(
+                EventPredicates.containsMessage("DB_PASSWORD"), 
+                EventPredicates.containsMessage("mypassword"));
+        LogWatcher watcher = new LogWatcher(loggerNames, logLevel, filter);
+
+        watcher.start();
+        try {
+            host.execCommands("mySummary", ImmutableList.of("true"), ImmutableMap.of("DB_PASSWORD", "mypassword"));
+            watcher.assertHasEventEventually();
+            
+            Optional<ILoggingEvent> eventWithPasswd = Iterables.tryFind(watcher.getEvents(), EventPredicates.containsMessage("mypassword"));
+            assertFalse(eventWithPasswd.isPresent(), "event="+eventWithPasswd);
+        } finally {
+            watcher.close();
+        }
     }
 }

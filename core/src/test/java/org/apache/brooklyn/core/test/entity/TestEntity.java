@@ -45,6 +45,7 @@ import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.sensor.BasicNotificationSensor;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
+import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -57,6 +58,9 @@ import com.google.common.reflect.TypeToken;
 //FIXME Don't want to extend EntityLocal, but tests call things like entity.subscribe(); how to deal with that elegantly?
 @ImplementedBy(TestEntityImpl.class)
 public interface TestEntity extends Entity, Startable, EntityLocal, EntityInternal {
+
+    @SetFromFlag("confStringAlias")
+    public static final ConfigKey<String> CONF_STRING = ConfigKeys.newStringConfigKey("test.confString", "Configuration string", "defaultStringVal");
 
     @SetFromFlag("confName")
     public static final ConfigKey<String> CONF_NAME = ConfigKeys.newStringConfigKey("test.confName", "Configuration key, my name", "defaultval");
@@ -87,6 +91,7 @@ public interface TestEntity extends Entity, Startable, EntityLocal, EntityIntern
     
     public static final MethodEffector<Void> MY_EFFECTOR = new MethodEffector<Void>(TestEntity.class, "myEffector");
     public static final MethodEffector<Object> IDENTITY_EFFECTOR = new MethodEffector<Object>(TestEntity.class, "identityEffector");
+    public static final MethodEffector<Void> SLEEP_EFFECTOR = new MethodEffector<Void>(TestEntity.class, "sleepEffector");
     
     public boolean isLegacyConstruction();
     
@@ -95,6 +100,9 @@ public interface TestEntity extends Entity, Startable, EntityLocal, EntityIntern
     
     @Effector(description="returns the arg passed in")
     public Object identityEffector(@EffectorParam(name="arg", description="val to return") Object arg);
+    
+    @Effector(description="sleeps for the given duration")
+    public void sleepEffector(@EffectorParam(name="duration") Duration duration);
     
     public AtomicInteger getCounter();
     
@@ -115,4 +123,8 @@ public interface TestEntity extends Entity, Startable, EntityLocal, EntityIntern
     public Entity createAndManageChildFromConfig();
     
     public List<String> getCallHistory();
+    
+    public String getMyField();
+    
+    public String getMyField2();
 }

@@ -269,7 +269,7 @@ public class BrooklynComponentTemplateResolver {
         // For config values inherited from the super-type (be that the Java type or another catalog item
         // being extended), we lookup the config key to find out if the values should be merged, overridden or 
         // cleared.
-        
+
         ConfigBag bag = ConfigBag.newInstance((Map<Object, Object>) attrs.getStringKey(BrooklynCampReservedKeys.BROOKLYN_CONFIG));
         ConfigBag bagFlags = ConfigBag.newInstanceCopying(attrs);
         if (attrs.containsKey(BrooklynCampReservedKeys.BROOKLYN_FLAGS)) {
@@ -374,15 +374,45 @@ public class BrooklynComponentTemplateResolver {
      * Searches for config keys in the type, additional interfaces and the implementation (if specified)
      */
     private Collection<FlagConfigKeyAndValueRecord> findAllFlagsAndConfigKeyValues(EntitySpec<?> spec, ConfigBag bagFlags) {
+        // Matches the bagFlags against the names used in brooklyn.parameters, entity configKeys  
+        // and entity fields with `@SetFromFlag`.
+        //
+        // Returns all config keys / flags that match things in bagFlags, including duplicates.
+        // For example, if a configKey in Java is re-declared in YAML `brooklyn.parameters`,
+        // then we'll get two records.
+        //
+        // Make some effort to have these returned in the right order. That is very important
+        // because they are added to the `EntitySpec.configure(key, val)`. If there is already
+        // a key in `EntitySpec.config`, then the put will replace the value and leave the key
+        // as-is (so the default-value and description of the key will remain as whatever the
+        // first put said).
+        
+        // TODO We should remove duplicates, rather than just doing the `put` multiple times, 
+        // relying on ordering. We should also respect the ordered returned by 
+        // EntityDynamicType.getConfigKeys, which is much better (it respects `BasicConfigKeyOverwriting` 
+        // etc).
+        // 
+        // However, that is hard/fiddly because of the way a config key can be referenced by
+        // its real name or flag-name.
+        // 
+        // I wonder if this is fundamentally broken (and I really do dislike our informal use 
+        // of aliases). Consider a configKey with name A and alias B. The bagFlags could have 
+        // {A: val1, B: val2}. There is no formal definition of which takes precedence. We'll add 
+        // both to the entity's configBag, without any warning - it's up to the `config().get()` 
+        // method to then figure out what to do. It gets worse if there is also a ConfigKey with 
+        // name "B" the "val2" then applies to both!
+        //
+        // I plan to propose a change on dev@brooklyn, to replace `@SetFromFlag`!
+        
         Set<FlagConfigKeyAndValueRecord> allKeys = MutableSet.of();
-        allKeys.addAll(FlagUtils.findAllFlagsAndConfigKeys(null, spec.getType(), bagFlags));
+        allKeys.addAll(FlagUtils.findAllParameterConfigKeys(spec.getParameters(), bagFlags));
         if (spec.getImplementation() != null) {
             allKeys.addAll(FlagUtils.findAllFlagsAndConfigKeys(null, spec.getImplementation(), bagFlags));
         }
+        allKeys.addAll(FlagUtils.findAllFlagsAndConfigKeys(null, spec.getType(), bagFlags));
         for (Class<?> iface : spec.getAdditionalInterfaces()) {
             allKeys.addAll(FlagUtils.findAllFlagsAndConfigKeys(null, iface, bagFlags));
         }
-        allKeys.addAll(FlagUtils.findAllParameterConfigKeys(spec.getParameters(), bagFlags));
         return allKeys;
     }
 

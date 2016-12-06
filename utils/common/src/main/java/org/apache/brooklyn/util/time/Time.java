@@ -87,7 +87,7 @@ public class Time {
         return makeDateString(date, format, null);
     }
     /** as {@link #makeDateString(Date, String, TimeZone)} for the given time zone; consider {@link TimeZone#GMT} */
-    public static String makeDateString(Date date, String format, TimeZone tz) {
+    public static String makeDateString(Date date, String format, @Nullable TimeZone tz) {
         SimpleDateFormat fmt = new SimpleDateFormat(format);
         if (tz!=null) fmt.setTimeZone(tz);
         return fmt.format(date);
@@ -101,7 +101,9 @@ public class Time {
         return makeDateString(date.getTime(), format, date.getTimeZone());
     }
 
-    public static Function<Long, String> toDateString() { return dateString; }
+    public static Function<Long, String> toDateString() {
+        return dateString;
+    }
     private static Function<Long, String> dateString = new Function<Long, String>() {
             @Override
             @Nullable
@@ -136,7 +138,9 @@ public class Time {
         return new SimpleDateFormat(DATE_FORMAT_SIMPLE_STAMP).format(new Date(date));
     }
 
-    public static Function<Long, String> toDateStampString() { return dateStampString; }
+    public static Function<Long, String> toDateStampString() {
+        return dateStampString;
+    }
     private static Function<Long, String> dateStampString = new Function<Long, String>() {
             @Override
             @Nullable
@@ -156,8 +160,11 @@ public class Time {
         long nanos = unit.toNanos(t);
         return makeTimeStringNanoRounded(nanos);
     }
-    public static String makeTimeStringRounded(Stopwatch timer) {
-        return makeTimeStringRounded(timer.elapsed(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS);
+    /**
+     * A nice string representation of the stopwatch's elapsed time; or null if null is passed in.
+     */
+    public static String makeTimeStringRounded(@Nullable Stopwatch timer) {
+        return (timer == null) ? null : makeTimeStringRounded(timer.elapsed(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS);
     }
     /** @see #makeTimeString(long, boolean) */
     public static String makeTimeStringExact(long t) {
@@ -171,13 +178,19 @@ public class Time {
     public static String makeTimeStringRoundedSince(long utc) {
         return makeTimeString(System.currentTimeMillis() - utc, true);
     }
-    /** @see #makeTimeString(long, boolean) */
-    public static String makeTimeStringExact(Duration d) {
-        return makeTimeStringNanoExact(d.toNanoseconds());
+    /**
+     * A nice string representation of the duration; or null if null is passed in.
+     * @see #makeTimeString(long, boolean)
+     */
+    public static String makeTimeStringExact(@Nullable Duration d) {
+        return (d == null) ? null : makeTimeStringNanoExact(d.toNanoseconds());
     }
-    /** @see #makeTimeString(long, boolean) */
-    public static String makeTimeStringRounded(Duration d) {
-        return makeTimeStringNanoRounded(d.toNanoseconds());
+    /**
+     * A nice string representation of the duration; or null if null is passed in.
+     * @see #makeTimeString(long, boolean)
+     */
+    public static String makeTimeStringRounded(@Nullable Duration d) {
+        return (d == null) ? null : makeTimeStringNanoRounded(d.toNanoseconds());
     }
     /** given an elapsed time, makes it readable, eg 44d 6h, or 8s 923ms, optionally rounding */
     public static String makeTimeString(long t, boolean round) {
@@ -282,7 +295,9 @@ public class Time {
         return Strings.removeAllFromEnd(result, " ");
     }
 
-    public static Function<Long, String> fromLongToTimeStringExact() { return LONG_TO_TIME_STRING_EXACT; }
+    public static Function<Long, String> fromLongToTimeStringExact() {
+        return LONG_TO_TIME_STRING_EXACT;
+    }
     private static final Function<Long, String> LONG_TO_TIME_STRING_EXACT = new FunctionLongToTimeStringExact();
     private static final class FunctionLongToTimeStringExact implements Function<Long, String> {
         @Override @Nullable
@@ -292,8 +307,11 @@ public class Time {
         }
     }
 
-    /** @deprecated since 0.7.0 use {@link #fromLongToTimeStringExact()} */ @Deprecated
-    public static Function<Long, String> toTimeString() { return timeString; }
+    /** @deprecated since 0.7.0 use {@link #fromLongToTimeStringExact()} */
+    @Deprecated
+    public static Function<Long, String> toTimeString() {
+        return timeString;
+    }
     @Deprecated
     private static Function<Long, String> timeString = new Function<Long, String>() {
             @Override
@@ -304,7 +322,9 @@ public class Time {
             }
         };
         
-    public static Function<Long, String> fromLongToTimeStringRounded() { return LONG_TO_TIME_STRING_ROUNDED; }
+    public static Function<Long, String> fromLongToTimeStringRounded() {
+        return LONG_TO_TIME_STRING_ROUNDED;
+    }
     private static final Function<Long, String> LONG_TO_TIME_STRING_ROUNDED = new FunctionLongToTimeStringRounded();
     private static final class FunctionLongToTimeStringRounded implements Function<Long, String> {
         @Override @Nullable
@@ -314,8 +334,11 @@ public class Time {
         }
     }
 
-    /** @deprecated since 0.7.0 use {@link #fromLongToTimeStringRounded()} */ @Deprecated
-    public static Function<Long, String> toTimeStringRounded() { return timeStringRounded; }
+    /** @deprecated since 0.7.0 use {@link #fromLongToTimeStringRounded()} */
+    @Deprecated
+    public static Function<Long, String> toTimeStringRounded() {
+        return timeStringRounded;
+    }
     @Deprecated
     private static Function<Long, String> timeStringRounded = new Function<Long, String>() {
         @Override
@@ -326,7 +349,9 @@ public class Time {
         }
     };
 
-    public static Function<Duration, String> fromDurationToTimeStringRounded() { return DURATION_TO_TIME_STRING_ROUNDED; }
+    public static Function<Duration, String> fromDurationToTimeStringRounded() {
+        return DURATION_TO_TIME_STRING_ROUNDED;
+    }
     private static final Function<Duration, String> DURATION_TO_TIME_STRING_ROUNDED = new FunctionDurationToTimeStringRounded();
     private static final class FunctionDurationToTimeStringRounded implements Function<Duration, String> {
         @Override @Nullable
@@ -412,7 +437,7 @@ public class Time {
     }
     
     /** Convenience for {@link Duration#parse(String)}. */
-    public static Duration parseDuration(String timeString) {
+    public static Duration parseDuration(@Nullable String timeString) {
         return Duration.parse(timeString);
     }
     
@@ -438,12 +463,13 @@ public class Time {
      * -1 on blank or never or off or false.
      * Assumes unit is millisections if no unit is specified.
      * 
-     * @throws NumberFormatException if cannot be parsed (or if null)
+     * @throws NullPointerException if arg is null
+     * @throws NumberFormatException if cannot be parsed
      */
     public static double parseElapsedTimeAsDouble(final String timeStringOrig) {
         String timeString = timeStringOrig;
         if (timeString==null)
-            throw new NumberFormatException("GeneralHelper.parseTimeString cannot parse a null string");
+            throw new NullPointerException("GeneralHelper.parseTimeString cannot parse a null string");
         try {
             double d = Double.parseDouble(timeString);
             return d;
@@ -522,7 +548,7 @@ public class Time {
     
     /** As {@link #parseCalendar(String)} but returning a {@link Date},
      * (i.e. a record where the time zone has been applied and forgotten). */
-    public static Date parseDate(String input) {
+    public static Date parseDate(@Nullable String input) {
         if (input==null) return null;
         return parseCalendarMaybe(input).get().getTime();
     }
@@ -536,13 +562,13 @@ public class Time {
      * <p>
      * Other formats including locale-specific variants, e.g. recognising month names,
      * are supported but this may vary from platform to platform and may change between versions. */
-    public static Calendar parseCalendar(String input) {
+    public static Calendar parseCalendar(@Nullable String input) {
         if (input==null) return null;
         return parseCalendarMaybe(input).get();
     }
     
     /** as {@link #parseCalendar(String)} but returning a {@link Maybe} rather than throwing or returning null */
-    public static Maybe<Calendar> parseCalendarMaybe(String input) {
+    public static Maybe<Calendar> parseCalendarMaybe(@Nullable String input) {
         if (input==null) return Maybe.absent("value is null");
         input = input.trim();
         Maybe<Calendar> result;

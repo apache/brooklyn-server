@@ -24,7 +24,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.Asserts.ShouldHaveFailedPreviouslyAssertionError;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -41,11 +40,14 @@ public class AssertsTest {
         }
     };
     
-    // TODO this is confusing -- i'd expect it to fail since it always returns false;
-    // see notes at start of Asserts and in succeedsEventually method
+    // Note this behaviour is different from what a Groovy programmer might expect. The meaning of
+    // "succeeds" is that the method completes without throwing an exception, rather than it 
+    // returning groovy-truth. See notes in {@link Asserts#succeedsEventually(Map, Callable)}.
+    // If you want to assert about the return value, consider using {@link Asserts#eventually(Supplier, Predicate)}.
     @Test
     public void testSucceedsEventually() {
-        Asserts.succeedsEventually(MutableMap.of("timeout", Duration.millis(50)), Callables.returning(false));
+        Boolean result = Asserts.succeedsEventually(MutableMap.of("timeout", Duration.millis(50)), Callables.returning(false));
+        Assert.assertEquals(result, (Boolean)false);
     }
     
     @Test
@@ -69,7 +71,7 @@ public class AssertsTest {
                     }
                 }},
                 Duration.of(10, TimeUnit.MILLISECONDS));
-            Assert.fail("Should have thrown AssertionError on timeout");
+            Asserts.shouldHaveFailedPreviously("Should have thrown AssertionError on timeout");
         } catch (TimeoutException e) {
             // success
         }
@@ -88,7 +90,7 @@ public class AssertsTest {
                     throw new IllegalStateException("Simulating failure");
                 }},
                 Duration.THIRTY_SECONDS);
-            Assert.fail("Should have thrown AssertionError on timeout");
+            Asserts.shouldHaveFailedPreviously("Should have thrown AssertionError on timeout");
         } catch (ExecutionException e) {
             IllegalStateException ise = Exceptions.getFirstThrowableOfType(e, IllegalStateException.class);
             if (ise == null || !ise.toString().contains("Simulating failure")) throw e;
