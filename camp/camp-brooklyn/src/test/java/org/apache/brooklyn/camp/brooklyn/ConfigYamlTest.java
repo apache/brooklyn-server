@@ -28,8 +28,14 @@ import java.util.concurrent.Executors;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
@@ -44,7 +50,6 @@ import com.google.common.collect.Iterables;
 
 public class ConfigYamlTest extends AbstractYamlTest {
     
-    @SuppressWarnings("unused")
     private static final Logger LOG = LoggerFactory.getLogger(ConfigYamlTest.class);
 
     private ExecutorService executor;
@@ -90,6 +95,46 @@ public class ConfigYamlTest extends AbstractYamlTest {
         // {@link EntitySpec#config} rather than {@link EntitySpec#flags}. The field is not set.
         assertNull(entity.getMyField()); // field with @SetFromFlag
         assertNull(entity.getMyField2()); // field with @SetFromFlag("myField2Alias"), set using alias
+    }
+    
+
+    @Test
+    public void testRecursiveConfigFailsGracefully() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.config:",
+                "    infinite_loop: $brooklyn:config(\"infinite_loop\")");
+
+        final Entity app = createStartWaitAndLogApplication(yaml);
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+
+        Thread t = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Time.sleep(Duration.FIVE_SECONDS);
+                    // error, loop wasn't interrupted or detected
+                    LOG.warn("Timeout elapsed, destroying items; usage: "+
+                            ((LocalManagementContext)mgmt()).getGarbageCollector().getUsageString());
+                    //Entities.destroy(app);
+                } catch (RuntimeInterruptedException e) {
+                    // expected on normal execution
+                    Thread.interrupted();
+                }
+            }
+        });
+        t.start();
+        try {
+            String c = entity.config().get(ConfigKeys.newStringConfigKey("infinite_loop"));
+            Asserts.shouldHaveFailedPreviously("Expected recursive error, instead got: "+c);
+        } catch (Exception e) {
+            Asserts.expectedFailureContainsIgnoreCase(e, "infinite_loop", "recursive");
+        } finally {
+            if (!Entities.isManaged(app)) {
+                t.interrupt();
+            }
+        }
     }
 
     @Test

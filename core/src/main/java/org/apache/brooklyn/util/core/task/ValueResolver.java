@@ -493,7 +493,9 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
             
-            IllegalArgumentException problem = new IllegalArgumentException("Error resolving "+(description!=null ? description+", " : "")+v+", in "+exec+": "+e, e);
+            String msg = "Error resolving "+(description!=null ? description+", " : "")+v+", in "+exec;
+            String eTxt = Exceptions.collapseText(e);
+            IllegalArgumentException problem = eTxt.startsWith(msg) ? new IllegalArgumentException(e) : new IllegalArgumentException(msg+": "+eTxt, e);
             if (swallowExceptions) {
                 if (log.isDebugEnabled())
                     log.debug("Resolution of "+this+" failed, swallowing and returning: "+e);

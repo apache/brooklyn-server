@@ -753,7 +753,10 @@ public class BasicExecutionManager implements ExecutionManager {
     /** invoked in a task's thread when a task is starting to run (may be some time after submitted), 
      * but before doing any of the task's work, so that we can update bookkeeping and notify callbacks */
     protected void internalBeforeStart(Map<?,?> flags, Task<?> task) {
-        activeTaskCount.incrementAndGet();
+        int count = activeTaskCount.incrementAndGet();
+        if (count % 1000==0) {
+            log.warn("High number of active tasks: task #"+count+" is "+task);
+        }
         
         //set thread _before_ start time, so we won't get a null thread when there is a start-time
         if (log.isTraceEnabled()) log.trace(""+this+" beforeStart, task: "+task + " running on thread " + Thread.currentThread().getName());
