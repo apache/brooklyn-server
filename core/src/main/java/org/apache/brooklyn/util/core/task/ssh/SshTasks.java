@@ -128,12 +128,12 @@ public class SshTasks {
         Set<ConfigKey<?>> sshConfig = MutableSet.of();
         
         StringConfigMap mgmtConfig = null;
-        sshConfig.addAll(location.config().findKeysDeclared(ConfigPredicates.nameStartsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)));
+        sshConfig.addAll(location.config().findKeysPresent(ConfigPredicates.nameStartsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)));
         if (location instanceof AbstractLocation) {
             ManagementContext mgmt = ((AbstractLocation)location).getManagementContext();
             if (mgmt!=null) {
                 mgmtConfig = mgmt.getConfig();
-                sshConfig.addAll(mgmtConfig.findKeysDeclared(ConfigPredicates.nameStartsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)));
+                sshConfig.addAll(mgmtConfig.findKeysPresent(ConfigPredicates.nameStartsWith(SshTool.BROOKLYN_CONFIG_KEY_PREFIX)));
             }
         }
         
