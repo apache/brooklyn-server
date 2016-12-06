@@ -151,9 +151,9 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         CatalogItem<?, ?> item = catalog.getCatalogItem(SYMBOLIC_NAME, TEST_VERSION);
         AbstractBrooklynObjectSpec<?,?> spec = catalog.peekSpec(item);
         List<SpecParameter<?>> params = spec.getParameters();
-        // TODO doesn't include sample.config from ConfigEntityForTest ?  what about defaultDisplayName?
-        assertEquals(params.size(), NUM_APP_DEFAULT_CONFIG_KEYS + 1, "params="+params);
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());
+        assertTrue(Iterables.tryFind(params, nameEqualTo(SHARED_CONFIG.getName())).isPresent());
+        assertEquals(params.size(), NUM_APP_DEFAULT_CONFIG_KEYS + 2, "params="+params);
     }
 
     @Test(dataProvider="brooklynTypes")
@@ -179,6 +179,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         Asserts.assertSize(params, getDefaultsFor(type.getSimpleName()) + 2);
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());
         assertTrue(Iterables.tryFind(params, labelEqualTo("simple")).isPresent());
+        assertTrue(Iterables.tryFind(params, nameEqualTo(SHARED_CONFIG.getName())).isPresent());
     }
 
     private int getDefaultsFor(String simpleName) {
