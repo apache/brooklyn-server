@@ -100,6 +100,16 @@ public class ConfigYamlTest extends AbstractYamlTest {
 
     @Test
     public void testRecursiveConfigFailsGracefully() throws Exception {
+        doTestRecursiveConfigFailsGracefully(false);
+    }
+    
+    // TODO this test fails because entities aren't available when evaluating immediately
+    @Test
+    public void testRecursiveConfigImmediateFailsGracefully() throws Exception {
+        doTestRecursiveConfigFailsGracefully(true);
+    }
+    
+    protected void doTestRecursiveConfigFailsGracefully(boolean immediate) throws Exception {
         String yaml = Joiner.on("\n").join(
                 "services:",
                 "- type: org.apache.brooklyn.core.test.entity.TestEntity",
@@ -126,7 +136,13 @@ public class ConfigYamlTest extends AbstractYamlTest {
         });
         t.start();
         try {
-            String c = entity.config().get(ConfigKeys.newStringConfigKey("infinite_loop"));
+            String c;
+            if (immediate) {
+                // this should throw rather than return "absent", because the error is definitive (absent means couldn't resolve in time)
+                c = entity.config().getNonBlocking(ConfigKeys.newStringConfigKey("infinite_loop")).or("FAILED");
+            } else {
+                c = entity.config().get(ConfigKeys.newStringConfigKey("infinite_loop"));
+            }
             Asserts.shouldHaveFailedPreviously("Expected recursive error, instead got: "+c);
         } catch (Exception e) {
             Asserts.expectedFailureContainsIgnoreCase(e, "infinite_loop", "recursive");
