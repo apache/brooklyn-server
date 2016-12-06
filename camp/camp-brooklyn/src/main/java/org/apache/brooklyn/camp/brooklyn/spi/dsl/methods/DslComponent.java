@@ -216,7 +216,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                     return Maybe.of(scopeComponent.get());
                 }
             } else {
-                return Maybe.<Entity>of(entity());
+                return Maybe.<Entity>ofDisallowingNull(entity()).or(Maybe.<Entity>absent("Context entity not available when trying to evaluate Brooklyn DSL"));
             }
         }
         
@@ -500,9 +500,8 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         @Override
         public final Maybe<Object> getImmediately() {
             Maybe<Entity> targetEntityMaybe = component.getImmediately();
-            if (targetEntityMaybe.isAbsent()) return Maybe.absent("Target entity not available");
+            if (targetEntityMaybe.isAbsent()) return Maybe.<Object>cast(targetEntityMaybe);
             EntityInternal targetEntity = (EntityInternal) targetEntityMaybe.get();
-
             ConfigKey<?> key = targetEntity.getEntityType().getConfigKey(keyName);
             Maybe<?> result = targetEntity.config().getNonBlocking(key != null ? key : ConfigKeys.newConfigKey(Object.class, keyName));
             return Maybe.<Object>cast(result);
