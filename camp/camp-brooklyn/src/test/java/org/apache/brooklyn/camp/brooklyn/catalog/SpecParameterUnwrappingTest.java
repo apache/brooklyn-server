@@ -59,12 +59,17 @@ import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicStartable;
+import org.apache.brooklyn.test.Asserts;
 
 public class SpecParameterUnwrappingTest extends AbstractYamlTest {
     
     // Expect app to have the following config keys already: 
     // "application.stop.shouldDestroy", "defaultDisplayName", "quorum.running", "quorum.up", "start.latch"
     public static final int NUM_APP_DEFAULT_CONFIG_KEYS = 5;
+    // "defaultDisplayName"
+    public static final int NUM_ENTITY_DEFAULT_CONFIG_KEYS = 1;
+    // various ssh things...
+    public static final int NUM_LOCATION_DEFAULT_CONFIG_KEYS = 5;
     
     private static final String SYMBOLIC_NAME = "my.catalog.app.id.load";
 
@@ -146,6 +151,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         CatalogItem<?, ?> item = catalog.getCatalogItem(SYMBOLIC_NAME, TEST_VERSION);
         AbstractBrooklynObjectSpec<?,?> spec = catalog.peekSpec(item);
         List<SpecParameter<?>> params = spec.getParameters();
+        // TODO doesn't include sample.config from ConfigEntityForTest ?  what about defaultDisplayName?
         assertEquals(params.size(), NUM_APP_DEFAULT_CONFIG_KEYS + 1, "params="+params);
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());
     }
@@ -169,19 +175,22 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         CatalogItem<?, ?> item = catalog.getCatalogItem(SYMBOLIC_NAME, TEST_VERSION);
         AbstractBrooklynObjectSpec<?,?> spec = catalog.peekSpec(item);
         List<SpecParameter<?>> params = spec.getParameters();
-        switch (type.getSimpleName()) {
-            case "ConfigEntityForTest":
-                assertEquals(params.size(), 3);
-                break;
-            case "ConfigPolicyForTest":
-                assertEquals(params.size(), 2);
-                break;
-            case "ConfigLocationForTest":
-                assertEquals(params.size(), 7);
-                break;
-        }
+        // should have simple in parent yaml type and sample from parent java type
+        Asserts.assertSize(params, getDefaultsFor(type.getSimpleName()) + 2);
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());
         assertTrue(Iterables.tryFind(params, labelEqualTo("simple")).isPresent());
+    }
+
+    private int getDefaultsFor(String simpleName) {
+        switch (simpleName) {
+        case "ConfigEntityForTest":
+            return NUM_ENTITY_DEFAULT_CONFIG_KEYS;
+        case "ConfigPolicyForTest":
+            return 0;
+        case "ConfigLocationForTest":
+            return NUM_LOCATION_DEFAULT_CONFIG_KEYS;
+        }
+        throw new IllegalArgumentException("Unexpected name: "+simpleName);
     }
 
     @Test(dataProvider="brooklynTypes")
@@ -205,17 +214,8 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         CatalogItem<?, ?> item = catalog.getCatalogItem(SYMBOLIC_NAME, TEST_VERSION);
         AbstractBrooklynObjectSpec<?,?> spec = catalog.peekSpec(item);
         List<SpecParameter<?>> params = spec.getParameters();
-        switch (type.getSimpleName()) {
-            case "ConfigEntityForTest":
-                assertEquals(params.size(), 4);
-                break;
-            case "ConfigPolicyForTest":
-                assertEquals(params.size(), 3);
-                break;
-            case "ConfigLocationForTest":
-                assertEquals(params.size(), 8);
-                break;
-        }
+        // should have override locally, simple in parent yaml type, and sample from parent java type
+        Asserts.assertSize(params, getDefaultsFor(type.getSimpleName()) + 3);
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());
         assertTrue(Iterables.tryFind(params, nameEqualTo("override")).isPresent());
     }
@@ -242,20 +242,8 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         CatalogItem<?, ?> item = catalog.getCatalogItem(SYMBOLIC_NAME, TEST_VERSION);
         AbstractBrooklynObjectSpec<?,?> spec = catalog.peekSpec(item);
         List<SpecParameter<?>> params = spec.getParameters();
-        switch (type.getSimpleName()) {
-            case "ConfigEntityForTest":
-                // expect: own "simple"; super-type's "sample.config"; and generic "defaultDisplayName"
-                assertEquals(params.size(), 3, "params="+params);
-                break;
-            case "ConfigPolicyForTest":
-                // expect: own "simple"; and super-type's "sample.config"
-                assertEquals(params.size(), 2, "params="+params);
-                break;
-            case "ConfigLocationForTest":
-                // Expect: own "simple"; super-type's "sample.config"; and generic "parentLocation" + "spec.final" + "spec.named.name" + "spec.original" + "temporaryLocation"
-                assertEquals(params.size(), 7, "params="+params);
-                break;
-        }
+        // should have simple locally (and in parent yaml type) and sample from parent java type
+        Asserts.assertSize(params, getDefaultsFor(type.getSimpleName()) + 2);
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());
         assertTrue(Iterables.tryFind(params, labelEqualTo("override")).isPresent());
     }
@@ -309,7 +297,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         CatalogItem<?, ?> item = catalog.getCatalogItem(SYMBOLIC_NAME, TEST_VERSION);
         AbstractBrooklynObjectSpec<?,?> spec = catalog.peekSpec(item);
         List<SpecParameter<?>> params = spec.getParameters();
-        assertEquals(params.size(), 3);
+        assertEquals(params.size(), NUM_ENTITY_DEFAULT_CONFIG_KEYS + 2);
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());
         Optional<ConfigKey<?>> config = Iterables.tryFind(spec.getConfig().keySet(), ConfigPredicates.nameEqualTo("simple"));
         assertTrue(config.isPresent());
@@ -363,7 +351,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         EntitySpec<?> parentSpec = (EntitySpec<?>) catalog.peekSpec(item);
         EntitySpec<?> spec = parentSpec.getChildren().get(0);
         List<SpecParameter<?>> params = spec.getParameters();
-        assertEquals(params.size(), 3, "params="+params);
+        assertEquals(params.size(), NUM_ENTITY_DEFAULT_CONFIG_KEYS + 2, "params="+params);
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());
         assertTrue(Iterables.tryFind(params, labelEqualTo("simple")).isPresent());
     }
