@@ -8,6 +8,21 @@ section_position: 2.1
 
 Cloudsoft AMP can deploy applications to [Kubernetes](http://kubernetes.io/) (k8s) clusters both provisioned by Cloudsoft AMP and set up manually.
 
+Here is an example catalog item to add a Kubernetes endpoint to your catalog locations:
+
+    brooklyn.catalog:
+      id: my-kubernetes-cluster
+      name: "My Kubernetes Cluster"
+      itemType: location
+      item:
+        type: kubernetes
+        brooklyn.config:
+          endpoint: << endpoint >>
+          identity: "guest"
+          credential: "guest"
+          image: "cloudsoft/centos:7"
+          loginUser.password: "p4ssw0rd"
+
 AMP Deploys to a Kubernetes cluster by modelling a `KubernetesPod` entity which is made up of multiple heterogeneous `DockerContainer` entities.
 
 #### Plain-AMP blueprints
