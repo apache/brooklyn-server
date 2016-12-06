@@ -96,11 +96,9 @@ public class SshMachineLocationIntegrationTest extends SshMachineLocationTest {
         super.testSshExecCommands();
     }
     
-    // Overridden just to make it integration (because `newHost()` returns a real ssh'ing host)
     @Test(groups="Integration")
-    @Override
     public void testIsSshableWhenTrue() throws Exception {
-        super.testIsSshableWhenTrue();
+        assertTrue(host.isSshable());
     }
 
     // Overridden just to make it integration (because `newHost()` returns a real ssh'ing host)
