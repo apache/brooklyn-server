@@ -24,6 +24,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.util.guava.Maybe;
 
 /**
  * This is a Brooklyn extension to the Java {@link Executor}.
@@ -63,5 +64,7 @@ public interface ExecutionContext extends Executor {
     <T> Task<T> submit(Map<?,?> properties, TaskAdaptable<T> task);
 
     boolean isShutdown();
+
+    <T> Maybe<T> getImmediately(Object callableOrSupplier);
 
 }

@@ -41,10 +41,12 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedEntity;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
+import com.google.common.base.Supplier;
 import com.google.common.collect.Iterables;
 
 /**
@@ -96,7 +98,34 @@ public class BasicExecutionContext extends AbstractExecutionContext {
     /** returns tasks started by this context (or tasks which have all the tags on this object) */
     @Override
     public Set<Task<?>> getTasks() { return executionManager.getTasksWithAllTags(tags); }
-     
+
+    /** performs execution without spawning a new task thread, though it does temporarily set a fake task for the purpose of getting context */
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T> Maybe<T> getImmediately(Object callableOrSupplier) {
+        BasicTask<?> fakeTaskForContext = new BasicTask<Object>(MutableMap.of("displayName", "immediate evaluation"));
+        fakeTaskForContext.tags.addAll(tags);
+        fakeTaskForContext.tags.add(BrooklynTaskTags.IMMEDIATE_TASK_TAG);
+        fakeTaskForContext.tags.add(BrooklynTaskTags.TRANSIENT_TASK_TAG);
+        
+        Task<?> previousTask = BasicExecutionManager.getPerThreadCurrentTask().get();
+        if (previousTask!=null) fakeTaskForContext.setSubmittedByTask(previousTask);
+        try {
+            BasicExecutionManager.getPerThreadCurrentTask().set(fakeTaskForContext);
+            
+            if ((callableOrSupplier instanceof Supplier) && !(callableOrSupplier instanceof ImmediateSupplier)) {
+                callableOrSupplier = new InterruptingImmediateSupplier<>((Supplier<Object>)callableOrSupplier);
+            }
+            if (callableOrSupplier instanceof ImmediateSupplier) {
+                return ((ImmediateSupplier<T>)callableOrSupplier).getImmediately();
+            }
+            // TODO could add more types here
+            throw new IllegalArgumentException("Type "+callableOrSupplier.getClass()+" not supported for getImmediately (instance "+callableOrSupplier+")");
+        } finally {
+            BasicExecutionManager.getPerThreadCurrentTask().set(previousTask);
+        }
+    }
+    
     @SuppressWarnings({ "unchecked", "rawtypes" })
     @Override
     protected <T> Task<T> submitInternal(Map<?,?> propertiesQ, final Object task) {

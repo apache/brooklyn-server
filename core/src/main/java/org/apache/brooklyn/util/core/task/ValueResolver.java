@@ -357,9 +357,9 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         
         try {
             if (immediately && v instanceof ImmediateSupplier) {
-                final ImmediateSupplier<?> supplier = (ImmediateSupplier<?>) v;
+                final ImmediateSupplier<Object> supplier = (ImmediateSupplier<Object>) v;
                 try {
-                    Maybe<?> result = supplier.getImmediately();
+                    Maybe<Object> result = exec.getImmediately(supplier);
                     
                     // Recurse: need to ensure returned value is cast, etc
                     return (result.isPresent())

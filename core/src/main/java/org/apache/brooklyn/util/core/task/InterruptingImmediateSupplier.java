@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.core.task;
 
+import java.util.NoSuchElementException;
 import java.util.concurrent.Semaphore;
 
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -56,7 +57,7 @@ public class InterruptingImmediateSupplier<T> implements ImmediateSupplier<T>, D
         } catch (Throwable t) {
             if (Exceptions.getFirstThrowableOfType(t, InterruptedException.class)!=null || 
                     Exceptions.getFirstThrowableOfType(t, RuntimeInterruptedException.class)!=null) {
-                return Maybe.absent("Immediate value not available");
+                return Maybe.absent(new UnsupportedOperationException("Immediate value not available", t));
             }
             throw Exceptions.propagate(t);
         } finally {

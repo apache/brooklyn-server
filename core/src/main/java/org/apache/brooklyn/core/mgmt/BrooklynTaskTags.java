@@ -78,6 +78,8 @@ public class BrooklynTaskTags extends TaskTags {
      * and that it need not appear in some task lists;
      * often used for framework lifecycle events and sensor polling */
     public static final String TRANSIENT_TASK_TAG = "TRANSIENT";
+    /** marks that a task is meant to return immediately, without blocking (or if absolutely necessary blocking for a short while) */
+    public static final String IMMEDIATE_TASK_TAG = "IMMEDIATE";
 
     // ------------- entity tags -------------------------
     
