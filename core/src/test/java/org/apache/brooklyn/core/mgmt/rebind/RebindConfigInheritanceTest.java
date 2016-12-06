@@ -25,6 +25,7 @@ import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.ConfigKeys.InheritanceContext;
@@ -34,6 +35,7 @@ import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.stream.Streams;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -114,8 +116,9 @@ public class RebindConfigInheritanceTest extends RebindTestFixtureWithApp {
         doReadConfigInheritance("basic-2016-11", "kmpez5fznt");
         checkNewAppNonInheritingKey1(rebindedApp);
         
-        String origMementoWithoutLicenseHeader = origMemento.substring(origMemento.indexOf("<entity>"));
-        Asserts.assertEquals(origMementoWithoutLicenseHeader, newMemento);
+        String origMementoTidied = origMemento.substring(origMemento.indexOf("<entity>"));
+        origMementoTidied = Strings.replaceAllNonRegex(origMementoTidied, "VERSION", BrooklynVersion.get());
+        Asserts.assertEquals(origMementoTidied, newMemento);
     }
     
     @Test

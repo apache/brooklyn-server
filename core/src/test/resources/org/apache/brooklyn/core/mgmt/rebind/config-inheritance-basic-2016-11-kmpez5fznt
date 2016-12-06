@@ -18,7 +18,7 @@ under the License.
 -->
 
 <entity>
-  <brooklynVersion>0.10.0-SNAPSHOT</brooklynVersion>
+  <brooklynVersion>VERSION</brooklynVersion>
   <type>org.apache.brooklyn.core.test.entity.TestApplicationNoEnrichersImpl</type>
   <id>kmpez5fznt</id>
   <displayName>TestApplicationNoEnrichersImpl:kmpe</displayName>
