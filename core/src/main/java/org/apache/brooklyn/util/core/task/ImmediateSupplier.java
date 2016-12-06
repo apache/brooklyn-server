@@ -20,11 +20,13 @@ package org.apache.brooklyn.util.core.task;
 
 import org.apache.brooklyn.util.guava.Maybe;
 
+import com.google.common.base.Supplier;
+
 /**
- * A class that supplies objects of a single type, without blocking for any significant length
- * of time.
+ * A {@link Supplier} that has an extra method capable of supplying a value immediately or an absent if definitely not available,
+ * or throwing an {@link ImmediateUnsupportedException} if it cannot determine whether a value is immediately available.
  */
-public interface ImmediateSupplier<T> {
+public interface ImmediateSupplier<T> extends Supplier<T> {
     
     /**
      * Indicates that a supplier does not support immediate evaluation,

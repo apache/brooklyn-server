@@ -20,7 +20,6 @@ package org.apache.brooklyn.util.core.task;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.fail;
 
 import java.util.Arrays;
@@ -137,19 +136,17 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
         assertMaybeIsAbsent(result);
         Assert.assertEquals(result.get(), "foo");
     }
-
+    
     public void testGetImmediately() {
         MyImmediateAndDeferredSupplier supplier = new MyImmediateAndDeferredSupplier();
         CallInfo callInfo = Tasks.resolving(supplier).as(CallInfo.class).context(app).immediately(true).get();
-        assertNull(callInfo.task);
-        assertContainsCallingMethod(callInfo.stackTrace, "testGetImmediately");
+        assertImmediateFakeTaskFromMethod(callInfo, "testGetImmediately");
     }
     
     public void testImmediateSupplierWithTimeoutUsesBlocking() {
         MyImmediateAndDeferredSupplier supplier = new MyImmediateAndDeferredSupplier();
         CallInfo callInfo = Tasks.resolving(supplier).as(CallInfo.class).context(app).timeout(Asserts.DEFAULT_LONG_TIMEOUT).get();
-        assertNotNull(callInfo.task);
-        assertNotContainsCallingMethod(callInfo.stackTrace, "testImmediateSupplierWithTimeoutUsesBlocking");
+        assertRealTaskNotFromMethod(callInfo, "testImmediateSupplierWithTimeoutUsesBlocking");
     }
     
     public void testGetImmediatelyInTask() throws Exception {
@@ -164,16 +161,14 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
             }
         });
         CallInfo callInfo = task.get();
-        assertEquals(callInfo.task, task);
-        assertContainsCallingMethod(callInfo.stackTrace, "myUniquelyNamedMethod");
+        assertImmediateFakeTaskFromMethod(callInfo, "myUniquelyNamedMethod");
     }
     
     public void testGetImmediatelyFallsBackToDeferredCallInTask() throws Exception {
         final MyImmediateAndDeferredSupplier supplier = new MyImmediateAndDeferredSupplier(true);
         CallInfo callInfo = Tasks.resolving(supplier).as(CallInfo.class).context(app).immediately(true).get();
-        assertNotNull(callInfo.task);
+        assertRealTaskNotFromMethod(callInfo, "testGetImmediatelyFallsBackToDeferredCallInTask");
         assertEquals(BrooklynTaskTags.getContextEntity(callInfo.task), app);
-        assertNotContainsCallingMethod(callInfo.stackTrace, "testGetImmediatelyFallsBackToDeferredCallInTask");
     }
 
     public void testNonRecursiveBlockingFailsOnNonObjectType() throws Exception {
@@ -359,4 +354,18 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
             }
         }
     }
+    
+    private void assertImmediateFakeTaskFromMethod(CallInfo callInfo, String method) {
+        // previously task was null, but now there is a "fake task"
+        assertNotNull(callInfo.task);
+        Assert.assertFalse(callInfo.task.isSubmitted());       
+        assertContainsCallingMethod(callInfo.stackTrace, method);
+    }
+    
+    private void assertRealTaskNotFromMethod(CallInfo callInfo, String method) {
+        assertNotNull(callInfo.task);
+        Assert.assertTrue(callInfo.task.isSubmitted());   
+        assertNotContainsCallingMethod(callInfo.stackTrace, method); 
+    }
+
 }

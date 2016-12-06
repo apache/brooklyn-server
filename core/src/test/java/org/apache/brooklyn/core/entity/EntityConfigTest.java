@@ -313,12 +313,12 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
             return new DeferredSupplier<String>() {
                 @Override public String get() {
                     try {
-                        log.info("acquiring");
+                        log.trace("acquiring");
                         if (!latch.tryAcquire()) latch.acquire();
                         latch.release();
-                        log.info("acquired and released");
+                        log.trace("acquired and released");
                     } catch (InterruptedException e) {
-                        log.info("interrupted");
+                        log.trace("interrupted");
                         throw Exceptions.propagate(e);
                     }
                     return "myval";
@@ -333,21 +333,21 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
             TestEntity entity = (TestEntity) mgmt.getEntityManager().createEntity(EntitySpec.create(TestEntity.class)
                     .configure((ConfigKey<Object>)(ConfigKey<?>)TestEntity.CONF_NAME, blockingVal));
             
-            log.info("get non-blocking");
+            log.trace("get non-blocking");
             // Will initially return absent, because task is not done
             assertTrue(entity.config().getNonBlocking(TestEntity.CONF_NAME).isAbsent());
-            log.info("got absent");
+            log.trace("got absent");
             
             latch.release();
             
             // Can now finish task, so will return expectedVal
-            log.info("get blocking");
+            log.trace("get blocking");
             assertEquals(entity.config().get(TestEntity.CONF_NAME), expectedVal);
-            log.info("got blocking");
+            log.trace("got blocking");
             assertEquals(entity.config().getNonBlocking(TestEntity.CONF_NAME).get(), expectedVal);
             
             latch.acquire();
-            log.info("finished");
+            log.trace("finished");
         }
         
         protected void runGetConfigNonBlockingInMap() throws Exception {
@@ -526,7 +526,7 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
         assertEquals(getConfigFuture.get(TIMEOUT_MS, TimeUnit.MILLISECONDS), "abc");
     }
 
-    @Test
+    @Test(groups="Integration")  // takes 0.5s
     public void testGetConfigWithExecutedTaskWaitsForResult() throws Exception {
         LatchingCallable<String> work = new LatchingCallable<String>("abc");
         Task<String> task = executionManager.submit(work);
@@ -548,7 +548,7 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
         assertEquals(work.callCount.get(), 1);
     }
 
-    @Test
+    @Test(groups="Integration")  // takes 0.5s
     public void testGetConfigWithUnexecutedTaskIsExecutedAndWaitsForResult() throws Exception {
         LatchingCallable<String> work = new LatchingCallable<String>("abc");
         Task<String> task = new BasicTask<String>(work);

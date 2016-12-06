@@ -29,6 +29,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
+import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
@@ -322,6 +323,10 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         return result;
     }
     
+    protected boolean isEvaluatingImmediately() {
+        return immediately || BrooklynTaskTags.hasTag(Tasks.current(), BrooklynTaskTags.IMMEDIATE_TASK_TAG);
+    }
+    
     @SuppressWarnings({ "unchecked", "rawtypes" })
     protected Maybe<T> getMaybeInternal() {
         if (started.getAndSet(true))
@@ -352,11 +357,11 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         
         //if the expected type is a closure or map and that's what we have, we're done (or if it's null);
         //but not allowed to return a future or DeferredSupplier as the resolved value
-        if (v==null || (!forceDeep && type.isInstance(v) && !Future.class.isInstance(v) && !DeferredSupplier.class.isInstance(v)))
+        if (v==null || (!forceDeep && type.isInstance(v) && !Future.class.isInstance(v) && !DeferredSupplier.class.isInstance(v) && !TaskFactory.class.isInstance(v)))
             return Maybe.of((T) v);
         
         try {
-            if (immediately && v instanceof ImmediateSupplier) {
+            if (isEvaluatingImmediately() && v instanceof ImmediateSupplier) {
                 final ImmediateSupplier<Object> supplier = (ImmediateSupplier<Object>) v;
                 try {
                     Maybe<Object> result = exec.getImmediately(supplier);
@@ -366,9 +371,20 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                             ? recursive
                                 ? new ValueResolver(result.get(), type, this).getMaybe()
                                 : result
-                            : Maybe.<T>absent();
+                            : result;
                 } catch (ImmediateSupplier.ImmediateUnsupportedException e) {
                     log.debug("Unable to resolve-immediately for "+description+" ("+v+"); falling back to executing with timeout", e);
+                }
+            }
+            
+            // TODO if evaluating immediately should use a new ExecutionContext.submitImmediate(...)
+            // and sets a timeout but which wraps a task but does not spawn a new thread
+            
+            if ((v instanceof TaskFactory<?>) && !(v instanceof DeferredSupplier)) {
+                v = ((TaskFactory<?>)v).newTask();
+                BrooklynTaskTags.setTransient(((TaskAdaptable<?>)v).asTask());
+                if (isEvaluatingImmediately()) {
+                    BrooklynTaskTags.addTagDynamically( ((TaskAdaptable<?>)v).asTask(), BrooklynTaskTags.IMMEDIATE_TASK_TAG );
                 }
             }
             
@@ -382,7 +398,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                     }
                     if (!task.getTags().contains(BrooklynTaskTags.TRANSIENT_TASK_TAG)) {
                         // mark this non-transient, because this value is usually something set e.g. in config
-                        // (ideally we'd discourage this in favour of task factories which can be transiently interrupted)
+                        // (should discourage this in favour of task factories which can be transiently interrupted?)
                         BrooklynTaskTags.addTagDynamically(task, BrooklynTaskTags.NON_TRANSIENT_TASK_TAG);
                     }
                     exec.submit(task);

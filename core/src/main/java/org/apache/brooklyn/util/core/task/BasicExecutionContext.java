@@ -46,7 +46,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
-import com.google.common.base.Supplier;
 import com.google.common.collect.Iterables;
 
 /**
@@ -99,7 +98,8 @@ public class BasicExecutionContext extends AbstractExecutionContext {
     @Override
     public Set<Task<?>> getTasks() { return executionManager.getTasksWithAllTags(tags); }
 
-    /** performs execution without spawning a new task thread, though it does temporarily set a fake task for the purpose of getting context */
+    /** performs execution without spawning a new task thread, though it does temporarily set a fake task for the purpose of getting context;
+     * currently supports suppliers or callables  */
     @SuppressWarnings("unchecked")
     @Override
     public <T> Maybe<T> getImmediately(Object callableOrSupplier) {
@@ -110,17 +110,15 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         
         Task<?> previousTask = BasicExecutionManager.getPerThreadCurrentTask().get();
         if (previousTask!=null) fakeTaskForContext.setSubmittedByTask(previousTask);
+        fakeTaskForContext.cancel();
         try {
             BasicExecutionManager.getPerThreadCurrentTask().set(fakeTaskForContext);
             
-            if ((callableOrSupplier instanceof Supplier) && !(callableOrSupplier instanceof ImmediateSupplier)) {
-                callableOrSupplier = new InterruptingImmediateSupplier<>((Supplier<Object>)callableOrSupplier);
+            if (!(callableOrSupplier instanceof ImmediateSupplier)) {
+                callableOrSupplier = InterruptingImmediateSupplier.of(callableOrSupplier);
             }
-            if (callableOrSupplier instanceof ImmediateSupplier) {
-                return ((ImmediateSupplier<T>)callableOrSupplier).getImmediately();
-            }
-            // TODO could add more types here
-            throw new IllegalArgumentException("Type "+callableOrSupplier.getClass()+" not supported for getImmediately (instance "+callableOrSupplier+")");
+            return ((ImmediateSupplier<T>)callableOrSupplier).getImmediately();
+ 
         } finally {
             BasicExecutionManager.getPerThreadCurrentTask().set(previousTask);
         }

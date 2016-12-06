@@ -204,6 +204,15 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         }
 
         @Override
+        public Entity get() {
+            try {
+                return call();
+            } catch (Exception e) {
+                throw Exceptions.propagate(e);
+            }
+        }
+        
+        @Override
         public Entity call() throws Exception {
             return callImpl(false).get();
         }
@@ -304,10 +313,11 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 return Maybe.of(result.get());
             }
             
-            // TODO may want to block and repeat on new entities joining?
-            throw new NoSuchElementException("No entity matching id " + desiredComponentId+
+            // could be nice if DSL has an extra .block() method to allow it to wait for a matching entity.
+            // previously we threw if nothing existed; now we return an absent with a detailed error
+            return Maybe.absent(new NoSuchElementException("No entity matching id " + desiredComponentId+
                 (scope==Scope.GLOBAL ? "" : ", in scope "+scope+" wrt "+entity+
-                (scopeComponent!=null ? " ("+scopeComponent+" from "+entity()+")" : "")));
+                (scopeComponent!=null ? " ("+scopeComponent+" from "+entity()+")" : ""))));
         }
         
         private ExecutionContext getExecutionContext() {

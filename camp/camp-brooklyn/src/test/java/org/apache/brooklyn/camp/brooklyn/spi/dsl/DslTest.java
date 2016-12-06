@@ -48,6 +48,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.time.Duration;
+import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -296,14 +297,13 @@ public class DslTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testEntityNotFound() throws Exception {
         BrooklynDslDeferredSupplier<?> dsl = BrooklynDslCommon.entity("myIdDoesNotExist");
+        Maybe<?> actualValue = execDslImmediately(dsl, Entity.class, app, true);
+        Assert.assertTrue(actualValue.isAbsent());
         try {
-            Maybe<?> actualValue = execDslImmediately(dsl, Entity.class, app, true);
+            actualValue.get();
             Asserts.shouldHaveFailedPreviously("actual="+actualValue);
         } catch (Exception e) {
-            NoSuchElementException nsee = Exceptions.getFirstThrowableOfType(e, NoSuchElementException.class);
-            if (nsee == null) {
-                throw e;
-            }
+            Asserts.expectedFailureOfType(e, NoSuchElementException.class);
         }
     }
 
@@ -365,6 +365,7 @@ public class DslTest extends BrooklynAppUnitTestSupport {
             return this;
         }
         
+        @SuppressWarnings("unused")  // kept in case useful for additional tests
         public DslTestWorker wrapInTaskForImmediately(boolean val) {
             wrapInTaskForImmediately = val;
             return this;

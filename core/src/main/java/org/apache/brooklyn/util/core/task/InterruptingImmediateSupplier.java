@@ -18,13 +18,14 @@
  */
 package org.apache.brooklyn.util.core.task;
 
-import java.util.NoSuchElementException;
+import java.util.concurrent.Callable;
 import java.util.concurrent.Semaphore;
 
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.guava.Maybe;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Supplier;
 
 /**
@@ -40,6 +41,7 @@ import com.google.common.base.Supplier;
  * will throw if the thread is interrupted.  Typically there are workarounds, for instance:
  * <code>if (semaphore.tryAcquire()) semaphore.acquire();</code>. 
  */
+@Beta
 public class InterruptingImmediateSupplier<T> implements ImmediateSupplier<T>, DeferredSupplier<T> {
 
     final Supplier<T> nestedSupplier;
@@ -69,6 +71,33 @@ public class InterruptingImmediateSupplier<T> implements ImmediateSupplier<T>, D
     public T get() {
         return nestedSupplier.get();
     }
-    
+
+    @SuppressWarnings("unchecked")
+    public static <T> InterruptingImmediateSupplier<T> of(final Object o) {
+        if (o instanceof Supplier) {
+            return new InterruptingImmediateSupplier<T>((Supplier<T>)o);
+        } else if (o instanceof Callable) {
+            return new InterruptingImmediateSupplier<T>(new Supplier<T>() {
+                @Override
+                public T get() {
+                    try {
+                        return ((Callable<T>)o).call();
+                    } catch (Exception e) {
+                        throw Exceptions.propagate(e);
+                    }
+                }
+            });
+        } else if (o instanceof Runnable) {
+            return new InterruptingImmediateSupplier<T>(new Supplier<T>() {
+                @Override
+                public T get() {
+                    ((Runnable)o).run();
+                    return null;
+                }
+            });
+        } else {
+            throw new UnsupportedOperationException("Type "+o.getClass()+" not supported as InterruptingImmediateSupplier (instance "+o+")");
+        }
+    }
 
 }
