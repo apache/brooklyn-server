@@ -160,9 +160,11 @@ public class DynamicSequentialTask<T> extends BasicTask<T> implements HasTaskChi
     @Override
     protected boolean doCancel(TaskCancellationMode mode) {
         boolean result = false;
-        if (mode.isAllowedToInterruptDependentSubmittedTasks() || mode.isAllowedToInterruptAllSubmittedTasks()) {
-            for (Task<?> t: secondaryJobsAll)
+        if (mode.isAllowedToInterruptDependentSubmittedTasks()) {
+            for (Task<?> t: secondaryJobsAll) {
+                // secondary jobs are dependent
                 result = ((TaskInternal<?>)t).cancel(mode) || result;
+            }
         }
         return super.doCancel(mode) || result;
         // returns true if anything is successfully cancelled

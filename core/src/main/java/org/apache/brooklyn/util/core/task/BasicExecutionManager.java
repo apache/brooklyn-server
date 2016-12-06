@@ -591,7 +591,7 @@ public class BasicExecutionManager implements ExecutionManager {
             if (!task.isCancelled()) result |= ((TaskInternal<T>)task).cancel(mode);
             result |= delegate().cancel(mode.isAllowedToInterruptTask());
             
-            if (mode.isAllowedToInterruptAllSubmittedTasks() || mode.isAllowedToInterruptDependentSubmittedTasks()) {
+            if (mode.isAllowedToInterruptDependentSubmittedTasks()) {
                 int subtasksFound=0;
                 int subtasksReallyCancelled=0;
                 

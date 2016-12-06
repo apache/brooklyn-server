@@ -375,10 +375,17 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
             //if it's a task or a future, we wait for the task to complete
             if (v instanceof TaskAdaptable<?>) {
                 //if it's a task, we make sure it is submitted
-                if (!((TaskAdaptable<?>) v).asTask().isSubmitted() ) {
-                    if (exec==null)
+                Task<?> task = ((TaskAdaptable<?>) v).asTask();
+                if (!task.isSubmitted()) {
+                    if (exec==null) {
                         return Maybe.absent("Value for unsubmitted task '"+getDescription()+"' requested but no execution context available");
-                    exec.submit(((TaskAdaptable<?>) v).asTask());
+                    }
+                    if (!task.getTags().contains(BrooklynTaskTags.TRANSIENT_TASK_TAG)) {
+                        // mark this non-transient, because this value is usually something set e.g. in config
+                        // (ideally we'd discourage this in favour of task factories which can be transiently interrupted)
+                        BrooklynTaskTags.addTagDynamically(task, BrooklynTaskTags.NON_TRANSIENT_TASK_TAG);
+                    }
+                    exec.submit(task);
                 }
             }
 

@@ -143,6 +143,9 @@ public interface TaskInternal<T> extends Task<T> {
             this.allowedToInterruptTask = mayInterruptIfRunning;
             this.allowedToInterruptDependentSubmittedTasks = interruptSubmittedTransients;
             this.allowedToInterruptAllSubmittedTasks = interruptAllSubmitted;
+            
+            // if dependent isn't set, then all shouldn't be set
+            assert !(this.allowedToInterruptAllSubmittedTasks && !this.allowedToInterruptDependentSubmittedTasks);
         }
         
         public boolean isAllowedToInterruptTask() { return allowedToInterruptTask; }

@@ -352,7 +352,6 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
         
         protected void runGetConfigNonBlockingInMap() throws Exception {
             Preconditions.checkNotNull(blockingVal, "Fixture must set blocking val before running this");
-            
             TestEntity entity = (TestEntity) mgmt.getEntityManager().createEntity(EntitySpec.create(TestEntity.class)
                     .configure(TestEntity.CONF_MAP_OBJ_THING, ImmutableMap.<String, Object>of("mysub", blockingVal)));
             
@@ -371,24 +370,32 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
         }
     }
     
-    @Test public void testGetTaskNonBlockingKey() throws Exception {
+    @Test(groups="Integration") // because takes 1s+
+    public void testGetTaskNonBlockingKey() throws Exception {
         new ConfigNonBlockingFixture().usingTask().runGetConfigNonBlockingInKey(); }
-    @Test public void testGetTaskNonBlockingMap() throws Exception {
+    @Test(groups="Integration") // because takes 1s+
+    public void testGetTaskNonBlockingMap() throws Exception {
         new ConfigNonBlockingFixture().usingTask().runGetConfigNonBlockingInMap(); }
     
-    @Test public void testGetTaskFactoryNonBlockingKey() throws Exception {
+    @Test(groups="Integration") // because takes 1s+
+    public void testGetTaskFactoryNonBlockingKey() throws Exception {
         new ConfigNonBlockingFixture().usingTaskFactory().runGetConfigNonBlockingInKey(); }
-    @Test public void testGetTaskFactoryNonBlockingMap() throws Exception {
+    @Test(groups="Integration") // because takes 1s+
+    public void testGetTaskFactoryNonBlockingMap() throws Exception {
         new ConfigNonBlockingFixture().usingTaskFactory().runGetConfigNonBlockingInMap(); }
     
-    @Test public void testGetSupplierNonBlockingKey() throws Exception {
+    @Test(groups="Integration") // because takes 1s+
+    public void testGetSupplierNonBlockingKey() throws Exception {
         new ConfigNonBlockingFixture().usingDeferredSupplier().runGetConfigNonBlockingInKey(); }
-    @Test public void testGetSuppierNonBlockingMap() throws Exception {
+    @Test(groups="Integration") // because takes 1s+
+    public void testGetSuppierNonBlockingMap() throws Exception {
         new ConfigNonBlockingFixture().usingDeferredSupplier().runGetConfigNonBlockingInMap(); }
     
-    @Test public void testGetImmediateSupplierNonBlockingKey() throws Exception {
+    @Test // fast 
+    public void testGetImmediateSupplierNonBlockingKey() throws Exception {
         new ConfigNonBlockingFixture().usingImmediateSupplier().runGetConfigNonBlockingInKey(); }
-    @Test public void testGetImmediateSupplierNonBlockingMap() throws Exception {
+    @Test(groups="Integration") // because takes 1s+
+    public void testGetImmediateSupplierNonBlockingMap() throws Exception {
         new ConfigNonBlockingFixture().usingImmediateSupplier().runGetConfigNonBlockingInMap(); }
     
     @Test
