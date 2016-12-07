@@ -2234,64 +2234,6 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         return new RebindToMachinePredicate(config);
     }
 
-    /**
-     * Determines whether a machine may be rebinded to by comparing the given id, hostname and region
-     * against the node's id, hostname, provider id and public addresses.
-     */
-    private static class RebindToMachinePredicate implements Predicate<ComputeMetadata> {
-
-        final String rawId;
-        final String rawHostname;
-        final String rawRegion;
-
-        public RebindToMachinePredicate(ConfigBag config) {
-            rawId = (String) config.getStringKey("id");
-            rawHostname = (String) config.getStringKey("hostname");
-            rawRegion = (String) config.getStringKey("region");
-        }
-
-        @Override
-        public boolean apply(ComputeMetadata input) {
-            // ID exact match
-            if (rawId != null) {
-                // Second is AWS format
-                if (rawId.equals(input.getId()) || rawRegion != null && (rawRegion + "/" + rawId).equals(input.getId())) {
-                    return true;
-                }
-            }
-
-            // else do node metadata lookup
-            if (input instanceof NodeMetadata) {
-                NodeMetadata node = NodeMetadata.class.cast(input);
-                if (rawHostname != null && rawHostname.equalsIgnoreCase(node.getHostname()))
-                    return true;
-                if (rawHostname != null && node.getPublicAddresses().contains(rawHostname))
-                    return true;
-                if (rawId != null && rawId.equalsIgnoreCase(node.getHostname()))
-                    return true;
-                if (rawId != null && node.getPublicAddresses().contains(rawId))
-                    return true;
-                // don't do private IPs because they might be repeated
-                if (rawId != null && rawId.equalsIgnoreCase(node.getProviderId()))
-                    return true;
-                if (rawHostname != null && rawHostname.equalsIgnoreCase(node.getProviderId()))
-                    return true;
-            }
-
-            return false;
-        }
-
-        @Override
-        public String toString() {
-            return Objects.toStringHelper(this)
-                    .omitNullValues()
-                    .add("id", rawId)
-                    .add("hostname", rawHostname)
-                    .add("region", rawRegion)
-                    .toString();
-        }
-    }
-
     protected JcloudsSshMachineLocation registerJcloudsSshMachineLocation(
             ComputeService computeService, NodeMetadata node, Optional<Template> template,
             LoginCredentials credentials, HostAndPort managementHostAndPort, ConfigBag setup) throws IOException {
