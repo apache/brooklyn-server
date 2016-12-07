@@ -112,7 +112,7 @@ public class UnsupportedComputeService implements ComputeService {
     }
 
     @Override
-    public Set<? extends NodeMetadata> resumeNodesMatching(Predicate<NodeMetadata> filter) {
+    public Set<? extends NodeMetadata> resumeNodesMatching(Predicate<? super NodeMetadata> filter) {
         throw new UnsupportedOperationException();
     }
 
@@ -122,7 +122,7 @@ public class UnsupportedComputeService implements ComputeService {
     }
 
     @Override
-    public Set<? extends NodeMetadata> suspendNodesMatching(Predicate<NodeMetadata> filter) {
+    public Set<? extends NodeMetadata> suspendNodesMatching(Predicate<? super NodeMetadata> filter) {
         throw new UnsupportedOperationException();
     }
 
@@ -132,7 +132,7 @@ public class UnsupportedComputeService implements ComputeService {
     }
 
     @Override
-    public Set<? extends NodeMetadata> destroyNodesMatching(Predicate<NodeMetadata> filter) {
+    public Set<? extends NodeMetadata> destroyNodesMatching(Predicate<? super NodeMetadata> filter) {
         throw new UnsupportedOperationException();
     }
 
@@ -142,7 +142,7 @@ public class UnsupportedComputeService implements ComputeService {
     }
 
     @Override
-    public Set<? extends NodeMetadata> rebootNodesMatching(Predicate<NodeMetadata> filter) {
+    public Set<? extends NodeMetadata> rebootNodesMatching(Predicate<? super NodeMetadata> filter) {
         throw new UnsupportedOperationException();
     }
 
@@ -152,31 +152,27 @@ public class UnsupportedComputeService implements ComputeService {
     }
 
     @Override
-    public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<ComputeMetadata> filter) {
+    public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<? super NodeMetadata> filter) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Map<? extends NodeMetadata, ExecResponse> runScriptOnNodesMatching(Predicate<NodeMetadata> filter, String runScript)
-            throws RunScriptOnNodesException {
+    public Map<? extends NodeMetadata, ExecResponse> runScriptOnNodesMatching(Predicate<? super NodeMetadata> filter, String runScript) throws RunScriptOnNodesException {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Map<? extends NodeMetadata, ExecResponse> runScriptOnNodesMatching(Predicate<NodeMetadata> filter, Statement runScript)
-            throws RunScriptOnNodesException {
+    public Map<? extends NodeMetadata, ExecResponse> runScriptOnNodesMatching(Predicate<? super NodeMetadata> filter, Statement runScript) throws RunScriptOnNodesException {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Map<? extends NodeMetadata, ExecResponse> runScriptOnNodesMatching(Predicate<NodeMetadata> filter,
-            String runScript, RunScriptOptions options) throws RunScriptOnNodesException {
+    public Map<? extends NodeMetadata, ExecResponse> runScriptOnNodesMatching(Predicate<? super NodeMetadata> filter, String runScript, RunScriptOptions options) throws RunScriptOnNodesException {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Map<? extends NodeMetadata, ExecResponse> runScriptOnNodesMatching(Predicate<NodeMetadata> filter,
-            Statement runScript, RunScriptOptions options) throws RunScriptOnNodesException {
+    public Map<? extends NodeMetadata, ExecResponse> runScriptOnNodesMatching(Predicate<? super NodeMetadata> filter, Statement runScript, RunScriptOptions options) throws RunScriptOnNodesException {
         throw new UnsupportedOperationException();
     }
 

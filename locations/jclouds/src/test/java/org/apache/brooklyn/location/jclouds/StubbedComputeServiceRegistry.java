@@ -147,7 +147,7 @@ public class StubbedComputeServiceRegistry implements ComputeServiceRegistry {
             nodeCreator.destroyNode(id);
         }
         @Override
-        public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<ComputeMetadata> filter) {
+        public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<? super NodeMetadata> filter) {
             return nodeCreator.listNodesDetailsMatching(filter);
         }
         @Override
@@ -156,10 +156,6 @@ public class StubbedComputeServiceRegistry implements ComputeServiceRegistry {
         }
         @Override
         public Set<? extends NodeMetadata> createNodesInGroup(String group, int count, TemplateOptions templateOptions) {
-            throw new UnsupportedOperationException();
-        }
-        @Override
-        public Set<? extends NodeMetadata> destroyNodesMatching(Predicate<NodeMetadata> filter) {
             throw new UnsupportedOperationException();
         }
     }

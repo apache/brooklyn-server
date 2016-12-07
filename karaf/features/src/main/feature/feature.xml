@@ -144,7 +144,7 @@
         <bundle dependency="true">mvn:net.minidev/asm/${minidev.asm.version}</bundle>
         <bundle dependency="true">mvn:com.thoughtworks.xstream/xstream/${xstream.version}</bundle>
         <bundle dependency="true">mvn:org.freemarker/freemarker/${freemarker.version}</bundle>
-        <bundle dependency="true">mvn:net.schmizz/sshj/${sshj.version}</bundle>
+        <bundle dependency="true">mvn:com.hierynomus/sshj/${sshj.version}</bundle>
         <bundle dependency="true">mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jzlib/1.1.3_2</bundle> <!-- jzlib version is 1.1.3, but bundle is 1.1.3_2 -->
         <bundle dependency="true">mvn:org.bouncycastle/bcprov-ext-jdk15on/${bouncycastle.version}</bundle>
         <bundle dependency="true">mvn:org.bouncycastle/bcpkix-jdk15on/${bouncycastle.version}</bundle>
@@ -260,13 +260,13 @@
         <bundle dependency="true">mvn:org.apache.jclouds.driver/jclouds-okhttp/${jclouds.version}</bundle>
 
         <bundle dependency="true">mvn:org.apache.jclouds.driver/jclouds-sshj/${jclouds.version}</bundle>
-        <bundle dependency="true">mvn:org.apache.jclouds.labs/abiquo/${jclouds.version}</bundle>
-        <bundle dependency="true">mvn:org.apache.jclouds.labs/docker/${jclouds.version}</bundle>
+        <!--<bundle dependency="true">mvn:org.apache.jclouds.labs/abiquo/${jclouds.version}</bundle>--> <!-- jclouds abstraction not implemented -->
+        <bundle dependency="true">mvn:org.apache.jclouds.api/docker/${jclouds.version}</bundle>
 
-        <!-- Not bundle-ized, fixed in 2.0.0-SNAPSHOT -->
-        <!-- bundle dependency="true">mvn:org.apache.jclouds.labs/google-compute-engine/${jclouds.version}</bundle -->
+        <bundle dependency="true">mvn:org.apache.jclouds.provider/google-compute-engine/${jclouds.version}</bundle>
 
         <feature>jclouds-services</feature>
+        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsch-agentproxy-sshj/0.0.9_1</bundle>
 
         <!-- Same as allcompute -->
         <feature>jclouds-aws-ec2</feature>
@@ -291,7 +291,6 @@
         <feature>jclouds-aws-s3</feature>
         <feature>jclouds-azureblob</feature>
         <feature>jclouds-api-atmos</feature>
-        <feature>jclouds-api-swift</feature>
         <feature>jclouds-api-openstack-swift</feature>
         <feature>jclouds-rackspace-cloudfiles-uk</feature>
         <feature>jclouds-rackspace-cloudfiles-us</feature>
