@@ -25,7 +25,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.location.LocationSpec;
@@ -41,7 +40,6 @@ import org.apache.brooklyn.core.location.cloud.names.CustomMachineNamer;
 import org.apache.brooklyn.core.location.geo.HostGeoInfo;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.location.jclouds.JcloudsLocation.UserCreation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -580,8 +578,8 @@ public class JcloudsLocationTest implements JcloudsLocationConfig {
                         .put(JcloudsLocationConfig.USER, "bob").put(JcloudsLocationConfig.LOGIN_USER_PASSWORD, "b0b")
                         .putAll(config).build());
 
-        UserCreation creation = jl.createUserStatements(null, jl.config().getBag());
-        return new StatementList(creation.statements).render(OsFamily.UNIX);
+        CreateUserStatements creation = CreateUserStatements.get(jl, null, jl.config().getBag());
+        return new StatementList(creation.statements()).render(OsFamily.UNIX);
     }
     
     @Test
