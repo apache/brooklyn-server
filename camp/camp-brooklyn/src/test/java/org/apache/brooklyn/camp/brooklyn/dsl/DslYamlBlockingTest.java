@@ -23,6 +23,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslCallable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
@@ -615,7 +616,7 @@ public class DslYamlBlockingTest extends AbstractYamlTest {
         assertEquals(getConfigEventually(app, DEST), Boolean.TRUE);
     }
 
-    public static class DslTestCallable implements DeferredSupplier<TestDslSupplier>, ImmediateSupplier<TestDslSupplier> {
+    public static class DslTestCallable implements DslCallable, DeferredSupplier<TestDslSupplier>, ImmediateSupplier<TestDslSupplier> {
 
         @Override
         public Maybe<TestDslSupplier> getImmediately() {
