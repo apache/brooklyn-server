@@ -37,4 +37,6 @@ public class BrooklynSystemProperties {
     public static StringSystemProperty HOST_GEO_LOOKUP_IMPL_LEGACY = new StringSystemProperty("brooklyn.location.geo.HostGeoLookup");
     public static StringSystemProperty HOST_GEO_LOOKUP_IMPL = new StringSystemProperty("org.apache.brooklyn.core.location.geo.HostGeoLookup");
 
+    /** Allows the use of YAML tags to create arbitrary types known to Java. */
+    public static BooleanSystemProperty YAML_TYPE_INSTANTIATION = new BooleanSystemProperty("org.apache.brooklyn.unsafe.YamlTypeInstantiation");
 }
