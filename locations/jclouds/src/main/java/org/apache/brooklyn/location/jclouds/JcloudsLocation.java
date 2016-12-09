@@ -78,6 +78,8 @@ import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.jclouds.JcloudsBlobStoreBasedObjectStore;
 import org.apache.brooklyn.location.jclouds.networking.JcloudsPortForwarderExtension;
 import org.apache.brooklyn.location.jclouds.templates.PortableTemplateBuilder;
+import org.apache.brooklyn.location.jclouds.templates.customize.TemplateBuilderCustomizer;
+import org.apache.brooklyn.location.jclouds.templates.customize.TemplateBuilderCustomizers;
 import org.apache.brooklyn.location.jclouds.templates.customize.TemplateOptionCustomizer;
 import org.apache.brooklyn.location.jclouds.templates.customize.TemplateOptionCustomizers;
 import org.apache.brooklyn.location.jclouds.zone.AwsAvailabilityZoneExtension;
@@ -92,7 +94,6 @@ import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
-import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
@@ -109,7 +110,6 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.javalang.Enums;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.net.Cidr;
 import org.apache.brooklyn.util.net.Networking;
@@ -120,7 +120,6 @@ import org.apache.brooklyn.util.ssh.IptablesCommands;
 import org.apache.brooklyn.util.ssh.IptablesCommands.Chain;
 import org.apache.brooklyn.util.ssh.IptablesCommands.Policy;
 import org.apache.brooklyn.util.stream.Streams;
-import org.apache.brooklyn.util.text.ByteSizeStrings;
 import org.apache.brooklyn.util.text.KeyValueParser;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.text.Strings;
@@ -141,7 +140,6 @@ import org.jclouds.compute.domain.OperatingSystem;
 import org.jclouds.compute.domain.OsFamily;
 import org.jclouds.compute.domain.Template;
 import org.jclouds.compute.domain.TemplateBuilder;
-import org.jclouds.compute.domain.TemplateBuilderSpec;
 import org.jclouds.compute.options.TemplateOptions;
 import org.jclouds.domain.Credentials;
 import org.jclouds.domain.LocationScope;
@@ -1232,74 +1230,27 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
     // ------------- constructing the template, etc ------------------------
 
-    private interface CustomizeTemplateBuilder {
-        void apply(TemplateBuilder tb, ConfigBag props, Object v);
-    }
-
     /** @deprecated since 0.11.0 use {@link TemplateOptionCustomizer} instead */
     @Deprecated
     public interface CustomizeTemplateOptions extends TemplateOptionCustomizer {
     }
 
     /** properties which cause customization of the TemplateBuilder */
-    public static final Map<ConfigKey<?>, CustomizeTemplateBuilder> SUPPORTED_TEMPLATE_BUILDER_PROPERTIES = ImmutableMap.<ConfigKey<?>,CustomizeTemplateBuilder>builder()
-            .put(OS_64_BIT, new CustomizeTemplateBuilder() {
-                    public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
-                        Boolean os64Bit = TypeCoercions.coerce(v, Boolean.class);
-                        if (os64Bit!=null)
-                            tb.os64Bit(os64Bit);
-                    }})
-            .put(MIN_RAM, new CustomizeTemplateBuilder() {
-                    public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
-                        tb.minRam( (int)(ByteSizeStrings.parse(Strings.toString(v), "mb")/1000/1000) );
-                    }})
-            .put(MIN_CORES, new CustomizeTemplateBuilder() {
-                    public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
-                        tb.minCores(TypeCoercions.coerce(v, Double.class));
-                    }})
-            .put(MIN_DISK, new CustomizeTemplateBuilder() {
-                    public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
-                        tb.minDisk( (int)(ByteSizeStrings.parse(Strings.toString(v), "gb")/1000/1000/1000) );
-                    }})
-            .put(HARDWARE_ID, new CustomizeTemplateBuilder() {
-                    public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
-                        tb.hardwareId(((CharSequence)v).toString());
-                    }})
-            .put(IMAGE_ID, new CustomizeTemplateBuilder() {
-                    public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
-                        tb.imageId(((CharSequence)v).toString());
-                    }})
-            .put(IMAGE_DESCRIPTION_REGEX, new CustomizeTemplateBuilder() {
-                    public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
-                        tb.imageDescriptionMatches(((CharSequence)v).toString());
-                    }})
-            .put(IMAGE_NAME_REGEX, new CustomizeTemplateBuilder() {
-                    public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
-                        tb.imageNameMatches(((CharSequence)v).toString());
-                    }})
-            .put(OS_FAMILY, new CustomizeTemplateBuilder() {
-                    public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
-                        Maybe<OsFamily> osFamily = Enums.valueOfIgnoreCase(OsFamily.class, v.toString());
-                        if (osFamily.isAbsent())
-                            throw new IllegalArgumentException("Invalid "+OS_FAMILY+" value "+v);
-                        tb.osFamily(osFamily.get());
-                    }})
-            .put(OS_VERSION_REGEX, new CustomizeTemplateBuilder() {
-                    public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
-                        tb.osVersionMatches( ((CharSequence)v).toString() );
-                    }})
-            .put(TEMPLATE_SPEC, new CustomizeTemplateBuilder() {
-                public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
-                        tb.from(TemplateBuilderSpec.parse(((CharSequence)v).toString()));
-                    }})
-            .put(DEFAULT_IMAGE_ID, new CustomizeTemplateBuilder() {
-                    public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
-                        /* done in the code, but included here so that it is in the map */
-                    }})
-            .put(TEMPLATE_BUILDER, new CustomizeTemplateBuilder() {
-                    public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
-                        /* done in the code, but included here so that it is in the map */
-                    }})
+    public static final Map<ConfigKey<?>, ? extends TemplateBuilderCustomizer> SUPPORTED_TEMPLATE_BUILDER_PROPERTIES = ImmutableMap.<ConfigKey<?>, TemplateBuilderCustomizer>builder()
+            .put(HARDWARE_ID, TemplateBuilderCustomizers.hardwareId())
+            .put(IMAGE_DESCRIPTION_REGEX, TemplateBuilderCustomizers.imageDescription())
+            .put(IMAGE_ID, TemplateBuilderCustomizers.imageId())
+            .put(IMAGE_NAME_REGEX, TemplateBuilderCustomizers.imageNameRegex())
+            .put(MIN_CORES, TemplateBuilderCustomizers.minCores())
+            .put(MIN_DISK, TemplateBuilderCustomizers.minDisk())
+            .put(MIN_RAM, TemplateBuilderCustomizers.minRam())
+            .put(OS_64_BIT, TemplateBuilderCustomizers.os64Bit())
+            .put(OS_FAMILY, TemplateBuilderCustomizers.osFamily())
+            .put(OS_VERSION_REGEX, TemplateBuilderCustomizers.osVersionRegex())
+            .put(TEMPLATE_SPEC, TemplateBuilderCustomizers.templateSpec())
+            /* Both done in the code, but included here so that they are in the map */
+            .put(DEFAULT_IMAGE_ID, TemplateBuilderCustomizers.noOp())
+            .put(TEMPLATE_BUILDER, TemplateBuilderCustomizers.noOp())
             .build();
 
     /** properties which cause customization of the TemplateOptions */
@@ -1419,11 +1370,11 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
 
         // Apply the template builder and options properties
-        for (Map.Entry<ConfigKey<?>, CustomizeTemplateBuilder> entry : SUPPORTED_TEMPLATE_BUILDER_PROPERTIES.entrySet()) {
+        for (Map.Entry<ConfigKey<?>, ? extends TemplateBuilderCustomizer> entry : SUPPORTED_TEMPLATE_BUILDER_PROPERTIES.entrySet()) {
             ConfigKey<?> key = entry.getKey();
             Object val = config.containsKey(key) ? config.get(key) : key.getDefaultValue();
             if (val != null) {
-                CustomizeTemplateBuilder code = entry.getValue();
+                TemplateBuilderCustomizer code = entry.getValue();
                 code.apply(templateBuilder, config, val);
             }
         }
@@ -3100,4 +3051,5 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             return val1;
         }
     }
+
 }
