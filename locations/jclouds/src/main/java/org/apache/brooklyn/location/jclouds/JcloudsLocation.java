@@ -29,7 +29,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -79,6 +78,8 @@ import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.jclouds.JcloudsBlobStoreBasedObjectStore;
 import org.apache.brooklyn.location.jclouds.networking.JcloudsPortForwarderExtension;
 import org.apache.brooklyn.location.jclouds.templates.PortableTemplateBuilder;
+import org.apache.brooklyn.location.jclouds.templates.customize.TemplateOptionCustomizer;
+import org.apache.brooklyn.location.jclouds.templates.customize.TemplateOptionCustomizers;
 import org.apache.brooklyn.location.jclouds.zone.AwsAvailabilityZoneExtension;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
@@ -90,7 +91,6 @@ import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
-import org.apache.brooklyn.util.core.flags.MethodCoercions;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
@@ -114,7 +114,6 @@ import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.net.Cidr;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.net.Protocol;
-import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.ssh.BashCommands;
 import org.apache.brooklyn.util.ssh.IptablesCommands;
@@ -129,8 +128,6 @@ import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Pair;
-import org.jclouds.aws.ec2.compute.AWSEC2TemplateOptions;
-import org.jclouds.cloudstack.compute.options.CloudStackTemplateOptions;
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.RunNodesException;
 import org.jclouds.compute.config.AdminAccessConfiguration;
@@ -149,8 +146,6 @@ import org.jclouds.compute.options.TemplateOptions;
 import org.jclouds.domain.Credentials;
 import org.jclouds.domain.LocationScope;
 import org.jclouds.domain.LoginCredentials;
-import org.jclouds.ec2.compute.options.EC2TemplateOptions;
-import org.jclouds.openstack.nova.v2_0.compute.options.NovaTemplateOptions;
 import org.jclouds.rest.AuthorizationException;
 import org.jclouds.scriptbuilder.domain.Statement;
 import org.jclouds.scriptbuilder.domain.StatementList;
@@ -162,7 +157,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
@@ -183,7 +177,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
-import com.google.common.io.Files;
 import com.google.common.net.HostAndPort;
 
 /**
@@ -1243,12 +1236,13 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         void apply(TemplateBuilder tb, ConfigBag props, Object v);
     }
 
-    public interface CustomizeTemplateOptions {
-        void apply(TemplateOptions tb, ConfigBag props, Object v);
+    /** @deprecated since 0.11.0 use {@link TemplateOptionCustomizer} instead */
+    @Deprecated
+    public interface CustomizeTemplateOptions extends TemplateOptionCustomizer {
     }
 
     /** properties which cause customization of the TemplateBuilder */
-    public static final Map<ConfigKey<?>,CustomizeTemplateBuilder> SUPPORTED_TEMPLATE_BUILDER_PROPERTIES = ImmutableMap.<ConfigKey<?>,CustomizeTemplateBuilder>builder()
+    public static final Map<ConfigKey<?>, CustomizeTemplateBuilder> SUPPORTED_TEMPLATE_BUILDER_PROPERTIES = ImmutableMap.<ConfigKey<?>,CustomizeTemplateBuilder>builder()
             .put(OS_64_BIT, new CustomizeTemplateBuilder() {
                     public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
                         Boolean os64Bit = TypeCoercions.coerce(v, Boolean.class);
@@ -1309,260 +1303,27 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             .build();
 
     /** properties which cause customization of the TemplateOptions */
-    public static final Map<ConfigKey<?>,CustomizeTemplateOptions> SUPPORTED_TEMPLATE_OPTIONS_PROPERTIES = ImmutableMap.<ConfigKey<?>,CustomizeTemplateOptions>builder()
-            .put(SECURITY_GROUPS, new CustomizeTemplateOptions() {
-                    public void apply(TemplateOptions t, ConfigBag props, Object v) {
-                        if (t instanceof EC2TemplateOptions) {
-                            String[] securityGroups = toStringArray(v);
-                            ((EC2TemplateOptions)t).securityGroups(securityGroups);
-                        } else if (t instanceof NovaTemplateOptions) {
-                            String[] securityGroups = toStringArray(v);
-                            ((NovaTemplateOptions)t).securityGroups(securityGroups);
-                        } else if (t instanceof SoftLayerTemplateOptions) {
-                            String[] securityGroups = toStringArray(v);
-                            ((SoftLayerTemplateOptions)t).securityGroups(securityGroups);
-                        } else if (isGoogleComputeTemplateOptions(t)) {
-                            String[] securityGroups = toStringArray(v);
-                            t.securityGroups(securityGroups);
-                        } else {
-                            LOG.info("ignoring securityGroups({}) in VM creation because not supported for cloud/type ({})", v, t.getClass());
-                        }
-                    }})
-            .put(INBOUND_PORTS, new CustomizeTemplateOptions() {
-                    public void apply(TemplateOptions t, ConfigBag props, Object v) {
-                        int[] inboundPorts = toIntPortArray(v);
-                        if (LOG.isDebugEnabled()) LOG.debug("opening inbound ports {} for cloud/type {}", Arrays.toString(inboundPorts), t.getClass());
-                        t.inboundPorts(inboundPorts);
-                    }})
-            .put(USER_METADATA_STRING, new CustomizeTemplateOptions() {
-                    public void apply(TemplateOptions t, ConfigBag props, Object v) {
-                        if (t instanceof EC2TemplateOptions) {
-                            // See AWS docs: http://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/UsingConfig_WinAMI.html#user-data-execution
-                            if (v==null) return;
-                            String data = v.toString();
-                            if (!(data.startsWith("<script>") || data.startsWith("<powershell>"))) {
-                                data = "<script> " + data + " </script>";
-                            }
-                            ((EC2TemplateOptions)t).userData(data.getBytes());
-                        } else if (t instanceof SoftLayerTemplateOptions) {
-                            ((SoftLayerTemplateOptions)t).userData(Strings.toString(v));
-                        } else {
-                            // Try reflection: userData(String), or guestCustomizationScript(String);
-                            // the latter is used by vCloud Director.
-                            Class<? extends TemplateOptions> clazz = t.getClass();
-                            Method userDataMethod = null;
-                            try {
-                                userDataMethod = clazz.getMethod("userData", String.class);
-                            } catch (SecurityException e) {
-                                LOG.info("Problem reflectively inspecting methods of "+t.getClass()+" for setting userData", e);
-                            } catch (NoSuchMethodException e) {
-                                try {
-                                    // For vCloud Director
-                                    userDataMethod = clazz.getMethod("guestCustomizationScript", String.class);
-                                } catch (NoSuchMethodException e2) {
-                                    // expected on various other clouds
-                                }
-                            }
-                            if (userDataMethod != null) {
-                                try {
-                                    userDataMethod.invoke(t, Strings.toString(v));
-                                } catch (InvocationTargetException e) {
-                                    LOG.info("Problem invoking "+userDataMethod.getName()+" of "+t.getClass()+", for setting userData (rethrowing)", e);
-                                    throw Exceptions.propagate(e);
-                                } catch (IllegalAccessException e) {
-                                    LOG.debug("Unable to reflectively invoke "+userDataMethod.getName()+" of "+t.getClass()+", for setting userData (rethrowing)", e);
-                                    throw Exceptions.propagate(e);
-                                }
-                            } else {
-                                LOG.info("ignoring userDataString({}) in VM creation because not supported for cloud/type ({})", v, t.getClass());
-                            }
-                        }
-                    }})
-            .put(USER_DATA_UUENCODED, new CustomizeTemplateOptions() {
-                    public void apply(TemplateOptions t, ConfigBag props, Object v) {
-                        if (t instanceof EC2TemplateOptions) {
-                            byte[] bytes = toByteArray(v);
-                            ((EC2TemplateOptions)t).userData(bytes);
-                        } else if (t instanceof SoftLayerTemplateOptions) {
-                            ((SoftLayerTemplateOptions)t).userData(Strings.toString(v));
-                        } else {
-                            LOG.info("ignoring userData({}) in VM creation because not supported for cloud/type ({})", v, t.getClass());
-                        }
-                    }})
-            .put(STRING_TAGS, new CustomizeTemplateOptions() {
-                    public void apply(TemplateOptions t, ConfigBag props, Object v) {
-                        List<String> tags = toListOfStrings(v);
-                        if (LOG.isDebugEnabled()) LOG.debug("setting VM tags {} for {}", tags, t);
-                        t.tags(tags);
-                    }})
-            .put(USER_METADATA_MAP, new CustomizeTemplateOptions() {
-                    public void apply(TemplateOptions t, ConfigBag props, Object v) {
-                        if (v != null) {
-                            t.userMetadata(toMapStringString(v));
-                        }
-                    }})
-            .put(EXTRA_PUBLIC_KEY_DATA_TO_AUTH, new CustomizeTemplateOptions() {
-                    public void apply(TemplateOptions t, ConfigBag props, Object v) {
-                        // this is unreliable:
-                        // * seems now (Aug 2016) to be run *before* the TO.runScript which creates the user,
-                        // so is installed for the initial login user not the created user
-                        // * not supported in GCE (it uses it as the login public key, see email to jclouds list, 29 Aug 2015)
-                        // so only works if you also overrideLoginPrivateKey
-                        // --
-                        // for this reason we also inspect these ourselves
-                        // along with EXTRA_PUBLIC_KEY_URLS_TO_AUTH
-                        // and install after creation;
-                        // --
-                        // we also do it here for legacy reasons though i (alex) can't think of any situations it's needed
-                        // --
-                        // also we warn on exceptions in case someone is dumping comments or something else
-                        try {
-                            t.authorizePublicKey(((CharSequence)v).toString());
-                        } catch (Exception e) {
-                            Exceptions.propagateIfFatal(e);
-                            LOG.warn("Error trying jclouds authorizePublicKey; will run later: "+e, e);
-                        }
-                    }})
-            .put(RUN_AS_ROOT, new CustomizeTemplateOptions() {
-                    public void apply(TemplateOptions t, ConfigBag props, Object v) {
-                        t.runAsRoot((Boolean)v);
-                    }})
-            .put(LOGIN_USER, new CustomizeTemplateOptions() {
-                    public void apply(TemplateOptions t, ConfigBag props, Object v) {
-                        if (v != null) {
-                            t.overrideLoginUser(((CharSequence)v).toString());
-                        }
-                    }})
-            .put(LOGIN_USER_PASSWORD, new CustomizeTemplateOptions() {
-                    public void apply(TemplateOptions t, ConfigBag props, Object v) {
-                        if (v != null) {
-                            t.overrideLoginPassword(((CharSequence)v).toString());
-                        }
-                    }})
-            .put(LOGIN_USER_PRIVATE_KEY_FILE, new CustomizeTemplateOptions() {
-                    public void apply(TemplateOptions t, ConfigBag props, Object v) {
-                        if (v != null) {
-                            String privateKeyFileName = ((CharSequence)v).toString();
-                            String privateKey;
-                            try {
-                                privateKey = Files.toString(new File(Os.tidyPath(privateKeyFileName)), Charsets.UTF_8);
-                            } catch (IOException e) {
-                                LOG.error(privateKeyFileName + "not found", e);
-                                throw Exceptions.propagate(e);
-                            }
-                            t.overrideLoginPrivateKey(privateKey);
-                        }
-                    }})
-            .put(LOGIN_USER_PRIVATE_KEY_DATA, new CustomizeTemplateOptions() {
-                    public void apply(TemplateOptions t, ConfigBag props, Object v) {
-                        if (v != null) {
-                            t.overrideLoginPrivateKey(((CharSequence)v).toString());
-                        }
-                    }})
-            .put(KEY_PAIR, new CustomizeTemplateOptions() {
-                    public void apply(TemplateOptions t, ConfigBag props, Object v) {
-                        if (t instanceof EC2TemplateOptions) {
-                            ((EC2TemplateOptions)t).keyPair(((CharSequence)v).toString());
-                        } else if (t instanceof NovaTemplateOptions) {
-                            ((NovaTemplateOptions)t).keyPairName(((CharSequence)v).toString());
-                        } else if (t instanceof CloudStackTemplateOptions) {
-                            ((CloudStackTemplateOptions) t).keyPair(((CharSequence) v).toString());
-                        } else {
-                            LOG.info("ignoring keyPair({}) in VM creation because not supported for cloud/type ({})", v, t);
-                        }
-                    }})
-            .put(AUTO_GENERATE_KEYPAIRS, new CustomizeTemplateOptions() {
-                    public void apply(TemplateOptions t, ConfigBag props, Object v) {
-                        if (t instanceof NovaTemplateOptions) {
-                            ((NovaTemplateOptions)t).generateKeyPair((Boolean)v);
-                        } else if (t instanceof CloudStackTemplateOptions) {
-                            ((CloudStackTemplateOptions) t).generateKeyPair((Boolean) v);
-                        } else {
-                            LOG.info("ignoring auto-generate-keypairs({}) in VM creation because not supported for cloud/type ({})", v, t);
-                        }
-                    }})
-            .put(AUTO_CREATE_FLOATING_IPS, new CustomizeTemplateOptions() {
-                    public void apply(TemplateOptions t, ConfigBag props, Object v) {
-                        LOG.warn("Using deprecated "+AUTO_CREATE_FLOATING_IPS+"; use "+AUTO_ASSIGN_FLOATING_IP+" instead");
-                        if (t instanceof NovaTemplateOptions) {
-                            ((NovaTemplateOptions)t).autoAssignFloatingIp((Boolean)v);
-                        } else {
-                            LOG.info("ignoring auto-generate-floating-ips({}) in VM creation because not supported for cloud/type ({})", v, t);
-                        }
-                    }})
-            .put(AUTO_ASSIGN_FLOATING_IP, new CustomizeTemplateOptions() {
-                    public void apply(TemplateOptions t, ConfigBag props, Object v) {
-                        if (t instanceof NovaTemplateOptions) {
-                            ((NovaTemplateOptions)t).autoAssignFloatingIp((Boolean)v);
-                        } else if (t instanceof CloudStackTemplateOptions) {
-                            ((CloudStackTemplateOptions)t).setupStaticNat((Boolean)v);
-                        } else {
-                            LOG.info("ignoring auto-assign-floating-ip({}) in VM creation because not supported for cloud/type ({})", v, t);
-                        }
-                    }})
-            .put(NETWORK_NAME, new CustomizeTemplateOptions() {
-                    public void apply(TemplateOptions t, ConfigBag props, Object v) {
-                        if (t instanceof AWSEC2TemplateOptions) {
-                            // subnet ID is the sensible interpretation of network name in EC2
-                            ((AWSEC2TemplateOptions)t).subnetId((String)v);
-
-                        } else {
-                            if (isGoogleComputeTemplateOptions(t)) {
-                                // no warning needed
-                                // we think this is the only jclouds endpoint which supports this option
-
-                            } else if (t instanceof SoftLayerTemplateOptions) {
-                                LOG.warn("networkName is not be supported in SoftLayer; use `templateOptions` with `primaryNetworkComponentNetworkVlanId` or `primaryNetworkBackendComponentNetworkVlanId`");
-                            } else if (!(t instanceof CloudStackTemplateOptions) && !(t instanceof NovaTemplateOptions)) {
-                                LOG.warn("networkName is experimental in many jclouds endpoints may not be supported in this cloud");
-                                // NB, from @andreaturli
-//                                Cloudstack uses custom securityGroupIds and networkIds not the generic networks
-//                                Openstack Nova uses securityGroupNames which is marked as @deprecated (suggests to use groups which is maybe even more confusing)
-//                                Azure supports the custom networkSecurityGroupName
-                            }
-
-                            t.networks((String)v);
-                        }
-                    }})
-            .put(DOMAIN_NAME, new CustomizeTemplateOptions() {
-                    public void apply(TemplateOptions t, ConfigBag props, Object v) {
-                        if (t instanceof SoftLayerTemplateOptions) {
-                            ((SoftLayerTemplateOptions)t).domainName(TypeCoercions.coerce(v, String.class));
-                        } else {
-                            LOG.info("ignoring domain-name({}) in VM creation because not supported for cloud/type ({})", v, t);
-                        }
-                    }})
-            .put(TEMPLATE_OPTIONS, new CustomizeTemplateOptions() {
-                @Override
-                public void apply(TemplateOptions options, ConfigBag config, Object v) {
-                    if (v == null) return;
-                    @SuppressWarnings("unchecked") Map<String, Object> optionsMap = (Map<String, Object>) v;
-                    if (optionsMap.isEmpty()) return;
-
-                    Class<? extends TemplateOptions> clazz = options.getClass();
-                    for(final Map.Entry<String, Object> option : optionsMap.entrySet()) {
-                        if (option.getValue() != null) {
-                            Maybe<?> result = MethodCoercions.tryFindAndInvokeBestMatchingMethod(options, option.getKey(), option.getValue());
-                            if(result.isAbsent()) {
-                                LOG.warn("Ignoring request to set template option {} because this is not supported by {}", new Object[] { option.getKey(), clazz.getCanonicalName() });
-                            }
-                        } else {
-                            // jclouds really doesn't like you to pass nulls; don't do it! For us,
-                            // null is the only way to remove an inherited value when the templateOptions
-                            // map is being merged.
-                            LOG.debug("Ignoring request to set template option {} because value is null", new Object[] { option.getKey(), clazz.getCanonicalName() });
-                        }
-                    }
-                }})
+    public static final Map<ConfigKey<?>, ? extends TemplateOptionCustomizer>SUPPORTED_TEMPLATE_OPTIONS_PROPERTIES = ImmutableMap.<ConfigKey<?>, TemplateOptionCustomizer>builder()
+            .put(AUTO_ASSIGN_FLOATING_IP, TemplateOptionCustomizers.autoAssignFloatingIp())
+            .put(AUTO_CREATE_FLOATING_IPS, TemplateOptionCustomizers.autoCreateFloatingIps())
+            .put(AUTO_GENERATE_KEYPAIRS, TemplateOptionCustomizers.autoGenerateKeypairs())
+            .put(DOMAIN_NAME, TemplateOptionCustomizers.domainName())
+            .put(EXTRA_PUBLIC_KEY_DATA_TO_AUTH, TemplateOptionCustomizers.extraPublicKeyDataToAuth())
+            .put(INBOUND_PORTS, TemplateOptionCustomizers.inboundPorts())
+            .put(KEY_PAIR, TemplateOptionCustomizers.keyPair())
+            .put(LOGIN_USER, TemplateOptionCustomizers.loginUser())
+            .put(LOGIN_USER_PASSWORD, TemplateOptionCustomizers.loginUserPassword())
+            .put(LOGIN_USER_PRIVATE_KEY_DATA, TemplateOptionCustomizers.loginUserPrivateKeyData())
+            .put(LOGIN_USER_PRIVATE_KEY_FILE, TemplateOptionCustomizers.loginUserPrivateKeyFile())
+            .put(NETWORK_NAME, TemplateOptionCustomizers.networkName())
+            .put(RUN_AS_ROOT, TemplateOptionCustomizers.runAsRoot())
+            .put(SECURITY_GROUPS, TemplateOptionCustomizers.securityGroups())
+            .put(STRING_TAGS, TemplateOptionCustomizers.stringTags())
+            .put(TEMPLATE_OPTIONS, TemplateOptionCustomizers.templateOptions())
+            .put(USER_DATA_UUENCODED, TemplateOptionCustomizers.userDataUuencoded())
+            .put(USER_METADATA_MAP, TemplateOptionCustomizers.userMetadataMap())
+            .put(USER_METADATA_STRING, TemplateOptionCustomizers.userMetadataString())
             .build();
-
-    /**
-     * Avoid having a dependency on googlecompute because it doesn't have an OSGi bundle yet.
-     * Fixed in jclouds 2.0.0-SNAPSHOT
-     */
-    private static boolean isGoogleComputeTemplateOptions(TemplateOptions t) {
-        return t.getClass().getName().equals("org.jclouds.googlecomputeengine.compute.options.GoogleComputeEngineTemplateOptions");
-    }
 
     /** hook whereby template customizations can be made for various clouds */
     protected void customizeTemplate(ComputeService computeService, Template template, Collection<JcloudsLocationCustomizer> customizers) {
@@ -1761,9 +1522,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             }
         }
 
-        for (Map.Entry<ConfigKey<?>, CustomizeTemplateOptions> entry : SUPPORTED_TEMPLATE_OPTIONS_PROPERTIES.entrySet()) {
+        for (Map.Entry<ConfigKey<?>, ? extends TemplateOptionCustomizer> entry : SUPPORTED_TEMPLATE_OPTIONS_PROPERTIES.entrySet()) {
             ConfigKey<?> key = entry.getKey();
-            CustomizeTemplateOptions code = entry.getValue();
+            TemplateOptionCustomizer code = entry.getValue();
             if (config.containsKey(key) && config.get(key) != null) {
                 code.apply(options, config, config.get(key));
             }
@@ -3236,14 +2997,23 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
     }
 
+    @Override
+    public PersistenceObjectStore newPersistenceObjectStore(String container) {
+        return new JcloudsBlobStoreBasedObjectStore(this, container);
+    }
+
     // ------------ static converters (could go to a new file) ------------------
 
+    /** @deprecated since 0.11.0 without replacement */
+    @Deprecated
     public static File asFile(Object o) {
         if (o instanceof File) return (File)o;
         if (o == null) return null;
         return new File(o.toString());
     }
 
+    /** @deprecated since 0.11.0 without replacement */
+    @Deprecated
     public static String fileAsString(Object o) {
         if (o instanceof String) return (String)o;
         if (o instanceof File) return ((File)o).getAbsolutePath();
@@ -3251,6 +3021,8 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         return o.toString();
     }
 
+    /** @deprecated since 0.11.0 without replacement */
+    @Deprecated
     protected static double toDouble(Object v) {
         if (v instanceof Number) {
             return ((Number)v).doubleValue();
@@ -3259,28 +3031,20 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
     }
 
+    /** @deprecated since 0.11.0 without replacement */
+    @Deprecated
     protected static String[] toStringArray(Object v) {
-        return toListOfStrings(v).toArray(new String[0]);
+        return Strings.toStringList(v).toArray(new String[0]);
     }
 
+    /** @deprecated since 0.11.0 use {@link Strings#toStringList(Object)} instead */
+    @Deprecated
     protected static List<String> toListOfStrings(Object v) {
-        List<String> result = Lists.newArrayList();
-        if (v instanceof Iterable) {
-            for (Object o : (Iterable<?>)v) {
-                result.add(o.toString());
-            }
-        } else if (v instanceof Object[]) {
-            for (int i = 0; i < ((Object[])v).length; i++) {
-                result.add(((Object[])v)[i].toString());
-            }
-        } else if (v instanceof String) {
-            result.add((String) v);
-        } else {
-            throw new IllegalArgumentException("Invalid type for List<String>: "+v+" of type "+v.getClass());
-        }
-        return result;
+        return Strings.toStringList(v);
     }
 
+    /** @deprecated since 0.11.0 without replacement */
+    @Deprecated
     protected static byte[] toByteArray(Object v) {
         if (v instanceof byte[]) {
             return (byte[]) v;
@@ -3291,21 +3055,24 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
     }
 
+    /** @deprecated since 0.11.0 without replacement */
+    @Deprecated
     @VisibleForTesting
     static int[] toIntPortArray(Object v) {
         PortRange portRange = PortRanges.fromIterable(Collections.singletonList(v));
-        int[] portArray = ArrayUtils.toPrimitive(Iterables.toArray(portRange, Integer.class));
-
-        return portArray;
+        return ArrayUtils.toPrimitive(Iterables.toArray(portRange, Integer.class));
     }
 
+
+    /** @deprecated since 0.11.0 without replacement */
+    @Deprecated
     // Handles GString
     protected static Map<String,String> toMapStringString(Object v) {
         if (v instanceof Map<?,?>) {
             Map<String,String> result = Maps.newLinkedHashMap();
             for (Map.Entry<?,?> entry : ((Map<?,?>)v).entrySet()) {
-                String key = ((CharSequence)entry.getKey()).toString();
-                String value = ((CharSequence)entry.getValue()).toString();
+                String key = entry.getKey().toString();
+                String value = entry.getValue().toString();
                 result.put(key, value);
             }
             return result;
@@ -3315,11 +3082,6 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             throw new IllegalArgumentException("Invalid type for Map<String,String>: " + v +
                     (v != null ? " of type "+v.getClass() : ""));
         }
-    }
-
-    @Override
-    public PersistenceObjectStore newPersistenceObjectStore(String container) {
-        return new JcloudsBlobStoreBasedObjectStore(this, container);
     }
 
     // TODO Very similar to EntityConfigMap.deepMerge

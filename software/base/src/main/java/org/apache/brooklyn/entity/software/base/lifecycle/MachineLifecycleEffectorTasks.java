@@ -491,6 +491,8 @@ public abstract class MachineLifecycleEffectorTasks {
                 SshMachineLocation sshMachine = (SshMachineLocation) machine;
                 UserAndHostAndPort sshAddress = UserAndHostAndPort.fromParts(
                         sshMachine.getUser(), sshMachine.getAddress().getHostName(), sshMachine.getPort());
+                // FIXME: Who or what is SSH_ADDRESS intended for? It's not necessarily the address that
+                // the SshMachineLocation is using for ssh connections (because it accepts SSH_HOST as an override).
                 entity().sensors().set(Attributes.SSH_ADDRESS, sshAddress);
             }
 

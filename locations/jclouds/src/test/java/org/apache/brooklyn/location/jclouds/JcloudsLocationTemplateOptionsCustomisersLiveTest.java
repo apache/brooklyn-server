@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.location.jclouds.templates.customize.TemplateOptionCustomizer;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.jclouds.aws.ec2.compute.AWSEC2TemplateOptions;
 import org.jclouds.compute.options.TemplateOptions;
@@ -98,7 +99,7 @@ public class JcloudsLocationTemplateOptionsCustomisersLiveTest extends AbstractJ
         checkState(locationConfig.containsKey(keyToTest),
                 "location config does not contain the key " + keyToTest.getName());
 
-        JcloudsLocation.CustomizeTemplateOptions code = JcloudsLocation.SUPPORTED_TEMPLATE_OPTIONS_PROPERTIES.get(keyToTest);
+        TemplateOptionCustomizer code = JcloudsLocation.SUPPORTED_TEMPLATE_OPTIONS_PROPERTIES.get(keyToTest);
         code.apply(templateOptions, locationConfig, locationConfig.get(keyToTest));
     }
 
