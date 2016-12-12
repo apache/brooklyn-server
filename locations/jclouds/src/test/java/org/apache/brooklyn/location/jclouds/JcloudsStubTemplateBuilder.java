@@ -102,7 +102,8 @@ public class JcloudsStubTemplateBuilder {
                 .of(HARDWARE_SUPPORTING_BOGUS));
 
 
-        AtomicReference<AuthorizationException> authException = new AtomicReference<AuthorizationException>(new AuthorizationException());
+//        AtomicReference<AuthorizationException> authException = new AtomicReference<AuthorizationException>(new AuthorizationException());
+        AtomicReference<AuthorizationException> authException = new AtomicReference<AuthorizationException>();
 
         com.google.inject.Provider<GetImageStrategy> imageLoader = new com.google.inject.Provider<GetImageStrategy>() {
             @Override
