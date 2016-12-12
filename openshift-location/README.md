@@ -39,6 +39,30 @@ they can also be given as paths to files using the keys `caCertFile`, `clientCer
 [OpenShift documentation](https://docs.openshift.com/enterprise/3.1/install_config/certificate_customization.html) for
 more detail on the content of these.
 
+An alternate way of authorizing your OpenShift is using OAuth. To obtain the token required you must use the `oc` command-line tool, 
+first to log in to OpenShift and then to display the token value, using the `whoami` command:
+
+    oc login << endpoint >>
+    oc whoami -t
+
+Which will output the token to the command line:
+
+    mzUTj0JmWDYLSspumvW5B74rn8geKd6Qll11IPkaqeE
+    
+This is then set as the `oauthToken` field in the location:
+
+    brooklyn.catalog:
+      id: my-openshift-cluster
+      name: "My Openshift Cluster"
+      itemType: location
+      item:
+        type: openshift
+        brooklyn.config:
+          endpoint: << endpoint >>
+          oauthToken: mzUTj0JmWDYLSspumvW5B74rn8geKd6Qll11IPkaqeE
+          namespace: << project name >>
+          privileged: true
+
 * Namespace
    
 The `namespace` key relates to the project in which your AMP managed applications will deploy. If no project exists,
