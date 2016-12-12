@@ -58,6 +58,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
+import org.apache.brooklyn.util.text.StringFunctions.RegexReplacer;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.commons.beanutils.BeanUtils;
 import org.slf4j.Logger;
@@ -626,25 +627,17 @@ public class BrooklynDslCommon {
     public static class Functions {
         public static Object regexReplacement(final Object pattern, final Object replacement) {
             if (resolved(pattern, replacement)) {
-                return new RegexReplacer(String.valueOf(pattern), String.valueOf(replacement));
+                return new org.apache.brooklyn.util.text.StringFunctions.RegexReplacer(String.valueOf(pattern), String.valueOf(replacement));
             } else {
                 return new DslRegexReplacer(pattern, replacement);
             }
         }
 
-        public static class RegexReplacer implements Function<String, String> {
-            private final String pattern;
-            private final String replacement;
-
+        /** @deprecated since 0.11.0; use {@link org.apache.brooklyn.util.text.StringFunctions.RegexReplacer} instead */
+        @Deprecated
+        public static class RegexReplacer extends org.apache.brooklyn.util.text.StringFunctions.RegexReplacer {
             public RegexReplacer(String pattern, String replacement) {
-                this.pattern = pattern;
-                this.replacement = replacement;
-            }
-
-            @Nullable
-            @Override
-            public String apply(@Nullable String s) {
-                return s == null ? null : Strings.replaceAllRegex(s, pattern, replacement);
+                super(pattern, replacement);
             }
         }
 
