@@ -156,15 +156,6 @@ public class BrooklynDslInterpreter extends PlanInterpreterAdapter {
         if (f.getArgs()==null)
             throw new IllegalStateException("Invalid function-only expression '"+f.getFunction()+"'");
 
-        Class<?> clazz;
-        if (o instanceof Class) {
-            clazz = (Class<?>)o;
-        } else {
-            clazz = o.getClass();
-        }
-        if (!(clazz.getPackage().getName().startsWith(BrooklynDslCommon.class.getPackage().getName())))
-            throw new IllegalArgumentException("Not permitted to invoke function on '"+clazz+"' (outside allowed package scope)");
-        
         String fn = f.getFunction();
         fn = Strings.removeFromStart(fn, "$brooklyn:");
         if (fn.startsWith("function.")) {

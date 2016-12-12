@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.concurrent.Callable;
 
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -82,6 +83,8 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
     }
 
     protected static Object invokeOn(Object obj, String fnName, List<?> args) {
+        checkCallAllowed(obj, fnName, args);
+
         Maybe<Object> v;
         try {
             v = Reflections.invokeMethodFromArgs(obj, fnName, args);
@@ -95,6 +98,17 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
         } else {
             throw new IllegalArgumentException("No such function '"+fnName+"("+toString(args)+")' on "+obj);
         }
+    }
+
+    private static void checkCallAllowed(Object obj, String fnName2, List<?> args2) {
+        Class<?> clazz;
+        if (obj instanceof Class) {
+            clazz = (Class<?>)obj;
+        } else {
+            clazz = obj.getClass();
+        }
+        if (!(clazz.getPackage().getName().startsWith(BrooklynDslCommon.class.getPackage().getName())))
+            throw new IllegalArgumentException("Not permitted to invoke function on '"+clazz+"' (outside allowed package scope)");
     }
 
     @Override
