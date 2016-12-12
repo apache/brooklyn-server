@@ -1,74 +1,122 @@
-# OpenShift Location
+---
+section: OpenShift Location
+section_type: inline
+section_position: 2.1
+---
 
-This project contains entities and other items for using Cloudsoft AMP in a OpenShift ecosystem.
+### OpenShift Location
 
-Deploy to an OpenShift cluster by modelling a `KubernetesPod` entity which is made up of multiple heterogeneous `DockerContainer` entities.
+Cloudsoft AMP can deploy applications to Red Hat [OpenShift](https://www.openshift.com/) clusters.
 
-## Plain-AMP blueprints
+Here is an example catalog item to add an OpenShift endpoint to your catalog locations:
 
-Here's an example:
+    brooklyn.catalog:
+      id: my-openshift-cluster
+      name: "My Openshift Cluster"
+      itemType: location
+      item:
+        type: openshift
+        brooklyn.config:
+          endpoint: << endpoint >>
+          caCertData: |
+            << Generated Ca Cert (see below) >>
+          clientCertData: |
+            << Generated Cert (see below) >>
+          clientKeyData: |
+            << Generated client key (see below) >>
+          namespace: << project name >>
+          privileged: true
+          
+* Endpoint
 
-```YAML
-location:
-  openshift:
-    endpoint: "https://192.168.99.100:8443/"
+The endpoint key is the https URL of your OpenShift master. AMP connects to this to provision applications on the 
+cluster.          
+       
+* OpenShift Authorization
 
-services:
-- type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
-  name: Simple Netcat Server
+The `caCertData`, `clientCertData` and `clientKeyData` are the credentials for your OpenShift cluster. Note that
+they can also be given as paths to files using the keys `caCertFile`, `clientCertFile` and `clientKeyFile`. See the
+[OpenShift documentation](https://docs.openshift.com/enterprise/3.1/install_config/certificate_customization.html) for
+more detail on the content of these.
 
-  brooklyn.config:
-    env:
-      ROOT_PASS: password
-    provisioning.properties:
-      inboundPorts: [22, 4321]
+* Namespace
+   
+The `namespace` key relates to the project in which your AMP managed applications will deploy. If no project exists,
+you will first need to log into your OpenShift cluster and create a project. The `namespace` key should then contain 
+the ID of this.
 
-    launch.command: |
-      echo hello | nc -l 4321 &
-      echo $! > $PID_FILE
-```
+#### OpenShift Configuration
+
+AMP requires that you configure your OpenShift instance with the following options to allow it to fully provision and manage 
+applications.
+
+* Container Privileges
+
+On the OpenShift master you need to ensure the configuration option `allowPrivilegedContainer` is set to `true` and 
+`runAsUser` to have `type: RunAsAny`. This can be configured using the [oc command](https://docs.openshift.com/enterprise/3.1/cli_reference/index.html) 
+to edit the cluster configuration:
+
+    oc login << endpoint >>
+    sudo oc edit scc restricted
+    
+#### Plain-AMP blueprints
+
+Standard AMP blueprints can be deployed within an OpenShift cluster, here's a simple example:
+
+    location:
+      << see above >>
+    
+    services:
+    - type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
+      name: Simple Netcat Server
+    
+      brooklyn.config:
+        env:
+          ROOT_PASS: password
+        provisioning.properties:
+          inboundPorts: [22, 4321]
+    
+        launch.command: |
+          echo hello | nc -l 4321 &
+          echo $! > $PID_FILE
 
 For each entity AMP will create
 a [deployment](http://kubernetes.io/docs/user-guide/deployments/)
 containing a single [replica](http://kubernetes.io/docs/user-guide/replicasets/)
 of a [pod](http://kubernetes.io/docs/user-guide/pods/) containing a single
-SSHable container based on the `tutum/ubuntu` image. It will install and launch
+SSHable container based on the `cloudsoft/centos:7` image. It will install and launch
 the entity in the typical AMP way. Each `inboundPort` will be exposed as a
 [NodePort service](http://kubernetes.io/docs/user-guide/services/#type-nodeport).
 
 To explain the config options:
-* `env` The `tutum/ubuntu` image uses an environment variable named `ROOT_PASS`
+* `env` The `cloudsoft/centos:7` image uses an environment variable named `ROOT_PASS`
    to assign the SSH login user password.
 * `inboundPorts` The set of ports that should be exposed by the service.
 
 
-## DockerContainer based blueprints
+#### DockerContainer based blueprints
 
-Here's an example:
+Alternatively AMP can launch instances based on a `DockerContainer`, this means additional configuration such as custom docker images can be specified. Here's an example which sets up a [Wordpress](https://wordpress.org/) instance:
 
-
-```YAML
-location:
-  openshift:
-    endpoint: "https://192.168.99.100:8443/"
-
-services:
-- type: io.cloudsoft.amp.container.kubernetes.entity.KubernetesPod
-  brooklyn.children:
-  - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
-    id: wordpress-mysql
-    name: MySQL
-    brooklyn.config:
-      docker.container.imageName: mysql:5.6
-      docker.container.inboundPorts: [ "3306" ]
-      env: { MYSQL_ROOT_PASSWORD: "password" }
-      provisioning.properties:
-        kubernetes.deployment: wordpress-mysql
-  - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
-    id: wordpress
-    name: Wordpress
-    brooklyn.config:
-      docker.container.imageName: wordpress:4.4-apache
-      docker.container.inboundPorts: [ "80" ]
-      env: { WORDPRESS_DB_HOST: "wordpress-mysql", WORDPRESS_DB_PASSWORD: "password" }
-```
+    location:
+      << see above >>
+    
+    services:
+    - type: io.cloudsoft.amp.container.kubernetes.entity.KubernetesPod
+      brooklyn.children:
+      - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
+        id: wordpress-mysql
+        name: MySQL
+        brooklyn.config:
+          docker.container.imageName: mysql:5.6
+          docker.container.inboundPorts: [ "3306" ]
+          env: { MYSQL_ROOT_PASSWORD: "password" }
+          provisioning.properties:
+            kubernetes.deployment: wordpress-mysql
+      - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
+        id: wordpress
+        name: Wordpress
+        brooklyn.config:
+          docker.container.imageName: wordpress:4.4-apache
+          docker.container.inboundPorts: [ "80" ]
+          env: { WORDPRESS_DB_HOST: "wordpress-mysql", WORDPRESS_DB_PASSWORD: "password" }

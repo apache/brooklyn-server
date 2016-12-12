@@ -30,8 +30,7 @@ AMP Deploys to a Kubernetes cluster by modelling a `KubernetesPod` entity which 
 Standard AMP blueprints can be deployed within a K8s cluster, here's a simple example:
 
     location:
-      kubernetes:
-        endpoint: "https://192.168.99.100:8443/"
+      << see above >>
 
     services:
     - type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
@@ -51,12 +50,12 @@ For each entity AMP will create
 a [deployment](http://kubernetes.io/docs/user-guide/deployments/)
 containing a single [replica](http://kubernetes.io/docs/user-guide/replicasets/)
 of a [pod](http://kubernetes.io/docs/user-guide/pods/) containing a single
-SSHable container based on the `tutum/ubuntu` image. It will install and launch
+SSHable container based on the `cloudsoft/centos:7` image. It will install and launch
 the entity in the typical AMP way. Each `inboundPort` will be exposed as a
 [NodePort service](http://kubernetes.io/docs/user-guide/services/#type-nodeport).
 
 To explain the config options:
-* `env` The `tutum/ubuntu` image uses an environment variable named `ROOT_PASS`
+* `env` The `cloudsoft/centos:7` image uses an environment variable named `ROOT_PASS`
    to assign the SSH login user password.
 * `inboundPorts` The set of ports that should be exposed by the service.
 
@@ -66,8 +65,7 @@ To explain the config options:
 Alternatively AMP can launch instances based on a `DockerContainer`, this means additional configuration such as custom docker images can be specified. Here's an example which sets up a [Wordpress](https://wordpress.org/) instance:
 
     location:
-      kubernetes:
-        endpoint: "https://192.168.99.100:8443/"
+      << see above >>
 
     services:
     - type: io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesPod
