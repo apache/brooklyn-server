@@ -22,14 +22,21 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-import java.awt.*;
+import java.awt.Image;
+import java.awt.Toolkit;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.zip.ZipEntry;
 
+import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
@@ -45,7 +52,12 @@ import org.apache.brooklyn.rest.domain.CatalogLocationSummary;
 import org.apache.brooklyn.rest.domain.CatalogPolicySummary;
 import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.ResourceUtils;
+import org.apache.brooklyn.util.core.osgi.BundleMaker;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.stream.Streams;
 import org.apache.http.HttpHeaders;
 import org.apache.http.entity.ContentType;
 import org.eclipse.jetty.http.HttpStatus;
@@ -57,10 +69,6 @@ import org.testng.reporters.Files;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.Iterables;
-
-import java.io.InputStream;
-
-import javax.ws.rs.core.GenericType;
 
 @Test( // by using a different suite name we disallow interleaving other tests between the methods of this test class, which wrecks the test fixtures
         suiteName = "CatalogResourceTest")
@@ -486,6 +494,78 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
     public void testAddMissingItem() {
         //equivalent to HTTP response 404 text/html
         addAddCatalogItemWithInvalidBundleUrl("classpath://missing-jar-file.txt");
+    }
+    
+    @Test
+    public void testOsgiBundleWithBom() throws Exception {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
+        String bundleUrl = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
+        BundleMaker bm = new BundleMaker(manager);
+        File f = Os.newTempFile("osgi", "jar");
+        Files.copyFile(ResourceUtils.create(this).getResourceFromUrl(bundleUrl), f);
+        
+        String symbolicName = "my.catalog.entity.id.testOsgiBundleWithBom";
+        String bom = Joiner.on("\n").join(
+                "brooklyn.catalog:",
+                "  id: " + symbolicName,
+                "  version: " + TEST_VERSION,
+                "  itemType: entity",
+                "  name: My Catalog App",
+                "  description: My description",
+                "  icon_url: classpath:/org/apache/brooklyn/test/osgi/entities/icon.gif",
+                "  item:",
+                "    type: org.apache.brooklyn.core.test.entity.TestEntity");
+        
+        f = bm.copyAdding(f, MutableMap.of(new ZipEntry("catalog.bom"), (InputStream) new ByteArrayInputStream(bom.getBytes())));
+
+        Response response = client().path("/catalog")
+                .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
+                .post(Streams.readFully(new FileInputStream(f)));
+
+        
+        assertEquals(response.getStatus(), Response.Status.CREATED.getStatusCode());
+
+        CatalogEntitySummary entityItem = client().path("/catalog/entities/"+symbolicName + "/" + TEST_VERSION)
+                .get(CatalogEntitySummary.class);
+
+        Assert.assertNotNull(entityItem.getPlanYaml());
+        Assert.assertTrue(entityItem.getPlanYaml().contains("org.apache.brooklyn.core.test.entity.TestEntity"));
+
+        assertEquals(entityItem.getId(), ver(symbolicName));
+        assertEquals(entityItem.getSymbolicName(), symbolicName);
+        assertEquals(entityItem.getVersion(), TEST_VERSION);
+
+        // and internally let's check we have libraries
+        RegisteredType item = getManagementContext().getTypeRegistry().get(symbolicName, TEST_VERSION);
+        Assert.assertNotNull(item);
+        Collection<OsgiBundleWithUrl> libs = item.getLibraries();
+        assertEquals(libs.size(), 1);
+        OsgiBundleWithUrl lib = Iterables.getOnlyElement(libs);
+        Assert.assertNull(lib.getUrl());
+
+        assertEquals(lib.getSymbolicName(), "org.apache.brooklyn.test.resources.osgi.brooklyn-test-osgi-entities");
+        assertEquals(lib.getVersion(), "0.1.0");
+
+        // now let's check other things on the item
+        URI expectedIconUrl = URI.create(getEndpointAddress() + "/catalog/icon/" + symbolicName + "/" + entityItem.getVersion()).normalize();
+        assertEquals(entityItem.getName(), "My Catalog App");
+        assertEquals(entityItem.getDescription(), "My description");
+        assertEquals(entityItem.getIconUrl(), expectedIconUrl.getPath());
+        assertEquals(item.getIconUrl(), "classpath:/org/apache/brooklyn/test/osgi/entities/icon.gif");
+
+        // an InterfacesTag should be created for every catalog item
+        assertEquals(entityItem.getTags().size(), 1);
+        Object tag = entityItem.getTags().iterator().next();
+        @SuppressWarnings("unchecked")
+        List<String> actualInterfaces = ((Map<String, List<String>>) tag).get("traits");
+        List<Class<?>> expectedInterfaces = Reflections.getAllInterfaces(TestEntity.class);
+        assertEquals(actualInterfaces.size(), expectedInterfaces.size());
+        for (Class<?> expectedInterface : expectedInterfaces) {
+            assertTrue(actualInterfaces.contains(expectedInterface.getName()));
+        }
+
+        byte[] iconData = client().path("/catalog/icon/" + symbolicName + "/" + TEST_VERSION).get(byte[].class);
+        assertEquals(iconData.length, 43);
     }
 
     private void addAddCatalogItemWithInvalidBundleUrl(String bundleUrl) {
