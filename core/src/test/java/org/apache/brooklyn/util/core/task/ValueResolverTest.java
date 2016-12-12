@@ -172,7 +172,55 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
         assertEquals(BrooklynTaskTags.getContextEntity(callInfo.task), app);
         assertNotContainsCallingMethod(callInfo.stackTrace, "testGetImmediatelyFallsBackToDeferredCallInTask");
     }
-    
+
+    public void testNonRecursiveBlockingFailsOnNonObjectType() throws Exception {
+        try {
+            Tasks.resolving(new WrappingImmediateAndDeferredSupplier(new FailingImmediateAndDeferredSupplier()))
+                .as(FailingImmediateAndDeferredSupplier.class)
+                .context(app)
+                .immediately(false)
+                .recursive(false)
+                .get();
+            Asserts.shouldHaveFailedPreviously("recursive(true) accepts only as(Object.class)");
+        } catch (IllegalStateException e) {
+            Asserts.expectedFailureContains(e, "must be Object");
+        }
+    }
+
+    public void testNonRecursiveBlocking() throws Exception {
+        Object result = Tasks.resolving(new WrappingImmediateAndDeferredSupplier(new FailingImmediateAndDeferredSupplier()))
+            .as(Object.class)
+            .context(app)
+            .immediately(false)
+            .recursive(false)
+            .get();
+        assertEquals(result.getClass(), FailingImmediateAndDeferredSupplier.class);
+    }
+
+    public void testNonRecursiveImmediateFailsOnNonObjectType() throws Exception {
+        try {
+            Tasks.resolving(new WrappingImmediateAndDeferredSupplier(new FailingImmediateAndDeferredSupplier()))
+                .as(FailingImmediateAndDeferredSupplier.class)
+                .context(app)
+                .immediately(true)
+                .recursive(false)
+                .get();
+            Asserts.shouldHaveFailedPreviously("recursive(true) accepts only as(Object.class)");
+        } catch (IllegalStateException e) {
+            Asserts.expectedFailureContains(e, "must be Object");
+        }
+    }
+
+    public void testNonRecursiveImmediately() throws Exception {
+        Object result = Tasks.resolving(new WrappingImmediateAndDeferredSupplier(new FailingImmediateAndDeferredSupplier()))
+                .as(Object.class)
+                .context(app)
+                .immediately(true)
+                .recursive(false)
+                .get();
+            assertEquals(result.getClass(), FailingImmediateAndDeferredSupplier.class);
+    }
+
     private static class MyImmediateAndDeferredSupplier implements ImmediateSupplier<CallInfo>, DeferredSupplier<CallInfo> {
         private final boolean failImmediately;
         
@@ -198,6 +246,39 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
         }
     }
     
+    private static class WrappingImmediateAndDeferredSupplier implements ImmediateSupplier<Object>, DeferredSupplier<Object> {
+        private Object value;
+
+        public WrappingImmediateAndDeferredSupplier(Object value) {
+            this.value = value;
+        }
+
+        @Override
+        public Object get() {
+            return getImmediately().get();
+        }
+
+        @Override
+        public Maybe<Object> getImmediately() {
+            return Maybe.of(value);
+        }
+        
+    }
+
+    private static class FailingImmediateAndDeferredSupplier implements ImmediateSupplier<Object>, DeferredSupplier<Object> {
+
+        @Override
+        public Object get() {
+            throw new IllegalStateException("Not to be called");
+        }
+
+        @Override
+        public Maybe<Object> getImmediately() {
+            throw new IllegalStateException("Not to be called");
+        }
+        
+    }
+
     private static class CallInfo {
         final StackTraceElement[] stackTrace;
         final Task<?> task;
