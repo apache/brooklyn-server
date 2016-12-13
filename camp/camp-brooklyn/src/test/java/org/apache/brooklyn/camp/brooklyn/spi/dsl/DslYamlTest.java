@@ -521,7 +521,9 @@ public class DslYamlTest extends AbstractYamlTest {
     }
 
     public static class InaccessibleType {
-        public static void isEvaluated() {}
+        public static boolean doesFail() {return true;}
+        @DslAccessible
+        public static boolean doesSucceed() {return true;}
     }
 
     @Test
@@ -530,7 +532,7 @@ public class DslYamlTest extends AbstractYamlTest {
                 "services:",
                 "- type: " + BasicApplication.class.getName(),
                 "  brooklyn.config:",
-                "    dest: $brooklyn:config(\"targetValue\").isEvaluated()");
+                "    dest: $brooklyn:config(\"targetValue\").doesFail()");
         app.config().set(ConfigKeys.newConfigKey(InaccessibleType.class, "targetValue"), new InaccessibleType());
         try {
             getConfigEventually(app, DEST);
@@ -538,6 +540,28 @@ public class DslYamlTest extends AbstractYamlTest {
         } catch (ExecutionException e) {
             Asserts.expectedFailureContains(e, "(outside allowed package scope)");
         }
+    }
+
+    @Test
+    public void testDeferredDslAccessible() throws Exception {
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    dest: $brooklyn:config(\"targetValue\").doesSucceed()");
+        app.config().set(ConfigKeys.newConfigKey(InaccessibleType.class, "targetValue"), new InaccessibleType());
+        assertEquals(getConfigEventually(app, DEST), Boolean.TRUE);
+    }
+
+    @Test
+    public void testDeferredDslWhiteListPackage() throws Exception {
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    dest: $brooklyn:config(\"targetValue\").isSupplierEvaluated()");
+        app.config().set(ConfigKeys.newConfigKey(TestDslSupplierValue.class, "targetValue"), new TestDslSupplierValue());
+        assertEquals(getConfigEventually(app, DEST), Boolean.TRUE);
     }
 
     @Test

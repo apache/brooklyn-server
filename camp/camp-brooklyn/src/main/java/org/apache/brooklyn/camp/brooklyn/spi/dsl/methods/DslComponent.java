@@ -31,6 +31,7 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampConstants;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslAccessible;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslFunctionSource;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -324,41 +325,52 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
 
     // DSL words which move to a new component
     
+    @DslAccessible
     public DslComponent entity(Object id) {
         return DslComponent.newInstance(this, Scope.GLOBAL, id);
     }
+    @DslAccessible
     public DslComponent child(Object id) {
         return DslComponent.newInstance(this, Scope.CHILD, id);
     }
+    @DslAccessible
     public DslComponent sibling(Object id) {
         return DslComponent.newInstance(this, Scope.SIBLING, id);
     }
+    @DslAccessible
     public DslComponent descendant(Object id) {
         return DslComponent.newInstance(this, Scope.DESCENDANT, id);
     }
+    @DslAccessible
     public DslComponent ancestor(Object id) {
         return DslComponent.newInstance(this, Scope.ANCESTOR, id);
     }
+    @DslAccessible
     public DslComponent root() {
         return new DslComponent(this, Scope.ROOT);
     }
+    @DslAccessible
     public DslComponent scopeRoot() {
         return new DslComponent(this, Scope.SCOPE_ROOT);
     }
     
     @Deprecated /** @deprecated since 0.7.0 */
+    @DslAccessible
     public DslComponent component(Object id) {
         return DslComponent.newInstance(this, Scope.GLOBAL, id);
     }
     
+    @DslAccessible
     public DslComponent self() {
         return new DslComponent(this, Scope.THIS);
     }
     
+    @DslAccessible
     public DslComponent parent() {
         return new DslComponent(this, Scope.PARENT);
     }
     
+    @DslAccessible
     public DslComponent component(String scope, Object id) {
         if (!DslComponent.Scope.isValid(scope)) {
             throw new IllegalArgumentException(scope + " is not a valid scope");
@@ -368,6 +380,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
 
     // DSL words which return things
 
+    @DslAccessible
     public BrooklynDslDeferredSupplier<?> entityId() {
         return new EntityId(this);
     }
@@ -411,6 +424,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         }
     }
 
+    @DslAccessible
     public BrooklynDslDeferredSupplier<?> attributeWhenReady(final String sensorName) {
         return new AttributeWhenReady(this, sensorName);
     }
@@ -468,6 +482,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         }
     }
 
+    @DslAccessible
     public BrooklynDslDeferredSupplier<?> config(final String keyName) {
         return new DslConfigSupplier(this, keyName);
     }
@@ -532,6 +547,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
     // TODO
     // public BrooklynDslDeferredSupplier<?> relation(BrooklynObjectInternal obj, final String relationName) {...}
 
+    @DslAccessible
     public BrooklynDslDeferredSupplier<Sensor<?>> sensor(final Object sensorIndicator) {
         return new DslSensorSupplier(this, sensorIndicator);
     }

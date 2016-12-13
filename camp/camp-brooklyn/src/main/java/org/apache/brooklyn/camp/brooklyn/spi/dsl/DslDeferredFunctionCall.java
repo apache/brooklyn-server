@@ -17,8 +17,11 @@ package org.apache.brooklyn.camp.brooklyn.spi.dsl;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
@@ -28,12 +31,16 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object> {
+    private static final Logger log = LoggerFactory.getLogger(DslDeferredFunctionCall.class);
+    private static final Set<Method> DEPRECATED_ACCESS_WARNINGS = Collections.newSetFromMap(new ConcurrentHashMap<Method, Boolean>());
 
     private static final long serialVersionUID = 3243262633795112155L;
 
@@ -161,10 +168,24 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
     }
 
     private static void checkCallAllowed(Method m) {
+        DslAccessible dslAccessible = m.getAnnotation(DslAccessible.class);
+        boolean isAnnotationAllowed = dslAccessible != null;
+        if (isAnnotationAllowed) return;
+
+        // TODO white-list using brooklyn.properties (at runtime)
+
         Class<?> clazz = m.getDeclaringClass();
-        if (clazz.getPackage() == null || // Proxy objects don't have a package
-                !(clazz.getPackage().getName().startsWith(BrooklynDslCommon.class.getPackage().getName())))
-            throw new IllegalArgumentException("Not permitted to invoke function on '"+clazz+"' (outside allowed package scope)");
+        Package whiteListPackage = BrooklynDslCommon.class.getPackage();
+        boolean isPackageAllowed = (clazz.getPackage() != null && // Proxy objects don't have a package
+                    clazz.getPackage().getName().startsWith(whiteListPackage.getName()));
+        if (isPackageAllowed) {
+            if (DEPRECATED_ACCESS_WARNINGS.add(m)) {
+                log.warn("Deprecated since 0.11.0. The method '" + m.toString() + "' called by DSL should be white listed using the " + DslAccessible.class.getSimpleName() + " annotation. Support for DSL callable methods under the " + whiteListPackage + " will be fremoved in a future release.");
+            }
+            return;
+        }
+
+        throw new IllegalArgumentException("Not permitted to invoke function on '"+clazz+"' (outside allowed package scope)");
     }
 
     @Override

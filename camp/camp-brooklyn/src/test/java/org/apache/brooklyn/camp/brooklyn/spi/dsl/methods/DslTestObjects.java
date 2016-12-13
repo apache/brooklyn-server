@@ -15,6 +15,7 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.dsl.methods;
 
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslAccessible;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslFunctionSource;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.ImmediateSupplier;
@@ -29,15 +30,18 @@ public class DslTestObjects {
             this.supplier = supplier;
         }
 
+        @DslAccessible
         public Object getSupplier() {
             return supplier;
         }
     }
 
     public static class TestDslSupplierValue {
+        @DslAccessible
         public boolean isSupplierEvaluated() {
             return true;
         }
+        @DslAccessible
         public DslComponent self() {
             return BrooklynDslCommon.self();
         }
@@ -73,6 +77,7 @@ public class DslTestObjects {
             throw new IllegalStateException("Not to be called");
         }
 
+        @DslAccessible
         public boolean isSupplierCallable() {
             return true;
         }

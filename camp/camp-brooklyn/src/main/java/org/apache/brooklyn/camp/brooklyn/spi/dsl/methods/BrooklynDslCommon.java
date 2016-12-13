@@ -37,6 +37,7 @@ import org.apache.brooklyn.camp.brooklyn.BrooklynCampReservedKeys;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.BrooklynYamlTypeInstantiator;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.EntitySpecConfiguration;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslAccessible;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -83,37 +84,48 @@ public class BrooklynDslCommon {
 
     // Access specific entities
 
+    @DslAccessible
     public static DslComponent self() {
         return new DslComponent(Scope.THIS);
     }
+    @DslAccessible
     public static DslComponent entity(Object id) {
         return DslComponent.newInstance(Scope.GLOBAL, id);
     }
+    @DslAccessible
     public static DslComponent parent() {
         return new DslComponent(Scope.PARENT);
     }
+    @DslAccessible
     public static DslComponent child(Object id) {
         return DslComponent.newInstance(Scope.CHILD, id);
     }
+    @DslAccessible
     public static DslComponent sibling(Object id) {
         return DslComponent.newInstance(Scope.SIBLING, id);
     }
+    @DslAccessible
     public static DslComponent descendant(Object id) {
         return DslComponent.newInstance(Scope.DESCENDANT, id);
     }
+    @DslAccessible
     public static DslComponent ancestor(Object id) {
         return DslComponent.newInstance(Scope.ANCESTOR, id);
     }
+    @DslAccessible
     public static DslComponent root() {
         return new DslComponent(Scope.ROOT);
     }
+    @DslAccessible
     public static DslComponent scopeRoot() {
         return new DslComponent(Scope.SCOPE_ROOT);
     }
     // prefer the syntax above to the below now, but not deprecating the below
+    @DslAccessible
     public static DslComponent component(String id) {
         return component("global", id);
     }
+    @DslAccessible
     public static DslComponent component(String scope, String id) {
         if (!DslComponent.Scope.isValid(scope)) {
             throw new IllegalArgumentException(scope + " is not a valid scope");
@@ -123,10 +135,12 @@ public class BrooklynDslCommon {
 
     // Access things on entities
 
+    @DslAccessible
     public static BrooklynDslDeferredSupplier<?> config(String keyName) {
         return new DslComponent(Scope.THIS, "").config(keyName);
     }
 
+    @DslAccessible
     public static BrooklynDslDeferredSupplier<?> config(BrooklynObjectInternal obj, String keyName) {
         return new DslBrooklynObjectConfigSupplier(obj, keyName);
     }
@@ -194,22 +208,26 @@ public class BrooklynDslCommon {
         }
     }
 
+    @DslAccessible
     public static BrooklynDslDeferredSupplier<?> attributeWhenReady(String sensorName) {
         return new DslComponent(Scope.THIS, "").attributeWhenReady(sensorName);
     }
 
+    @DslAccessible
     public static BrooklynDslDeferredSupplier<?> entityId() {
         return new DslComponent(Scope.THIS, "").entityId();
     }
 
     /** Returns a {@link Sensor}, looking up the sensor on the context if available and using that,
      * or else defining an untyped (Object) sensor */
+    @DslAccessible
     public static BrooklynDslDeferredSupplier<Sensor<?>> sensor(Object sensorName) {
         return new DslComponent(Scope.THIS, "").sensor(sensorName);
     }
     
     /** Returns a {@link Sensor} declared on the type (e.g. entity class) declared in the first argument. */
     @SuppressWarnings({ "unchecked", "rawtypes" })
+    @DslAccessible
     public static Sensor<?> sensor(String clazzName, String sensorName) {
         try {
             // TODO Should use catalog's classloader, rather than ClassLoaderUtils; how to get that? Should we return a future?!
@@ -238,6 +256,7 @@ public class BrooklynDslCommon {
 
     // Build complex things
 
+    @DslAccessible
     public static EntitySpecConfiguration entitySpec(Map<String, Object> arguments) {
         return new EntitySpecConfiguration(arguments);
     }
@@ -249,6 +268,7 @@ public class BrooklynDslCommon {
      * bundles).
      */
     @SuppressWarnings("unchecked")
+    @DslAccessible
     public static Object object(Map<String, Object> arguments) {
         ConfigBag config = ConfigBag.newInstance(arguments);
         String typeName = BrooklynYamlTypeInstantiator.InstantiatorFromKey.extractTypeName("object", config).orNull();
@@ -285,6 +305,7 @@ public class BrooklynDslCommon {
     // String manipulation
 
     /** Return the expression as a literal string without any further parsing. */
+    @DslAccessible
     public static Object literal(Object expression) {
         return expression;
     }
@@ -293,6 +314,7 @@ public class BrooklynDslCommon {
      * Returns a formatted string or a {@link BrooklynDslDeferredSupplier} if the arguments
      * are not yet fully resolved.
      */
+    @DslAccessible
     public static Object formatString(final String pattern, final Object...args) {
         if (resolved(args)) {
             // if all args are resolved, apply the format string now
@@ -302,6 +324,7 @@ public class BrooklynDslCommon {
         }
     }
 
+    @DslAccessible
     public static Object regexReplacement(final Object source, final Object pattern, final Object replacement) {
         if (resolved(Arrays.asList(source, pattern, replacement))) {
             return (new Functions.RegexReplacer(String.valueOf(pattern), String.valueOf(replacement))).apply(String.valueOf(source));
@@ -642,6 +665,7 @@ public class BrooklynDslCommon {
      * The name of the appropriate {@link ExternalConfigSupplier} is captured, along with the key of
      * the desired config value.
      */
+    @DslAccessible
     public static DslExternal external(final String providerName, final String key) {
         return new DslExternal(providerName, key);
     }
@@ -698,6 +722,7 @@ public class BrooklynDslCommon {
     }
 
     public static class Functions {
+        @DslAccessible
         public static Object regexReplacement(final Object pattern, final Object replacement) {
             if (resolved(pattern, replacement)) {
                 return new org.apache.brooklyn.util.text.StringFunctions.RegexReplacer(String.valueOf(pattern), String.valueOf(replacement));
@@ -788,6 +813,7 @@ public class BrooklynDslCommon {
             }
         }
 
+        @DslAccessible
         public static Object wrap(Entity entity) {
             return DslComponent.newInstance(Scope.GLOBAL, new EntitySupplier(entity.getId()));
         }
