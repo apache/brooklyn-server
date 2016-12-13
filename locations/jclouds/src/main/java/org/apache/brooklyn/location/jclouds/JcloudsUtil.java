@@ -95,11 +95,13 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.inject.Module;
 
-public class JcloudsUtil implements JcloudsLocationConfig {
+public class JcloudsUtil {
 
     // TODO Review what utility methods are needed, and what is now supported in jclouds 1.1
 
     private static final Logger LOG = LoggerFactory.getLogger(JcloudsUtil.class);
+
+    private JcloudsUtil() {}
 
     /**
      * @deprecated since 0.7; see {@link BashCommands}
