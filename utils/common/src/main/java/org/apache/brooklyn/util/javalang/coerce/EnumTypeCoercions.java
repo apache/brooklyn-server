@@ -43,7 +43,7 @@ public class EnumTypeCoercions {
      * <p>
      * Returns {@code defaultValue} if the string cannot be converted.
      *
-     * @see TypeCoercions#coerce(Object, Class)
+     * @see EnumTypeCoercions#tryCoerce(String, Class)
      * @see Enum#valueOf(Class, String)
      */
     public static <E extends Enum<E>> Function<String, E> stringToEnum(final Class<E> type, @Nullable final E defaultValue) {
@@ -74,7 +74,7 @@ public class EnumTypeCoercions {
         if (input==null) return null;
         if (targetType==null) return Maybe.absent("Null enum type");
         if (!targetType.isEnum()) return Maybe.absent("Type '"+targetType+"' is not an enum");
-        return tryCoerce(input, (Class<Enum>)targetType);
+        return tryCoerce(input, (Class)targetType);
     }
     
     public static <E extends Enum<E>> Maybe<E> tryCoerce(String input, Class<E> targetType) {
