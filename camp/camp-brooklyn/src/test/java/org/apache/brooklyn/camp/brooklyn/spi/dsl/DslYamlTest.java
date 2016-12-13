@@ -38,6 +38,7 @@ import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.testng.annotations.Test;
 
@@ -351,7 +352,7 @@ public class DslYamlTest extends AbstractYamlTest {
         assertEquals(getConfigEventually(app, DEST), "myvalue");
     }
 
-    @Test(groups="WIP") // config accepts strings only, no suppliers
+    @Test(groups="WIP") // attributeWhenReady accepts strings only, no suppliers
     public void testDslAttributeWhenReadyWithDeferredArg() throws Exception {
         final Entity app = createAndStartApplication(
                 "services:",
@@ -367,7 +368,7 @@ public class DslYamlTest extends AbstractYamlTest {
         assertEquals(getConfigEventually(app, DEST), "myvalue");
     }
 
-    @Test(groups="WIP") // config accepts strings only, no suppliers
+    @Test(groups="WIP") // attributeWhenReady accepts strings only, no suppliers
     public void testDslAttributeWhenReadyOnEntityWithDeferredArg() throws Exception {
         final Entity app = createAndStartApplication(
                 "services:",
@@ -505,6 +506,20 @@ public class DslYamlTest extends AbstractYamlTest {
         assertEquals(replacementFn.apply("Broooklyn"), "Brooklyn");
     }
 
+    @Test
+    public void testDslNonDeferredInvalidMethod() throws Exception {
+        try {
+            createAndStartApplication(
+                    "services:",
+                    "- type: " + BasicApplication.class.getName(),
+                    "  brooklyn.config:",
+                    "    dest: $brooklyn:self().invalidMethod()");
+            Asserts.shouldHaveFailedPreviously("Non-existing non-deferred method should fail deployment");
+        } catch (CompoundRuntimeException e) {
+            Asserts.expectedFailureContains(e, "No such function 'invalidMethod()'");
+        }
+    }
+
     public static class InaccessibleType {
         public static void isEvaluated() {}
     }
@@ -545,6 +560,17 @@ public class DslYamlTest extends AbstractYamlTest {
                 "    dest: $brooklyn:config(\"targetValue\").isSupplierEvaluated()");
         app.config().set(ConfigKeys.newConfigKey(TestDslSupplierValue.class, "targetValue"), new TestDslSupplierValue());
         assertEquals(getConfigEventually(app, DEST), Boolean.TRUE);
+    }
+
+    @Test
+    public void testDeferredDslChainingDslComponent() throws Exception {
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    dest: $brooklyn:config(\"targetValue\").self().attributeWhenReady(\"entity.id\")");
+        app.config().set(ConfigKeys.newConfigKey(TestDslSupplierValue.class, "targetValue"), new TestDslSupplierValue());
+        assertEquals(getConfigEventually(app, DEST), app.getId());
     }
 
     @Test
@@ -710,7 +736,7 @@ public class DslYamlTest extends AbstractYamlTest {
         Task<T> result = ((EntityInternal)entity).getExecutionContext().submit(new Callable<T>() {
             @Override
             public T call() throws Exception {
-                // TODO Move the getNonBlocking call out of the task after #280 is merged.
+                // TODO Move the getNonBlocking call out of the task after #480 is merged.
                 // Currently doesn't work because no execution context available.
                 Maybe<T> immediateValue = ((EntityInternal)entity).config().getNonBlocking(configKey);
                 T blockingValue = entity.config().get(configKey);

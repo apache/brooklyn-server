@@ -37,12 +37,11 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
 
     private static final long serialVersionUID = 3243262633795112155L;
 
-    // TODO should this be some of the super types?
-    private BrooklynDslDeferredSupplier<?> object;
+    private Object object;
     private String fnName;
     private List<?> args;
 
-    public DslDeferredFunctionCall(BrooklynDslDeferredSupplier<?> o, String fn, List<Object> args) {
+    public DslDeferredFunctionCall(Object o, String fn, List<Object> args) {
         this.object = o;
         this.fnName = fn;
         this.args = args;
@@ -50,15 +49,7 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
 
     @Override
     public Maybe<Object> getImmediately() {
-        Maybe<?> obj = resolveImmediate(object);
-        if (obj.isPresent()) {
-            if (obj.isNull()) {
-                throw new IllegalArgumentException("Deferred function call, " + object + 
-                        " evaluates to null (when calling " + fnName + "(" + toString(args) + "))");
-            }
-            return Maybe.of(invokeOn(obj.get()));
-        }
-        return Maybe.absent("Could not evaluate immediately " + object);
+        return invokeOnDeferred(object, true);
     }
 
     @Override
@@ -70,52 +61,37 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
                 .body(new Callable<Object>() {
                     @Override
                     public Object call() throws Exception {
-                        Object obj = DslDeferredFunctionCall.this.resolveBlocking(object).orNull();
-                        if (obj == null) {
-                            throw new IllegalArgumentException("Deferred function call, " + object + 
-                                    " evaluates to null (when calling " + fnName + "(" + DslDeferredFunctionCall.toString(args) + "))");
-                        }
-                        return invokeOn(obj);
+                        return invokeOnDeferred(object, false).get();
                     }
 
                 }).build();
     }
 
-    protected Maybe<?> resolveImmediate(Object object) {
-        return resolve(object, true);
-    }
-    protected Maybe<?> resolveBlocking(Object object) {
-        return resolve(object, false);
-    }
-    protected Maybe<?> resolve(Object object, boolean immediate) {
-        if (object instanceof DslCallable || object == null) {
-            return Maybe.of(object);
-        }
-        Maybe<?> resultMaybe = Tasks.resolving(object, Object.class)
-                .context(((EntityInternal)entity()).getExecutionContext())
-                .deep(true)
-                .immediately(immediate)
-                .recursive(false)
-                .getMaybe();
-        if (resultMaybe.isAbsent()) {
-            return resultMaybe;
+    protected Maybe<Object> invokeOnDeferred(Object obj, boolean immediate) {
+        Maybe<?> resolvedMaybe = resolve(obj, immediate);
+        if (resolvedMaybe.isPresent()) {
+            Object instance = resolvedMaybe.get();
+
+            if (instance == null) {
+                throw new IllegalArgumentException("Deferred function call, " + object + 
+                        " evaluates to null (when calling " + fnName + "(" + toString(args) + "))");
+            }
+
+            return invokeOn(instance);
         } else {
-            // No nice way to figure out whether the object is deferred. Try to resolve it
-            // until it matches the input value as a poor man's replacement.
-            Object result = resultMaybe.get();
-            if (result == object) {
-                return resultMaybe;
+            if (immediate) {
+                return Maybe.absent("Could not evaluate immediately " + obj);
             } else {
-                return resolve(result, immediate);
+                return Maybe.absent(Maybe.getException(resolvedMaybe));
             }
         }
     }
 
-    protected Object invokeOn(Object obj) {
+    protected Maybe<Object> invokeOn(Object obj) {
         return invokeOn(obj, fnName, args);
     }
 
-    protected static Object invokeOn(Object obj, String fnName, List<?> args) {
+    protected static Maybe<Object> invokeOn(Object obj, String fnName, List<?> args) {
         Object instance = obj;
         List<?> instanceArgs = args;
         Maybe<Method> method = Reflections.getMethodFromArgs(instance, fnName, instanceArgs);
@@ -148,12 +124,39 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
 
             try {
                 // Value is most likely another BrooklynDslDeferredSupplier - let the caller handle it,
-                return Reflections.invokeMethodFromArgs(instance, m, instanceArgs);
+                return Maybe.of(Reflections.invokeMethodFromArgs(instance, m, instanceArgs));
             } catch (IllegalArgumentException | IllegalAccessException | InvocationTargetException e) {
+                // If the method is there but not executable for whatever reason fail with a fatal error, don't return an absent.
                 throw Exceptions.propagate(new InvocationTargetException(e, "Error invoking '"+fnName+"("+toString(instanceArgs)+")' on '"+instance+"'"));
             }
         } else {
-            throw new IllegalArgumentException("No such function '"+fnName+"("+toString(args)+")' on "+obj);
+            return Maybe.absent(new IllegalArgumentException("No such function '"+fnName+"("+toString(args)+")' on "+obj));
+        }
+    }
+
+    protected Maybe<?> resolve(Object object, boolean immediate) {
+        if (object instanceof DslFunctionSource || object == null) {
+            return Maybe.of(object);
+        }
+
+        Maybe<?> resultMaybe = Tasks.resolving(object, Object.class)
+                .context(((EntityInternal)entity()).getExecutionContext())
+                .deep(true)
+                .immediately(immediate)
+                .recursive(false)
+                .getMaybe();
+
+        if (resultMaybe.isPresent()) {
+            // No nice way to figure out whether the object is deferred. Try to resolve it
+            // until it matches the input value as a poor man's replacement.
+            Object result = resultMaybe.get();
+            if (result == object) {
+                return resultMaybe;
+            } else {
+                return resolve(result, immediate);
+            }
+        } else {
+            return resultMaybe;
         }
     }
 

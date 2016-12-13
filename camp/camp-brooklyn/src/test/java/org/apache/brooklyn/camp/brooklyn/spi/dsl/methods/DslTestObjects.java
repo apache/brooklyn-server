@@ -15,7 +15,7 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.dsl.methods;
 
-import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslCallable;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslFunctionSource;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.ImmediateSupplier;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -38,6 +38,9 @@ public class DslTestObjects {
         public boolean isSupplierEvaluated() {
             return true;
         }
+        public DslComponent self() {
+            return BrooklynDslCommon.self();
+        }
     }
 
     public static class TestDslSupplier implements DeferredSupplier<Object>, ImmediateSupplier<Object> {
@@ -58,7 +61,7 @@ public class DslTestObjects {
         }
     }
 
-    public static class DslTestCallable implements DslCallable, DeferredSupplier<TestDslSupplier>, ImmediateSupplier<TestDslSupplier> {
+    public static class DslTestCallable implements DslFunctionSource, DeferredSupplier<TestDslSupplier>, ImmediateSupplier<TestDslSupplier> {
 
         @Override
         public Maybe<TestDslSupplier> getImmediately() {

@@ -21,6 +21,6 @@ import org.apache.brooklyn.util.core.task.DeferredSupplier;
  * Marker interface so the evaluator can tell apart objects which are {@link DeferredSupplier}
  * but which expect DSL methods called on them instead of the value they supply.
  */
-public interface DslCallable {
+public interface DslFunctionSource {
 
 }
