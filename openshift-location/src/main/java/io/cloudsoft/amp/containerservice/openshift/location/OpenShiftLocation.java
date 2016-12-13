@@ -125,9 +125,14 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
                     .addToAnnotations("openshift.io/generated-by", "CloudsoftAMP")
                 .endMetadata()
                 .withNewSpec()
-                .withReplicas(replicas)
-                .withTemplate(template)
+                    .withReplicas(replicas)
+                    .addToSelector("name", deploymentName)
+                    .withTemplate(template)
                 .endSpec()
+                .withNewStatus()
+                    .withLatestVersion(1L)
+                    .withObservedGeneration(1L)
+                .endStatus()
                 .build();
         client.deploymentConfigs().inNamespace(namespace).create(deployment);
         ExitCondition exitCondition = new ExitCondition() {
@@ -135,7 +140,25 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
             public Boolean call() {
                 DeploymentConfig dc = client.deploymentConfigs().inNamespace(namespace).withName(deploymentName).get();
                 DeploymentConfigStatus status = (dc == null) ? null : dc.getStatus();
-                Integer replicaStatus = (status == null) ? 0 : (Integer) status.getAdditionalProperties().get("replicas");
+                return status != null;
+            }
+            @Override
+            public String getFailureMessage() {
+                DeploymentConfig dc = client.deploymentConfigs().inNamespace(namespace).withName(deploymentName).get();
+                DeploymentConfigStatus status = (dc == null) ? null : dc.getStatus();
+                return "Namespace=" + namespace + "; deploymentName= " + deploymentName + "; Deployment=" + dc + "; status=" + status;
+            }
+        };
+        waitForExitCondition(exitCondition);
+        log.debug("Created deployment config {} in namespace {}.", deployment, namespace);
+
+        client.deploymentConfigs().inNamespace(namespace).withName(deploymentName).deployLatest();
+        exitCondition = new ExitCondition() {
+            @Override
+            public Boolean call() {
+                DeploymentConfig dc = client.deploymentConfigs().inNamespace(namespace).withName(deploymentName).get();
+                DeploymentConfigStatus status = (dc == null) ? null : dc.getStatus();
+                Integer replicaStatus = (status == null) ? 0 : (Integer) status.getReplicas();
                 return replicaStatus != null && replicaStatus.intValue() == replicas;
             }
             @Override
@@ -147,7 +170,6 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
         };
         waitForExitCondition(exitCondition);
         log.debug("Deployed {} to namespace {}.", deployment, namespace);
-        return;
     }
 
     protected void undeploy(final String namespace, final String deployment, final String pod) {
