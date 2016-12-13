@@ -42,13 +42,19 @@ public class PortableTemplateBuilder<T extends PortableTemplateBuilder<?>> exten
     
     ComputeService svc;
     List<TemplateOptions> additionalOptionalOptions = new ArrayList<TemplateOptions>();
-
+    
     @Override
     public synchronized Template build() {
         if (svc!=null) return newJcloudsTemplate(svc);
         throw new IllegalStateException("Cannot build a portable template until a compute service is attached");
     }
-    
+
+    @Override
+    public TemplateBuilder forceCacheReload() {
+        this.forceCacheReload = true;
+        return this;
+    }
+
     public synchronized ComputeService attachComputeService(ComputeService svc) {
         ComputeService old = this.svc;
         this.svc = svc;

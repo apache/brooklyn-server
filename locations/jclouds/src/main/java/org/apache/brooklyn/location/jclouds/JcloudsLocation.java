@@ -2208,7 +2208,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
             if (useKey) {
                 // NB: further keys are added from config *after* user creation
-                statements.add(new AuthorizeRSAPublicKeys("~"+user+"/.ssh", ImmutableList.of(credential.getPublicKeyData())));
+                statements.add(new AuthorizeRSAPublicKeys("~"+user+"/.ssh", ImmutableList.of(credential.getPublicKeyData()), null));
                 if (Strings.isNonBlank(credential.getPrivateKeyData())) {
                     createdUserCreds = LoginCredentials.builder().user(user).privateKey(credential.getPrivateKeyData()).build();
                 }
