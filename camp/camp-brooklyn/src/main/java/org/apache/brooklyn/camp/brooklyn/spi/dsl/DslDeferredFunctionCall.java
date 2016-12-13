@@ -16,6 +16,7 @@
 package org.apache.brooklyn.camp.brooklyn.spi.dsl;
 
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.concurrent.Callable;
 
@@ -30,6 +31,7 @@ import org.apache.brooklyn.util.javalang.Reflections;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
 
 public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object> {
 
@@ -114,31 +116,51 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
     }
 
     protected static Object invokeOn(Object obj, String fnName, List<?> args) {
-        checkCallAllowed(obj, fnName, args);
+        Object instance = obj;
+        List<?> instanceArgs = args;
+        Maybe<Method> method = Reflections.getMethodFromArgs(instance, fnName, instanceArgs);
 
-        Maybe<Object> v;
-        try {
-            v = Reflections.invokeMethodFromArgs(obj, fnName, args);
-        } catch (IllegalArgumentException | IllegalAccessException | InvocationTargetException e) {
-            Exceptions.propagateIfFatal(e);
-            throw Exceptions.propagate(new InvocationTargetException(e, "Error invoking '"+fnName+"("+toString(args)+")' on '"+obj+"'"));
+        if (method.isAbsent()) {
+            instance = BrooklynDslCommon.class;
+            instanceArgs = ImmutableList.builder().add(obj).addAll(args).build();
+            method = Reflections.getMethodFromArgs(instance, fnName, instanceArgs);
         }
-        if (v.isPresent()) {
-            // Value is most likely another BrooklynDslDeferredSupplier - let the caller handle it,
-            return v.get();
+
+        if (method.isAbsent()) {
+            Maybe<?> facade;
+            try {
+                facade = Reflections.invokeMethodFromArgs(BrooklynDslCommon.DslFacades.class, "wrap", ImmutableList.of(obj));
+            } catch (IllegalArgumentException | IllegalAccessException | InvocationTargetException e) {
+                facade = Maybe.absent();
+            }
+
+            if (facade.isPresent()) {
+                instance = facade.get();
+                instanceArgs = args;
+                method = Reflections.getMethodFromArgs(instance, fnName, instanceArgs);
+            }
+        }
+
+        if (method.isPresent()) {
+            Method m = method.get();
+
+            checkCallAllowed(m);
+
+            try {
+                // Value is most likely another BrooklynDslDeferredSupplier - let the caller handle it,
+                return Reflections.invokeMethodFromArgs(instance, m, instanceArgs);
+            } catch (IllegalArgumentException | IllegalAccessException | InvocationTargetException e) {
+                throw Exceptions.propagate(new InvocationTargetException(e, "Error invoking '"+fnName+"("+toString(instanceArgs)+")' on '"+instance+"'"));
+            }
         } else {
             throw new IllegalArgumentException("No such function '"+fnName+"("+toString(args)+")' on "+obj);
         }
     }
 
-    private static void checkCallAllowed(Object obj, String fnName2, List<?> args2) {
-        Class<?> clazz;
-        if (obj instanceof Class) {
-            clazz = (Class<?>)obj;
-        } else {
-            clazz = obj.getClass();
-        }
-        if (!(clazz.getPackage().getName().startsWith(BrooklynDslCommon.class.getPackage().getName())))
+    private static void checkCallAllowed(Method m) {
+        Class<?> clazz = m.getDeclaringClass();
+        if (clazz.getPackage() == null || // Proxy objects don't have a package
+                !(clazz.getPackage().getName().startsWith(BrooklynDslCommon.class.getPackage().getName())))
             throw new IllegalArgumentException("Not permitted to invoke function on '"+clazz+"' (outside allowed package scope)");
     }
 
@@ -161,7 +183,7 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
     public String toString() {
         return object + "." + fnName + "(" + toString(args) + ")";
     }
-    
+
     private static String toString(List<?> args) {
         if (args == null) return "";
         return Joiner.on(", ").join(args);

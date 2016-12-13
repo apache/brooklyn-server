@@ -528,7 +528,10 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 "config("+JavaStringEscapes.wrapJavaString(keyName)+")";
         }
     }
-    
+
+    // TODO
+    // public BrooklynDslDeferredSupplier<?> relation(BrooklynObjectInternal obj, final String relationName) {...}
+
     public BrooklynDslDeferredSupplier<Sensor<?>> sensor(final Object sensorIndicator) {
         return new DslSensorSupplier(this, sensorIndicator);
     }

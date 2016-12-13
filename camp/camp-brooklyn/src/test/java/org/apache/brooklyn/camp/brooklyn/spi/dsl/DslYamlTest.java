@@ -21,6 +21,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
@@ -575,8 +576,22 @@ public class DslYamlTest extends AbstractYamlTest {
         assertEquals(getConfigEventually(app, DEST), Boolean.TRUE);
     }
 
-    @Test(groups="WIP")
-    public void testDeferredDslWrapsIntermediates() throws Exception {
+    @Test
+    public void testDeferredDslObjectAsFirstArgument() throws Exception {
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  location: localhost",
+                "  brooklyn.config:",
+                "    dest: $brooklyn:attributeWhenReady(\"targetValue\").config(\"spec.final\")");
+        AttributeSensor<Location> targetValueSensor = Sensors.newSensor(Location.class, "targetValue");
+        app.sensors().set(targetValueSensor, Iterables.getOnlyElement(app.getLocations()));
+        assertEquals(getConfigEventually(app, DEST), "localhost");
+    }
+
+    
+    @Test
+    public void testDeferredDslAttributeFacade() throws Exception {
         final Entity app = createAndStartApplication(
                 "services:",
                 "- type: " + BasicApplication.class.getName(),
@@ -585,6 +600,59 @@ public class DslYamlTest extends AbstractYamlTest {
         AttributeSensor<Entity> targetEntitySensor = Sensors.newSensor(Entity.class, "targetEntity");
         app.sensors().set(targetEntitySensor, app);
         assertEquals(getConfigEventually(app, DEST), app.getId());
+    }
+
+    @Test
+    public void testDeferredDslConfigFacade() throws Exception {
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    testValue: myvalue",
+                "    targetEntity: $brooklyn:self()",
+                "    dest: $brooklyn:config(\"targetEntity\").config(\"testValue\")");
+        AttributeSensor<Entity> targetEntitySensor = Sensors.newSensor(Entity.class, "targetEntity");
+        app.sensors().set(targetEntitySensor, app);
+        assertEquals(getConfigEventually(app, DEST), "myvalue");
+    }
+
+    @Test
+    public void testDeferredDslConfigFacadeCrossAppFails() throws Exception {
+        final Entity app0 = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName());
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    dest: $brooklyn:config(\"targetEntity\").attributeWhenReady(\"entity.id\")");
+        app.config().set(ConfigKeys.newConfigKey(Entity.class, "targetEntity"), app0);
+        try {
+            getConfigEventually(app, DEST);
+            Asserts.shouldHaveFailedPreviously("Cross-app DSL not allowed");
+        } catch (ExecutionException e) {
+            Asserts.expectedFailureContains(e, "not in scope 'global'");
+        }
+    }
+
+    @Test
+    public void testDeferredDslAttributeFacadeCrossAppFails() throws Exception {
+        final Entity app0 = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName());
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    dest: $brooklyn:attributeWhenReady(\"targetEntity\").attributeWhenReady(\"entity.id\")");
+        AttributeSensor<Entity> targetEntitySensor = Sensors.newSensor(Entity.class, "targetEntity");
+        app.sensors().set(targetEntitySensor, app0);
+        try {
+            getConfigEventually(app, DEST);
+            Asserts.shouldHaveFailedPreviously("Cross-app DSL not allowed");
+        } catch (ExecutionException e) {
+            Asserts.expectedFailureContains(e, "not in scope 'global'");
+        }
     }
 
     @Test
