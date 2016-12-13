@@ -166,19 +166,19 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
     }
 
     @Test(dataProvider = "dataProvider")
-    public void testRebindWithCatalogAndApp(RebindWithCatalogTestMode mode, boolean useOsgi) throws Exception {
-        testRebindWithCatalogAndAppUsingOptions(mode, useOsgi, RebindOptions.create());
+    public void testRebindWithCatalogAndApp(RebindWithCatalogTestMode mode, OsgiMode osgiMode) throws Exception {
+        testRebindWithCatalogAndAppUsingOptions(mode, osgiMode, RebindOptions.create());
     }
 
     // Re-run the same tests as testRebindWithCatalogAndApp but with the XML updated to mimic state
     // persisted before <catalogItemId> was replaced with <catalogItemSuperIds>.
     @Test(dataProvider = "dataProvider")
-    public void testRebindWithCatalogAndAppRebindCatalogItemIds(RebindWithCatalogTestMode mode, boolean useOsgi) throws Exception {
+    public void testRebindWithCatalogAndAppRebindCatalogItemIds(RebindWithCatalogTestMode mode, OsgiMode osgiMode) throws Exception {
         final RebindOptions rebindOptions = RebindOptions.create();
         applyCompoundStateTransformer(rebindOptions, CompoundTransformer.builder()
             .xmlReplaceItem("//catalogItemSuperIds", "<catalogItemId><xsl:value-of select=\"string\"/></catalogItemId>")
             .build());
-        testRebindWithCatalogAndAppUsingOptions(mode, useOsgi, rebindOptions);
+        testRebindWithCatalogAndAppUsingOptions(mode, osgiMode, rebindOptions);
     }
 
     private void applyCompoundStateTransformer(RebindOptions options, final CompoundTransformer transformer) {
@@ -216,7 +216,7 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
 
 
     @SuppressWarnings({ "deprecation", "unused" })
-    public void testRebindWithCatalogAndAppUsingOptions(RebindWithCatalogTestMode mode, boolean useOsgi, RebindOptions options) throws Exception {
+    public void testRebindWithCatalogAndAppUsingOptions(RebindWithCatalogTestMode mode, OsgiMode osgiMode, RebindOptions options) throws Exception {
         if (osgiMode != OsgiMode.NONE) {
             TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
         }
