@@ -13,17 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.brooklyn.camp.brooklyn.dsl;
+package org.apache.brooklyn.camp.brooklyn.spi.dsl;
 
 import static org.testng.Assert.assertEquals;
 
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
-import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslCallable;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslTestObjects.DslTestCallable;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslTestObjects.DslTestSupplierWrapper;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslTestObjects.TestDslSupplier;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslTestObjects.TestDslSupplierValue;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.custom.UserSuppliedPackageType;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
@@ -32,8 +37,6 @@ import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.util.core.task.DeferredSupplier;
-import org.apache.brooklyn.util.core.task.ImmediateSupplier;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.testng.annotations.Test;
 
@@ -41,7 +44,7 @@ import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 
 // Doesn't test executing the DSL from different contexts (i.e. fetching the config from children inheriting it)
-public class DslYamlBlockingTest extends AbstractYamlTest {
+public class DslYamlTest extends AbstractYamlTest {
     private static final ConfigKey<Object> DEST = ConfigKeys.newConfigKey(Object.class, "dest");
     private static final ConfigKey<Object> DEST2 = ConfigKeys.newConfigKey(Object.class, "dest2");
     private static final ConfigKey<Object> DEST3 = ConfigKeys.newConfigKey(Object.class, "dest3");
@@ -501,15 +504,46 @@ public class DslYamlBlockingTest extends AbstractYamlTest {
         assertEquals(replacementFn.apply("Broooklyn"), "Brooklyn");
     }
 
+    public static class InaccessibleType {
+        public static void isEvaluated() {}
+    }
+
+    @Test
+    public void testDeferredDslInaccessibleCall() throws Exception {
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    dest: $brooklyn:config(\"targetValue\").isEvaluated()");
+        app.config().set(ConfigKeys.newConfigKey(InaccessibleType.class, "targetValue"), new InaccessibleType());
+        try {
+            getConfigEventually(app, DEST);
+            Asserts.shouldHaveFailedPreviously("Outside of allowed package scope");
+        } catch (ExecutionException e) {
+            Asserts.expectedFailureContains(e, "(outside allowed package scope)");
+        }
+    }
+
+    @Test
+    public void testDeferredDslUserSuppliedPackage() throws Exception {
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    dest: $brooklyn:config(\"targetValue\").isEvaluated()");
+        app.config().set(ConfigKeys.newConfigKey(UserSuppliedPackageType.class, "targetValue"), new UserSuppliedPackageType());
+        assertEquals(getConfigEventually(app, DEST), Boolean.TRUE);
+    }
+
     @Test
     public void testDeferredDslChainingOnConfig() throws Exception {
         final Entity app = createAndStartApplication(
                 "services:",
                 "- type: " + BasicApplication.class.getName(),
                 "  brooklyn.config:",
-                "    targetEntity: $brooklyn:self()",
-                "    dest: $brooklyn:config(\"targetEntity\").getId()");
-        assertEquals(getConfigEventually(app, DEST), app.getId());
+                "    dest: $brooklyn:config(\"targetValue\").isSupplierEvaluated()");
+        app.config().set(ConfigKeys.newConfigKey(TestDslSupplierValue.class, "targetValue"), new TestDslSupplierValue());
+        assertEquals(getConfigEventually(app, DEST), Boolean.TRUE);
     }
 
     @Test
@@ -535,10 +569,10 @@ public class DslYamlBlockingTest extends AbstractYamlTest {
                 "services:",
                 "- type: " + BasicApplication.class.getName(),
                 "  brooklyn.config:",
-                "    dest: $brooklyn:attributeWhenReady(\"targetEntity\").getId()");
-        AttributeSensor<Entity> targetEntitySensor = Sensors.newSensor(Entity.class, "targetEntity");
-        app.sensors().set(targetEntitySensor, app);
-        assertEquals(getConfigEventually(app, DEST), app.getId());
+                "    dest: $brooklyn:attributeWhenReady(\"targetValue\").isSupplierEvaluated()");
+        AttributeSensor<TestDslSupplierValue> targetValueSensor = Sensors.newSensor(TestDslSupplierValue.class, "targetValue");
+        app.sensors().set(targetValueSensor, new TestDslSupplierValue());
+        assertEquals(getConfigEventually(app, DEST), Boolean.TRUE);
     }
 
     @Test(groups="WIP")
@@ -568,42 +602,6 @@ public class DslYamlBlockingTest extends AbstractYamlTest {
         }
     }
 
-    public static class DslTestSupplierWrapper {
-        private Object supplier;
-        
-        public DslTestSupplierWrapper(Object supplier) {
-            this.supplier = supplier;
-        }
-
-        public Object getSupplier() {
-            return supplier;
-        }
-    }
-
-    public static class TestDslSupplierValue {
-        public boolean isSupplierEvaluated() {
-            return true;
-        }
-    }
-
-    public static class TestDslSupplier implements DeferredSupplier<Object>, ImmediateSupplier<Object> {
-        private Object value;
-
-        public TestDslSupplier(Object value) {
-            this.value = value;
-        }
-
-        @Override
-        public Object get() {
-            return getImmediately().get();
-        }
-
-        @Override
-        public Maybe<Object> getImmediately() {
-            return Maybe.of(value);
-        }
-    }
-
     @Test
     public void testDeferredDslChainingWithCustomSupplier() throws Exception {
         final Entity app = createAndStartApplication(
@@ -614,23 +612,6 @@ public class DslYamlBlockingTest extends AbstractYamlTest {
         ConfigKey<DslTestSupplierWrapper> customSupplierWrapperKey = ConfigKeys.newConfigKey(DslTestSupplierWrapper.class, "customSupplierWrapper");
         app.config().set(customSupplierWrapperKey, new DslTestSupplierWrapper(new TestDslSupplier(new TestDslSupplierValue())));
         assertEquals(getConfigEventually(app, DEST), Boolean.TRUE);
-    }
-
-    public static class DslTestCallable implements DslCallable, DeferredSupplier<TestDslSupplier>, ImmediateSupplier<TestDslSupplier> {
-
-        @Override
-        public Maybe<TestDslSupplier> getImmediately() {
-            throw new IllegalStateException("Not to be called");
-        }
-
-        @Override
-        public TestDslSupplier get() {
-            throw new IllegalStateException("Not to be called");
-        }
-
-        public boolean isSupplierCallable() {
-            return true;
-        }
     }
 
     @Test
