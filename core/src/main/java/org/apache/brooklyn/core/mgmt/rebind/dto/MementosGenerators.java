@@ -453,7 +453,6 @@ public class MementosGenerators {
         builder.displayName = instance.getDisplayName();
         builder.catalogItemSuperIds = instance.getCatalogItemSuperIds();
         builder.type = (typePrefix.isPresent() ? typePrefix.get() : "") + instance.getClass().getName();
-        builder.type = instance.getClass().getName();
         builder.typeClass = instance.getClass();
         if (instance instanceof EntityAdjunct) {
             builder.uniqueTag = ((EntityAdjunct)instance).getUniqueTag();
