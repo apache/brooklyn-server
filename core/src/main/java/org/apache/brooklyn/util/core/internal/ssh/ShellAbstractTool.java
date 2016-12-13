@@ -428,7 +428,8 @@ public abstract class ShellAbstractTool implements ShellTool {
             cmdParts.add(
                     //ignore error output for the case where there are no running processes and kill is called without arguments
                     "ps aux | grep \"tail -c\" | grep \""+stdoutPath+"\" | grep -v grep | awk '{ printf $2 }' | xargs kill 2> /dev/null",
-                    "ps aux | grep \"tail -c\" | grep \""+stderrPath+"\" | grep -v grep | awk '{ printf $2 }' | xargs kill 2> /dev/null");
+                    "ps aux | grep \"tail -c\" | grep \""+stderrPath+"\" | grep -v grep | awk '{ printf $2 }' | xargs kill 2> /dev/null",
+                    "exit 0");
 
             String cmd = Joiner.on("\n").join(cmdParts.build());
             
