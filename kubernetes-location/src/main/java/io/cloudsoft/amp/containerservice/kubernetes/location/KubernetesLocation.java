@@ -153,37 +153,20 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         ConfigBag setup = ResolvingConfigBag.newInstanceExtending(getManagementContext(), setupRaw);
 
         client = getClient(setup);
-        // Fail-fast if deployments extension is not available
-        if (client.extensions().deployments().list() == null) {
-            log.debug("Cannot find the deployments extension!");
-            throw new IllegalStateException("Cannot find the deployments extension!");
-        }
         return createKubernetesContainerLocation(setup);
     }
 
     @Override
     public void release(MachineLocation machine) {
-        client = getClient();
-
         final String namespace = machine.config().get(NAMESPACE);
         final String deployment = machine.config().get(DEPLOYMENT);
+        final String pod = machine.config().get(POD);
         final String service = machine.config().get(SERVICE);
 
-        client.extensions().deployments().inNamespace(namespace).withName(deployment).delete();
-        ExitCondition exitCondition = new ExitCondition() {
-            @Override
-            public Boolean call() {
-                return client.extensions().deployments().inNamespace(namespace).withName(deployment).get() == null;
-            }
-            @Override
-            public String getFailureMessage() {
-                return "No deployment with namespace=" + namespace + ", deployment=" + deployment;
-            }
-        };
-        waitForExitCondition(exitCondition);
+        undeploy(namespace, deployment, pod);
 
         client.services().inNamespace(namespace).withName(service).delete();
-        exitCondition = new ExitCondition() {
+        ExitCondition exitCondition = new ExitCondition() {
             @Override
             public Boolean call() {
                 return client.services().inNamespace(namespace).withName(service).get() == null;
@@ -199,6 +182,21 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         if (delete) {
             deleteEmptyNamespace(namespace);
         }
+    }
+
+    protected void undeploy(final String namespace, final String deployment, final String pod) {
+        client.extensions().deployments().inNamespace(namespace).withName(deployment).delete();
+        ExitCondition exitCondition = new ExitCondition() {
+            @Override
+            public Boolean call() {
+                return client.extensions().deployments().inNamespace(namespace).withName(deployment).get() == null;
+            }
+            @Override
+            public String getFailureMessage() {
+                return "No deployment with namespace=" + namespace + ", deployment=" + deployment;
+            }
+        };
+        waitForExitCondition(exitCondition);
     }
 
     protected synchronized void deleteEmptyNamespace(final String name) {
@@ -246,21 +244,21 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         Map<String, String> metadata = findMetadata(entity, deploymentName);
 
         if (volumes != null) {
-          createPersistentVolumes(volumes);
+            createPersistentVolumes(volumes);
         }
 
         Namespace namespace = createOrGetNamespace(setup.get(NAMESPACE), setup.get(CREATE_NAMESPACE));
 
         if (secrets != null) {
-          createSecrets(namespace.getMetadata().getName(), secrets);
+            createSecrets(namespace.getMetadata().getName(), secrets);
         }
 
         Container container = buildContainer(namespace.getMetadata().getName(), metadata, deploymentName, imageName, inboundPorts, env, limits, privileged);
-        Deployment deployment = deploy(namespace.getMetadata().getName(), metadata, deploymentName, container, replicas, secrets);
+        deploy(namespace.getMetadata().getName(), metadata, deploymentName, container, replicas, secrets);
         Service service = exposeService(namespace.getMetadata().getName(), metadata, deploymentName, inboundPorts);
         Pod pod = getPod(namespace.getMetadata().getName(), metadata);
 
-        LocationSpec<SshMachineLocation> locationSpec = prepareLocationSpec(entity, setup, namespace, deployment, service, pod);
+        LocationSpec<SshMachineLocation> locationSpec = prepareLocationSpec(entity, setup, namespace, deploymentName, service, pod);
         SshMachineLocation machine = getManagementContext().getLocationManager().createLocation(locationSpec);
         registerPortMappings(machine, service);
         if (!isDockerContainer(entity)) {
@@ -430,7 +428,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         return containerBuilder.build();
     }
 
-    protected Deployment deploy(final String namespace, Map<String, String> metadata, final String deploymentName, Container container, final Integer replicas, Map<String, String> secrets) {
+    protected void deploy(final String namespace, Map<String, String> metadata, final String deploymentName, Container container, final Integer replicas, Map<String, String> secrets) {
         PodTemplateSpecBuilder podTemplateSpecBuilder = new PodTemplateSpecBuilder()
                 .withNewMetadata().addToLabels(metadata).endMetadata()
                 .withNewSpec()
@@ -472,7 +470,6 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         };
         waitForExitCondition(exitCondition);
         log.debug("Deployed deployment {} in namespace {}.", deployment, namespace);
-        return client.extensions().deployments().inNamespace(namespace).withName(deploymentName).get();
     }
 
     protected Service exposeService(final String namespace, Map<String, String> metadata, final String serviceName, Iterable<Integer> inboundPorts) {
@@ -507,7 +504,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         return client.services().inNamespace(namespace).withName(serviceName).get();
     }
 
-    protected LocationSpec<SshMachineLocation> prepareLocationSpec(Entity entity, ConfigBag setup, Namespace namespace, Deployment deployment, Service service, Pod pod) {
+    protected LocationSpec<SshMachineLocation> prepareLocationSpec(Entity entity, ConfigBag setup, Namespace namespace, String deploymentName, Service service, Pod pod) {
         try {
             InetAddress node = InetAddress.getByName(pod.getSpec().getNodeName());
             String podAddress = pod.getStatus().getPodIP();
@@ -515,7 +512,8 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                     .configure("address", node)
                     .configure(SshMachineLocation.PRIVATE_ADDRESSES, ImmutableSet.of(podAddress))
                     .configure(KubernetesLocationConfig.NAMESPACE, namespace.getMetadata().getName())
-                    .configure(KubernetesLocationConfig.DEPLOYMENT, deployment.getMetadata().getName())
+                    .configure(KubernetesLocationConfig.DEPLOYMENT, deploymentName)
+                    .configure(KubernetesLocationConfig.POD, pod.getMetadata().getName())
                     .configure(KubernetesLocationConfig.SERVICE, service.getMetadata().getName())
                     .configure(CALLER_CONTEXT, setup.get(CALLER_CONTEXT));
             if (!isDockerContainer(entity)) {
@@ -679,15 +677,15 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     protected String findImageName(Entity entity, ConfigBag setup) {
         String result = entity.config().get(DockerContainer.IMAGE_NAME);
         if (Strings.isNonBlank(result)) return result;
-        
+
         result = setup.get(IMAGE);
         if (Strings.isNonBlank(result)) return result;
-        
+
         String osFamily = setup.get(OS_FAMILY);
         String osVersion = setup.get(OS_VERSION_REGEX);
         Optional<String> imageName = new ImageChooser().chooseImage(osFamily, osVersion);
         if (imageName.isPresent()) return imageName.get();
-        
+
         throw new IllegalStateException("No matching image found for " + entity 
                 + " (no explicit image name, osFamily=" + osFamily + "; osVersion=" + osVersion + ")");
     }

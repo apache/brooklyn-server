@@ -9,8 +9,15 @@ import org.slf4j.LoggerFactory;
 
 import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesClientRegistry;
 import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocation;
+import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.Namespace;
+import io.fabric8.kubernetes.api.model.PodTemplateSpec;
+import io.fabric8.kubernetes.api.model.PodTemplateSpecBuilder;
+import io.fabric8.kubernetes.api.model.ReplicationControllerList;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.openshift.api.model.DeploymentConfig;
+import io.fabric8.openshift.api.model.DeploymentConfigBuilder;
+import io.fabric8.openshift.api.model.DeploymentConfigStatus;
 import io.fabric8.openshift.api.model.Project;
 import io.fabric8.openshift.api.model.ProjectBuilder;
 import io.fabric8.openshift.client.OpenShiftClient;
@@ -88,9 +95,81 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
 
     @Override
     protected boolean isNamespaceEmpty(String namespace) {
-        return client.extensions().deployments().inNamespace(namespace).list().getItems().isEmpty() &&
+        return client.deploymentConfigs().inNamespace(namespace).list().getItems().isEmpty() &&
                client.services().inNamespace(namespace).list().getItems().isEmpty() &&
                client.secrets().inNamespace(namespace).list().getItems().isEmpty();
+    }
+
+    @Override
+    protected void deploy(final String namespace, Map<String, String> metadata, final String deploymentName, Container container, final Integer replicas, Map<String, String> secrets) {
+        PodTemplateSpecBuilder podTemplateSpecBuilder = new PodTemplateSpecBuilder()
+                .withNewMetadata()
+                    .addToLabels(metadata)
+                .endMetadata()
+                .withNewSpec()
+                    .addToContainers(container)
+                .endSpec();
+        if (secrets != null) {
+            for (String secretName : secrets.keySet()) {
+                podTemplateSpecBuilder.withNewSpec()
+                            .addToContainers(container)
+                            .addNewImagePullSecret(secretName)
+                        .endSpec();
+            }
+        }
+        PodTemplateSpec template = podTemplateSpecBuilder.build();
+        DeploymentConfig deployment = new DeploymentConfigBuilder()
+                .withNewMetadata()
+                    .withName(deploymentName)
+                    .addToLabels(metadata)
+                    .addToAnnotations("openshift.io/generated-by", "CloudsoftAMP")
+                .endMetadata()
+                .withNewSpec()
+                .withReplicas(replicas)
+                .withTemplate(template)
+                .endSpec()
+                .build();
+        client.deploymentConfigs().inNamespace(namespace).create(deployment);
+        ExitCondition exitCondition = new ExitCondition() {
+            @Override
+            public Boolean call() {
+                DeploymentConfig dc = client.deploymentConfigs().inNamespace(namespace).withName(deploymentName).get();
+                DeploymentConfigStatus status = (dc == null) ? null : dc.getStatus();
+                Integer replicaStatus = (status == null) ? 0 : (Integer) status.getAdditionalProperties().get("replicas");
+                return replicaStatus != null && replicaStatus.intValue() == replicas;
+            }
+            @Override
+            public String getFailureMessage() {
+                DeploymentConfig dc = client.deploymentConfigs().inNamespace(namespace).withName(deploymentName).get();
+                DeploymentConfigStatus status = (dc == null) ? null : dc.getStatus();
+                return "Namespace=" + namespace + "; deploymentName= " + deploymentName + "; Deployment=" + dc + "; status=" + status;
+            }
+        };
+        waitForExitCondition(exitCondition);
+        log.debug("Deployed {} to namespace {}.", deployment, namespace);
+        return;
+    }
+
+    protected void undeploy(final String namespace, final String deployment, final String pod) {
+        ReplicationControllerList controllers = client.replicationControllers().inNamespace(namespace)
+                .withLabel("name", deployment)
+                .list();
+
+        client.replicationControllers().delete(controllers.getItems());
+
+        ExitCondition exitCondition = new ExitCondition() {
+            @Override
+            public Boolean call() {
+                return client.replicationControllers().inNamespace(namespace)
+                        .withLabel("name", deployment)
+                        .list().getItems().isEmpty();
+            }
+            @Override
+            public String getFailureMessage() {
+                return "No deployment with namespace=" + namespace + ", deployment=" + deployment;
+            }
+        };
+        waitForExitCondition(exitCondition);
     }
 
 }

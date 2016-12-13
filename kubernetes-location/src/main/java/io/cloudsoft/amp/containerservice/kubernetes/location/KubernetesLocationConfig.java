@@ -113,7 +113,13 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
             .constraint(Predicates.<String>notNull())
             .build();
 
-    @SetFromFlag("image")
+    // TODO Move to a KubernetesSshMachineLocation?
+    ConfigKey<String> POD = ConfigKeys.builder(String.class)
+            .name("pod")
+            .description("Pod (auto-set on the container location) running the deployment.")
+            .constraint(Predicates.<String>notNull())
+            .build();
+
     ConfigKey<String> IMAGE = ConfigKeys.builder(String.class)
             .name("image")
             .description("Docker image to be deployed into the pod")
