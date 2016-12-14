@@ -13,9 +13,8 @@
     <name>Docker Location</name>
 
     <properties>
-        <jclouds.cloudsoft.groupId>io.cloudsoft.jclouds</jclouds.cloudsoft.groupId>
-        <jclouds.docker.groupId>${jclouds.cloudsoft.groupId}</jclouds.docker.groupId>
-        <jclouds.docker.version>1.9.2-cloudsoft.20160617</jclouds.docker.version>
+        <jclouds.groupId>org.apache.jclouds</jclouds.groupId>
+        <jclouds.docker.version>2.0.0</jclouds.docker.version>
     </properties>
 
     <dependencies>
@@ -24,7 +23,7 @@
             So if this version is not kept up-to-date then it won't impact AMP.
         -->
         <dependency>
-            <groupId>${jclouds.docker.groupId}.labs</groupId>
+            <groupId>${jclouds.groupId}.api</groupId>
             <artifactId>docker</artifactId>
             <version>${jclouds.docker.version}</version>
             <exclusions>
