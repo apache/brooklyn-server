@@ -18,6 +18,7 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.openshift.api.model.DeploymentConfig;
 import io.fabric8.openshift.api.model.DeploymentConfigBuilder;
 import io.fabric8.openshift.api.model.DeploymentConfigStatus;
+import io.fabric8.openshift.api.model.DeploymentTriggerPolicyBuilder;
 import io.fabric8.openshift.api.model.Project;
 import io.fabric8.openshift.api.model.ProjectBuilder;
 import io.fabric8.openshift.client.OpenShiftClient;
@@ -105,6 +106,7 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
         PodTemplateSpecBuilder podTemplateSpecBuilder = new PodTemplateSpecBuilder()
                 .withNewMetadata()
                     .addToLabels(metadata)
+                    .addToLabels("name", deploymentName)
                 .endMetadata()
                 .withNewSpec()
                     .addToContainers(container)
@@ -121,19 +123,19 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
         DeploymentConfig deployment = new DeploymentConfigBuilder()
                 .withNewMetadata()
                     .withName(deploymentName)
-                    .addToLabels(metadata)
                     .addToAnnotations("openshift.io/generated-by", "CloudsoftAMP")
                 .endMetadata()
                 .withNewSpec()
+                    .withNewStrategy()
+                        .withType("Recreate")
+                    .endStrategy()
+                    .addNewTrigger()
+                        .withType("ConfigChange")
+                    .endTrigger()
                     .withReplicas(replicas)
-                    .withSelector(metadata)
                     .addToSelector("name", deploymentName)
                     .withTemplate(template)
                 .endSpec()
-                .withNewStatus()
-                    .withLatestVersion(1L)
-                    .withObservedGeneration(1L)
-                .endStatus()
                 .build();
         client.deploymentConfigs().inNamespace(namespace).create(deployment);
         ExitCondition exitCondition = new ExitCondition() {
@@ -141,25 +143,7 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
             public Boolean call() {
                 DeploymentConfig dc = client.deploymentConfigs().inNamespace(namespace).withName(deploymentName).get();
                 DeploymentConfigStatus status = (dc == null) ? null : dc.getStatus();
-                return status != null;
-            }
-            @Override
-            public String getFailureMessage() {
-                DeploymentConfig dc = client.deploymentConfigs().inNamespace(namespace).withName(deploymentName).get();
-                DeploymentConfigStatus status = (dc == null) ? null : dc.getStatus();
-                return "Namespace=" + namespace + "; deploymentName= " + deploymentName + "; Deployment=" + dc + "; status=" + status;
-            }
-        };
-        waitForExitCondition(exitCondition);
-        log.debug("Created deployment config {} in namespace {}.", deployment, namespace);
-
-        client.deploymentConfigs().inNamespace(namespace).withName(deploymentName).deployLatest();
-        exitCondition = new ExitCondition() {
-            @Override
-            public Boolean call() {
-                DeploymentConfig dc = client.deploymentConfigs().inNamespace(namespace).withName(deploymentName).get();
-                DeploymentConfigStatus status = (dc == null) ? null : dc.getStatus();
-                Integer replicaStatus = (status == null) ? 0 : (Integer) status.getReplicas();
+                Integer replicaStatus = (status == null) ? null : status.getReplicas();
                 return replicaStatus != null && replicaStatus.intValue() == replicas;
             }
             @Override

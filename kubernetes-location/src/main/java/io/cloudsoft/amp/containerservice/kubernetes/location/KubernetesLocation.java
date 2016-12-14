@@ -286,14 +286,16 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         Stopwatch stopwatch = Stopwatch.createStarted();
 
         ReferenceWithError<Boolean> reachable = new Repeater("container-reachable")
-                .backoff(Duration.ONE_SECOND, 2, Duration.TEN_SECONDS) // exponential backoff, to 10 seconds
+                .backoff(Duration.FIVE_SECONDS, 1.5, Duration.THIRTY_SECONDS) // exponential backoff, to 10 seconds
                 .until(checker)
-                .limitTimeTo(Duration.THIRTY_SECONDS)
+                .limitTimeTo(Duration.ONE_MINUTE)
                 .runKeepingError();
 
         if (!reachable.getWithoutError()) {
             throw new IllegalStateException("Connection failed for "
                     +target.toString()+" after waiting "+stopwatch.elapsed(TimeUnit.SECONDS), reachable.getError());
+        } else {
+            log.info("Connection succeeded for {} after {}", target.toString(), stopwatch.elapsed(TimeUnit.SECONDS));
         }
     }
 
@@ -302,7 +304,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 .getLocationManaged(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
         List<ServicePort> ports = service.getSpec().getPorts();
         String publicHostText = machine.getSshHostAndPort().getHostText();
-        log.info("Recording port-mappings for container {} of {}: {}", new Object[] {machine, this, ports});
+        log.debug("Recording port-mappings for container {} of {}: {}", new Object[] {machine, this, ports});
 
         for (ServicePort port : ports) {
             String protocol = port.getProtocol();
@@ -316,9 +318,9 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
             }
         }
     }
-    
+
     protected String findDeploymentName(Entity entity, ConfigBag setup) {
-        return firstNonNull(setup.get(KubernetesLocationConfig.DEPLOYMENT), entity.getId());
+        return Optional.fromNullable(setup.get(KubernetesLocationConfig.DEPLOYMENT)).or(entity.getId());
     }
 
     protected synchronized Namespace createOrGetNamespace(final String name, Boolean create) {
@@ -347,11 +349,20 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         return client.namespaces().withName(name).get();
     }
 
-    protected Pod getPod(String namespace, Map<String, String> metadata) {
+    protected Pod getPod(final String namespace, final Map<String, String> metadata) {
+        ExitCondition exitCondition = new ExitCondition() {
+            @Override
+            public Boolean call() {
+                PodList result = client.pods().inNamespace(namespace).withLabels(metadata).list();
+                return result.getItems().size() == 1 && result.getItems().get(0).getStatus().getPodIP() != null;
+            }
+            @Override
+            public String getFailureMessage() {
+                return "Cannot find pod  Pod with metadata: " + Joiner.on(" ").withKeyValueSeparator("=").join(metadata);
+            }
+        };
+        waitForExitCondition(exitCondition);
         PodList result = client.pods().inNamespace(namespace).withLabels(metadata).list();
-        if (result.getItems().isEmpty() || result.getItems().size() > 1) {
-            throw new IllegalStateException("Cannot find pod  Pod with metadata: " + Joiner.on(" ").withKeyValueSeparator("=").join(metadata));
-        }
         return result.getItems().get(0);
     }
 
@@ -430,15 +441,17 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
 
     protected void deploy(final String namespace, Map<String, String> metadata, final String deploymentName, Container container, final Integer replicas, Map<String, String> secrets) {
         PodTemplateSpecBuilder podTemplateSpecBuilder = new PodTemplateSpecBuilder()
-                .withNewMetadata().addToLabels(metadata).endMetadata()
+                .withNewMetadata()
+                    .addToLabels(metadata)
+                .endMetadata()
                 .withNewSpec()
-                .addToContainers(container)
+                    .addToContainers(container)
                 .endSpec();
         if (secrets != null) {
             for (String secretName : secrets.keySet()) {
                 podTemplateSpecBuilder.withNewSpec()
-                        .addToContainers(container)
-                        .addNewImagePullSecret(secretName)
+                            .addToContainers(container)
+                            .addNewImagePullSecret(secretName)
                         .endSpec();
             }
         }
@@ -476,13 +489,13 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     protected Service exposeService(final String namespace, Map<String, String> metadata, final String serviceName, Iterable<Integer> inboundPorts) {
         List<ServicePort> servicePorts = Lists.newArrayList();
         for (Integer inboundPort : inboundPorts) {
-            servicePorts.add(new ServicePortBuilder().withName(inboundPort+"").withPort(inboundPort).build());
+            servicePorts.add(new ServicePortBuilder().withName(Integer.toString(inboundPort)).withPort(inboundPort).build());
         }
         Service service = new ServiceBuilder().withNewMetadata().withName(serviceName).endMetadata()
                 .withNewSpec()
-                .addToSelector(metadata)
-                .addToPorts(Iterables.toArray(servicePorts, ServicePort.class))
-                .withType(SERVER_TYPE)
+                    .addToSelector(metadata)
+                    .addToPorts(Iterables.toArray(servicePorts, ServicePort.class))
+                    .withType(SERVER_TYPE)
                 .endSpec()
                 .build();
         client.services().inNamespace(namespace).create(service);
@@ -521,7 +534,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 Optional<ServicePort> sshPort = Iterables.tryFind(service.getSpec().getPorts(), new Predicate<ServicePort>() {
                         @Override
                         public boolean apply(ServicePort input) {
-                            return input.getProtocol().equalsIgnoreCase("TCP") && input.getPort() == 22;
+                            return input.getProtocol().equalsIgnoreCase("TCP") && input.getPort().intValue() == 22;
                         }
                     });
                 Optional<Integer> sshPortNumber;
@@ -531,7 +544,6 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                     log.warn("No port-mapping found to ssh port 22, for container {}", service);
                     sshPortNumber = Optional.absent();
                 }
-                
                 locationSpec.configure(CloudLocationConfig.USER, setup.get(KubernetesLocationConfig.LOGIN_USER))
                         .configure(SshMachineLocation.PASSWORD, setup.get(KubernetesLocationConfig.LOGIN_USER_PASSWORD))
                         .configureIfNotNull(SshMachineLocation.SSH_PORT, sshPortNumber.orNull())
