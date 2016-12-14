@@ -126,6 +126,7 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
                 .endMetadata()
                 .withNewSpec()
                     .withReplicas(replicas)
+                    .withSelector(metadata)
                     .addToSelector("name", deploymentName)
                     .withTemplate(template)
                 .endSpec()

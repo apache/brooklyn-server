@@ -370,7 +370,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         secret = client.secrets().inNamespace(namespace)
                 .create(new SecretBuilder()
                         .withNewMetadata()
-                        .withName(secretName)
+                            .withName(secretName)
                         .endMetadata()
                         .withType("kubernetes.io/dockercfg")
                         .withData(ImmutableMap.of(".dockercfg", base64encoded))
@@ -415,8 +415,8 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 .addToPorts(Iterables.toArray(containerPorts, ContainerPort.class))
                 .addToEnv(Iterables.toArray(envVars, EnvVar.class))
                 .withNewSecurityContext()
-                        .withPrivileged(privileged)
-                        .endSecurityContext();
+                     .withPrivileged(privileged)
+                .endSecurityContext();
 
         if (limits != null) {
             for (Map.Entry<String, String> nameValueEntry : limits.entrySet()) {
@@ -443,12 +443,13 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
             }
         }
         PodTemplateSpec template = podTemplateSpecBuilder.build();
-        Deployment deployment = new DeploymentBuilder().withNewMetadata()
-                .withName(deploymentName)
+        Deployment deployment = new DeploymentBuilder()
+                .withNewMetadata()
+                    .withName(deploymentName)
                 .endMetadata()
                 .withNewSpec()
-                .withReplicas(replicas)
-                .withTemplate(template)
+                    .withReplicas(replicas)
+                    .withTemplate(template)
                 .endSpec()
                 .build();
         client.extensions().deployments().inNamespace(namespace).create(deployment);
