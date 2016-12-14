@@ -2,6 +2,7 @@ package io.cloudsoft.amp.containerservice.openshift.location;
 
 import java.util.Map;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
 import org.slf4j.Logger;
@@ -13,19 +14,19 @@ import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.Namespace;
 import io.fabric8.kubernetes.api.model.PodTemplateSpec;
 import io.fabric8.kubernetes.api.model.PodTemplateSpecBuilder;
-import io.fabric8.kubernetes.api.model.ReplicationControllerList;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.openshift.api.model.DeploymentConfig;
 import io.fabric8.openshift.api.model.DeploymentConfigBuilder;
 import io.fabric8.openshift.api.model.DeploymentConfigStatus;
-import io.fabric8.openshift.api.model.DeploymentTriggerPolicyBuilder;
 import io.fabric8.openshift.api.model.Project;
 import io.fabric8.openshift.api.model.ProjectBuilder;
 import io.fabric8.openshift.client.OpenShiftClient;
 
 public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLocationConfig {
 
-    public static final Logger log = LoggerFactory.getLogger(OpenShiftLocation.class);
+    private static final Logger LOG = LoggerFactory.getLogger(OpenShiftLocation.class);
+
+    public static final String OPENSHIFT_GENERATED_BY = "openshift.io/generated-by";
 
     private OpenShiftClient client;
 
@@ -62,10 +63,10 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
             }
         };
         if (project != null) {
-            log.debug("Found project {}, returning it.", project);
+            LOG.debug("Found project {}, returning it.", project);
         } else if (create) {
             project = client.projects().create(new ProjectBuilder().withNewMetadata().withName(name).endMetadata().build());
-            log.debug("Created project {}.", project);
+            LOG.debug("Created project {}.", project);
         } else {
             throw new IllegalStateException("Project " + name + " does not exist and namespace.create is not set");
         }
@@ -102,7 +103,7 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
     }
 
     @Override
-    protected void deploy(final String namespace, Map<String, String> metadata, final String deploymentName, Container container, final Integer replicas, Map<String, String> secrets) {
+    protected void deploy(final String namespace, Entity entity, Map<String, String> metadata, final String deploymentName, Container container, final Integer replicas, Map<String, String> secrets) {
         PodTemplateSpecBuilder podTemplateSpecBuilder = new PodTemplateSpecBuilder()
                 .withNewMetadata()
                     .addToLabels(metadata)
@@ -123,7 +124,9 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
         DeploymentConfig deployment = new DeploymentConfigBuilder()
                 .withNewMetadata()
                     .withName(deploymentName)
-                    .addToAnnotations("openshift.io/generated-by", "CloudsoftAMP")
+                    .addToAnnotations(OPENSHIFT_GENERATED_BY, "AMP")
+                    .addToAnnotations(CLOUDSOFT_ENTITY_ID, entity.getId())
+                    .addToAnnotations(CLOUDSOFT_APPLICATION_ID, entity.getApplicationId())
                 .endMetadata()
                 .withNewSpec()
                     .withNewStrategy()
@@ -143,8 +146,8 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
             public Boolean call() {
                 DeploymentConfig dc = client.deploymentConfigs().inNamespace(namespace).withName(deploymentName).get();
                 DeploymentConfigStatus status = (dc == null) ? null : dc.getStatus();
-                Integer replicaStatus = (status == null) ? null : status.getReplicas();
-                return replicaStatus != null && replicaStatus.intValue() == replicas;
+                Integer replicas = (status == null) ? null : status.getAvailableReplicas();
+                return replicas != null && replicas.intValue() == replicas;
             }
             @Override
             public String getFailureMessage() {
@@ -154,22 +157,16 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
             }
         };
         waitForExitCondition(exitCondition);
-        log.debug("Deployed {} to namespace {}.", deployment, namespace);
+        LOG.debug("Deployed {} to namespace {}.", deployment, namespace);
     }
 
+    @Override
     protected void undeploy(final String namespace, final String deployment, final String pod) {
-        ReplicationControllerList controllers = client.replicationControllers().inNamespace(namespace)
-                .withLabel("name", deployment)
-                .list();
-
-        client.replicationControllers().delete(controllers.getItems());
-
+        client.deploymentConfigs().inNamespace(namespace).withName(deployment).delete();
         ExitCondition exitCondition = new ExitCondition() {
             @Override
             public Boolean call() {
-                return client.replicationControllers().inNamespace(namespace)
-                        .withLabel("name", deployment)
-                        .list().getItems().isEmpty();
+                return client.deploymentConfigs().inNamespace(namespace).withName(deployment).get() == null;
             }
             @Override
             public String getFailureMessage() {
