@@ -1,9 +1,6 @@
 package io.cloudsoft.amp.containerservice.kubernetes.location;
 
-import java.io.IOException;
 import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.net.UnknownHostException;
 import java.nio.charset.Charset;
 import java.util.Collection;
@@ -30,18 +27,17 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
+import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
-import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
@@ -55,6 +51,7 @@ import com.google.common.collect.Maps;
 import com.google.common.io.BaseEncoding;
 import com.google.common.net.HostAndPort;
 
+import io.cloudsoft.amp.containerservice.ThreadedRepeater;
 import io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer;
 import io.cloudsoft.amp.containerservice.dockerlocation.DockerJcloudsLocation;
 import io.fabric8.kubernetes.api.model.Container;
@@ -268,39 +265,38 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         SshMachineLocation machine = getManagementContext().getLocationManager().createLocation(locationSpec);
         registerPortMappings(machine, service);
         if (!isDockerContainer(entity)) {
-            waitUntilReachable(machine);
+            waitForSshable(machine, Duration.FIVE_MINUTES);
         }
 
         return machine;
     }
 
-    protected void waitUntilReachable(final SshMachineLocation machine) {
-        InetAddress addr = machine.getAddress();
-        int port = machine.getPort();
-        final InetSocketAddress target = new InetSocketAddress(addr, port);
-
+    protected void waitForSshable(final SshMachineLocation machine, Duration timeout) {
         Callable<Boolean> checker = new Callable<Boolean>() {
             public Boolean call() {
-                try (Socket socket = new Socket()) {
-                    socket.connect(target, 1000);
-                    return socket.isConnected() && !socket.isClosed();
-                } catch (IOException | IllegalArgumentException e) {
-                    return false;
-                }
+                int exitstatus = machine.execScript(
+                        ImmutableMap.of( // TODO investigate why SSH connection does not time out with this config
+                                SshTool.PROP_CONNECT_TIMEOUT.getName(), Duration.TEN_SECONDS.toMilliseconds(),
+                                SshTool.PROP_SESSION_TIMEOUT.getName(), Duration.TEN_SECONDS.toMilliseconds(),
+                                SshTool.PROP_SSH_TRIES_TIMEOUT.getName(), Duration.TEN_SECONDS.toMilliseconds(),
+                                SshTool.PROP_SSH_TRIES.getName(), 1),
+                        "check-sshable",
+                        ImmutableList.of("true"));
+                boolean success = (exitstatus == 0);
+                return success;
             }};
 
         Stopwatch stopwatch = Stopwatch.createStarted();
-        Time.sleep(Duration.FIVE_SECONDS); // FIXME please; I am not proud of this...
-        ReferenceWithError<Boolean> reachable = new Repeater("container-reachable")
-                .backoff(Duration.FIVE_SECONDS, 2, Duration.TEN_SECONDS) // exponential backoff, to 10 seconds
+        ReferenceWithError<Boolean> reachable = new ThreadedRepeater("reachable")
+                .backoff(Duration.FIVE_SECONDS, 2, Duration.TEN_SECONDS) // Exponential backoff, to 10 seconds
                 .until(checker)
-                .limitTimeTo(Duration.THIRTY_SECONDS)
+                .limitTimeTo(timeout)
                 .runKeepingError();
 
         if (!reachable.getWithoutError()) {
-            throw new IllegalStateException("Connection failed for "+target+" after waiting "+stopwatch.elapsed(TimeUnit.SECONDS), reachable.getError());
+            throw new IllegalStateException("Connection failed for "+machine.getSshHostAndPort()+" after waiting "+stopwatch.elapsed(TimeUnit.SECONDS), reachable.getError());
         } else {
-            LOG.debug("Connection succeeded for {} after {}", target.toString(), stopwatch.elapsed(TimeUnit.SECONDS));
+            LOG.debug("Connection succeeded for {} after {}", machine.getSshHostAndPort(), stopwatch.elapsed(TimeUnit.SECONDS));
         }
     }
 
@@ -567,9 +563,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                         .configure(SshMachineLocation.PASSWORD, setup.get(KubernetesLocationConfig.LOGIN_USER_PASSWORD))
                         .configureIfNotNull(SshMachineLocation.SSH_PORT, sshPortNumber.orNull())
                         .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, true)
-                        .configure(BrooklynConfigKeys.ONBOX_BASE_DIR, "/tmp")
-                        .configure(SshMachineLocation.CLOSE_CONNECTION, true)
-                        .configure(SshMachineLocation.UNIQUE_ID, Integer.toHexString(Objects.hashCode(entity.getApplicationId(), entity.getId(), namespace, deploymentName)));
+                        .configure(BrooklynConfigKeys.ONBOX_BASE_DIR, "/tmp");
             }
             return locationSpec;
         } catch (UnknownHostException uhe) {
