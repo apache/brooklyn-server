@@ -26,6 +26,8 @@ public class BitUtilsTest {
 
     @Test
     public void checkReverseBitSignificance() {
+        Assert.assertEquals(BitUtils.reverseBitSignificanceInByte(0b00000001), (byte)0b10000000);
+        Assert.assertEquals(BitUtils.reverseBitSignificanceInByte(0x0f), (byte)0xf0);
         Assert.assertEquals(BitUtils.reverseBitSignificanceInByte(1), (byte)128);
         Assert.assertEquals(BitUtils.reverseBitSignificanceInByte(2), 64);
         Assert.assertEquals(BitUtils.reverseBitSignificanceInByte(8), 16);
@@ -40,6 +42,7 @@ public class BitUtilsTest {
     
     @Test
     public void checkUnsigned() {
+        Assert.assertEquals(BitUtils.unsigned((byte)0xff), 0xff);
         Assert.assertEquals(BitUtils.unsigned((byte)-96), 160);
         Assert.assertEquals(BitUtils.unsigned((byte)160), 160);
         Assert.assertEquals(BitUtils.unsignedByte(-96), 160);
