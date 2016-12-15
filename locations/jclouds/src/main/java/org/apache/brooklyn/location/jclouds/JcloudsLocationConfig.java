@@ -261,7 +261,7 @@ public interface JcloudsLocationConfig extends CloudLocationConfig {
             .PORT_FORWARDING_MANAGER;
 
     public static final ConfigKey<Integer> MACHINE_CREATE_ATTEMPTS = ConfigKeys.newIntegerConfigKey(
-            "machineCreateAttempts", "Number of times to retry if jclouds fails to create a VM", 1);
+            "machineCreateAttempts", "Number of times to retry if jclouds fails to create a VM", 2);
 
     public static final ConfigKey<Integer> MAX_CONCURRENT_MACHINE_CREATIONS = ConfigKeys.newIntegerConfigKey(
             "maxConcurrentMachineCreations", "Maximum number of concurrent machine-creations", Integer.MAX_VALUE);
