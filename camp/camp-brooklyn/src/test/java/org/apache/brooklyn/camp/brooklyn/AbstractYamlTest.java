@@ -69,6 +69,11 @@ public abstract class AbstractYamlTest {
     @BeforeMethod(alwaysRun = true)
     public void setUp() throws Exception {
         forceUpdate = false;
+        brooklynMgmt = setUpPlatform();
+        catalog = brooklynMgmt.getCatalog();
+    }
+
+    protected ManagementContext setUpPlatform() {
         launcher = new BrooklynCampPlatformLauncherNoServer() {
             @Override
             protected LocalManagementContext newMgmtContext() {
@@ -76,11 +81,10 @@ public abstract class AbstractYamlTest {
             }
         };
         launcher.launch();
-        brooklynMgmt = launcher.getBrooklynMgmt();
-        catalog = brooklynMgmt.getCatalog();
         platform = launcher.getCampPlatform();
+        return launcher.getBrooklynMgmt();
     }
-
+    
     protected LocalManagementContext newTestManagementContext() {
         Builder builder = LocalManagementContextForTests.builder(true).disableOsgi(disableOsgi());
         if (useDefaultProperties()) {
@@ -101,6 +105,10 @@ public abstract class AbstractYamlTest {
     @AfterMethod(alwaysRun = true)
     public void tearDown() throws Exception {
         if (brooklynMgmt != null) Entities.destroyAll(brooklynMgmt);
+        tearDownPlatform();
+    }
+
+    protected void tearDownPlatform() throws Exception {
         if (launcher != null) launcher.stopServers();
     }
 
