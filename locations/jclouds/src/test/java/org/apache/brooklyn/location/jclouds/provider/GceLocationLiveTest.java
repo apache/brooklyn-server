@@ -18,25 +18,34 @@
  */
 package org.apache.brooklyn.location.jclouds.provider;
 
+import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.core.internal.BrooklynProperties;
+import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
 
 /**
- * Tests basic provisioning to aws-ec2.
+ * Tests basic provisioning to GCE.
  * 
  * Requires AWS credentials be set up in {@code ~/.brooklyn/brooklyn.properties}.
  */
-public class AwsEc2LocationLiveTest extends AbstractJcloudsLocationTest {
+public class GceLocationLiveTest extends AbstractJcloudsLocationTest {
 
-    private static final String PROVIDER = "aws-ec2";
-    private static final String EUWEST_REGION_NAME = "eu-west-1";
-    private static final String USEAST_REGION_NAME = "us-east-1";
-    private static final String EUWEST_IMAGE_ID = EUWEST_REGION_NAME+"/"+"ami-69841c1e"; // RightImage_CentOS_7.0_x64_v14.2.1_HVM_EBS
-    private static final String USEAST_IMAGE_ID = USEAST_REGION_NAME+"/"+"ami-5492ba3c"; // RightImage_CentOS_7.0_x64_v14.2.1_HVM_EBS
-    private static final String IMAGE_OWNER = "411009282317";
-    private static final String IMAGE_PATTERN = "RightImage_CentOS_7.0_x64_v14.2.1.*";
-
-    public AwsEc2LocationLiveTest() {
+    // TODO Would be nice to support short-form of imageId and hardwareId!
+    
+    private static final String PROVIDER = "google-compute-engine";
+    private static final String IMAGE_ID = "https://www.googleapis.com/compute/v1/projects/centos-cloud/global/images/centos-6-v20161129";
+    private static final String IMAGE_PATTERN = "centos-6-.*";
+    private static final String REGION_NAME = null;
+    private static final String IMAGE_OWNER = null;
+    
+    protected BrooklynProperties brooklynProperties;
+    protected ManagementContext ctx;
+    
+    protected TestApplication app;
+    protected Location jcloudsLocation;
+    
+    public GceLocationLiveTest() {
         super(PROVIDER);
     }
 
@@ -44,28 +53,22 @@ public class AwsEc2LocationLiveTest extends AbstractJcloudsLocationTest {
     @DataProvider(name = "fromImageId")
     public Object[][] cloudAndImageIds() {
         return new Object[][] {
-                new Object[] { EUWEST_REGION_NAME, EUWEST_IMAGE_ID, IMAGE_OWNER },
-                new Object[] { USEAST_REGION_NAME, USEAST_IMAGE_ID, IMAGE_OWNER }
+                new Object[] { REGION_NAME, IMAGE_ID, IMAGE_OWNER }
             };
     }
 
+    // For GCE, use "imageNamePattern" instead
     @Override
     @DataProvider(name = "fromImageDescriptionPattern")
     public Object[][] cloudAndImageDescriptionPatterns() {
-        return new Object[][] {
-                new Object[] { EUWEST_REGION_NAME, IMAGE_PATTERN, IMAGE_OWNER },
-                new Object[] { USEAST_REGION_NAME, IMAGE_PATTERN, IMAGE_OWNER }
-            };
+        return new Object[][] {};
     }
 
     @Override
     @DataProvider(name = "fromImageNamePattern")
     public Object[][] cloudAndImageNamePatterns() {
         return new Object[][] {
-                new Object[] { USEAST_REGION_NAME, IMAGE_PATTERN, IMAGE_OWNER }
+                new Object[] { REGION_NAME, IMAGE_PATTERN, IMAGE_OWNER }
             };
     }
-
-    @Test(enabled = false)
-    public void noop() { } /* just exists to let testNG IDE run the test */
 }

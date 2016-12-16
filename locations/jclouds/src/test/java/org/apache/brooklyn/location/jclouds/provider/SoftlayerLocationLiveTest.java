@@ -19,24 +19,24 @@
 package org.apache.brooklyn.location.jclouds.provider;
 
 import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
 
 /**
- * Tests basic provisioning to aws-ec2.
+ * Tests basic provisioning to Softlayer.
  * 
  * Requires AWS credentials be set up in {@code ~/.brooklyn/brooklyn.properties}.
  */
-public class AwsEc2LocationLiveTest extends AbstractJcloudsLocationTest {
+public class SoftlayerLocationLiveTest extends AbstractJcloudsLocationTest {
 
-    private static final String PROVIDER = "aws-ec2";
-    private static final String EUWEST_REGION_NAME = "eu-west-1";
-    private static final String USEAST_REGION_NAME = "us-east-1";
-    private static final String EUWEST_IMAGE_ID = EUWEST_REGION_NAME+"/"+"ami-69841c1e"; // RightImage_CentOS_7.0_x64_v14.2.1_HVM_EBS
-    private static final String USEAST_IMAGE_ID = USEAST_REGION_NAME+"/"+"ami-5492ba3c"; // RightImage_CentOS_7.0_x64_v14.2.1_HVM_EBS
-    private static final String IMAGE_OWNER = "411009282317";
-    private static final String IMAGE_PATTERN = "RightImage_CentOS_7.0_x64_v14.2.1.*";
+    private static final String PROVIDER = "softlayer";
+    private static final String IMAGE_ID = "CENTOS_6_64"; // Image: {id=CENTOS_6_64, providerId=CENTOS_6_64, os={family=centos, version=6.5, description=CentOS / CentOS / 6.5-64 LAMP for Bare Metal, is64Bit=true}, description=CENTOS_6_64, status=AVAILABLE, loginUser=root}
+    private static final String IMAGE_PATTERN = "CENTOS_6_64.*";
+    private static final String REGION_NAME = null;//FIXME "ams06";
+    private static final String IMAGE_OWNER = null;
+    
+//    public static final int MAX_TAG_LENGTH = 20;
+//    public static final int MAX_VM_NAME_LENGTH = 30;
 
-    public AwsEc2LocationLiveTest() {
+    public SoftlayerLocationLiveTest() {
         super(PROVIDER);
     }
 
@@ -44,8 +44,7 @@ public class AwsEc2LocationLiveTest extends AbstractJcloudsLocationTest {
     @DataProvider(name = "fromImageId")
     public Object[][] cloudAndImageIds() {
         return new Object[][] {
-                new Object[] { EUWEST_REGION_NAME, EUWEST_IMAGE_ID, IMAGE_OWNER },
-                new Object[] { USEAST_REGION_NAME, USEAST_IMAGE_ID, IMAGE_OWNER }
+                new Object[] { REGION_NAME, IMAGE_ID, IMAGE_OWNER }
             };
     }
 
@@ -53,19 +52,14 @@ public class AwsEc2LocationLiveTest extends AbstractJcloudsLocationTest {
     @DataProvider(name = "fromImageDescriptionPattern")
     public Object[][] cloudAndImageDescriptionPatterns() {
         return new Object[][] {
-                new Object[] { EUWEST_REGION_NAME, IMAGE_PATTERN, IMAGE_OWNER },
-                new Object[] { USEAST_REGION_NAME, IMAGE_PATTERN, IMAGE_OWNER }
+                new Object[] { REGION_NAME, IMAGE_PATTERN, IMAGE_OWNER }
             };
     }
 
+    // For Softlayer, use "imageDescriptionPattern" instead
     @Override
-    @DataProvider(name = "fromImageNamePattern")
+    @DataProvider(name = "fromImageDescriptionPattern")
     public Object[][] cloudAndImageNamePatterns() {
-        return new Object[][] {
-                new Object[] { USEAST_REGION_NAME, IMAGE_PATTERN, IMAGE_OWNER }
-            };
+        return new Object[][] {};
     }
-
-    @Test(enabled = false)
-    public void noop() { } /* just exists to let testNG IDE run the test */
 }
