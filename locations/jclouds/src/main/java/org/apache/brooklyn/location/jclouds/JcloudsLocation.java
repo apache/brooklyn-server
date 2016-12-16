@@ -842,7 +842,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
             // Create a JcloudsSshMachineLocation, and register it
             if (windows) {
-                machineLocation = registerWinRmMachineLocation(computeService, node, managementHostAndPort, setup);
+                machineLocation = registerWinRmMachineLocation(computeService, node, Optional.fromNullable(template), userCredentials, managementHostAndPort, setup);
             } else {
                 machineLocation = registerJcloudsSshMachineLocation(computeService, node, Optional.fromNullable(template), userCredentials, managementHostAndPort, setup);
             }
@@ -2387,7 +2387,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         
 
         if (windows) {
-            return registerWinRmMachineLocation(computeService, node, managementHostAndPort, setup);
+            return registerWinRmMachineLocation(computeService, node, Optional.<Template>absent(), node.getCredentials(), managementHostAndPort, setup);
         } else {
             try {
                 return registerJcloudsSshMachineLocation(computeService, node, Optional.<Template>absent(), node.getCredentials(), managementHostAndPort, setup);
@@ -2519,8 +2519,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
     }
 
-    protected JcloudsSshMachineLocation registerJcloudsSshMachineLocation(ComputeService computeService, NodeMetadata node, Optional<Template> template, LoginCredentials credentials,
-                                                                          HostAndPort managementHostAndPort, ConfigBag setup) throws IOException {
+    protected JcloudsSshMachineLocation registerJcloudsSshMachineLocation(ComputeService computeService, NodeMetadata node, 
+            Optional<Template> template, LoginCredentials credentials, HostAndPort managementHostAndPort, ConfigBag setup) 
+            throws IOException {
         JcloudsSshMachineLocation machine = createJcloudsSshMachineLocation(computeService, node, template, credentials, managementHostAndPort, setup);
         registerJcloudsMachineLocation(node.getId(), machine);
         return machine;
@@ -2532,8 +2533,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         vmInstanceIds.put(machine, nodeId);
     }
 
-    protected JcloudsSshMachineLocation createJcloudsSshMachineLocation(ComputeService computeService, NodeMetadata node, Optional<Template> template,
-                                                                        LoginCredentials userCredentials, HostAndPort managementHostAndPort, ConfigBag setup) throws IOException {
+    protected JcloudsSshMachineLocation createJcloudsSshMachineLocation(ComputeService computeService, NodeMetadata node, 
+            Optional<Template> template, LoginCredentials userCredentials, HostAndPort managementHostAndPort, ConfigBag setup) 
+            throws IOException {
         Map<?,?> sshConfig = extractSshConfig(setup, node);
         String nodeAvailabilityZone = extractAvailabilityZone(setup, node);
         String nodeRegion = extractRegion(setup, node);
@@ -2611,14 +2613,15 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
     }
 
-    protected JcloudsWinRmMachineLocation registerWinRmMachineLocation(ComputeService computeService, NodeMetadata node, HostAndPort managementHostAndPort,
-                                                                       ConfigBag setup) {
-        JcloudsWinRmMachineLocation machine = createWinRmMachineLocation(computeService, node, managementHostAndPort, setup);
+    protected JcloudsWinRmMachineLocation registerWinRmMachineLocation(ComputeService computeService, NodeMetadata node, 
+            Optional<Template> template, LoginCredentials credentials, HostAndPort managementHostAndPort, ConfigBag setup) {
+        JcloudsWinRmMachineLocation machine = createWinRmMachineLocation(computeService, node, template, credentials, managementHostAndPort, setup);
         registerJcloudsMachineLocation(node.getId(), machine);
         return machine;
     }
 
-    protected JcloudsWinRmMachineLocation createWinRmMachineLocation(ComputeService computeService, NodeMetadata node, HostAndPort winrmHostAndPort, ConfigBag setup) {
+    protected JcloudsWinRmMachineLocation createWinRmMachineLocation(ComputeService computeService, NodeMetadata node, 
+            Optional<Template> template, LoginCredentials userCredentials, HostAndPort winrmHostAndPort, ConfigBag setup) {
         Map<?,?> winrmConfig = extractWinrmConfig(setup, node);
         String nodeAvailabilityZone = extractAvailabilityZone(setup, node);
         String nodeRegion = extractRegion(setup, node);
@@ -2639,6 +2642,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     .configure(WinRmMachineLocation.WINRM_CONFIG_PORT, winrmHostAndPort.getPort())
                     .configure("user", getUser(setup))
                     .configure(WinRmMachineLocation.USER, setup.get(USER))
+                    .configure(SshMachineLocation.PASSWORD.getName(), winrmConfig.get(WinRmMachineLocation.PASSWORD.getName()) != null ?
+                            winrmConfig.get(WinRmMachineLocation.PASSWORD.getName()) :
+                            userCredentials.getOptionalPassword().orNull())
                     .configure("node", node)
                     .configureIfNotNull(CLOUD_AVAILABILITY_ZONE_ID, nodeAvailabilityZone)
                     .configureIfNotNull(CLOUD_REGION_ID, nodeRegion)
@@ -2930,9 +2936,10 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
      * Extracts the user that jclouds tells us about (i.e. from the jclouds node).
      */
     protected LoginCredentials extractVmCredentials(ConfigBag setup, NodeMetadata node, LoginCredentials nodeCredentials) {
+        boolean windows = isWindows(node, setup);
         String user = getUser(setup);
         OsCredential localCredentials = LocationConfigUtils.getOsCredential(setup).checkNoErrors();
-
+        
         LOG.debug("Credentials extracted for {}: {}/{} with {}/{}", new Object[] { node,
             user, nodeCredentials.getUser(), localCredentials, nodeCredentials });
 
@@ -2953,7 +2960,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 return null;
             } else {
                 LoginCredentials.Builder resultBuilder = LoginCredentials.builder().user(user);
-                if (pwd!=null && (Strings.isBlank(pkd) || localCredentials.isUsingPassword()))
+                if (pwd != null && (Strings.isBlank(pkd) || localCredentials.isUsingPassword() || windows))
                     resultBuilder.password(pwd);
                 else // pkd guaranteed non-blank due to above
                     resultBuilder.privateKey(pkd);
