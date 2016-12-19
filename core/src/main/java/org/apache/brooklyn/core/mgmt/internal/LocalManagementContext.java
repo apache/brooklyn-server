@@ -46,6 +46,7 @@ import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.drivers.downloads.BasicDownloadsManager;
+import org.apache.brooklyn.core.internal.BrooklynInitialization;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.internal.BrooklynProperties.Factory.Builder;
 import org.apache.brooklyn.core.internal.storage.DataGridFactory;
@@ -77,6 +78,15 @@ public class LocalManagementContext extends AbstractManagementContext {
     
     private static final Logger log = LoggerFactory.getLogger(LocalManagementContext.class);
 
+    // Any usage of Brooklyn must first create a management context. Therefore do our 
+    // initialisation here.
+    // TODO We could delete our other calls to BrooklynInitialization.initAll(), to rely on
+    // just one (e.g. AbstractEntity should not need to do it; and that is insufficient if a test
+    // just deals with locations but not entities).
+    static {
+        BrooklynInitialization.initAll();
+    }
+    
     private static final Set<LocalManagementContext> INSTANCES = Collections.synchronizedSet(Collections.newSetFromMap(new WeakHashMap<LocalManagementContext, Boolean>()));
     
     private final Builder builder;
