@@ -31,6 +31,7 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampConstants;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslCallable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
@@ -62,7 +63,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Callables;
 
-public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
+public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements DslCallable {
 
     private static final long serialVersionUID = -7715984495268724954L;
     
@@ -527,7 +528,10 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> {
                 "config("+JavaStringEscapes.wrapJavaString(keyName)+")";
         }
     }
-    
+
+    // TODO
+    // public BrooklynDslDeferredSupplier<?> relation(BrooklynObjectInternal obj, final String relationName) {...}
+
     public BrooklynDslDeferredSupplier<Sensor<?>> sensor(final Object sensorIndicator) {
         return new DslSensorSupplier(this, sensorIndicator);
     }

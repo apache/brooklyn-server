@@ -19,6 +19,7 @@
 package org.apache.brooklyn.camp.brooklyn.spi.dsl.methods;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
 
 import java.util.Arrays;
@@ -26,8 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
-
-import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
@@ -39,6 +38,8 @@ import org.apache.brooklyn.camp.brooklyn.spi.creation.BrooklynYamlTypeInstantiat
 import org.apache.brooklyn.camp.brooklyn.spi.creation.EntitySpecConfiguration;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.external.ExternalConfigSupplier;
 import org.apache.brooklyn.core.entity.EntityDynamicType;
 import org.apache.brooklyn.core.entity.EntityInternal;
@@ -46,6 +47,8 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.ExternalConfigSupplierRegistry;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.DeserializingClassRenamesProvider;
+import org.apache.brooklyn.core.objs.AbstractConfigurationSupportInternal;
+import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -53,6 +56,7 @@ import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
+import org.apache.brooklyn.util.core.task.ImmediateSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -69,7 +73,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
-/** static import functions which can be used in `$brooklyn:xxx` contexts */
+/**
+ * static import functions which can be used in `$brooklyn:xxx` contexts
+ * WARNING: Don't overload methods - the DSL evaluator will pick any one that matches, not the best match.
+ */
 public class BrooklynDslCommon {
 
     private static final Logger LOG = LoggerFactory.getLogger(BrooklynDslCommon.class);
@@ -118,6 +125,73 @@ public class BrooklynDslCommon {
 
     public static BrooklynDslDeferredSupplier<?> config(String keyName) {
         return new DslComponent(Scope.THIS, "").config(keyName);
+    }
+
+    public static BrooklynDslDeferredSupplier<?> config(BrooklynObjectInternal obj, String keyName) {
+        return new DslBrooklynObjectConfigSupplier(obj, keyName);
+    }
+
+    public static class DslBrooklynObjectConfigSupplier extends BrooklynDslDeferredSupplier<Object> {
+        private static final long serialVersionUID = -2378555915585603381L;
+
+        // Keep in mind this object gets serialized so is the following reference
+        private BrooklynObjectInternal obj;
+        private String keyName;
+
+        public DslBrooklynObjectConfigSupplier(BrooklynObjectInternal obj, String keyName) {
+            checkNotNull(obj, "obj");
+            checkNotNull(keyName, "keyName");
+
+            this.obj = obj;
+            this.keyName = keyName;
+        }
+
+        @Override
+        public Maybe<Object> getImmediately() {
+            if (obj instanceof Entity) {
+                // Shouldn't worry too much about it since DSL can fetch objects from same app only.
+                // Just in case check whether it's same app for entities.
+                checkState(entity().getApplicationId().equals(((Entity)obj).getApplicationId()));
+            }
+            ConfigKey<Object> key = ConfigKeys.newConfigKey(Object.class, keyName);
+            Maybe<? extends Object> result = ((AbstractConfigurationSupportInternal)obj.config()).getNonBlocking(key);
+            return Maybe.<Object>cast(result);
+        }
+
+        @Override
+        public Task<Object> newTask() {
+            return Tasks.builder()
+                    .displayName("retrieving config for "+keyName+" on "+obj)
+                    .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
+                    .dynamic(false)
+                    .body(new Callable<Object>() {
+                        @Override
+                        public Object call() throws Exception {
+                            ConfigKey<Object> key = ConfigKeys.newConfigKey(Object.class, keyName);
+                            return obj.getConfig(key);
+                        }})
+                    .build();
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(obj, keyName);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            DslBrooklynObjectConfigSupplier that = DslBrooklynObjectConfigSupplier.class.cast(obj);
+            return Objects.equal(this.obj, that.obj) &&
+                    Objects.equal(this.keyName, that.keyName);
+        }
+
+        @Override
+        public String toString() {
+            return (obj.toString()+".") +
+                "config("+JavaStringEscapes.wrapJavaString(keyName)+")";
+        }
     }
 
     public static BrooklynDslDeferredSupplier<?> attributeWhenReady(String sensorName) {
@@ -626,25 +700,17 @@ public class BrooklynDslCommon {
     public static class Functions {
         public static Object regexReplacement(final Object pattern, final Object replacement) {
             if (resolved(pattern, replacement)) {
-                return new RegexReplacer(String.valueOf(pattern), String.valueOf(replacement));
+                return new org.apache.brooklyn.util.text.StringFunctions.RegexReplacer(String.valueOf(pattern), String.valueOf(replacement));
             } else {
                 return new DslRegexReplacer(pattern, replacement);
             }
         }
 
-        public static class RegexReplacer implements Function<String, String> {
-            private final String pattern;
-            private final String replacement;
-
+        /** @deprecated since 0.11.0; use {@link org.apache.brooklyn.util.text.StringFunctions.RegexReplacer} instead */
+        @Deprecated
+        public static class RegexReplacer extends org.apache.brooklyn.util.text.StringFunctions.RegexReplacer {
             public RegexReplacer(String pattern, String replacement) {
-                this.pattern = pattern;
-                this.replacement = replacement;
-            }
-
-            @Nullable
-            @Override
-            public String apply(@Nullable String s) {
-                return s == null ? null : Strings.replaceAllRegex(s, pattern, replacement);
+                super(pattern, replacement);
             }
         }
 
@@ -688,6 +754,42 @@ public class BrooklynDslCommon {
             public String toString() {
                 return String.format("$brooklyn:regexReplace(%s:%s)", pattern, replacement);
             }
+        }
+    }
+
+    // The results of the following methods are not supposed to get serialized. They are
+    // only intermediate values for the DSL evaluator to apply function calls on. There
+    // will always be a next method that gets executed on the return value.
+    public static class DslFacades {
+        private static class EntitySupplier implements DeferredSupplier<Entity>, ImmediateSupplier<Entity> {
+            private String entityId;
+
+            public EntitySupplier(String entityId) {
+                this.entityId = entityId;
+            }
+
+            @Override
+            public Maybe<Entity> getImmediately() {
+                EntityInternal entity = entity();
+                if (entity == null) {
+                    return Maybe.absent();
+                }
+                Entity targetEntity = entity.getManagementContext().getEntityManager().getEntity(entityId);
+                return Maybe.of(targetEntity);
+            }
+
+            @Override
+            public Entity get() {
+                return getImmediately().orNull();
+            }
+
+            private EntityInternal entity() {
+                return (EntityInternal) BrooklynTaskTags.getTargetOrContextEntity(Tasks.current());
+            }
+        }
+
+        public static Object wrap(Entity entity) {
+            return DslComponent.newInstance(Scope.GLOBAL, new EntitySupplier(entity.getId()));
         }
     }
 

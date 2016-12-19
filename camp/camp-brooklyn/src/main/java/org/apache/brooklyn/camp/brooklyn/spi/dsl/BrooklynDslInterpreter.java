@@ -32,12 +32,11 @@ import org.apache.brooklyn.camp.spi.resolve.PlanInterpreter.PlanInterpreterAdapt
 import org.apache.brooklyn.camp.spi.resolve.interpret.PlanInterpretationNode;
 import org.apache.brooklyn.camp.spi.resolve.interpret.PlanInterpretationNode.Role;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Optional;
 
 /**
  * {@link PlanInterpreter} which understands the $brooklyn DSL
@@ -157,15 +156,6 @@ public class BrooklynDslInterpreter extends PlanInterpreterAdapter {
         if (f.getArgs()==null)
             throw new IllegalStateException("Invalid function-only expression '"+f.getFunction()+"'");
 
-        Class<?> clazz;
-        if (o instanceof Class) {
-            clazz = (Class<?>)o;
-        } else {
-            clazz = o.getClass();
-        }
-        if (!(clazz.getPackage().getName().startsWith(BrooklynDslCommon.class.getPackage().getName())))
-            throw new IllegalArgumentException("Not permitted to invoke function on '"+clazz+"' (outside allowed package scope)");
-        
         String fn = f.getFunction();
         fn = Strings.removeFromStart(fn, "$brooklyn:");
         if (fn.startsWith("function.")) {
@@ -175,19 +165,22 @@ public class BrooklynDslInterpreter extends PlanInterpreterAdapter {
             o = BrooklynDslCommon.Functions.class;
             fn = Strings.removeFromStart(fn, "function.");
         }
+        List<Object> args = new ArrayList<>();
+        for (Object arg: f.getArgs()) {
+            args.add( deepEvaluation ? evaluate(arg, true) : arg );
+        }
         try {
-            List<Object> args = new ArrayList<>();
-            for (Object arg: f.getArgs()) {
-                args.add( deepEvaluation ? evaluate(arg, true) : arg );
+            if (o instanceof BrooklynDslDeferredSupplier && !(o instanceof DslCallable)) {
+                return new DslDeferredFunctionCall((BrooklynDslDeferredSupplier<?>) o, fn, args);
+            } else {
+                // Would prefer to keep the invocation logic encapsulated in DslDeferredFunctionCall, but
+                // for backwards compatibility will evaluate as much as possible eagerly (though it shouldn't matter in theory).
+                return DslDeferredFunctionCall.invokeOn(o, fn, args);
             }
-            Optional<Object> v = Reflections.invokeMethodWithArgs(o, fn, args);
-            if (v.isPresent()) return v.get();
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
-            throw Exceptions.propagate(new InvocationTargetException(e, "Error invoking '"+fn+"' on '"+o+"'"));
+            throw Exceptions.propagate(new InvocationTargetException(e, "Error invoking '"+fn+"' on '"+o+"' with arguments "+args+""));
         }
-        
-        throw new IllegalArgumentException("No such function '"+fn+"' on "+o);
     }
-    
+
 }
