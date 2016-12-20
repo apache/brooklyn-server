@@ -18,6 +18,7 @@ package org.apache.brooklyn.util.net;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 import java.net.ServerSocket;
@@ -25,11 +26,13 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
@@ -38,6 +41,8 @@ import org.testng.annotations.Test;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.net.HostAndPort;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -48,25 +53,23 @@ public class ReachableSocketFinderTest {
 
     private static final Logger LOG = LoggerFactory.getLogger(ReachableSocketFinderTest.class);
 
-    private HostAndPort socket1;
-    private HostAndPort socket2;
+    private final HostAndPort socket1 = HostAndPort.fromParts("1.1.1.1", 1111);
+    private final HostAndPort socket2 = HostAndPort.fromParts("1.1.1.2", 1112);
+    private final HostAndPort socket3 = HostAndPort.fromParts("1.1.1.3", 1113);
+    private final Predicate<HostAndPort> socketTester = new Predicate<HostAndPort>() {
+        @Override
+        public boolean apply(HostAndPort input) {
+            return Boolean.TRUE.equals(reachabilityResults.get(input));
+        }};
+
     private Map<HostAndPort, Boolean> reachabilityResults;
     private ListeningExecutorService executor;
-    private Predicate<HostAndPort> socketTester;
     private ReachableSocketFinder finder;
 
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
-        socket1 = HostAndPort.fromParts("1.1.1.1", 1111);
-        socket2 = HostAndPort.fromParts("1.1.1.2", 1112);
         reachabilityResults = Maps.newConcurrentMap();
         executor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool());
-        socketTester = new Predicate<HostAndPort>() {
-            @Override public boolean apply(HostAndPort input) {
-                return Boolean.TRUE.equals(reachabilityResults.get(input));
-            }
-        };
-        
         finder = new ReachableSocketFinder(socketTester, executor);
     }
 
@@ -76,19 +79,24 @@ public class ReachableSocketFinderTest {
     }
     
     @Test(expectedExceptions=IllegalStateException.class)
-    public void testWhenNoSocketsThrowsIllegalState() throws Exception {
+    public void testFindWhenNoSocketsThrowsIllegalState() throws Exception {
         finder.findOpenSocketOnNode(ImmutableList.<HostAndPort>of(), Duration.TEN_SECONDS);
+    }
+
+    @Test(expectedExceptions=IllegalStateException.class)
+    public void testFindAllWhenNoSocketsThrowsIllegalState() throws Exception {
+        finder.findOpenSocketsOnNode(ImmutableList.<HostAndPort>of(), Duration.TEN_SECONDS);
     }
     
     @Test
     public void testReturnsReachableSocket() throws Exception {
         reachabilityResults.put(socket1, true);
         reachabilityResults.put(socket2, false);
-        assertEquals(finder.findOpenSocketOnNode(ImmutableList.<HostAndPort>of(socket1, socket2), Duration.TEN_SECONDS), socket1);
+        assertEquals(finder.findOpenSocketOnNode(ImmutableList.of(socket1, socket2), Duration.ONE_SECOND), socket1);
         
         reachabilityResults.put(socket1, false);
         reachabilityResults.put(socket2, true);
-        assertEquals(finder.findOpenSocketOnNode(ImmutableList.<HostAndPort>of(socket1, socket2), Duration.TEN_SECONDS), socket2);
+        assertEquals(finder.findOpenSocketOnNode(ImmutableList.of(socket1, socket2), Duration.ONE_SECOND), socket2);
     }
     
     @Test
@@ -97,18 +105,79 @@ public class ReachableSocketFinderTest {
         reachabilityResults.put(socket2, false);
         final ListenableFuture<HostAndPort> future = executor.submit(new Callable<HostAndPort>() {
                 @Override public HostAndPort call() throws Exception {
-                    return finder.findOpenSocketOnNode(ImmutableList.<HostAndPort>of(socket1, socket2), Duration.TEN_SECONDS);
+                    return finder.findOpenSocketOnNode(ImmutableList.of(socket1, socket2), Duration.TEN_SECONDS);
                 }});
 
         // Should keep trying
-        Asserts.succeedsContinually(new Runnable() {
+        Asserts.succeedsContinually(ImmutableMap.of("timeout", Duration.millis(100)), new Runnable() {
             @Override public void run() {
                 assertFalse(future.isDone());
             }});
 
         // When port is reached, it completes
         reachabilityResults.put(socket1, true);
-        assertEquals(future.get(30, TimeUnit.SECONDS), socket1);
+        assertEquals(future.get(5, TimeUnit.SECONDS), socket1);
+    }
+
+    @Test
+    public void testGetReachableSockets() throws Exception {
+        reachabilityResults.put(socket1, true);
+        reachabilityResults.put(socket2, false);
+        reachabilityResults.put(socket3, true);
+        final Iterable<HostAndPort> expected = ImmutableList.of(socket1, socket3);
+        final Iterable<HostAndPort> actual = finder.findOpenSocketsOnNode(
+                ImmutableList.of(socket1, socket2, socket3), Duration.millis(250));
+        assertEquals(actual, expected, "expected=" + expected + ", actual=" + Iterables.toString(actual));
+    }
+
+    @Test
+    public void testGetAllReachableSocketsEmpty() throws Exception {
+        final Iterable<HostAndPort> expected = ImmutableList.of();
+        final Iterable<HostAndPort> actual = finder.findOpenSocketsOnNode(ImmutableList.of(socket2), Duration.millis(1));
+        assertEquals(actual, expected, "expected=" + expected + ", actual=" + Iterables.toString(actual));
+    }
+
+    @Test
+    public void testReachableSocketsIteratesInInputOrder() throws Exception {
+        // i.e. not in the order that reachability was determined.
+        reachabilityResults.put(socket1, false);
+        reachabilityResults.put(socket2, true);
+        final Iterable<HostAndPort> actual = finder.findOpenSocketsOnNode(ImmutableList.of(socket1, socket2), Duration.TEN_SECONDS);
+        final Iterable<HostAndPort> expected = ImmutableList.of(socket1, socket2);
+        final Future<?> future = executor.submit(new Runnable() {
+            @Override
+            public void run() {
+                // This will block until the check for socket1 completes or times out.
+                assertEquals(actual, expected, "expected=" + expected + ", actual=" + Iterables.toString(actual));
+            }
+        });
+
+        // Should keep trying
+        Asserts.succeedsContinually(ImmutableMap.of("timeout", Duration.ONE_SECOND), new Runnable() {
+            @Override public void run() {
+                assertFalse(future.isDone());
+            }});
+
+        // When port is reached, it completes. Demonstrates grace period.
+        reachabilityResults.put(socket1, true);
+
+        Asserts.succeedsEventually(ImmutableMap.of("timeout", Duration.ONE_SECOND), new Runnable() {
+            @Override public void run() {
+                assertTrue(future.isDone());
+            }});
+    }
+
+    // Wouldn't need to be integration if grace period were configurable.
+    @Test(groups = "Integration")
+    public void testSocketResultIgnoredIfGracePeriodExpiresAfterFirstResultAvailable() {
+        reachabilityResults.put(socket1, false);
+        reachabilityResults.put(socket2, true);
+
+        final Iterable<HostAndPort> actual = finder.findOpenSocketsOnNode(ImmutableList.of(socket1, socket2), Duration.FIVE_MINUTES);
+        // Sleep through the grace period.
+        Time.sleep(Duration.seconds(10));
+        reachabilityResults.put(socket1, true);
+        assertEquals(actual, ImmutableList.of(socket2));
     }
     
     // Mark as integration, as can't rely (in Apache infra) for a port to stay unused during test!
