@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.StringTokenizer;
-
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.util.collections.MutableList;
@@ -44,7 +43,9 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 
 public class Strings {
@@ -824,6 +825,33 @@ public class Strings {
         if (list==null) return null;
         List<String> result = MutableList.of();
         for (Object v: list) result.add(toStringWithValueForNull(v, valueIfNull));
+        return result;
+    }
+
+    /**
+     * Tries to convert v to a list of strings.
+     * <p>
+     * If v is <code>null</code> then the method returns an empty immutable list.
+     * If v is {@link Iterable} or an <code>Object[]</code> then toString is called on its elements.
+     * If v is a {@link String} then a singleton list containing v is returned.
+     * Otherwise the method throws an {@link IllegalArgumentException}.
+     */
+    public static List<String> toStringList(Object v) {
+        if (v == null) return ImmutableList.of();
+        List<String> result = Lists.newArrayList();
+        if (v instanceof Iterable) {
+            for (Object o : (Iterable<?>) v) {
+                result.add(o.toString());
+            }
+        } else if (v instanceof Object[]) {
+            for (int i = 0; i < ((Object[]) v).length; i++) {
+                result.add(((Object[]) v)[i].toString());
+            }
+        } else if (v instanceof String) {
+            result.add((String) v);
+        } else {
+            throw new IllegalArgumentException("Invalid type for List<String>: " + v + " of type " + v.getClass());
+        }
         return result;
     }
 
