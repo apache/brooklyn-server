@@ -315,7 +315,7 @@ public class HttpTool {
             this.credentials = checkNotNull(val, "credentials");
             return this;
         }
-        public HttpClientBuilder credential(Optional<Credentials> val) {
+        public HttpClientBuilder credential(Optional<? extends Credentials> val) {
             if (val.isPresent()) credentials = val.get();
             return this;
         }
