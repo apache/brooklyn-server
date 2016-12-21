@@ -137,7 +137,7 @@
         <jetty-schemas.version>3.1.M0</jetty-schemas.version>
         <airline.version>0.6</airline.version>
         <mockwebserver.version>20121111</mockwebserver.version>
-        <freemarker.version>2.3.22</freemarker.version>
+        <freemarker.version>2.3.25-incubating</freemarker.version>
         <commons-io.version>2.4</commons-io.version>
         <jsonPath.version>2.0.0</jsonPath.version>
         <commons-compress.version>1.4</commons-compress.version>
