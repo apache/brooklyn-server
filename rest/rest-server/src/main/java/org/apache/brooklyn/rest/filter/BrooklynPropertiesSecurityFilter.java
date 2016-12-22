@@ -148,8 +148,13 @@ public class BrooklynPropertiesSecurityFilter implements Filter {
         String authorization = request.getHeader("Authorization");
         if (authorization != null) {
             String userpass = new String(Base64.decodeBase64(authorization.substring(6)));
-            user = userpass.substring(0, userpass.indexOf(":"));
-            pass = userpass.substring(userpass.indexOf(":") + 1);
+            int idxColon = userpass.indexOf(":");
+            if (idxColon >= 0) {
+                user = userpass.substring(0, idxColon);
+                pass = userpass.substring(idxColon + 1);
+            } else {
+                return false;
+            }
         }
         if (provider.authenticate(session, user, pass)) {
             if (user != null) {

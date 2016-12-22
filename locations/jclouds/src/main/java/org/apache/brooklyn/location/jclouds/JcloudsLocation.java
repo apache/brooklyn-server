@@ -1612,6 +1612,11 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         sshProps.put("port", hostAndPort.getPort());
         sshProps.put(AbstractLocation.TEMPORARY_LOCATION.getName(), true);
         sshProps.put(LocalLocationManager.CREATE_UNMANAGED.getName(), true);
+        String sshClass = config().get(SshMachineLocation.SSH_TOOL_CLASS);
+        if (Strings.isNonBlank(sshClass)) {
+            sshProps.put(SshMachineLocation.SSH_TOOL_CLASS.getName(), sshClass);
+        }
+
         sshProps.remove("id");
         sshProps.remove("password");
         sshProps.remove("privateKeyData");
@@ -1647,6 +1652,10 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         winrmProps.remove("privateKeyData");
         winrmProps.remove("privateKeyFile");
         winrmProps.remove("privateKeyPassphrase");
+        String winrmClass = config().get(WinRmMachineLocation.WINRM_TOOL_CLASS);
+        if (Strings.isNonBlank(winrmClass)) {
+            winrmProps.put(WinRmMachineLocation.WINRM_TOOL_CLASS.getName(), winrmClass);
+        }
 
         if (initialPassword.isPresent()) winrmProps.put("password", initialPassword.get());
         if (initialPrivateKey.isPresent()) winrmProps.put("privateKeyData", initialPrivateKey.get());

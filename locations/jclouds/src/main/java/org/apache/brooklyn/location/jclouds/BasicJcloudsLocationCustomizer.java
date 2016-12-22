@@ -29,8 +29,10 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.objs.BasicConfigurableObject;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.jclouds.compute.ComputeService;
 import org.jclouds.compute.domain.Template;
 import org.jclouds.compute.domain.TemplateBuilder;
@@ -55,10 +57,10 @@ public class BasicJcloudsLocationCustomizer extends BasicConfigurableObject impl
     private static final Logger LOG = LoggerFactory.getLogger(BasicJcloudsLocationCustomizer.class);
 
     public BasicJcloudsLocationCustomizer() {
-        this(ImmutableMap.<String, String>of());
+        this(ImmutableMap.of());
     }
 
-    public BasicJcloudsLocationCustomizer(Map<String, String> params) {
+    public BasicJcloudsLocationCustomizer(Map<?, ?> params) {
         this(ConfigBag.newInstance(params));
     }
 
