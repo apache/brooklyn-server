@@ -988,7 +988,7 @@ public abstract class RebindIteration {
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
             }
-            return new ClassLoaderUtils(reflections.getClassLoader()).loadClass(jType);
+            return new ClassLoaderUtils(reflections.getClassLoader(), managementContext).loadClass(jType);
         }
 
         @SuppressWarnings("unchecked")
