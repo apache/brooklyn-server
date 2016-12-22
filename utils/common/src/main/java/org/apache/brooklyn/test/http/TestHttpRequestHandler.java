@@ -30,6 +30,7 @@ import org.apache.http.HttpException;
 import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
+import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.protocol.HttpContext;
@@ -46,6 +47,11 @@ public class TestHttpRequestHandler implements HttpRequestHandler {
         } catch (UnsupportedEncodingException e) {
             throw Exceptions.propagate(e);
         }
+        return this;
+    }
+
+    public TestHttpRequestHandler response(byte[] response) {
+        this.entity = new ByteArrayEntity(response);
         return this;
     }
 
