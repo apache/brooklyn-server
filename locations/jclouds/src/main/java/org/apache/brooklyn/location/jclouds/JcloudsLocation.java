@@ -1369,6 +1369,15 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             templateBuilder.locationId(config.get(CLOUD_REGION_ID));
         }
 
+        if (Strings.isNonBlank(config.get(HARDWARE_ID))) {
+            String oldHardwareId = config.get(HARDWARE_ID);
+            String newHardwareId = transformHardwareId(oldHardwareId, config);
+            if (!Objects.equal(oldHardwareId, newHardwareId)) {
+                LOG.info("Transforming hardwareId from " + oldHardwareId + " to " + newHardwareId + ", in " + toString());
+                config.put(HARDWARE_ID, newHardwareId);
+            }
+        }
+
         // Apply the template builder and options properties
         for (Map.Entry<ConfigKey<?>, ? extends TemplateBuilderCustomizer> entry : SUPPORTED_TEMPLATE_BUILDER_PROPERTIES.entrySet()) {
             ConfigKey<?> key = entry.getKey();
@@ -1482,6 +1491,51 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
 
         return template;
+    }
+
+
+    /**
+     * See {@link https://issues.apache.org/jira/browse/JCLOUDS-1108}.
+     * 
+     * In jclouds 1.9.x and 2.0.0, google-compute-engine hardwareId must be in the long form. For 
+     * example {@code https://www.googleapis.com/compute/v1/projects/jclouds-gce/zones/us-central1-a/machineTypes/n1-standard-1}.
+     * It is much nicer to support the short-form (e.g. {@code n1-standard-1}), and to construct 
+     * the long-form from this.
+     * 
+     * The "zone" in the long-form needs to match the region (see {@link #getRegion()}).
+     * 
+     * The ideal would be for jclouds to do this. But that isn't available yet - in the mean time,
+     * we can make life easier for our users with the code below.
+     * 
+     * Second best would have been handling this in {@link TemplateBuilderCustomizers#hardwareId()}. 
+     * However, that code doesn't have enough context to know what to do (easily!). It is passed
+     * {@code apply(TemplateBuilder tb, ConfigBag props, Object v)}, so doesn't even know which 
+     * provider it is being called for (without doing ugly/brittle digging in the {@code props}
+     * that it is given).
+     * 
+     * Therefore we do the transform here.
+     */
+    private String transformHardwareId(String hardwareId, ConfigBag config) {
+        checkNotNull(hardwareId, "hardwareId");
+        checkNotNull(config, "config");
+        
+        String provider = getProvider();
+        String region = getRegion();
+        if (Strings.isBlank(region)) region = config.get(CLOUD_REGION_ID);
+        
+        if (!"google-compute-engine".equals(provider)) {
+            return hardwareId;
+        }
+        if (hardwareId.toLowerCase().startsWith("http") || hardwareId.contains("/")) {
+            // looks like it's already in long-form: don't transform
+            return hardwareId;
+        }
+        if (Strings.isNonBlank(region)) {
+            return String.format("https://www.googleapis.com/compute/v1/projects/jclouds-gce/zones/%s/machineTypes/%s", region, hardwareId);
+        } else {
+            LOG.warn("Cannot transform GCE hardwareId (" + hardwareId + ") to long form, because region unknown in " + toString());
+            return hardwareId;
+        }
     }
 
     protected String toStringNice() {
@@ -3051,5 +3105,4 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             return val1;
         }
     }
-
 }
