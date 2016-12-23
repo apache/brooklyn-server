@@ -110,7 +110,7 @@
         <cxf.version>3.1.4</cxf.version>
         <httpcomponents.httpclient.version>4.5.2</httpcomponents.httpclient.version>
         <httpcomponents.httpcore.version>4.4.5</httpcomponents.httpcore.version>
-        <httpcomponents.version>4.4.1</httpcomponents.version> <!-- kept for compatibility in 0.10.0-SNAPSHOT, remove after -->
+        <httpclient.version>4.4.1</httpclient.version> <!-- kept for compatibility in 0.10.0-SNAPSHOT, remove after -->
         <commons-lang3.version>3.3.2</commons-lang3.version>
         <groovy.version>2.3.7</groovy.version> <!-- Version supported by https://github.com/groovy/groovy-eclipse/wiki/Groovy-Eclipse-2.9.1-Release-Notes -->
         <jsr305.version>2.0.1</jsr305.version>
