@@ -26,6 +26,7 @@ import com.google.common.base.CaseFormat;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 
@@ -409,7 +410,22 @@ public class StringFunctions {
         @Nullable
         @Override
         public String apply(@Nullable String s) {
-            return Strings.replaceAllRegex(s, pattern, replacement);
+            return s == null ? null : Strings.replaceAllRegex(s, pattern, replacement);
         }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(pattern, replacement);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            RegexReplacer that = RegexReplacer.class.cast(obj);
+            return Objects.equal(this.pattern, that.pattern) &&
+                    Objects.equal(this.replacement, that.replacement);
+        }
+
     }
 }

@@ -110,6 +110,7 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
     /** timeout on execution, if possible, or if embedResolutionInTask is true */
     Duration timeout;
     boolean immediately;
+    boolean recursive = true;
     boolean isTransientTask = true;
     
     T defaultValue = null;
@@ -144,6 +145,7 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
 
         timeout = parent.timeout;
         immediately = parent.immediately;
+        // not copying recursive as we want deep resolving to be recursive, only top-level values should be non-recursive
         parentTimer = parent.parentTimer;
         if (parentTimer!=null && parentTimer.isExpired())
             expired = true;
@@ -167,7 +169,9 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
             .context(exec).description(description)
             .embedResolutionInTask(embedResolutionInTask)
             .deep(forceDeep)
-            .timeout(timeout);
+            .timeout(timeout)
+            .immediately(immediately)
+            .recursive(recursive);
         if (returnDefaultOnGet) result.defaultValue(defaultValue);
         if (swallowExceptions) result.swallowExceptions();
         return result;
@@ -264,6 +268,18 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
         return this;
     }
 
+    /**
+     * Whether the value should be resolved recursively. When true the result of
+     * the resolving will be resolved again recursively until the value is an immediate object.
+     * When false will try to resolve the value a single time and return the result even if it
+     * can be resolved further (e.x. it is DeferredSupplier).
+     */
+    @Beta
+    public ValueResolver<T> recursive(boolean val) {
+        this.recursive = val;
+        return this;
+    }
+
     protected void checkTypeNotNull() {
         if (type==null) 
             throw new NullPointerException("type must be set to resolve, for '"+value+"'"+(description!=null ? ", "+description : ""));
@@ -297,6 +313,11 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
             exec = BasicExecutionContext.getCurrentExecutionContext();
         }
         
+        if (!recursive && type != Object.class) {
+            throw new IllegalStateException("When non-recursive resolver requested the return type must be Object " +
+                    "as the immediately resolved value could be a number of (deferred) types.");
+        }
+        
         CountdownTimer timerU = parentTimer;
         if (timerU==null && timeout!=null)
             timerU = timeout.countdownTimer();
@@ -319,7 +340,11 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
                     Maybe<?> result = supplier.getImmediately();
                     
                     // Recurse: need to ensure returned value is cast, etc
-                    return (result.isPresent()) ? new ValueResolver(result.get(), type, this).getMaybe() : Maybe.<T>absent();
+                    return (result.isPresent())
+                            ? recursive
+                                ? new ValueResolver(result.get(), type, this).getMaybe()
+                                : result
+                            : Maybe.<T>absent();
                 } catch (ImmediateSupplier.ImmediateUnsupportedException e) {
                     log.debug("Unable to resolve-immediately for "+description+" ("+v+"); falling back to executing with timeout", e);
                 }
@@ -455,7 +480,12 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
             throw problem;
         }
         
-        return new ValueResolver(v, type, this).getMaybe();
+        if (recursive) {
+            return new ValueResolver(v, type, this).getMaybe();
+        } else {
+            // T expected to be Object.class
+            return (Maybe<T>) Maybe.of(v);
+        }
     }
 
     protected String getDescription() {

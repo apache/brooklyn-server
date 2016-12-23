@@ -33,7 +33,6 @@ import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
 import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.AbstractNodeCreator;
 import org.apache.brooklyn.location.jclouds.StubbedComputeServiceRegistry.NodeCreator;
-import org.jclouds.compute.domain.ComputeMetadata;
 import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.NodeMetadata.Status;
 import org.jclouds.compute.domain.NodeMetadataBuilder;
@@ -79,7 +78,7 @@ public class JcloudsByonLocationResolverStubbedTest extends AbstractJcloudsStubb
     protected NodeCreator newNodeCreator() {
         return new AbstractNodeCreator() {
             @Override
-            public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<ComputeMetadata> filter) {
+            public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<? super NodeMetadata> filter) {
                 NodeMetadata result = new NodeMetadataBuilder()
                         .id(nodeId)
                         .credentials(LoginCredentials.builder().identity("dummy").credential("dummy").build())

@@ -21,15 +21,20 @@ package org.apache.brooklyn.location.jclouds.provider;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+/**
+ * Tests basic provisioning to aws-ec2.
+ * 
+ * Requires AWS credentials be set up in {@code ~/.brooklyn/brooklyn.properties}.
+ */
 public class AwsEc2LocationLiveTest extends AbstractJcloudsLocationTest {
 
     private static final String PROVIDER = "aws-ec2";
     private static final String EUWEST_REGION_NAME = "eu-west-1";
     private static final String USEAST_REGION_NAME = "us-east-1";
-    private static final String EUWEST_IMAGE_ID = EUWEST_REGION_NAME+"/"+"ami-89def4fd"; // RightImage_CentOS_5.4_i386_v5.5.9_EBS
-    private static final String USEAST_IMAGE_ID = USEAST_REGION_NAME+"/"+"ami-2342a94a"; // RightImage_CentOS_5.4_i386_v5.5.9_EBS
+    private static final String EUWEST_IMAGE_ID = EUWEST_REGION_NAME+"/"+"ami-69841c1e"; // RightImage_CentOS_7.0_x64_v14.2.1_HVM_EBS
+    private static final String USEAST_IMAGE_ID = USEAST_REGION_NAME+"/"+"ami-5492ba3c"; // RightImage_CentOS_7.0_x64_v14.2.1_HVM_EBS
     private static final String IMAGE_OWNER = "411009282317";
-    private static final String IMAGE_PATTERN = "RightImage_CentOS_5.4_i386_v5.5.9_EBS";
+    private static final String IMAGE_PATTERN = "RightImage_CentOS_7.0_x64_v14.2.1.*";
 
     public AwsEc2LocationLiveTest() {
         super(PROVIDER);

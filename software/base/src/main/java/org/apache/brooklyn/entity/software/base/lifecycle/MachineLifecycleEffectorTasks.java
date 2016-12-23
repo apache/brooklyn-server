@@ -115,7 +115,7 @@ import com.google.common.reflect.TypeToken;
  *  <li> {@link #preStopCustom()}
  *  <li> {@link #postStopCustom()}
  * </ul>
- * Note methods at this level typically look after the {@link Attributes#SERVICE_STATE} sensor.
+ * Note methods at this level typically look after the {@link Attributes#SERVICE_STATE_ACTUAL} sensor.
  *
  * @since 0.6.0
  */
@@ -489,7 +489,10 @@ public abstract class MachineLifecycleEffectorTasks {
             entity().sensors().set(Attributes.ADDRESS, machine.getAddress().getHostAddress());
             if (machine instanceof SshMachineLocation) {
                 SshMachineLocation sshMachine = (SshMachineLocation) machine;
-                UserAndHostAndPort sshAddress = UserAndHostAndPort.fromParts(sshMachine.getUser(), sshMachine.getAddress().getHostName(), sshMachine.getPort());
+                UserAndHostAndPort sshAddress = UserAndHostAndPort.fromParts(
+                        sshMachine.getUser(), sshMachine.getAddress().getHostName(), sshMachine.getPort());
+                // FIXME: Who or what is SSH_ADDRESS intended for? It's not necessarily the address that
+                // the SshMachineLocation is using for ssh connections (because it accepts SSH_HOST as an override).
                 entity().sensors().set(Attributes.SSH_ADDRESS, sshAddress);
             }
 

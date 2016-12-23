@@ -135,20 +135,14 @@
             <artifactId>jclouds-allcompute</artifactId>
             <version>${jclouds.version}</version>
         </dependency>
-
         <dependency>
             <groupId>${jclouds.groupId}.labs</groupId>
-            <artifactId>abiquo</artifactId>
+            <artifactId>azurecompute</artifactId>
             <version>${jclouds.version}</version>
         </dependency>
         <dependency>
             <groupId>${jclouds.groupId}.labs</groupId>
-            <artifactId>google-compute-engine</artifactId>
-            <version>${jclouds.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>${jclouds.groupId}.labs</groupId>
-            <artifactId>docker</artifactId>
+            <artifactId>azurecompute-arm</artifactId>
             <version>${jclouds.version}</version>
         </dependency>
 

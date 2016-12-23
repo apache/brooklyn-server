@@ -27,6 +27,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.apache.brooklyn.util.javalang.AtomicReferences;
 import org.jclouds.compute.domain.*;
 import org.jclouds.compute.options.TemplateOptions;
 import org.jclouds.compute.strategy.GetImageStrategy;
@@ -40,9 +41,11 @@ import org.jclouds.ec2.compute.functions.ImagesToRegionAndIdMap;
 import org.jclouds.ec2.compute.internal.EC2TemplateBuilderImpl;
 import org.jclouds.ec2.domain.RootDeviceType;
 import org.jclouds.ec2.domain.VirtualizationType;
+import org.jclouds.rest.AuthorizationException;
 
 import javax.inject.Provider;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.jclouds.ec2.compute.domain.EC2HardwareBuilder.*;
 import static org.mockito.Mockito.mock;
@@ -89,7 +92,7 @@ public class JcloudsStubTemplateBuilder {
         Provider<TemplateOptions> optionsProvider = mock(Provider.class);
         Provider<TemplateBuilder> templateBuilderProvider = mock(Provider.class);
         TemplateOptions defaultOptions = mock(TemplateOptions.class);
-        GetImageStrategy getImageStrategy = mock(GetImageStrategy.class);
+        final GetImageStrategy getImageStrategy = mock(GetImageStrategy.class);
 
         when(optionsProvider.get()).thenReturn(defaultOptions);
 
@@ -98,8 +101,25 @@ public class JcloudsStubTemplateBuilder {
         Supplier<Set<? extends Hardware>> sizes = Suppliers.<Set<? extends Hardware>> ofInstance(ImmutableSet
                 .of(HARDWARE_SUPPORTING_BOGUS));
 
-        return new EC2TemplateBuilderImpl(locations, new ImageCacheSupplier(images, 60), sizes, Suppliers.ofInstance(jcloudsDomainLocation), optionsProvider,
-                templateBuilderProvider, getImageStrategy, imageCache) {
+
+//        AtomicReference<AuthorizationException> authException = new AtomicReference<AuthorizationException>(new AuthorizationException());
+        AtomicReference<AuthorizationException> authException = new AtomicReference<AuthorizationException>();
+
+        com.google.inject.Provider<GetImageStrategy> imageLoader = new com.google.inject.Provider<GetImageStrategy>() {
+            @Override
+            public GetImageStrategy get() {
+                return getImageStrategy;
+            }
+        };
+
+        return new EC2TemplateBuilderImpl(
+                locations,
+                new ImageCacheSupplier(images, 60, authException, imageLoader),
+                sizes,
+                Suppliers.ofInstance(jcloudsDomainLocation),
+                optionsProvider,
+                templateBuilderProvider,
+                imageCache) {
             @Override
             protected ToStringHelper string() {
                 return super.string().add("type", "Stubbed-TemplateBuilder");
