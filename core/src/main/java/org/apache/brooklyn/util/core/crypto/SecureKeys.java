@@ -41,7 +41,6 @@ import org.bouncycastle.openssl.PEMEncryptedKeyPair;
 import org.bouncycastle.openssl.PEMKeyPair;
 import org.bouncycastle.openssl.PEMParser;
 import org.bouncycastle.openssl.PEMWriter;
-import org.bouncycastle.openssl.PasswordFinder;
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 import org.bouncycastle.openssl.jcajce.JcePEMDecryptorProviderBuilder;
 import org.slf4j.Logger;
@@ -89,67 +88,37 @@ public class SecureKeys extends SecureKeysWithoutBouncyCastle {
     public static KeyPair readPem(byte[] key, final String passphrase) {
         // TODO cache is only for fallback "reader" strategy (2015-01); delete when Parser confirmed working
         InputStream input = new ByteArrayInputStream(key);
-
+        KeyPair keyPair;
         try {
             PEMParser pemParser = new PEMParser(new InputStreamReader(input));
-
             Object object = pemParser.readObject();
             pemParser.close();
-
+            if (Security.getProvider("BC") == null) {
+                Security.addProvider(new BouncyCastleProvider());
+            }
             JcaPEMKeyConverter converter = new JcaPEMKeyConverter().setProvider("BC");
-            KeyPair kp = null;
             if (object==null) {
                 throw new IllegalStateException("PEM parsing failed: missing or invalid data");
             } else if (object instanceof PEMEncryptedKeyPair) {
                 if (passphrase==null) throw new PassphraseProblem("passphrase required");
                 try {
                     PEMDecryptorProvider decProv = new JcePEMDecryptorProviderBuilder().build(passphrase.toCharArray());
-                    kp = converter.getKeyPair(((PEMEncryptedKeyPair) object).decryptKeyPair(decProv));
+                    keyPair = converter.getKeyPair(((PEMEncryptedKeyPair) object).decryptKeyPair(decProv));
                 } catch (Exception e) {
                     Exceptions.propagateIfFatal(e);
                     throw new PassphraseProblem("wrong passphrase", e);
                 }
             } else  if (object instanceof PEMKeyPair) {
-                kp = converter.getKeyPair((PEMKeyPair) object);
+                keyPair = converter.getKeyPair((PEMKeyPair) object);
             } else if (object instanceof PrivateKeyInfo) {
                 PrivateKey privKey = converter.getPrivateKey((PrivateKeyInfo) object);
-                kp = new KeyPair(null, privKey);
+                keyPair = new KeyPair(null, privKey);
             } else {
                 throw new IllegalStateException("PEM parser support missing for: "+object);
             }
-
-            return kp;
-
-        } catch (Exception e) {
-            Exceptions.propagateIfFatal(e);
-
-            // older code relied on PEMReader, now deprecated
-            // replaced with above based on http://stackoverflow.com/questions/14919048/bouncy-castle-pemreader-pemparser
-            // passes the same tests (Jan 2015) but leaving the old code as a fallback for the time being 
-
-            input = new ByteArrayInputStream(key);
-            try {
-                Security.addProvider(new BouncyCastleProvider());
-                @SuppressWarnings("deprecation")
-                org.bouncycastle.openssl.PEMReader pr = new org.bouncycastle.openssl.PEMReader(new InputStreamReader(input), new PasswordFinder() {
-                    public char[] getPassword() {
-                        return passphrase!=null ? passphrase.toCharArray() : new char[0];
-                    }
-                });
-                @SuppressWarnings("deprecation")
-                KeyPair result = (KeyPair) pr.readObject();
-                pr.close();
-                if (result==null)
-                    throw Exceptions.propagate(e);
-                
-                log.warn("PEMParser failed when deprecated PEMReader succeeded, with "+result+"; had: "+e);
-
-                return result;
-
-            } catch (Exception e2) {
-                Exceptions.propagateIfFatal(e2);
-                throw Exceptions.propagate(e);
-            }
+            return keyPair;
+        } catch (IOException e) {
+            throw new RuntimeException("Invalid key", e);
         }
     }
 

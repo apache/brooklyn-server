@@ -120,8 +120,6 @@ public class BasicJcloudsLocationCustomizer extends BasicConfigurableObject impl
      * @return the calling entity
      */
     protected Entity getCallerContext(JcloudsMachineLocation machine) {
-        SudoTtyFixingCustomizer s;
-
         Object context = config().get(LocationConfigKeys.CALLER_CONTEXT);
         if (context == null) {
             context = machine.config().get(LocationConfigKeys.CALLER_CONTEXT);
@@ -129,7 +127,6 @@ public class BasicJcloudsLocationCustomizer extends BasicConfigurableObject impl
         if (!(context instanceof Entity)) {
             throw new IllegalStateException("Invalid location context: " + context);
         }
-        Entity entity = (Entity) context;
-        return entity;
+        return (Entity) context;
     }
 }

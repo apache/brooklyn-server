@@ -165,7 +165,6 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
      * brooklyn.location.named.myLocation.sshToolClass = com.acme.brooklyn.MyCustomSshTool
      * brooklyn.location.named.myLocation.sshToolClass.myparam = myvalue
      * }
-     * }
      * </pre>
      * <p>
      */
@@ -516,16 +515,6 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
         cleanupTask = null;
         sshPoolCacheOrNull = null;
     }
-
-    // should not be necessary, and causes objects to be kept around a lot longer than desired
-//    @Override
-//    protected void finalize() throws Throwable {
-//        try {
-//            close();
-//        } finally {
-//            super.finalize();
-//        }
-//    }
 
     @Override
     public InetAddress getAddress() {

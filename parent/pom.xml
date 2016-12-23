@@ -430,7 +430,7 @@
                 <version>${commons-compress.version}</version>
             </dependency>
             <dependency>
-                <groupId>net.schmizz</groupId>
+                <groupId>com.hierynomus</groupId>
                 <artifactId>sshj</artifactId>
                 <version>${sshj.version}</version>
             </dependency>

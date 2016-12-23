@@ -87,7 +87,7 @@ public class DelegatingComputeService implements ComputeService {
     }
 
     @Override
-    public Set<? extends NodeMetadata> listNodesByIds(Iterable<String> ids) {
+    public Set<? extends ComputeMetadata> listNodesByIds(Iterable<String> ids) {
         return delegate.listNodesByIds(ids);
     }
 
@@ -118,7 +118,7 @@ public class DelegatingComputeService implements ComputeService {
     }
 
     @Override
-    public Set<? extends NodeMetadata> resumeNodesMatching(Predicate<NodeMetadata> filter) {
+    public Set<? extends NodeMetadata> resumeNodesMatching(Predicate<? super NodeMetadata> filter) {
         return delegate.resumeNodesMatching(filter);
     }
 
@@ -128,7 +128,7 @@ public class DelegatingComputeService implements ComputeService {
     }
 
     @Override
-    public Set<? extends NodeMetadata> suspendNodesMatching(Predicate<NodeMetadata> filter) {
+    public Set<? extends NodeMetadata> suspendNodesMatching(Predicate<? super NodeMetadata> filter) {
         return delegate.suspendNodesMatching(filter);
     }
 
@@ -138,7 +138,7 @@ public class DelegatingComputeService implements ComputeService {
     }
 
     @Override
-    public Set<? extends NodeMetadata> destroyNodesMatching(Predicate<NodeMetadata> filter) {
+    public Set<? extends NodeMetadata> destroyNodesMatching(Predicate<? super NodeMetadata> filter) {
         return delegate.destroyNodesMatching(filter);
     }
 
@@ -148,7 +148,7 @@ public class DelegatingComputeService implements ComputeService {
     }
 
     @Override
-    public Set<? extends NodeMetadata> rebootNodesMatching(Predicate<NodeMetadata> filter) {
+    public Set<? extends NodeMetadata> rebootNodesMatching(Predicate<? super NodeMetadata> filter) {
         return delegate.rebootNodesMatching(filter);
     }
 
@@ -158,31 +158,27 @@ public class DelegatingComputeService implements ComputeService {
     }
 
     @Override
-    public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<ComputeMetadata> filter) {
+    public Set<? extends NodeMetadata> listNodesDetailsMatching(Predicate<? super NodeMetadata> filter) {
         return delegate.listNodesDetailsMatching(filter);
     }
 
     @Override
-    public Map<? extends NodeMetadata, ExecResponse> runScriptOnNodesMatching(Predicate<NodeMetadata> filter, String runScript)
-            throws RunScriptOnNodesException {
+    public Map<? extends NodeMetadata, ExecResponse> runScriptOnNodesMatching(Predicate<? super NodeMetadata> filter, String runScript) throws RunScriptOnNodesException {
         return delegate.runScriptOnNodesMatching(filter, runScript);
     }
 
     @Override
-    public Map<? extends NodeMetadata, ExecResponse> runScriptOnNodesMatching(Predicate<NodeMetadata> filter, Statement runScript)
-            throws RunScriptOnNodesException {
+    public Map<? extends NodeMetadata, ExecResponse> runScriptOnNodesMatching(Predicate<? super NodeMetadata> filter, Statement runScript) throws RunScriptOnNodesException {
         return delegate.runScriptOnNodesMatching(filter, runScript);
     }
 
     @Override
-    public Map<? extends NodeMetadata, ExecResponse> runScriptOnNodesMatching(Predicate<NodeMetadata> filter,
-            String runScript, RunScriptOptions options) throws RunScriptOnNodesException {
+    public Map<? extends NodeMetadata, ExecResponse> runScriptOnNodesMatching(Predicate<? super NodeMetadata> filter, String runScript, RunScriptOptions options) throws RunScriptOnNodesException {
         return delegate.runScriptOnNodesMatching(filter, runScript, options);
     }
 
     @Override
-    public Map<? extends NodeMetadata, ExecResponse> runScriptOnNodesMatching(Predicate<NodeMetadata> filter,
-            Statement runScript, RunScriptOptions options) throws RunScriptOnNodesException {
+    public Map<? extends NodeMetadata, ExecResponse> runScriptOnNodesMatching(Predicate<? super NodeMetadata> filter, Statement runScript, RunScriptOptions options) throws RunScriptOnNodesException {
         return delegate.runScriptOnNodesMatching(filter, runScript, options);
     }
 
