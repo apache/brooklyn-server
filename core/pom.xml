@@ -35,6 +35,20 @@
         <relativePath>../parent/pom.xml</relativePath>
     </parent>
 
+    <properties>
+        <osgi.import>
+            !android.util*,
+            !org.apache.brooklyn.rt.felix,
+            !org.apache.felix.framework,            
+            *
+        </osgi.import>
+        <osgi.export>
+            brooklyn.*,org.apache.brooklyn.*;-noimport:=true
+        </osgi.export>
+        <osgi.private>
+        </osgi.private>
+    </properties>
+    
     <dependencies>
         <dependency>
             <groupId>org.apache.brooklyn</groupId>
@@ -284,6 +298,7 @@
                     </dependency>
                 </dependencies>
             </plugin>
+            <!--
             <plugin>
                 <groupId>org.apache.felix</groupId>
                 <artifactId>maven-bundle-plugin</artifactId>
@@ -307,6 +322,35 @@
                     </instructions>
                 </configuration>
             </plugin>
+            -->
+            <plugin>
+                <groupId>org.apache.felix</groupId>
+                <artifactId>maven-bundle-plugin</artifactId>
+                <extensions>false</extensions>
+                <executions>
+                    <execution>
+                        <id>bundle</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>bundle</goal>
+                        </goals>
+                        <configuration>
+                            <instructions>
+                                <Bundle-Name>${project.name}</Bundle-Name>
+                                <Bundle-SymbolicName>${project.groupId}.${project.artifactId}</Bundle-SymbolicName>
+                                <Export-Package>${osgi.export}</Export-Package>
+                                <Import-Package>${osgi.import}</Import-Package>
+                                <DynamicImport-Package>${osgi.dynamic.import}</DynamicImport-Package>
+                                <Private-Package>${osgi.private}</Private-Package>
+                                <Require-Bundle>${osgi.bundles}</Require-Bundle>
+                                <Bundle-Activator>${osgi.activator}</Bundle-Activator>
+                                <Export-Service>${osgi.export.service}</Export-Service>
+                            </instructions>
+                            <classifier>bundle</classifier>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>            
         </plugins>
         <pluginManagement>
             <plugins>
