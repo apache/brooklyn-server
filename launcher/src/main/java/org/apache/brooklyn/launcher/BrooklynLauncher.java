@@ -318,7 +318,7 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
             if (port!=null) webServer.setPort(port);
             if (useHttps!=null) webServer.setHttpsEnabled(useHttps);
             webServer.setShutdownHandler(shutdownHandler);
-            webServer.putAttributes(brooklynProperties);
+            webServer.putAttributes(brooklynProperties.asMapWithStringKeys());
             webServer.skipSecurity(skipSecurity);
             for (WebAppContextProvider webapp : webApps) {
                 webServer.addWar(webapp);

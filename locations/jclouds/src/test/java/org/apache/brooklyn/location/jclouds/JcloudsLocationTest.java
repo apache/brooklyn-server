@@ -521,7 +521,6 @@ public class JcloudsLocationTest implements JcloudsLocationConfig {
         Assert.assertEquals(geo.longitude, -20d, 0.00001);
     }
 
-    @SuppressWarnings("unchecked")
     @Test
     public void testInheritsGeoFromLocationMetadataProperties() throws Exception {
         // in location-metadata.properties:
@@ -534,8 +533,9 @@ public class JcloudsLocationTest implements JcloudsLocationConfig {
             .configure(ACCESS_IDENTITY, "bogus")
             .configure(ACCESS_CREDENTIAL, "bogus")
             .configure(MACHINE_CREATE_ATTEMPTS, 1);
-        FakeLocalhostWithParentJcloudsLocation ll = managementContext.getLocationManager().createLocation(LocationSpec.create(FakeLocalhostWithParentJcloudsLocation.class)
-            .configure(new JcloudsPropertiesFromBrooklynProperties().getJcloudsProperties("softlayer", "wdc01", null, managementContext.getBrooklynProperties()))
+        Map<String, Object> brooklynProperties = managementContext.getBrooklynProperties().asMapWithStringKeys();
+		FakeLocalhostWithParentJcloudsLocation ll = managementContext.getLocationManager().createLocation(LocationSpec.create(FakeLocalhostWithParentJcloudsLocation.class)
+            .configure(new JcloudsPropertiesFromBrooklynProperties().getJcloudsProperties("softlayer", "wdc01", null, brooklynProperties))
             .configure(allConfig.getAllConfig()));
         MachineLocation l = ll.obtain();
         log.info("loc:" +l);

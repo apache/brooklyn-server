@@ -67,7 +67,7 @@ public class BrooklynLauncherRebindToCloudObjectStoreTest extends BrooklynLaunch
     @Override
     protected LocalManagementContextForTests newManagementContextForTests(BrooklynProperties props) {
         BrooklynProperties p2 = BrooklynProperties.Factory.newDefault();
-        if (props!=null) p2.putAll(props);
+        if (props!=null) p2.putAll(props.getAllConfigLocalRaw());
         return new LocalManagementContextForTests(p2);
     }
 

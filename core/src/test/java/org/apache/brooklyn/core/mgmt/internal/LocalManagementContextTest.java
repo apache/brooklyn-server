@@ -97,11 +97,11 @@ public class LocalManagementContextTest {
         BrooklynProperties properties = BrooklynProperties.Factory.newEmpty();
         properties.put("myname", "myval");
         context = LocalManagementContextForTests.builder(true).useProperties(properties).build();
-        assertEquals(context.getBrooklynProperties().get("myname"), "myval");
+        assertEquals(context.getBrooklynProperties().getConfig("myname"), "myval");
         properties.put("myname", "newval");
-        assertEquals(properties.get("myname"), "newval");
+        assertEquals(properties.getConfig("myname"), "newval");
         // TODO: Should changes in the 'properties' collection be reflected in context.getBrooklynProperties()?
-        assertNotEquals(context.getBrooklynProperties().get("myname"), "newval");
+        assertNotEquals(context.getBrooklynProperties().getConfig("myname"), "newval");
     }
     
     @Test
