@@ -32,6 +32,7 @@ import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
+import org.apache.brooklyn.util.time.Duration;
 
 /**
  * Tests ssh command execution, against the {@link org.apache.brooklyn.location.ssh.SshMachineLocation} 
@@ -44,6 +45,9 @@ public interface TestSshCommand extends BaseTest {
      * Default location for temporary files.
      */
     String TMP_DEFAULT = "/tmp";
+
+    // Change default period (backoff to 5 seconds, rather than default 500ms), because SSH is expensive
+    ConfigKey<Duration> BACKOFF_TO_PERIOD = ConfigKeys.newConfigKeyWithDefault(BaseTest.BACKOFF_TO_PERIOD, Duration.seconds(5));
 
     /**
      * Supply the command to invoke directly. Cannot be used together with {@link #DOWNLOAD_URL}.

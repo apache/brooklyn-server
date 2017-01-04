@@ -352,6 +352,7 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
         // Then we'll let it complete by setting the sensor.
         TestSensor testCase = app.createAndManageChild(EntitySpec.create(TestSensor.class)
                 .configure(TestSensor.TIMEOUT, Asserts.DEFAULT_LONG_TIMEOUT)
+                .configure(TestSensor.BACKOFF_TO_PERIOD, Duration.millis(1))
                 .configure(TestSensor.TARGET_ENTITY, app)
                 .configure(TestSensor.SENSOR_NAME, STRING_SENSOR.getName())
                 .configure(TestSensor.ASSERTIONS, newListAssertion("matches", String.format(".*%s.*", time))));
