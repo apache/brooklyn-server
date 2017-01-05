@@ -344,6 +344,59 @@ public class TypeCoercionsTest {
     }
 
     @Test
+    public void testFromThrowingException() {
+        String expectedGenericErr = "Cannot coerce type class " + String.class.getName() + " to " + WithFromThrowingException.class.getCanonicalName();
+        String expectedSpecificErr = "Simulating problem in fromString";
+        
+        try {
+            coercer.coerce("myval", WithFromThrowingException.class);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (ClassCoercionException e) {
+            Asserts.expectedFailureContains(e, expectedGenericErr, expectedSpecificErr);
+        }
+        
+        try {
+            coercer.tryCoerce("myval", WithFromThrowingException.class).get();
+            Asserts.shouldHaveFailedPreviously();
+        } catch (ClassCoercionException e) {
+            Asserts.expectedFailureContains(e, expectedGenericErr, expectedSpecificErr);
+        }
+    }
+
+    // TODO Asserting this undesirable behaviur, to preserve backwards compatibility!
+    // Would much prefer that we fail-fast. However, I worry that some entity's java declared
+    // ConfigKey<List<Foo>>, and rely on erasure so they can pass in other representations and 
+    // coerce it themsevles in some way.
+    // I checked things like JcloudsLocation.JCLOUDS_LOCATION_CUSTOMIZERS - those look ok.
+    //
+    // Expect to get a log.warn about that now. Could assert that using LogWatcher.
+    @Test
+    public void testListOfFromThrowingException() {
+        TypeToken<List<WithFromThrowingException>> typeToken = new TypeToken<List<WithFromThrowingException>>() {};
+        List<String> rawVal = ImmutableList.of("myval");
+        
+        List<WithFromThrowingException> val = coercer.coerce(rawVal, typeToken);
+        assertEquals(val, rawVal);
+
+        List<WithFromThrowingException> val2 = coercer.tryCoerce(rawVal, typeToken).get();
+        assertEquals(val, rawVal);
+    }
+
+    // See comment on testListOfFromThrowingException for why we're asserting this undesirable
+    // behaviour.
+    @Test
+    public void testMapOfFromThrowingException() {
+        TypeToken<Map<String, WithFromThrowingException>> typeToken = new TypeToken<Map<String, WithFromThrowingException>>() {};
+        ImmutableMap<String, String> rawVal = ImmutableMap.of("mykey", "myval");
+        
+        Map<String, WithFromThrowingException> val = coercer.coerce(rawVal, typeToken);
+        assertEquals(val, rawVal);
+
+        Map<String, WithFromThrowingException> val2 = coercer.tryCoerce(rawVal, typeToken).get();
+        assertEquals(val2, rawVal);
+    }
+
+    @Test
     public void testCoerceStringToNumber() {
         assertEquals(coerce("1", Number.class), (Number) Double.valueOf(1));
         assertEquals(coerce("1.0", Number.class), (Number) Double.valueOf(1.0));
@@ -376,4 +429,10 @@ public class TypeCoercionsTest {
         }
     }
 
+    public static class WithFromThrowingException {
+        int value;
+        public static WithFrom fromString(String s) {
+            throw new RuntimeException("Simulating problem in fromString(\"" + s + "\")");
+        }
+    }
 }
