@@ -58,6 +58,7 @@
     <module>httpcomponent-extension</module>
     <module>features</module>
     <module>commands</module>
+    <module>config</module>
   </modules>
   
   <dependencyManagement>
