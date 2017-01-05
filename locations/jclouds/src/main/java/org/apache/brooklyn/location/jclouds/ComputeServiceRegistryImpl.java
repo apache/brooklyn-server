@@ -112,13 +112,23 @@ public class ComputeServiceRegistryImpl implements ComputeServiceRegistry, Jclou
                  * Filter.3.Name=image-type&Filter.3.Value.1=machine&
                  */
             }
-            
+
             // See https://issues.apache.org/jira/browse/BROOKLYN-399
             String region = conf.get(CLOUD_REGION_ID);
             if (Strings.isNonBlank(region)) {
+                /*
+                 * Drop availability zone suffixes. Without this deployments to regions like us-east-1b fail
+                 * because jclouds throws an IllegalStateException complaining that: location id us-east-1b
+                 * not found in: [{scope=PROVIDER, id=aws-ec2, description=https://ec2.us-east-1.amazonaws.com,
+                 * iso3166Codes=[US-VA, US-CA, US-OR, BR-SP, IE, DE-HE, SG, AU-NSW, JP-13]}]. The exception is
+                 * thrown by org.jclouds.compute.domain.internal.TemplateBuilderImpl#locationId(String).
+                 */
+                if (Character.isLetter(region.charAt(region.length() - 1))) {
+                    region = region.substring(0, region.length() - 1);
+                }
                 properties.setProperty(LocationConstants.PROPERTY_REGIONS, region);
             }
-            
+
             // occasionally can get com.google.common.util.concurrent.UncheckedExecutionException: java.lang.RuntimeException: 
             //     security group eu-central-1/jclouds#brooklyn-bxza-alex-eu-central-shoul-u2jy-nginx-ielm is not available after creating
             // the default timeout was 500ms so let's raise it in case that helps
