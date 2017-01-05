@@ -35,6 +35,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
@@ -168,5 +169,12 @@ public class ResolvingConfigBag extends ConfigBag {
     @Override
     public Map<String, Object> getAllConfigRaw() {
         return getAllConfigMutable();
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                .add("size", size())
+                .toString();
     }
 }
