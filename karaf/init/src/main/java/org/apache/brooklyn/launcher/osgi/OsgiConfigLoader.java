@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.core.mgmt.persist.ConfigLoader;
-import org.apache.brooklyn.core.mgmt.persist.DeserializingClassRenamesProvider;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.osgi.framework.Constants;
@@ -38,27 +37,16 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-/**
- * Loads the class-renames from the OSGi configuration file: {@code org.apache.brooklyn.classrename.cfg}.
- *
- * Only public for OSGi instantiation - treat as an internal class, which may change in
- * future releases.
- *
- * See http://stackoverflow.com/questions/18844987/creating-a-blueprint-bean-from-an-inner-class:
- * we unfortunately need to include {@code !org.apache.brooklyn.core.mgmt.persist.DeserializingClassRenamesProvider}
- * in the Import-Package, as the mvn plugin gets confused due to the use of this inner class
- * within the blueprint.xml.
- *
- * @see {@link #KARAF_DESERIALIZING_CLASS_RENAMES_PROPERTIES}
- */
-public class OsgiConfigLoader implements ConfigLoader {
+public abstract class OsgiConfigLoader implements ConfigLoader {
+
     private static final Logger LOG = LoggerFactory.getLogger(OsgiConfigLoader.class);
     private static final List<String> EXCLUDED_KEYS = ImmutableList.of("service.pid", "felix.fileinstall.filename");
-    private static final String KARAF_DESERIALIZING_CLASS_RENAMES_PROPERTIES = "org.apache.brooklyn.classrename";
 
+    private String propertiesPath;
     private ConfigurationAdmin configAdmin;
 
-    public OsgiConfigLoader() {
+    public OsgiConfigLoader(String propertiesPath) {
+        this.propertiesPath = propertiesPath;
         LOG.trace("OsgiConfigLoader instance created");
     }
 
@@ -68,35 +56,22 @@ public class OsgiConfigLoader implements ConfigLoader {
     }
 
     // Called by OSGi
-    public void init() {
-        LOG.trace("DeserializingClassRenamesProvider.OsgiConfigLoader.init: registering loader");
-        DeserializingClassRenamesProvider.getLoaders().add(this);
-        DeserializingClassRenamesProvider.reset();
-    }
+    public abstract void init();
 
     // Called by OSGi
-    public void destroy() {
-        LOG.trace("DeserializingClassRenamesProvider.OsgiConfigLoader.destroy: unregistering loader");
-        boolean removed = DeserializingClassRenamesProvider.getLoaders().remove(this);
-        if (removed) {
-            DeserializingClassRenamesProvider.reset();
-        }
-    }
+    public abstract void destroy();
 
     // Called by OSGi when configuration changes
-    public void updateProperties(Map properties) {
-        LOG.debug("DeserializingClassRenamesProvider.OsgiConfigLoader.updateProperties: clearing cache, so class-renames will be reloaded");
-        DeserializingClassRenamesProvider.reset();
-    }
+    public abstract void updateProperties(Map properties);
 
     @Override
     public Map<String, String> load() {
         if (configAdmin == null) {
-            LOG.warn("No OSGi configuration-admin available - cannot load {}.cfg", KARAF_DESERIALIZING_CLASS_RENAMES_PROPERTIES);
+            LOG.warn("No OSGi configuration-admin available - cannot load {}.cfg", propertiesPath);
             return ImmutableMap.of();
         }
 
-        String filter = '(' + Constants.SERVICE_PID + '=' + KARAF_DESERIALIZING_CLASS_RENAMES_PROPERTIES + ')';
+        String filter = '(' + Constants.SERVICE_PID + '=' + propertiesPath + ')';
         Configuration[] configs;
 
         try {
@@ -113,7 +88,7 @@ public class OsgiConfigLoader implements ConfigLoader {
                 map.putAll(dictToMap(config.getProperties()));
             }
         } else {
-            LOG.info("No OSGi configuration found for {}.cfg", KARAF_DESERIALIZING_CLASS_RENAMES_PROPERTIES);
+            LOG.info("No OSGi configuration found for {}.cfg", propertiesPath);
         }
 
         return map;

@@ -18,17 +18,26 @@
  */
 package org.apache.brooklyn.core.mgmt.persist;
 
-/**
- * Loads the class-renames from the configuration file on the classpath.
- *
- * @see {@link #DESERIALIZING_CLASS_RENAMES_PROPERTIES_PATH}
- */
-public class ClasspathConfigLoader extends PropertiesConfigLoader {
+import java.util.Arrays;
 
-    private static final String DESERIALIZING_CLASS_RENAMES_PROPERTIES_PATH = "classpath://org/apache/brooklyn/core/mgmt/persist/deserializingClassRenames.properties";
+public class DeserializingJcloudsRenamesProvider extends DeserializingProvider{
 
-    public ClasspathConfigLoader(){
-        super(DESERIALIZING_CLASS_RENAMES_PROPERTIES_PATH);
+    private static DeserializingJcloudsRenamesProvider instance;
+
+    public static DeserializingJcloudsRenamesProvider getInstance(){
+        if (instance == null) instance = new DeserializingJcloudsRenamesProvider();
+        return instance;
     }
 
+    private DeserializingJcloudsRenamesProvider(){
+        super(Arrays.asList(new ConfigLoader[]{
+                new JcloudsProviderRenameConfigLoader()
+        }));
+    }
+
+    public String applyJcloudsRenames(String jcloudsProvider){
+       String mapping = DeserializingJcloudsRenamesProvider.getInstance().loadDeserializingMapping().get(jcloudsProvider);
+        if (mapping == null) return jcloudsProvider;
+        return mapping;
+    }
 }

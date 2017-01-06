@@ -18,17 +18,13 @@
  */
 package org.apache.brooklyn.core.mgmt.persist;
 
-/**
- * Loads the class-renames from the configuration file on the classpath.
- *
- * @see {@link #DESERIALIZING_CLASS_RENAMES_PROPERTIES_PATH}
- */
-public class ClasspathConfigLoader extends PropertiesConfigLoader {
+public class JcloudsProviderRenameConfigLoader extends PropertiesConfigLoader {
 
-    private static final String DESERIALIZING_CLASS_RENAMES_PROPERTIES_PATH = "classpath://org/apache/brooklyn/core/mgmt/persist/deserializingClassRenames.properties";
+    private static final String JCLOUDS_PROVIDER_RENAMES_PROPERTIES_PATH = "classpath://org/apache/brooklyn/core/mgmt/persist/jcloudsProviderRenames.properties";
 
-    public ClasspathConfigLoader(){
-        super(DESERIALIZING_CLASS_RENAMES_PROPERTIES_PATH);
+    public JcloudsProviderRenameConfigLoader(){
+        super(JCLOUDS_PROVIDER_RENAMES_PROPERTIES_PATH);
     }
 
 }
+

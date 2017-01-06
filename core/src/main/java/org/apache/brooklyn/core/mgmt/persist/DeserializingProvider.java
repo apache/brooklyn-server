@@ -18,10 +18,13 @@
  */
 package org.apache.brooklyn.core.mgmt.persist;
 
-import java.util.Arrays;
-
 import com.google.common.annotations.Beta;
-import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.List;
+import java.util.Map;
 
 /*
  * This provider keeps a cache of the class-renames, which is lazily populated (see {@link #cache}.
@@ -37,30 +40,40 @@ import org.apache.brooklyn.util.javalang.Reflections;
  * See karaf/init/src/main/resources/OSGI-INF/blueprint/blueprint.xml
  */
 @Beta
-public class DeserializingClassRenamesProvider extends DeserializingProvider{
+public class DeserializingProvider {
 
-    private static DeserializingClassRenamesProvider instance;
+    private static final Logger LOG = LoggerFactory.getLogger(DeserializingProvider.class);
 
-    public static DeserializingClassRenamesProvider getInstance(){
-        if (instance == null) instance = new DeserializingClassRenamesProvider();
-        return instance;
+    private List<ConfigLoader> loaders;
+
+    protected DeserializingProvider(List<ConfigLoader> loaders){
+        this.loaders = loaders;
     }
 
-    private DeserializingClassRenamesProvider(){
-        super(Arrays.asList(new ConfigLoader[]{
-                new ClasspathConfigLoader()
-        }));
+    private volatile Map<String, String> cache;
+
+    public List<ConfigLoader> getLoaders() {
+        return loaders;
     }
 
-    /**
-     * Handles inner classes, where the outer class has been renamed. For example:
-     *
-     * {@code findMappedName("com.example.MyFoo$MySub")} will return {@code com.example.renamed.MyFoo$MySub}, if
-     * the renamed contains {@code com.example.MyFoo: com.example.renamed.MyFoo}.
-     */
     @Beta
-    public String findMappedName(String name) {
-        return Reflections.findMappedNameAndLog(DeserializingClassRenamesProvider.getInstance().loadDeserializingMapping(), name);
+    public Map<String, String> loadDeserializingMapping() {
+        synchronized (DeserializingProvider.class) {
+            if (cache == null) {
+                MutableMap.Builder<String, String> builder = MutableMap.<String, String>builder();
+                for (ConfigLoader loader : loaders) {
+                    builder.putAll(loader.load());
+                }
+                cache = builder.build();
+                LOG.info("Config cache loaded, size {}", cache.size());
+            }
+            return cache;
+        }
     }
 
+    public void reset() {
+        synchronized (DeserializingProvider.class) {
+            cache = null;
+        }
+    }
 }

@@ -72,7 +72,7 @@ public class BrooklynServiceTypeResolver implements ServiceTypeResolver {
     }
 
     protected CatalogItem<Entity,EntitySpec<?>> getCatalogItemImpl(ManagementContext mgmt, String brooklynType) {
-        brooklynType = DeserializingClassRenamesProvider.findMappedName(brooklynType);
+        brooklynType = DeserializingClassRenamesProvider.getInstance().findMappedName(brooklynType);
         return CatalogUtils.getCatalogItemOptionalVersion(mgmt, Entity.class,  brooklynType);
     }
 }
