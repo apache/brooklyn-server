@@ -15,11 +15,6 @@
  */
 package org.apache.brooklyn.launcher.osgi;
 
-import java.io.IOException;
-import java.util.Map;
-
-import javax.annotation.Nullable;
-
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.core.BrooklynVersionService;
@@ -41,13 +36,16 @@ import org.osgi.service.cm.ConfigurationAdmin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
+import java.io.IOException;
+import java.util.Map;
+
 /**
  * Initializer for brooklyn-core when running in an OSGi environment.
  */
 public class OsgiLauncher extends BasicLauncher<OsgiLauncher> {
 
     private static final Logger LOG = LoggerFactory.getLogger(OsgiLauncher.class);
-    private static final String DEFAULT_CATALOG_BOM = "file:etc/default.catalog.bom";
     public static final String BROOKLYN_CONFIG_PID = "brooklyn";
     
     private Object reloadLock = new Object();
@@ -56,6 +54,7 @@ public class OsgiLauncher extends BasicLauncher<OsgiLauncher> {
 
     private String globalBrooklynProperties;
     private String localBrooklynProperties;
+    private String defaultCatalogLocation;
 
     private ConfigurationAdmin configAdmin;
     private ConfigSupplier configSupplier;
@@ -98,7 +97,7 @@ public class OsgiLauncher extends BasicLauncher<OsgiLauncher> {
     public void init() {
         synchronized (reloadLock) {
             LOG.debug("OsgiLauncher init");
-            catalogInitialization(new CatalogInitialization(DEFAULT_CATALOG_BOM, false, null, false));
+            catalogInitialization(new CatalogInitialization(String.format("file:%s", defaultCatalogLocation), false, null, false));
             start();
         }
     }
@@ -199,4 +198,7 @@ public class OsgiLauncher extends BasicLauncher<OsgiLauncher> {
         this.localBrooklynProperties = localBrooklynProperties;
     }
 
+    public void setDefaultCatalogLocation(String defaultCatalogLocation) {
+        this.defaultCatalogLocation = defaultCatalogLocation;
+    }
 }
