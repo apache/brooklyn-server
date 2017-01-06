@@ -24,6 +24,7 @@ import static org.testng.Assert.assertTrue;
 
 import java.net.URI;
 
+import org.apache.brooklyn.core.mgmt.persist.DeserializingJcloudsRenamesProvider;
 import org.jclouds.apis.ApiMetadata;
 import org.jclouds.apis.internal.BaseApiMetadata;
 import org.jclouds.aws.ec2.AWSEC2ApiMetadata;
@@ -46,7 +47,7 @@ public class JcloudsProviderAndApiLoaderTest {
     public void testGetApi() throws Exception {
         assertIsApi("ec2");
     }
-    
+
     @Test
     public void testRegisteredProvider() throws Exception {
         String id = "my-example-provider";
@@ -64,6 +65,35 @@ public class JcloudsProviderAndApiLoaderTest {
             ProviderRegistry.unregisterProvider(provider);
             assertFalse(JcloudsProviderAndApiLoader.isProvider(id));
             
+        } finally {
+            ProviderRegistry.unregisterProvider(provider);
+        }
+    }
+
+    @Test
+    public void testRenamedRegisteredProvider() throws Exception {
+        String id = "my-example-provider";
+        String renamedId = "my-example-provider-renamed";
+        assertFalse(JcloudsProviderAndApiLoader.isProvider(id));
+
+        ProviderMetadata provider = new BaseProviderMetadata.Builder()
+                .id(id)
+                .name("My Example Provider")
+                .apiMetadata(new AWSEC2ApiMetadata())
+                .build();
+        ProviderRegistry.registerProvider(provider);
+        try {
+            assertIsProvider(id);
+            assertFalse(JcloudsProviderAndApiLoader.isProvider(renamedId));
+
+            DeserializingJcloudsRenamesProvider.getInstance().loadDeserializingMapping().put(renamedId,id);
+
+            assertIsProvider(renamedId, id);
+
+            ProviderRegistry.unregisterProvider(provider);
+            assertFalse(JcloudsProviderAndApiLoader.isProvider(id));
+            assertFalse(JcloudsProviderAndApiLoader.isProvider(renamedId));
+
         } finally {
             ProviderRegistry.unregisterProvider(provider);
         }
@@ -93,13 +123,17 @@ public class JcloudsProviderAndApiLoaderTest {
     }
     
     private void assertIsProvider(String id) {
+        assertIsProvider(id, id);
+    }
+
+    private void assertIsProvider(String id, String expectedId) {
         Optional<ProviderMetadata> result = JcloudsProviderAndApiLoader.getProvider(id);
         assertTrue(result.isPresent());
-        assertEquals(result.get().getId(), id);
-        
+        assertEquals(result.get().getId(), expectedId);
+
         Optional<ApiMetadata> result2 = JcloudsProviderAndApiLoader.getApi(id);
         assertFalse(result2.isPresent(), "result="+result2);
-        
+
         assertTrue(JcloudsProviderAndApiLoader.isProvider(id));
         assertFalse(JcloudsProviderAndApiLoader.isApi(id));
     }

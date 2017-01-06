@@ -454,7 +454,7 @@ public class Entitlements {
         }
         if (Strings.isNonBlank(type)) {
             try {
-                Class<?> clazz = new ClassLoaderUtils(Entitlements.class, mgmt).loadClass(DeserializingClassRenamesProvider.findMappedName(type));
+                Class<?> clazz = new ClassLoaderUtils(Entitlements.class, mgmt).loadClass(DeserializingClassRenamesProvider.getInstance().findMappedName(type));
                 return (EntitlementManager) instantiate(clazz, ImmutableList.of(
                         new Object[] {mgmt, brooklynProperties},
                         new Object[] {mgmt},

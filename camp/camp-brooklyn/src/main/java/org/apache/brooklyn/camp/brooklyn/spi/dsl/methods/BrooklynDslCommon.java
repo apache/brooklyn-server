@@ -232,7 +232,7 @@ public class BrooklynDslCommon {
         try {
             // TODO Should use catalog's classloader, rather than ClassLoaderUtils; how to get that? Should we return a future?!
             //      Should have the catalog's loader at this point in a thread local
-            String mappedClazzName = DeserializingClassRenamesProvider.findMappedName(clazzName);
+            String mappedClazzName = DeserializingClassRenamesProvider.getInstance().findMappedName(clazzName);
             Class<?> clazz = new ClassLoaderUtils(BrooklynDslCommon.class).loadClass(mappedClazzName);
             
             Sensor<?> sensor;
@@ -278,7 +278,7 @@ public class BrooklynDslCommon {
         Map<String,Object> objectFields = (Map<String, Object>) config.getStringKeyMaybe("object.fields").or(MutableMap.of());
         Map<String,Object> brooklynConfig = (Map<String, Object>) config.getStringKeyMaybe(BrooklynCampReservedKeys.BROOKLYN_CONFIG).or(MutableMap.of());
 
-        String mappedTypeName = DeserializingClassRenamesProvider.findMappedName(typeName);
+        String mappedTypeName = DeserializingClassRenamesProvider.getInstance().findMappedName(typeName);
         Class<?> type;
         try {
             type = new ClassLoaderUtils(BrooklynDslCommon.class).loadClass(mappedTypeName);

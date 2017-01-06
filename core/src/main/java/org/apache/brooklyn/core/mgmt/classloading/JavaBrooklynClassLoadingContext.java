@@ -97,7 +97,7 @@ public class JavaBrooklynClassLoadingContext extends AbstractBrooklynClassLoadin
     @SuppressWarnings({ "rawtypes", "unchecked" })
     private Maybe<Class<?>> tryLoadClass0(String className) {
         try {
-            className = DeserializingClassRenamesProvider.findMappedName(className);
+            className = DeserializingClassRenamesProvider.getInstance().findMappedName(className);
             return (Maybe) Maybe.of(getClassLoader().loadClass(className));
         } catch (NoClassDefFoundError e) {
             String msg = "Invalid linkage in (transitive dependencies of) class "+className+": "+e.toString();
