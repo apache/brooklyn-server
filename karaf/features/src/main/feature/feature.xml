@@ -265,6 +265,10 @@
 
         <bundle dependency="true">mvn:org.apache.jclouds.provider/google-compute-engine/${jclouds.version}</bundle>
 
+        <bundle dependency="true">mvn:org.apache.jclouds.labs/azurecompute/${jclouds.version}</bundle>
+        <bundle dependency="true">mvn:org.apache.jclouds.labs/azurecompute-arm/${jclouds.version}</bundle>
+        <bundle dependency="true">mvn:org.apache.jclouds.api/oauth/${jclouds.version}</bundle>
+
         <feature>jclouds-services</feature>
         <bundle dependency="true">wrap:mvn:com.jcraft/jsch.agentproxy.sshj/0.0.9$Bundle-Name=wrap%20%3A%3A%20jsch.agentproxy.sshj</bundle>
 
