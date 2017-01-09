@@ -18,7 +18,7 @@
  */
 package org.apache.brooklyn.core.mgmt.persist;
 
-import java.util.Arrays;
+import com.google.common.collect.ImmutableList;
 
 public class DeserializingJcloudsRenamesProvider extends DeserializingProvider{
 
@@ -27,9 +27,7 @@ public class DeserializingJcloudsRenamesProvider extends DeserializingProvider{
     public static final DeserializingJcloudsRenamesProvider INSTANCE = new DeserializingJcloudsRenamesProvider();
 
     private DeserializingJcloudsRenamesProvider(){
-        super(Arrays.asList(new ConfigLoader[]{
-                new PropertiesConfigLoader(JCLOUDS_PROVIDER_RENAMES_PROPERTIES_PATH)
-        }));
+        super(ImmutableList.of(new PropertiesConfigLoader(JCLOUDS_PROVIDER_RENAMES_PROPERTIES_PATH)));
     }
 
     public String applyJcloudsRenames(String jcloudsProvider){

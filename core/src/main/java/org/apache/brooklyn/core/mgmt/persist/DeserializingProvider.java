@@ -19,10 +19,12 @@
 package org.apache.brooklyn.core.mgmt.persist;
 
 import com.google.common.annotations.Beta;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -46,8 +48,8 @@ public class DeserializingProvider {
 
     private List<ConfigLoader> loaders;
 
-    protected DeserializingProvider(List<ConfigLoader> loaders){
-        this.loaders = loaders;
+    protected DeserializingProvider(List<? extends ConfigLoader> loaders){
+        this.loaders = new ArrayList<>(loaders);
     }
 
     private volatile Map<String, String> cache;

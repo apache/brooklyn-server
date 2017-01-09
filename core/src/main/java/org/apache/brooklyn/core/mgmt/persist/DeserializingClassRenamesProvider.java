@@ -18,9 +18,8 @@
  */
 package org.apache.brooklyn.core.mgmt.persist;
 
-import java.util.Arrays;
-
 import com.google.common.annotations.Beta;
+import com.google.common.collect.ImmutableList;
 import org.apache.brooklyn.util.javalang.Reflections;
 
 /*
@@ -44,9 +43,7 @@ public class DeserializingClassRenamesProvider extends DeserializingProvider{
     public static final DeserializingClassRenamesProvider INSTANCE = new DeserializingClassRenamesProvider();
 
     private DeserializingClassRenamesProvider(){
-        super(Arrays.asList(new ConfigLoader[]{
-                new PropertiesConfigLoader(DESERIALIZING_CLASS_RENAMES_PROPERTIES_PATH)
-        }));
+        super(ImmutableList.of(new PropertiesConfigLoader(DESERIALIZING_CLASS_RENAMES_PROPERTIES_PATH)));
     }
 
     /**
