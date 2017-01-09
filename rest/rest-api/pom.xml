@@ -152,11 +152,11 @@
                 <artifactId>maven-bundle-plugin</artifactId>
                 <configuration>
                     <instructions>
-                        <Import-Package>
-                            javax.ws.rs;version="[1.1,2.0]",
-                            javax.ws.rs.core;version="[1.1,2.0]",
-                            *
-                        </Import-Package>
+                        <!-- 
+                            The default is to pull in javax.ws.rs;version="[2.0,3)", whereas jclouds-core 2.0 pulls
+                            in javax.ws.rs;version="[1.1,2)". However, that doesn't cause any harm because those
+                            are internal dependencies of jclouds (i.e. not part of the API).
+                        -->
                     </instructions>
                 </configuration>
             </plugin>
