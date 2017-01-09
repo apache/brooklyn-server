@@ -22,21 +22,18 @@ import java.util.Arrays;
 
 public class DeserializingJcloudsRenamesProvider extends DeserializingProvider{
 
-    private static DeserializingJcloudsRenamesProvider instance;
+    private static final String JCLOUDS_PROVIDER_RENAMES_PROPERTIES_PATH = "classpath://org/apache/brooklyn/core/mgmt/persist/jcloudsProviderRenames.properties";
 
-    public static DeserializingJcloudsRenamesProvider getInstance(){
-        if (instance == null) instance = new DeserializingJcloudsRenamesProvider();
-        return instance;
-    }
+    public static final DeserializingJcloudsRenamesProvider INSTANCE = new DeserializingJcloudsRenamesProvider();
 
     private DeserializingJcloudsRenamesProvider(){
         super(Arrays.asList(new ConfigLoader[]{
-                new JcloudsProviderRenameConfigLoader()
+                new PropertiesConfigLoader(JCLOUDS_PROVIDER_RENAMES_PROPERTIES_PATH)
         }));
     }
 
     public String applyJcloudsRenames(String jcloudsProvider){
-       String mapping = DeserializingJcloudsRenamesProvider.getInstance().loadDeserializingMapping().get(jcloudsProvider);
+       String mapping = loadDeserializingMapping().get(jcloudsProvider);
         if (mapping == null) return jcloudsProvider;
         return mapping;
     }

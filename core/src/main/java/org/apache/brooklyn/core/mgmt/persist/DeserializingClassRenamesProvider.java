@@ -31,7 +31,7 @@ import org.apache.brooklyn.util.javalang.Reflections;
  * Loading the cache involves iterating over the {@link #loaders}, returning the union of
  * the results from {@link Loader#load()}.
  *
- * Initially, the only loader is the basic {@link ClasspathConfigLoader}.
+ * Initially, the only loader is the basic {@link DeserializingClassRenamesProvider}.
  *
  * However, when running in karaf the {@link OsgiConfigLoader} will be instantiated and added.
  * See karaf/init/src/main/resources/OSGI-INF/blueprint/blueprint.xml
@@ -39,16 +39,13 @@ import org.apache.brooklyn.util.javalang.Reflections;
 @Beta
 public class DeserializingClassRenamesProvider extends DeserializingProvider{
 
-    private static DeserializingClassRenamesProvider instance;
+    private static final String DESERIALIZING_CLASS_RENAMES_PROPERTIES_PATH = "classpath://org/apache/brooklyn/core/mgmt/persist/deserializingClassRenames.properties";
 
-    public static DeserializingClassRenamesProvider getInstance(){
-        if (instance == null) instance = new DeserializingClassRenamesProvider();
-        return instance;
-    }
+    public static final DeserializingClassRenamesProvider INSTANCE = new DeserializingClassRenamesProvider();
 
     private DeserializingClassRenamesProvider(){
         super(Arrays.asList(new ConfigLoader[]{
-                new ClasspathConfigLoader()
+                new PropertiesConfigLoader(DESERIALIZING_CLASS_RENAMES_PROPERTIES_PATH)
         }));
     }
 
@@ -60,7 +57,7 @@ public class DeserializingClassRenamesProvider extends DeserializingProvider{
      */
     @Beta
     public String findMappedName(String name) {
-        return Reflections.findMappedNameAndLog(DeserializingClassRenamesProvider.getInstance().loadDeserializingMapping(), name);
+        return Reflections.findMappedNameAndLog(loadDeserializingMapping(), name);
     }
 
 }

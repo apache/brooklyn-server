@@ -48,7 +48,7 @@ limitations under the License.
     </cm:property-placeholder>
 
     <bean id="deserializingClassRenamesProvider"
-          class="org.apache.brooklyn.launcher.osgi.ClasspathOsgiConfigLoader"
+          class="org.apache.brooklyn.launcher.osgi.ClassRenameOsgiConfigLoader"
           init-method="init"
           destroy-method="destroy">
 

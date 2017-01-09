@@ -45,7 +45,7 @@ public class PropertiesConfigLoader implements ConfigLoader {
     @Override
     public Map<String, String> load() {
         try {
-            InputStream resource = new ResourceUtils(DeserializingClassRenamesProvider.class).getResourceFromUrl(propertiesPath);
+            InputStream resource = new ResourceUtils(PropertiesConfigLoader.class).getResourceFromUrl(propertiesPath);
 
             try {
                 Properties props = new Properties();

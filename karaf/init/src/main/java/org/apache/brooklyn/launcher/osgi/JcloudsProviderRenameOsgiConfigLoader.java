@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 
-public class JcloudsProviderRenameOsgiConfigLoader extends OsgiConfigLoader{
+public class JcloudsProviderRenameOsgiConfigLoader extends OsgiConfigLoader {
 
     private static final Logger LOG = LoggerFactory.getLogger(JcloudsProviderRenameOsgiConfigLoader.class);
     private static final String JCLOUDS_PROVIDER_RENAMES_PROPERTIES = "org.apache.brooklyn.jcloudsrename";
@@ -36,22 +36,22 @@ public class JcloudsProviderRenameOsgiConfigLoader extends OsgiConfigLoader{
     // Called by OSGi
     public void init() {
         LOG.trace("DeserializingJcloudsRenamesProvider.OsgiConfigLoader.init: registering loader");
-        DeserializingJcloudsRenamesProvider.getInstance().getLoaders().add(this);
-        DeserializingJcloudsRenamesProvider.getInstance().reset();
+        DeserializingJcloudsRenamesProvider.INSTANCE.getLoaders().add(this);
+        DeserializingJcloudsRenamesProvider.INSTANCE.reset();
     }
 
     // Called by OSGi
     public void destroy() {
         LOG.trace("DeserializingJcloudsRenamesProvider.OsgiConfigLoader.destroy: unregistering loader");
-        boolean removed = DeserializingJcloudsRenamesProvider.getInstance().getLoaders().remove(this);
+        boolean removed = DeserializingJcloudsRenamesProvider.INSTANCE.getLoaders().remove(this);
         if (removed) {
-            DeserializingJcloudsRenamesProvider.getInstance().reset();
+            DeserializingJcloudsRenamesProvider.INSTANCE.reset();
         }
     }
 
     // Called by OSGi when configuration changes
     public void updateProperties(Map properties) {
         LOG.debug("DeserializingJcloudsRenamesProvider.OsgiConfigLoader.updateProperties: clearing cache, so jclouds renames will be reloaded");
-        DeserializingJcloudsRenamesProvider.getInstance().reset();
+        DeserializingJcloudsRenamesProvider.INSTANCE.reset();
     }
 }

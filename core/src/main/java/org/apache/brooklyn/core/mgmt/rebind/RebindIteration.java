@@ -216,7 +216,7 @@ public abstract class RebindIteration {
         
         managementContext = rebindManager.getManagementContext();
         rebindContext = new RebindContextImpl(managementContext, exceptionHandler, classLoader);
-        reflections = new Reflections(classLoader).applyClassRenames(DeserializingClassRenamesProvider.getInstance().loadDeserializingMapping());
+        reflections = new Reflections(classLoader).applyClassRenames(DeserializingClassRenamesProvider.INSTANCE.loadDeserializingMapping());
         instantiator = new BrooklynObjectInstantiator(classLoader, rebindContext, reflections);
         
         if (mode==ManagementNodeState.HOT_STANDBY || mode==ManagementNodeState.HOT_BACKUP) {

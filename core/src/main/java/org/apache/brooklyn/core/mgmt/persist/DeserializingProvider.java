@@ -58,7 +58,7 @@ public class DeserializingProvider {
 
     @Beta
     public Map<String, String> loadDeserializingMapping() {
-        synchronized (DeserializingProvider.class) {
+        synchronized (this) {
             if (cache == null) {
                 MutableMap.Builder<String, String> builder = MutableMap.<String, String>builder();
                 for (ConfigLoader loader : loaders) {
@@ -72,7 +72,7 @@ public class DeserializingProvider {
     }
 
     public void reset() {
-        synchronized (DeserializingProvider.class) {
+        synchronized (this) {
             cache = null;
         }
     }

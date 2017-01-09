@@ -33,7 +33,7 @@ public class CatalogXmlSerializer extends XmlSerializer<Object> {
 
     @SuppressWarnings("deprecation")
     public CatalogXmlSerializer() {
-        super(DeserializingClassRenamesProvider.getInstance().loadDeserializingMapping());
+        super(DeserializingClassRenamesProvider.INSTANCE.loadDeserializingMapping());
         
         xstream.addDefaultImplementation(ArrayList.class, Collection.class);
        

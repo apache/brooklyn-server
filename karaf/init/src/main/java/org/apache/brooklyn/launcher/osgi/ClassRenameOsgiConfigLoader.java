@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.launcher.osgi;
 
+import org.apache.brooklyn.core.mgmt.persist.ConfigLoader;
 import org.apache.brooklyn.core.mgmt.persist.DeserializingClassRenamesProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,34 +38,34 @@ import java.util.Map;
  *
  * @see {@link #KARAF_DESERIALIZING_CLASS_RENAMES_PROPERTIES}
  */
-public class ClasspathOsgiConfigLoader extends OsgiConfigLoader{
+public class ClassRenameOsgiConfigLoader extends OsgiConfigLoader {
 
-    private static final Logger LOG = LoggerFactory.getLogger(ClasspathOsgiConfigLoader.class);
+    private static final Logger LOG = LoggerFactory.getLogger(ClassRenameOsgiConfigLoader.class);
     private static final String KARAF_DESERIALIZING_CLASS_RENAMES_PROPERTIES = "org.apache.brooklyn.classrename";
 
-    public ClasspathOsgiConfigLoader(){
+    public ClassRenameOsgiConfigLoader(){
         super(KARAF_DESERIALIZING_CLASS_RENAMES_PROPERTIES);
     }
 
     // Called by OSGi
     public void init() {
         LOG.trace("DeserializingClassRenamesProvider.OsgiConfigLoader.init: registering loader");
-        DeserializingClassRenamesProvider.getInstance().getLoaders().add(this);
-        DeserializingClassRenamesProvider.getInstance().reset();
+        DeserializingClassRenamesProvider.INSTANCE.getLoaders().add(this);
+        DeserializingClassRenamesProvider.INSTANCE.reset();
     }
 
     // Called by OSGi
     public void destroy() {
         LOG.trace("DeserializingClassRenamesProvider.OsgiConfigLoader.destroy: unregistering loader");
-        boolean removed = DeserializingClassRenamesProvider.getInstance().getLoaders().remove(this);
+        boolean removed = DeserializingClassRenamesProvider.INSTANCE.getLoaders().remove(this);
         if (removed) {
-            DeserializingClassRenamesProvider.getInstance().reset();
+            DeserializingClassRenamesProvider.INSTANCE.reset();
         }
     }
 
     // Called by OSGi when configuration changes
     public void updateProperties(Map properties) {
         LOG.debug("DeserializingClassRenamesProvider.OsgiConfigLoader.updateProperties: clearing cache, so class-renames will be reloaded");
-        DeserializingClassRenamesProvider.getInstance().reset();
+        DeserializingClassRenamesProvider.INSTANCE.reset();
     }
 }

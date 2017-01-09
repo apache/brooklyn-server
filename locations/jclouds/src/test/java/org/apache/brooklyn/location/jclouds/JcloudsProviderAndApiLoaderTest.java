@@ -72,27 +72,27 @@ public class JcloudsProviderAndApiLoaderTest {
 
     @Test
     public void testRenamedRegisteredProvider() throws Exception {
-        String id = "my-example-provider";
-        String renamedId = "my-example-provider-renamed";
-        assertFalse(JcloudsProviderAndApiLoader.isProvider(id));
+        String newId = "my-example-provider2";
+        String oldId = "my-example-provider-renamed";
+        assertFalse(JcloudsProviderAndApiLoader.isProvider(newId));
 
         ProviderMetadata provider = new BaseProviderMetadata.Builder()
-                .id(id)
-                .name("My Example Provider")
+                .id(newId)
+                .name("My Example Provider 2")
                 .apiMetadata(new AWSEC2ApiMetadata())
                 .build();
         ProviderRegistry.registerProvider(provider);
         try {
-            assertIsProvider(id);
-            assertFalse(JcloudsProviderAndApiLoader.isProvider(renamedId));
+            assertIsProvider(newId);
+            assertFalse(JcloudsProviderAndApiLoader.isProvider(oldId));
 
-            DeserializingJcloudsRenamesProvider.getInstance().loadDeserializingMapping().put(renamedId,id);
+            DeserializingJcloudsRenamesProvider.INSTANCE.loadDeserializingMapping().put(oldId,newId);
 
-            assertIsProvider(renamedId, id);
+            assertIsProvider(oldId, newId);
 
             ProviderRegistry.unregisterProvider(provider);
-            assertFalse(JcloudsProviderAndApiLoader.isProvider(id));
-            assertFalse(JcloudsProviderAndApiLoader.isProvider(renamedId));
+            assertFalse(JcloudsProviderAndApiLoader.isProvider(newId));
+            assertFalse(JcloudsProviderAndApiLoader.isProvider(oldId));
 
         } finally {
             ProviderRegistry.unregisterProvider(provider);
