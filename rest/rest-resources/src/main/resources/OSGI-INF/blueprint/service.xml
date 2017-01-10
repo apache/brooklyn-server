@@ -37,6 +37,7 @@ limitations under the License.
 
     <reference id="localManagementContext"
                interface="org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal" />
+    <!--<cm:property-placeholder persistent-id="org.apache.brooklyn.rest.filter.cors" update-strategy="none" />-->
 
     <jaas:config name="webconsole">
         <jaas:module className="org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule" flags="required" />
@@ -109,6 +110,9 @@ limitations under the License.
             <bean class="io.swagger.jaxrs.listing.SwaggerSerializers" />
             <bean class="org.apache.brooklyn.rest.util.ShutdownHandlerProvider">
                 <argument ref="shutdownHandler" />
+            </bean>
+            <bean class="org.apache.brooklyn.rest.filter.CorsImplSupplierFilter" id="cors">
+                <cm:managed-properties persistent-id="org.apache.brooklyn.rest.filter.cors"/>
             </bean>
         </jaxrs:providers>
 

@@ -31,11 +31,13 @@ import javax.servlet.Filter;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampPlatformLauncherAbstract;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampPlatformLauncherNoServer;
+import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServiceAttributes;
+import org.apache.brooklyn.rest.filter.CorsImplSupplierFilter;
 import org.apache.brooklyn.rest.filter.CsrfTokenFilter;
 import org.apache.brooklyn.rest.filter.EntitlementContextFilter;
 import org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter;
@@ -232,7 +234,8 @@ public class BrooklynRestApiLauncher {
         context.setAttribute(BrooklynServiceAttributes.BROOKLYN_MANAGEMENT_CONTEXT, managementContext);
 
         installWar(context);
-        RestApiSetup.installRest(context,
+        ImmutableList.Builder<Object> providersListBuilder = ImmutableList.builder();
+        providersListBuilder.add(
                 new ManagementContextProvider(),
                 new ShutdownHandlerProvider(shutdownListener),
                 new RequestTaggingRsFilter(),
@@ -240,6 +243,12 @@ public class BrooklynRestApiLauncher {
                 new HaHotCheckResourceFilter(),
                 new EntitlementContextFilter(),
                 new CsrfTokenFilter());
+        if (BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_CORS_CXF_PROPERTY)) {
+            providersListBuilder.add(new CorsImplSupplierFilter(managementContext));
+        }
+        RestApiSetup.installRest(context,
+                providersListBuilder.build().toArray());
+        
         RestApiSetup.installServletFilters(context, this.filters);
 
         context.setContextPath("/");
