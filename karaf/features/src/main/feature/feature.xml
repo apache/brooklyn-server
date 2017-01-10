@@ -264,6 +264,7 @@
         <bundle dependency="true">mvn:org.apache.jclouds.api/docker/${jclouds.version}</bundle>
 
         <bundle dependency="true">mvn:org.apache.jclouds.provider/google-compute-engine/${jclouds.version}</bundle>
+        <bundle dependency="true">mvn:org.apache.jclouds.api/oauth/${jclouds.version}</bundle>
 
         <feature>jclouds-services</feature>
         <bundle dependency="true">wrap:mvn:com.jcraft/jsch.agentproxy.sshj/0.0.9$Bundle-Name=wrap%20%3A%3A%20jsch.agentproxy.sshj</bundle>
@@ -299,6 +300,12 @@
 
         <bundle start-level="85">mvn:org.apache.brooklyn/brooklyn-locations-jclouds/${project.version}</bundle>
         <feature>brooklyn-software-winrm</feature>
+        <feature>brooklyn-locations-jclouds-labs</feature>
+    </feature>
+
+    <feature name="brooklyn-locations-jclouds-labs" version="${project.version}" description="Brooklyn JClouds Labs Location Targets">
+        <bundle>mvn:org.apache.jclouds.labs/azurecompute/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.labs/azurecompute-arm/${jclouds.version}</bundle>
     </feature>
 
     <feature name="brooklyn-test-framework" version="${project.version}" description="Brooklyn Test Framework" >
