@@ -77,7 +77,7 @@ limitations under the License.
           class="org.apache.brooklyn.launcher.osgi.OsgiLauncher"
           init-method="init"
           destroy-method="destroy"
-          depends-on="deserializingClassRenamesProvider,deserializingJcloudsRenamesProvider">
+          depends-on="deserializingClassRenamesProvider deserializingJcloudsRenamesProvider">
 
         <property name="brooklynVersion" ref="brooklynVersion" />
 
