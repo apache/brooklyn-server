@@ -40,7 +40,7 @@ public class JavaEntitySpecResolver extends AbstractEntitySpecResolver{
     @Override
     protected String getLocalType(String type) {
         type = super.getLocalType(type);
-        type = DeserializingClassRenamesProvider.findMappedName(type);
+        type = DeserializingClassRenamesProvider.INSTANCE.findMappedName(type);
         return type;
     }
     

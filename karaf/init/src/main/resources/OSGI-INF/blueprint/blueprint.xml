@@ -49,7 +49,7 @@ limitations under the License.
     </cm:property-placeholder>
 
     <bean id="deserializingClassRenamesProvider"
-          class="org.apache.brooklyn.launcher.osgi.OsgiConfigLoader"
+          class="org.apache.brooklyn.launcher.osgi.ClassRenameOsgiConfigLoader"
           init-method="init"
           destroy-method="destroy">
 
@@ -60,11 +60,24 @@ limitations under the License.
                                update-strategy="component-managed" />
     </bean>
 
+
+    <bean id="deserializingJcloudsRenamesProvider"
+          class="org.apache.brooklyn.launcher.osgi.JcloudsProviderRenameOsgiConfigLoader"
+          init-method="init"
+          destroy-method="destroy">
+
+        <property name="configAdmin" ref="configAdmin" />
+
+        <cm:managed-properties persistent-id="org.apache.brooklyn.jcloudsrename"
+                               update-method="updateProperties"
+                               update-strategy="component-managed" />
+    </bean>
+
     <bean id="launcher"
           class="org.apache.brooklyn.launcher.osgi.OsgiLauncher"
           init-method="init"
           destroy-method="destroy"
-          depends-on="deserializingClassRenamesProvider">
+          depends-on="deserializingClassRenamesProvider,deserializingJcloudsRenamesProvider">
 
         <property name="brooklynVersion" ref="brooklynVersion" />
 

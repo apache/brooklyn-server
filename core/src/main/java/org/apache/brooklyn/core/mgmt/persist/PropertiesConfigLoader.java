@@ -18,35 +18,34 @@
  */
 package org.apache.brooklyn.core.mgmt.persist;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
+import org.apache.brooklyn.util.core.ResourceUtils;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.stream.Streams;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Enumeration;
 import java.util.Map;
 import java.util.Properties;
 
-import org.apache.brooklyn.util.core.ResourceUtils;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.stream.Streams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
+public class PropertiesConfigLoader implements ConfigLoader {
 
-/**
- * Loads the class-renames from the configuration file on the classpath.
- *
- * @see {@link #DESERIALIZING_CLASS_RENAMES_PROPERTIES_PATH}
- */
-public class ClasspathConfigLoader implements ConfigLoader {
-    private static final Logger LOG = LoggerFactory.getLogger(ClasspathConfigLoader.class);
-    private static final String DESERIALIZING_CLASS_RENAMES_PROPERTIES_PATH = "classpath://org/apache/brooklyn/core/mgmt/persist/deserializingClassRenames.properties";
+    private static final Logger LOG = LoggerFactory.getLogger(PropertiesConfigLoader.class);
+    private String propertiesPath;
 
+    protected PropertiesConfigLoader(String propertiesPath){
+        this.propertiesPath = propertiesPath;
+    }
 
     @Override
     public Map<String, String> load() {
         try {
-            InputStream resource = new ResourceUtils(DeserializingClassRenamesProvider.class).getResourceFromUrl(DESERIALIZING_CLASS_RENAMES_PROPERTIES_PATH);
+            InputStream resource = new ResourceUtils(PropertiesConfigLoader.class).getResourceFromUrl(propertiesPath);
 
             try {
                 Properties props = new Properties();
@@ -65,8 +64,9 @@ public class ClasspathConfigLoader implements ConfigLoader {
                 Streams.closeQuietly(resource);
             }
         } catch (Exception e) {
-            LOG.warn("Failed to load class-renames from " + DESERIALIZING_CLASS_RENAMES_PROPERTIES_PATH + " (continuing)", e);
+            LOG.warn("Failed to load properties file from " + propertiesPath + " (continuing)", e);
             return ImmutableMap.<String, String>of();
         }
     }
+
 }

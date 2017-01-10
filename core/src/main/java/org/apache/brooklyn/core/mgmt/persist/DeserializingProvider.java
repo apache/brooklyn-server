@@ -19,8 +19,14 @@
 package org.apache.brooklyn.core.mgmt.persist;
 
 import com.google.common.annotations.Beta;
-import com.google.common.collect.ImmutableList;
-import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 /*
  * This provider keeps a cache of the class-renames, which is lazily populated (see {@link #cache}.
@@ -30,31 +36,46 @@ import org.apache.brooklyn.util.javalang.Reflections;
  * Loading the cache involves iterating over the {@link #loaders}, returning the union of
  * the results from {@link Loader#load()}.
  *
- * Initially, the only loader is the basic {@link DeserializingClassRenamesProvider}.
+ * Initially, the only loader is the basic {@link ClasspathConfigLoader}.
  *
  * However, when running in karaf the {@link OsgiConfigLoader} will be instantiated and added.
  * See karaf/init/src/main/resources/OSGI-INF/blueprint/blueprint.xml
  */
 @Beta
-public class DeserializingClassRenamesProvider extends DeserializingProvider{
+public class DeserializingProvider {
 
-    private static final String DESERIALIZING_CLASS_RENAMES_PROPERTIES_PATH = "classpath://org/apache/brooklyn/core/mgmt/persist/deserializingClassRenames.properties";
+    private static final Logger LOG = LoggerFactory.getLogger(DeserializingProvider.class);
 
-    public static final DeserializingClassRenamesProvider INSTANCE = new DeserializingClassRenamesProvider();
+    private List<ConfigLoader> loaders;
 
-    private DeserializingClassRenamesProvider(){
-        super(ImmutableList.of(new PropertiesConfigLoader(DESERIALIZING_CLASS_RENAMES_PROPERTIES_PATH)));
+    protected DeserializingProvider(List<? extends ConfigLoader> loaders){
+        this.loaders = new ArrayList<>(loaders);
     }
 
-    /**
-     * Handles inner classes, where the outer class has been renamed. For example:
-     *
-     * {@code findMappedName("com.example.MyFoo$MySub")} will return {@code com.example.renamed.MyFoo$MySub}, if
-     * the renamed contains {@code com.example.MyFoo: com.example.renamed.MyFoo}.
-     */
+    private volatile Map<String, String> cache;
+
+    public List<ConfigLoader> getLoaders() {
+        return loaders;
+    }
+
     @Beta
-    public String findMappedName(String name) {
-        return Reflections.findMappedNameAndLog(loadDeserializingMapping(), name);
+    public Map<String, String> loadDeserializingMapping() {
+        synchronized (this) {
+            if (cache == null) {
+                MutableMap.Builder<String, String> builder = MutableMap.<String, String>builder();
+                for (ConfigLoader loader : loaders) {
+                    builder.putAll(loader.load());
+                }
+                cache = builder.build();
+                LOG.info("Config cache loaded, size {}", cache.size());
+            }
+            return cache;
+        }
     }
 
+    public void reset() {
+        synchronized (this) {
+            cache = null;
+        }
+    }
 }
