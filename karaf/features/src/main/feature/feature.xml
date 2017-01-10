@@ -51,8 +51,8 @@
         <bundle dependency="true">mvn:commons-codec/commons-codec/${commons-codec.version}</bundle>
         <bundle dependency="true">mvn:org.slf4j/jul-to-slf4j/${slf4j.version}</bundle>
         <bundle dependency="true">mvn:org.yaml/snakeyaml/${snakeyaml.version}</bundle>
-        <bundle dependency="true">mvn:org.apache.httpcomponents/httpcore-osgi/${httpclient.version}</bundle>
-        <bundle dependency="true">mvn:org.apache.httpcomponents/httpclient-osgi/${httpclient.version}</bundle>
+        <bundle dependency="true">mvn:org.apache.httpcomponents/httpcore-osgi/${httpcomponents.httpcore.version}</bundle>
+        <bundle dependency="true">mvn:org.apache.httpcomponents/httpclient-osgi/${httpcomponents.httpclient.version}</bundle>
 
         <bundle dependency="true">mvn:ch.qos.logback/logback-classic/${logback.version}</bundle>
         <bundle dependency="true">mvn:ch.qos.logback/logback-core/${logback.version}</bundle>
