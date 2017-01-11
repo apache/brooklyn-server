@@ -39,7 +39,8 @@ public interface CloudLocationConfig {
     public static final ConfigKey<String> CLOUD_ENDPOINT = LocationConfigKeys.CLOUD_ENDPOINT;
     public static final ConfigKey<String> CLOUD_REGION_ID = LocationConfigKeys.CLOUD_REGION_ID;
     public static final ConfigKey<String> CLOUD_AVAILABILITY_ZONE_ID = LocationConfigKeys.CLOUD_AVAILABILITY_ZONE_ID;
-        
+
+    public static final ConfigKey<String> OAUTH_ENDPOINT = LocationConfigKeys.OAUTH_ENDPOINT;
 
     @SetFromFlag("extensions")
     public static final MapConfigKey<String> EXTENSION = LocationConfigKeys.EXTENSIONS;
