@@ -74,7 +74,9 @@ public class ComputeServiceRegistryImpl implements ComputeServiceRegistry, Jclou
         properties.setProperty(Constants.PROPERTY_RELAX_HOSTNAME, Boolean.toString(true));
         properties.setProperty("jclouds.ssh.max-retries", conf.getStringKey("jclouds.ssh.max-retries") != null ? 
                 conf.getStringKey("jclouds.ssh.max-retries").toString() : "50");
-        
+
+        if (conf.get(OAUTH_ENDPOINT) != null) properties.setProperty(OAUTH_ENDPOINT.getName(),conf.get(OAUTH_ENDPOINT));
+
         // See https://issues.apache.org/jira/browse/BROOKLYN-394
         // For retries, the backoff times are:
         //   Math.min(2^failureCount * retryDelayStart, retryDelayStart * 10) + random(10%)
