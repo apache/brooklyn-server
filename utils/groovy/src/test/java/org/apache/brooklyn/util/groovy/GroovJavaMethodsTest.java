@@ -18,45 +18,77 @@
  */
 package org.apache.brooklyn.util.groovy;
 
-import groovy.lang.Closure;
-import groovy.lang.GString;
-import org.testng.annotations.Test;
-
-import java.util.concurrent.Callable;
-
-import static org.apache.brooklyn.util.groovy.GroovyJavaMethods.truth;
+import static org.apache.brooklyn.util.groovy.GroovyJavaMethods.elvis;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import java.util.List;
+import java.util.concurrent.Callable;
+
+import org.codehaus.groovy.runtime.GStringImpl;
+import org.testng.annotations.Test;
+
+import com.google.common.collect.ImmutableList;
+
+import groovy.lang.Closure;
+import groovy.lang.GString;
+
 public class GroovJavaMethodsTest {
+
+    private String gstringVal = "exampleGString";
+    private GString gstring = new GStringImpl(new Object[0], new String[] {gstringVal});
+    private GString emptyGstring = new GStringImpl(new Object[0], new String[] {""});
+
     @Test
-    public void testTruth() {
-        assertTrue(truth("someString"));
-        assertTrue(truth(1));
-        assertFalse(truth(false));
-        assertFalse(truth(null));
+    public void testTruth() throws Throwable {
+        assertFalse(groovyTruthInvocation(null));
+        assertTrue(groovyTruthInvocation("someString"));
+        assertFalse(groovyTruthInvocation(""));
+        assertTrue(groovyTruthInvocation(1));
+        assertFalse(groovyTruthInvocation(0));
+        assertTrue(groovyTruthInvocation(true));
+        assertFalse(groovyTruthInvocation(false));
+        assertTrue(groovyTruthInvocation(gstring));
+        assertFalse(groovyTruthInvocation(emptyGstring));
     }
 
     @Test
+    public void testElvis() {
+        final List<?> emptyList = ImmutableList.of();
+        final List<?> singletonList = ImmutableList.of("myVal");
+        final List<?> differentList = ImmutableList.of("differentVal");
+        
+        assertEquals(elvis("", "string2"), "string2");
+        assertEquals(elvis("string1", "string2"), "string1");
+        assertEquals(elvis(null, "string2"), "string2");
+        assertEquals(elvis("", "string2"), "string2");
+        assertEquals(elvis(1, 2), 1);
+        assertEquals(elvis(0, 2), 2);
+        assertEquals(elvis(singletonList, differentList), singletonList);
+        assertEquals(elvis(emptyList, differentList), differentList);
+        assertEquals(elvis(gstring, "other"), gstringVal);
+        assertEquals(elvis(emptyGstring, "other"), "other");
+        assertEquals(elvis(emptyGstring, gstring), gstringVal);
+    }
+
+    @Test
+    @SuppressWarnings("serial")
     public void testIsCase() throws Throwable {
-        assertFalse(callScriptBytecodeAdapter_isCase(
+        assertFalse(groovyIsCaseInvocation(
                 null,
                 GString.class));
         assertTrue(
-                callScriptBytecodeAdapter_isCase(
-                        new GString(new String[]{"Hi"}) {
-                            @Override public String[] getStrings() {
-                                return new String[0];
-                            }
-                        },
+                groovyIsCaseInvocation(
+                        gstring,
                         GString.class));
         assertFalse(
-                callScriptBytecodeAdapter_isCase(
+                groovyIsCaseInvocation(
                         "exampleString",
                         GString.class));
 
         assertTrue(
-                callScriptBytecodeAdapter_isCase(
+                groovyIsCaseInvocation(
                         new Callable<Void>() {
                             @Override public Void call() {
                                 return null;
@@ -64,26 +96,38 @@ public class GroovJavaMethodsTest {
                         },
                         Callable.class));
         assertFalse(
-                callScriptBytecodeAdapter_isCase(
+                groovyIsCaseInvocation(
                         "exampleString",
                         Callable.class));
 
         assertTrue(
-                callScriptBytecodeAdapter_isCase(
-                        new Closure(null) {
+                groovyIsCaseInvocation(
+                        new Closure<Void>(null) {
                             @Override public Void call() {
                                 return null;
                             }
                         },
                         Closure.class));
         assertFalse(
-                callScriptBytecodeAdapter_isCase(
+                groovyIsCaseInvocation(
                         "exampleString",
                         Closure.class));
     }
 
-    private boolean callScriptBytecodeAdapter_isCase(Object switchValue, Class caseExpression) throws Throwable {
-//        return org.codehaus.groovy.runtime.ScriptBytecodeAdapter.isCase(switchValue, caseExpression);
-        return org.apache.brooklyn.util.groovy.GroovyJavaMethods.safeGroovyIsCase(switchValue, caseExpression);
+    private boolean groovyIsCaseInvocation(Object switchValue, Class<?> caseExpression) throws Throwable {
+        // We expect this to be equivalent to:
+        //     org.codehaus.groovy.runtime.ScriptBytecodeAdapter.isCase(switchValue, caseExpression);
+        boolean result = org.apache.brooklyn.util.groovy.GroovyJavaMethods.safeGroovyIsCase(switchValue, caseExpression);
+        boolean equiv = org.codehaus.groovy.runtime.ScriptBytecodeAdapter.isCase(switchValue, caseExpression);
+        assertEquals(result, equiv, "switchValue="+switchValue+"; caseExpression="+caseExpression);
+        return result;
+    }
+
+    private <T> boolean groovyTruthInvocation(T value) throws Throwable {
+        // We expect this to be equivalent to Groovy-Truth
+        boolean result = org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth(value);
+        boolean groovyTruth = org.apache.brooklyn.util.groovy.GroovyJavaMethods.truth(value);
+        assertEquals(result, groovyTruth, "value="+value);
+        return result;
     }
 }
