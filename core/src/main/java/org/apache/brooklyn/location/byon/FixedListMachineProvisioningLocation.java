@@ -18,7 +18,7 @@
  */
 package org.apache.brooklyn.location.byon;
 
-import static org.apache.brooklyn.util.groovy.GroovyJavaMethods.truth;
+import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 
 import java.io.Closeable;
 import java.io.File;
@@ -504,14 +504,14 @@ implements MachineProvisioningLocation<T>, Closeable {
                 address = address.substring(address.indexOf("@")+1);
             }
             Map config = MutableMap.of("address", address);
-            if (truth(user)) {
+            if (groovyTruth(user)) {
                 config.put("user", user);
                 config.put("sshconfig.user", user);
             }
-            if (truth(privateKeyPassphrase)) config.put("sshconfig.privateKeyPassphrase", privateKeyPassphrase);
-            if (truth(privateKeyFile)) config.put("sshconfig.privateKeyFile", privateKeyFile);
-            if (truth(privateKeyData)) config.put("sshconfig.privateKey", privateKeyData);
-            if (truth(localTempDir)) config.put("localTempDir", localTempDir);
+            if (groovyTruth(privateKeyPassphrase)) config.put("sshconfig.privateKeyPassphrase", privateKeyPassphrase);
+            if (groovyTruth(privateKeyFile)) config.put("sshconfig.privateKeyFile", privateKeyFile);
+            if (groovyTruth(privateKeyData)) config.put("sshconfig.privateKey", privateKeyData);
+            if (groovyTruth(localTempDir)) config.put("localTempDir", localTempDir);
             return config;
         }
         @SuppressWarnings("unchecked")

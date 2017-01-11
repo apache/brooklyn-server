@@ -29,8 +29,8 @@ import net.schmizz.sshj.transport.verification.PromiscuousVerifier;
 import net.schmizz.sshj.userauth.keyprovider.OpenSSHKeyFile;
 import net.schmizz.sshj.userauth.password.PasswordUtils;
 
+import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.core.internal.ssh.SshAbstractTool.SshAction;
-import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -192,14 +192,14 @@ public class SshjClientConnection implements SshAction<SSHClient> {
         } else if (privateKeyData != null) {
             OpenSSHKeyFile key = new OpenSSHKeyFile();
             key.init(privateKeyData, null, 
-                    GroovyJavaMethods.truth(privateKeyPassphrase) ? 
+                    JavaGroovyEquivalents.groovyTruth(privateKeyPassphrase) ? 
                             PasswordUtils.createOneOff(privateKeyPassphrase.toCharArray())
                             : null);
             ssh.authPublickey(username, key);
         } else if (privateKeyFile != null) {
             OpenSSHKeyFile key = new OpenSSHKeyFile();
             key.init(privateKeyFile, 
-                    GroovyJavaMethods.truth(privateKeyPassphrase) ? 
+                    JavaGroovyEquivalents.groovyTruth(privateKeyPassphrase) ? 
                             PasswordUtils.createOneOff(privateKeyPassphrase.toCharArray())
                             : null);
             ssh.authPublickey(username, key);

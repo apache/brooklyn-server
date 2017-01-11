@@ -19,7 +19,7 @@
 package org.apache.brooklyn.core.objs;
 
 import static com.google.common.base.Preconditions.checkState;
-import static org.apache.brooklyn.util.groovy.GroovyJavaMethods.truth;
+import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -156,7 +156,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
         FlagUtils.setAllConfigKeys(this, bag, false);
         leftoverProperties.putAll(bag.getUnusedConfig());
 
-        if (!truth(name) && leftoverProperties.containsKey("displayName")) {
+        if (!groovyTruth(name) && leftoverProperties.containsKey("displayName")) {
             //TODO inconsistent with entity and location, where name is legacy and displayName is encouraged!
             //'displayName' is a legacy way to refer to a policy's name
             Preconditions.checkArgument(leftoverProperties.get("displayName") instanceof CharSequence, "'displayName' property should be a string");

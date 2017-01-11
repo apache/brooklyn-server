@@ -18,8 +18,8 @@
  */
 package org.apache.brooklyn.location.localhost;
 
-import static org.apache.brooklyn.util.groovy.GroovyJavaMethods.elvis;
-import static org.apache.brooklyn.util.groovy.GroovyJavaMethods.truth;
+import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvis;
+import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 
 import java.io.File;
 import java.net.InetAddress;
@@ -131,8 +131,8 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
     public LocalhostMachineProvisioningLocation configure(Map<?,?> flags) {
         super.configure(flags);
         
-        if (!truth(getDisplayName())) { setDisplayName("localhost"); }
-        if (!truth(address)) address = getLocalhostInetAddress();
+        if (!groovyTruth(getDisplayName())) { setDisplayName("localhost"); }
+        if (!groovyTruth(address)) address = getLocalhostInetAddress();
         // TODO should try to confirm this machine is accessible on the given address ... but there's no 
         // immediate convenience in java so early-trapping of that particular error is deferred
         
