@@ -651,7 +651,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         Stopwatch provisioningStopwatch = Stopwatch.createStarted();
 
         try {
-            LOG.info("Creating VM "+setup.getDescription()+" in "+this);
+            LOG.info("Creating VM "+getCreationString(setup)+" in "+this);
 
             Semaphore machineCreationSemaphore = getMachineCreationSemaphore();
             boolean acquired = machineCreationSemaphore.tryAcquire(0, TimeUnit.SECONDS);
@@ -708,7 +708,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 customizeTemplate(computeService, template, customizers);
 
                 LOG.debug("jclouds using template {} / options {} to provision machine in {}",
-                        new Object[] {template, template.getOptions(), setup.getDescription()});
+                        new Object[] {template, template.getOptions(), getCreationString(setup)});
 
                 nodes = computeService.createNodesInGroup(groupId, 1, template);
                 provisionTimestamp = Duration.of(provisioningStopwatch);
@@ -717,9 +717,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             }
 
             node = Iterables.getOnlyElement(nodes, null);
-            LOG.debug("jclouds created {} for {}", node, setup.getDescription());
+            LOG.debug("jclouds created {} for {}", node, getCreationString(setup));
             if (node == null)
-                throw new IllegalStateException("No nodes returned by jclouds create-nodes in " + setup.getDescription());
+                throw new IllegalStateException("No nodes returned by jclouds create-nodes in " + getCreationString(setup));
 
             boolean windows = isWindows(node, setup);
             boolean waitForConnectable = (windows) ? waitForWinRmable : waitForSshable;
@@ -808,7 +808,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 waitForSshable(computeService, node, managementHostAndPort, ImmutableList.of(userCredentials), setup);
             } else {
                 LOG.debug("Skipping ssh check for {} ({}) due to config waitForSshable={}, windows={}",
-                        new Object[]{node, setup.getDescription(), waitForSshable, windows});
+                        new Object[]{node, getCreationString(setup), waitForSshable, windows});
             }
 
             // Do not store the credentials on the node as this may leak the credentials if they
@@ -1045,7 +1045,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             customizedTimestamp = Duration.of(provisioningStopwatch);
 
             try {
-                String logMessage = "Finished VM "+setup.getDescription()+" creation:"
+                String logMessage = "Finished VM "+getCreationString(setup)+" creation:"
                         + " "+machineLocation.getUser()+"@"+machineLocation.getAddress()+":"+machineLocation.getPort()
                         + (Boolean.TRUE.equals(setup.get(LOG_CREDENTIALS))
                                 ? "password=" + userCredentials.getOptionalPassword().or("<absent>")
@@ -1084,7 +1084,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 e = new UserFacingException(message, e);
             }
 
-            LOG.error("Failed to start VM for "+setup.getDescription() + (destroyNode ? " (destroying)" : "")
+            LOG.error("Failed to start VM for "+getCreationString(setup) + (destroyNode ? " (destroying)" : "")
                     + (node != null ? "; node "+node : "")
                     + " after "+Duration.of(provisioningStopwatch).toStringRounded()
                     + (semaphoreTimestamp != null ? " ("
@@ -1350,7 +1350,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             templateBuilder = new PortableTemplateBuilder<PortableTemplateBuilder<?>>();
         } else {
             LOG.debug("jclouds using templateBuilder {} as custom base for provisioning in {} for {}", new Object[] {
-                    templateBuilder, this, config.getDescription()});
+                    templateBuilder, this, getCreationString(config)});
         }
         if (templateBuilder instanceof PortableTemplateBuilder<?>) {
             if (((PortableTemplateBuilder<?>)templateBuilder).imageChooser()==null) {
@@ -1362,7 +1362,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         } else {
             // template builder supplied, and we cannot check image chooser status; warn, for now
             LOG.warn("Cannot check imageChooser status for {} due to manually supplied black-box TemplateBuilder; "
-                + "it is recommended to use a PortableTemplateBuilder if you supply a TemplateBuilder", config.getDescription());
+                + "it is recommended to use a PortableTemplateBuilder if you supply a TemplateBuilder", getCreationString(config));
         }
 
         if (!Strings.isEmpty(config.get(CLOUD_REGION_ID))) {
@@ -1404,7 +1404,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
 
         LOG.debug("jclouds using templateBuilder {} for provisioning in {} for {}", new Object[] {
-            templateBuilder, this, config.getDescription()});
+            templateBuilder, this, getCreationString(config)});
 
         // Finally try to build the template
         Template template = null;
@@ -1413,7 +1413,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             template = templateBuilder.build();
             if (template==null) throw new IllegalStateException("No matching template; check image and hardware constraints (e.g. OS, RAM); using "+templateBuilder);
             image = template.getImage();
-            LOG.debug("jclouds found template "+template+" (image "+image+") for provisioning in "+this+" for "+config.getDescription());
+            LOG.debug("jclouds found template "+template+" (image "+image+") for provisioning in "+this+" for "+getCreationString(config));
             if (image==null) throw new IllegalStateException("No matching image in template at "+toStringNice()+"; check image constraints (OS, providers, ID); using "+templateBuilder);
         } catch (AuthorizationException e) {
             LOG.warn("Error resolving template -- not authorized (rethrowing: "+e+"); template is: "+template);
@@ -1699,7 +1699,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("VM {}: executing user creation/setup via {}@{}; commands: {}", new Object[] {
-                            config.getDescription(), initialUser, managementHostAndPort, commands});
+                            getCreationString(config), initialUser, managementHostAndPort, commands});
                 }
 
                 SshMachineLocation sshLoc = createTemporarySshMachineLocation(managementHostAndPort, initialCredentials, config);
@@ -1810,7 +1810,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     throw Exceptions.propagate(e);
                 } else {
                     LOG.warn("No reachable address ({}/{}); falling back to any advertised address; may cause future failures",
-                            config.getDescription(), node);
+                            getCreationString(config), node);
                 }
             }
         }
@@ -1822,7 +1822,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             }
         }
         LOG.warn("No resolvable address in {} ({}/{}); using first; may cause future failures",
-                new Object[]{addresses, config.getDescription(), node});
+                new Object[]{addresses, getCreationString(config), node});
         String host = Iterables.get(addresses, 0);
         return HostAndPort.fromParts(host, defaultPort);
     }
@@ -2031,7 +2031,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                             getUser(setup),
                             managementHostAndPort,
                             Sanitizer.sanitize(sshConfig),
-                            setup.getDescription(),
+                            getCreationString(setup),
                             node
                     });
         }
@@ -2733,7 +2733,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
             LOG.debug("VM {}: reported online, now waiting {} for it to be contactable on {}; trying {} credential{}: {}",
                     new Object[] {
-                            setup.getDescription(), timeout,
+                            getCreationString(setup), timeout,
                             hostAndPort,
                             credentialsToLog.size(),
                             Strings.s(credentialsToLog.size()),
@@ -2751,12 +2751,12 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
         if (!reachable.getWithoutError()) {
             throw new IllegalStateException("Connection failed for "
-                    +hostAndPort+" ("+setup.getDescription()+") after waiting "
+                    +hostAndPort+" ("+getCreationString(setup)+") after waiting "
                     +Time.makeTimeStringRounded(timeout), reachable.getError());
         }
 
         LOG.debug("VM {}: connection succeeded after {} on {}",new Object[] {
-                setup.getDescription(), Time.makeTimeStringRounded(stopwatch),
+                getCreationString(setup), Time.makeTimeStringRounded(stopwatch),
                 hostAndPort});
     }
 
