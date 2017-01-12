@@ -25,11 +25,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.Date;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.brooklyn.core.effector.EffectorBody;
 import org.apache.brooklyn.location.jclouds.networking.NetworkingEffectors;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
+import org.apache.brooklyn.util.javalang.Reflections;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,7 +39,7 @@ import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-
+import groovy.time.TimeDuration;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.drivers.DriverDependentEntity;
@@ -49,19 +51,21 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
+import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
-import org.apache.brooklyn.core.entity.lifecycle.Lifecycle.Transition;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceNotUpLogic;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.feed.function.FunctionFeed;
 import org.apache.brooklyn.feed.function.FunctionPollConfig;
+import org.apache.brooklyn.location.jclouds.JcloudsLocationCustomizer;
+import org.apache.brooklyn.location.jclouds.JcloudsMachineLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -268,6 +272,36 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
      * Called before driver.start; guarantees the driver will exist, and locations will have been set.
      */
     protected void preStart() {
+        if (!getLocations().isEmpty() && getLocations().iterator().next() instanceof JcloudsMachineLocation) {
+            JcloudsMachineLocation location = (JcloudsMachineLocation) getLocations().iterator().next();
+            if (location.getParent().getProvider().equals("aws-ec2")
+                    && this.getManagementContext().getConfig().getAllConfigLocalRaw().containsKey(BROOKLYN_LOCATION_EXTRA_HDD_EFFECTOR)) {
+                try {
+                    String effectorClassName = String.valueOf(this.getManagementContext().getConfig().getConfig(BROOKLYN_LOCATION_EXTRA_HDD_EFFECTOR));
+                    EffectorBody effectorBody;
+                    Class<?> clazz = new ClassLoaderUtils(this.getClass(), getManagementContext())
+                            .loadClass(effectorClassName);
+
+                    Maybe<?> instance = Reflections.invokeConstructorFromArgs(clazz);
+                    if (!instance.isPresent()) {
+                        throw new IllegalStateException("Failed to create EffectorBody class "+effectorClassName);
+                    } else if (!(instance.get() instanceof EffectorBody)) {
+                        throw new IllegalStateException("Failed to create EffectorBody class "+effectorClassName+"; expected type EffectorBody but got "+instance.get().getClass());
+                    } else {
+                        effectorBody = (EffectorBody) instance.get();
+
+                        getMutableEntityType().addEffector(
+                                Effectors.effector(JcloudsLocationCustomizer.class, "addExtraHdd")
+                                        .parameter(LOCATION_CUSTOMIZER_FIELDS)
+                                        .description("An effector to add extra hdd to provisioned vm")
+                                        .impl(effectorBody)
+                                        .build());
+                    }
+                } catch (ClassNotFoundException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
     }
     
     /**
