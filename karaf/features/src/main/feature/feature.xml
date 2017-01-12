@@ -272,7 +272,7 @@
         <bundle dependency="true">mvn:org.apache.jclouds.api/oauth/${jclouds.version}</bundle>
 
         <feature>jclouds-services</feature>
-        <bundle dependency="true">mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsch-agentproxy-sshj/0.0.9_1</bundle>
+        <bundle dependency="true">wrap:mvn:com.jcraft/jsch.agentproxy.sshj/0.0.9$Bundle-Name=wrap%20%3A%3A%20jsch.agentproxy.sshj</bundle>
 
         <!-- Same as allcompute -->
         <feature>jclouds-aws-ec2</feature>
