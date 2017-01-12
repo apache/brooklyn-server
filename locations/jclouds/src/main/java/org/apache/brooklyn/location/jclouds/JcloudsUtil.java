@@ -38,6 +38,7 @@ import java.util.concurrent.TimeoutException;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.core.config.Sanitizer;
+import org.apache.brooklyn.core.mgmt.persist.DeserializingJcloudsRenamesProvider;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -270,7 +271,9 @@ public class JcloudsUtil implements JcloudsLocationConfig {
      *
      *  @since 0.7.0 */
     @Beta
-    public static BlobStoreContext newBlobstoreContext(String provider, @Nullable String endpoint, String identity, String credential) {
+    public static BlobStoreContext newBlobstoreContext(String rawProvider, @Nullable String endpoint, String identity, String credential) {
+        String provider = DeserializingJcloudsRenamesProvider.INSTANCE.applyJcloudsRenames(rawProvider);
+        
         Properties overrides = new Properties();
         // * Java 7,8 bug workaround - sockets closed by GC break the internal bookkeeping
         //   of HttpUrlConnection, leading to invalid handling of the "HTTP/1.1 100 Continue"
