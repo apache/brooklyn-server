@@ -24,6 +24,7 @@ import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.http.HttpAsserts;
 import org.apache.brooklyn.util.net.Networking;
+import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.logging.log4j.util.Strings;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -206,6 +207,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
     @Test(groups={"Live"})
     public void testWordpressInPod() throws Exception {
         // TODO docker.container.inboundPorts doesn't accept list of ints - need to use quotes
+        String randomId = Identifiers.makeRandomId(4);
         String yaml = Joiner.on("\n").join(
                 locationYaml,
                 "services:",
@@ -221,7 +223,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "      docker.container.environment:",
                 "        MYSQL_ROOT_PASSWORD: \"password\"",
                 "      provisioning.properties:",
-                "        deployment: wordpress-mysql",
+                "        deployment: wordpress-mysql-" + randomId,
                 "  - type: " + DockerContainer.class.getName(),
                 "    id: wordpress",
                 "    name: wordpress",
@@ -233,7 +235,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "        WORDPRESS_DB_HOST: \"wordpress-mysql\"",
                 "        WORDPRESS_DB_PASSWORD: \"password\"",
                 "      provisioning.properties:",
-                "        deployment: wordpress");
+                "        deployment: wordpress-" + randomId);
         
         runWordpress(yaml);
     }

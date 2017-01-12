@@ -47,7 +47,7 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
 
     private static final Logger LOG = LoggerFactory.getLogger(KubernetesLocationLiveTest.class);
     
-    public static final String KUBERNETES_ENDPOINT = System.getProperty("test.amp.kubernetes.endpoint", "https://192.168.99.100:8443/");
+    public static final String KUBERNETES_ENDPOINT = System.getProperty("test.amp.kubernetes.endpoint", "");
     public static final String IDENTITY = System.getProperty("test.amp.kubernetes.identity", "");
     public static final String CREDENTIAL = System.getProperty("test.amp.kubernetes.credential", "");
 
