@@ -29,6 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
+import org.apache.brooklyn.core.mgmt.persist.DeserializingJcloudsRenamesProvider;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.text.Strings;
@@ -65,7 +66,9 @@ public class ComputeServiceRegistryImpl implements ComputeServiceRegistry, Jclou
 
     @Override
     public ComputeService findComputeService(ConfigBag conf, boolean allowReuse) {
-        String provider = checkNotNull(conf.get(CLOUD_PROVIDER), "provider must not be null");
+        String rawProvider = checkNotNull(conf.get(CLOUD_PROVIDER), "provider must not be null");
+        String provider = DeserializingJcloudsRenamesProvider.INSTANCE.applyJcloudsRenames(rawProvider);
+
         String identity = checkNotNull(conf.get(CloudLocationConfig.ACCESS_IDENTITY), "identity must not be null");
         String credential = checkNotNull(conf.get(CloudLocationConfig.ACCESS_CREDENTIAL), "credential must not be null");
         
