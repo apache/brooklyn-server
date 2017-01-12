@@ -18,7 +18,7 @@
  */
 package org.apache.brooklyn.location.ssh;
 
-import static org.apache.brooklyn.util.groovy.GroovyJavaMethods.truth;
+import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 
 import java.io.Closeable;
 import java.io.File;
@@ -428,7 +428,7 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
         boolean deferConstructionChecks = (properties.containsKey("deferConstructionChecks") && TypeCoercions.coerce(properties.get("deferConstructionChecks"), Boolean.class));
         if (!deferConstructionChecks) {
             if (getDisplayName() == null) {
-                setDisplayName((truth(user) ? user+"@" : "") + address.getHostName());
+                setDisplayName((groovyTruth(user) ? user+"@" : "") + address.getHostName());
             }
         }
         return this;
@@ -547,7 +547,7 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
     }
 
     public String getUser() {
-        if (!truth(user)) {
+        if (!groovyTruth(user)) {
             if (config().getLocalRaw(SshTool.PROP_USER).isPresent()) {
                 LOG.warn("User configuration for "+this+" set after deployment; deprecated behaviour may not be supported in future versions");
             }
@@ -582,7 +582,7 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
             LOG.trace("{} execSsh got pool: {}", this, pool);
         }
 
-        if (truth(props.get(CLOSE_CONNECTION.getName()))) {
+        if (groovyTruth(props.get(CLOSE_CONNECTION.getName()))) {
             Function<SshTool, T> close = new Function<SshTool, T>() {
                 @Override
                 public T apply(SshTool input) {
@@ -608,7 +608,7 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
     protected boolean previouslyConnected = false;
     protected SshTool connectSsh(Map props) {
         try {
-            if (!truth(user)) {
+            if (!groovyTruth(user)) {
                 String newUser = getUser();
                 if (LOG.isTraceEnabled()) LOG.trace("For "+this+", setting user in connectSsh: oldUser="+user+"; newUser="+newUser);
                 user = newUser;

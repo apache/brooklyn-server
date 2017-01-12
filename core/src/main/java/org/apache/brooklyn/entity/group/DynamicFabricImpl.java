@@ -18,8 +18,8 @@
  */
 package org.apache.brooklyn.entity.group;
 
-import static org.apache.brooklyn.util.groovy.GroovyJavaMethods.elvis;
-import static org.apache.brooklyn.util.groovy.GroovyJavaMethods.truth;
+import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvis;
+import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -45,7 +45,6 @@ import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.enricher.stock.Enrichers;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -235,7 +234,7 @@ public class DynamicFabricImpl extends AbstractGroupImpl implements DynamicFabri
     public Integer getFabricSize() {
         int result = 0;
         for (Entity child : getChildren()) {
-            result  += GroovyJavaMethods.<Integer>elvis(child.getAttribute(Changeable.GROUP_SIZE), 0);
+            result  += elvis(child.getAttribute(Changeable.GROUP_SIZE), 0);
         }
         return result;
     }
@@ -258,7 +257,7 @@ public class DynamicFabricImpl extends AbstractGroupImpl implements DynamicFabri
         String locationName = elvis(location.getDisplayName(), location.getDisplayName(), null);
         Map creation = Maps.newLinkedHashMap();
         creation.putAll(getCustomChildFlags());
-        if (truth(getDisplayNamePrefix()) || truth(getDisplayNameSuffix())) {
+        if (groovyTruth(getDisplayNamePrefix()) || groovyTruth(getDisplayNameSuffix())) {
             String displayName = "" + elvis(getDisplayNamePrefix(), "") + elvis(locationName, "unnamed") + elvis(getDisplayNameSuffix(),"");
             creation.put("displayName", displayName);
         }

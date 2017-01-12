@@ -30,9 +30,9 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.core.annotation.EffectorParam;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.mgmt.internal.EffectorUtils;
+import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
 import org.codehaus.groovy.runtime.MethodClosure;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -139,7 +139,7 @@ public class MethodEffector<T> extends AbstractEffector<T> {
 
     @SuppressWarnings("unchecked")
     protected MethodEffector(AnnotationsOnMethod anns, String description) {
-        super(anns.name, (Class<T>)anns.returnType, anns.parameters, GroovyJavaMethods.<String>elvis(description, anns.description));
+        super(anns.name, (Class<T>)anns.returnType, anns.parameters, JavaGroovyEquivalents.elvis(description, anns.description));
     }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
