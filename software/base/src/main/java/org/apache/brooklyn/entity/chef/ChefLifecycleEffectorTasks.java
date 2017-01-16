@@ -20,6 +20,7 @@ package org.apache.brooklyn.entity.chef;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.MachineLocation;
@@ -27,6 +28,7 @@ import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.location.Machines;
+import org.apache.brooklyn.core.sensor.ReleaseableLatch;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.entity.software.base.lifecycle.MachineLifecycleEffectorTasks;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
@@ -57,7 +59,7 @@ import com.google.common.collect.ImmutableList;
  * <p>
  * Instances of this should use the {@link ChefConfig} config attributes to configure startup,
  * and invoke {@link #usePidFile(String)} or {@link #useService(String)} to determine check-running and stop behaviour.
- * Alternatively this can be subclassed and {@link #postStartCustom()} and {@link #stopProcessesAtMachine()} overridden.
+ * Alternatively this can be subclassed and {@link #postStartCustom(AtomicReference)} and {@link #stopProcessesAtMachine()} overridden.
  * 
  * @since 0.6.0
  **/
@@ -237,7 +239,7 @@ public class ChefLifecycleEffectorTasks extends MachineLifecycleEffectorTasks im
     }
 
     @Override
-    protected void postStartCustom() {
+    protected void postStartCustom(AtomicReference<ReleaseableLatch> startLatchRef) {
         boolean result = false;
         result |= tryCheckStartPid();
         result |= tryCheckStartService();
@@ -246,6 +248,7 @@ public class ChefLifecycleEffectorTasks extends MachineLifecycleEffectorTasks im
             log.warn("No way to check whether "+entity()+" is running; assuming yes");
         }
         entity().sensors().set(SoftwareProcess.SERVICE_UP, true);
+        super.postStartCustom(startLatchRef);
     }
     
     protected boolean tryCheckStartPid() {

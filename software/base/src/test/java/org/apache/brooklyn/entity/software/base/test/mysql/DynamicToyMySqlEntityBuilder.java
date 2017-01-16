@@ -19,6 +19,7 @@
 package org.apache.brooklyn.entity.software.base.test.mysql;
 
 import java.io.File;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityInitializer;
@@ -29,6 +30,7 @@ import org.apache.brooklyn.api.location.OsDetails;
 import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.sensor.ReleaseableLatch;
 import org.apache.brooklyn.entity.software.base.lifecycle.MachineLifecycleEffectorTasks;
 import org.apache.brooklyn.entity.stock.BasicStartable;
 import org.slf4j.Logger;
@@ -124,7 +126,7 @@ public class DynamicToyMySqlEntityBuilder {
                 return "submitted start";
             }
             @Override
-            protected void postStartCustom() {
+            protected void postStartCustom(AtomicReference<ReleaseableLatch> startLatchRef) {
                 // if it's still up after 5s assume we are good
                 Time.sleep(Duration.FIVE_SECONDS);
                 if (!DynamicTasks.queue(SshEffectorTasks.isPidFromFileRunning(dir(entity)+"/*/data/*.pid")).get()) {
@@ -150,6 +152,7 @@ public class DynamicToyMySqlEntityBuilder {
                 // Really should set this with a Feed that checks pid periodically.
                 // Should this instead be using SERVICE_NOT_UP_INDICATORS?
                 entity().sensors().set(Attributes.SERVICE_UP, true);
+                super.postStartCustom(startLatchRef);
             }
 
             @Override

@@ -21,10 +21,12 @@ package org.apache.brooklyn.entity.software.base;
 import static org.apache.brooklyn.core.mgmt.BrooklynTaskTags.getEffectorName;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -32,25 +34,31 @@ import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
+import org.apache.brooklyn.core.sensor.ReleaseableLatch;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.entity.group.DynamicCluster;
 import org.apache.brooklyn.entity.software.base.SoftwareProcessEntityTest.MyService;
 import org.apache.brooklyn.entity.software.base.SoftwareProcessEntityTest.SimulatedDriver;
-import org.apache.brooklyn.entity.stock.BasicEntity;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
 import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.task.TaskInternal;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
 
+import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -58,10 +66,14 @@ import com.google.common.collect.Lists;
 
 public class SoftwareProcessEntityLatchTest extends BrooklynAppUnitTestSupport {
 
+
     // NB: These tests don't actually require ssh to localhost -- only that 'localhost' resolves.
 
     @SuppressWarnings("unused")
     private static final Logger LOG = LoggerFactory.getLogger(SoftwareProcessEntityLatchTest.class);
+
+    private static final ImmutableList<String> SOFTWARE_PROCESS_START_TASKS = ImmutableList.of("setup", "copyInstallResources", "install", "customize", "copyRuntimeResources", "launch");
+    private static final ImmutableList<String> SOFTWARE_PROCESS_STOP_TASKS = ImmutableList.<String>builder().addAll(SOFTWARE_PROCESS_START_TASKS).add("stop").build();
 
     private SshMachineLocation machine;
     private FixedListMachineProvisioningLocation<SshMachineLocation> loc;
@@ -81,78 +93,99 @@ public class SoftwareProcessEntityLatchTest extends BrooklynAppUnitTestSupport {
         loc.addMachine(machine);
         return loc;
     }
-
-    @Test
-    public void testStartLatchBlocks() throws Exception {
-        runTestLatchBlocks(SoftwareProcess.START_LATCH, ImmutableList.<String>of());
+    
+    @DataProvider
+    public Object[][] latchAndTaskNamesProvider() {
+        return new Object[][] {
+            {SoftwareProcess.START_LATCH, ImmutableList.<String>of()},
+            {SoftwareProcess.SETUP_LATCH, ImmutableList.<String>of()},
+            {SoftwareProcess.INSTALL_RESOURCES_LATCH, ImmutableList.of("setup")},
+            {SoftwareProcess.INSTALL_LATCH, ImmutableList.of("setup", "copyInstallResources")},
+            {SoftwareProcess.CUSTOMIZE_LATCH, ImmutableList.of("setup", "copyInstallResources", "install")},
+            {SoftwareProcess.RUNTIME_RESOURCES_LATCH, ImmutableList.of("setup", "copyInstallResources", "install", "customize")},
+            {SoftwareProcess.LAUNCH_LATCH, ImmutableList.of("setup", "copyInstallResources", "install", "customize", "copyRuntimeResources")},
+            {SoftwareProcess.STOP_LATCH, SOFTWARE_PROCESS_START_TASKS},
+        };
     }
 
-    @Test
-    public void testSetupLatchBlocks() throws Exception {
-        runTestLatchBlocks(SoftwareProcess.SETUP_LATCH, ImmutableList.<String>of());
+    @Test(dataProvider="latchAndTaskNamesProvider")
+    public void testBooleanLatchBlocks(final ConfigKey<Boolean> latch, List<String> preLatchEvents) throws Exception {
+        doTestLatchBlocks(latch, preLatchEvents, Boolean.TRUE, Functions.<Void>constant(null));
     }
 
-    @Test
-    public void testIntallResourcesLatchBlocks() throws Exception {
-        runTestLatchBlocks(SoftwareProcess.INSTALL_RESOURCES_LATCH, ImmutableList.of("setup"));
+    @Test(dataProvider="latchAndTaskNamesProvider")
+    public void testReleaseableLatchBlocks(final ConfigKey<Boolean> latch, final List<String> preLatchEvents) throws Exception {
+        final ReleaseableLatch latchSemaphore = ReleaseableLatch.Factory.newMaxConcurrencyLatch(0);
+        doTestLatchBlocks(latch, preLatchEvents, latchSemaphore, new Function<MyService, Void>() {
+            @Override
+            public Void apply(MyService entity) {
+                String taskName = (latch == SoftwareProcess.STOP_LATCH) ? "stop" : "start";
+                assertEffectorBlockingDetailsEventually(entity, taskName, "Acquiring " + latch + " " + latchSemaphore);
+                assertDriverEventsEquals(entity, preLatchEvents);
+                latchSemaphore.release(entity);
+                return null;
+            }
+        });
+
     }
 
-    @Test
-    public void testInstallLatchBlocks() throws Exception {
-        runTestLatchBlocks(SoftwareProcess.INSTALL_LATCH, ImmutableList.of("setup", "copyInstallResources"));
-    }
-
-    @Test
-    public void testCustomizeLatchBlocks() throws Exception {
-        runTestLatchBlocks(SoftwareProcess.CUSTOMIZE_LATCH, ImmutableList.of("setup", "copyInstallResources", "install"));
-    }
-
-    @Test
-    public void testRuntimeResourcesLatchBlocks() throws Exception {
-        runTestLatchBlocks(SoftwareProcess.RUNTIME_RESOURCES_LATCH, ImmutableList.of("setup", "copyInstallResources", "install", "customize"));
-    }
-
-    @Test
-    public void testLaunchLatchBlocks() throws Exception {
-        runTestLatchBlocks(SoftwareProcess.LAUNCH_LATCH, ImmutableList.of("setup", "copyInstallResources", "install", "customize", "copyRuntimeResources"));
-    }
-
-    @Test
-    public void testStopLatchBlocks() throws Exception {
-        final AttributeSensor<Boolean> stopper = Sensors.newBooleanSensor("stop.now");
-        final BasicEntity triggerEntity = app.createAndManageChild(EntitySpec.create(BasicEntity.class));
+    public void doTestLatchBlocks(ConfigKey<Boolean> latch, List<String> preLatchEvents, Object latchValue, Function<? super MyService, Void> customAssertFn) throws Exception {
+        final AttributeSensor<Object> latchSensor = Sensors.newSensor(Object.class, "latch");
         final MyService entity = app.createAndManageChild(EntitySpec.create(MyService.class)
-                .configure(SoftwareProcess.STOP_LATCH, DependentConfiguration.attributeWhenReady(app, stopper)));
-        
+                .configure(ConfigKeys.newConfigKey(Object.class, latch.getName()), (Object)DependentConfiguration.attributeWhenReady(app, latchSensor)));
+
+        final Task<Void> task;
         final Task<Void> startTask = Entities.invokeEffector(app, app, MyService.START, ImmutableMap.of("locations", ImmutableList.of(loc)));
-        triggerEntity.sensors().set(Attributes.SERVICE_UP, true);
-        startTask.get(Duration.THIRTY_SECONDS);
+        if (latch != SoftwareProcess.STOP_LATCH) {
+            task = startTask;
+        } else {
+            startTask.get(Duration.THIRTY_SECONDS);
+            task = Entities.invokeEffector(app, app, MyService.STOP);
+        }
 
-        final Task<Void> stopTask = Entities.invokeEffector(app, app, MyService.STOP);
+        assertEffectorBlockingDetailsEventually(entity, task.getDisplayName(), "Waiting for config " + latch.getName());
+        assertDriverEventsEquals(entity, preLatchEvents);
+        assertFalse(task.isDone());
 
-        assertEffectorBlockingDetailsEventually(entity, MyService.STOP.getName(), "Waiting for config " + SoftwareProcess.STOP_LATCH.getName());
+        app.sensors().set(latchSensor, latchValue);
 
-        app.sensors().set(stopper, true);
-        stopTask.get(Asserts.DEFAULT_LONG_TIMEOUT);
+        customAssertFn.apply(entity);
 
-        assertDriverEventsEquals(entity, ImmutableList.of("setup", "copyInstallResources", "install", "customize", "copyRuntimeResources", "launch", "stop"));
+        task.get(Duration.THIRTY_SECONDS);
+        assertDriverEventsEquals(entity, getLatchPostTasks(latch));
     }
 
+    @Test(dataProvider="latchAndTaskNamesProvider", timeOut=Asserts.THIRTY_SECONDS_TIMEOUT_MS)
+    public void testConcurrency(ConfigKey<Boolean> latch, List<String> _) throws Exception {
+        final int maxConcurrency = 2;
+        final ReleaseableLatch latchSemaphore = ReleaseableLatch.Factory.newMaxConcurrencyLatch(maxConcurrency);
+        final AttributeSensor<Object> latchSensor = Sensors.newSensor(Object.class, "latch");
+        final CountingLatch countingLatch = new CountingLatch(latchSemaphore, maxConcurrency);
+        @SuppressWarnings({"unused"})
+        DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
+                .configure(DynamicCluster.INITIAL_SIZE, maxConcurrency*2)
+                .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(MyService.class)
+                        .configure(ConfigKeys.newConfigKey(Object.class, latch.getName()), (Object)DependentConfiguration.attributeWhenReady(app, latchSensor))));
+        app.sensors().set(latchSensor, countingLatch);
+        final Task<Void> startTask = Entities.invokeEffector(app, app, MyService.START, ImmutableMap.of("locations", ImmutableList.of(app.newLocalhostProvisioningLocation())));
+        startTask.get();
+        final Task<Void> stopTask = Entities.invokeEffector(app, app, MyService.STOP, ImmutableMap.<String, Object>of());
+        stopTask.get();
+        assertEquals(countingLatch.getCounter(), 0);
+        // Check we have actually used the latch
+        assertNotEquals(countingLatch.getMaxCounter(), 0, "Latch not acquired at all");
+        // In theory this is 0 < maxCnt <= maxConcurrency contract, but in practice
+        // we should always reach the maximum due to the sleeps below.
+        // Change if found to fail in the wild.
+        assertEquals(countingLatch.getMaxCounter(), maxConcurrency);
+    }
 
-    protected void runTestLatchBlocks(final ConfigKey<Boolean> latch, List<String> preLatchEvents) throws Exception {
-        final BasicEntity triggerEntity = app.createAndManageChild(EntitySpec.create(BasicEntity.class));
-        final MyService entity = app.createAndManageChild(EntitySpec.create(MyService.class)
-                .configure(latch, DependentConfiguration.attributeWhenReady(triggerEntity, Attributes.SERVICE_UP)));
-
-        final Task<Void> task = Entities.invokeEffector(app, app, MyService.START, ImmutableMap.of("locations", ImmutableList.of(loc)));
-
-        assertEffectorBlockingDetailsEventually(entity, MyService.START.getName(), "Waiting for config " + latch.getName());
-        assertDriverEventsEquals(entity, preLatchEvents);
-
-        assertFalse(task.isDone());
-        triggerEntity.sensors().set(Attributes.SERVICE_UP, true);
-        task.get(Duration.THIRTY_SECONDS);
-        assertDriverEventsEquals(entity, ImmutableList.of("setup", "copyInstallResources", "install", "customize", "copyRuntimeResources", "launch"));
+    protected List<String> getLatchPostTasks(final ConfigKey<?> latch) {
+        if (latch == SoftwareProcess.STOP_LATCH) {
+            return SOFTWARE_PROCESS_STOP_TASKS;
+        } else {
+            return SOFTWARE_PROCESS_START_TASKS;
+        }
     }
 
     private void assertDriverEventsEquals(MyService entity, List<String> expectedEvents) {
@@ -188,5 +221,54 @@ public class SoftwareProcessEntityLatchTest extends BrooklynAppUnitTestSupport {
             taskI = (TaskInternal<?>) taskI.getBlockingTask();
         }
         throw new IllegalStateException("No blocking details for "+task+" (walked task chain "+taskChain+")");
+    }
+
+    private static class CountingLatch implements ReleaseableLatch {
+        ReleaseableLatch delegate;
+        AtomicInteger cnt = new AtomicInteger();
+        AtomicInteger maxCnt = new AtomicInteger();
+        private int maxConcurrency;
+
+        public CountingLatch(ReleaseableLatch delegate, int maxConcurrency) {
+            this.delegate = delegate;
+            this.maxConcurrency = maxConcurrency;
+        }
+
+        public Boolean get() {
+            return delegate.get();
+        }
+
+        public Maybe<Boolean> getImmediately() {
+            return delegate.getImmediately();
+        }
+
+        public void acquire(Entity caller) {
+            delegate.acquire(caller);
+            assertCount(cnt.incrementAndGet());
+        }
+
+        public void release(Entity caller) {
+            cnt.decrementAndGet();
+            delegate.release(caller);
+        }
+
+        public int getMaxCounter() {
+            return maxCnt.get();
+        }
+        public int getCounter() {
+            return cnt.get();
+        }
+        private void assertCount(int newCnt) {
+            synchronized(maxCnt) {
+                maxCnt.set(Math.max(newCnt, maxCnt.get()));
+            }
+            assertTrue(newCnt <= maxConcurrency, "maxConcurrency limit failed at " + newCnt + " (max " + maxConcurrency + ")");
+            if (newCnt < maxConcurrency) {
+                Time.sleep(Duration.millis(100));
+            } else {
+                Time.sleep(Duration.millis(20));
+            }
+        }
+
     }
 }

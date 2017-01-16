@@ -19,6 +19,7 @@
 package org.apache.brooklyn.entity.software.base;
 
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
@@ -28,6 +29,7 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.trait.StartableMethods;
+import org.apache.brooklyn.core.sensor.ReleaseableLatch;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.ChildStartableMode;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.RestartSoftwareParameters;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.RestartSoftwareParameters.RestartMachineMode;
@@ -84,7 +86,9 @@ public class SoftwareProcessDriverLifecycleEffectorTasks extends MachineLifecycl
         @Override
         public void run() {
             try {
-                postStartCustom();
+                // There's no preStartCustom call in the restart effector to get the latch value
+                // so nothing to release here - pass the nop value.
+                postStartCustom(new AtomicReference<>(ReleaseableLatch.NOP));
                 postRestartCustom();
             } finally {
                 ServiceStateLogic.setExpectedState(entity(), Lifecycle.RUNNING);
@@ -118,13 +122,13 @@ public class SoftwareProcessDriverLifecycleEffectorTasks extends MachineLifecycl
     }
      
     @Override
-    protected void preStartCustom(MachineLocation machine) {
+    protected void preStartCustom(MachineLocation machine, AtomicReference<ReleaseableLatch> startLatchRef) {
         entity().initDriver(machine);
 
         // Note: must only apply config-sensors after adding to locations and creating driver; 
         // otherwise can't do things like acquire free port from location
         // or allowing driver to set up ports; but must be careful in init not to block on these!
-        super.preStartCustom(machine);
+        super.preStartCustom(machine, startLatchRef);
         
         entity().preStart();
     }
@@ -170,7 +174,7 @@ public class SoftwareProcessDriverLifecycleEffectorTasks extends MachineLifecycl
     }
 
     @Override
-    protected void postStartCustom() {
+    protected void postStartCustom(AtomicReference<ReleaseableLatch> startLatchRef) {
         entity().postDriverStart();
         if (entity().connectedSensors) {
             // many impls aren't idempotent - though they should be!
@@ -181,11 +185,12 @@ public class SoftwareProcessDriverLifecycleEffectorTasks extends MachineLifecycl
         }
         entity().waitForServiceUp();
         entity().postStart();
+        super.postStartCustom(startLatchRef);
     }
     
     @Override
-    protected void preStopConfirmCustom() {
-        super.preStopConfirmCustom();
+    protected void preStopConfirmCustom(AtomicReference<ReleaseableLatch> stopLatchRef) {
+        super.preStopConfirmCustom(stopLatchRef);
         
         entity().preStopConfirmCustom();
     }
@@ -256,8 +261,8 @@ public class SoftwareProcessDriverLifecycleEffectorTasks extends MachineLifecycl
     }
     
     @Override
-    protected void postStopCustom() {
-        super.postStopCustom();
+    protected void postStopCustom(AtomicReference<ReleaseableLatch> stopLatchRef) {
+        super.postStopCustom(stopLatchRef);
         
         entity().postStop();
     }
