@@ -90,7 +90,7 @@ public class ComputeServiceRegistryImpl implements ComputeServiceRegistry, Jclou
         // retrying their API calls.
         properties.setProperty(Constants.PROPERTY_RETRY_DELAY_START, "500");
         properties.setProperty(Constants.PROPERTY_MAX_RETRIES, "6");
-        
+
         // Enable aws-ec2 lazy image fetching, if given a specific imageId; otherwise customize for specific owners; or all as a last resort
         // See https://issues.apache.org/jira/browse/WHIRR-416
         if ("aws-ec2".equals(provider)) {
@@ -138,6 +138,12 @@ public class ComputeServiceRegistryImpl implements ComputeServiceRegistry, Jclou
             //     security group eu-central-1/jclouds#brooklyn-bxza-alex-eu-central-shoul-u2jy-nginx-ielm is not available after creating
             // the default timeout was 500ms so let's raise it in case that helps
             properties.setProperty(EC2Constants.PROPERTY_EC2_TIMEOUT_SECURITYGROUP_PRESENT, ""+Duration.seconds(30).toMilliseconds());
+        }
+        else if ("azurecompute-arm".equals(provider)) {
+            String region = conf.get(CLOUD_REGION_ID);
+            if (Strings.isNonBlank(region)) {
+                properties.setProperty(LocationConstants.PROPERTY_REGIONS, region);
+            }
         }
 
         // FIXME Deprecated mechanism, should have a ConfigKey for overrides
