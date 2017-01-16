@@ -249,7 +249,7 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
         }
     }
     
-    private static class WrappingImmediateAndDeferredSupplier implements ImmediateSupplier<Object>, DeferredSupplier<Object> {
+    static class WrappingImmediateAndDeferredSupplier implements ImmediateSupplier<Object>, DeferredSupplier<Object> {
         private Object value;
 
         public WrappingImmediateAndDeferredSupplier(Object value) {
@@ -268,7 +268,7 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
         
     }
 
-    private static class FailingImmediateAndDeferredSupplier implements ImmediateSupplier<Object>, DeferredSupplier<Object> {
+    static class FailingImmediateAndDeferredSupplier implements ImmediateSupplier<Object>, DeferredSupplier<Object> {
 
         @Override
         public Object get() {
