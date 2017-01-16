@@ -18,8 +18,6 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
-import java.util.Map;
-
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.AddChildrenEffector;
@@ -142,8 +140,7 @@ public class AddChildrenEffectorYamlTest extends AbstractYamlTest {
     }
     
     @Test
-    // TODO this "test" passes, but it's asserting behaviour we don't want
-    public void testAddChildrenDslBrokenInJson() throws Exception {
+    public void testAddChildrenDslInJson() throws Exception {
         Entity child = makeAppAndAddChild(false, MutableMap.<String,String>of(),
             // note no '|' indicator
             "blueprint_yaml:",  
@@ -152,32 +149,37 @@ public class AddChildrenEffectorYamlTest extends AbstractYamlTest {
             "    brooklyn.config:",
             "      p.child: $brooklyn:config(\"p.parent\")");
         
-        // this is probably what we want:
-        // Assert.assertEquals(child.getConfig(ConfigKeys.newStringConfigKey("p.child")), "parent");
-        
-        // but this is what we get:
-        Object childValue = child.getConfig(ConfigKeys.newConfigKey(Object.class, "p.child"));
-        Assert.assertTrue(childValue instanceof Map);
-        Assert.assertEquals(((Map<?,?>)childValue).get("keyName"), "p.parent");
+        Assert.assertEquals(child.getConfig(ConfigKeys.newStringConfigKey("p.child")), "parent");
     }
     
     @Test
-    // TODO this "test" passes, but it's asserting behaviour we don't want
-    public void testAddChildrenParametersBrokenInJson() throws Exception {
-        try {
-            Entity child = makeAppAndAddChild(true, MutableMap.<String,String>of(),
-                // note no '|' indicator, but there are declared parameters with defaults
-                "blueprint_yaml:",  
-                "  services:", 
-                "  - type: "+BasicEntity.class.getName());
-            // fine if implementation is improved to accept this format;
-            // just change semantics of this test (and ensure comments on blueprint_yaml are changed!)
-            Asserts.shouldHaveFailedPreviously("Didn't think we supported JSON with parameters, but instantiation gave "+child);
-            // if it did work this value should be included
-            Assert.assertEquals(child.getConfig(ConfigKeys.newStringConfigKey("p.param1")), "default");
-        } catch (Exception e) {
-            Asserts.expectedFailureContainsIgnoreCase(e, "basic", "error", "invalid");
-        }
+    public void testAddChildrenWithConfigAtRootAndParams() throws Exception {
+        Entity child = makeAppAndAddChild(true, MutableMap.of("p.param1", "call"),
+            // note no '|' indicator
+            "blueprint_yaml:",  
+            "  services:", 
+            "  - type: "+BasicEntity.class.getName(),
+            "  brooklyn.config:",
+            "    p.child: child",
+            "    p.param1: call",
+            "    p.param2: blueprint",
+            "    p.param3: blueprint");
+        
+        Assert.assertEquals(child.getConfig(ConfigKeys.newStringConfigKey("p.child")), "child");
+        // this is the order of precedence
+        Assert.assertEquals(child.getConfig(ConfigKeys.newStringConfigKey("p.param1")), "call");
+        Assert.assertEquals(child.getConfig(ConfigKeys.newStringConfigKey("p.param2")), "default");
+        Assert.assertEquals(child.getConfig(ConfigKeys.newStringConfigKey("p.param3")), "blueprint");
+    }
+    
+    @Test
+    public void testAddChildrenInJsonWithParameters() throws Exception {
+        Entity child = makeAppAndAddChild(true, MutableMap.<String,String>of(),
+            // note no '|' indicator, but there are declared parameters with defaults
+            "blueprint_yaml:",  
+            "  services:", 
+            "  - type: "+BasicEntity.class.getName());
+        Assert.assertEquals(child.getConfig(ConfigKeys.newStringConfigKey("p.param1")), "default");
     }
     
     @Override
