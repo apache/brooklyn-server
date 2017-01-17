@@ -16,14 +16,12 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.camp.brooklyn.policy;
+package org.apache.brooklyn.camp.brooklyn;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.test.Asserts;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,35 +29,34 @@ import org.testng.annotations.Test;
 
 import com.google.common.collect.Iterables;
 
-public class CreatePasswordSensorIntegrationTest extends AbstractYamlTest {
+public class CreatePasswordSensorTest extends AbstractYamlTest {
 
-    private static final Logger LOG = LoggerFactory.getLogger(CreatePasswordSensorIntegrationTest.class);
-    AttributeSensor<String> PASSWORD_1 = Sensors.newStringSensor("test.password.1", "Host name as known internally in " +
-            "the subnet where it is running (if different to host.name)");
-    AttributeSensor<String> PASSWORD_2 = Sensors.newStringSensor("test.password.2", "Host name as known internally in " +
-            "the subnet where it is running (if different to host.name)");
+    private static final Logger LOG = LoggerFactory.getLogger(CreatePasswordSensorTest.class);
+    
+    AttributeSensor<String> PASSWORD_1 = Sensors.newStringSensor("test.password.1");
+    AttributeSensor<String> PASSWORD_2 = Sensors.newStringSensor("test.password.2");
 
-    @Test(groups = "Integration")
+    @Test
     public void testProvisioningProperties() throws Exception {
-        final Entity app = createAndStartApplication(loadYaml("EmptySoftwareProcessWithPassword.yaml"));
+        final Entity app = createAndStartApplication(loadYaml("example-with-CreatePasswordSensor.yaml"));
 
         waitForApplicationTasks(app);
-        EmptySoftwareProcess entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, EmptySoftwareProcess.class));
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
 
+        LOG.debug("Passwords are: "+entity.sensors().get(PASSWORD_1)+" / "+entity.sensors().get(PASSWORD_2));
+        
         assertPasswordLength(entity, PASSWORD_1, 15);
-
         assertPasswordOnlyContains(entity, PASSWORD_2, "abc");
-
     }
 
-    private void assertPasswordOnlyContains(EmptySoftwareProcess entity, AttributeSensor<String> password, String acceptableChars) {
+    private void assertPasswordOnlyContains(Entity entity, AttributeSensor<String> password, String acceptableChars) {
         String attribute_2 = entity.getAttribute(password);
         for (char c : attribute_2.toCharArray()) {
             Asserts.assertTrue(acceptableChars.indexOf(c) != -1);
         }
     }
 
-    private void assertPasswordLength(EmptySoftwareProcess entity, AttributeSensor<String> password, int expectedLength) {
+    private void assertPasswordLength(Entity entity, AttributeSensor<String> password, int expectedLength) {
         String attribute_1 = entity.getAttribute(password);
         Asserts.assertEquals(attribute_1.length(), expectedLength);
     }
