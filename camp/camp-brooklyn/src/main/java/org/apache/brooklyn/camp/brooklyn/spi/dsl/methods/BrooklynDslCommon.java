@@ -122,26 +122,26 @@ public class BrooklynDslCommon {
     }
     // prefer the syntax above to the below now, but not deprecating the below
     @DslAccessible
-    public static DslComponent component(String id) {
+    public static DslComponent component(Object id) {
         return component("global", id);
     }
     @DslAccessible
-    public static DslComponent component(String scope, String id) {
+    public static DslComponent component(String scope, Object id) {
         if (!DslComponent.Scope.isValid(scope)) {
             throw new IllegalArgumentException(scope + " is not a valid scope");
         }
-        return new DslComponent(DslComponent.Scope.fromString(scope), id);
+        return DslComponent.newInstance(DslComponent.Scope.fromString(scope), id);
     }
 
     // Access things on entities
 
     @DslAccessible
-    public static BrooklynDslDeferredSupplier<?> config(String keyName) {
+    public static BrooklynDslDeferredSupplier<?> config(Object keyName) {
         return new DslComponent(Scope.THIS, "").config(keyName);
     }
 
     @DslAccessible
-    public static BrooklynDslDeferredSupplier<?> config(BrooklynObjectInternal obj, String keyName) {
+    public static BrooklynDslDeferredSupplier<?> config(BrooklynObjectInternal obj, Object keyName) {
         return new DslBrooklynObjectConfigSupplier(obj, keyName);
     }
 
@@ -150,14 +150,27 @@ public class BrooklynDslCommon {
 
         // Keep in mind this object gets serialized so is the following reference
         private BrooklynObjectInternal obj;
-        private String keyName;
+        private Object keyName;
 
-        public DslBrooklynObjectConfigSupplier(BrooklynObjectInternal obj, String keyName) {
+        public DslBrooklynObjectConfigSupplier(BrooklynObjectInternal obj, Object keyName) {
             checkNotNull(obj, "obj");
             checkNotNull(keyName, "keyName");
 
             this.obj = obj;
             this.keyName = keyName;
+        }
+
+        protected String resolveKeyName(boolean immediately) {
+            if (keyName instanceof String) {
+                return (String)keyName;
+            }
+            
+            return Tasks.resolving(keyName)
+                .as(String.class)
+                .context(DslComponent.findExecutionContext(this))
+                .immediately(immediately)
+                .description("Resolving key name from " + keyName)
+                .get();
         }
 
         @Override
@@ -167,7 +180,8 @@ public class BrooklynDslCommon {
                 // Just in case check whether it's same app for entities.
                 checkState(entity().getApplicationId().equals(((Entity)obj).getApplicationId()));
             }
-            ConfigKey<Object> key = ConfigKeys.newConfigKey(Object.class, keyName);
+            String keyNameS = resolveKeyName(true);
+            ConfigKey<Object> key = ConfigKeys.newConfigKey(Object.class, keyNameS);
             Maybe<? extends Object> result = ((AbstractConfigurationSupportInternal)obj.config()).getNonBlocking(key);
             return Maybe.<Object>cast(result);
         }
@@ -181,7 +195,8 @@ public class BrooklynDslCommon {
                     .body(new Callable<Object>() {
                         @Override
                         public Object call() throws Exception {
-                            ConfigKey<Object> key = ConfigKeys.newConfigKey(Object.class, keyName);
+                            String keyNameS = resolveKeyName(true);
+                            ConfigKey<Object> key = ConfigKeys.newConfigKey(Object.class, keyNameS);
                             return obj.getConfig(key);
                         }})
                     .build();
@@ -208,7 +223,7 @@ public class BrooklynDslCommon {
     }
 
     @DslAccessible
-    public static BrooklynDslDeferredSupplier<?> attributeWhenReady(String sensorName) {
+    public static BrooklynDslDeferredSupplier<?> attributeWhenReady(Object sensorName) {
         return new DslComponent(Scope.THIS, "").attributeWhenReady(sensorName);
     }
 

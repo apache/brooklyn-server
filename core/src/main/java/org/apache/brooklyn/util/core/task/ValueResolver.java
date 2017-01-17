@@ -322,7 +322,7 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
         if (timerU==null && timeout!=null)
             timerU = timeout.countdownTimer();
         final CountdownTimer timer = timerU;
-        if (timer!=null && !timer.isRunning())
+        if (timer!=null && !timer.isNotPaused())
             timer.start();
         
         checkTypeNotNull();

@@ -290,7 +290,7 @@ public class DslYamlTest extends AbstractYamlTest {
         assertEquals(getConfigEventually(app, DEST), "myvalue");
     }
 
-    @Test(groups="WIP") // config accepts strings only, no suppliers
+    @Test
     public void testDslConfigWithDeferredArg() throws Exception {
         final Entity app = createAndStartApplication(
                 "services:",
@@ -302,7 +302,7 @@ public class DslYamlTest extends AbstractYamlTest {
         assertEquals(getConfigEventually(app, DEST), "myvalue");
     }
 
-    @Test(groups="WIP") // config accepts strings only, no suppliers
+    @Test
     public void testDslConfigOnEntityWithDeferredArg() throws Exception {
         final Entity app = createAndStartApplication(
                 "services:",
@@ -352,7 +352,7 @@ public class DslYamlTest extends AbstractYamlTest {
         assertEquals(getConfigEventually(app, DEST), "myvalue");
     }
 
-    @Test(groups="WIP") // attributeWhenReady accepts strings only, no suppliers
+    @Test
     public void testDslAttributeWhenReadyWithDeferredArg() throws Exception {
         final Entity app = createAndStartApplication(
                 "services:",
@@ -368,7 +368,7 @@ public class DslYamlTest extends AbstractYamlTest {
         assertEquals(getConfigEventually(app, DEST), "myvalue");
     }
 
-    @Test(groups="WIP") // attributeWhenReady accepts strings only, no suppliers
+    @Test
     public void testDslAttributeWhenReadyOnEntityWithDeferredArg() throws Exception {
         final Entity app = createAndStartApplication(
                 "services:",
