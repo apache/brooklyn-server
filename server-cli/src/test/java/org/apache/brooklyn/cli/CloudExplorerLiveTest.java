@@ -32,6 +32,7 @@ import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -174,34 +175,70 @@ public class CloudExplorerLiveTest {
         Cli<BrooklynCommand> parser = new Main().cliBuilder().build();
         
         BrooklynCommand command = parser.parse(args);
-        command.stdout = new PrintStream(stdoutStream);
-        command.stderr = new PrintStream(stderrStream);
-        command.stdin = instream;
+        
+        InputStream origIn = System.in;
+        PrintStream origOut = System.out;
+        PrintStream origErr = System.err;
         try {
+            System.setIn(instream);
+            System.setOut(new PrintStream(stdoutStream));
+            System.setErr(new PrintStream(stderrStream));
+
             command.call();
         } finally {
+            System.setIn(origIn);
+            System.setOut(origOut);
+            System.setOut(origErr);
             stdout = new String(stdoutStream.toByteArray());
             stderr = new String(stderrStream.toByteArray());
         }
     }
-    
+
     private List<String> assertAndStipSingleLocationHeader(String stdout) {
+        return assertAndStipSingleLocationHeader(stdout, false);
+    }
+    
+    /**
+     * When running in non-strict mode, it filters out non-matching lines. For example, if there
+     * are log statements in the middle of the output then it still lets the test pass.
+     */
+    private List<String> assertAndStipSingleLocationHeader(String stdout, boolean strict) {
         List<String> lines = ImmutableList.copyOf(Splitter.on("\n").omitEmptyStrings().split(stdout));
 
-        String errmsg = "lines="+lines;
+        String errmsg = "lines=\n"+Joiner.on("\n").join(lines);
         
         int nextLineCount = 0;
-        assertEquals(lines.get(nextLineCount++), "Location {", errmsg);
-        assertEquals(lines.get(lines.size()-1), "}", errmsg);
-        assertTrue(lines.get(nextLineCount++).startsWith("\tprovider: "), errmsg);
-        assertTrue(lines.get(nextLineCount++).startsWith("\tdisplayName: "), errmsg);
-        assertTrue(lines.get(nextLineCount++).startsWith("\tidentity: "), errmsg);
+        
+        // TODO Should be stricter - e.g. don't get noisy logging before the real output
+        if (!strict) {
+            boolean atStart = false;
+            while (!atStart && lines.size() > nextLineCount) {
+                if (lines.get(nextLineCount).equals("Location {")) {
+                    atStart = true;
+                } else {
+                    nextLineCount++;
+                }
+            }
+            assertTrue(atStart, errmsg);
+        }
+        
+        assertEquals(lines.get(nextLineCount++), "Location {", "lineNum="+nextLineCount+"; " + errmsg);
+        assertEquals(lines.get(lines.size()-1), "}", "lineNum="+nextLineCount+"; " + errmsg);
+        assertTrue(lines.get(nextLineCount++).startsWith("\tprovider: "), "lineNum="+nextLineCount+"; " + errmsg);
+        assertTrue(lines.get(nextLineCount++).startsWith("\tdisplayName: "), "lineNum="+nextLineCount+"; " + errmsg);
+        assertTrue(lines.get(nextLineCount++).startsWith("\tidentity: "), "lineNum="+nextLineCount+"; " + errmsg);
         if (lines.get(nextLineCount).startsWith("\tendpoint: ")) nextLineCount++;
         if (lines.get(nextLineCount).startsWith("\tregion: ")) nextLineCount++;
         
         List<String> result = Lists.newArrayList();
         for (String line : lines.subList(nextLineCount, lines.size()-1)) {
-            assertTrue(line.startsWith("\t"), errmsg);
+            if (strict) {
+                assertTrue(line.startsWith("\t"), "lineNum="+nextLineCount+"; " + errmsg);
+            } else {
+                if (!line.startsWith("\t")) {
+                    continue; // ignore line (maybe a log line in the middle?!)
+                }
+            }
             result.add(line.substring(1));
         }
         return result;
