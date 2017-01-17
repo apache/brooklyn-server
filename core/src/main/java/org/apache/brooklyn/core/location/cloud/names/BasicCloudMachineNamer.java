@@ -36,8 +36,11 @@ public class BasicCloudMachineNamer extends AbstractCloudMachineNamer {
         Object context = setup.peek(CloudLocationConfig.CALLER_CONTEXT);
         Entity entity = null;
         if (context instanceof Entity) entity = (Entity) context;
-        
-        StringShortener shortener = Strings.shortener().separator("-");
+
+        StringShortener shortener = Strings.shortener();
+        shortener.setDisalowedCharacters(setup.get(CloudLocationConfig.VM_NAME_DISALLOWED_PATTERN));
+
+        shortener.separator("-");
         shortener.append("system", "brooklyn");
         
         /* timeStamp replaces the previously used randId. 
@@ -88,7 +91,7 @@ public class BasicCloudMachineNamer extends AbstractCloudMachineNamer {
                 .canRemove("user")
                 .canTruncate("appId", 2)
                 .canRemove("appId");
-        
+
         String s = shortener.getStringOfMaxLength(len);
         return sanitize(s).toLowerCase();
     }

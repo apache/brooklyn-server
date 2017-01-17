@@ -28,6 +28,7 @@ public class StringShortener {
 
     protected Map<String,String> wordsByIdInOrder = new LinkedHashMap<String,String>();
     protected String separator = null;
+    protected String disalowedCharacters;
     
     protected interface ShorteningRule {
         /** returns the new list, with the relevant items in the list replaced */
@@ -55,6 +56,21 @@ public class StringShortener {
             return length;
         }
     }
+
+    protected String removeDisalowedCharacters(String input){
+        if (disalowedCharacters != null) input = input.replaceAll(disalowedCharacters, "");
+        return input;
+    }
+
+
+    public String getDisalowedCharacters() {
+        return disalowedCharacters;
+    }
+
+    public StringShortener setDisalowedCharacters(String disalowedCharacters) {
+        this.disalowedCharacters = disalowedCharacters;
+        return this;
+    }
     
     protected class RemovalRule implements ShorteningRule {
         public RemovalRule(String id) {
@@ -78,11 +94,12 @@ public class StringShortener {
     
 
     public StringShortener separator(String separator) {
-        this.separator = separator;
+        this.separator = removeDisalowedCharacters(separator);
         return this;
     }
 
     public StringShortener append(String id, String text) {
+        text = removeDisalowedCharacters(text);
         String old = wordsByIdInOrder.put(id, text);
         if (old!=null) {
             throw new IllegalStateException("Cannot append with id '"+id+"' when id already present");
