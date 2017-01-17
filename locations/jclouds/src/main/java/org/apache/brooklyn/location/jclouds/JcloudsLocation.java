@@ -1043,27 +1043,20 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             }
 
             customizedTimestamp = Duration.of(provisioningStopwatch);
-
-            try {
-                String logMessage = "Finished VM "+getCreationString(setup)+" creation:"
-                        + " "+machineLocation.getUser()+"@"+machineLocation.getAddress()+":"+machineLocation.getPort()
-                        + (Boolean.TRUE.equals(setup.get(LOG_CREDENTIALS))
-                                ? "password=" + userCredentials.getOptionalPassword().or("<absent>")
-                                + " && key=" + userCredentials.getOptionalPrivateKey().or("<absent>")
-                                : "")
-                        + " ready after "+Duration.of(provisioningStopwatch).toStringRounded()
-                        + " ("
-                        + "semaphore obtained in "+Duration.of(semaphoreTimestamp).toStringRounded()+";"
-                        + template+" template built in "+Duration.of(templateTimestamp).subtract(semaphoreTimestamp).toStringRounded()+";"
-                        + " "+node+" provisioned in "+Duration.of(provisionTimestamp).subtract(templateTimestamp).toStringRounded()+";"
-                        + " "+machineLocation+" connection usable in "+Duration.of(usableTimestamp).subtract(provisionTimestamp).toStringRounded()+";"
-                        + " and os customized in "+Duration.of(customizedTimestamp).subtract(usableTimestamp).toStringRounded()+" - "+Joiner.on(", ").join(customisationForLogging)+")";
-                LOG.info(logMessage);
-            } catch (Exception e){
-                // TODO Remove try-catch! @Nakomis: why did you add it? What exception happened during logging?
-                Exceptions.propagateIfFatal(e);
-                LOG.warn("Problem generating log message summarising completion of jclouds machine provisioning "+machineLocation+" by "+this, e);
-            }
+            String logMessage = "Finished VM "+getCreationString(setup)+" creation:"
+                    + " "+machineLocation.getUser()+"@"+machineLocation.getAddress()+":"+machineLocation.getPort()
+                    + (Boolean.TRUE.equals(setup.get(LOG_CREDENTIALS))
+                            ? "password=" + userCredentials.getOptionalPassword().or("<absent>")
+                            + " && key=" + userCredentials.getOptionalPrivateKey().or("<absent>")
+                            : "")
+                    + " ready after "+Duration.of(provisioningStopwatch).toStringRounded()
+                    + " ("
+                    + "semaphore obtained in "+Duration.of(semaphoreTimestamp).toStringRounded()+";"
+                    + template+" template built in "+Duration.of(templateTimestamp).subtract(semaphoreTimestamp).toStringRounded()+";"
+                    + " "+node+" provisioned in "+Duration.of(provisionTimestamp).subtract(templateTimestamp).toStringRounded()+";"
+                    + " "+machineLocation+" connection usable in "+Duration.of(usableTimestamp).subtract(provisionTimestamp).toStringRounded()+";"
+                    + " and os customized in "+Duration.of(customizedTimestamp).subtract(usableTimestamp).toStringRounded()+" - "+Joiner.on(", ").join(customisationForLogging)+")";
+            LOG.info(logMessage);
 
             return machineLocation;
 
