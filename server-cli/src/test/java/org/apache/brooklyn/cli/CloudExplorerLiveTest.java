@@ -147,9 +147,10 @@ public class CloudExplorerLiveTest {
 
     /**
      * Expects in brooklyn.properties:
-     *     brooklyn.location.named.softlayer-swift-ams01=jclouds:swift:https://ams01.objectstorage.softlayer.net/auth/v1.0
+     *     brooklyn.location.named.softlayer-swift-ams01=jclouds:openstack-swift:https://ams01.objectstorage.softlayer.net/auth/v1.0
      *     brooklyn.location.named.softlayer-swift-ams01.identity=ABCDEFGH:myusername
      *     brooklyn.location.named.softlayer-swift-ams01.credential=1234567890...
+     *     brooklyn.location.named.softlayer-swift-ams01.jclouds.keystone.credential-type=tempAuthCredentials
      */
     @Test(groups={"Live", "Live-sanity"})
     public void testListContainers() throws Exception {
