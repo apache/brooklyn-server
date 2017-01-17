@@ -146,10 +146,10 @@ public class ComputeServiceRegistryImpl implements ComputeServiceRegistry, Jclou
             }
         }
 
-        // FIXME Deprecated mechanism, should have a ConfigKey for overrides
+        // Add extra jclouds-specific configuration
         Map<String, Object> extra = Maps.filterKeys(conf.getAllConfig(), Predicates.containsPattern("^jclouds\\."));
         if (extra.size() > 0) {
-            LOG.warn("Jclouds using deprecated property overrides: "+Sanitizer.sanitize(extra));
+            LOG.debug("Configuring custom jclouds property overrides for {}: {}", provider, Sanitizer.sanitize(extra));
         }
         properties.putAll(Maps.filterValues(extra, Predicates.notNull()));
 
