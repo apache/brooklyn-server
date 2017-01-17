@@ -27,6 +27,7 @@ import java.util.concurrent.ExecutionException;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampConstants;
@@ -51,7 +52,6 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.base.CaseFormat;
@@ -166,6 +166,10 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
 
     // ---------------------------
 
+    public Scope getScope() {
+        return scope;
+    }
+    
     @Override
     public final Maybe<Entity> getImmediately() {
         return new EntityInScopeFinder(scopeComponent, scope, componentId, componentIdSupplier).getImmediately();
@@ -279,7 +283,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 }
                 
                 // Support being passed an explicit entity via the DSL
-                if (maybeComponentId.get() instanceof Entity) {
+                if (maybeComponentId.get() instanceof BrooklynObject) {
                     if (Iterables.contains(entitiesToSearch, maybeComponentId.get())) {
                         return Maybe.of((Entity)maybeComponentId.get());
                     } else {
@@ -298,7 +302,11 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             }
             
             Optional<Entity> result = Iterables.tryFind(entitiesToSearch, EntityPredicates.configEqualTo(BrooklynCampConstants.PLAN_ID, desiredComponentId));
+            if (result.isPresent()) {
+                return Maybe.of(result.get());
+            }
             
+            result = Iterables.tryFind(entitiesToSearch, EntityPredicates.idEqualTo(desiredComponentId));
             if (result.isPresent()) {
                 return Maybe.of(result.get());
             }
@@ -420,7 +428,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         }
         @Override
         public String toString() {
-            return (component.scope==Scope.THIS ? "" : component.toString()+".") + "entityId()";
+            return DslToStringHelpers.component(component, DslToStringHelpers.fn("entityId"));
         }
     }
 
@@ -477,8 +485,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         }
         @Override
         public String toString() {
-            return (component.scope==Scope.THIS ? "" : component.toString()+".") +
-                "attributeWhenReady("+JavaStringEscapes.wrapJavaString(sensorName)+")";
+            return DslToStringHelpers.component(component, DslToStringHelpers.fn("attributeWhenReady", sensorName));
         }
     }
 
@@ -539,8 +546,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
 
         @Override
         public String toString() {
-            return (component.scope==Scope.THIS ? "" : component.toString()+".") + 
-                "config("+JavaStringEscapes.wrapJavaString(keyName)+")";
+            return DslToStringHelpers.component(component, DslToStringHelpers.fn("config", keyName));
         }
     }
 
@@ -639,11 +645,8 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
 
         @Override
         public String toString() {
-            return (component.scope==Scope.THIS ? "" : component.toString()+".") + 
-                "sensor("+
-                    (sensorName instanceof String ? JavaStringEscapes.wrapJavaString((String)sensorName) :
-                        sensorName instanceof Sensor ? JavaStringEscapes.wrapJavaString(((Sensor<?>)sensorName).getName()) :
-                        sensorName)+")";
+            return DslToStringHelpers.component(component, DslToStringHelpers.fn("sensorName", 
+                sensorName instanceof Sensor ? ((Sensor<?>)sensorName).getName() : sensorName));
         }
     }
 
@@ -702,11 +705,27 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
 
     @Override
     public String toString() {
-        return "$brooklyn:entity("+
-            (scopeComponent==null ? "" : JavaStringEscapes.wrapJavaString(scopeComponent.toString())+", ")+
-            (scope==Scope.GLOBAL ? "" : JavaStringEscapes.wrapJavaString(scope.toString())+", ")+
-            (componentId != null ? JavaStringEscapes.wrapJavaString(componentId) : componentIdSupplier)+
-            ")";
+        Object component = componentId != null ? componentId : componentIdSupplier;
+        
+        if (scope==Scope.GLOBAL) {
+            return DslToStringHelpers.fn("entity", component);
+        }
+        
+        if (scope==Scope.THIS) {
+            if (scopeComponent!=null) {
+                return scopeComponent.toString();
+            }
+            return DslToStringHelpers.fn("entity", "this", "");
+        }
+        
+        String remainder;
+        if (component==null || "".equals(component)) {
+            remainder = DslToStringHelpers.fn(scope.toString());
+        } else {
+            remainder = DslToStringHelpers.fn(scope.toString(), component);
+        }
+               
+        return DslToStringHelpers.component(scopeComponent, remainder);
     }
-
+    
 }

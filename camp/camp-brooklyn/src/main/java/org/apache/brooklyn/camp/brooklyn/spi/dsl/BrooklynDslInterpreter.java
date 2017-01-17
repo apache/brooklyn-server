@@ -32,7 +32,6 @@ import org.apache.brooklyn.camp.spi.resolve.PlanInterpreter.PlanInterpreterAdapt
 import org.apache.brooklyn.camp.spi.resolve.interpret.PlanInterpretationNode;
 import org.apache.brooklyn.camp.spi.resolve.interpret.PlanInterpretationNode.Role;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -156,7 +155,7 @@ public class BrooklynDslInterpreter extends PlanInterpreterAdapter {
             throw new IllegalStateException("Invalid function-only expression '"+f.getFunction()+"'");
 
         String fn = f.getFunction();
-        fn = Strings.removeFromStart(fn, "$brooklyn:");
+        fn = Strings.removeFromStart(fn, BrooklynDslCommon.PREFIX);
         if (fn.startsWith("function.")) {
             // If the function name starts with 'function.', then we look for the function in BrooklynDslCommon.Functions
             // As all functions in BrooklynDslCommon.Functions are static, we don't need to worry whether a class

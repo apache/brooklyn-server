@@ -62,8 +62,6 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
-import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
-import org.apache.brooklyn.util.text.Strings;
 import org.apache.commons.beanutils.BeanUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,6 +80,8 @@ public class BrooklynDslCommon {
 
     private static final Logger LOG = LoggerFactory.getLogger(BrooklynDslCommon.class);
 
+    public static final String PREFIX = "$brooklyn:";
+    
     // Access specific entities
 
     @DslAccessible
@@ -203,8 +203,7 @@ public class BrooklynDslCommon {
 
         @Override
         public String toString() {
-            return (obj.toString()+".") +
-                "config("+JavaStringEscapes.wrapJavaString(keyName)+")";
+            return DslToStringHelpers.concat(DslToStringHelpers.internal(obj), ".", DslToStringHelpers.fn("config", keyName));
         }
     }
 
@@ -376,13 +375,9 @@ public class BrooklynDslCommon {
 
         @Override
         public String toString() {
-            return "$brooklyn:formatString("+
-                JavaStringEscapes.wrapJavaString(pattern)+
-                (args==null || args.length==0 ? "" : ","+Strings.join(args, ","))+")";
+            return DslToStringHelpers.fn("formatString", MutableList.<Object>builder().add(pattern).addAll(args).build());
         }
     }
-
-
 
     protected static class DslRegexReplacement extends BrooklynDslDeferredSupplier<String> {
 
@@ -425,7 +420,7 @@ public class BrooklynDslCommon {
 
         @Override
         public String toString() {
-            return String.format("$brooklyn:regexReplace(%s:%s:%s)",source, pattern, replacement);
+            return DslToStringHelpers.fn("regexReplace", source, pattern, replacement);
         }
     }
 
@@ -656,7 +651,7 @@ public class BrooklynDslCommon {
 
         @Override
         public String toString() {
-            return "$brooklyn:object(\""+(type != null ? type.getName() : typeName)+"\")";
+            return DslToStringHelpers.fn("object", type != null ? type.getName() : typeName);
         }
     }
 
@@ -717,7 +712,7 @@ public class BrooklynDslCommon {
 
         @Override
         public String toString() {
-            return "$brooklyn:external("+providerName+", "+key+")";
+            return DslToStringHelpers.fn("external", providerName, key);
         }
     }
 
@@ -777,7 +772,7 @@ public class BrooklynDslCommon {
 
             @Override
             public String toString() {
-                return String.format("$brooklyn:regexReplace(%s:%s)", pattern, replacement);
+                return DslToStringHelpers.fn("function.regexReplace", pattern, replacement);
             }
         }
     }

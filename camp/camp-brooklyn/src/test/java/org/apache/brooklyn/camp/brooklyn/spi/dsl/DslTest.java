@@ -327,6 +327,7 @@ public class DslTest extends BrooklynAppUnitTestSupport {
             return this;
         }
         
+        @SuppressWarnings("unused")  // included for completeness?
         public DslTestWorker wrapInTaskForImmediately(boolean val) {
             wrapInTaskForImmediately = val;
             return this;
