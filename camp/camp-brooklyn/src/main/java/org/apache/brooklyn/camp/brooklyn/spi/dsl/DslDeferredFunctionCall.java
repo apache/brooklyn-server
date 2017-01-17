@@ -238,7 +238,7 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
 
     @Override
     public String toString() {
-        return DslToStringHelpers.fn(object + "." + fnName, args);
+        return DslToStringHelpers.fn(DslToStringHelpers.internal(object) + "." + fnName, args);
     }
 
 }
