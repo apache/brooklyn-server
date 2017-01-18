@@ -46,7 +46,7 @@ public class StringShortenerTest {
     @Test
     public void testDisalowedCharactersShortener() {
         StringShortener ss = new StringShortener()
-                .setAllowedCharacters("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+                .setAllowedCharacters(Identifiers.UPPER_CASE_ALPHA+Identifiers.LOWER_CASE_ALPHA+Identifiers.NUMERIC)
                 .separator("-")
                 .append("1", "he-llo")
                 .append("2", "_new")

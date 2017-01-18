@@ -33,6 +33,7 @@ import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.net.Networking;
+import org.apache.brooklyn.util.text.Identifiers;
 
 public interface CloudLocationConfig {
 
@@ -75,7 +76,7 @@ public interface CloudLocationConfig {
         "vmNameMaxLength", "Maximum length of VM name", 60);
 
     public static final ConfigKey<String> VM_NAME_ALLOWED_CHARACTERS = ConfigKeys.newStringConfigKey(
-            "vmNameAllowedChars", "The characters allowed in a VM name", "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_");
+            "vmNameAllowedChars", "The characters allowed in a VM name", Identifiers.UPPER_CASE_ALPHA+Identifiers.LOWER_CASE_ALPHA+Identifiers.NUMERIC+"-_");
 
     public static final ConfigKey<Integer> VM_NAME_SALT_LENGTH = ConfigKeys.newIntegerConfigKey(
         "vmNameSaltLength", "Number of characters to use for a random identifier inserted in hostname "
