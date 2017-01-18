@@ -42,13 +42,14 @@ public class JcloudsMachineNamer extends BasicCloudMachineNamer {
         return null;
     }
 
+    @Override
     protected String generateNewIdOfLength(ConfigBag setup, int len) {
 
         // if it's azurecompute-arm it needs a different VM_NAME_ALLOWED_PATTERN
-        String pattern = setup.get(CloudLocationConfig.VM_NAME_DISALLOWED_PATTERN);
-        if ((pattern == null || pattern == CloudLocationConfig.VM_NAME_DISALLOWED_PATTERN.getDefaultValue()) &&
+        String pattern = setup.get(CloudLocationConfig.VM_NAME_ALLOWED_CHARACTERS);
+        if ((pattern == null || pattern == CloudLocationConfig.VM_NAME_ALLOWED_CHARACTERS.getDefaultValue()) &&
                 "azurecompute-arm".equals(setup.peek(JcloudsLocationConfig.CLOUD_PROVIDER))) {
-        setup.put(CloudLocationConfig.VM_NAME_DISALLOWED_PATTERN, "[^a-zA-Z0-9]");
+        setup.put(CloudLocationConfig.VM_NAME_ALLOWED_CHARACTERS, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
         }
 
         return super.generateNewIdOfLength(setup, len);

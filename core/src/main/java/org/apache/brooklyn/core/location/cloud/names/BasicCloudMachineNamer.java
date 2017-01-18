@@ -38,7 +38,7 @@ public class BasicCloudMachineNamer extends AbstractCloudMachineNamer {
         if (context instanceof Entity) entity = (Entity) context;
 
         StringShortener shortener = Strings.shortener();
-        shortener.setDisalowedCharacters(setup.get(CloudLocationConfig.VM_NAME_DISALLOWED_PATTERN));
+        shortener.setAllowedCharacters(setup.get(CloudLocationConfig.VM_NAME_ALLOWED_CHARACTERS));
 
         shortener.separator("-");
         shortener.append("system", "brooklyn");

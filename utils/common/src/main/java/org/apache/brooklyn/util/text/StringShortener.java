@@ -18,17 +18,14 @@
  */
 package org.apache.brooklyn.util.text;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /** utility which takes a bunch of segments and applies shortening rules to them */
 public class StringShortener {
 
     protected Map<String,String> wordsByIdInOrder = new LinkedHashMap<String,String>();
     protected String separator = null;
-    protected String disalowedCharacters;
+    protected Set<Character> allowedCharacters;
     
     protected interface ShorteningRule {
         /** returns the new list, with the relevant items in the list replaced */
@@ -57,18 +54,22 @@ public class StringShortener {
         }
     }
 
-    protected String removeDisalowedCharacters(String input){
-        if (disalowedCharacters != null) input = input.replaceAll(disalowedCharacters, "");
+    protected String removeDisallowedCharacters(String input){
+        if (allowedCharacters != null) {
+            StringBuilder output = new StringBuilder(input.length());
+            for (char c : input.toCharArray()){
+                if (allowedCharacters.contains(c)) output.append(c);
+                }
+            input = output.toString();
+            }
         return input;
     }
 
-
-    public String getDisalowedCharacters() {
-        return disalowedCharacters;
-    }
-
-    public StringShortener setDisalowedCharacters(String disalowedCharacters) {
-        this.disalowedCharacters = disalowedCharacters;
+    public StringShortener setAllowedCharacters(String disalowedCharacters) {
+        this.allowedCharacters = new HashSet<>();
+        for(char c : disalowedCharacters.toCharArray()) {
+            this.allowedCharacters.add(c);
+            }
         return this;
     }
     
@@ -94,12 +95,12 @@ public class StringShortener {
     
 
     public StringShortener separator(String separator) {
-        this.separator = removeDisalowedCharacters(separator);
+        this.separator = removeDisallowedCharacters(separator);
         return this;
     }
 
     public StringShortener append(String id, String text) {
-        text = removeDisalowedCharacters(text);
+        text = removeDisallowedCharacters(text);
         String old = wordsByIdInOrder.put(id, text);
         if (old!=null) {
             throw new IllegalStateException("Cannot append with id '"+id+"' when id already present");

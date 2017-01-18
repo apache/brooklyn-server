@@ -74,8 +74,8 @@ public interface CloudLocationConfig {
     public static final ConfigKey<Integer> VM_NAME_MAX_LENGTH = ConfigKeys.newIntegerConfigKey(
         "vmNameMaxLength", "Maximum length of VM name", 60);
 
-    public static final ConfigKey<String> VM_NAME_DISALLOWED_PATTERN = ConfigKeys.newStringConfigKey(
-            "vmNameAllowedChars", "The character pattern to remove from a VM name", "[^a-zA-Z0-9\\-_]");
+    public static final ConfigKey<String> VM_NAME_ALLOWED_CHARACTERS = ConfigKeys.newStringConfigKey(
+            "vmNameAllowedChars", "The characters allowed in a VM name", "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_");
 
     public static final ConfigKey<Integer> VM_NAME_SALT_LENGTH = ConfigKeys.newIntegerConfigKey(
         "vmNameSaltLength", "Number of characters to use for a random identifier inserted in hostname "
