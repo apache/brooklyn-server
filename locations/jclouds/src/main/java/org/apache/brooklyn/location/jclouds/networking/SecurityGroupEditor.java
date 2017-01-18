@@ -109,18 +109,25 @@ public class SecurityGroupEditor {
 
     /**
      * Removes a security group and its permissions.
+     * @param group The security group.
      * @return true if the group was found and removed.
      */
     public boolean removeSecurityGroup(final SecurityGroup group) {
 
         LOG.debug("Removing security group {} in {}", group.getName(), location);
-        Callable<Boolean> callable = new Callable<Boolean>() {
-            @Override
-            public Boolean call() throws Exception {
-                return securityApi.removeSecurityGroup(group.getId());
-            }
-        };
-        return runOperationWithRetry(callable);
+        Callable<Boolean> removeIt = new RemoveSecurityGroup(group.getId());
+        return runOperationWithRetry(removeIt);
+    }
+    /**
+     * Removes a security group and its permissions.
+     * @param The jclouds id (provider id) of the group
+     * @return true if the group was found and removed.
+     */
+    public boolean removeSecurityGroup(final String groupId) {
+
+        LOG.debug("Removing security group {} in {}", groupId, location);
+        Callable<Boolean> removeIt = new RemoveSecurityGroup(groupId);
+        return runOperationWithRetry(removeIt);
     }
 
     public Set<SecurityGroup> listSecurityGroupsForNode(final String nodeId) {
@@ -280,5 +287,16 @@ public class SecurityGroupEditor {
             ", securityApi=" + securityApi +
             ", isExceptionRetryable=" + isExceptionRetryable +
             '}';
+    }
+
+    private class RemoveSecurityGroup implements Callable<Boolean> {
+        private String groupId;
+        public RemoveSecurityGroup(final String groupId) {
+            this.groupId = groupId;
+        }
+        @Override
+        public Boolean call() throws Exception {
+            return securityApi.removeSecurityGroup(groupId);
+        }
     }
 }
