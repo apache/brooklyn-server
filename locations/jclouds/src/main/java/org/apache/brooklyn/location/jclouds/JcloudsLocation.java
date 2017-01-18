@@ -2693,15 +2693,21 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         for (LoginCredentials creds : credentialsToTry) {
             machinesToTry.put(createTemporarySshMachineLocation(hostAndPort, creds, sshProps), creds);
         }
+        final Duration repeaterTimeout = timeout;
         try {
             Callable<Boolean> checker = new Callable<Boolean>() {
                 @Override
                 public Boolean call() {
                     for (Map.Entry<SshMachineLocation, LoginCredentials> entry : machinesToTry.entrySet()) {
                         SshMachineLocation machine = entry.getKey();
+                        Duration statusTimeout = Duration.THIRTY_SECONDS.isShorterThan(repeaterTimeout)
+                                ? Duration.THIRTY_SECONDS
+                                : repeaterTimeout;
                         int exitstatus = machine.execScript(
                                 ImmutableMap.of(
-                                        SshTool.PROP_SSH_TRIES_TIMEOUT.getName(), Duration.THIRTY_SECONDS.toMilliseconds(),
+                                        SshTool.PROP_CONNECT_TIMEOUT.getName(), statusTimeout.toMilliseconds(),
+                                        SshTool.PROP_SESSION_TIMEOUT.getName(), statusTimeout.toMilliseconds(),
+                                        SshTool.PROP_SSH_TRIES_TIMEOUT.getName(), statusTimeout.toMilliseconds(),
                                         SshTool.PROP_SSH_TRIES.getName(), 1),
                                 "check-connectivity",
                                 ImmutableList.of("true"));
