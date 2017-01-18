@@ -18,8 +18,10 @@
  */
 package org.apache.brooklyn.location.jclouds;
 
+import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.core.location.cloud.names.BasicCloudMachineNamer;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.text.Identifiers;
 
 public class JcloudsMachineNamer extends BasicCloudMachineNamer {
 
@@ -39,6 +41,19 @@ public class JcloudsMachineNamer extends BasicCloudMachineNamer {
         // TODO other cloud max length rules
 
         return null;
+    }
+
+    @Override
+    protected String generateNewIdOfLength(ConfigBag setup, int len) {
+
+        // if it's azurecompute-arm it needs a different VM_NAME_ALLOWED_PATTERN
+        String pattern = setup.get(CloudLocationConfig.VM_NAME_ALLOWED_CHARACTERS);
+        if ((pattern == null || pattern == CloudLocationConfig.VM_NAME_ALLOWED_CHARACTERS.getDefaultValue()) &&
+                "azurecompute-arm".equals(setup.peek(JcloudsLocationConfig.CLOUD_PROVIDER))) {
+        setup.put(CloudLocationConfig.VM_NAME_ALLOWED_CHARACTERS, Identifiers.UPPER_CASE_ALPHA+Identifiers.LOWER_CASE_ALPHA+Identifiers.NUMERIC);
+        }
+
+        return super.generateNewIdOfLength(setup, len);
     }
 
 }
