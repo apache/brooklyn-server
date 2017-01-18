@@ -1,5 +1,6 @@
 package io.cloudsoft.amp.containerservice.kubernetes.location;
 
+import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.Charset;
@@ -16,6 +17,7 @@ import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.location.PortRanges;
@@ -25,11 +27,14 @@ import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
+import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.repeat.Repeater;
+import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
@@ -54,6 +59,7 @@ import com.google.common.net.HostAndPort;
 import io.cloudsoft.amp.containerservice.ThreadedRepeater;
 import io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer;
 import io.cloudsoft.amp.containerservice.dockerlocation.DockerJcloudsLocation;
+import io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesResource;
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
 import io.fabric8.kubernetes.api.model.ContainerPort;
@@ -62,6 +68,7 @@ import io.fabric8.kubernetes.api.model.EndpointSubset;
 import io.fabric8.kubernetes.api.model.Endpoints;
 import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.EnvVarBuilder;
+import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Namespace;
 import io.fabric8.kubernetes.api.model.NamespaceBuilder;
 import io.fabric8.kubernetes.api.model.PersistentVolume;
@@ -156,7 +163,12 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         ConfigBag setup = ResolvingConfigBag.newInstanceExtending(getManagementContext(), setupRaw);
 
         client = getClient(setup);
-        return createKubernetesContainerLocation(setup);
+        Entity entity = validateCallerContext(setup);
+        if (isKubernetesResource(entity)) {
+            return createKubernetesResourceLocation(entity, setup);
+        } else {
+            return createKubernetesContainerLocation(entity, setup);
+        }
     }
 
     @Override
@@ -233,8 +245,43 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         return null;
     }
 
-    protected MachineLocation createKubernetesContainerLocation(ConfigBag setup) {
-        Entity entity = validateCallerContext(setup);
+    protected MachineLocation createKubernetesResourceLocation(Entity entity, ConfigBag setup) {
+        String resourceUri = entity.config().get(KubernetesResource.RESOURCE_FILE);
+        InputStream resource = ResourceUtils.create(entity).getResourceFromUrl(resourceUri);
+        String templateContents = Streams.readFullyString(resource);
+        String processedContents = TemplateProcessor.processTemplateContents(templateContents, (EntityInternal) entity, setup.getAllConfig());
+        InputStream processedResource = Streams.newInputStreamWithContents(processedContents);
+        final List<HasMetadata> result = getClient().load(processedResource).createOrReplace();
+
+        ExitCondition exitCondition = new ExitCondition() {
+            @Override
+            public Boolean call() {
+                for (HasMetadata metadata : result) {
+                    LOG.debug("Resource {} (type {}) deployed to {}",
+                            metadata.getMetadata().getName(), metadata.getKind(), metadata.getMetadata().getNamespace());
+                    List<HasMetadata> check = client.resource(metadata).fromServer().get();
+                    if (check.size() == 0 || check.get(0).getMetadata() == null) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            @Override
+            public String getFailureMessage() {
+                return "Cannot find created resources";
+            }
+        };
+        waitForExitCondition(exitCondition);
+
+        // TODO iterate through the HasMetadata looking for kind of type deployment or pod
+
+        LocationSpec<SshMachineLocation> locationSpec = LocationSpec.create(SshMachineLocation.class)
+                        .configure(CALLER_CONTEXT, setup.get(CALLER_CONTEXT));
+        SshMachineLocation machine = getManagementContext().getLocationManager().createLocation(locationSpec);
+        return machine;
+    }
+
+    protected MachineLocation createKubernetesContainerLocation(Entity entity, ConfigBag setup) {
         String deploymentName = findDeploymentName(entity, setup);
         Integer replicas = setup.get(REPLICAS);
         List<String> volumes = setup.get(KubernetesLocationConfig.PERSISTENT_VOLUMES);
@@ -718,6 +765,10 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
 
     protected boolean isDockerContainer(Entity entity) {
         return entity.getEntityType().getName().equalsIgnoreCase(DockerContainer.class.getName());
+    }
+
+    protected boolean isKubernetesResource(Entity entity) {
+        return entity.getEntityType().getName().equalsIgnoreCase(KubernetesResource.class.getName());
     }
 
     @Override
