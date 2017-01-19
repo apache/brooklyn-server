@@ -20,14 +20,17 @@ package org.apache.brooklyn.camp.brooklyn;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertSame;
+import static org.testng.Assert.assertTrue;
 
 import java.util.List;
 
+import com.google.common.collect.ImmutableList;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
 import org.apache.brooklyn.core.entity.trait.Startable;
+import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.entity.machine.MachineEntity;
 import org.apache.brooklyn.location.jclouds.BasicJcloudsLocationCustomizer;
@@ -86,7 +89,7 @@ public class JcloudsCustomizerInstantiationYamlDslTest extends AbstractJcloudsSt
         }
     }
     
-    @Test
+    @Test(groups = "Broken")
     public void testCustomizers() throws Exception {
         String yaml = Joiner.on("\n").join(
                 "location: " + LOCATION_CATALOG_ID,
@@ -109,14 +112,29 @@ public class JcloudsCustomizerInstantiationYamlDslTest extends AbstractJcloudsSt
 
         app.invoke(Startable.START, ImmutableMap.<String, Object>of()).get();
 
-        // Assert all customize functions called
         assertEquals(RecordingLocationCustomizer.calls.size(), 4,
-                "size=" + RecordingLocationCustomizer.calls.size() + "; calls=" + RecordingLocationCustomizer.calls);
+                "Assert all customize functions called: size=" + RecordingLocationCustomizer.calls.size() + "; calls=" + RecordingLocationCustomizer.calls);
 
         // Assert same instance used for all calls
         RecordingLocationCustomizer firstInstance = RecordingLocationCustomizer.calls.get(0).instance;
         for (RecordingLocationCustomizer.CallParams call : RecordingLocationCustomizer.calls) {
             assertSame(call.instance, firstInstance);
+        }
+
+        assertCallsMade("customize1", "customize2", "customize3", "customize4");
+
+        app.invoke(Startable.STOP, ImmutableMap.<String, Object>of()).get();
+        // assert that pre and post release have now been called
+        assertEquals(RecordingLocationCustomizer.calls.size(), 6,
+            "assert that pre and post release have now been called: "
+            + "size=" + RecordingLocationCustomizer.calls.size() + "; calls=" + RecordingLocationCustomizer.calls);
+        assertCallsMade("customize1", "customize2", "customize3", "customize4", "preRelease", "postRelease");
+    }
+
+    private void assertCallsMade(String ...values) {
+        List<String> expected = ImmutableList.copyOf(values);
+        for (RecordingLocationCustomizer.CallParams parm : RecordingLocationCustomizer.calls) {
+            assertTrue(expected.contains(parm.method));
         }
     }
 
@@ -137,28 +155,28 @@ public class JcloudsCustomizerInstantiationYamlDslTest extends AbstractJcloudsSt
         @Override
         public void customize(JcloudsLocation location, ComputeService computeService, TemplateBuilder templateBuilder) {
             if (Boolean.TRUE.equals(enabled)) {
-                calls.add(new CallParams(this, "customize", MutableList.of(location, computeService, templateBuilder)));
+                calls.add(new CallParams(this, "customize1", MutableList.of(location, computeService, templateBuilder)));
             }
         }
 
         @Override
         public void customize(JcloudsLocation location, ComputeService computeService, Template template) {
             if (Boolean.TRUE.equals(enabled)) {
-                calls.add(new CallParams(this, "customize", MutableList.of(location, computeService, template)));
+                calls.add(new CallParams(this, "customize2", MutableList.of(location, computeService, template)));
             }
         }
 
         @Override
         public void customize(JcloudsLocation location, ComputeService computeService, TemplateOptions templateOptions) {
             if (Boolean.TRUE.equals(enabled)) {
-                calls.add(new CallParams(this, "customize", MutableList.of(location, computeService, templateOptions)));
+                calls.add(new CallParams(this, "customize3", MutableList.of(location, computeService, templateOptions)));
             }
         }
 
         @Override
         public void customize(JcloudsLocation location, ComputeService computeService, JcloudsMachineLocation machine) {
             if (Boolean.TRUE.equals(enabled)) {
-                calls.add(new CallParams(this, "customize", MutableList.of(location, computeService, machine)));
+                calls.add(new CallParams(this, "customize4", MutableList.of(location, computeService, machine)));
             }
         }
 
