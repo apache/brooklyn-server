@@ -72,6 +72,7 @@ import org.apache.brooklyn.core.location.cloud.AbstractCloudMachineProvisioningL
 import org.apache.brooklyn.core.location.cloud.AvailabilityZoneExtension;
 import org.apache.brooklyn.core.location.cloud.names.AbstractCloudMachineNamer;
 import org.apache.brooklyn.core.location.cloud.names.CloudMachineNamer;
+import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.mgmt.internal.LocalLocationManager;
 import org.apache.brooklyn.core.mgmt.persist.LocationWithObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
@@ -1057,6 +1058,13 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     + " "+machineLocation+" connection usable in "+Duration.of(usableTimestamp).subtract(provisionTimestamp).toStringRounded()+";"
                     + " and os customized in "+Duration.of(customizedTimestamp).subtract(usableTimestamp).toStringRounded()+" - "+Joiner.on(", ").join(customisationForLogging)+")";
             LOG.info(logMessage);
+
+            if (customizers.size() > 0) {
+                machineLocation.config().set(JCLOUDS_LOCATION_CUSTOMIZERS, customizers);
+            }
+            if (machineCustomizers.size() > 0) {
+                machineLocation.config().set(MACHINE_LOCATION_CUSTOMIZERS, machineCustomizers);
+            }
 
             return machineLocation;
 
@@ -2221,7 +2229,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
         Exception tothrow = null;
 
-        ConfigBag setup = config().getBag();
+        ConfigBag setup = ((LocationInternal)machine).config().getBag();
         Collection<JcloudsLocationCustomizer> customizers = getCustomizers(setup);
         Collection<MachineLocationCustomizer> machineCustomizers = getMachineCustomizers(setup);
         

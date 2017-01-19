@@ -22,6 +22,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
+import java.util.Arrays;
 import java.util.List;
 
 import com.google.common.collect.ImmutableList;
@@ -89,7 +90,7 @@ public class JcloudsCustomizerInstantiationYamlDslTest extends AbstractJcloudsSt
         }
     }
     
-    @Test(groups = "Broken")
+    @Test
     public void testCustomizers() throws Exception {
         String yaml = Joiner.on("\n").join(
                 "location: " + LOCATION_CATALOG_ID,
@@ -132,10 +133,12 @@ public class JcloudsCustomizerInstantiationYamlDslTest extends AbstractJcloudsSt
     }
 
     private void assertCallsMade(String ...values) {
-        List<String> expected = ImmutableList.copyOf(values);
+        List<String> expected = MutableList.of();
+        expected.addAll(Arrays.asList(values));
         for (RecordingLocationCustomizer.CallParams parm : RecordingLocationCustomizer.calls) {
-            assertTrue(expected.contains(parm.method));
+            assertTrue(expected.remove(parm.method));
         }
+        assertEquals(expected.size(), 0);
     }
 
     public static class RecordingLocationCustomizer extends BasicJcloudsLocationCustomizer {
