@@ -119,6 +119,7 @@ public class BashCommands {
 
     /** sudo to a given user and run the indicated command;
      * @deprecated since 0.7.0 semantics of this are fiddly, e.g. whether user gets their environment */
+    @Deprecated
     @Beta
     public static String sudoAsUser(String user, String command) {
         return sudoAsUserOld(user, command);

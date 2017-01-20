@@ -41,6 +41,7 @@ public class TestUtils {
     private TestUtils() { }
 
     /** @deprecated since 0.8; use Asserts.BooleanWithMessage */
+    @Deprecated
     public static class BooleanWithMessage {
         boolean value; String message;
         public BooleanWithMessage(boolean value, String message) {
@@ -56,6 +57,7 @@ public class TestUtils {
     }
     
     /** @deprecated since 0.8; use Exceptions.getFirstInteresting */ 
+    @Deprecated
     public static Throwable unwrapThrowable(Throwable t) {
         if (t.getCause() == null) {
             return t;
@@ -69,6 +71,7 @@ public class TestUtils {
     }
 
     /** @deprecated since 0.8; use Asserts.assertEqualsIgnoringOrder */
+    @Deprecated
     public static void assertSetsEqual(Collection c1, Collection c2) {
         Set s = new LinkedHashSet();
         s.addAll(c1); s.removeAll(c2);

@@ -845,6 +845,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
 
     // FIXME Can this really be deleted? Overridden by AbstractApplication; needs careful review
     /** @deprecated since 0.4.0 should not be needed / leaked outwith brooklyn internals / mgmt support? */
+    @Deprecated
     protected synchronized void setApplication(Application app) {
         if (application != null) {
             if (application.getId() != app.getId()) {
@@ -1038,6 +1039,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
      * <p>
      * returns old value 
      * @deprecated on interface since 0.5.0; use {@link ConfigToAttributes#apply(EntityLocal, AttributeSensorAndConfigKey)} */
+    @Deprecated
     public <T> T setAttribute(AttributeSensorAndConfigKey<?,T> configuredSensor) {
         T v = getAttribute(configuredSensor);
         if (v!=null) return v;
@@ -2044,6 +2046,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
      * including the initial management started and subsequent management node master-change for this entity.
      * @deprecated since 0.4.0 override EntityManagementSupport.onManagementStarted if customization needed
      */
+    @Deprecated
     public void onManagementBecomingMaster() {}
     
     /**
@@ -2051,6 +2054,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
      * including the final management end and subsequent management node master-change for this entity.
      * @deprecated since 0.4.0 override EntityManagementSupport.onManagementStopped if customization needed
      */
+    @Deprecated
     public void onManagementNoLongerMaster() {}
 
     /**

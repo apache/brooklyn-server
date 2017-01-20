@@ -342,6 +342,7 @@ public class Exceptions {
 
     /** removes uninteresting items from the top of the call stack (but keeps interesting messages), and throws 
      * @deprecated since 0.7.0 same as {@link #propagate(Throwable)} */
+    @Deprecated
     public static RuntimeException propagateCollapsed(Throwable source) {
         throw propagate(source);
     }

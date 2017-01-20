@@ -95,6 +95,7 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
             private BrooklynPropertiesImpl originalProperties = null;
             
             /** @deprecated since 0.7.0 use static methods in {@link Factory} to create */
+            @Deprecated
             public Builder() {
                 this(true);
             }

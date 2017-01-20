@@ -38,6 +38,7 @@ public class HttpValueFunctions {
     }
     
     /** @deprecated since 0.7.0; only here for deserialization of persisted state */
+    @Deprecated
     private static Function<HttpToolResponse, Integer> responseCodeLegacy() {
         // TODO PERSISTENCE WORKAROUND kept anonymous function in case referenced in persisted state
         return new Function<HttpToolResponse, Integer>() {
@@ -70,6 +71,7 @@ public class HttpValueFunctions {
     }
     
     /** @deprecated since 0.7.0; only here for deserialization of persisted state */
+    @Deprecated
     private static Function<HttpToolResponse, String> stringContentsFunctionLegacy() {
         // TODO PERSISTENCE WORKAROUND kept anonymous function in case referenced in persisted state
         return new Function<HttpToolResponse, String>() {
@@ -106,6 +108,7 @@ public class HttpValueFunctions {
     }
 
     /** @deprecated since 0.7.0; only here for deserialization of persisted state */
+    @Deprecated
     private static Function<HttpToolResponse, Long> latencyLegacy() {
         // TODO PERSISTENCE WORKAROUND kept anonymous function in case referenced in persisted state
         return new Function<HttpToolResponse, Long>() {

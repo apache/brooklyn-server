@@ -325,6 +325,7 @@ public class JcloudsUtil implements JcloudsLocationConfig {
     /**
      * @deprecated since 0.9.0; use {@link #getFirstReachableAddress(NodeMetadata, Duration)}
      */
+    @Deprecated
     public static String getFirstReachableAddress(ComputeServiceContext context, NodeMetadata node) {
         // Previously this called jclouds `sshForNode().apply(Node)` to check all IPs of node (private+public),
         // to find one that is reachable. It does `openSocketFinder.findOpenSocketOnNode(node, node.getLoginPort(), ...)`.

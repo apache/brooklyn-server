@@ -74,6 +74,7 @@ public class SshjClientConnection implements SshAction<SSHClient> {
         }
 
         /** @deprecated use privateKeyData */
+        @Deprecated
         public Builder privateKey(String val) {
             this.privateKeyData = val;
             return this;

@@ -224,6 +224,7 @@ public class RebindLocationTest extends RebindTestFixtureWithApp {
     /**
      * @deprecated since 0.7; support for rebinding old-style locations is deprecated
      */
+    @Deprecated
     @Test
     public void testHandlesOldStyleLocation() throws Exception {
         MyOldStyleLocation origLoc = new MyOldStyleLocation(ImmutableMap.of("myfield", "myval"));

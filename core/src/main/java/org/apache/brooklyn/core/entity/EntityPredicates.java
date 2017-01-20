@@ -115,6 +115,7 @@ public class EntityPredicates {
     
     /** @deprecated since 0.7.0 use {@link #displayNameSatisfies(Predicate)} to clarify this is *regex* matching
      * (passing {@link StringPredicates#matchesRegex(String)} as the predicate) */
+    @Deprecated
     public static Predicate<Entity> displayNameMatches(final String regex) {
         return displayNameSatisfies(StringPredicates.matchesRegex(regex));
     }

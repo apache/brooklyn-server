@@ -135,10 +135,12 @@ public class BrooklynServerConfig {
     }
     
     /** @deprecated since 0.7.0 use {@link BrooklynServerPaths#newMainPersistencePathResolver(ManagementContext)} */
+    @Deprecated
     public static String getPersistenceDir(ManagementContext mgmt) {
         return getPersistenceDir(mgmt.getConfig());
     }
     /** @deprecated since 0.7.0 use {@link BrooklynServerPaths#newMainPersistencePathResolver(ManagementContext)} */ 
+    @Deprecated
     public static String getPersistenceDir(StringConfigMap brooklynProperties) {
         return resolvePersistencePath(null, brooklynProperties, null);
     }
@@ -157,12 +159,14 @@ public class BrooklynServerConfig {
      *     configured brooklyn.persistence.dir is not absolute
      * @return The container name or full path for where persist state should be kept
      * @deprecated since 0.7.0 use {@link BrooklynServerPaths#newMainPersistencePathResolver(ManagementContext)} */
+    @Deprecated
     public static String resolvePersistencePath(String optionalSuppliedValue, StringConfigMap brooklynProperties, String optionalObjectStoreLocationSpec) {
         return BrooklynServerPaths.newMainPersistencePathResolver(brooklynProperties).location(optionalObjectStoreLocationSpec).dir(optionalSuppliedValue).resolve();
     }
     
     
     /** @deprecated since 0.7.0 use {@link BrooklynServerPaths#getBrooklynWebTmpDir(ManagementContext)} */
+    @Deprecated
     public static File getBrooklynWebTmpDir(ManagementContext mgmt) {
         return BrooklynServerPaths.getBrooklynWebTmpDir(mgmt);
     }

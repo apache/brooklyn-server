@@ -28,6 +28,7 @@ import com.google.common.base.Predicates;
 public class TaskPredicates {
 
     /** @deprecated since 0.9.0; use {@link #displayNameSatisfies(Predicate)} */
+    @Deprecated
     public static Predicate<Task<?>> displayNameMatches(Predicate<? super String> matcher) {
         return displayNameSatisfies(matcher);
     }

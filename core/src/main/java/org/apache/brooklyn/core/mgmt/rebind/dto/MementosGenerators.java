@@ -82,6 +82,7 @@ public class MementosGenerators {
     private static final Logger log = LoggerFactory.getLogger(MementosGenerators.class);
     
     /** @deprecated since 0.7.0 use {@link #newBasicMemento(BrooklynObject)} */
+    @Deprecated
     public static Memento newMemento(BrooklynObject instance) {
         return newBasicMemento(instance);
     }

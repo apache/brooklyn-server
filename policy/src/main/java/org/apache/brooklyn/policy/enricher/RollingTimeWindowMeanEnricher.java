@@ -106,6 +106,7 @@ public class RollingTimeWindowMeanEnricher<T extends Number> extends AbstractTyp
     }
 
     /** @deprecated since 0.6.0 use Duration parameter rather than long with millis */
+    @Deprecated
     public RollingTimeWindowMeanEnricher(Entity producer, AttributeSensor<T> source, 
             AttributeSensor<Double> target, long timePeriod) {
         this(producer, source, target, Duration.millis(timePeriod));

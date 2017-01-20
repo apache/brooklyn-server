@@ -114,6 +114,7 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
      * @deprecated since 0.6
      * @see #LocalhostMachineProvisioningLocation()
      */
+    @Deprecated
     public LocalhostMachineProvisioningLocation(Map properties) {
         super(properties);
     }
@@ -265,6 +266,7 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
             super();
         }
         /** @deprecated since 0.6.0 use no-arg constructor (and spec) then configure */
+        @Deprecated
         public LocalhostMachine(Map properties) {
             super(MutableMap.builder().putAll(properties).put("mutexSupport", mutexSupport).build());
         }

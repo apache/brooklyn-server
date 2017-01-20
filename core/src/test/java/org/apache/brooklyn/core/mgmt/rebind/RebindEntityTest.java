@@ -674,6 +674,7 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
     /**
      * @deprecated since 0.7; support for rebinding old-style entities is deprecated
      */
+    @Deprecated
     @Test
     public void testHandlesOldStyleEntity() throws Exception {
         MyOldStyleEntity origE = new MyOldStyleEntity(MutableMap.of("confName", "myval"), origApp);

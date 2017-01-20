@@ -47,6 +47,7 @@ import com.google.common.collect.Sets;
  * 
  * @see Propagator if need to sub-class
  */
+@Deprecated
 public class SensorPropagatingEnricher extends AbstractEnricher implements SensorEventListener<Object> {
     
     public static final Logger log = LoggerFactory.getLogger(SensorPropagatingEnricher.class);
@@ -92,6 +93,7 @@ public class SensorPropagatingEnricher extends AbstractEnricher implements Senso
      *
      * @deprecated since 0.7.0; use {@link Enrichers#builder()}
      */
+    @Deprecated
     public static SensorPropagatingEnricher newInstanceRenaming(Entity source, Map<? extends Sensor<?>, ? extends Sensor<?>> sensors) {
         return new SensorPropagatingEnricher(source, sensors);
     }
@@ -99,6 +101,7 @@ public class SensorPropagatingEnricher extends AbstractEnricher implements Senso
     /**
      * @deprecated since 0.7.0; use {@link Enrichers#builder()}
      */
+    @Deprecated
     public SensorPropagatingEnricher(Entity source, Sensor<?>... sensors) {
         this(source, ImmutableList.copyOf(sensors));
     }
@@ -116,6 +119,7 @@ public class SensorPropagatingEnricher extends AbstractEnricher implements Senso
      *
      * @deprecated since 0.7.0; use {@link Enrichers#builder()}
      */
+    @Deprecated
     public SensorPropagatingEnricher(Entity source, Collection<Sensor<?>> sensors) {
         this.source = source;
         this.sensors = ImmutableSet.copyOf(sensors);

@@ -67,6 +67,7 @@ public class SshPollConfig<T> extends PollConfig<SshPollValue, T, SshPollConfig<
     }
     
     /** @deprecated since 0.7.0; use {@link #getCommandSupplier()} and resolve just-in-time */
+    @Deprecated
     public String getCommand() {
         return getCommandSupplier().get();
     }
@@ -75,6 +76,7 @@ public class SshPollConfig<T> extends PollConfig<SshPollValue, T, SshPollConfig<
     }
     
     /** @deprecated since 0.7.0; use {@link #getEnvSupplier()} and resolve just-in-time */
+    @Deprecated
     public Map<String, String> getEnv() {
         return getEnvSupplier().get();
     }

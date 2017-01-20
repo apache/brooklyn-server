@@ -340,6 +340,7 @@ public class BrooklynWebServer {
     }
 
     /** @deprecated use setAttribute */
+    @Deprecated
     public BrooklynWebServer addAttribute(String field, Object value) {
         return setAttribute(field, value);
     }

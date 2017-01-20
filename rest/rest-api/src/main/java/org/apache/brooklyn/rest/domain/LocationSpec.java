@@ -32,6 +32,7 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
 // FIXME change name, due to confusion with LocationSpec <- no need, as we can kill the class instead soon!
 /** @deprecated since 0.7.0 location spec objects will not be used from the client, instead pass yaml location spec strings */
+@Deprecated
 public class LocationSpec implements HasName, HasConfig, Serializable {
 
     private static final long serialVersionUID = -1562824224808185255L;

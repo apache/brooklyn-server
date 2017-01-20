@@ -106,6 +106,7 @@ public abstract class ApplicationBuilder {
     }
 
     /** @deprecated class can be removed; users of this convenience method can now simply do mgmt.getEntityManager().createEntity(spec) */ 
+    @Deprecated
     @SuppressWarnings("unchecked")
     @Beta
     public static <T extends StartableApplication> T newManagedApp(EntitySpec<T> spec, ManagementContext managementContext) {

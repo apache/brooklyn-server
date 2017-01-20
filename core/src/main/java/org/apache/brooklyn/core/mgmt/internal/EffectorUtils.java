@@ -390,6 +390,7 @@ public class EffectorUtils {
     }
 
     /** @deprecated since 0.7.0 use {@link #getTaskFlagsForEffectorInvocation(Entity, Effector, ConfigBag)} */
+    @Deprecated
     public static Map<Object,Object> getTaskFlagsForEffectorInvocation(Entity entity, Effector<?> effector) {
         return getTaskFlagsForEffectorInvocation(entity, effector, null);
     }

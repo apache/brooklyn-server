@@ -75,6 +75,7 @@ public interface BrooklynCatalog {
      * @deprecated since 0.10.0; use {@link #peekSpec(CatalogItem)} for a preview of what the item
      *             corresponds to.
      */
+    @Deprecated
     <T, SpecT extends AbstractBrooklynObjectSpec<? extends T, SpecT>> SpecT createSpec(CatalogItem<T, SpecT> item);
 
     /** 

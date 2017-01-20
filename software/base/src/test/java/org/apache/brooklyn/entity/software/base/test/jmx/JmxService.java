@@ -76,6 +76,7 @@ public class JmxService {
     
     /**
      * @deprecated since 0.6.0; either needs abandoning, or updating to support JmxSupport (and JmxmpAgent, etc) */
+    @Deprecated
     public JmxService(Entity e) throws Exception {
         this(e.getAttribute(Attributes.HOSTNAME) != null ? e.getAttribute(Attributes.HOSTNAME) : "localhost", 
                  e.getAttribute(UsesJmx.JMX_PORT) != null ? e.getAttribute(UsesJmx.JMX_PORT) : null);

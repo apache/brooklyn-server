@@ -112,6 +112,7 @@ public class Repeater implements Callable<Boolean> {
      * @deprecated since 0.7.0 this is no-op, as the repeater defaults to repeating nothing, simply remove the call,
      * using just <code>Repeater.until(...)</code>.
      */
+    @Deprecated
     public Repeater repeat() {
         return repeat(Callables.returning(null));
     }

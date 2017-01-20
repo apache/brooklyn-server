@@ -206,6 +206,7 @@ public class RebindManagerImpl implements RebindManager {
     /**
      * @deprecated since 0.7.0; use {@link #setPeriodicPersistPeriod(Duration)}
      */
+    @Deprecated
     public void setPeriodicPersistPeriod(long periodMillis) {
         setPeriodicPersistPeriod(Duration.of(periodMillis, TimeUnit.MILLISECONDS));
     }

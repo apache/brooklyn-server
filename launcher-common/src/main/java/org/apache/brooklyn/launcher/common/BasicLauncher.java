@@ -173,6 +173,7 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
      * @deprecated since 0.9.0; instead use {@link #application(String)} for YAML apps, or {@link #application(EntitySpec)}.
      *             Note that apps are now auto-managed on construction through EntitySpec/YAML.
      */
+    @Deprecated
     public T application(org.apache.brooklyn.core.entity.factory.ApplicationBuilder appBuilder) {
         LOG.warn("Caller supplied ApplicationBuilder; convert to EntitySpec as this style builder may not be supported in future.");
         appBuildersToManage.add(checkNotNull(appBuilder, "appBuilder"));

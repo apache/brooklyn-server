@@ -101,6 +101,7 @@ public class Locations {
      * @since 0.6.0 (added only for backwards compatibility, where locations are being created directly; previously in {@link Entities}).
      * @deprecated in 0.6.0; use {@link LocationManager#createLocation(LocationSpec)} instead.
      */
+    @Deprecated
     public static void manage(Location loc, ManagementContext managementContext) {
         if (!managementContext.getLocationManager().isManaged(loc)) {
             log.warn("Deprecated use of unmanaged location ("+loc+"); will be managed automatically now but not supported in future versions");

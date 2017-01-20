@@ -42,6 +42,7 @@ import com.google.common.reflect.TypeToken;
  * 
  * @deprecated since 0.7.0; use {@link Enrichers#builder()}
  */
+@Deprecated
 public class CustomAggregatingEnricher<S,T> extends AbstractAggregatingEnricher<S,T> implements SensorEventListener<S> {
     
     private static final Logger LOG = LoggerFactory.getLogger(CustomAggregatingEnricher.class);
@@ -146,6 +147,7 @@ public class CustomAggregatingEnricher<S,T> extends AbstractAggregatingEnricher<
      *
      * @deprecated since 0.7.0; use {@link Enrichers#builder()}
      */
+    @Deprecated
     public static <S,T> CustomAggregatingEnricher<S,T> newEnricher(
             Map<String,?> flags, AttributeSensor<S> source, AttributeSensor<T> target, Closure<?> aggregator, S defaultVal) {
         return new CustomAggregatingEnricher<S,T>(flags, source, target, aggregator, defaultVal);
@@ -183,6 +185,7 @@ public class CustomAggregatingEnricher<S,T> extends AbstractAggregatingEnricher<
      *
      * @deprecated since 0.7.0; use {@link Enrichers#builder()}
      */
+    @Deprecated
     public static <S,T> CustomAggregatingEnricher<S,T> newEnricher(
             Map<String,?> flags, AttributeSensor<S> source, AttributeSensor<T> target, Function<Collection<S>, T> aggregator, S defaultVal) {
         return new CustomAggregatingEnricher<S,T>(flags, source, target, aggregator, defaultVal);
@@ -225,6 +228,7 @@ public class CustomAggregatingEnricher<S,T> extends AbstractAggregatingEnricher<
      *
      * @deprecated since 0.7.0; use {@link Enrichers#builder()}
      */
+    @Deprecated
     public static <N extends Number, T extends Number> CustomAggregatingEnricher<N,T> newSummingEnricher(
             Map<String,?> flags, AttributeSensor<N> source, final AttributeSensor<T> target, 
             final N defaultValueForUnreportedSensors, final T valueToReportIfNoSensors) {
@@ -267,6 +271,7 @@ public class CustomAggregatingEnricher<S,T> extends AbstractAggregatingEnricher<
      *
      * @deprecated since 0.7.0; use {@link Enrichers#builder()}
      */
+    @Deprecated
     public static <N extends Number> CustomAggregatingEnricher<N,Double> newAveragingEnricher(
             Map<String,?> flags, AttributeSensor<? extends N> source, final AttributeSensor<Double> target,
             final N defaultValueForUnreportedSensors, final Double valueToReportIfNoSensors) {
