@@ -21,8 +21,6 @@ package org.apache.brooklyn.entity.software.base;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;

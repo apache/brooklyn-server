@@ -20,8 +20,6 @@ package org.apache.brooklyn.enricher.stock;
 
 import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.List;
-
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;

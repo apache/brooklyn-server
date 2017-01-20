@@ -26,7 +26,6 @@ import java.io.IOException;
 import java.util.List;
 
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
-import org.apache.brooklyn.util.core.internal.ssh.SshAbstractTool.SshAction;
 import org.apache.brooklyn.util.core.internal.ssh.sshj.SshjTool;
 import org.apache.brooklyn.util.core.internal.ssh.sshj.SshjTool.ShellAction;
 import org.apache.brooklyn.util.exceptions.Exceptions;

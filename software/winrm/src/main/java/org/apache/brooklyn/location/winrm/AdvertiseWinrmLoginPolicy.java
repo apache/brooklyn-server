@@ -27,7 +27,6 @@ import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

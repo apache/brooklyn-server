@@ -24,12 +24,10 @@ import java.util.Map;
 import javax.management.openmbean.CompositeData;
 import javax.management.openmbean.TabularData;
 
-import org.apache.brooklyn.api.location.Location;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
-import com.google.common.base.Predicate;
 import com.google.common.collect.Maps;
 
 public class JmxValueFunctions {

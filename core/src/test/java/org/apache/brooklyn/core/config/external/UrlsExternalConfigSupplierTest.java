@@ -19,8 +19,6 @@
 package org.apache.brooklyn.core.config.external;
 
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
-
 import java.io.File;
 import java.util.List;
 

@@ -21,7 +21,6 @@ package org.apache.brooklyn.policy.loadbalancing;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;

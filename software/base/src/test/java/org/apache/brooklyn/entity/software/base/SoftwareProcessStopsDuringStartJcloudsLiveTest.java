@@ -20,7 +20,6 @@ package org.apache.brooklyn.entity.software.base;
 
 import static org.apache.brooklyn.test.Asserts.assertEquals;
 import static org.apache.brooklyn.test.Asserts.assertNotNull;
-import static org.apache.brooklyn.test.Asserts.assertTrue;
 import static org.apache.brooklyn.test.Asserts.fail;
 
 import java.util.Map;

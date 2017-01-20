@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.launcher.osgi;
 
-import org.apache.brooklyn.core.mgmt.persist.ConfigLoader;
 import org.apache.brooklyn.core.mgmt.persist.DeserializingClassRenamesProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

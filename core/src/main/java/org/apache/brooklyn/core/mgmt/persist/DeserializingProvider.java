@@ -19,7 +19,6 @@
 package org.apache.brooklyn.core.mgmt.persist;
 
 import com.google.common.annotations.Beta;
-import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

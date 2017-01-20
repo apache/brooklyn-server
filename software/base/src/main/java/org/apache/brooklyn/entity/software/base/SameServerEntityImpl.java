@@ -21,8 +21,6 @@ package org.apache.brooklyn.entity.software.base;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.Collection;
-import java.util.List;
-
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.entity.AbstractEntity;

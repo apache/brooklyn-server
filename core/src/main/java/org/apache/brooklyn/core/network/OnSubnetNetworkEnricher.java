@@ -23,7 +23,6 @@ import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Attributes;
-import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.annotations.Beta;
