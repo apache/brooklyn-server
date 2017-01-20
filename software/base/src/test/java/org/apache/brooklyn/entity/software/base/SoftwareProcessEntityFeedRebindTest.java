@@ -111,7 +111,7 @@ public class SoftwareProcessEntityFeedRebindTest extends RebindTestFixtureWithAp
         }
 
         LOG.info("Rebinding "+numEntities+" entities");
-        newApp = (TestApplication) rebind();
+        newApp = rebind();
         
         // Slight pause is to give the feeds a chance to execute, to publish their event(s)
         Duration.sleep(delayAfterRebind);

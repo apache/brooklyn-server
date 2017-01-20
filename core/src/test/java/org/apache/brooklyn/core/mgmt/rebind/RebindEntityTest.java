@@ -640,7 +640,7 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
     @Test
     public void testRebindAttributeWithSpecialCharacters() throws Exception {
         String val = "abc\u001b";
-        assertEquals((int)val.charAt(3), 27); // expect that to give us unicode character 27
+        assertEquals(val.charAt(3), 27); // expect that to give us unicode character 27
         
         MyEntity origE = origApp.createAndManageChild(EntitySpec.create(MyEntity.class));
         origE.sensors().set(MyEntity.MY_SENSOR, val);

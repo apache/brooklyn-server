@@ -1316,7 +1316,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     @Override
     @Deprecated
     public <T> T setConfig(HasConfigKey<T> key, Task<T> val) {
-        return (T) config().set(key, val);
+        return config().set(key, val);
     }
 
     @SuppressWarnings("unchecked")

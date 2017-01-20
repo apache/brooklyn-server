@@ -175,7 +175,7 @@ public class JmxService {
     }
     
     public StandardEmitterMBean registerMBean(List<String> notifications, String name) throws InstanceAlreadyExistsException, MBeanRegistrationException, NotCompliantMBeanException, MalformedObjectNameException, NullPointerException {
-        String[] types = (String[]) notifications.toArray(new String[0]);
+        String[] types = notifications.toArray(new String[0]);
         MBeanNotificationInfo info = new MBeanNotificationInfo(types, Notification.class.getName(), "Notification");
         NotificationEmitter emitter = new NotificationBroadcasterSupport(info);
         StandardEmitterMBean mbean = new StandardEmitterMBean(emitter, NotificationEmitter.class, emitter);

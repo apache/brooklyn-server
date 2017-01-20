@@ -74,7 +74,7 @@ public class EffectorUtils {
      * the values.
      */
     public static Object[] prepareArgsForEffector(Effector<?> eff, Map<?,?> args) {
-        return prepareArgsForEffectorFromMap(eff, (Map<?,?>) args);
+        return prepareArgsForEffectorFromMap(eff, args);
     }
 
     /** prepares arguments for an effector either accepting:

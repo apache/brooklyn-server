@@ -338,9 +338,9 @@ public class JsonFunctions {
     @SuppressWarnings("unchecked")
     protected static <T> T doCast(JsonElement input, Class<T> expected) {
         if (input == null) {
-            return (T) null;
+            return null;
         } else if (input.isJsonNull()) {
-            return (T) null;
+            return null;
         } else if (expected == boolean.class || expected == Boolean.class) {
             return (T) (Boolean) input.getAsBoolean();
         } else if (expected == char.class || expected == Character.class) {

@@ -323,7 +323,7 @@ public class BasicExecutionManager implements ExecutionManager {
         Set<Task<?>> result = tasksWithTagLiveOrNull(tag);
         if (result==null) return Collections.emptySet();
         synchronized (result) {
-            return (Set<Task<?>>)Collections.unmodifiableSet(new LinkedHashSet<Task<?>>(result));
+            return Collections.unmodifiableSet(new LinkedHashSet<Task<?>>(result));
         }
     }
     

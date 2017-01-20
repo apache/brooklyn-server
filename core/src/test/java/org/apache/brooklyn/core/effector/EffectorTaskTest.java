@@ -333,7 +333,7 @@ public class EffectorTaskTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testEffectorBodyAdded() throws Exception {
-        EntityInternal doubler = (EntityInternal) app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        EntityInternal doubler = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         
         // not yet present
         Assert.assertNull( doubler.getEffector("double") );
@@ -354,7 +354,7 @@ public class EffectorTaskTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testEffectorBodyAddedImplicitlyButBodylessSignatureInvoked() throws Exception {
-        EntityInternal doubler = (EntityInternal) app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        EntityInternal doubler = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         
         // add it
         doubler.getMutableEntityType().addEffector(DOUBLE_1);
@@ -366,7 +366,7 @@ public class EffectorTaskTest extends BrooklynAppUnitTestSupport {
  
     @Test(dependsOnMethods={"testEffectorBodyAdded"})
     public void testEntityNotPermanentlyChanged() throws Exception {
-        EntityInternal doubler = (EntityInternal) app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        EntityInternal doubler = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         // ensures that independent creations of the class previously modified do not have this effector 
         Assert.assertNull( doubler.getEffector("double") );
    }

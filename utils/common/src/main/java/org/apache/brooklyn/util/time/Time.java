@@ -451,7 +451,7 @@ public class Time {
     }
     /** @deprecated since 0.7.0 see {@link #parseElapsedTime(String)} */ @Deprecated
     public static long parseTimeString(String timeString) {
-        return (long) parseElapsedTime(timeString);
+        return parseElapsedTime(timeString);
     }
     /** @deprecated since 0.7.0 see {@link #parseElapsedTimeAsDouble(String)} */ @Deprecated
     public static double parseTimeStringAsDouble(String timeString) {

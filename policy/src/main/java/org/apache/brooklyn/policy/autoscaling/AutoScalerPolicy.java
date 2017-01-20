@@ -430,7 +430,7 @@ public class AutoScalerPolicy extends AbstractPolicy {
     private final SensorEventListener<Map> utilizationEventHandler = new SensorEventListener<Map>() {
         @Override
         public void onEvent(SensorEvent<Map> event) {
-            Map<String, ?> properties = (Map<String, ?>) event.getValue();
+            Map<String, ?> properties = event.getValue();
             Sensor<?> sensor = event.getSensor();
             
             if (sensor.equals(getPoolColdSensor())) {
@@ -1055,7 +1055,7 @@ public class AutoScalerPolicy extends AbstractPolicy {
                 public Void call() throws Exception {
                     // TODO Should we use int throughout, rather than casting here?
                     try {
-                        getResizeOperator().resize(poolEntity, (int) targetPoolSize);
+                        getResizeOperator().resize(poolEntity, targetPoolSize);
                     } catch (Resizable.InsufficientCapacityException e) {
                         // cannot resize beyond this; set the high-water mark
                         int insufficientCapacityHighWaterMark = getCurrentSizeOperator().apply(poolEntity);

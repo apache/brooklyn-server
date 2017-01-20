@@ -255,7 +255,7 @@ implements MachineProvisioningLocation<T>, Closeable {
                 machines.remove(machine);
                 pendingRemoval.remove(machine);
                 if (this.equals(machine.getParent())) {
-                    removeChild((Location)machine);
+                    removeChild(machine);
                 }
             }
         }

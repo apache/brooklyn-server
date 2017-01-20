@@ -486,10 +486,10 @@ public class JcloudsLocationTest implements JcloudsLocationConfig {
             
             // explicitly invoke this customizer, to comply with tests
             for (JcloudsLocationCustomizer customizer : getCustomizers(config().getBag())) {
-                customizer.customize(this, null, (JcloudsMachineLocation)result);
+                customizer.customize(this, null, result);
             }
             for (MachineLocationCustomizer customizer : getMachineCustomizers(config().getBag())) {
-                customizer.customize((JcloudsMachineLocation)result);
+                customizer.customize(result);
             }
 
             return result;

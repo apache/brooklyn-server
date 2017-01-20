@@ -1345,7 +1345,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
     /** returns the jclouds Template which describes the image to be built, for the given config and compute service */
     public Template buildTemplate(ComputeService computeService, ConfigBag config, Collection<JcloudsLocationCustomizer> customizers) {
-        TemplateBuilder templateBuilder = (TemplateBuilder) config.get(TEMPLATE_BUILDER);
+        TemplateBuilder templateBuilder = config.get(TEMPLATE_BUILDER);
         if (templateBuilder==null) {
             templateBuilder = new PortableTemplateBuilder<PortableTemplateBuilder<?>>();
         } else {
@@ -2240,7 +2240,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         try {
             // FIXME: Needs to release port forwarding for WinRmMachineLocations
             if (machine instanceof JcloudsMachineLocation) {
-                releasePortForwarding((JcloudsMachineLocation)machine);
+                releasePortForwarding(machine);
             }
         } catch (Exception e) {
             LOG.error("Problem releasing port-forwarding for machine "+machine+" in "+this+", instance id "+instanceId+

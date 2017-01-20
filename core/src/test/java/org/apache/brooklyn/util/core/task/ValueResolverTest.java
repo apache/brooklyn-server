@@ -289,7 +289,7 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
         public static CallInfo newInstance() {
             Exception e = new Exception("for stacktrace");
             e.fillInStackTrace();
-            return new CallInfo(e.getStackTrace(), (Task<?>) Tasks.current());
+            return new CallInfo(e.getStackTrace(), Tasks.current());
         }
         
         CallInfo(StackTraceElement[] stackTrace, Task<?> task) {

@@ -120,7 +120,7 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
                         .onSuccess(HttpValueFunctions.stringContentsFunction()))
                 .build();
         
-        assertSensorEventually(SENSOR_INT, (Integer)200, TIMEOUT_MS);
+        assertSensorEventually(SENSOR_INT, 200, TIMEOUT_MS);
         assertSensorEventually(SENSOR_STRING, "{\"foo\":\"myfoo\"}", TIMEOUT_MS);
     }
     
@@ -150,7 +150,7 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
                         .onSuccess(HttpValueFunctions.responseCode()))
                 .build();
         
-        assertSensorEventually(SENSOR_INT, (Integer)200, TIMEOUT_MS);
+        assertSensorEventually(SENSOR_INT, 200, TIMEOUT_MS);
     }
     
     // TODO How to cause the other end to just freeze (similar to aws-ec2 when securityGroup port is not open)?
@@ -194,7 +194,7 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
                         .onSuccess(HttpValueFunctions.stringContentsFunction()))
                 .build();
         
-        assertSensorEventually(SENSOR_INT, (Integer)200, TIMEOUT_MS);
+        assertSensorEventually(SENSOR_INT, 200, TIMEOUT_MS);
         assertSensorEventually(SENSOR_STRING, "{\"foo\":\"myfoo\"}", TIMEOUT_MS);
     }
 
@@ -262,7 +262,7 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
                         .period(100)
                         .onSuccess(HttpValueFunctions.stringContentsFunction()))
                 .build();
-        assertSensorEventually(SENSOR_INT, (Integer)200, TIMEOUT_MS);
+        assertSensorEventually(SENSOR_INT, 200, TIMEOUT_MS);
         feed.suspend();
         final int countWhenSuspended = server.getRequestCount();
         
@@ -323,7 +323,7 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testPollsMulti() throws Exception {
         newMultiFeed(baseUrl);
-        assertSensorEventually(SENSOR_INT, (Integer)200, TIMEOUT_MS);
+        assertSensorEventually(SENSOR_INT, 200, TIMEOUT_MS);
         assertSensorEventually(SENSOR_STRING, "{\"foo\":\"myfoo\"}", TIMEOUT_MS);
     }
 

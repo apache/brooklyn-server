@@ -754,7 +754,7 @@ public class SshjTool extends SshAbstractTool implements SshTool {
             this.uid = getOptionalVal(props, PROP_OWNER_UID);
             this.path = checkNotNull(path, "path");
             this.contentsSupplier = checkNotNull(contentsSupplier, "contents");
-            this.length = Ints.checkedCast(checkNotNull((long)length, "size"));
+            this.length = Ints.checkedCast(checkNotNull(length, "size"));
         }
 
         @Override

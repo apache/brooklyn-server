@@ -195,7 +195,7 @@ public class ServerPoolImpl extends DynamicClusterImpl implements ServerPool {
         sensors().set(LOCATION_NAME, locationName);
         sensors().set(DYNAMIC_LOCATION, location);
 
-        return (ServerPoolLocation) location;
+        return location;
     }
 
     @Override

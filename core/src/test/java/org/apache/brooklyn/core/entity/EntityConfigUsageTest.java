@@ -137,7 +137,7 @@ public class EntityConfigUsageTest extends BrooklynAppUnitTestSupport {
         TestEntity entity = parent.createAndManageChild(EntitySpec.create(TestEntity.class));
         
         assertEquals(entity.getConfig(strKey), "aval");
-        assertEquals(2, entity.getConfig(intKey), (Integer)2);
+        assertEquals(2, entity.getConfig(intKey), 2);
     }
     
     @Test

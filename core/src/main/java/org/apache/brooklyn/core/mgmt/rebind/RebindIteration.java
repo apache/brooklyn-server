@@ -351,7 +351,7 @@ public abstract class RebindIteration {
         // See notes in CatalogInitialization
         
         Collection<CatalogItem<?, ?>> catalogItems = rebindContext.getCatalogItems();
-        CatalogInitialization catInit = ((ManagementContextInternal)managementContext).getCatalogInitialization();
+        CatalogInitialization catInit = managementContext.getCatalogInitialization();
         catInit.applyCatalogLoadMode();
         Collection<CatalogItem<?,?>> itemsForResettingCatalog = null;
         boolean needsInitialItemsLoaded, needsAdditionalItemsLoaded;
@@ -450,7 +450,7 @@ public abstract class RebindIteration {
             if (LOG.isTraceEnabled()) LOG.trace("RebindManager instantiating entity {}", entityId);
             
             try {
-                Entity entity = (Entity) instantiator.newEntity(entityManifest);
+                Entity entity = instantiator.newEntity(entityManifest);
                 ((EntityInternal)entity).getManagementSupport().setReadOnly( rebindContext.isReadOnly(entity) );
                 rebindContext.registerEntity(entityId, entity);
 
@@ -895,7 +895,7 @@ public abstract class RebindIteration {
 
                 // TODO document the multiple sources of flags, and the reason for setting the mgmt context *and* supplying it as the flag
                 // (NB: merge reported conflict as the two things were added separately)
-                entity = (Entity) invokeConstructor(null, entityClazz, new Object[] {flags}, new Object[] {flags, null}, new Object[] {null}, new Object[0]);
+                entity = invokeConstructor(null, entityClazz, new Object[] {flags}, new Object[] {flags, null}, new Object[] {null}, new Object[0]);
 
                 // In case the constructor didn't take the Map arg, then also set it here.
                 // e.g. for top-level app instances such as WebClusterDatabaseExampleApp will (often?) not have
@@ -1025,7 +1025,7 @@ public abstract class RebindIteration {
                 // TODO Feels very hacky!
                 Map<String,?> flags = MutableMap.of("id", locationId, "deferConstructionChecks", true);
 
-                return (Location) invokeConstructor(reflections, locationClazz, new Object[] {flags});
+                return invokeConstructor(reflections, locationClazz, new Object[] {flags});
             }
             // note 'used' config keys get marked in BasicLocationRebindSupport
         }

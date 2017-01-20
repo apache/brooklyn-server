@@ -81,7 +81,7 @@ public abstract class ApplicationBuilder {
     @Deprecated
     public static <T extends StartableApplication> T newManagedApp(Class<T> type) {
         if (type.isInterface()) {
-            return (T) newManagedApp(EntitySpec.create(type));
+            return newManagedApp(EntitySpec.create(type));
         } else {
             return (T) newManagedApp(EntitySpec.create(StartableApplication.class, type));
         }
@@ -99,7 +99,7 @@ public abstract class ApplicationBuilder {
     @Beta
     public static <T extends StartableApplication> T newManagedApp(Class<T> type, ManagementContext managementContext) {
         if (type.isInterface()) {
-            return (T) newManagedApp(EntitySpec.create(type), managementContext);
+            return newManagedApp(EntitySpec.create(type), managementContext);
         } else {
             return (T) newManagedApp(EntitySpec.create(StartableApplication.class, type), managementContext);
         }

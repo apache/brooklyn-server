@@ -987,7 +987,7 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
     @Override
     public void releasePort(int portNumber) {
         synchronized (usedPorts) {
-            usedPorts.remove((Object) portNumber);
+            usedPorts.remove(portNumber);
         }
     }
 

@@ -108,7 +108,7 @@ public class InitdServiceInstaller implements SystemServiceInstaller {
         if (entity instanceof HasShortName) {
             name = ((HasShortName)entity).getShortName();
         } else if (entity instanceof Entity) {
-            name = ((Entity)entity).getDisplayName();
+            name = entity.getDisplayName();
         } else {
             name = "brooklyn-service";
         }

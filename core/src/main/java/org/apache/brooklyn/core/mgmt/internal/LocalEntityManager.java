@@ -382,7 +382,7 @@ public class LocalEntityManager implements EntityManagerInternal {
             }
             
             // check RO status is consistent
-            boolean isNowReadOnly = Boolean.TRUE.equals( ((EntityInternal)it).getManagementSupport().isReadOnly() );
+            boolean isNowReadOnly = Boolean.TRUE.equals( it.getManagementSupport().isReadOnly() );
             if (mode.isReadOnly()!=isNowReadOnly) {
                 throw new IllegalStateException("Read-only status mismatch for "+it+": "+mode+" / RO="+isNowReadOnly);
             }

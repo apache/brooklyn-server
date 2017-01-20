@@ -95,7 +95,7 @@ public class ReflectiveEntityDriverFactory {
         @SuppressWarnings({ "unchecked", "rawtypes" })
         protected <D extends EntityDriver> ReferenceWithError<Class<? extends D>> loadClass(String className, ClassLoader classLoader) {
             try {
-                return (ReferenceWithError<Class<? extends D>>)(ReferenceWithError) ReferenceWithError.newInstanceWithoutError((Class<? extends EntityDriver>)classLoader.loadClass(className));
+                return (ReferenceWithError) ReferenceWithError.newInstanceWithoutError((Class<? extends EntityDriver>)classLoader.loadClass(className));
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
                 return ReferenceWithError.newInstanceThrowingError(null, e);

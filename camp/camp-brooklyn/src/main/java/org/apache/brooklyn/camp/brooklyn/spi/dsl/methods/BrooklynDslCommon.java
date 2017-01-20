@@ -511,7 +511,7 @@ public class BrooklynDslCommon {
         @Override
         public Maybe<Object> getImmediately() {
             final Class<?> clazz = getOrLoadType();
-            final ExecutionContext executionContext = ((EntityInternal)entity()).getExecutionContext();
+            final ExecutionContext executionContext = entity().getExecutionContext();
 
             // Marker exception that one of our component-parts cannot yet be resolved - 
             // throwing and catching this allows us to abort fast.
@@ -552,7 +552,7 @@ public class BrooklynDslCommon {
         @Override
         public Task<Object> newTask() {
             final Class<?> clazz = getOrLoadType();
-            final ExecutionContext executionContext = ((EntityInternal)entity()).getExecutionContext();
+            final ExecutionContext executionContext = entity().getExecutionContext();
             
             final Function<Object, Object> resolver = new Function<Object, Object>() {
                 @Override public Object apply(Object value) {

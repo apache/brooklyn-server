@@ -262,7 +262,7 @@ public class Enrichers {
                 @SuppressWarnings({ "unchecked", "rawtypes" })
                 public Function<? super Collection<S>, ? extends T> get() {
                     // relies on TypeCoercion of result from Number to T, and type erasure for us to get away with it!
-                    return (Function)new ComputingSum((Number)defaultValueForUnreportedSensors, (Number)valueToReportIfNoSensors, publishing.getTypeToken());
+                    return new ComputingSum((Number)defaultValueForUnreportedSensors, (Number)valueToReportIfNoSensors, publishing.getTypeToken());
                 }
             };
             return self();
@@ -273,7 +273,7 @@ public class Enrichers {
                 @SuppressWarnings({ "unchecked", "rawtypes" })
                 public Function<? super Collection<S>, ? extends T> get() {
                     // relies on TypeCoercion of result from Number to T, and type erasure for us to get away with it!
-                    return (Function)new ComputingAverage((Number)defaultValueForUnreportedSensors, (Number)valueToReportIfNoSensors, publishing.getTypeToken());
+                    return new ComputingAverage((Number)defaultValueForUnreportedSensors, (Number)valueToReportIfNoSensors, publishing.getTypeToken());
                 }
             };
             return self();
@@ -860,7 +860,7 @@ public class Enrichers {
         }
         @SuppressWarnings({ "rawtypes", "unchecked" })
         @Override public T apply(Collection<T> input) {
-            return (T) sum((Collection)input, (Number)defaultValueForUnreportedSensors, (Number)valueToReportIfNoSensors, typeToken);
+            return (T) sum(input, defaultValueForUnreportedSensors, valueToReportIfNoSensors, typeToken);
         }
     }
 
@@ -871,7 +871,7 @@ public class Enrichers {
         }
         @SuppressWarnings({ "rawtypes", "unchecked" })
         @Override public T apply(Collection<T> input) {
-            return (T) average((Collection)input, (Number)defaultValueForUnreportedSensors, (Number)valueToReportIfNoSensors, typeToken);
+            return (T) average(input, defaultValueForUnreportedSensors, valueToReportIfNoSensors, typeToken);
         }
     }
 

@@ -95,7 +95,7 @@ public class BasicExecutionContext extends AbstractExecutionContext {
     
     /** returns tasks started by this context (or tasks which have all the tags on this object) */
     @Override
-    public Set<Task<?>> getTasks() { return executionManager.getTasksWithAllTags((Set<?>)tags); }
+    public Set<Task<?>> getTasks() { return executionManager.getTasksWithAllTags(tags); }
      
     @SuppressWarnings({ "unchecked", "rawtypes" })
     @Override

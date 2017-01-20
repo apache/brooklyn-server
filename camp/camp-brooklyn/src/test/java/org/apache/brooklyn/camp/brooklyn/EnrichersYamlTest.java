@@ -266,7 +266,7 @@ public class EnrichersYamlTest extends AbstractYamlTest {
             Entity fromConfig = ((EntityInternal)entity).getExecutionContext().submit(MutableMap.of(), new Callable<Entity>() {
                 @Override
                 public Entity call() throws Exception {
-                    return (Entity) enricher.getConfig(key);
+                    return enricher.getConfig(key);
                 }
             }).get();
             Assert.assertEquals(fromConfig, keyToEntity.get(key));

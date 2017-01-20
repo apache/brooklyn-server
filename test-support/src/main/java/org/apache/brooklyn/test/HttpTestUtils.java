@@ -189,7 +189,7 @@ public class HttpTestUtils {
     public static void assertHttpStatusCodeEquals(String url, int... acceptableReturnCodes) {
         List<Integer> acceptableCodes = Lists.newArrayList();
         for (int code : acceptableReturnCodes) {
-            acceptableCodes.add((Integer)code);
+            acceptableCodes.add(code);
         }
         try {
             int actualCode = getHttpStatusCode(url);

@@ -99,7 +99,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         Entity entity = app.getChildren().iterator().next();
         Assert.assertTrue(entity instanceof TestEntity, "Expected TestEntity, found " + entity.getClass());
         
-        return (TestEntity)entity;
+        return entity;
     }
     
     @Test
@@ -277,7 +277,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         TestEntity testEntity = (TestEntity) entity;
         List<String> thingList = (List<String>)testEntity.getConfig(TestEntity.CONF_LIST_THING);
         Set<String> thingSet = (Set<String>)testEntity.getConfig(TestEntity.CONF_SET_THING);
-        Map<String, String> thingMap = (Map<String, String>)testEntity.getConfig(TestEntity.CONF_MAP_THING);
+        Map<String, String> thingMap = testEntity.getConfig(TestEntity.CONF_MAP_THING);
         Assert.assertEquals(thingList, Lists.newArrayList());
         Assert.assertEquals(thingSet, ImmutableSet.of());
         Assert.assertEquals(thingMap, ImmutableMap.of());

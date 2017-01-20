@@ -52,7 +52,7 @@ public class EnumTypeCoercions {
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public static <T> Function<String, T> stringToEnumUntyped(final Class<? super T> type, @Nullable final T defaultValue) {
         if (!type.isEnum()) return new Functionals.ConstantFunction<String,T>(null);
-        return (Function<String, T>) new StringToEnumFunction((Class<Enum>)type, (Enum)defaultValue);
+        return new StringToEnumFunction((Class<Enum>)type, (Enum)defaultValue);
     }
     
     private static class StringToEnumFunction<E extends Enum<E>> implements Function<String, E> {

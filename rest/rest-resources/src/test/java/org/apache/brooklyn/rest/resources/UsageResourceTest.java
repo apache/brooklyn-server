@@ -359,14 +359,14 @@ public class UsageResourceTest extends BrooklynRestResourceTest {
     
     private Calendar roundDown(Calendar calendar) {
         long time = calendar.getTime().getTime();
-        long timeDown = ((long)(time / 1000)) * 1000;
+        long timeDown = (time / 1000) * 1000;
         return Time.newCalendarFromMillisSinceEpochUtc(timeDown);
     }
     
     @SuppressWarnings("unused")
     private Calendar roundUp(Calendar calendar) {
         long time = calendar.getTime().getTime();
-        long timeDown = ((long)(time / 1000)) * 1000;
+        long timeDown = (time / 1000) * 1000;
         long timeUp = (time == timeDown) ? time : timeDown + 1000;
         return Time.newCalendarFromMillisSinceEpochUtc(timeUp);
     }

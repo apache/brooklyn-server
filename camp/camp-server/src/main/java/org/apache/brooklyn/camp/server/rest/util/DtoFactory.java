@@ -134,7 +134,7 @@ public class DtoFactory {
                     return Urls.mergePaths(resourceTypeUriBase, id);
                 }
             };
-            registryId.put(type, (Function<String, String>) fnUriFromId);
+            registryId.put(type, fnUriFromId);
             registerResourceUriFunction(type, new Function<T,String>() {
                 @Override
                 public String apply(T input) {

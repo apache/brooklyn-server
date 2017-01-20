@@ -74,7 +74,7 @@ public class RebindSshMachineLocationTest extends RebindTestFixtureWithApp {
         assertEquals(origChildLoc.execScript(Collections.<String,Object>emptyMap(), "mysummary", ImmutableList.of("true")), 0);
         origApp.start(ImmutableList.of(origLoc));
 
-        newApp = (TestApplication) rebind();
+        newApp = rebind();
         @SuppressWarnings("unchecked")
         FixedListMachineProvisioningLocation<SshMachineLocation> newLoc = (FixedListMachineProvisioningLocation<SshMachineLocation>) Iterables.getOnlyElement(newApp.getLocations(), 0);
         SshMachineLocation newChildLoc = (SshMachineLocation) Iterables.get(newLoc.getChildren(), 0);
@@ -93,7 +93,7 @@ public class RebindSshMachineLocationTest extends RebindTestFixtureWithApp {
         origApp.start(ImmutableList.of(byon));
         LOG.info("Before rebind, machine="+machine.toString());
 
-        newApp = (TestApplication) rebind();
+        newApp = rebind();
         
         FixedListMachineProvisioningLocation<?> newByon = (FixedListMachineProvisioningLocation<?>) Iterables.getOnlyElement(newApp.getLocations(), 0);
         SshMachineLocation newMachine = (SshMachineLocation) Iterables.get(newByon.getChildren(), 0);

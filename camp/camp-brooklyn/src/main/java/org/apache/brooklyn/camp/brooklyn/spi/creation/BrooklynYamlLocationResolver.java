@@ -128,7 +128,7 @@ public class BrooklynYamlLocationResolver {
     }
     
     protected LocationSpec<?> resolveLocation(String spec, Map<?,?> flags) {
-        LocationDefinition ldef = mgmt.getLocationRegistry().getDefinedLocationByName((String)spec);
+        LocationDefinition ldef = mgmt.getLocationRegistry().getDefinedLocationByName(spec);
         if (ldef!=null)
             // found it as a named location
             return mgmt.getLocationRegistry().getLocationSpec(ldef, flags).get();

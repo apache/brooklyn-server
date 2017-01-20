@@ -115,7 +115,7 @@ public class JmxValueFunctions {
         Map<List<?>, Map<String, Object>> result = Maps.newLinkedHashMap();
         for (Object k : table.keySet()) {
             final Object[] kValues = ((List<?>)k).toArray();
-            CompositeData v = (CompositeData) table.get(kValues);
+            CompositeData v = table.get(kValues);
             result.put((List<?>)k, compositeDataToMap(v));
         }
         return result;

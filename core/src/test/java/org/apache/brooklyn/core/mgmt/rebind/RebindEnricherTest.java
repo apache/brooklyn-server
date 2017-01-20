@@ -175,7 +175,7 @@ public class RebindEnricherTest extends RebindTestFixtureWithApp {
                 .configure(MyEnricher.MY_CONFIG_WITH_SETFROMFLAG_WITH_SHORT_NAME, "myVal for setFromFlag withShortName")
                 .configure(MyEnricher.MY_CONFIG_WITHOUT_SETFROMFLAG, "myVal for witout setFromFlag"));
 
-        newApp = (TestApplication) rebind();
+        newApp = rebind();
         MyEnricher newEnricher = (MyEnricher) Iterables.getOnlyElement(newApp.enrichers());
         
         assertEquals(newEnricher.getDisplayName(), "My Enricher");
@@ -192,7 +192,7 @@ public class RebindEnricherTest extends RebindTestFixtureWithApp {
     public void testReboundConfigDoesNotContainId() throws Exception {
         MyEnricher policy = origApp.enrichers().add(EnricherSpec.create(MyEnricher.class));
         
-        newApp = (TestApplication) rebind();
+        newApp = rebind();
         MyEnricher newEnricher = (MyEnricher) Iterables.getOnlyElement(newApp.enrichers());
 
         assertNull(newEnricher.getConfig(ConfigKeys.newStringConfigKey("id")));
@@ -203,7 +203,7 @@ public class RebindEnricherTest extends RebindTestFixtureWithApp {
     public void testIsRebinding() throws Exception {
         origApp.enrichers().add(EnricherSpec.create(EnricherChecksIsRebinding.class));
 
-        newApp = (TestApplication) rebind();
+        newApp = rebind();
         EnricherChecksIsRebinding newEnricher = (EnricherChecksIsRebinding) Iterables.getOnlyElement(newApp.enrichers());
 
         assertTrue(newEnricher.isRebindingValWhenRebinding());
@@ -312,7 +312,7 @@ public class RebindEnricherTest extends RebindTestFixtureWithApp {
         Entities.dumpInfo(e1);
         assertEquals(e1e.size(), 5);
 
-        newApp = (TestApplication) rebind();
+        newApp = rebind();
         Entity e2 = Iterables.getOnlyElement( Entities.descendantsAndSelf(newApp, EntityPredicates.idEqualTo(e1.getId())) );
         Collection<Enricher> e2e = e2.getEnrichers();
         log.info("enrichers2: "+e2e);

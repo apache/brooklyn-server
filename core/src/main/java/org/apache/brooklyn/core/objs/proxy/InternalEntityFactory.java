@@ -351,7 +351,7 @@ public class InternalEntityFactory extends InternalFactory {
                 }
 
                 for (Policy policy : spec.getPolicies()) {
-                    entity.policies().add((AbstractPolicy)policy);
+                    entity.policies().add(policy);
                 }
 
                 for (PolicySpec<?> policySpec : spec.getPolicySpecs()) {

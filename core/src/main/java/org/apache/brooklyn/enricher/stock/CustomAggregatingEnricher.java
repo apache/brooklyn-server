@@ -123,7 +123,7 @@ public class CustomAggregatingEnricher<S,T> extends AbstractAggregatingEnricher<
     
     public T getAggregate() {
         synchronized (values) {
-            return (T) aggregator.apply(values.values());
+            return aggregator.apply(values.values());
         }
     }
 

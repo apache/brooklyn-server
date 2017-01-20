@@ -143,7 +143,7 @@ public class BrooklynNodeUpgradeEffectorBody extends EffectorBody<Void> {
             @Override
             public void run() {
                 DynamicTasks.waitForLast();
-                ((EntityInternal)entity()).sensors().set(SoftwareProcess.INSTALL_DIR, (String)null);
+                entity().sensors().set(SoftwareProcess.INSTALL_DIR, (String)null);
                 entity().config().set(SoftwareProcess.INSTALL_UNIQUE_LABEL, (String)null);
                 entity().config().putAll(parameters.getAllConfig());
                 entity().sensors().set(BrooklynNode.DOWNLOAD_URL, entity().getConfig(DOWNLOAD_URL));

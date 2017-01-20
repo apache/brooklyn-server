@@ -168,7 +168,7 @@ public class SshCommandMembershipTrackingPolicy extends AbstractMembershipTracki
 
         LOG.info("Executing command on {}: {}", machine.get(), command);
         String executionDir = config().get(EXECUTION_DIR);
-        String sshCommand = SshCommandSensor.makeCommandExecutingInDirectory(command, executionDir, (EntityInternal) target);
+        String sshCommand = SshCommandSensor.makeCommandExecutingInDirectory(command, executionDir, target);
 
         // Set things from the entities defined shell environment, overriding with our config
         Map<String, Object> env = MutableMap.of();

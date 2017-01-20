@@ -232,7 +232,7 @@ public class ChefLifecycleEffectorTasks extends MachineLifecycleEffectorTasks im
                 ChefServerTasks.knifeConvergeTask()
                     .knifeNodeName(getNodeName())
                     .knifeRunList(Strings.join(runList, ","))
-                    .knifeAddAttributes((Map<? extends Object, ? extends Object>)(Map) attrs.root().get())
+                    .knifeAddAttributes((Map) attrs.root().get())
                     .knifeRunTwice(entity().getConfig(CHEF_RUN_CONVERGE_TWICE)) );
     }
 

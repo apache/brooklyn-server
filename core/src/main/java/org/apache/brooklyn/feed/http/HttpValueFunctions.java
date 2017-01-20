@@ -61,7 +61,7 @@ public class HttpValueFunctions {
     public static Function<HttpToolResponse, Boolean> responseCodeEquals(final int... expected) {
         List<Integer> expectedList = Lists.newArrayList();
         for (int e : expected) {
-            expectedList.add((Integer)e);
+            expectedList.add(e);
         }
         return Functionals.chain(HttpValueFunctions.responseCode(), Functions.forPredicate(Predicates.in(expectedList)));
     }

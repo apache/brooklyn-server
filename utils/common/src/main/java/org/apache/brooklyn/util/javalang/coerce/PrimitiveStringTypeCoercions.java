@@ -96,7 +96,7 @@ public class PrimitiveStringTypeCoercions {
             // (we could say 0=false, nonzero=true, but there is no compelling use case so better
             // to encourage users to write as boolean)
             if (sourceWrapType == Character.class)
-                return (T) stringToPrimitive(value.toString(), targetType);
+                return stringToPrimitive(value.toString(), targetType);
             
             throw new ClassCoercionException("Cannot cast "+sourceWrapType+" ("+value+") to "+targetType);
         } else if (sourceWrapType == Boolean.class) {
@@ -109,13 +109,13 @@ public class PrimitiveStringTypeCoercions {
         long v = 0;
         boolean islong = true;
         if (sourceWrapType == Character.class) {
-            v = (long) ((Character)value).charValue();
+            v = ((Character)value).charValue();
         } else if (sourceWrapType == Byte.class) {
-            v = (long) ((Byte)value).byteValue();
+            v = ((Byte)value).byteValue();
         } else if (sourceWrapType == Short.class) {
-            v = (long) ((Short)value).shortValue();
+            v = ((Short)value).shortValue();
         } else if (sourceWrapType == Integer.class) {
-            v = (long) ((Integer)value).intValue();
+            v = ((Integer)value).intValue();
         } else if (sourceWrapType == Long.class) {
             v = ((Long)value).longValue();
         } else {
@@ -126,9 +126,9 @@ public class PrimitiveStringTypeCoercions {
             if (targetWrapType == Byte.class) return (T) Byte.valueOf((byte)v); 
             if (targetWrapType == Short.class) return (T) Short.valueOf((short)v); 
             if (targetWrapType == Integer.class) return (T) Integer.valueOf((int)v); 
-            if (targetWrapType == Long.class) return (T) Long.valueOf((long)v); 
-            if (targetWrapType == Float.class) return (T) Float.valueOf((float)v); 
-            if (targetWrapType == Double.class) return (T) Double.valueOf((double)v);
+            if (targetWrapType == Long.class) return (T) Long.valueOf(v); 
+            if (targetWrapType == Float.class) return (T) Float.valueOf(v); 
+            if (targetWrapType == Double.class) return (T) Double.valueOf(v);
             throw new IllegalStateException("Unexpected: sourceType="+sourceWrapType+"; targetType="+targetWrapType);
         }
         
@@ -136,9 +136,9 @@ public class PrimitiveStringTypeCoercions {
         double d = 0;
         boolean isdouble = true;
         if (sourceWrapType == Float.class) {
-            d = (double) ((Float)value).floatValue();
+            d = ((Float)value).floatValue();
         } else if (sourceWrapType == Double.class) {
-            d = (double) ((Double)value).doubleValue();
+            d = ((Double)value).doubleValue();
         } else {
             isdouble = false;
         }
@@ -149,7 +149,7 @@ public class PrimitiveStringTypeCoercions {
             if (targetWrapType == Integer.class) return (T) Integer.valueOf((int)d); 
             if (targetWrapType == Long.class) return (T) Long.valueOf((long)d); 
             if (targetWrapType == Float.class) return (T) Float.valueOf((float)d); 
-            if (targetWrapType == Double.class) return (T) Double.valueOf((double)d);
+            if (targetWrapType == Double.class) return (T) Double.valueOf(d);
             throw new IllegalStateException("Unexpected: sourceType="+sourceWrapType+"; targetType="+targetWrapType);
         } else {
             throw new IllegalStateException("Unexpected: sourceType="+sourceWrapType+"; targetType="+targetWrapType);

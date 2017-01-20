@@ -60,7 +60,7 @@ public class RequestTaggingRsFilterTest extends BrooklynRestResourceTest {
     private String fetchTag() {
         Response response = fetch("/tag");
         assertEquals(response.getStatus(), HttpStatus.SC_OK);
-        String tag = (String) response.readEntity(String.class);
+        String tag = response.readEntity(String.class);
         assertNotNull(tag);
         return tag;
     }

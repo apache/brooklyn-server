@@ -207,7 +207,7 @@ public class MementosGenerators {
             AttributeSensor<?> key = checkNotNull(entry.getKey(), allAttributes);
             if (key.getPersistenceMode() != SensorPersistenceMode.NONE) {
                 Object value = entry.getValue();
-                builder.attributes.put((AttributeSensor<?>)key, value);
+                builder.attributes.put(key, value);
             }
         }
         

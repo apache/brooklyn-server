@@ -53,7 +53,7 @@ public class StubContainerImpl extends BasicStartableImpl implements StubContain
 
     @Override
     public StubHost getDockerHost() {
-        return (StubHost) config().get(DOCKER_HOST);
+        return config().get(DOCKER_HOST);
     }
 
     @Override

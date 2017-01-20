@@ -163,14 +163,14 @@ public class Yamls {
     @SuppressWarnings("unchecked")
     public static Iterable<Object> parseAll(String yaml) {
         Iterable<Object> result = newYaml().loadAll(yaml);
-        return (List<Object>) getAs(result, List.class);
+        return getAs(result, List.class);
     }
 
     /** as {@link #parseAll(String)} */
     @SuppressWarnings("unchecked")
     public static Iterable<Object> parseAll(Reader yaml) {
         Iterable<Object> result = newYaml().loadAll(yaml);
-        return (List<Object>) getAs(result, List.class);
+        return getAs(result, List.class);
     }
 
     public static Object removeMultinameAttribute(Map<String,Object> obj, String ...equivalentNames) {

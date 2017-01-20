@@ -229,7 +229,7 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
     }
 
     public static synchronized void releasePort(InetAddress localAddress, int portNumber) {
-        portsInUse.remove((Object) portNumber);
+        portsInUse.remove(portNumber);
     }
 
     @Override
@@ -296,7 +296,7 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
         @Override
         public void releasePort(int portNumber) {
             synchronized (portsObtained) {
-                portsObtained.remove((Object)portNumber);
+                portsObtained.remove(portNumber);
             }
             LocalhostMachineProvisioningLocation.releasePort(getAddress(), portNumber);
         }
