@@ -28,6 +28,7 @@ import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.config.ConfigUtils;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.cxf.rs.security.cors.CrossOriginResourceSharingFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,7 +42,7 @@ import java.util.List;
 
 /**
  * <p>
- * Enables support for Cross Origin Resource Sharing (CORS) filtering on requests in BrooklynWebServer.
+ * Enables support for Cross Origin Resource Sharing (CORS) filtering on Apache Brooklyn REST API.
  * If enabled, the allowed origins for the CORS headers should be configured
  * using the <code>brooklyn.experimental.feature.corsCxfFeature.allowedOrigins=[]</code> property.
  * </p>
@@ -63,7 +64,7 @@ public class CorsImplSupplierFilter extends CrossOriginResourceSharingFilter {
      * @see CrossOriginResourceSharingFilter#setAllowOrigins(List<String>)
      */
     public static final ConfigKey<List<String>> ALLOW_ORIGINS = ConfigKeys.newConfigKey(new TypeToken<List<String>>() {},
-            "allowedOrigins",
+            "allowOrigins",
             "List of allowed origins. Access-Control-Allow-Origin header will be returned to client if Origin header in request is matching exactly a value among the list allowed origins. " +
                     "If AllowedOrigins is empty or not specified then all origins are allowed. " +
                     "No wildcard allowed origins are supported.",
@@ -73,7 +74,7 @@ public class CorsImplSupplierFilter extends CrossOriginResourceSharingFilter {
      * @see CrossOriginResourceSharingFilter#setAllowHeaders(List<String>)
      */
     public static final ConfigKey<List<String>> ALLOW_HEADERS = ConfigKeys.newConfigKey(new TypeToken<List<String>>() {},
-            "allowedHeaders",
+            "allowHeaders",
             "List of allowed headers for preflight checks.",
             Collections.<String>emptyList());
 
@@ -90,7 +91,7 @@ public class CorsImplSupplierFilter extends CrossOriginResourceSharingFilter {
      * @see CrossOriginResourceSharingFilter#setExposeHeaders(List<String>)
      */
     public static final ConfigKey<List<String>> EXPOSE_HEADERS = ConfigKeys.newConfigKey(new TypeToken<List<String>>() {},
-            "exposedHeaders",
+            "exposeHeaders",
             "A list of non-simple headers to be exposed via Access-Control-Expose-Headers.",
             Collections.<String>emptyList());
 
@@ -117,7 +118,7 @@ public class CorsImplSupplierFilter extends CrossOriginResourceSharingFilter {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CorsImplSupplierFilter.class);
 
-    private boolean corsEnabled = false;
+    private boolean enableCors = false;
     
     // For karaf loading
     public CorsImplSupplierFilter() {}
@@ -125,9 +126,7 @@ public class CorsImplSupplierFilter extends CrossOriginResourceSharingFilter {
     @VisibleForTesting
     public CorsImplSupplierFilter(@Nullable ManagementContext mgmt) {
         Preconditions.checkNotNull(mgmt,"ManagementContext should be suppplied to CORS filter.");
-        setCorsEnabled(true);
-        setFindResourceMethod(false);
-        setCorsEnabled(BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_CORS_CXF_PROPERTY));
+        setEnableCors(BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_CORS_CXF_PROPERTY));
         StringConfigMap corsProperties = ConfigUtils.filterForPrefixAndStrip(
                 mgmt.getConfig().submap(ConfigPredicates.nameStartsWith(BrooklynFeatureEnablement.FEATURE_CORS_CXF_PROPERTY + ".")).asMapWithStringKeys(),
                 BrooklynFeatureEnablement.FEATURE_CORS_CXF_PROPERTY + ".");
@@ -140,26 +139,51 @@ public class CorsImplSupplierFilter extends CrossOriginResourceSharingFilter {
         setBlockCorsIfUnauthorized(corsProperties.getConfig(BLOCK_CORS_IF_UNAUTHORIZED));
     }
     
-    public void setCorsEnabled(boolean enabled) {
-        this.corsEnabled = enabled;
+    public void setEnableCors(boolean enabled) {
+        this.enableCors = Boolean.TRUE.equals(enabled);
         setFindResourceMethod(false);
-        if (corsEnabled) {
+        if (enableCors) {
             LOGGER.info("CORS brooklyn feature enabled.");
         } else {
-            LOGGER.info("CORS brooklyn feature disabled.");
+            LOGGER.trace("CORS brooklyn feature disabled.");
         }
+    }
+    
+    @Override
+    public void setMaxAge(Integer maxAge) {
+        if (Integer.valueOf(-1).equals(maxAge)) {
+            super.setMaxAge(null);
+        } else {
+            super.setMaxAge(maxAge);
+        }
+    }
+    
+    public boolean isEnableCors() {
+        return enableCors;
+    }
+    
+    public void setAllowOrigins(String allowedOrigins) {
+        setAllowOrigins(Strings.parseCsv(allowedOrigins));
+    }
+    
+    public void setAllowHeaders(String allowHeaders) {
+        setAllowHeaders(Strings.parseCsv(allowHeaders));
+    }
+    
+    public void setExposeHeaders(String exposeHeaders) {
+        setExposeHeaders(Strings.parseCsv(exposeHeaders));
     }
 
     @Override
     public void filter(ContainerRequestContext requestContext) {
-        if (corsEnabled) {
+        if (enableCors) {
             super.filter(requestContext);
         }
     }
 
     @Override
     public void filter(ContainerRequestContext requestContext, ContainerResponseContext responseContext) {
-        if (corsEnabled) {
+        if (enableCors) {
             super.filter(requestContext, responseContext);
         }
     }

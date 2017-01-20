@@ -34,28 +34,26 @@ limitations under the License.
 
     <cm:property-placeholder persistent-id="org.apache.brooklyn.rest.filter.cors">
         <cm:default-properties>
-            <cm:property name="cors.enabled" value=""/>
-            <cm:property name="cors.find.resource.method" value="[]"/>
-            <cm:property name="cors.allow.origins" value="[]"/>
-            <cm:property name="cors.allow.headers" value="[]"/>
-            <cm:property name="cors.expose.headers" value="[]"/>
-            <cm:property name="cors.allow.credentials" value="true"/>
-            <cm:property name="cors.max.age" value="null"/>
+            <cm:property name="cors.enabled" value="false"/>
+            <cm:property name="cors.allow.origins" value=""/>
+            <cm:property name="cors.allow.headers" value=""/>
+            <cm:property name="cors.expose.headers" value=""/>
+            <cm:property name="cors.allow.credentials" value="false"/>
+            <cm:property name="cors.max.age" value="-1"/>
             <cm:property name="cors.preflight.error.status" value="200"/>
-            <cm:property name="cors.default.options.methods.handle.preflight" value="null"/>
+            <cm:property name="cors.block.if.unauthorized" value="false"/>
         </cm:default-properties>
     </cm:property-placeholder>
 
     <bean class="org.apache.brooklyn.rest.filter.CorsImplSupplierFilter" id="cors-filter">
-        <property name="corsEnabled" value="${cors.enabled}"/>
-        <property name="findResourceMethod" value="${cors.find.resource.method}"/>
+        <property name="enableCors" value="${cors.enabled}"/>
         <property name="allowOrigins" value="${cors.allow.origins}"/>
         <property name="allowHeaders" value="${cors.allow.headers}"/>
         <property name="exposeHeaders" value="${cors.expose.headers}"/>
         <property name="allowCredentials" value="${cors.allow.credentials}"/>
         <property name="maxAge" value="${cors.max.age}"/>
         <property name="preflightErrorStatus" value="${cors.preflight.error.status}"/>
-        <property name="defaultOptionsMethodsHandlePreflight" value="${cors.default.options.methods.handle.preflight}"/>
+        <property name="blockCorsIfUnauthorized" value="${cors.block.if.unauthorized}"/>
     </bean>
 
     <reference id="localManagementContext"
@@ -88,9 +86,6 @@ limitations under the License.
     <bean id="usageResourceBean" class="org.apache.brooklyn.rest.resources.UsageResource"/>
     <bean id="versionResourceBean" class="org.apache.brooklyn.rest.resources.VersionResource"/>
     <bean id="logoutResourceBean" class="org.apache.brooklyn.rest.resources.LogoutResource"/>
-
-
-
 
     <jaxrs:server id="brooklynRestApiV1" address="/">
         <jaxrs:serviceBeans>
