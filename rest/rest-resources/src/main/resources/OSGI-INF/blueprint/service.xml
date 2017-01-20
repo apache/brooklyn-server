@@ -17,17 +17,14 @@ limitations under the License.
 <blueprint xmlns="http://www.osgi.org/xmlns/blueprint/v1.0.0"
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
            xmlns:cm="http://aries.apache.org/blueprint/xmlns/blueprint-cm/v1.2.0"
-           xmlns:jaxws="http://cxf.apache.org/blueprint/jaxws"
            xmlns:jaxrs="http://cxf.apache.org/blueprint/jaxrs"
            xmlns:cxf="http://cxf.apache.org/blueprint/core"
            xmlns:jaas="http://karaf.apache.org/xmlns/jaas/v1.0.0"
-           xsi:schemaLocation="
-             http://www.osgi.org/xmlns/blueprint/v1.0.0 http://www.osgi.org/xmlns/blueprint/v1.0.0/blueprint.xsd
-             http://cxf.apache.org/blueprint/jaxws http://cxf.apache.org/schemas/blueprint/jaxws.xsd
+           xsi:schemaLocation="http://www.osgi.org/xmlns/blueprint/v1.0.0 http://www.osgi.org/xmlns/blueprint/v1.0.0/blueprint.xsd
+
              http://cxf.apache.org/blueprint/jaxrs http://cxf.apache.org/schemas/blueprint/jaxrs.xsd
              http://cxf.apache.org/blueprint/core http://cxf.apache.org/schemas/blueprint/core.xsd
-             http://karaf.apache.org/xmlns/jaas/v1.0.0 http://karaf.apache.org/xmlns/jaas/v1.0.0
-             ">
+             http://karaf.apache.org/xmlns/jaas/v1.0.0 http://karaf.apache.org/xmlns/jaas/v1.0.0">
 
     <cxf:bus>
         <cxf:features>
@@ -35,57 +32,85 @@ limitations under the License.
         </cxf:features>
     </cxf:bus>
 
-    <reference id="localManagementContext"
-               interface="org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal" />
-    <!--<cm:property-placeholder persistent-id="org.apache.brooklyn.rest.filter.cors" update-strategy="none" />-->
+    <cm:property-placeholder persistent-id="org.apache.brooklyn.rest.filter.cors">
+        <cm:default-properties>
+            <cm:property name="cors.enabled" value=""/>
+            <cm:property name="cors.find.resource.method" value="[]"/>
+            <cm:property name="cors.allow.origins" value="[]"/>
+            <cm:property name="cors.allow.headers" value="[]"/>
+            <cm:property name="cors.expose.headers" value="[]"/>
+            <cm:property name="cors.allow.credentials" value="true"/>
+            <cm:property name="cors.max.age" value="null"/>
+            <cm:property name="cors.preflight.error.status" value="200"/>
+            <cm:property name="cors.default.options.methods.handle.preflight" value="null"/>
+        </cm:default-properties>
+    </cm:property-placeholder>
 
-    <jaas:config name="webconsole">
-        <jaas:module className="org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule" flags="required" />
-    </jaas:config>
-
-    <reference id="shutdownHandler" interface="org.apache.brooklyn.core.mgmt.ShutdownHandler" />
-
-    <bean class="org.apache.brooklyn.rest.security.jaas.ManagementContextHolder">
-        <property name="managementContext" ref="localManagementContext" />
+    <bean class="org.apache.brooklyn.rest.filter.CorsImplSupplierFilter" id="cors-filter">
+        <property name="corsEnabled" value="${cors.enabled}"/>
+        <property name="findResourceMethod" value="${cors.find.resource.method}"/>
+        <property name="allowOrigins" value="${cors.allow.origins}"/>
+        <property name="allowHeaders" value="${cors.allow.headers}"/>
+        <property name="exposeHeaders" value="${cors.expose.headers}"/>
+        <property name="allowCredentials" value="${cors.allow.credentials}"/>
+        <property name="maxAge" value="${cors.max.age}"/>
+        <property name="preflightErrorStatus" value="${cors.preflight.error.status}"/>
+        <property name="defaultOptionsMethodsHandlePreflight" value="${cors.default.options.methods.handle.preflight}"/>
     </bean>
 
-    <bean id="accessResourceBean" class="org.apache.brooklyn.rest.resources.AccessResource" />
-    <bean id="activityResourceBean" class="org.apache.brooklyn.rest.resources.ActivityResource" />
-    <bean id="apidocResourceBean" class="org.apache.brooklyn.rest.resources.ApidocResource" />
-    <bean id="applicationResourceBean" class="org.apache.brooklyn.rest.resources.ApplicationResource" />
-    <bean id="catalogResourceBean" class="org.apache.brooklyn.rest.resources.CatalogResource" />
-    <bean id="effectorResourceBean" class="org.apache.brooklyn.rest.resources.EffectorResource" />
-    <bean id="entityConfigResourceBean" class="org.apache.brooklyn.rest.resources.EntityConfigResource" />
-    <bean id="entityResourceBean" class="org.apache.brooklyn.rest.resources.EntityResource" />
-    <bean id="locationResourceBean" class="org.apache.brooklyn.rest.resources.LocationResource" />
-    <bean id="policyConfigResourceBean" class="org.apache.brooklyn.rest.resources.PolicyConfigResource" />
-    <bean id="policyResourceBean" class="org.apache.brooklyn.rest.resources.PolicyResource" />
-    <bean id="scriptResourceBean" class="org.apache.brooklyn.rest.resources.ScriptResource" />
-    <bean id="sensorResourceBean" class="org.apache.brooklyn.rest.resources.SensorResource" />
-    <bean id="serverResourceBean" class="org.apache.brooklyn.rest.resources.ServerResource" />
-    <bean id="usageResourceBean" class="org.apache.brooklyn.rest.resources.UsageResource" />
-    <bean id="versionResourceBean" class="org.apache.brooklyn.rest.resources.VersionResource" />
-    <bean id="logoutResourceBean" class="org.apache.brooklyn.rest.resources.LogoutResource" />
+    <reference id="localManagementContext"
+               interface="org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal"/>
+
+    <jaas:config name="webconsole">
+        <jaas:module className="org.apache.brooklyn.rest.security.jaas.BrooklynLoginModule" flags="required"/>
+    </jaas:config>
+
+    <reference id="shutdownHandler" interface="org.apache.brooklyn.core.mgmt.ShutdownHandler"/>
+
+    <bean class="org.apache.brooklyn.rest.security.jaas.ManagementContextHolder">
+        <property name="managementContext" ref="localManagementContext"/>
+    </bean>
+
+    <bean id="accessResourceBean" class="org.apache.brooklyn.rest.resources.AccessResource"/>
+    <bean id="activityResourceBean" class="org.apache.brooklyn.rest.resources.ActivityResource"/>
+    <bean id="apidocResourceBean" class="org.apache.brooklyn.rest.resources.ApidocResource"/>
+    <bean id="applicationResourceBean" class="org.apache.brooklyn.rest.resources.ApplicationResource"/>
+    <bean id="catalogResourceBean" class="org.apache.brooklyn.rest.resources.CatalogResource"/>
+    <bean id="effectorResourceBean" class="org.apache.brooklyn.rest.resources.EffectorResource"/>
+    <bean id="entityConfigResourceBean" class="org.apache.brooklyn.rest.resources.EntityConfigResource"/>
+    <bean id="entityResourceBean" class="org.apache.brooklyn.rest.resources.EntityResource"/>
+    <bean id="locationResourceBean" class="org.apache.brooklyn.rest.resources.LocationResource"/>
+    <bean id="policyConfigResourceBean" class="org.apache.brooklyn.rest.resources.PolicyConfigResource"/>
+    <bean id="policyResourceBean" class="org.apache.brooklyn.rest.resources.PolicyResource"/>
+    <bean id="scriptResourceBean" class="org.apache.brooklyn.rest.resources.ScriptResource"/>
+    <bean id="sensorResourceBean" class="org.apache.brooklyn.rest.resources.SensorResource"/>
+    <bean id="serverResourceBean" class="org.apache.brooklyn.rest.resources.ServerResource"/>
+    <bean id="usageResourceBean" class="org.apache.brooklyn.rest.resources.UsageResource"/>
+    <bean id="versionResourceBean" class="org.apache.brooklyn.rest.resources.VersionResource"/>
+    <bean id="logoutResourceBean" class="org.apache.brooklyn.rest.resources.LogoutResource"/>
+
+
+
 
     <jaxrs:server id="brooklynRestApiV1" address="/">
         <jaxrs:serviceBeans>
-            <ref component-id="accessResourceBean" />
-            <ref component-id="activityResourceBean" />
-            <ref component-id="apidocResourceBean" />
-            <ref component-id="applicationResourceBean" />
-            <ref component-id="catalogResourceBean" />
-            <ref component-id="effectorResourceBean" />
-            <ref component-id="entityConfigResourceBean" />
-            <ref component-id="entityResourceBean" />
-            <ref component-id="locationResourceBean" />
-            <ref component-id="policyConfigResourceBean" />
-            <ref component-id="policyResourceBean" />
-            <ref component-id="scriptResourceBean" />
-            <ref component-id="sensorResourceBean" />
-            <ref component-id="serverResourceBean" />
-            <ref component-id="usageResourceBean" />
-            <ref component-id="versionResourceBean" />
-            <ref component-id="logoutResourceBean" />
+            <ref component-id="accessResourceBean"/>
+            <ref component-id="activityResourceBean"/>
+            <ref component-id="apidocResourceBean"/>
+            <ref component-id="applicationResourceBean"/>
+            <ref component-id="catalogResourceBean"/>
+            <ref component-id="effectorResourceBean"/>
+            <ref component-id="entityConfigResourceBean"/>
+            <ref component-id="entityResourceBean"/>
+            <ref component-id="locationResourceBean"/>
+            <ref component-id="policyConfigResourceBean"/>
+            <ref component-id="policyResourceBean"/>
+            <ref component-id="scriptResourceBean"/>
+            <ref component-id="sensorResourceBean"/>
+            <ref component-id="serverResourceBean"/>
+            <ref component-id="usageResourceBean"/>
+            <ref component-id="versionResourceBean"/>
+            <ref component-id="logoutResourceBean"/>
         </jaxrs:serviceBeans>
 
         <jaxrs:providers>
@@ -96,24 +121,22 @@ limitations under the License.
                 <property name="contextName" value="webconsole"/>
             </bean>
             <bean class="org.apache.brooklyn.rest.util.ManagementContextProvider">
-                <argument ref="localManagementContext" />
+                <argument ref="localManagementContext"/>
             </bean>
             <!--
                 TODO ShutdownHandlerProvider, sync with init work.
                 Needs to be custom OSGi implementation?
             -->
-            <bean class="org.apache.brooklyn.rest.filter.CsrfTokenFilter" />
-            <bean class="org.apache.brooklyn.rest.filter.RequestTaggingRsFilter" />
-            <bean class="org.apache.brooklyn.rest.filter.NoCacheFilter" />
-            <bean class="org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter" />
-            <bean class="org.apache.brooklyn.rest.filter.EntitlementContextFilter" />
-            <bean class="io.swagger.jaxrs.listing.SwaggerSerializers" />
+            <bean class="org.apache.brooklyn.rest.filter.CsrfTokenFilter"/>
+            <bean class="org.apache.brooklyn.rest.filter.RequestTaggingRsFilter"/>
+            <bean class="org.apache.brooklyn.rest.filter.NoCacheFilter"/>
+            <bean class="org.apache.brooklyn.rest.filter.HaHotCheckResourceFilter"/>
+            <bean class="org.apache.brooklyn.rest.filter.EntitlementContextFilter"/>
+            <bean class="io.swagger.jaxrs.listing.SwaggerSerializers"/>
             <bean class="org.apache.brooklyn.rest.util.ShutdownHandlerProvider">
-                <argument ref="shutdownHandler" />
+                <argument ref="shutdownHandler"/>
             </bean>
-            <bean class="org.apache.brooklyn.rest.filter.CorsImplSupplierFilter" id="cors">
-                <cm:managed-properties persistent-id="org.apache.brooklyn.rest.filter.cors"/>
-            </bean>
+            <ref component-id="cors-filter"/>
         </jaxrs:providers>
 
         <jaxrs:properties>
@@ -123,6 +146,6 @@ limitations under the License.
     </jaxrs:server>
 
     <bean class="org.apache.brooklyn.rest.util.ScannerInjectHelper">
-      <property name="server" ref="brooklynRestApiV1" />
+        <property name="server" ref="brooklynRestApiV1"/>
     </bean>
 </blueprint>
