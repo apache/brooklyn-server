@@ -45,6 +45,7 @@ public class ImmutableMapConverter extends MapConverter {
     // only differences are creating the overarching collection, which we do after the fact
     // (optimizing format on disk as opposed to in-memory), and we discard null key/values 
     // to avoid failing entirely.
+    @Override
     public Object unmarshal(HierarchicalStreamReader reader, UnmarshallingContext context) {
         Map<?, ?> map = Maps.newLinkedHashMap();
         populateMap(reader, context, map);

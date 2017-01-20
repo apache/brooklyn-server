@@ -93,6 +93,7 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
 
     protected SshMachineLocation host;
     
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();
@@ -100,6 +101,7 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
         RecordingSshTool.clear();
     }
 
+    @Override
     @AfterMethod(alwaysRun=true)
     public void tearDown() throws Exception {
         try {
@@ -178,6 +180,7 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
 
         final Effector<MachineDetails> GET_MACHINE_DETAILS = Effectors.effector(MachineDetails.class, "getMachineDetails")
                 .impl(new EffectorBody<MachineDetails>() {
+                    @Override
                     public MachineDetails call(ConfigBag parameters) {
                         Maybe<MachineLocation> machine = Machines.findUniqueMachineLocation(entity().getLocations());
                         try {

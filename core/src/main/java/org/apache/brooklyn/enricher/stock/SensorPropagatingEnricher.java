@@ -128,6 +128,7 @@ public class SensorPropagatingEnricher extends AbstractEnricher implements Senso
         this.sensorMappings = ImmutableMap.copyOf(sensors);
     }
     
+    @Override
     public void setEntity(EntityLocal entity) {
         super.setEntity(entity);
         for (Sensor<?> s: sensors) {

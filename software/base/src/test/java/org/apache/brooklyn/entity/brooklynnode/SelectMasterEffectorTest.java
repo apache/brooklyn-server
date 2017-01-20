@@ -64,6 +64,7 @@ public class SelectMasterEffectorTest extends BrooklynAppUnitTestSupport {
     protected HttpCallback http; 
     protected Poller<Void> poller;
 
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();
@@ -94,6 +95,7 @@ public class SelectMasterEffectorTest extends BrooklynAppUnitTestSupport {
                 .configure(MockBrooklynNode.HTTP_CLIENT_CALLBACK, http)));
     }
     
+    @Override
     @AfterMethod(alwaysRun=true)
     public void tearDown() throws Exception {
         poller.stop();

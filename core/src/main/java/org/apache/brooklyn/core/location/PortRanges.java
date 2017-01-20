@@ -66,6 +66,7 @@ public class PortRanges {
             return //getClass().getName()+"["+
                     ""+port; //+"]";
         }
+        @Override
         public int hashCode() {
             return Objects.hashCode(port);
         }
@@ -176,6 +177,7 @@ public class PortRanges {
             return //getClass().getName()+"["+
                 s; //+"]";
         }
+        @Override
         public int hashCode() {
             return Objects.hashCode(ranges);
         }

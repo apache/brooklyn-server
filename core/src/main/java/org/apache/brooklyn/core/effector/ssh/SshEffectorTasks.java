@@ -138,10 +138,12 @@ public class SshEffectorTasks {
             return (SshEffectorTaskFactory<Boolean>) super.returningIsExitCodeZero();
         }
 
+        @Override
         public SshEffectorTaskFactory<String> requiringZeroAndReturningStdout() {
             return (SshEffectorTaskFactory<String>) super.requiringZeroAndReturningStdout();
         }
         
+        @Override
         public <RET2> SshEffectorTaskFactory<RET2> returning(Function<ProcessTaskWrapper<?>, RET2> resultTransformation) {
             return (SshEffectorTaskFactory<RET2>) super.returning(resultTransformation);
         }

@@ -117,6 +117,7 @@ public class ItemsInContainersGroupImpl extends DynamicGroupImpl implements Item
         rescanEntities();
     }
     
+    @Override
     protected void onEntityAdded(Entity item) {
         if (acceptsEntity(item)) {
             if (LOG.isDebugEnabled()) LOG.debug("{} adding new item {}", this, item);
@@ -124,6 +125,7 @@ public class ItemsInContainersGroupImpl extends DynamicGroupImpl implements Item
         }
     }
     
+    @Override
     protected void onEntityRemoved(Entity item) {
         if (removeMember(item)) {
             if (LOG.isDebugEnabled()) LOG.debug("{} removing deleted item {}", this, item);

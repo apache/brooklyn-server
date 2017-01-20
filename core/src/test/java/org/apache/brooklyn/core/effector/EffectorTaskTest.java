@@ -226,6 +226,7 @@ public class EffectorTaskTest extends BrooklynAppUnitTestSupport {
             .description("doubles the given number and adds one")
             .parameter(Integer.class, "numberToStartWith")
             .impl(new EffectorBody<Integer>() {
+                @Override
                 public Integer call(ConfigBag parameters) {
                     int input = (Integer)parameters.getStringKey("numberToStartWith");
                     queue( add(times(input, 2), 1) );
@@ -238,6 +239,7 @@ public class EffectorTaskTest extends BrooklynAppUnitTestSupport {
             .description("doubles the given number and adds one, as a basic task")
             .parameter(Integer.class, "numberToStartWith")
             .impl(new EffectorBody<Integer>() {
+                @Override
                 public Integer call(ConfigBag parameters) {
                     int input = (Integer)parameters.getStringKey("numberToStartWith");
                     // note the subtasks must be queued explicitly with a basic task

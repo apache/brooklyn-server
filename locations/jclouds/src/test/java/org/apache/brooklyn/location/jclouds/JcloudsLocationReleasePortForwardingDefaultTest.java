@@ -182,6 +182,7 @@ public class JcloudsLocationReleasePortForwardingDefaultTest extends BrooklynApp
     // inside an effector.
     private void execRelease(final JcloudsLocation loc, final JcloudsSshMachineLocation machine) throws Exception {
         EffectorBody<Void> effectorBody = new EffectorBody<Void>() {
+            @Override
             public Void call(ConfigBag parameters) {
                 loc.releasePortForwarding(machine);
                 return null;

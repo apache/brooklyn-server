@@ -28,6 +28,7 @@ import com.thoughtworks.xstream.io.HierarchicalStreamReader;
  * (normal xstream.resgisterConverter doesn't apply to enums) */
 public class EnumCaseForgivingConverter extends EnumConverter {
 
+    @Override
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public Object unmarshal(HierarchicalStreamReader reader, UnmarshallingContext context) {
         Class type = context.getRequiredType();

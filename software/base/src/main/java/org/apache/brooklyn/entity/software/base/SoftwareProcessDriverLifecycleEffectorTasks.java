@@ -49,6 +49,7 @@ public class SoftwareProcessDriverLifecycleEffectorTasks extends MachineLifecycl
     
     private static final Logger log = LoggerFactory.getLogger(SoftwareProcessDriverLifecycleEffectorTasks.class);
     
+    @Override
     public void restart(ConfigBag parameters) {
         RestartMachineMode isRestartMachine = parameters.get(RestartSoftwareParameters.RESTART_MACHINE_TYPED);
         if (isRestartMachine==null) 

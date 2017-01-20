@@ -31,6 +31,7 @@ import org.testng.annotations.Test;
 @Test(groups={"Live", "Live-sanity"})
 public class HighAvailabilityManagerJcloudsObjectStoreTest extends HighAvailabilityManagerTestFixture {
 
+    @Override
     protected ManagementContextInternal newLocalManagementContext() {
         return new LocalManagementContextForTests(BrooklynProperties.Factory.newDefault());
     }
@@ -38,11 +39,13 @@ public class HighAvailabilityManagerJcloudsObjectStoreTest extends HighAvailabil
     @Override @BeforeMethod
     public void setUp() throws Exception { super.setUp(); }
     
+    @Override
     protected PersistenceObjectStore newPersistenceObjectStore() {
         return new JcloudsBlobStoreBasedObjectStore(
             BlobStoreTest.PERSIST_TO_OBJECT_STORE_FOR_TEST_SPEC, BlobStoreTest.CONTAINER_PREFIX+"-"+Identifiers.makeRandomId(4));
     }
 
+    @Override
     @Test(groups="Live", invocationCount=5) //run fewer times w softlayer... 
     public void testGetManagementPlaneStatusManyTimes() throws Exception {
         testGetManagementPlaneStatus();

@@ -78,6 +78,7 @@ public class ProcessTool extends ShellAbstractTool implements ShellTool {
     @Override
     public int execScript(final Map<String,?> props, final List<String> commands, final Map<String,?> env) {
         return new ToolAbstractExecScript(props) {
+            @Override
             public int run() {
                 try {
                     String directory = getOptionalVal(props, PROP_DIRECTORY);

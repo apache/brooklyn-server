@@ -199,6 +199,7 @@ public class BrooklynImageChooser implements Cloneable {
         return 0;
     }
 
+    @Override
     public BrooklynImageChooser clone() {
         return new BrooklynImageChooser();
     }
@@ -236,6 +237,7 @@ public class BrooklynImageChooser implements Cloneable {
         public OrderingScoredWithoutDefaults(BrooklynImageChooser chooser) {
             this.chooser = chooser;
         }
+        @Override
         public int compare(Image left, Image right) {
             return BrooklynImageChooser.compare(chooser.score(left), chooser.score(right));
         }

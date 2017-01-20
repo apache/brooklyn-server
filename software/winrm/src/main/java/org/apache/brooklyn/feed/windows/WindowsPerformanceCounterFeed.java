@@ -235,6 +235,7 @@ public class WindowsPerformanceCounterFeed extends AbstractFeed {
         }
     }
 
+    @Override
     @SuppressWarnings("unchecked")
     protected Poller<WinRmToolResponse> getPoller() {
         return (Poller<WinRmToolResponse>) super.getPoller();

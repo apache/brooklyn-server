@@ -44,6 +44,7 @@ public class SubscriptionPerformanceTest extends AbstractPerformanceTest {
     List<TestEntity> entities;
     SubscriptionManager subscriptionManager;
     
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();

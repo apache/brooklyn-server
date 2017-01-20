@@ -94,6 +94,7 @@ public class CreateUserPolicy extends AbstractPolicy implements SensorEventListe
             "Whether to reset the password used for user login",
             false);
 
+    @Override
     public void setEntity(EntityLocal entity) {
         super.setEntity(entity);
         subscriptions().subscribe(entity, AbstractEntity.LOCATION_ADDED, this);

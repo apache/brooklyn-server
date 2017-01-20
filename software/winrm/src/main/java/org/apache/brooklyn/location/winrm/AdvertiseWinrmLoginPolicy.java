@@ -52,6 +52,7 @@ public class AdvertiseWinrmLoginPolicy extends AbstractPolicy implements SensorE
             "vm.user.credentials",
             "The \"<user> : <password> @ <hostname>:<port>\"");
 
+    @Override
     public void setEntity(EntityLocal entity) {
         super.setEntity(entity);
         subscriptions().subscribe(entity, AbstractEntity.LOCATION_ADDED, this);

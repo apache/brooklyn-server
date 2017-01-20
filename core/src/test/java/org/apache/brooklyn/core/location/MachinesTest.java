@@ -47,6 +47,7 @@ public class MachinesTest extends BrooklynAppUnitTestSupport {
     protected LocationSpec<LocalhostMachineProvisioningLocation> otherLocSpec;
     protected LocationSpec<LocalhostMachine> localMachineSpec;
     
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();

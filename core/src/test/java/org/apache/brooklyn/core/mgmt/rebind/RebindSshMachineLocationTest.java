@@ -41,6 +41,7 @@ public class RebindSshMachineLocationTest extends RebindTestFixtureWithApp {
     private FixedListMachineProvisioningLocation<SshMachineLocation> origLoc;
     private SshMachineLocation origChildLoc;
     
+    @Override
     @SuppressWarnings("unchecked")
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {

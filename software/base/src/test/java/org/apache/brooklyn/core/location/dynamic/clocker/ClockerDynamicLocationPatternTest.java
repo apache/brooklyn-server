@@ -53,6 +53,7 @@ public class ClockerDynamicLocationPatternTest extends BrooklynAppUnitTestSuppor
 
     private LocalhostMachineProvisioningLocation loc;
 
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();

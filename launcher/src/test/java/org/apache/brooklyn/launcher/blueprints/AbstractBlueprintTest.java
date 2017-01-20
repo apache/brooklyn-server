@@ -76,6 +76,7 @@ public abstract class AbstractBlueprintTest {
             @Override
             protected BrooklynCampPlatformLauncherAbstract newPlatformLauncher() {
                 return new BrooklynCampPlatformLauncher() {
+                    @Override
                     protected ManagementContext newManagementContext() {
                         return AbstractBlueprintTest.this.mgmt;
                     }

@@ -94,6 +94,7 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
         return totalEventsDeliveredCount.get();
     }
     
+    @Override
     @SuppressWarnings("unchecked")
     protected synchronized <T> SubscriptionHandle subscribe(Map<String, Object> flags, final Subscription<T> s) {
         Entity producer = s.producer;
@@ -210,6 +211,7 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
         return result;
     }
 
+    @Override
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public <T> void publish(final SensorEvent<T> event) {
         // REVIEW 1459 - execution

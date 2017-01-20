@@ -53,6 +53,7 @@ public class BasicCampPlatform extends CampPlatform {
     BasicResourceLookup<ApplicationComponent> applicationComponents = new BasicResourceLookup<ApplicationComponent>();
     BasicResourceLookup<Assembly> assemblies = new BasicResourceLookup<Assembly>();
 
+    @Override
     public BasicResourceLookup<PlatformComponentTemplate> platformComponentTemplates() {
         return platformComponentTemplates;
     }
@@ -62,10 +63,12 @@ public class BasicCampPlatform extends CampPlatform {
         return applicationComponentTemplates;
     }
 
+    @Override
     public BasicResourceLookup<AssemblyTemplate> assemblyTemplates() {
         return assemblyTemplates;
     }
     
+    @Override
     public BasicResourceLookup<PlatformComponent> platformComponents() {
         return platformComponents;
     }
@@ -75,6 +78,7 @@ public class BasicCampPlatform extends CampPlatform {
         return applicationComponents;
     }
 
+    @Override
     public BasicResourceLookup<Assembly> assemblies() {
         return assemblies;
     }

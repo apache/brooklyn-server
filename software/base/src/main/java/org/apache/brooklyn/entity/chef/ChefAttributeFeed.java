@@ -238,6 +238,7 @@ public class ChefAttributeFeed extends AbstractFeed {
                 minPeriod);
     }
 
+    @Override
     @SuppressWarnings("unchecked")
     protected Poller<SshPollValue> getPoller() {
         return (Poller<SshPollValue>) super.getPoller();

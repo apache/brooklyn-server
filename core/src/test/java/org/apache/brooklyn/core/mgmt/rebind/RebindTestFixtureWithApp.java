@@ -38,6 +38,7 @@ public class RebindTestFixtureWithApp extends RebindTestFixture<TestApplication>
         return null;
     }
 
+    @Override
     protected TestApplication createApp() {
         EntitySpec<TestApplication> spec = EntitySpec.create(TestApplication.class, TestApplicationNoEnrichersImpl.class);
         if (shouldSkipOnBoxBaseDirResolution()!=null) {

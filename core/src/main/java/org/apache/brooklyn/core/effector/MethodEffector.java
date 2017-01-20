@@ -142,6 +142,7 @@ public class MethodEffector<T> extends AbstractEffector<T> {
         super(anns.name, (Class<T>)anns.returnType, anns.parameters, JavaGroovyEquivalents.elvis(description, anns.description));
     }
 
+    @Override
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public T call(Entity entity, Map parameters) {
         if (entity instanceof AbstractEntity) {

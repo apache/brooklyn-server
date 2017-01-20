@@ -42,6 +42,7 @@ public class MapConverter extends com.thoughtworks.xstream.converters.collection
         super(mapper);
     }
 
+    @Override
     @SuppressWarnings({ "rawtypes" })
     public void marshal(Object source, HierarchicalStreamWriter writer, MarshallingContext context) {
         Map map = (Map) source;
@@ -81,6 +82,7 @@ public class MapConverter extends com.thoughtworks.xstream.converters.collection
         writer.endNode();
     }
 
+    @Override
     protected void populateMap(HierarchicalStreamReader reader, UnmarshallingContext context, Map map) {
         while (reader.hasMoreChildren()) {
             reader.moveDown();

@@ -342,6 +342,7 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
         super.startBrooklynNode();
     }
 
+    @Override
     protected EntitySpec<LocalBrooklynNode> customizeBrooklynNodeSpec(EntitySpec<LocalBrooklynNode> brooklynNodeSpec) {
         return brooklynNodeSpec
                 .configure(SoftwareProcess.RUN_DIR, System.getenv("ROOT"))
@@ -353,6 +354,7 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
                 .configure(BrooklynNode.NO_WEB_CONSOLE_AUTHENTICATION, Boolean.TRUE.equals(skipSecurityFilter));
     }
 
+    @Override
     protected void startApps() {
         if ((stopWhichAppsOnShutdown==StopWhichAppsOnShutdown.ALL) ||
             (stopWhichAppsOnShutdown==StopWhichAppsOnShutdown.ALL_IF_NOT_PERSISTED && getPersistMode()==PersistMode.DISABLED)) {

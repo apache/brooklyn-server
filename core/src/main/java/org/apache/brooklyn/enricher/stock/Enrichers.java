@@ -306,6 +306,7 @@ public class Enrichers {
             if (publishing==null) return null;
             return "aggregator:"+publishing.getName();
         }
+        @Override
         public EnricherSpec<?> build() {
             return super.build().configure(MutableMap.builder()
                             .putIfNotNull(Aggregator.PRODUCER, fromEntity)
@@ -415,6 +416,7 @@ public class Enrichers {
             if (publishing==null) return null;
             return "combiner:"+publishing.getName();
         }
+        @Override
         public EnricherSpec<?> build() {
             return super.build().configure(MutableMap.builder()
                             .putIfNotNull(Combiner.PRODUCER, fromEntity)
@@ -473,6 +475,7 @@ public class Enrichers {
             if (publishing==null) return null;
             return "transformer:"+publishing.getName();
         }
+        @Override
         public EnricherSpec<?> build() {
             return super.build().configure(MutableMap.builder()
                             .putIfNotNull(Transformer.PRODUCER, fromEntity)
@@ -556,6 +559,7 @@ public class Enrichers {
             
             return "propagating["+fromId+":"+com.google.common.base.Joiner.on(",").join(summary)+"]";
         }
+        @Override
         public EnricherSpec<? extends Enricher> build() {
             return super.build().configure(MutableMap.builder()
                             .putIfNotNull(Propagator.PRODUCER, fromEntity)
@@ -615,6 +619,7 @@ public class Enrichers {
             if (targetSensor==null || fromSensor==null) return null;
             return "updating:"+targetSensor.getName()+"<-"+fromSensor.getName();
         }
+        @Override
         public EnricherSpec<?> build() {
             return super.build().configure(MutableMap.builder()
                             .put(UpdatingMap.TARGET_SENSOR, targetSensor)
@@ -686,6 +691,7 @@ public class Enrichers {
             if (transforming==null || publishing==null) return null;
             return "joiner:"+transforming.getName()+"->"+publishing.getName();
         }
+        @Override
         public EnricherSpec<?> build() {
             return super.build().configure(MutableMap.builder()
                             .putIfNotNull(Joiner.PRODUCER, fromEntity)
@@ -749,6 +755,7 @@ public class Enrichers {
             return self();
         }
 
+        @Override
         public EnricherSpec<?> build() {
             return super.build().configure(MutableMap.builder()
                     .put(Reducer.SOURCE_SENSORS, reducing)

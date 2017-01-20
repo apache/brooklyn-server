@@ -244,6 +244,7 @@ public class JavaOptsTest extends BrooklynAppUnitTestSupport {
     }
 
     public static class TestingNoSensorsVanillaJavaAppImpl extends VanillaJavaAppImpl {
+        @Override
         protected void connectSensors() {
             /* nothing here */
             sensors().set(SERVICE_UP, true);

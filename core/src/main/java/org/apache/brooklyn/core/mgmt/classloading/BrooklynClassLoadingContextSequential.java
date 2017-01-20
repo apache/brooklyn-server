@@ -68,6 +68,7 @@ public final class BrooklynClassLoadingContextSequential extends AbstractBrookly
         this.secondaries.add( target );
     }
     
+    @Override
     public Maybe<Class<?>> tryLoadClass(String className) {
         List<Throwable> errors = MutableList.of();
         for (BrooklynClassLoadingContext target: primaries) {

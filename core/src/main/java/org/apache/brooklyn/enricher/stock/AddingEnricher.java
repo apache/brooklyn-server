@@ -54,6 +54,7 @@ public class AddingEnricher extends AbstractEnricher implements SensorEventListe
         this.target = target;
     }
 
+    @Override
     public void setEntity(EntityLocal entity) {
         super.setEntity(entity);
         

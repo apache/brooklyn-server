@@ -207,6 +207,7 @@ public class Poller<V> {
         return pollJobs.isEmpty();
     }
     
+    @Override
     public String toString() {
         return Objects.toStringHelper(this).add("entity", entity).toString();
     }

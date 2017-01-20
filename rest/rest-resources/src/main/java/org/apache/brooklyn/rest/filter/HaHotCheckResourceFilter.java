@@ -67,6 +67,7 @@ public class HaHotCheckResourceFilter implements ContainerRequestFilter {
     private ResourceInfo resourceInfo;
     
     private HaHotCheckHelperAbstract helper = new HaHotCheckHelperAbstract() {
+        @Override
         public ManagementContext mgmt() {
             return mgmt.getContext(ManagementContext.class);
         }

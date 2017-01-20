@@ -127,6 +127,7 @@ Beyond this you get blacklisted and requests may time out, or return none.
     public HostGeoInfo getHostGeoInfo(final InetAddress address, Duration timeout) throws MalformedURLException, IOException {
         final AtomicReference<HostGeoInfo> result = new AtomicReference<HostGeoInfo>();
         Thread lt = new Thread() {
+            @Override
             public void run() {
                 try {
                     result.set(retrieveHostGeoInfo(address));

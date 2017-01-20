@@ -118,6 +118,7 @@ public class PollerTest extends BrooklynAppUnitTestSupport {
     }
 
     private static class TaskFailer extends ThrowingPoller {
+        @Override
         public Boolean execute(final boolean shouldThrow) {
             Task<Boolean> t = Tasks.<Boolean>builder()
                     .body(new Callable<Boolean>() {
@@ -135,6 +136,7 @@ public class PollerTest extends BrooklynAppUnitTestSupport {
     }
 
     private static class PollFailer extends ThrowingPoller {
+        @Override
         public Boolean execute(final boolean shouldThrow) {
             if (shouldThrow) {
                 throw new IllegalArgumentException("exception in poller");

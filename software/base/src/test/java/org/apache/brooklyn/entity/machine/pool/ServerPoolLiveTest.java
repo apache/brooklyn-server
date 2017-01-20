@@ -73,6 +73,7 @@ public class ServerPoolLiveTest extends AbstractServerPoolTest {
         return new LocalManagementContextForTests(brooklynProperties);
     }
 
+    @Override
     protected boolean shouldSkipOnBoxBaseDirResolution() {
         return false;
     }

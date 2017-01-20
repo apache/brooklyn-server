@@ -53,6 +53,7 @@ public class BrooklynLauncherRebindToCloudObjectStoreTest extends BrooklynLaunch
     
     { persistenceLocationSpec = BlobStoreTest.PERSIST_TO_OBJECT_STORE_FOR_TEST_SPEC; }
 
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         persistenceDir = newTempPersistenceContainerName();
@@ -63,6 +64,7 @@ public class BrooklynLauncherRebindToCloudObjectStoreTest extends BrooklynLaunch
         return super.newLauncherBase().persistenceLocation(persistenceLocationSpec);
     }
     
+    @Override
     protected LocalManagementContextForTests newManagementContextForTests(BrooklynProperties props) {
         BrooklynProperties p2 = BrooklynProperties.Factory.newDefault();
         if (props!=null) p2.putAll(props);
@@ -74,10 +76,12 @@ public class BrooklynLauncherRebindToCloudObjectStoreTest extends BrooklynLaunch
         return "test-"+JavaClassNames.callerStackElement(0).getClassName()+"-"+Identifiers.makeRandomId(4);
     }
     
+    @Override
     protected String badContainerName() {
         return "container-does-not-exist-"+Identifiers.makeRandomId(4);
     }
     
+    @Override
     protected void checkPersistenceContainerNameIs(String expected) {
         assertEquals(getPersistenceContainerName(lastMgmt()), expected);
     }
@@ -88,6 +92,7 @@ public class BrooklynLauncherRebindToCloudObjectStoreTest extends BrooklynLaunch
         return store.getContainerName();
     }
 
+    @Override
     protected void checkPersistenceContainerNameIsDefault() {
         checkPersistenceContainerNameIs(BrooklynServerPaths.DEFAULT_PERSISTENCE_CONTAINER_NAME);
     }

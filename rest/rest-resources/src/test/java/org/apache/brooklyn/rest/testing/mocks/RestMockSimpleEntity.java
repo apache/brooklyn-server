@@ -91,13 +91,21 @@ public class RestMockSimpleEntity extends SoftwareProcessImpl {
             super(entity, machine);
         }
         public boolean isRunning() { return true; }
+        @Override
         public void stop() {}
+        @Override
         public void kill() {}
+        @Override
         public void install() {}
+        @Override
         public void customize() {}
+        @Override
         public void launch() {}
+        @Override
         public void setup() { }
+        @Override
         public void copyInstallResources() { }
+        @Override
         public void copyRuntimeResources() { }
     }
 }

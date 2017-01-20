@@ -58,6 +58,7 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
     private TestApplication app;
     private TestEntity entity;
     
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() {
         locs = ImmutableList.of(new SimulatedLocation());
@@ -65,6 +66,7 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
         entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
     }
 
+    @Override
     @AfterMethod(alwaysRun=true)
     public void tearDown() throws Exception {
         if (app != null) Entities.destroyAll(app.getManagementContext());

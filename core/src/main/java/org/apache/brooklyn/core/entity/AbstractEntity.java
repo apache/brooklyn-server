@@ -499,6 +499,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         return this;
     }
 
+    @Override
     public void setManagementContext(ManagementContextInternal managementContext) {
         super.setManagementContext(managementContext);
         getManagementSupport().setManagementContext(managementContext);
@@ -1229,6 +1230,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
             ConfigConstraints.assertValid(AbstractEntity.this, key, val);
         }
         
+        @Override
         protected AbstractConfigMapImpl<?> getConfigsInternal() {
             return configsInternal;
         }
@@ -1259,6 +1261,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
             }
         }
         
+        @Override
         protected <T> void onConfigChanged(ConfigKey<T> key, Object val) {
             getManagementSupport().getEntityChangeListener().onConfigChanged(key);
         }
@@ -1525,6 +1528,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     /**
      * Default entity initialization sets ID sensors and calls {@link #initEnrichers()}.
      */
+    @Override
     public void init() {
         super.init();
         initEnrichers();

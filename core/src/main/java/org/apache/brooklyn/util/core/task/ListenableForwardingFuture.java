@@ -67,6 +67,7 @@ public abstract class ListenableForwardingFuture<T> extends SimpleForwardingFutu
     
     public abstract boolean cancel(TaskCancellationMode mode);
     
+    @Override
     public final boolean cancel(boolean mayInterrupt) {
         return cancel(TaskCancellationMode.INTERRUPT_TASK_AND_DEPENDENT_SUBMITTED_TASKS);
     }

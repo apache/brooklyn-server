@@ -62,10 +62,15 @@ public class StartStopSshDriverTest {
             super(entity, machine);
         }
         public boolean isRunning() { return true; }
+        @Override
         public void stop() {}
+        @Override
         public void kill() {}
+        @Override
         public void install() {}
+        @Override
         public void customize() {}
+        @Override
         public void launch() {}
     }
 

@@ -336,6 +336,7 @@ public class BrooklynTaskTags extends TaskTags {
             this.effectorName = checkNotNull(effectorName, "effectorName");
             this.parameters = parameters;
         }
+        @Override
         public String toString() {
             return EFFECTOR_TAG+"@"+entityId+":"+effectorName;
         }

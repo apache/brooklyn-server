@@ -124,6 +124,7 @@ public class DynamicToyMySqlEntityBuilder {
                         ).summary("setup and run mysql").returning(SshTasks.returningStdoutLoggingInfo(log, true)));
                 return "submitted start";
             }
+            @Override
             protected void postStartCustom() {
                 // if it's still up after 5s assume we are good
                 Time.sleep(Duration.FIVE_SECONDS);

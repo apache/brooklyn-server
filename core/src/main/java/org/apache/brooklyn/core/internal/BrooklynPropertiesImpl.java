@@ -384,6 +384,7 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
     }
 
     /** like normal map.put, except config keys are dereferenced on the way in */
+    @Override
     @SuppressWarnings("unchecked")
     public Object put(Object key, Object value) {
         if (key instanceof HasConfigKey) key = ((HasConfigKey)key).getConfigKey().getName();

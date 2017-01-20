@@ -49,6 +49,7 @@ public class BasicConfigurableEntityFactory<T extends Entity> extends AbstractCo
         this.clazzName = DeserializingClassRenamesProvider.INSTANCE.findMappedName(clazz.getName());
     }
 
+    @Override
     public T newEntity2(Map flags, Entity parent) {
         try {
             Constructor<? extends T> constructor = clazz.getConstructor(Map.class, Entity.class);

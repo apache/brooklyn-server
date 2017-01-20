@@ -48,6 +48,7 @@ public class SshCliToolIntegrationTest extends SshToolAbstractIntegrationTest {
 
     private static final Logger log = LoggerFactory.getLogger(SshCliToolIntegrationTest.class);
     
+    @Override
     protected SshTool newUnregisteredTool(Map<String,?> flags) {
         return new SshCliTool(flags);
     }
@@ -83,6 +84,7 @@ public class SshCliToolIntegrationTest extends SshToolAbstractIntegrationTest {
     
     // TODO When running mvn on the command line (for Aled), this test hangs when prompting for a password (but works in the IDE!)
     // Doing .connect() isn't enough; need to cause ssh or scp to be invoked
+    @Override
     @Test(enabled=false, groups = {"Integration"})
     public void testConnectWithInvalidUserThrowsException() throws Exception {
         final SshTool localtool = newTool(ImmutableMap.of("user", "wronguser", "host", "localhost", "privateKeyFile", "~/.ssh/id_rsa"));
@@ -97,6 +99,7 @@ public class SshCliToolIntegrationTest extends SshToolAbstractIntegrationTest {
     }
     
     // TODO ssh-cli doesn't support pass-phrases yet
+    @Override
     @Test(enabled=false, groups = {"Integration"})
     public void testSshKeyWithPassphrase() throws Exception {
         super.testSshKeyWithPassphrase();
@@ -109,6 +112,7 @@ public class SshCliToolIntegrationTest extends SshToolAbstractIntegrationTest {
         super.testCopyToServerWithLastModifiedDate();
     }
     
+    @Override
     @Test(groups = {"Integration"})
     public void testExecReturningNonZeroExitCode() throws Exception {
         int exitcode = tool.execCommands(MutableMap.<String,Object>of(), ImmutableList.of("exit 123"));

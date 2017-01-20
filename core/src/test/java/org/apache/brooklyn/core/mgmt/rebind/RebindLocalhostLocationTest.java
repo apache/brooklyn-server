@@ -43,6 +43,7 @@ public class RebindLocalhostLocationTest extends RebindTestFixtureWithApp {
     private LocalhostMachineProvisioningLocation origLoc;
     private SshMachineLocation origChildLoc;
     
+    @Override
     @BeforeMethod(alwaysRun=true)
 
     public void setUp() throws Exception {

@@ -69,6 +69,7 @@ public class SshjToolAsyncStubIntegrationTest {
         counter = 0;
         
         tool = new SshjTool(ImmutableMap.<String,Object>of("host", "localhost")) {
+            @Override
             @SuppressWarnings("unchecked")
             protected <T, C extends SshAction<T>> T acquire(C action, int sshTries, Duration sshTriesTimeout) {
                 if (action instanceof SshjTool.ShellAction) {

@@ -362,6 +362,7 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
                     }
                 })
                 .build(new CacheLoader<Map<String, ?>, Pool<SshTool>>() {
+                    @Override
                     public Pool<SshTool> load(Map<String, ?> properties) {
                         if (LOG.isDebugEnabled()) {
                             LOG.debug("{} building ssh pool for {} with properties: {}",

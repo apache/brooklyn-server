@@ -164,6 +164,7 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
     }
 
     /** returns a copy of this resolver which can be queried, even if the original (single-use instance) has already been copied */
+    @Override
     public ValueResolver<T> clone() {
         ValueResolver<T> result = new ValueResolver<T>(value, type)
             .context(exec).description(description)

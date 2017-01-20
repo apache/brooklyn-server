@@ -63,6 +63,7 @@ public class AutoScalerPolicyNoMoreMachinesTest extends BrooklynAppUnitTestSuppo
     Set<Entity> entitiesAdded;
     Set<Entity> entitiesRemoved;
     
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();

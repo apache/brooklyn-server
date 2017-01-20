@@ -128,6 +128,7 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
         return LocationSpec.create(LocalhostMachineProvisioningLocation.class);
     }
     
+    @Override
     public LocalhostMachineProvisioningLocation configure(Map<?,?> flags) {
         super.configure(flags);
         
@@ -230,6 +231,7 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
         portsInUse.remove((Object) portNumber);
     }
 
+    @Override
     public void release(SshMachineLocation machine) {
         LocalhostMachine localMachine = (LocalhostMachine) machine;
         Set<Integer> portsObtained = Sets.newLinkedHashSet();
@@ -272,12 +274,14 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
             return mutexSupport;
         }
         
+        @Override
         public boolean obtainSpecificPort(int portNumber) {
             if (!isSudoAllowed() && portNumber <= 1024)
                 return false;
             return LocalhostMachineProvisioningLocation.obtainSpecificPort(getAddress(), portNumber);
         }
         
+        @Override
         public int obtainPort(PortRange range) {
             int r = LocalhostMachineProvisioningLocation.obtainPort(getAddress(), range);
             synchronized (portsObtained) {

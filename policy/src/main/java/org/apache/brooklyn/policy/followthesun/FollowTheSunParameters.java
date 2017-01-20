@@ -86,6 +86,7 @@ public class FollowTheSunParameters {
         return true;
     }
     
+    @Override
     public String toString() {
         return "Inter-geography policy params: percentTotal="+triggerPercentTotal+"; deltaAbovePercentTotal="+triggerDeltaAbovePercentTotal+
                 "; absoluteTotal="+triggerAbsoluteTotal+"; percentMajority="+triggerPercentMajority+

@@ -59,6 +59,7 @@ public class BrooklynJacksonSerializerIntegrationTest extends BrooklynAppUnitTes
     URI entityUrl;
     URI configUri;
 
+    @Override
     @BeforeMethod(alwaysRun = true)
     public void setUp() throws Exception {
         super.setUp();

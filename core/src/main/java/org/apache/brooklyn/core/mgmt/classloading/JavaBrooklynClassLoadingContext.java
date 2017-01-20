@@ -79,6 +79,7 @@ public class JavaBrooklynClassLoadingContext extends AbstractBrooklynClassLoadin
         return JavaBrooklynClassLoadingContext.class.getClassLoader();
     }
 
+    @Override
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public Maybe<Class<?>> tryLoadClass(String className) {
         Maybe<Class<?>> cls = tryLoadClass0(className);

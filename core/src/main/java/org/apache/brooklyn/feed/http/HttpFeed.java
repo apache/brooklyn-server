@@ -398,6 +398,7 @@ public class HttpFeed extends AbstractFeed {
         }
     }
 
+    @Override
     @SuppressWarnings("unchecked")
     protected Poller<HttpToolResponse> getPoller() {
         return  (Poller<HttpToolResponse>) super.getPoller();

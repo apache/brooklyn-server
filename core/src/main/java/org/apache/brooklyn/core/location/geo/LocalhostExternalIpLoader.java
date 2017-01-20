@@ -170,6 +170,7 @@ public class LocalhostExternalIpLoader {
             }
 
             new Thread() {
+                @Override
                 public void run() {
                     for (String url : candidateUrls) {
                         try {

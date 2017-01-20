@@ -280,6 +280,7 @@ public class LocalUsageManager implements UsageManager {
                         listener.onApplicationEvent(new ApplicationMetadataImpl(Entities.proxy(app)), event);
                         return null;
                     }
+                    @Override
                     public String toString() {
                         return "applicationEvent("+app+", "+state+")";
                     }});
@@ -364,6 +365,7 @@ public class LocalUsageManager implements UsageManager {
                         listener.onLocationEvent(new LocationMetadataImpl(loc), event);
                         return null;
                     }
+                    @Override
                     public String toString() {
                         return "locationEvent("+loc+", "+state+")";
                     }});

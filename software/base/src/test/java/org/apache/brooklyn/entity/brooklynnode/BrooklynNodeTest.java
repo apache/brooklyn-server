@@ -180,6 +180,7 @@ public class BrooklynNodeTest {
             super();
         }
 
+        @Override
         public Collection<Integer> getRequiredOpenPorts() {
             return super.getRequiredOpenPorts();
         }

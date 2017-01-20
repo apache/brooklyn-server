@@ -243,6 +243,7 @@ public class JmxFeed extends AbstractFeed {
         return getConfig(HELPER);
     }
     
+    @Override
     @SuppressWarnings("unchecked")
     protected Poller<Object> getPoller() {
         return (Poller<Object>) super.getPoller();

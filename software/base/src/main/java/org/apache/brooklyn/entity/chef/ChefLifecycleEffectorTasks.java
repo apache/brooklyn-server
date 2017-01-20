@@ -236,6 +236,7 @@ public class ChefLifecycleEffectorTasks extends MachineLifecycleEffectorTasks im
                     .knifeRunTwice(entity().getConfig(CHEF_RUN_CONVERGE_TWICE)) );
     }
 
+    @Override
     protected void postStartCustom() {
         boolean result = false;
         result |= tryCheckStartPid();

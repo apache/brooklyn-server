@@ -45,6 +45,7 @@ public class BrooklynRestApp extends Application {
 
     //Uncomment after removing jersey dependencies
     //@Override
+    @Override
     public Map<String, Object> getProperties() {
         return ImmutableMap.<String, Object>of(
                 // Makes sure that all exceptions are handled by our custom DefaultExceptionMapper

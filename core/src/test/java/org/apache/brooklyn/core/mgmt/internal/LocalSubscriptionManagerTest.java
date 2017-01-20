@@ -142,6 +142,7 @@ public class LocalSubscriptionManagerTest extends BrooklynAppUnitTestSupport {
         // Repeatedly subscribe and unsubscribe, so listener-set constantly changing while publishing to it.
         // First create a stable listener so it is always the same listener-set object.
         Thread thread = new Thread() {
+            @Override
             public void run() {
                 try {
                     SensorEventListener<Object> noopListener = new SensorEventListener<Object>() {

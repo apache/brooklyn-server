@@ -51,10 +51,12 @@ public class GroovyObservablesPropertyChangeToCollectionChangeAdapter implements
         }
     }
 
+    @Override
     public int hashCode() {
         return delegate.hashCode();
     }
 
+    @Override
     public boolean equals(Object other) {
         if (other instanceof GroovyObservablesPropertyChangeToCollectionChangeAdapter)
             return delegate.equals(((GroovyObservablesPropertyChangeToCollectionChangeAdapter) other).delegate);

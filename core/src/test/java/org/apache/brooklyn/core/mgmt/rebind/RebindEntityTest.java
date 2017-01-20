@@ -374,6 +374,7 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
         RebindTestUtils.checkCurrentMementoSerializable(origApp);
         newManagementContext = RebindTestUtils.newPersistingManagementContextUnstarted(mementoDir, classLoader);
         Thread thread = new Thread() {
+            @Override
             public void run() {
                 try {
                     newManagementContext.getRebindManager().rebind(classLoader, null, ManagementNodeState.MASTER);
@@ -425,6 +426,7 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
         RebindTestUtils.checkCurrentMementoSerializable(origApp);
         newManagementContext = new LocalManagementContext();
         Thread thread = new Thread() {
+            @Override
             public void run() {
                 try {
                     RebindTestUtils.rebind(RebindOptions.create()

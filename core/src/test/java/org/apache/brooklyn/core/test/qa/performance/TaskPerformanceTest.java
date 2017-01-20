@@ -44,6 +44,7 @@ public class TaskPerformanceTest extends AbstractPerformanceTest {
     
     BasicExecutionManager executionManager;
     
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();

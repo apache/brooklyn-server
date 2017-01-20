@@ -132,6 +132,7 @@ public class BasicExecutionManager implements ExecutionManager {
     private final List<ExecutionListener> listeners = new CopyOnWriteArrayList<ExecutionListener>();
     
     private final static ThreadLocal<String> threadOriginalName = new ThreadLocal<String>() {
+        @Override
         protected String initialValue() {
             // should not happen, as only access is in _afterEnd with a check that _beforeStart was invoked 
             log.warn("No original name recorded for thread "+Thread.currentThread().getName()+"; task "+Tasks.current());

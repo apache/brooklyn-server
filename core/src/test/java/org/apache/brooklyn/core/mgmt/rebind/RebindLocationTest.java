@@ -57,6 +57,7 @@ public class RebindLocationTest extends RebindTestFixtureWithApp {
     @SuppressWarnings("unused")
     private MyEntity origE;
     
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();

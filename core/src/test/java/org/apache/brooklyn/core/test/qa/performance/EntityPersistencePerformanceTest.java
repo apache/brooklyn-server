@@ -44,6 +44,7 @@ public class EntityPersistencePerformanceTest extends RebindTestFixtureWithApp {
 
     // TODO Not measuring performance per cycle; just looking at CPU usage during test
     
+    @Override
     protected int getPersistPeriodMillis() {
         return 1000;
     }

@@ -547,6 +547,7 @@ public class CliTest {
     @Test
     public void testCanCustomiseInfoCommand() throws Exception {
         Main main = new Main() {
+            @Override
             protected Class<? extends BrooklynCommand> cliInfoCommand() {
                 return CustomInfoCommand.class;
             }
@@ -567,6 +568,7 @@ public class CliTest {
     @Test
     public void testCanCustomiseLaunchCommand() throws Exception {
         Main main = new Main() {
+            @Override
             protected Class<? extends BrooklynCommand> cliLaunchCommand() {
                 return CustomLaunchCommand.class;
             }
