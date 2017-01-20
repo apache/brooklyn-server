@@ -68,6 +68,7 @@ import org.apache.brooklyn.util.exceptions.RuntimeTimeoutException;
 import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
 import org.apache.brooklyn.util.guava.Functionals;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.text.StringFunctions;
 import org.apache.brooklyn.util.text.StringFunctions.RegexReplacer;
 import org.apache.brooklyn.util.text.Strings;
@@ -472,7 +473,7 @@ public class DependentConfiguration {
             if (arg instanceof TaskAdaptable) taskArgs.add((TaskAdaptable<Object>)arg);
             else if (arg instanceof TaskFactory) taskArgs.add( ((TaskFactory<TaskAdaptable<Object>>)arg).newTask() );
         }
-            
+        
         return transformMultiple(
             MutableMap.<String,String>of("displayName", "formatting '"+spec+"' with "+taskArgs.size()+" task"+(taskArgs.size()!=1?"s":"")), 
             new Function<List<Object>, String>() {
@@ -503,6 +504,48 @@ public class DependentConfiguration {
         }
 
         return Maybe.of(String.format(spec, resolvedArgs.toArray()));
+    }
+
+    /**
+     * @throws ImmediateSupplier.ImmediateUnsupportedException if cannot evaluate this in a timely manner
+     */
+    public static Maybe<String> urlEncodeImmediately(Object arg) {
+        Maybe<?> resolvedArg = resolveImmediately(arg);
+        if (resolvedArg.isAbsent()) return Maybe.absent();
+        if (resolvedArg.isNull()) return Maybe.<String>of((String)null);
+        
+        String resolvedString = resolvedArg.get().toString();
+        return Maybe.of(Urls.encode(resolvedString));
+    }
+
+    /** 
+     * Method which returns a Future containing an escaped URL string (see {@link Urls#encode(String)}).
+     * The arguments can be normal objects, tasks or {@link DeferredSupplier}s.
+     * tasks will be waited on (submitted if necessary) and their results substituted.
+     */
+    @SuppressWarnings("unchecked")
+    public static Task<String> urlEncode(final Object arg) {
+        List<TaskAdaptable<Object>> taskArgs = Lists.newArrayList();
+        if (arg instanceof TaskAdaptable) taskArgs.add((TaskAdaptable<Object>)arg);
+        else if (arg instanceof TaskFactory) taskArgs.add( ((TaskFactory<TaskAdaptable<Object>>)arg).newTask() );
+        
+        return transformMultiple(
+                MutableMap.<String,String>of("displayName", "url-escaping '"+arg), 
+                new Function<List<Object>, String>() {
+                    @Override
+                    @Nullable
+                    public String apply(@Nullable List<Object> input) {
+                        Object resolvedArg;
+                        if (arg instanceof TaskAdaptable || arg instanceof TaskFactory) resolvedArg = Iterables.getOnlyElement(input);
+                        else if (arg instanceof DeferredSupplier) resolvedArg = ((DeferredSupplier<?>) arg).get();
+                        else resolvedArg = arg;
+                        
+                        if (resolvedArg == null) return null;
+                        String resolvedString = resolvedArg.toString();
+                        return Urls.encode(resolvedString);
+                    }
+                },
+                taskArgs);
     }
 
     protected static <T> Maybe<?> resolveImmediately(Object val) {
