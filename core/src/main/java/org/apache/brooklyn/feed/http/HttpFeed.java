@@ -370,6 +370,7 @@ public class HttpFeed extends AbstractFeed {
 
             Callable<HttpToolResponse> pollJob;
             pollJob = new Callable<HttpToolResponse>() {
+                @Override
                 public HttpToolResponse call() throws Exception {
                     if (log.isTraceEnabled()) log.trace("http polling for {} sensors at {}", entity, pollInfo);
 

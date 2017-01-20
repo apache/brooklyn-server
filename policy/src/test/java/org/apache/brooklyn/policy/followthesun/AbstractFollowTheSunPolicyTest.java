@@ -121,6 +121,7 @@ public class AbstractFollowTheSunPolicyTest {
     protected void assertItemDistributionEventually(final Map<MockContainerEntity, ? extends Collection<MockItemEntity>> expected) {
         try {
             Asserts.succeedsEventually(MutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
+                @Override
                 public void run() {
                     assertItemDistribution(expected);
                 }});
@@ -133,6 +134,7 @@ public class AbstractFollowTheSunPolicyTest {
     protected void assertItemDistributionContinually(final Map<MockContainerEntity, Collection<MockItemEntity>> expected) {
         try {
             Asserts.succeedsContinually(MutableMap.of("timeout", SHORT_WAIT_MS), new Runnable() {
+                @Override
                 public void run() {
                     assertItemDistribution(expected);
                 }});

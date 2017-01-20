@@ -56,8 +56,10 @@ public class ScheduledExecutionTest {
         BasicExecutionManager m = new BasicExecutionManager("mycontextid");
         final AtomicInteger i = new AtomicInteger(0);
         ScheduledTask t = new ScheduledTask(MutableMap.of("delay", 2*PERIOD, "period", PERIOD, "maxIterations", 5), new Callable<Task<?>>() {
+            @Override
             public Task<?> call() throws Exception {
                 return new BasicTask<Integer>(new Callable<Integer>() {
+                    @Override
                     public Integer call() {
                         log.debug("task running: "+Tasks.current()+" "+Tasks.current().getStatusDetail(false));
                         return i.incrementAndGet();
@@ -82,8 +84,10 @@ public class ScheduledExecutionTest {
         BasicExecutionManager m = new BasicExecutionManager("mycontextid");
         final AtomicInteger calls = new AtomicInteger(0);
         ScheduledTask t = new ScheduledTask(MutableMap.of("period", Duration.ONE_MILLISECOND, "maxIterations", 5), new Callable<Task<?>>() {
+            @Override
             public Task<?> call() throws Exception {
                 return new BasicTask<>(new Callable<Integer>() {
+                    @Override
                     public Integer call() {
                         calls.incrementAndGet();
                         throw new RuntimeException("boo");
@@ -108,8 +112,10 @@ public class ScheduledExecutionTest {
         BasicExecutionManager m = new BasicExecutionManager("mycontextid");
         final AtomicInteger calls = new AtomicInteger(0);
         ScheduledTask t = new ScheduledTask(MutableMap.of("period", Duration.ONE_MILLISECOND, "maxIterations", 5, "cancelOnException", false), new Callable<Task<?>>() {
+            @Override
             public Task<?> call() throws Exception {
                 return new BasicTask<>(new Callable<Integer>() {
+                    @Override
                     public Integer call() {
                         calls.incrementAndGet();
                         throw new RuntimeException("boo");
@@ -128,8 +134,10 @@ public class ScheduledExecutionTest {
         BasicExecutionManager m = new BasicExecutionManager("mycontextid");
         final AtomicInteger i = new AtomicInteger(0);
         ScheduledTask t = new ScheduledTask(MutableMap.of("delay", 2*PERIOD, "period", PERIOD), new Callable<Task<?>>() {
+            @Override
             public Task<?> call() throws Exception {
                 return new BasicTask<Integer>(new Callable<Integer>() {
+                    @Override
                     public Integer call() {
                         ScheduledTask submitter = (ScheduledTask) ((BasicTask)Tasks.current()).getSubmittedByTask();
                         if (i.get() >= 4) submitter.period = null;
@@ -157,8 +165,10 @@ public class ScheduledExecutionTest {
         BasicExecutionManager m = new BasicExecutionManager("mycontextid");
         final AtomicInteger i = new AtomicInteger();
         ScheduledTask t = new ScheduledTask(MutableMap.of("delay", PERIOD.times(2), "period", PERIOD), new Callable<Task<?>>() {
+            @Override
             public Task<?> call() throws Exception {
                 return new BasicTask<Integer>(new Callable<Integer>() {
+                    @Override
                     public Integer call() {
                         log.info("task running ("+i+"): "+Tasks.current()+" "+Tasks.current().getStatusDetail(false));
                         ScheduledTask submitter = (ScheduledTask) ((BasicTask)Tasks.current()).getSubmittedByTask();
@@ -192,8 +202,10 @@ public class ScheduledExecutionTest {
         BasicExecutionManager m = new BasicExecutionManager("mycontextid");
         final AtomicInteger i = new AtomicInteger();
         ScheduledTask t = new ScheduledTask(MutableMap.of("delay", PERIOD.times(2), "period", PERIOD), new Callable<Task<?>>() {
+            @Override
             public Task<?> call() throws Exception {
                 return new BasicTask<Integer>(new Callable<Integer>() {
+                    @Override
                     public Integer call() {
                         log.info("task running ("+i+"): "+Tasks.current()+" "+Tasks.current().getStatusDetail(false));
                         Time.sleep(CYCLE_DELAY);
@@ -241,8 +253,10 @@ public class ScheduledExecutionTest {
         final Semaphore interruptedSemaphore = new Semaphore(0);
         final AtomicInteger i = new AtomicInteger();
         ScheduledTask t = new ScheduledTask(MutableMap.of("delay", PERIOD.times(2), "period", PERIOD), new Callable<Task<?>>() {
+            @Override
             public Task<?> call() throws Exception {
                 return new BasicTask<Integer>(new Callable<Integer>() {
+                    @Override
                     public Integer call() {
                         try {
                             log.info("task running ("+i+"): "+Tasks.current()+" "+Tasks.current().getStatusDetail(false));
@@ -293,8 +307,10 @@ public class ScheduledExecutionTest {
         final List<Long> execTimes = new CopyOnWriteArrayList<Long>();
         
         ScheduledTask t = new ScheduledTask(MutableMap.of("delay", PERIOD, "period", PERIOD), new Callable<Task<?>>() {
+            @Override
             public Task<?> call() throws Exception {
                 return new BasicTask<Void>(new Runnable() {
+                    @Override
                     public void run() {
                         execTimes.add(System.currentTimeMillis());
                         try {
@@ -308,6 +324,7 @@ public class ScheduledExecutionTest {
         m.submit(t);
         
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 assertTrue(execTimes.size() > 3, "size="+execTimes.size());
             }});

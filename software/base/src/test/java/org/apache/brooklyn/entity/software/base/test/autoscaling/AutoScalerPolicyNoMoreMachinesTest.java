@@ -199,6 +199,7 @@ public class AutoScalerPolicyNoMoreMachinesTest extends BrooklynAppUnitTestSuppo
     
     protected void assertSizeEventually(final int targetSize, final int quarantineSize, final int deletedSize) {
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 assertSize(targetSize, quarantineSize);
                 assertEquals(entitiesRemoved.size(), deletedSize, "removed="+entitiesRemoved);
@@ -207,6 +208,7 @@ public class AutoScalerPolicyNoMoreMachinesTest extends BrooklynAppUnitTestSuppo
     
     protected void assertSizeContinually(final int targetSize, final int quarantineSize, final int deletedSize) {
         Asserts.succeedsContinually(ImmutableMap.of("timeout", SHORT_WAIT_MS), new Runnable() {
+            @Override
             public void run() {
                 assertSize(targetSize, quarantineSize);
                 assertEquals(entitiesRemoved.size(), deletedSize, "removed="+entitiesRemoved);

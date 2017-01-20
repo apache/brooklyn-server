@@ -335,6 +335,7 @@ public abstract class AbstractManagementContext implements ManagementContextInte
                             ConfigBag.newInstance().configureStringKey("args", args)),
                         entity, 
                         new Callable<T>() {
+                            @Override
                             public T call() {
                                 return invokeEffectorMethodLocal(entity, eff, args);
                             }});
@@ -501,10 +502,12 @@ public abstract class AbstractManagementContext implements ManagementContextInte
         }
     }
     
+    @Override
     public BrooklynObject lookup(String id) {
         return lookup(id, BrooklynObject.class);
     }
     
+    @Override
     @SuppressWarnings("unchecked")
     public <T extends BrooklynObject> T lookup(String id, Class<T> type) {
         Object result;

@@ -142,6 +142,7 @@ public class SoftwareProcessStopsDuringStartTest extends BrooklynAppUnitTestSupp
     @Test
     public void testStopDuringProvisionWaitsForCompletion() throws Exception {
         Future<?> startFuture = executor.submit(new Runnable() {
+            @Override
             public void run() {
                 entity.start(ImmutableList.<Location>of(loc));
             }});
@@ -157,6 +158,7 @@ public class SoftwareProcessStopsDuringStartTest extends BrooklynAppUnitTestSupp
         watcher.start();
         try {
             stopFuture = executor.submit(new Runnable() {
+                @Override
                 public void run() {
                     entity.stop();
                 }});
@@ -189,6 +191,7 @@ public class SoftwareProcessStopsDuringStartTest extends BrooklynAppUnitTestSupp
                 .configure(MachineLifecycleEffectorTasks.STOP_WAIT_PROVISIONING_TIMEOUT, Duration.millis(100)));
 
         executor.submit(new Runnable() {
+            @Override
             public void run() {
                 entity.start(ImmutableList.<Location>of(loc));
             }});
@@ -218,6 +221,7 @@ public class SoftwareProcessStopsDuringStartTest extends BrooklynAppUnitTestSupp
         loc.setObtainToFail(0);
         
         executor.submit(new Runnable() {
+            @Override
             public void run() {
                 entity.start(ImmutableList.<Location>of(loc));
             }});
@@ -233,6 +237,7 @@ public class SoftwareProcessStopsDuringStartTest extends BrooklynAppUnitTestSupp
         watcher.start();
         try {
             stopFuture = executor.submit(new Runnable() {
+                @Override
                 public void run() {
                     entity.stop();
                 }});

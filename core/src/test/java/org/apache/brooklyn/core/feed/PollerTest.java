@@ -108,10 +108,12 @@ public class PollerTest extends BrooklynAppUnitTestSupport {
                     .build();
         }
 
+        @Override
         public void startThrowingPollExceptions() {
             this.poller.setShouldThrow(true);
         }
 
+        @Override
         public void stopThrowingPollExceptions() {
             this.poller.setShouldThrow(false);
         }

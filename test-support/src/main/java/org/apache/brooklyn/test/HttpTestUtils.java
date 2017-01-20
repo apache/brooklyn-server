@@ -81,6 +81,7 @@ public class HttpTestUtils {
         
         // sometimes openConnection hangs, so run in background
         Future<URLConnection> f = executor.submit(new Callable<URLConnection>() {
+            @Override
             public URLConnection call() {
                 try {
                     HttpsURLConnection.setDefaultHostnameVerifier(new HostnameVerifier() {
@@ -178,6 +179,7 @@ public class HttpTestUtils {
     
     public static void assertUrlUnreachableEventually(Map<String,?> flags, final String url) {
         Asserts.succeedsEventually(flags, new Runnable() {
+            @Override
             public void run() {
                 assertUrlUnreachable(url);
             }
@@ -207,6 +209,7 @@ public class HttpTestUtils {
 
     public static void assertHttpStatusCodeEventuallyEquals(Map<String,?> flags, final String url, final int expectedCode) {
         Asserts.succeedsEventually(flags, new Runnable() {
+            @Override
             public void run() {
                 assertHttpStatusCodeEquals(url, expectedCode);
             }
@@ -280,6 +283,7 @@ public class HttpTestUtils {
     
     public static void assertContentEventuallyContainsText(Map<String,?> flags, final String url, final String phrase, final String ...additionalPhrases) {
         Asserts.succeedsEventually(flags, new Runnable() {
+            @Override
             public void run() {
                 assertContentContainsText(url, phrase, additionalPhrases);
             }

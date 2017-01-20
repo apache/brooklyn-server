@@ -108,6 +108,7 @@ public class BasicTaskExecutionTest {
         final CountDownLatch signalStarted = new CountDownLatch(1);
         final CountDownLatch allowCompletion = new CountDownLatch(1);
         final BasicTask<Object> t = new BasicTask<Object>(new Callable<Object>() {
+            @Override
             public Object call() throws Exception {
                 Object result = data.put(1, "b");
                 signalStarted.countDown();
@@ -127,6 +128,7 @@ public class BasicTaskExecutionTest {
         log.debug("runBasicTaskWithWaits, BasicTask status: {}", t.getStatusDetail(false));
         
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 String status = t.getStatusDetail(false);
                 assertTrue(status != null && status.toLowerCase().contains("waiting"), "status="+status);
@@ -246,6 +248,7 @@ public class BasicTaskExecutionTest {
         final CountDownLatch runningLatch = new CountDownLatch(1);
         final CountDownLatch finishLatch = new CountDownLatch(1);
         Task<Void> t = new BasicTask<Void>(new Callable<Void>() {
+            @Override
             public Void call() throws Exception {
                 runningLatch.countDown();
                 finishLatch.await();
@@ -267,6 +270,7 @@ public class BasicTaskExecutionTest {
         final CountDownLatch blockForever = new CountDownLatch(1);
         
         BasicTask<Integer> t = new BasicTask<Integer>(new Callable<Integer>() {
+            @Override
             public Integer call() throws Exception {
                 blockForever.await(); return 42;
             }});
@@ -295,6 +299,7 @@ public class BasicTaskExecutionTest {
         final CountDownLatch blockForever = new CountDownLatch(1);
         
         BasicTask<Integer> t = new BasicTask<Integer>(new Callable<Integer>() {
+            @Override
             public Integer call() throws Exception {
                 synchronized (data) {
                     signalStarted.countDown();
@@ -338,6 +343,7 @@ public class BasicTaskExecutionTest {
     @Test
     public void errorDuringRun() throws Exception {
         BasicTask<Void> t = new BasicTask<Void>(new Callable<Void>() {
+            @Override
             public Void call() throws Exception {
                 throw new IllegalStateException("Simulating failure in errorDuringRun");
             }});
@@ -366,6 +372,7 @@ public class BasicTaskExecutionTest {
         final CountDownLatch allowCompletion = new CountDownLatch(1);
         
         BasicTask<Integer> t = new BasicTask<Integer>(new Callable<Integer>() {
+            @Override
             public Integer call() throws Exception {
                 signalStarted.countDown();
                 allowCompletion.await();
@@ -395,8 +402,10 @@ public class BasicTaskExecutionTest {
     public void fieldsSetForBasicTaskSubmittedBasicTask() throws Exception {
         //submitted BasicTask B is started by A, and waits for A to complete
         BasicTask<Integer> t = new BasicTask<Integer>(MutableMap.of("displayName", "sample", "description", "some descr"), new Callable<Integer>() {
+            @Override
             public Integer call() throws Exception {
                 em.submit(MutableMap.of("tag", "B"), new Callable<Integer>() {
+                    @Override
                     public Integer call() throws Exception {
                         assertEquals(45, em.getTasksWithTag("A").iterator().next().get());
                         return 46;
@@ -428,6 +437,7 @@ public class BasicTaskExecutionTest {
     
     private Callable<Object> newPutCallable(final Object key, final Object val) {
         return new Callable<Object>() {
+            @Override
             public Object call() {
                 return data.put(key, val);
             }
@@ -436,6 +446,7 @@ public class BasicTaskExecutionTest {
     
     private Callable<Integer> newIncrementCallable(final Object key) {
         return new Callable<Integer>() {
+            @Override
             public Integer call() {
                 synchronized (data) {
                     return (Integer) data.put(key, (Integer)data.get(key) + 1);
@@ -446,6 +457,7 @@ public class BasicTaskExecutionTest {
     
     private Runnable newPutRunnable(final Object key, final Object val) {
         return new Runnable() {
+            @Override
             public void run() {
                 data.put(key, val);
             }
@@ -454,6 +466,7 @@ public class BasicTaskExecutionTest {
     
     private Runnable newNoop() {
         return new Runnable() {
+            @Override
             public void run() {
             }
         };

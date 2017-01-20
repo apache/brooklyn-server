@@ -109,6 +109,7 @@ public class ApplicationResourceIntegrationTest extends BrooklynRestResourceTest
         final URI stateSensor = URI.create("/applications/simple-app/entities/simple-ent/sensors/service.state");
         final String expectedStatus = Lifecycle.STOPPED.toString();
         Asserts.succeedsEventually(MutableMap.of("timeout", 60 * 1000), new Runnable() {
+            @Override
             public void run() {
                 // Accept with and without quotes; if don't specify "Accepts" header, then
                 // might get back json or plain text (depending on compiler / java runtime 

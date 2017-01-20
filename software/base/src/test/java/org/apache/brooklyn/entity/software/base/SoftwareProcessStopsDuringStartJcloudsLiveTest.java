@@ -136,6 +136,7 @@ public class SoftwareProcessStopsDuringStartJcloudsLiveTest extends BrooklynAppL
                 .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, true));
         
         executeInLimitedTime(new Callable<Void>() {
+            @Override
             public Void call() {
                 app.start(ImmutableList.of(loc));
                 return null;
@@ -146,6 +147,7 @@ public class SoftwareProcessStopsDuringStartJcloudsLiveTest extends BrooklynAppL
         assertEquals(entity.getAttribute(MachineLifecycleEffectorTasks.INTERNAL_PROVISIONED_MACHINE), Machines.findUniqueMachineLocation(entity.getLocations(), SshMachineLocation.class).get());
 
         executeInLimitedTime(new Callable<Void>() {
+            @Override
             public Void call() {
                 Entities.destroy(app);
                 return null;

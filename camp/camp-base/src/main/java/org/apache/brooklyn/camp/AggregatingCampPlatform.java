@@ -75,6 +75,7 @@ public class AggregatingCampPlatform extends CampPlatform {
     @Override
     public ResourceLookup<PlatformComponentTemplate> platformComponentTemplates() {
         return aggregatingLookup(new Function<CampPlatform, ResourceLookup<PlatformComponentTemplate>>() {
+            @Override
             public ResourceLookup<PlatformComponentTemplate> apply(@Nullable CampPlatform input) {
                 return input.platformComponentTemplates();
             }
@@ -84,6 +85,7 @@ public class AggregatingCampPlatform extends CampPlatform {
     @Override
     public ResourceLookup<ApplicationComponentTemplate> applicationComponentTemplates() {
         return aggregatingLookup(new Function<CampPlatform, ResourceLookup<ApplicationComponentTemplate>>() {
+            @Override
             public ResourceLookup<ApplicationComponentTemplate> apply(@Nullable CampPlatform input) {
                 return input.applicationComponentTemplates();
             }
@@ -93,6 +95,7 @@ public class AggregatingCampPlatform extends CampPlatform {
     @Override
     public ResourceLookup<AssemblyTemplate> assemblyTemplates() {
         return aggregatingLookup(new Function<CampPlatform, ResourceLookup<AssemblyTemplate>>() {
+            @Override
             public ResourceLookup<AssemblyTemplate> apply(@Nullable CampPlatform input) {
                 return input.assemblyTemplates();
             }
@@ -102,6 +105,7 @@ public class AggregatingCampPlatform extends CampPlatform {
     @Override
     public ResourceLookup<PlatformComponent> platformComponents() {
         return aggregatingLookup(new Function<CampPlatform, ResourceLookup<PlatformComponent>>() {
+            @Override
             public ResourceLookup<PlatformComponent> apply(@Nullable CampPlatform input) {
                 return input.platformComponents();
             }
@@ -111,6 +115,7 @@ public class AggregatingCampPlatform extends CampPlatform {
     @Override
     public ResourceLookup<ApplicationComponent> applicationComponents() {
         return aggregatingLookup(new Function<CampPlatform, ResourceLookup<ApplicationComponent>>() {
+            @Override
             public ResourceLookup<ApplicationComponent> apply(@Nullable CampPlatform input) {
                 return input.applicationComponents();
             }
@@ -120,6 +125,7 @@ public class AggregatingCampPlatform extends CampPlatform {
     @Override
     public ResourceLookup<Assembly> assemblies() {
         return aggregatingLookup(new Function<CampPlatform, ResourceLookup<Assembly>>() {
+            @Override
             public ResourceLookup<Assembly> apply(@Nullable CampPlatform input) {
                 return input.assemblies();
             }

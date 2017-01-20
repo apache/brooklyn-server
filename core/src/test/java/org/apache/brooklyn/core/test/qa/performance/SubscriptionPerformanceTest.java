@@ -72,6 +72,7 @@ public class SubscriptionPerformanceTest extends AbstractPerformanceTest {
         
         for (int i = 0; i < numSubscribers; i++) {
             subscriptionManager.subscribe(MutableMap.<String, Object>of("subscriber", i), entity, TestEntity.SEQUENCE, new SensorEventListener<Integer>() {
+                @Override
                 public void onEvent(SensorEvent<Integer> event) {
                     int count = listenerCount.incrementAndGet();
                     if (count >= expectedCount) completionLatch.countDown();
@@ -83,6 +84,7 @@ public class SubscriptionPerformanceTest extends AbstractPerformanceTest {
                 .iterations(numIterations)
                 .minAcceptablePerSecond(minRatePerSec)
                 .job(new Runnable() {
+                    @Override
                     public void run() {
                         entity.sensors().set(TestEntity.SEQUENCE, (iter.getAndIncrement()));
                     }})
@@ -102,6 +104,7 @@ public class SubscriptionPerformanceTest extends AbstractPerformanceTest {
         
         for (int i = 0; i < numSubscribers; i++) {
             subscriptionManager.subscribe(MutableMap.<String, Object>of("subscriber", i), entity, TestEntity.SEQUENCE, new SensorEventListener<Integer>() {
+                @Override
                 public void onEvent(SensorEvent<Integer> event) {
                     int count = listenerCount.incrementAndGet();
                     if (count >= expectedCount) completionLatch.countDown();
@@ -129,11 +132,13 @@ public class SubscriptionPerformanceTest extends AbstractPerformanceTest {
         
         for (int i = 0; i < (numUnrelatedSubscribers/2); i++) {
             subscriptionManager.subscribe(MutableMap.<String, Object>of("subscriber", i), entities.get(1), TestEntity.SEQUENCE, new SensorEventListener<Integer>() {
+                @Override
                 public void onEvent(SensorEvent<Integer> event) {
                         exception.set(new RuntimeException("Unrelated subscriber called with "+event));
                         throw exception.get();
                     }});
             subscriptionManager.subscribe(MutableMap.<String, Object>of("subscriber", i), entity, TestEntity.MY_NOTIF, new SensorEventListener<Integer>() {
+                @Override
                 public void onEvent(SensorEvent<Integer> event) {
                     exception.set(new RuntimeException("Unrelated subscriber called with "+event));
                     throw exception.get();

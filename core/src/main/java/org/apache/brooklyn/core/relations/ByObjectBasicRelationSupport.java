@@ -59,11 +59,13 @@ public class ByObjectBasicRelationSupport<SourceType extends BrooklynObject> ext
         
         private Multimap<String,BrooklynObject> relations = Multimaps.newMultimap(MutableMap.<String,Collection<BrooklynObject>>of(), 
             new Supplier<Collection<BrooklynObject>>() {
+                @Override
                 public Collection<BrooklynObject> get() {
                     return MutableSet.of();
                 }
             });
 
+        @Override
         public Set<RelationshipType<? super T,? extends BrooklynObject>> getRelationshipTypes() {
             synchronized (relations) {
                 return MutableSet.copyOf(relationshipTypes.values());

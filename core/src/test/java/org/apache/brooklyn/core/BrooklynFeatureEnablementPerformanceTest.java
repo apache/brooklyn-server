@@ -49,6 +49,7 @@ public class BrooklynFeatureEnablementPerformanceTest extends AbstractPerformanc
                 .iterations(numIterations)
                 .minAcceptablePerSecond(minRatePerSec)
                 .job(new Runnable() {
+                    @Override
                     public void run() {
                         assertFalse(BrooklynFeatureEnablement.isEnabled(featureProperty));
                     }}));

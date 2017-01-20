@@ -347,6 +347,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         Assert.assertNotNull(entities[0], "Expected app to contain child named 'testentity'");
         Assert.assertNotNull(entities[1], "Expected app to contain child named 'second entity'");
         Object object = ((EntityInternal)app).getExecutionContext().submit(MutableMap.of(), new Callable<Object>() {
+            @Override
             public Object call() {
                 return entities[1].getConfig(TestEntity.CONF_OBJECT);
             }}).get();

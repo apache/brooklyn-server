@@ -62,6 +62,7 @@ public class MachineInitTasks {
      */
     public Task<Void> stopIptablesAsync(final SshMachineLocation machine) {
         return DynamicTasks.queue("stop iptables", new Runnable() {
+            @Override
             public void run() {
                 stopIptablesImpl(machine);
             }
@@ -99,6 +100,7 @@ public class MachineInitTasks {
      */
     public Task<Void> openIptablesAsync(final Iterable<Integer> inboundPorts, final SshMachineLocation machine) {
         return DynamicTasks.queue("open iptables "+toTruncatedString(inboundPorts, 6), new Runnable() {
+            @Override
             public void run() {
                 openIptablesImpl(inboundPorts, machine);
             }
@@ -142,6 +144,7 @@ public class MachineInitTasks {
      */
     private Task<Void> insertIptablesRules(final List<String> iptablesRules, final String installCommands, final SshMachineLocation machine) {
         return DynamicTasks.queue("insert rules", new Runnable() {
+            @Override
             public void run() {
                 insertIptablesRulesImpl(iptablesRules, installCommands, machine);
             }

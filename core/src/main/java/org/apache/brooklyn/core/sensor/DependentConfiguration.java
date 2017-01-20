@@ -403,6 +403,7 @@ public class DependentConfiguration {
     @SuppressWarnings({ "rawtypes" })
     public static <U,T> Task<T> transform(final Map flags, final TaskAdaptable<U> task, final Function<U,T> transformer) {
         return new BasicTask<T>(flags, new Callable<T>() {
+            @Override
             public T call() throws Exception {
                 if (!task.asTask().isSubmitted()) {
                     BasicExecutionContext.getCurrentExecutionContext().submit(task);

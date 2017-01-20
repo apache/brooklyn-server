@@ -207,6 +207,7 @@ public class TestEndpointReachableImpl extends TargetableTestComponentImpl imple
     /**
      * {@inheritDoc}
      */
+    @Override
     public void stop() {
         setUpAndRunState(false, Lifecycle.STOPPED);
     }
@@ -214,6 +215,7 @@ public class TestEndpointReachableImpl extends TargetableTestComponentImpl imple
     /**
      * {@inheritDoc}
      */
+    @Override
     public void restart() {
         final Collection<Location> locations = Lists.newArrayList(getLocations());
         stop();

@@ -201,6 +201,7 @@ public class SoftwareProcessEntityFeedRebindTest extends RebindTestFixtureWithAp
                             .suppressDuplicates(true)
                             .onException(Functions.constant(-1))
                             .callable(new Callable<Integer>() {
+                                @Override
                                 public Integer call() {
                                     if (!Entities.isManaged(MyServiceWithFeedsImpl.this)) {
                                         feedCalledWhenNotManaged = true;

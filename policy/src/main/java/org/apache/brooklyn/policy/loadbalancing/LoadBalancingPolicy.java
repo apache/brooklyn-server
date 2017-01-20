@@ -96,6 +96,7 @@ public class LoadBalancingPolicy<NodeType extends Entity, ItemType extends Movab
     private TemperatureStates lastEmittedPoolTemperature = null; // "cold" or "hot"
     
     private final SensorEventListener<Object> eventHandler = new SensorEventListener<Object>() {
+        @Override
         @SuppressWarnings({ "rawtypes", "unchecked" })
         public void onEvent(SensorEvent<Object> event) {
             if (LOG.isTraceEnabled()) LOG.trace("{} received event {}", LoadBalancingPolicy.this, event);
@@ -198,6 +199,7 @@ public class LoadBalancingPolicy<NodeType extends Entity, ItemType extends Movab
             long delay = Math.max(0, (executorTime + minPeriodBetweenExecs) - now);
             
             executor.schedule(new Runnable() {
+                @Override
                 public void run() {
                     runWithRetries(3);
                 }

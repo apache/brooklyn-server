@@ -41,24 +41,29 @@ public abstract class AbstractConfigurableEntityFactory<T extends Entity> implem
         this.config.putAll(flags);
 
     }
+    @Override
     public AbstractConfigurableEntityFactory<T> configure(Map flags) {
         config.putAll(flags);
         return this;
     }
 
+    @Override
     public AbstractConfigurableEntityFactory<T> configure(ConfigKey key, Object value) {
         config.put(key, value);
         return this;
     }
 
+    @Override
     public AbstractConfigurableEntityFactory<T> configure(ConfigKey.HasConfigKey key, Object value) {
         return setConfig(key.getConfigKey(), value);
     }
 
+    @Override
     public AbstractConfigurableEntityFactory<T> setConfig(ConfigKey key, Object value) {
         return configure(key, value);
     }
 
+    @Override
     public AbstractConfigurableEntityFactory<T> setConfig(ConfigKey.HasConfigKey key, Object value) {
         return configure(key.getConfigKey(), value);
     }
@@ -67,6 +72,7 @@ public abstract class AbstractConfigurableEntityFactory<T extends Entity> implem
         return newEntity(new HashMap(),parent);
     }
 
+    @Override
     public T newEntity(Map flags, Entity parent) {
         Map flags2 = new HashMap();
         flags2.putAll(config);

@@ -48,6 +48,7 @@ public class PropertiesFileExternalConfigSupplier extends AbstractExternalConfig
         this.properties = loadProperties(config.get(PROPERTIES_URL));
     }
 
+    @Override
     public String get(String key) {
         return properties.getProperty(key);
     }

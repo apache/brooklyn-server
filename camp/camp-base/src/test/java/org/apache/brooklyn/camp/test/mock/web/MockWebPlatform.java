@@ -62,6 +62,7 @@ public class MockWebPlatform {
                 .build();
 
     public static final PdpMatcher WAR_GETS_WAR_MATCHER = new PdpMatcher.ArtifactMatcher("com.java:WAR") {
+        @Override
         public boolean apply(Object art, AssemblyTemplateConstructor atc) {
             ApplicationComponentTemplate act = ApplicationComponentTemplate.builder()
                     .name( ((Artifact)art).getName() )
@@ -80,6 +81,7 @@ public class MockWebPlatform {
 
     public static final PdpMatcher newLiteralServiceTypeToPlatformComponentTemplateMatcher(final BasicCampPlatform platform, @Nullable final Class<? extends AssemblyTemplateInstantiator> instantiator) {
         return new PdpMatcher() {
+            @Override
             public boolean apply(Object item, AssemblyTemplateConstructor atc) {
                 if (!(item instanceof Service)) return false;
                 Service svc = (Service)item;

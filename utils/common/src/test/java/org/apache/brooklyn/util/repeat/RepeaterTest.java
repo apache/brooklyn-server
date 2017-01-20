@@ -149,7 +149,9 @@ public class RepeaterTest {
     public void runRespectsMaximumIterationLimitAndReturnsFalseIfReached() {
         final AtomicInteger iterations = new AtomicInteger();
         assertFalse(new Repeater("runRespectsMaximumIterationLimitAndReturnsFalseIfReached")
-            .repeat(new Runnable() { public void run() { iterations.incrementAndGet(); } })
+            .repeat(new Runnable() {
+                @Override public void run() { iterations.incrementAndGet(); }
+            })
             .every(Duration.millis(1))
             .until(Callables.returning(false))
             .limitIterationsTo(5)

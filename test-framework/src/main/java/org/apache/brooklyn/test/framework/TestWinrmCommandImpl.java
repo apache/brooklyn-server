@@ -189,6 +189,7 @@ public class TestWinrmCommandImpl extends TargetableTestComponentImpl implements
     private WinRmToolResponse executeCommand(final WinRmMachineLocation machine, final String command) {
         TaskBuilder<WinRmToolResponse> tb = Tasks.<WinRmToolResponse>builder().displayName("winrm-exec").body(
                 new Callable<WinRmToolResponse>() {
+                    @Override
                     public WinRmToolResponse call() throws Exception {
                         return machine.executeCommand(command);
                     }
@@ -199,6 +200,7 @@ public class TestWinrmCommandImpl extends TargetableTestComponentImpl implements
     private WinRmToolResponse executePsScript(final WinRmMachineLocation machine, final String psScript) {
         TaskBuilder<WinRmToolResponse> tb = Tasks.<WinRmToolResponse>builder().displayName("winrm-exec").body(
                 new Callable<WinRmToolResponse>() {
+                    @Override
                     public WinRmToolResponse call() throws Exception {
                         // FIXME Do I need COMPUTER_NAME in flags?
                         return machine.executePsScript(psScript);

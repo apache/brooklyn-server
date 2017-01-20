@@ -878,6 +878,7 @@ public class Entities {
             log.debug("destroying all apps in "+mgmt+": "+mgmt.getApplications());
             for (final Application app: mgmt.getApplications()) {
                 futures.add(executor.submit(new Runnable() {
+                    @Override
                     public void run() {
                         log.debug("destroying app "+app+" (managed? "+isManaged(app)+"; mgmt is "+mgmt+")");
                         try {
@@ -1240,6 +1241,7 @@ public class Entities {
             if (!Repeater.create(description).limitTimeTo(timeout)
                     .rethrowException().backoffTo(Duration.ONE_SECOND)
                     .until(new Callable<Boolean>() {
+                        @Override
                         public Boolean call() {
                             return Boolean.TRUE.equals(entity.getAttribute(Startable.SERVICE_UP));
                         }})

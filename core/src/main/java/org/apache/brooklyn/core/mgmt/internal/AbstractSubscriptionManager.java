@@ -47,6 +47,7 @@ public abstract class AbstractSubscriptionManager implements SubscriptionManager
     /** performs the actual subscription; should return the subscription parameter as the handle */
     protected abstract <T> SubscriptionHandle subscribe(Map<String, Object> flags, Subscription<T> s);
     /** performs the actual publishing -- ie distribution to subscriptions */
+    @Override
     public abstract <T> void publish(final SensorEvent<T> event);
 
     public static class EntitySensorToken {
@@ -83,6 +84,7 @@ public abstract class AbstractSubscriptionManager implements SubscriptionManager
     }
     
     /** @see SubscriptionManager#subscribe(Map, Entity, Sensor, SensorEventListener) */
+    @Override
     public final <T> SubscriptionHandle subscribe(Entity producer, Sensor<T> sensor, SensorEventListener<? super T> listener) {
         return subscribe(Collections.<String,Object>emptyMap(), producer, sensor, listener);
     }
@@ -98,18 +100,22 @@ public abstract class AbstractSubscriptionManager implements SubscriptionManager
      * 
      * @see SubscriptionManager#subscribe(Map, Entity, Sensor, SensorEventListener)
      */
+    @Override
     public final <T> SubscriptionHandle subscribe(Map<String, Object> flags, Entity producer, Sensor<T> sensor, SensorEventListener<? super T> listener) {
         return subscribe(flags, new Subscription<T>(producer, sensor, listener));
     }
         
     /** @see SubscriptionManager#subscribeToChildren(Map, Entity, Sensor, SensorEventListener) */
+    @Override
     public final <T> SubscriptionHandle subscribeToChildren(Entity parent, Sensor<T> sensor, SensorEventListener<? super T> listener) {
         return subscribeToChildren(Collections.<String,Object>emptyMap(), parent, sensor, listener);
     }
 
     /** @see SubscriptionManager#subscribe(Map, Entity, Sensor, SensorEventListener) */
+    @Override
     public final  <T> SubscriptionHandle subscribeToChildren(Map<String, Object> flags, final Entity parent, Sensor<T> sensor, SensorEventListener<? super T> listener) {
         Predicate<SensorEvent<T>> eventFilter = new Predicate<SensorEvent<T>>() {
+            @Override
             public boolean apply(SensorEvent<T> input) {
                 return parent != null && input.getSource() != null && parent.equals(input.getSource().getParent());
             }
@@ -119,13 +125,16 @@ public abstract class AbstractSubscriptionManager implements SubscriptionManager
     }
 
     /** @see SubscriptionManager#subscribeToChildren(Map, Entity, Sensor, SensorEventListener) */
+    @Override
     public final <T> SubscriptionHandle subscribeToMembers(Group parent, Sensor<T> sensor, SensorEventListener<? super T> listener) {
         return subscribeToMembers(Collections.<String,Object>emptyMap(), parent, sensor, listener);
     }
 
     /** @see SubscriptionManager#subscribe(Map, Entity, Sensor, SensorEventListener) */
+    @Override
     public final  <T> SubscriptionHandle subscribeToMembers(Map<String, Object> flags, final Group parent, Sensor<T> sensor, SensorEventListener<? super T> listener) {
         Predicate<SensorEvent<T>> eventFilter = new Predicate<SensorEvent<T>>() {
+            @Override
             public boolean apply(SensorEvent<T> input) {
                 return parent.getMembers().contains(input.getSource());
             }

@@ -246,6 +246,7 @@ public class SshFeed extends AbstractFeed {
             
             getPoller().scheduleAtFixedRate(
                     new Callable<SshPollValue>() {
+                        @Override
                         public SshPollValue call() throws Exception {
                             return exec(pollInfo.command.get(), pollInfo.env.get());
                         }}, 

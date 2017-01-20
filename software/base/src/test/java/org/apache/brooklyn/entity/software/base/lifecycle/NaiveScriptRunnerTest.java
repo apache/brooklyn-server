@@ -197,6 +197,7 @@ public class NaiveScriptRunnerTest {
                 body.append("echo `echo foo``echo bar`", "grep absent-text badfile_which_does_not_exist_blaahblahasdewq").
                 gatherOutput();
         Task<Integer> submitter = Tasks.<Integer>builder().body(new Callable<Integer>() {
+            @Override
             public Integer call() {
                 int result = script.execute();
                 return result;
@@ -209,6 +210,7 @@ public class NaiveScriptRunnerTest {
             ec.submit(submitter);
             // soon there should be a task which is submitted
             Assert.assertTrue(Repeater.create("get script").every(Duration.millis(10)).limitTimeTo(Duration.FIVE_SECONDS).until(new Callable<Boolean>() {
+                @Override
                 public Boolean call() { 
                     return (script.peekTask() != null) && Tasks.isQueuedOrSubmitted(script.peekTask());
                 }

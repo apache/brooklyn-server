@@ -61,6 +61,7 @@ public class StartStopSshDriverTest {
         public BasicStartStopSshDriver(EntityLocal entity, SshMachineLocation machine) {
             super(entity, machine);
         }
+        @Override
         public boolean isRunning() { return true; }
         @Override
         public void stop() {}

@@ -55,6 +55,7 @@ public class DynamicMultiGroupTest extends BrooklynAppUnitTestSupport {
                         .configure(BUCKET_FUNCTION, bucketFromAttribute(SENSOR))
         );
         app.subscriptions().subscribeToChildren(group, SENSOR, new SensorEventListener<String>() {
+            @Override
             public void onEvent(SensorEvent<String> event) { dmg.rescanEntities(); }
         });
 
@@ -91,6 +92,7 @@ public class DynamicMultiGroupTest extends BrooklynAppUnitTestSupport {
                         .configure(BUCKET_FUNCTION, bucketFromAttribute(SENSOR))
         );
         app.subscriptions().subscribeToChildren(group, SENSOR, new SensorEventListener<String>() {
+            @Override
             public void onEvent(SensorEvent<String> event) { dmg.rescanEntities(); }
         });
 
@@ -122,6 +124,7 @@ public class DynamicMultiGroupTest extends BrooklynAppUnitTestSupport {
         child1.sensors().set(SENSOR, "bucketA");
         child2.sensors().set(SENSOR, "bucketA");
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 Group bucketA = (Group) find(dmg.getChildren(), displayNameEqualTo("bucketA"), null);
                 Group bucketB = (Group) find(dmg.getChildren(), displayNameEqualTo("bucketB"), null);
@@ -134,6 +137,7 @@ public class DynamicMultiGroupTest extends BrooklynAppUnitTestSupport {
         // Move child 1 into bucket B
         child1.sensors().set(SENSOR, "bucketB");
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 Group bucketA = (Group) find(dmg.getChildren(), displayNameEqualTo("bucketA"), null);
                 Group bucketB = (Group) find(dmg.getChildren(), displayNameEqualTo("bucketB"), null);
@@ -147,6 +151,7 @@ public class DynamicMultiGroupTest extends BrooklynAppUnitTestSupport {
         // Move child 2 into bucket B; there is now no bucket A
         child2.sensors().set(SENSOR, "bucketB");
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 Group bucketA = (Group) find(dmg.getChildren(), displayNameEqualTo("bucketA"), null);
                 Group bucketB = (Group) find(dmg.getChildren(), displayNameEqualTo("bucketB"), null);
@@ -160,6 +165,7 @@ public class DynamicMultiGroupTest extends BrooklynAppUnitTestSupport {
         final TestEntity child3 = group.addChild(EntitySpec.create(childSpec).displayName("child3"));
         child3.sensors().set(SENSOR, "bucketC");
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 Group bucketC = (Group) find(dmg.getChildren(), displayNameEqualTo("bucketC"), null);
                 assertNotNull(bucketC);
@@ -171,6 +177,7 @@ public class DynamicMultiGroupTest extends BrooklynAppUnitTestSupport {
         // disappears as it is empty.
         child3.sensors().set(SENSOR, null);
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 Group bucketB = (Group) find(dmg.getChildren(), displayNameEqualTo("bucketB"), null);
                 Group bucketC = (Group) find(dmg.getChildren(), displayNameEqualTo("bucketC"), null);
@@ -183,6 +190,7 @@ public class DynamicMultiGroupTest extends BrooklynAppUnitTestSupport {
         // Add child 3 back to bucket C -- this should result in a new group entity
         child3.sensors().set(SENSOR, "bucketC");
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 Group bucketC = (Group) find(dmg.getChildren(), displayNameEqualTo("bucketC"), null);
                 assertNotNull(bucketC);

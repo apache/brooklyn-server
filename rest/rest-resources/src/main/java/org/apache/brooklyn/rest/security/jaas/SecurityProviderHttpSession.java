@@ -62,6 +62,7 @@ public class SecurityProviderHttpSession implements HttpSession {
         return 0;
     }
 
+    @Override
     @Deprecated //in interface
     public javax.servlet.http.HttpSessionContext getSessionContext() {
         return null;

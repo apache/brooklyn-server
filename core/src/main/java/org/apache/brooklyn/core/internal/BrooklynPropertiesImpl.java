@@ -228,27 +228,32 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
     protected BrooklynPropertiesImpl() {
     }
 
+    @Override
     public BrooklynPropertiesImpl addEnvironmentVars() {
         addFrom(System.getenv());
         return this;
     }
 
+    @Override
     public BrooklynPropertiesImpl addSystemProperties() {
         addFrom(System.getProperties());
         return this;
     }
 
+    @Override
     public BrooklynPropertiesImpl addFrom(ConfigBag cfg) {
         addFrom(cfg.getAllConfig());
         return this;
     }
 
+    @Override
     @SuppressWarnings("unchecked")
     public BrooklynPropertiesImpl addFrom(Map map) {
         putAll(Maps.transformValues(map, StringFunctions.trim()));
         return this;
     }
 
+    @Override
     public BrooklynPropertiesImpl addFrom(InputStream i) {
         // Ugly way to load them in order, but Properties is a Hashtable so loses order otherwise.
         @SuppressWarnings({ "serial" })
@@ -273,6 +278,7 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
         return this;
     }
     
+    @Override
     public BrooklynPropertiesImpl addFrom(File f) {
         if (!f.exists()) {
             LOG.warn("Unable to find file '"+f.getAbsolutePath()+"' when loading properties; ignoring");
@@ -285,6 +291,7 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
             }
         }
     }
+    @Override
     public BrooklynPropertiesImpl addFrom(URL u) {
         try {
             return addFrom(u.openStream());
@@ -299,6 +306,7 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
      * for convenience if not starting with xxx: it is treated as a classpath reference or a file;
      * throws if not found (but does nothing if argument is null)
      */
+    @Override
     public BrooklynPropertiesImpl addFromUrl(String url) {
         try {
             if (url==null) return this;
@@ -310,6 +318,7 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
 
     /** expects a property already set in scope, whose value is acceptable to {@link #addFromUrl(String)};
      * if property not set, does nothing */
+    @Override
     public BrooklynPropertiesImpl addFromUrlProperty(String urlProperty) {
         String url = (String) get(urlProperty);
         if (url==null) addFromUrl(url);
@@ -319,12 +328,14 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
     /**
     * adds the indicated properties
     */
+    @Override
     public BrooklynPropertiesImpl addFromMap(Map properties) {
         putAll(properties);
         return this;
     }
 
     /** inserts the value under the given key, if it was not present */
+    @Override
     public boolean putIfAbsent(String key, Object value) {
         if (containsKey(key)) return false;
         put(key, value);
@@ -334,7 +345,8 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
    /** @deprecated attempts to call get with this syntax are probably mistakes; get(key, defaultValue) is fine but
     * Map is unlikely the key, much more likely they meant getFirst(flags, key).
     */
-   @Deprecated
+   @Override
+@Deprecated
    public String get(Map flags, String key) {
        LOG.warn("Discouraged use of 'BrooklynProperties.get(Map,String)' (ambiguous); use getFirst(Map,String) or get(String) -- assuming the former");
        LOG.debug("Trace for discouraged use of 'BrooklynProperties.get(Map,String)'",
@@ -400,16 +412,19 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
         }
     }
     
+    @Override
     @SuppressWarnings("unchecked")
     public <T> Object put(HasConfigKey<T> key, T value) {
         return super.put(key.getConfigKey().getName(), value);
     }
 
+    @Override
     @SuppressWarnings("unchecked")
     public <T> Object put(ConfigKey<T> key, T value) {
         return super.put(key.getName(), value);
     }
     
+    @Override
     public <T> boolean putIfAbsent(ConfigKey<T> key, T value) {
         return putIfAbsent(key.getName(), value);
     }

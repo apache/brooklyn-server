@@ -272,6 +272,7 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
         
         feed.resume();
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 assertTrue(server.getRequestCount() > countWhenSuspended + 1,
                         "Request count failed to increment when feed was resumed, from " + countWhenSuspended + ", still at " + server.getRequestCount());
@@ -367,6 +368,7 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
                 
                 .poll(HttpPollConfig.forMultiple()
                     .onSuccess(new Function<HttpToolResponse,Void>() {
+                        @Override
                         public Void apply(HttpToolResponse response) {
                             entity.sensors().set(SENSOR_INT, response.getResponseCode());
                             if (response.getResponseCode()==200)
@@ -384,6 +386,7 @@ public class HttpFeedTest extends BrooklynAppUnitTestSupport {
 
     private <T> void assertSensorEventually(final AttributeSensor<T> sensor, final T expectedVal, long timeout) {
         Asserts.succeedsEventually(ImmutableMap.of("timeout", timeout), new Callable<Void>() {
+            @Override
             public Void call() {
                 assertEquals(entity.getAttribute(sensor), expectedVal);
                 return null;

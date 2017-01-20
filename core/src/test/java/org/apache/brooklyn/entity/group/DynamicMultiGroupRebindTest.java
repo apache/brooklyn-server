@@ -86,6 +86,7 @@ public class DynamicMultiGroupRebindTest extends RebindTestFixtureWithApp {
             final DynamicMultiGroup dmg = dmgs.get(i);
             final TestEntity child = childs.get(i);
             Asserts.succeedsEventually(new Runnable() {
+                @Override
                 public void run() {
                     Group bucketA = (Group) find(dmg.getChildren(), displayNameEqualTo("bucketA"), null);
                     assertNotNull(bucketA);
@@ -107,6 +108,7 @@ public class DynamicMultiGroupRebindTest extends RebindTestFixtureWithApp {
             final TestEntity child = (TestEntity) newManagementContext.getEntityManager().getEntity(childs.get(i).getId());
             // FIXME Remove timeout; use default
             Asserts.succeedsEventually(new Runnable() {
+                @Override
                 public void run() {
                     Group bucketA = (Group) find(dmg.getChildren(), displayNameEqualTo("bucketA"), null);
                     Group bucketB = (Group) find(dmg.getChildren(), displayNameEqualTo("bucketB"), null);

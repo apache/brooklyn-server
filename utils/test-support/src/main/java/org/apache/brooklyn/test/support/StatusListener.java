@@ -53,36 +53,43 @@ public class StatusListener implements ITestListener {
         log.info(msg);
     }
     
+    @Override
     public void onTestStart(ITestResult res) {
         log("Starting test " + getTestDesc(res));
         threadTestClass.set(res.getTestClass());
         threadTestStart.set(System.currentTimeMillis());
     }
 
+    @Override
     synchronized public void onTestSuccess(ITestResult arg0) {
         log(getThreadId() + " Test " + getTestDesc(arg0) + " succeeded: " + (System.currentTimeMillis() - threadTestStart.get()) + "ms");
         succeded.incrementAndGet();
         printStatus();
     }
 
+    @Override
     synchronized public void onTestFailure(ITestResult arg0) {
         log(getThreadId() + " Test " + getTestDesc(arg0) + " failed: "+arg0.getThrowable());
         failed.incrementAndGet();
         printStatus();
     }
 
+    @Override
     synchronized public void onTestSkipped(ITestResult arg0) {
         System.out.println(getThreadId() + " Test " + getTestDesc(arg0) + " skipped.");
         skipped.incrementAndGet();
         printStatus();
     }
 
+    @Override
     public void onTestFailedButWithinSuccessPercentage(ITestResult arg0) {
     }
 
+    @Override
     public void onStart(ITestContext arg0) {
     }
 
+    @Override
     public void onFinish(ITestContext arg0) {
     }
 

@@ -207,6 +207,7 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
     }
 
     public abstract boolean isPresent();
+    @Override
     public abstract T get();
     
     public boolean isAbsent() {

@@ -103,6 +103,7 @@ public class JcloudsLocationReleasePortForwardingDefaultTest extends BrooklynApp
         execRelease(loc, pseudoMachine);
         
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 portForwarder.assertClosedEquals(ImmutableSet.of(HostAndPort.fromParts("1.1.1.1", 2000)));
             }});
@@ -124,6 +125,7 @@ public class JcloudsLocationReleasePortForwardingDefaultTest extends BrooklynApp
         execRelease(loc, pseudoMachine);
         
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 portForwarder.assertClosedEquals(publicEndpoints);
             }});

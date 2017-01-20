@@ -253,6 +253,7 @@ public class JmxFeedTest {
         GeneralisedDynamicMBean mbean = jmxService.registerMBean(
                 Collections.emptyMap(), 
                 ImmutableMap.of(opInfo, new Function<Object[], Integer>() {
+                        @Override
                         public Integer apply(Object[] args) {
                             invocationCount.incrementAndGet(); return opReturnVal;
                         }}),
@@ -266,6 +267,7 @@ public class JmxFeedTest {
                 .build();
         
         Asserts.succeedsEventually(ImmutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
+            @Override
             public void run() {
                 assertTrue(invocationCount.get() > 0, "invocationCount="+invocationCount);
                 assertEquals(entity.getAttribute(intAttribute), (Integer)opReturnVal);
@@ -281,6 +283,7 @@ public class JmxFeedTest {
         GeneralisedDynamicMBean mbean = jmxService.registerMBean(
                 Collections.emptyMap(), 
                 ImmutableMap.of(opInfo, new Function<Object[], String>() {
+                        @Override
                         public String apply(Object[] args) {
                             return args[0]+"suffix";
                         }}),
@@ -313,6 +316,7 @@ public class JmxFeedTest {
         // Notification updates the sensor
         // Note that subscription is done async, so can't just send notification immediately during test.
         Asserts.succeedsEventually(ImmutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
+            @Override
             public void run() {
                 sendNotification(mbean, one, sequence.getAndIncrement(), 123);
                 assertEquals(entity.getAttribute(intAttribute), (Integer)123);
@@ -322,6 +326,7 @@ public class JmxFeedTest {
         sendNotification(mbean, two, sequence.getAndIncrement(), -1);
             
         Asserts.succeedsEventually(ImmutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
+            @Override
             public void run() {
                 assertEquals(entity.getAttribute(intAttribute), (Integer)123);
             }});
@@ -339,6 +344,7 @@ public class JmxFeedTest {
                         .objectName(objectName)
                         .notificationFilter(JmxNotificationFilters.matchesType(one))
                         .onNotification(new Function<Notification, Integer>() {
+                            @Override
                             public Integer apply(Notification notif) {
                                 return (Integer) notif.getUserData();
                             }
@@ -349,6 +355,7 @@ public class JmxFeedTest {
         // Notification updates the sensor
         // Note that subscription is done async, so can't just send notification immediately during test.
         Asserts.succeedsEventually(ImmutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
+            @Override
             public void run() {
                 sendNotification(mbean, one, sequence.getAndIncrement(), 123);
                 assertEquals(entity.getAttribute(intAttribute), (Integer)123);
@@ -372,6 +379,7 @@ public class JmxFeedTest {
         // Notification updates the sensor
         // Note that subscription is done async, so can't just send notification immediately during test.
         Asserts.succeedsEventually(ImmutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
+            @Override
             public void run() {
                 sendNotification(mbean, one, sequence.getAndIncrement(), 123);
                 assertEquals(entity.getAttribute(intAttribute), (Integer)123);
@@ -393,6 +401,7 @@ public class JmxFeedTest {
             
             final List<SensorEvent<String>> received = Lists.newArrayList();
             app2.subscriptions().subscribe(null, EntityWithEmitter.MY_NOTIF, new SensorEventListener<String>() {
+                @Override
                 public void onEvent(SensorEvent<String> event) {
                     received.add(event);
                 }});
@@ -402,6 +411,7 @@ public class JmxFeedTest {
             
             jmxHelper.connect(TIMEOUT_MS);
             jmxHelper.addNotificationListener(jmxObjectName, new NotificationListener() {
+                    @Override
                     public void handleNotification(Notification notif, Object callback) {
                         if (notif.getType().equals("one")) {
                             entity.sensors().emit(EntityWithEmitter.MY_NOTIF, (String) notif.getUserData());
@@ -410,6 +420,7 @@ public class JmxFeedTest {
             
 
             Asserts.succeedsEventually(ImmutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
+                @Override
                 public void run() {
                     sendNotification(mbean, "one", sequence.getAndIncrement(), "abc");
                     assertTrue(received.size() > 0, "received size should be bigger than 0");
@@ -443,6 +454,7 @@ public class JmxFeedTest {
     
     private <T> void assertSensorEventually(final AttributeSensor<T> sensor, final T expectedVal, long timeout) {
         Asserts.succeedsEventually(ImmutableMap.of("timeout", timeout), new Callable<Void>() {
+            @Override
             public Void call() {
                 assertEquals(entity.getAttribute(sensor), expectedVal);
                 return null;

@@ -1060,6 +1060,7 @@ public class Asserts {
     
     public static void assertFailsWith(Callable<?> c, final Closure<Boolean> exceptionChecker) {
         assertFailsWith(c, new Predicate<Throwable>() {
+            @Override
             public boolean apply(Throwable input) {
                 return exceptionChecker.call(input);
             }
@@ -1074,6 +1075,7 @@ public class Asserts {
                 .build();
         
         assertFailsWith(c, new Predicate<Throwable>() {
+            @Override
             public boolean apply(Throwable e) {
                 for (Class<?> validException: validExceptions) {
                     if (validException.isInstance(e)) return true;
@@ -1348,6 +1350,7 @@ public class Asserts {
             this.task = task;
             this.result = result;
         }
+        @Override
         public T call() {
             task.run();
             return result;

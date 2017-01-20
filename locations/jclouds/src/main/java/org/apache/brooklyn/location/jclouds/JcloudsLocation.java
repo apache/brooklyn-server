@@ -2352,6 +2352,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     subtasks.put(
                             "Close port-forward "+hostAndPortOverride+"->"+loginPort,
                             new Runnable() {
+                                @Override
                                 public void run() {
                                     LOG.debug("Closing port-forwarding at {} for machine {}: {}->{}", new Object[] {this, machine, hostAndPortOverride, loginPort});
                                     portForwarder.closePortForwarding(node.get(), loginPort, hostAndPortOverride, Protocol.TCP);
@@ -2375,6 +2376,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     subtasks.put(
                             "Close port-forward "+publicEndpoint+"->"+targetPort,
                             new Runnable() {
+                                @Override
                                 public void run() {
                                     LOG.debug("Closing port-forwarding at {} for machine {}: {}->{}", new Object[] {this, machine, publicEndpoint, targetPort});
                                     portForwarder.closePortForwarding(node.get(), targetPort, publicEndpoint, protocol);
@@ -2544,6 +2546,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
         try {
             Callable<Boolean> checker = new Callable<Boolean>() {
+                @Override
                 public Boolean call() {
                     final WinRmMachineLocation machine = machinesToTry.getLeft();
                     WinRmToolResponse response = machine.executeCommand(
@@ -2673,6 +2676,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
         try {
             Callable<Boolean> checker = new Callable<Boolean>() {
+                @Override
                 public Boolean call() {
                     for (Map.Entry<SshMachineLocation, LoginCredentials> entry : machinesToTry.entrySet()) {
                         SshMachineLocation machine = entry.getKey();

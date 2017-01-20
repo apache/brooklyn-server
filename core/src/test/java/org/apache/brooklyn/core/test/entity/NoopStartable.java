@@ -23,7 +23,7 @@ import java.util.Collection;
 import org.apache.brooklyn.core.entity.trait.Startable;
 
 public class NoopStartable implements Startable {
-   public void start(Collection loc) {}
-   public void stop() {}
-   public void restart() {}
+   @Override public void start(Collection loc) {}
+   @Override public void stop() {}
+   @Override public void restart() {}
 }

@@ -116,6 +116,7 @@ public class SshMachineLocationIntegrationTest extends SshMachineLocationTest {
         BasicExecutionContext execContext = new BasicExecutionContext(execManager);
         try {
             MachineDetails details = execContext.submit(new Callable<MachineDetails>() {
+                @Override
                 public MachineDetails call() {
                     return host.getMachineDetails();
                 }}).get();
@@ -196,6 +197,7 @@ public class SshMachineLocationIntegrationTest extends SshMachineLocationTest {
         final SshMachineLocation unreachableHost = new SshMachineLocation(MutableMap.of("address", InetAddress.getByName(unreachableIp)));
         System.out.println(unreachableHost.getAddress());
         Asserts.assertReturnsEventually(new Runnable() {
+            @Override
             public void run() {
                 assertFalse(unreachableHost.isSshable());
             }},

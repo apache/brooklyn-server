@@ -315,6 +315,7 @@ public class JmxmpAgent {
 
     public static final TrustManager newInspectAllTrustManager(final X509TrustManager delegate) {
         return new X509TrustManager() {
+            @Override
             public X509Certificate[] getAcceptedIssuers() {
                 // overriding this method fixes bug where non-accepted issuers have an "accept all" policy, in JMXMP/TLS
                 return new X509Certificate[0];

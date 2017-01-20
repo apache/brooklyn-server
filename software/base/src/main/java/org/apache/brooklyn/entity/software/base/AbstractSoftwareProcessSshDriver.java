@@ -243,6 +243,7 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
     /**
      * @deprecated since 0.10.0 This method will become private in a future release.
      */
+    @Override
     @Deprecated
     public int execute(List<String> script, String summaryForLogging) {
         return execute(Maps.newLinkedHashMap(), script, summaryForLogging);

@@ -163,6 +163,7 @@ public abstract class AbstractBlueprintTest {
         EntityAsserts.assertAttributeEqualsEventually(app, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
         
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 for (Entity entity : Entities.descendantsAndSelf(app)) {
                     assertNotEquals(entity.getAttribute(Attributes.SERVICE_STATE_ACTUAL), Lifecycle.ON_FIRE);

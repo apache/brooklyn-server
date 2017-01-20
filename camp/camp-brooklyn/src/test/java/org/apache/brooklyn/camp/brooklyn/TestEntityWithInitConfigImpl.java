@@ -52,6 +52,7 @@ public class TestEntityWithInitConfigImpl extends AbstractEntity implements Test
         LOG.trace("Restarting {}", this);
     }
 
+    @Override
     public Entity getEntityCachedOnInit() {
         return entityCachedOnInit;
     }

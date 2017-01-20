@@ -140,6 +140,7 @@ public class HttpAsserts {
      */
     public static void assertUrlUnreachableEventually(Map<String,?> flags, final String url) {
         assertEventually(flags, new Runnable() {
+            @Override
             public void run() {
                 assertUrlUnreachable(url);
             }
@@ -175,6 +176,7 @@ public class HttpAsserts {
 
     public static void assertHttpStatusCodeEventuallyEquals(Map<String,?> flags, final String url, final int expectedCode) {
         assertEventually(flags, new Runnable() {
+            @Override
             public void run() {
                 assertHttpStatusCodeEquals(url, expectedCode);
             }
@@ -253,6 +255,7 @@ public class HttpAsserts {
     
     public static void assertContentEventuallyContainsText(Map<String,?> flags, final String url, final String phrase, final String ...additionalPhrases) {
         assertEventually(flags, new Runnable() {
+            @Override
             public void run() {
                 assertContentContainsText(url, phrase, additionalPhrases);
             }

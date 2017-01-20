@@ -78,7 +78,7 @@ public class FilePersistencePerformanceTest extends AbstractPerformanceTest {
                  .iterations(numIterations)
                  .minAcceptablePerSecond(minRatePerSec)
                  .job(new Runnable() {
-                     public void run() {
+                     @Override public void run() {
                          fileAccessor.put(""+i.incrementAndGet());
                      }}));
      }
@@ -94,7 +94,7 @@ public class FilePersistencePerformanceTest extends AbstractPerformanceTest {
                  .iterations(numIterations)
                  .minAcceptablePerSecond(minRatePerSec)
                  .job(new Runnable() {
-                     public void run() {
+                     @Override public void run() {
                          fileAccessor.get();
                      }}));
      }
@@ -120,7 +120,7 @@ public class FilePersistencePerformanceTest extends AbstractPerformanceTest {
                      .iterations(numIterations)
                      .minAcceptablePerSecond(minRatePerSec)
                      .job(new Runnable() {
-                         public void run() {
+                         @Override public void run() {
                              File file = files.get(i.getAndIncrement());
                              FileBasedStoreObjectAccessor fileAccessor = new FileBasedStoreObjectAccessor(file, "mytmpextension");
                              fileAccessor.delete();
@@ -146,7 +146,7 @@ public class FilePersistencePerformanceTest extends AbstractPerformanceTest {
                      .minAcceptablePerSecond(minRatePerSec)
                      .job(new Runnable() {
                          int i = 0;
-                         public void run() {
+                         @Override public void run() {
                              try {
                                  if (i % 2 == 0) {
                                      FileUtil.setFilePermissionsTo600(file);
@@ -173,7 +173,7 @@ public class FilePersistencePerformanceTest extends AbstractPerformanceTest {
                  .iterations(numIterations)
                  .minAcceptablePerSecond(minRatePerSec)
                  .job(new Runnable() {
-                     public void run() {
+                     @Override public void run() {
                          String cmd = "true";
                          new ProcessTool().execCommands(MutableMap.<String,String>of(), MutableList.of(cmd), null);
                      }}));
@@ -192,7 +192,7 @@ public class FilePersistencePerformanceTest extends AbstractPerformanceTest {
                  .iterations(numIterations)
                  .minAcceptablePerSecond(minRatePerSec)
                  .job(new Runnable() {
-                     public void run() {
+                     @Override public void run() {
                          File newFile = new File(parentDir, "fileRename-"+i.incrementAndGet()+".txt");
                          file.renameTo(newFile);
                          file = newFile;
@@ -211,7 +211,7 @@ public class FilePersistencePerformanceTest extends AbstractPerformanceTest {
                  .iterations(numIterations)
                  .minAcceptablePerSecond(minRatePerSec)
                  .job(new Runnable() {
-                     public void run() {
+                     @Override public void run() {
                          try {
                              Files.write(""+i.incrementAndGet(), file, Charsets.UTF_8);
                          } catch (IOException e) {
@@ -233,7 +233,7 @@ public class FilePersistencePerformanceTest extends AbstractPerformanceTest {
                  .iterations(numIterations)
                  .minAcceptablePerSecond(minRatePerSec)
                  .job(new Runnable() {
-                     public void run() {
+                     @Override public void run() {
                          File newFile = new File(parentDir, "fileRename-"+i.incrementAndGet()+".txt");
                          try {
                              Files.move(file, newFile);

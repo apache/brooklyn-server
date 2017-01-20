@@ -846,6 +846,7 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
             return copyTo(props, src, destination);
         } else {
             return execSsh(props, new Function<ShellTool,Integer>() {
+                @Override
                 public Integer apply(ShellTool ssh) {
                     return ((SshTool) ssh).copyToServer(props, new KnownSizeInputStream(src, filesize), destination);
                 }});
@@ -855,6 +856,7 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
     // Closes input stream before returning
     public int copyTo(final Map<String,?> props, final InputStream src, final String destination) {
         return execSsh(props, new Function<ShellTool,Integer>() {
+            @Override
             public Integer apply(ShellTool ssh) {
                 return ((SshTool)ssh).copyToServer(props, src, destination);
             }});
@@ -866,6 +868,7 @@ public class SshMachineLocation extends AbstractLocation implements MachineLocat
     }
     public int copyFrom(final Map<String,?> props, final String remote, final String local) {
         return execSsh(props, new Function<ShellTool,Integer>() {
+            @Override
             public Integer apply(ShellTool ssh) {
                 return ((SshTool)ssh).copyFromServer(props, remote, new File(local));
             }});

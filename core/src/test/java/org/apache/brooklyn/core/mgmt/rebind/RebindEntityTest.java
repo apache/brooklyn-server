@@ -850,10 +850,12 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
         public MyEntity2Impl() {
         }
 
+        @Override
         public List<String> getEvents() {
             return events;
         }
 
+        @Override
         public String getMyfield() {
             return myfield;
         }

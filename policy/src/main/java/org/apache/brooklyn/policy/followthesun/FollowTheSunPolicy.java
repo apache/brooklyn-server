@@ -81,6 +81,7 @@ public class FollowTheSunPolicy extends AbstractPolicy {
     private boolean loggedConstraintsIgnored = false;
     
     private final Function<Entity, Location> defaultLocationFinder = new Function<Entity, Location>() {
+        @Override
         public Location apply(Entity e) {
             Collection<Location> locs = e.getLocations();
             if (locs.isEmpty()) return null;
@@ -190,6 +191,7 @@ public class FollowTheSunPolicy extends AbstractPolicy {
             long delay = Math.max(0, (executorTime + minPeriodBetweenExecs) - now);
             
             executor.schedule(new Runnable() {
+                @Override
                 public void run() {
                     try {
                         executorTime = System.currentTimeMillis();

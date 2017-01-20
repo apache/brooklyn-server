@@ -132,6 +132,7 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
         BasicExecutionContext execContext = new BasicExecutionContext(execManager);
         try {
             MachineDetails details = execContext.submit(new Callable<MachineDetails>() {
+                @Override
                 public MachineDetails call() {
                     return host.getMachineDetails();
                 }}).get();
@@ -195,6 +196,7 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
         EntitySpec<TestApplication> appSpec = EntitySpec.create(TestApplication.class)
                 .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, true)
                 .addInitializer(new EntityInitializer() {
+                        @Override
                         public void apply(EntityLocal entity) {
                             ((EntityInternal)entity).getMutableEntityType().addEffector(EffectorTaskTest.DOUBLE_1);
                         }});

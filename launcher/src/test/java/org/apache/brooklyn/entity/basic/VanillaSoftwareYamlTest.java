@@ -54,6 +54,7 @@ public class VanillaSoftwareYamlTest {
             Assert.assertTrue( Math.abs(d1*1000-System.currentTimeMillis())<15000, "Time UTC does not match system; "+d1+" v "+System.currentTimeMillis() );
 
             Asserts.succeedsEventually(new Runnable() {
+                @Override
                 public void run() {
                     String fileContents = new ResourceUtils(this).getResourceAsString(filePath);
                     Assert.assertTrue(fileContents.contains("checkRunning"));
@@ -62,6 +63,7 @@ public class VanillaSoftwareYamlTest {
 
             app.invoke(Startable.STOP, null).getUnchecked();
             Asserts.succeedsEventually(new Runnable() {
+                @Override
                 public void run() {
                     String fileContents = new ResourceUtils(this).getResourceAsString(filePath);
                     Assert.assertTrue(fileContents.contains("stop"));

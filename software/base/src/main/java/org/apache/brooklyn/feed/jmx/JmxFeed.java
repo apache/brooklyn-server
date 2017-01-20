@@ -266,7 +266,7 @@ public class JmxFeed extends AbstractFeed {
         final SetMultimap<String, JmxAttributePollConfig<?>> attributePolls = getConfig(ATTRIBUTE_POLLS);
         
         getPoller().submit(new Callable<Void>() {
-               public Void call() {
+               @Override public Void call() {
                    getHelper().connect(getConfig(JMX_CONNECTION_TIMEOUT));
                    return null;
                }
@@ -275,7 +275,7 @@ public class JmxFeed extends AbstractFeed {
         
         for (final NotificationFilter filter : notificationSubscriptions.keySet()) {
             getPoller().submit(new Callable<Void>() {
-                public Void call() {
+                @Override public Void call() {
                     // TODO Could config.getObjectName have wildcards? Is this code safe?
                     Set<JmxNotificationSubscriptionConfig<?>> configs = notificationSubscriptions.get(filter);
                     NotificationListener listener = registerNotificationListener(configs);
@@ -335,6 +335,7 @@ public class JmxFeed extends AbstractFeed {
         
         getPoller().scheduleAtFixedRate(
                 new Callable<Object>() {
+                    @Override
                     public Object call() throws Exception {
                         if (log.isDebugEnabled()) log.debug("jmx operation polling for {} sensors at {} -> {}", new Object[] {getEntity(), getJmxUri(), operationName});
                         if (signature.size() == params.size()) {
@@ -365,6 +366,7 @@ public class JmxFeed extends AbstractFeed {
         // TODO Not good calling this holding the synchronization lock
         getPoller().scheduleAtFixedRate(
                 new Callable<Object>() {
+                    @Override
                     public Object call() throws Exception {
                         if (log.isTraceEnabled()) log.trace("jmx attribute polling for {} sensors at {} -> {}", new Object[] {getEntity(), getJmxUri(), jmxAttributeName});
                         return getHelper().getAttribute(objectName, jmxAttributeName);

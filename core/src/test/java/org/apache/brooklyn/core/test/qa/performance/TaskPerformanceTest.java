@@ -64,6 +64,7 @@ public class TaskPerformanceTest extends AbstractPerformanceTest {
         final CountDownLatch completionLatch = new CountDownLatch(1);
         
         final Runnable work = new Runnable() {
+            @Override
             public void run() {
                 int val = counter.incrementAndGet();
                 if (val >= numIterations) completionLatch.countDown();
@@ -74,6 +75,7 @@ public class TaskPerformanceTest extends AbstractPerformanceTest {
                 .iterations(numIterations)
                 .minAcceptablePerSecond(minRatePerSec)
                 .job(new Runnable() {
+                    @Override
                     public void run() {
                         executionManager.submit(work);
                     }})
@@ -87,7 +89,8 @@ public class TaskPerformanceTest extends AbstractPerformanceTest {
         final AtomicInteger counter = new AtomicInteger();
         final CountDownLatch completionLatch = new CountDownLatch(1);
 
-        final Runnable work = new Runnable() { public void run() {
+        final Runnable work = new Runnable() {
+            @Override public void run() {
                 int val = counter.incrementAndGet();
                 if (val >= numIterations) completionLatch.countDown();
             }
@@ -100,7 +103,7 @@ public class TaskPerformanceTest extends AbstractPerformanceTest {
                 .iterations(numIterations)
                 .minAcceptablePerSecond(minRatePerSec)
                 .job(new Runnable() {
-                    public void run() {
+                    @Override public void run() {
                         executionManager.submit(flags, work);
                     }})
                 .completionLatch(completionLatch));
@@ -118,7 +121,9 @@ public class TaskPerformanceTest extends AbstractPerformanceTest {
         final CountDownLatch completionLatch = new CountDownLatch(1);
         final List<Exception> exceptions = Lists.newCopyOnWriteArrayList();
         
-        final Runnable work = new Runnable() { public void run() {
+        final Runnable work = new Runnable() {
+            @Override
+            public void run() {
                 int numConcurrentCalls = concurrentCallCount.incrementAndGet();
                 try {
                     if (numConcurrentCalls > 1) throw new IllegalStateException("numConcurrentCalls="+numConcurrentCalls);
@@ -139,6 +144,7 @@ public class TaskPerformanceTest extends AbstractPerformanceTest {
                 .iterations(numIterations)
                 .minAcceptablePerSecond(minRatePerSec)
                 .job(new Runnable() {
+                    @Override
                     public void run() {
                         while (submitCount.get() > counter.get() + 5000) {
                             LOG.info("delaying because "+submitCount.get()+" submitted and only "+counter.get()+" run");

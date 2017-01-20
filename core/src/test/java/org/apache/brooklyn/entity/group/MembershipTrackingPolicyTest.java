@@ -231,6 +231,7 @@ public class MembershipTrackingPolicyTest extends BrooklynAppUnitTestSupport {
 
     private void assertRecordsEventually(final RecordingMembershipTrackingPolicy policy, final List<Record>... validExpecteds) {
         Asserts.succeedsEventually(MutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
+            @Override
             public void run() {
                 for (List<Record> validExpected : validExpecteds) {
                     if (policy.records.equals(validExpected)) return;
@@ -245,6 +246,7 @@ public class MembershipTrackingPolicyTest extends BrooklynAppUnitTestSupport {
     
     private void assertRecordsContinually(final RecordingMembershipTrackingPolicy policy, final Record... expected) {
         Asserts.succeedsContinually(ImmutableMap.of("timeout", 100), new Runnable() {
+            @Override
             public void run() {
                 assertEquals(policy.records, ImmutableList.copyOf(expected), "actual="+policy.records);
             }});

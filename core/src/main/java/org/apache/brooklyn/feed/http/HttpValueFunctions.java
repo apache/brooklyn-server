@@ -109,6 +109,7 @@ public class HttpValueFunctions {
     private static Function<HttpToolResponse, Long> latencyLegacy() {
         // TODO PERSISTENCE WORKAROUND kept anonymous function in case referenced in persisted state
         return new Function<HttpToolResponse, Long>() {
+            @Override
             public Long apply(HttpToolResponse input) {
                 return input.getLatencyFullContent();
             }
@@ -116,6 +117,7 @@ public class HttpValueFunctions {
     }
 
     private static class Latency implements Function<HttpToolResponse, Long> {
+        @Override
         public Long apply(HttpToolResponse input) {
             return input.getLatencyFullContent();
         }

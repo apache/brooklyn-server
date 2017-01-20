@@ -254,13 +254,13 @@ public class PortRanges {
     public static void init() {
         if (initialized.compareAndSet(false, true)) {
             TypeCoercions.registerAdapter(Integer.class, PortRange.class, new Function<Integer,PortRange>() {
-                public PortRange apply(Integer x) { return fromInteger(x); }
+                @Override public PortRange apply(Integer x) { return fromInteger(x); }
             });
             TypeCoercions.registerAdapter(String.class, PortRange.class, new Function<String,PortRange>() {
-                public PortRange apply(String x) { return fromString(x); }
+                @Override public PortRange apply(String x) { return fromString(x); }
             });
             TypeCoercions.registerAdapter(Iterable.class, PortRange.class, new Function<Iterable,PortRange>() {
-                public PortRange apply(Iterable x) { return fromIterable(x); }
+                @Override public PortRange apply(Iterable x) { return fromIterable(x); }
             });
         }
     }

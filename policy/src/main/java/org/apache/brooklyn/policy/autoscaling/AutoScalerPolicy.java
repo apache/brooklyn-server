@@ -360,6 +360,7 @@ public class AutoScalerPolicy extends AbstractPolicy {
     public static final ConfigKey<ResizeOperator> RESIZE_OPERATOR = BasicConfigKey.builder(ResizeOperator.class)
             .name("autoscaler.resizeOperator")
             .defaultValue(new ResizeOperator() {
+                    @Override
                     public Integer resize(Entity entity, Integer desiredSize) {
                         return ((Resizable)entity).resize(desiredSize);
                     }})
@@ -370,6 +371,7 @@ public class AutoScalerPolicy extends AbstractPolicy {
     public static final ConfigKey<Function<Entity,Integer>> CURRENT_SIZE_OPERATOR = BasicConfigKey.builder(new TypeToken<Function<Entity,Integer>>() {})
             .name("autoscaler.currentSizeOperator")
             .defaultValue(new Function<Entity,Integer>() {
+                    @Override
                     public Integer apply(Entity entity) {
                         return ((Resizable)entity).getCurrentSize();
                     }})
@@ -426,6 +428,7 @@ public class AutoScalerPolicy extends AbstractPolicy {
     private long maxReachedLastNotifiedTime;
     
     private final SensorEventListener<Map> utilizationEventHandler = new SensorEventListener<Map>() {
+        @Override
         public void onEvent(SensorEvent<Map> event) {
             Map<String, ?> properties = (Map<String, ?>) event.getValue();
             Sensor<?> sensor = event.getSensor();
@@ -443,6 +446,7 @@ public class AutoScalerPolicy extends AbstractPolicy {
     };
 
     private final SensorEventListener<Number> metricEventHandler = new SensorEventListener<Number>() {
+        @Override
         public void onEvent(SensorEvent<Number> event) {
             assert event.getSensor().equals(getMetric());
             onMetricChanged(event.getValue());

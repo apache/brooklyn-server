@@ -66,6 +66,7 @@ public class LocationSpec implements HasName, HasConfig, Serializable {
         return spec;
     }
 
+    @Override
     public Map<String, ?> getConfig() {
         return config;
     }

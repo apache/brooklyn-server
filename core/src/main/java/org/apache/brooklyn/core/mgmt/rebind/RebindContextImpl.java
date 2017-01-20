@@ -130,10 +130,12 @@ public class RebindContextImpl implements RebindContext {
         return feeds.get(id);
     }
     
+    @Override
     public Class<?> loadClass(String className) throws ClassNotFoundException {
         return classLoader.loadClass(className);
     }
 
+    @Override
     public RebindExceptionHandler getExceptionHandler() {
         return exceptionHandler;
     }
@@ -178,6 +180,7 @@ public class RebindContextImpl implements RebindContext {
         allAreReadOnly = true;
     }
     
+    @Override
     public boolean isReadOnly(BrooklynObject item) {
         return allAreReadOnly;
     }

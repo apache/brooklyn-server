@@ -32,6 +32,7 @@ public class MathFunctions {
     private static Function<Number, Integer> plusOld(final int addend) {
         // TODO PERSISTENCE WORKAROUND
         return new Function<Number, Integer>() {
+            @Override
             public Integer apply(@Nullable Number input) {
                 if (input==null) return null;
                 return input.intValue() + addend;
@@ -44,6 +45,7 @@ public class MathFunctions {
     private static Function<Number, Long> plusOld(final long addend) {
         // TODO PERSISTENCE WORKAROUND
         return new Function<Number, Long>() {
+            @Override
             public Long apply(@Nullable Number input) {
                 if (input==null) return null;
                 return input.longValue() + addend;
@@ -56,6 +58,7 @@ public class MathFunctions {
     private static Function<Number, Double> plusOld(final double addend) {
         // TODO PERSISTENCE WORKAROUND
         return new Function<Number, Double>() {
+            @Override
             public Double apply(@Nullable Number input) {
                 if (input==null) return null;
                 return input.doubleValue() + addend;
@@ -68,6 +71,7 @@ public class MathFunctions {
     private static Function<Number, Integer> timesOld(final int multiplicand) {
         // TODO PERSISTENCE WORKAROUND
         return new Function<Number, Integer>() {
+            @Override
             public Integer apply(@Nullable Number input) {
                 if (input==null) return null;
                 return input.intValue() * multiplicand;
@@ -80,6 +84,7 @@ public class MathFunctions {
     private static Function<Number, Long> timesOld(final long multiplicand) {
         // TODO PERSISTENCE WORKAROUND
         return new Function<Number, Long>() {
+            @Override
             public Long apply(@Nullable Number input) {
                 if (input==null) return null;
                 return input.longValue() * multiplicand;
@@ -92,6 +97,7 @@ public class MathFunctions {
     private static Function<Number, Double> timesOld(final double multiplicand) {
         // TODO PERSISTENCE WORKAROUND
         return new Function<Number, Double>() {
+            @Override
             public Double apply(@Nullable Number input) {
                 if (input==null) return null;
                 return input.doubleValue() * multiplicand;
@@ -104,6 +110,7 @@ public class MathFunctions {
     private static Function<Number, Double> divideOld(final double divisor) {
         // TODO PERSISTENCE WORKAROUND
         return new Function<Number, Double>() {
+            @Override
             public Double apply(@Nullable Number input) {
                 if (input==null) return null;
                 return input.doubleValue() / divisor;
@@ -116,6 +123,7 @@ public class MathFunctions {
     private static <T> Function<T, Double> divideOld(final Function<T, ? extends Number> input, final double divisor) {
         // TODO PERSISTENCE WORKAROUND
         return new Function<T, Double>() {
+            @Override
             public Double apply(@Nullable T input2) {
                 if (input==null) return null;
                 Number n = input.apply(input2);
@@ -131,6 +139,7 @@ public class MathFunctions {
     private static Function<Number, String> readableStringOld(final int significantDigits, final int maxLen) {
         // TODO PERSISTENCE WORKAROUND
         return new Function<Number, String>() {
+            @Override
             public String apply(@Nullable Number input) {
                 if (input==null) return null;
                 return Strings.makeRealString(input.doubleValue(), maxLen, significantDigits, 0);
@@ -144,6 +153,7 @@ public class MathFunctions {
     private static Function<Number, String> percentOld(final int significantDigits) {
         // TODO PERSISTENCE WORKAROUND
         return new Function<Number, String>() {
+            @Override
             public String apply(@Nullable Number input) {
                 if (input==null) return null;
                 return readableString(significantDigits, significantDigits+3).apply(input.doubleValue() * 100d)+"%";
@@ -161,6 +171,7 @@ public class MathFunctions {
         public PlusInt(int addend) {
             this.addend = addend;
         }
+        @Override
         public Integer apply(@Nullable Number input) {
             if (input==null) return null;
             return input.intValue() + addend;
@@ -177,6 +188,7 @@ public class MathFunctions {
         public PlusLong(long addend) {
             this.addend = addend;
         }
+        @Override
         public Long apply(@Nullable Number input) {
             if (input==null) return null;
             return input.longValue() + addend;
@@ -193,6 +205,7 @@ public class MathFunctions {
         public PlusDouble(double addend) {
             this.addend = addend;
         }
+        @Override
         public Double apply(@Nullable Number input) {
             if (input==null) return null;
             return input.doubleValue() + addend;
@@ -209,6 +222,7 @@ public class MathFunctions {
         public TimesInt(int multiplicand) {
             this.multiplicand = multiplicand;
         }
+        @Override
         public Integer apply(@Nullable Number input) {
             if (input==null) return null;
             return input.intValue() * multiplicand;
@@ -225,6 +239,7 @@ public class MathFunctions {
         public TimesLong(long multiplicand) {
             this.multiplicand = multiplicand;
         }
+        @Override
         public Long apply(@Nullable Number input) {
             if (input==null) return null;
             return input.longValue() * multiplicand;
@@ -241,6 +256,7 @@ public class MathFunctions {
         public TimesDouble(double multiplicand) {
             this.multiplicand = multiplicand;
         }
+        @Override
         public Double apply(@Nullable Number input) {
             if (input==null) return null;
             return input.doubleValue() * multiplicand;
@@ -257,6 +273,7 @@ public class MathFunctions {
         public DivideDouble(double divisor) {
             this.divisor = divisor;
         }
+        @Override
         public Double apply(@Nullable Number input) {
             if (input==null) return null;
             return input.doubleValue() / divisor;
@@ -282,6 +299,7 @@ public class MathFunctions {
             this.significantDigits = significantDigits;
             this.maxLen = maxLen;
         }
+        @Override
         public String apply(@Nullable Number input) {
             if (input==null) return null;
             return Strings.makeRealString(input.doubleValue(), maxLen, significantDigits, 0);
@@ -299,6 +317,7 @@ public class MathFunctions {
             this.significantDigits = significantDigits;
         }
 
+        @Override
         public String apply(@Nullable Number input) {
             if (input==null) return null;
             return readableString(significantDigits, significantDigits+3).apply(input.doubleValue() * 100d)+"%";

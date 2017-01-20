@@ -195,6 +195,7 @@ public class DynamicFabricTest extends BrooklynAppUnitTestSupport {
         }
 
         Asserts.succeedsEventually(MutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
+            @Override
             public void run() {
                 assertEquals(fabric.getAttribute(DynamicFabric.FABRIC_SIZE), (Integer) total.get());
                 assertEquals(fabric.getFabricSize(), (Integer) total.get());
@@ -298,11 +299,13 @@ public class DynamicFabricTest extends BrooklynAppUnitTestSupport {
         }
 
         Asserts.succeedsEventually(MutableMap.of("timeout", 10*1000), new Runnable() {
+            @Override
             public void run() {
                 assertTrue(task.isDone());
             }});
 
         Asserts.succeedsEventually(MutableMap.of("timeout", 10*1000), new Runnable() {
+            @Override
             public void run() {
                 for (Entity it : fabric.getChildren()) {
                     int count = ((TestEntity)it).getCounter().get();

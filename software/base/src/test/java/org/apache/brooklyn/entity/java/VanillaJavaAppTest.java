@@ -146,6 +146,7 @@ public class VanillaJavaAppTest {
         
         // Memory MXBean
         Asserts.succeedsEventually(MutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
+            @Override
             public void run() {
                 assertNotNull(javaProcess.getAttribute(VanillaJavaApp.NON_HEAP_MEMORY_USAGE));
                 long init = javaProcess.getAttribute(VanillaJavaApp.INIT_HEAP_MEMORY);
@@ -164,6 +165,7 @@ public class VanillaJavaAppTest {
         
         // Threads MX Bean
         Asserts.succeedsEventually(MutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
+            @Override
             public void run() {
                 long current = javaProcess.getAttribute(VanillaJavaApp.CURRENT_THREAD_COUNT);
                 long peak = javaProcess.getAttribute(VanillaJavaApp.PEAK_THREAD_COUNT);
@@ -175,6 +177,7 @@ public class VanillaJavaAppTest {
 
         // Runtime MX Bean
         Asserts.succeedsEventually(MutableMap.of("timeout", LONG_TIMEOUT_MS), new Runnable() {
+            @Override
             public void run() {
                 assertNotNull(javaProcess.getAttribute(VanillaJavaApp.START_TIME));
                 assertNotNull(javaProcess.getAttribute(VanillaJavaApp.UP_TIME));
@@ -182,6 +185,7 @@ public class VanillaJavaAppTest {
         
         // Operating System MX Bean
         Asserts.succeedsEventually(MutableMap.of("timeout", LONG_TIMEOUT_MS), new Runnable() {
+            @Override
             public void run() {
                 assertNotNull(javaProcess.getAttribute(VanillaJavaApp.PROCESS_CPU_TIME));
                 assertNotNull(javaProcess.getAttribute(VanillaJavaApp.SYSTEM_LOAD_AVERAGE));
@@ -205,6 +209,7 @@ public class VanillaJavaAppTest {
         
         final List<Double> fractions = new CopyOnWriteArrayList<Double>();
         app.getManagementContext().getSubscriptionManager().subscribe(javaProcess, VanillaJavaApp.PROCESS_CPU_TIME_FRACTION_LAST, new SensorEventListener<Double>() {
+                @Override
                 public void onEvent(SensorEvent<Double> event) {
                     fractions.add(event.getValue());
                 }});
@@ -213,8 +218,10 @@ public class VanillaJavaAppTest {
         // Expect load to be in the right order of magnitude (to ensure we haven't got a decimal point in the wrong place etc);
         // But with multi-core could get big number; and on jenkins@releng3 we once saw [11.9, 0.6, 0.5]!
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 Iterable<Double> nonTrivialFractions = Iterables.filter(fractions, new Predicate<Double>() {
+                        @Override
                         public boolean apply(Double input) {
                             return input > 0.01;
                         }});
@@ -222,12 +229,14 @@ public class VanillaJavaAppTest {
             }});
 
         Iterable<Double> tooBigFractions = Iterables.filter(fractions, new Predicate<Double>() {
+                @Override
                 public boolean apply(Double input) {
                     return input > 50;
                 }});
         assertTrue(Iterables.isEmpty(tooBigFractions), "fractions="+fractions); 
         
         Iterable<Double> ballparkRightFractions = Iterables.filter(fractions, new Predicate<Double>() {
+                @Override
                 public boolean apply(Double input) {
                     return input > 0.01 && input < 4;
                 }});
@@ -272,6 +281,7 @@ public class VanillaJavaAppTest {
         
         // bad cert fails
         Asserts.assertFails(new Callable<Void>() {
+            @Override
             public Void call() throws Exception {
                 new AsserterForJmxConnection(javaProcess)
                         .customizeSocketFactory(null, new FluentKeySigner("cheater").newCertificateFor("jmx-access-key", SecureKeys.newKeyPair()))
@@ -281,6 +291,7 @@ public class VanillaJavaAppTest {
 
         // bad key fails
         Asserts.assertFails(new Callable<Void>() {
+            @Override
             public Void call() throws Exception {
                 new AsserterForJmxConnection(javaProcess)
                         .customizeSocketFactory(SecureKeys.newKeyPair().getPrivate(), null)
@@ -290,6 +301,7 @@ public class VanillaJavaAppTest {
         
         // bad profile fails
         Asserts.assertFails(new Callable<Void>() {
+            @Override
             public Void call() throws Exception {
                 AsserterForJmxConnection asserter = new AsserterForJmxConnection(javaProcess);
                 asserter.putEnv("jmx.remote.profiles", JmxmpAgent.TLS_JMX_REMOTE_PROFILES);

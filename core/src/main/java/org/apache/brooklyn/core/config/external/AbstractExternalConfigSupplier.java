@@ -39,6 +39,7 @@ abstract public class AbstractExternalConfigSupplier implements ExternalConfigSu
         return managementContext;
     }
 
+    @Override
     public String getName() {
         return name;
     }

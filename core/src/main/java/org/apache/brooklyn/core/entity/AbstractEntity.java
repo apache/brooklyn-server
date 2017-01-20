@@ -1998,6 +1998,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     // -------- EFFECTORS --------------
 
     /** Convenience for finding named effector in {@link EntityType#getEffectors()} {@link Map}. */
+    @Override
     public Effector<?> getEffector(String effectorName) {
         return entityType.getEffector(effectorName);
     }

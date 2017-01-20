@@ -86,6 +86,7 @@ public class GroupPickUpEntitiesTest extends BrooklynAppUnitTestSupport {
         e2.sensors().set(TestEntity.NAME, "BOB");
         EntityAsserts.assertAttributeEqualsEventually(group, BasicGroup.GROUP_SIZE, 2);
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 // must use "succeedsEventually" because size + members attributes are set sequentially in another thread; 
                 // just waiting for the first does not mean the second will have been set by the time we check in this thread.

@@ -221,6 +221,7 @@ public class ChefAttributeFeed extends AbstractFeed {
         knifeTaskFactory = new KnifeNodeAttributeQueryTaskFactory(nodeName);
         
         final Callable<SshPollValue> getAttributesFromKnife = new Callable<SshPollValue>() {
+            @Override
             public SshPollValue call() throws Exception {
                 ProcessTaskWrapper<String> taskWrapper = knifeTaskFactory.newTask();
                 final ExecutionContext executionContext = ((EntityInternal) entity).getExecutionContext();

@@ -168,6 +168,7 @@ public class PolicyConfigTest extends BrooklynAppUnitTestSupport {
         final CountDownLatch latch = new CountDownLatch(1);
         MyPolicy policy = new MyPolicy(MutableMap.builder()
                 .put(TestEntity.CONF_NAME, DependentConfiguration.whenDone(new Callable<String>() {
+                        @Override
                         public String call() {
                             try {
                                 latch.await(); return "aval";
@@ -179,6 +180,7 @@ public class PolicyConfigTest extends BrooklynAppUnitTestSupport {
         app.policies().add(policy);
         
         Thread t = new Thread(new Runnable() {
+                @Override
                 public void run() {
                     try {
                         Thread.sleep(10+EARLY_RETURN_GRACE); latch.countDown();

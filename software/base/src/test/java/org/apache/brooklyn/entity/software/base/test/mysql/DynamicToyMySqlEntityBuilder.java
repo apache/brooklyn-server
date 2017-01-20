@@ -101,6 +101,7 @@ public class DynamicToyMySqlEntityBuilder {
     }
 
     public static class MySqlEntityInitializer implements EntityInitializer {
+        @Override
         public void apply(final EntityLocal entity) {
           new MachineLifecycleEffectorTasks() {
             @Override

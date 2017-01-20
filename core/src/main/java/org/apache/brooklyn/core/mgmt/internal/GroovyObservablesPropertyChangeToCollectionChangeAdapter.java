@@ -31,6 +31,7 @@ public class GroovyObservablesPropertyChangeToCollectionChangeAdapter implements
         this.delegate = delegate;
     }
 
+    @Override
     @SuppressWarnings("unchecked")
     public void propertyChange(PropertyChangeEvent evt) {
         if (evt instanceof ObservableList.ElementAddedEvent) {

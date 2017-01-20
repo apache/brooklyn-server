@@ -197,6 +197,7 @@ public interface PortForwardManager extends Location {
      */
     public boolean forgetPortMappings(String publicIpId);
     
+    @Override
     public String toVerboseString();
 
     

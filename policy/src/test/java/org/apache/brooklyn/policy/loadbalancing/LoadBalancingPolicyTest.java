@@ -316,6 +316,7 @@ public class LoadBalancingPolicyTest extends AbstractLoadBalancingPolicyTest {
         pool.policies().add(policy);
         
         Asserts.succeedsEventually(MutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
+            @Override
             public void run() {
                 assertEquals(model.getContainerWorkrates(), ImmutableMap.of(containerA, 10d));
             }
@@ -375,6 +376,7 @@ public class LoadBalancingPolicyTest extends AbstractLoadBalancingPolicyTest {
         final MockItemEntity item2 = newItem(app, containerB, "2", 13);
         
         Asserts.succeedsEventually(MutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
+            @Override
             public void run() {
                 assertEquals(model.getPoolSize(), 2);
                 assertEquals(model.getPoolContents(), ImmutableSet.of(containerA, containerB));

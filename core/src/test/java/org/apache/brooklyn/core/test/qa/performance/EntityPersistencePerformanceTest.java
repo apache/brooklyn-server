@@ -83,6 +83,7 @@ public class EntityPersistencePerformanceTest extends RebindTestFixtureWithApp {
                     .every(repeatEvery)
                     .repeat(new Runnable() {
                             int i = 0;
+                            @Override
                             public void run() {
                                 for (TestEntity entity : entities) {
                                     entity.sensors().set(TestEntity.SEQUENCE, i++);

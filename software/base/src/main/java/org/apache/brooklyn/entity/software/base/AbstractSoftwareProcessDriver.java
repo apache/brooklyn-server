@@ -120,88 +120,88 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
             skipStart = entityStarted.or(false);
         }
 
-        DynamicTasks.queue("prepare", new Runnable() { public void run() {
+        DynamicTasks.queue("prepare", new Runnable() { @Override public void run() {
             prepare();
         }});
 
         if (!skipStart) {
-            DynamicTasks.queue("install", new Runnable() { public void run() {
+            DynamicTasks.queue("install", new Runnable() { @Override public void run() {
                 Optional<Boolean> locationInstalled = Optional.fromNullable(getLocation().getConfig(BrooklynConfigKeys.SKIP_ENTITY_INSTALLATION));
                 Optional<Boolean> entityInstalled = Optional.fromNullable(entity.getConfig(BrooklynConfigKeys.SKIP_ENTITY_INSTALLATION));
 
                 boolean skipInstall = locationInstalled.or(entityInstalled).or(false);
                 if (!skipInstall) {
-                    DynamicTasks.queue("copy-pre-install-resources", new Runnable() { public void run() {
+                    DynamicTasks.queue("copy-pre-install-resources", new Runnable() { @Override public void run() {
                         waitForConfigKey(BrooklynConfigKeys.PRE_INSTALL_RESOURCES_LATCH);
                         copyPreInstallResources();
                     }});
 
-                    DynamicTasks.queue("pre-install", new Runnable() { public void run() {
+                    DynamicTasks.queue("pre-install", new Runnable() { @Override public void run() {
                         preInstall();
                     }});
 
-                    DynamicTasks.queue("pre-install-command", new Runnable() { public void run() {
+                    DynamicTasks.queue("pre-install-command", new Runnable() { @Override public void run() {
                         runPreInstallCommand();
                     }});
 
-                    DynamicTasks.queue("setup", new Runnable() { public void run() {
+                    DynamicTasks.queue("setup", new Runnable() { @Override public void run() {
                         waitForConfigKey(BrooklynConfigKeys.SETUP_LATCH);
                         setup();
                     }});
 
-                    DynamicTasks.queue("copy-install-resources", new Runnable() { public void run() {
+                    DynamicTasks.queue("copy-install-resources", new Runnable() { @Override public void run() {
                         waitForConfigKey(BrooklynConfigKeys.INSTALL_RESOURCES_LATCH);
                         copyInstallResources();
                     }});
 
-                    DynamicTasks.queue("install (main)", new Runnable() { public void run() {
+                    DynamicTasks.queue("install (main)", new Runnable() { @Override public void run() {
                         waitForConfigKey(BrooklynConfigKeys.INSTALL_LATCH);
                         install();
                     }});
 
-                    DynamicTasks.queue("post-install-command", new Runnable() { public void run() {
+                    DynamicTasks.queue("post-install-command", new Runnable() { @Override public void run() {
                         runPostInstallCommand();
                     }});
                 }
             }});
 
-            DynamicTasks.queue("customize", new Runnable() { public void run() {
-                DynamicTasks.queue("pre-customize-command", new Runnable() { public void run() {
+            DynamicTasks.queue("customize", new Runnable() { @Override public void run() {
+                DynamicTasks.queue("pre-customize-command", new Runnable() { @Override public void run() {
                     runPreCustomizeCommand();
                 }});
 
-                DynamicTasks.queue("customize (main)", new Runnable() { public void run() {
+                DynamicTasks.queue("customize (main)", new Runnable() { @Override public void run() {
                     waitForConfigKey(BrooklynConfigKeys.CUSTOMIZE_LATCH);
                     customize();
                 }});
 
-                DynamicTasks.queue("post-customize-command", new Runnable() { public void run() {
+                DynamicTasks.queue("post-customize-command", new Runnable() { @Override public void run() {
                     runPostCustomizeCommand();
                 }});
             }});
 
-            DynamicTasks.queue("launch", new Runnable() { public void run() {
-                DynamicTasks.queue("copy-runtime-resources", new Runnable() { public void run() {
+            DynamicTasks.queue("launch", new Runnable() { @Override public void run() {
+                DynamicTasks.queue("copy-runtime-resources", new Runnable() { @Override public void run() {
                     waitForConfigKey(BrooklynConfigKeys.RUNTIME_RESOURCES_LATCH);
                     copyRuntimeResources();
                 }});
 
-                DynamicTasks.queue("pre-launch-command", new Runnable() { public void run() {
+                DynamicTasks.queue("pre-launch-command", new Runnable() { @Override public void run() {
                     runPreLaunchCommand();
                 }});
 
-                DynamicTasks.queue("launch (main)", new Runnable() { public void run() {
+                DynamicTasks.queue("launch (main)", new Runnable() { @Override public void run() {
                     waitForConfigKey(BrooklynConfigKeys.LAUNCH_LATCH);
                     launch();
                 }});
 
-                DynamicTasks.queue("post-launch-command", new Runnable() { public void run() {
+                DynamicTasks.queue("post-launch-command", new Runnable() { @Override public void run() {
                     runPostLaunchCommand();
                 }});
             }});
         }
 
-        DynamicTasks.queue("post-launch", new Runnable() { public void run() {
+        DynamicTasks.queue("post-launch", new Runnable() { @Override public void run() {
             postLaunch();
         }});
     }
@@ -284,6 +284,7 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
     @Override
     public void restart() {
         DynamicTasks.queue("stop (best effort)", new Runnable() {
+            @Override
             public void run() {
                 DynamicTasks.markInessential();
                 boolean previouslyRunning = isRunning();
@@ -306,6 +307,7 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
         });
 
         DynamicTasks.queue("restart", new Runnable() {
+            @Override
             public void run() {
                 try {
                     if (doFullStartOnRestart()) {
@@ -313,17 +315,17 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
                         ServiceStateLogic.setExpectedState(getEntity(), Lifecycle.STARTING);
                         start();
                     } else {
-                        DynamicTasks.queue("pre-launch-command", new Runnable() { public void run() {
+                        DynamicTasks.queue("pre-launch-command", new Runnable() { @Override public void run() {
                             ServiceStateLogic.setExpectedState(getEntity(), Lifecycle.STARTING);
                             runPreLaunchCommand();
                         }});
-                        DynamicTasks.queue("launch (main)", new Runnable() { public void run() {
+                        DynamicTasks.queue("launch (main)", new Runnable() { @Override public void run() {
                             launch();
                         }});
-                        DynamicTasks.queue("post-launch-command", new Runnable() { public void run() {
+                        DynamicTasks.queue("post-launch-command", new Runnable() { @Override public void run() {
                             runPostLaunchCommand();
                         }});
-                        DynamicTasks.queue("post-launch", new Runnable() { public void run() {
+                        DynamicTasks.queue("post-launch", new Runnable() { @Override public void run() {
                             postLaunch();
                         }});
                     }

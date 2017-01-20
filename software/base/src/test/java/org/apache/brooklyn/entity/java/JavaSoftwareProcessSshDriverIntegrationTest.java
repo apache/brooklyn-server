@@ -78,6 +78,7 @@ public class JavaSoftwareProcessSshDriverIntegrationTest extends BrooklynAppLive
         final MyEntity entity = app.createAndManageChild(EntitySpec.create(MyEntity.class));
         app.start(ImmutableList.of(localhost));
         Asserts.succeedsEventually(MutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
+            @Override
             public void run() {
                 assertTrue(entity.getAttribute(SoftwareProcess.SERVICE_UP));
             }});
@@ -135,6 +136,7 @@ public class JavaSoftwareProcessSshDriverIntegrationTest extends BrooklynAppLive
         final MyEntity entity = app.createAndManageChild(EntitySpec.create(MyEntity.class));
         app.start(ImmutableList.of(localhost));
         Asserts.succeedsEventually(MutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
+            @Override
             public void run() {
                 assertTrue(entity.getAttribute(SoftwareProcess.SERVICE_UP));
 

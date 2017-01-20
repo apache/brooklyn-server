@@ -150,6 +150,7 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
                     public String toString() {
                         return "LSM.publishInitialValue("+s.producer+", "+s.sensor+")";
                     }
+                    @Override
                     public void run() {
                         Object val = s.producer.getAttribute((AttributeSensor<?>) s.sensor);
                         @SuppressWarnings("rawtypes") // TODO s.listener.onEvent gives compilation error if try to use <T>
@@ -175,11 +176,13 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
         return s;
     }
 
+    @Override
     @SuppressWarnings("unchecked")
     public Set<SubscriptionHandle> getSubscriptionsForSubscriber(Object subscriber) {
         return (Set<SubscriptionHandle>) ((Set<?>) elvis(subscriptionsBySubscriber.get(subscriber), Collections.emptySet()));
     }
 
+    @Override
     public synchronized Set<SubscriptionHandle> getSubscriptionsForEntitySensor(Entity source, Sensor<?> sensor) {
         Set<SubscriptionHandle> subscriptions = new LinkedHashSet<SubscriptionHandle>();
         subscriptions.addAll(elvis(subscriptionsByToken.get(makeEntitySensorToken(source, sensor)), Collections.emptySet()));
@@ -194,6 +197,7 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
      *
      * @see #subscribe(Map, Entity, Sensor, SensorEventListener)
      */
+    @Override
     @SuppressWarnings("rawtypes")
     public synchronized boolean unsubscribe(SubscriptionHandle sh) {
         if (!(sh instanceof Subscription)) throw new IllegalArgumentException("Only subscription handles of type Subscription supported: sh="+sh+"; type="+(sh != null ? sh.getClass().getCanonicalName() : null));
@@ -249,6 +253,7 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
                     public String toString() {
                         return "LSM.publish("+event+")";
                     }
+                    @Override
                     public void run() {
                         try {
                             int count = sAtClosureCreation.eventCount.incrementAndGet();

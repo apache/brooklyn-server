@@ -113,6 +113,7 @@ Beyond this you get blacklisted and requests may time out, or return none.
     private static long LAST_FAILURE_UTC = -1;
     
     /** does the {@link #retrieveHostGeoInfo(InetAddress)}, but in the background with a default timeout */
+    @Override
     public HostGeoInfo getHostGeoInfo(InetAddress address) throws MalformedURLException, IOException {
         if (Duration.sinceUtc(LAST_FAILURE_UTC).compareTo(RETRY_INTERVAL) < 0) {
             // wait at least 60s since a failure

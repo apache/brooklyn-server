@@ -215,6 +215,7 @@ implements MachineProvisioningLocation<T>, Closeable {
         return super.configure(properties);
     }
     
+    @Override
     @SuppressWarnings("unchecked")
     public FixedListMachineProvisioningLocation<T> newSubLocation(Map<?,?> newFlags) {
         // TODO shouldn't have to copy config bag as it should be inherited (but currently it is not used inherited everywhere; just most places)

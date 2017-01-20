@@ -54,6 +54,7 @@ public interface EntityLocal extends Entity {
     /**
      * @deprecated since 0.7.0; use {@link #config()}, such as {@code entity.config().set(key, val)}
      */
+    @Override
     @Deprecated
     <T> T setConfig(ConfigKey<T> key, T val);
     

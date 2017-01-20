@@ -34,6 +34,7 @@ import org.slf4j.LoggerFactory;
 class UserMetadataStringOption implements TemplateOptionCustomizer {
     private static final Logger LOG = LoggerFactory.getLogger(UserMetadataStringOption.class);
 
+    @Override
     public void apply(TemplateOptions t, ConfigBag props, Object v) {
         if (t instanceof EC2TemplateOptions) {
             // See AWS docs: http://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/UsingConfig_WinAMI.html#user-data-execution

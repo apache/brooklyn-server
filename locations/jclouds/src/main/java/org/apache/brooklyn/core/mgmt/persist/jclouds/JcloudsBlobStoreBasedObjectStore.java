@@ -80,6 +80,7 @@ public class JcloudsBlobStoreBasedObjectStore implements PersistenceObjectStore 
         getBlobStoreContext();
     }
 
+    @Override
     public String getSummaryName() {
         return (locationSpec!=null ? locationSpec : location)+":"+getContainerNameFull();
     }

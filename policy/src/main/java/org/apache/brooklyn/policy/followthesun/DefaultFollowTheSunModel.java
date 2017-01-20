@@ -170,6 +170,7 @@ public class DefaultFollowTheSunModel<ContainerType, ItemType> implements Follow
         containerToLocation.remove(container);
     }
     
+    @Override
     public void onContainerLocationUpdated(ContainerType container, Location location) {
         if (!containers.contains(container)) {
             // unknown container; probably just stopped? 

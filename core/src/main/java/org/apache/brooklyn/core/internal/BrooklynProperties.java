@@ -280,6 +280,7 @@ public interface BrooklynProperties extends Map, StringConfigMap {
     public String getFirst(Map flags, String ...keys);
 
     /** like normal map.put, except config keys are dereferenced on the way in */
+    @Override
     public Object put(Object key, Object value);
 
     /** like normal map.putAll, except config keys are dereferenced on the way in */

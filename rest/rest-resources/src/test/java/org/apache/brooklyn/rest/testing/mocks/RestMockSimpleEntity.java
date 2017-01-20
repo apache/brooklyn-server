@@ -90,6 +90,7 @@ public class RestMockSimpleEntity extends SoftwareProcessImpl {
         public MockSshDriver(org.apache.brooklyn.api.entity.EntityLocal entity, SshMachineLocation machine) {
             super(entity, machine);
         }
+        @Override
         public boolean isRunning() { return true; }
         @Override
         public void stop() {}

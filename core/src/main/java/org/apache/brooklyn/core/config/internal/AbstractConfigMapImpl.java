@@ -103,10 +103,12 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         return (BrooklynObjectInternal)bo;
     }
     
+    @Override
     public <T> T getConfig(ConfigKey<T> key) {
         return getConfigImpl(key, false).getWithoutError().get();
     }
     
+    @Override
     public <T> T getConfig(HasConfigKey<T> key) {
         return getConfigImpl(key.getConfigKey(), false).getWithoutError().get();
     }

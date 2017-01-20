@@ -93,6 +93,7 @@ public abstract class AttributeSensorAndConfigKey<ConfigType,SensorType> extends
         configKey = new BasicConfigKey<ConfigType>(configKeyBuilder);
     }
 
+    @Override
     public ConfigKey<ConfigType> getConfigKey() { return configKey; }
     
     /** returns the sensor value for this attribute on the given entity, if present,

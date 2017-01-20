@@ -94,6 +94,7 @@ public class BasicExecutionContext extends AbstractExecutionContext {
     }
     
     /** returns tasks started by this context (or tasks which have all the tags on this object) */
+    @Override
     public Set<Task<?>> getTasks() { return executionManager.getTasksWithAllTags((Set<?>)tags); }
      
     @SuppressWarnings({ "unchecked", "rawtypes" })
@@ -142,6 +143,7 @@ public class BasicExecutionContext extends AbstractExecutionContext {
                     // (this matters when we are navigating in the GUI; without it we lose the reference to the child 
                     // when browsing in the context of the parent)
                     return submit(Tasks.<T>builder().displayName("Cross-context execution: "+t.getDescription()).dynamic(true).body(new Callable<T>() {
+                        @Override
                         public T call() { 
                             return DynamicTasks.get(t); 
                         }
@@ -154,6 +156,7 @@ public class BasicExecutionContext extends AbstractExecutionContext {
                 // as above, but here we are definitely not a child (what we are submitting isn't even a task)
                 // (will only come here if properties defines tags including a target entity, which probably never happens) 
                 submit(Tasks.<T>builder().displayName("Cross-context execution").dynamic(true).body(new Callable<T>() {
+                    @Override
                     public T call() {
                         if (task instanceof Callable) {
                             return DynamicTasks.queue( Tasks.<T>builder().dynamic(false).body((Callable<T>)task).build() ).getUnchecked();
@@ -184,6 +187,7 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         
         final Object startCallback = properties.get("newTaskStartCallback");
         properties.put("newTaskStartCallback", new Function<Task<?>,Void>() {
+            @Override
             public Void apply(Task<?> it) {
                 registerPerThreadExecutionContext();
                 if (startCallback!=null) BasicExecutionManager.invokeCallback(startCallback, it);
@@ -192,6 +196,7 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         
         final Object endCallback = properties.get("newTaskEndCallback");
         properties.put("newTaskEndCallback", new Function<Task<?>,Void>() {
+            @Override
             public Void apply(Task<?> it) {
                 try {
                     if (endCallback!=null) BasicExecutionManager.invokeCallback(endCallback, it);

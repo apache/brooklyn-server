@@ -350,6 +350,7 @@ public class RebindFeedTest extends RebindTestFixtureWithApp {
                 this.size = size;
                 sample = get();
             }
+            @Override
             public String get() {
                 return prefix + (size>=0 ? "-"+Identifiers.makeRandomId(size) : "");
             }

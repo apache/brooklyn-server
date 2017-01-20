@@ -209,6 +209,7 @@ public class ApplicationBuilderOverridingTest {
             }
         };
         Future<StartableApplication> future = executor.submit(new Callable<StartableApplication>() {
+            @Override
             public StartableApplication call() {
                 try {
                     return builder.manage();
