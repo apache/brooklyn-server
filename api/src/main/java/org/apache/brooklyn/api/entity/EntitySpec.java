@@ -382,7 +382,7 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
     }
     
      /** adds a location to the spec
-      * @deprecated since 0.9.0 pass a spec, using {@link #enricherSpecs(Iterable)} */ 
+      * @deprecated since 0.9.0 pass a spec, using {@link #location(LocationSpec)} */
      @Deprecated
      // there are still many places in tests where we use this;
      // in some we want to force the use of a given location.

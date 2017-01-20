@@ -1043,27 +1043,20 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             }
 
             customizedTimestamp = Duration.of(provisioningStopwatch);
-
-            try {
-                String logMessage = "Finished VM "+getCreationString(setup)+" creation:"
-                        + " "+machineLocation.getUser()+"@"+machineLocation.getAddress()+":"+machineLocation.getPort()
-                        + (Boolean.TRUE.equals(setup.get(LOG_CREDENTIALS))
-                                ? "password=" + userCredentials.getOptionalPassword().or("<absent>")
-                                + " && key=" + userCredentials.getOptionalPrivateKey().or("<absent>")
-                                : "")
-                        + " ready after "+Duration.of(provisioningStopwatch).toStringRounded()
-                        + " ("
-                        + "semaphore obtained in "+Duration.of(semaphoreTimestamp).toStringRounded()+";"
-                        + template+" template built in "+Duration.of(templateTimestamp).subtract(semaphoreTimestamp).toStringRounded()+";"
-                        + " "+node+" provisioned in "+Duration.of(provisionTimestamp).subtract(templateTimestamp).toStringRounded()+";"
-                        + " "+machineLocation+" connection usable in "+Duration.of(usableTimestamp).subtract(provisionTimestamp).toStringRounded()+";"
-                        + " and os customized in "+Duration.of(customizedTimestamp).subtract(usableTimestamp).toStringRounded()+" - "+Joiner.on(", ").join(customisationForLogging)+")";
-                LOG.info(logMessage);
-            } catch (Exception e){
-                // TODO Remove try-catch! @Nakomis: why did you add it? What exception happened during logging?
-                Exceptions.propagateIfFatal(e);
-                LOG.warn("Problem generating log message summarising completion of jclouds machine provisioning "+machineLocation+" by "+this, e);
-            }
+            String logMessage = "Finished VM "+getCreationString(setup)+" creation:"
+                    + " "+machineLocation.getUser()+"@"+machineLocation.getAddress()+":"+machineLocation.getPort()
+                    + (Boolean.TRUE.equals(setup.get(LOG_CREDENTIALS))
+                            ? "password=" + userCredentials.getOptionalPassword().or("<absent>")
+                            + " && key=" + userCredentials.getOptionalPrivateKey().or("<absent>")
+                            : "")
+                    + " ready after "+Duration.of(provisioningStopwatch).toStringRounded()
+                    + " ("
+                    + "semaphore obtained in "+Duration.of(semaphoreTimestamp).toStringRounded()+";"
+                    + template+" template built in "+Duration.of(templateTimestamp).subtract(semaphoreTimestamp).toStringRounded()+";"
+                    + " "+node+" provisioned in "+Duration.of(provisionTimestamp).subtract(templateTimestamp).toStringRounded()+";"
+                    + " "+machineLocation+" connection usable in "+Duration.of(usableTimestamp).subtract(provisionTimestamp).toStringRounded()+";"
+                    + " and os customized in "+Duration.of(customizedTimestamp).subtract(usableTimestamp).toStringRounded()+" - "+Joiner.on(", ").join(customisationForLogging)+")";
+            LOG.info(logMessage);
 
             return machineLocation;
 
@@ -1612,6 +1605,11 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         sshProps.put("port", hostAndPort.getPort());
         sshProps.put(AbstractLocation.TEMPORARY_LOCATION.getName(), true);
         sshProps.put(LocalLocationManager.CREATE_UNMANAGED.getName(), true);
+        String sshClass = config().get(SshMachineLocation.SSH_TOOL_CLASS);
+        if (Strings.isNonBlank(sshClass)) {
+            sshProps.put(SshMachineLocation.SSH_TOOL_CLASS.getName(), sshClass);
+        }
+
         sshProps.remove("id");
         sshProps.remove("password");
         sshProps.remove("privateKeyData");
@@ -1647,6 +1645,10 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         winrmProps.remove("privateKeyData");
         winrmProps.remove("privateKeyFile");
         winrmProps.remove("privateKeyPassphrase");
+        String winrmClass = config().get(WinRmMachineLocation.WINRM_TOOL_CLASS);
+        if (Strings.isNonBlank(winrmClass)) {
+            winrmProps.put(WinRmMachineLocation.WINRM_TOOL_CLASS.getName(), winrmClass);
+        }
 
         if (initialPassword.isPresent()) winrmProps.put("password", initialPassword.get());
         if (initialPrivateKey.isPresent()) winrmProps.put("privateKeyData", initialPrivateKey.get());

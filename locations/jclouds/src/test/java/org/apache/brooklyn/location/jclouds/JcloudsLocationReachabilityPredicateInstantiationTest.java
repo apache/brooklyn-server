@@ -166,11 +166,14 @@ public class JcloudsLocationReachabilityPredicateInstantiationTest {
     }
 
     public static class RecordingReachabilityCheckProtectedMapConstructor implements Predicate<HostAndPort> {
+        @SuppressWarnings("unused")
         public RecordingReachabilityCheckProtectedMapConstructor() {
             TEST_INIT_MAP_AND_EMPTY_CONSTRUCTOR_COUNTER.getAndIncrement();
         }
 
-        protected RecordingReachabilityCheckProtectedMapConstructor(Map<String, Object> flags) {}
+        @SuppressWarnings("unused")
+        protected RecordingReachabilityCheckProtectedMapConstructor(Map<String, Object> flags) {
+        }
 
         @Override
         public boolean apply(@Nullable HostAndPort input) {
@@ -178,14 +181,4 @@ public class JcloudsLocationReachabilityPredicateInstantiationTest {
         }
     }
 
-    public static class BailOutJcloudsLocation extends JcloudsLocation {
-        public BailOutJcloudsLocation() {
-            super();
-        }
-
-        @Override
-        public String getFirstReachableAddress(NodeMetadata nodeMetada, ConfigBag setup) {
-            return super.getFirstReachableAddress(nodeMetada, setup);
-        }
-    }
 }

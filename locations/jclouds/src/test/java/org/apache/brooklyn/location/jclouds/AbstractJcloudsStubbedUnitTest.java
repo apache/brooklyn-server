@@ -33,6 +33,7 @@ import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 
+import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 
@@ -91,19 +92,26 @@ public abstract class AbstractJcloudsStubbedUnitTest extends AbstractJcloudsLive
     protected void initNodeCreatorAndJcloudsLocation(NodeCreator nodeCreator, Map<?, ?> jcloudsLocationConfig) throws Exception {
         this.nodeCreator = nodeCreator;
         this.computeServiceRegistry = new StubbedComputeServiceRegistry(nodeCreator, false);
-
+        final Map<Object, Object> defaults = ImmutableMap.builder()
+                .put(JcloudsLocationConfig.COMPUTE_SERVICE_REGISTRY, computeServiceRegistry)
+                .put(JcloudsLocationConfig.TEMPLATE_BUILDER, JcloudsStubTemplateBuilder.create())
+                .put(JcloudsLocationConfig.ACCESS_IDENTITY, "stub-identity")
+                .put(JcloudsLocationConfig.ACCESS_CREDENTIAL, "stub-credential")
+                .put(SshMachineLocation.SSH_TOOL_CLASS, RecordingSshTool.class.getName())
+                .put(WinRmMachineLocation.WINRM_TOOL_CLASS, RecordingWinRmTool.class.getName())
+                .put(JcloudsLocation.POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE, Predicates.alwaysTrue())
+                .build();
+        final ImmutableMap.Builder<Object, Object> flags = ImmutableMap.builder()
+                .putAll(jcloudsLocationConfig);
+        for (Map.Entry<Object, Object> entry : defaults.entrySet()) {
+            if (!jcloudsLocationConfig.containsKey(entry.getKey())) {
+                flags.put(entry.getKey(), entry.getValue());
+            } else {
+                LOG.debug("Overridden default value for {} with: {}", new Object[]{entry.getKey(), entry.getValue()});
+            }
+        }
         this.jcloudsLocation = (JcloudsLocation)managementContext.getLocationRegistry().getLocationManaged(
-                getLocationSpec(),
-                ImmutableMap.builder()
-                        .put(JcloudsLocationConfig.COMPUTE_SERVICE_REGISTRY, computeServiceRegistry)
-                        .put(JcloudsLocationConfig.TEMPLATE_BUILDER, JcloudsStubTemplateBuilder.create())
-                        .put(JcloudsLocationConfig.ACCESS_IDENTITY, "stub-identity")
-                        .put(JcloudsLocationConfig.ACCESS_CREDENTIAL, "stub-credential")
-                        .put(SshMachineLocation.SSH_TOOL_CLASS, RecordingSshTool.class.getName())
-                        .put(WinRmMachineLocation.WINRM_TOOL_CLASS, RecordingWinRmTool.class.getName())
-                        .put(JcloudsLocation.POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE, Predicates.alwaysTrue())
-                        .putAll(jcloudsLocationConfig)
-                        .build());
+                getLocationSpec(), flags.build());
     }
 
     /**
