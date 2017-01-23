@@ -36,9 +36,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -95,19 +95,22 @@ public class CompositeEffector extends AddEffector {
 
             List <Object> results = Lists.newArrayList();
             if (!override) {
-                List<Effector<?>> originalEffectors = FluentIterable.from(entity().getEntityType().getEffectors())
-                        .filter(new Predicate<Effector<?>>() {
+                Optional<Effector<?>> effectorOptional = Iterables.tryFind(entity().getEntityType().getEffectors(), new Predicate<Effector<?>>() {
                             @Override
                             public boolean apply(@Nullable Effector<?> input) {
                                 return input.getName().equals("original-" + effector.getName());
                             }
-                        })
-                        .toList();
-
-                for (Effector<?> originalEffector : originalEffectors) {
-                    results.add(invokeEffectorNamed(originalEffector.getName(), params));
+                        });
+                // if it is a stop effector, it has to be executed as last effector
+                if (effectorOptional.isPresent()) {
+                    if (effectorOptional.get().getName().endsWith("-stop")) {
+                        effectorNames.add(effectorOptional.get().getName());
+                    } else {
+                        effectorNames.add(0, effectorOptional.get().getName());
+                    }
                 }
             }
+            
             for (String eff : effectorNames) {
                 results.add(invokeEffectorNamed(eff, params));
             }
