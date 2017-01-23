@@ -31,6 +31,7 @@ import org.slf4j.LoggerFactory;
 class NetworkNameOption implements TemplateOptionCustomizer {
     private static final Logger LOG = LoggerFactory.getLogger(NetworkNameOption.class);
 
+    @Override
     public void apply(TemplateOptions t, ConfigBag props, Object v) {
         if (t instanceof AWSEC2TemplateOptions) {
             // subnet ID is the sensible interpretation of network name in EC2

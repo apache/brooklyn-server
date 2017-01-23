@@ -177,6 +177,7 @@ public abstract class AbstractEc2LiveTest extends BrooklynAppLiveTestSupport {
     
     protected void assertViaSshLocalPortListeningEventually(final SoftwareProcess server, final int port) {
         Asserts.succeedsEventually(ImmutableMap.of("timeout", Duration.FIVE_MINUTES), new Runnable() {
+            @Override
             public void run() {
                 assertExecSsh(server, ImmutableList.of("netstat -antp", "netstat -antp | grep LISTEN | grep "+port));
             }});
@@ -184,6 +185,7 @@ public abstract class AbstractEc2LiveTest extends BrooklynAppLiveTestSupport {
     
     protected void assertViaSshLocalUrlListeningEventually(final SoftwareProcess server, final String url) {
         Asserts.succeedsEventually(ImmutableMap.of("timeout", Duration.FIVE_MINUTES), new Runnable() {
+            @Override
             public void run() {
                 assertExecSsh(server, ImmutableList.of(BashCommands.installPackage("curl"), "netstat -antp", "curl -k --retry 3 "+url));
             }});

@@ -104,6 +104,7 @@ public class AbstractYamlRebindTest extends RebindTestFixture<StartableApplicati
         return null;
     }
 
+    @Override
     protected ManagementContext mgmt() {
         return (newManagementContext != null) ? newManagementContext : origManagementContext;
     }

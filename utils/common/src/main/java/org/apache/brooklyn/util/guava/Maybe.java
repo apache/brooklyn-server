@@ -207,6 +207,7 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
     }
 
     public abstract boolean isPresent();
+    @Override
     public abstract T get();
     
     public boolean isAbsent() {
@@ -269,6 +270,7 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
     public <V> Maybe<V> transform(final Function<? super T, V> f) {
         if (isPresent()) return new AbstractPresent<V>() {
             private static final long serialVersionUID = 325089324325L;
+            @Override
             public V get() {
                 return f.apply(Maybe.this.get());
             }
@@ -330,6 +332,7 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
         public T get() {
             throw getException();
         }
+        @Override
         public T orThrowUnwrapped() {
             throw getException();
         }

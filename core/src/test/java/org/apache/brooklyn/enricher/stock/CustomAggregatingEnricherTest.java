@@ -527,6 +527,7 @@ public class CustomAggregatingEnricherTest extends BrooklynAppUnitTestSupport {
     public void testCustomAggregatingFunction() {
         TestEntity producer1 = app.createAndManageChild(EntitySpec.create(TestEntity.class)); 
         Function<Collection<Integer>,Integer> aggregator = new Function<Collection<Integer>, Integer>() {
+            @Override
             public Integer apply(Collection<Integer> input) { 
                 int result = 1;
                 for (Integer in : input) result += in*in;

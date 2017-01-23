@@ -403,6 +403,7 @@ public class DependentConfiguration {
     @SuppressWarnings({ "rawtypes" })
     public static <U,T> Task<T> transform(final Map flags, final TaskAdaptable<U> task, final Function<U,T> transformer) {
         return new BasicTask<T>(flags, new Callable<T>() {
+            @Override
             public T call() throws Exception {
                 if (!task.asTask().isSubmitted()) {
                     BasicExecutionContext.getCurrentExecutionContext().submit(task);
@@ -753,6 +754,7 @@ public class DependentConfiguration {
          * If that entity report {@link Lifecycle#ON_FIRE} for its {@link Attributes#SERVICE_STATE_ACTUAL} then it will abort.
          * @deprecated since 0.7.0 use {@link DependentConfiguration#builder()} then {@link ProtoBuilder#attributeWhenReady(Entity, AttributeSensor)} then {@link #abortIfOnFire()} 
          */
+        @Deprecated
         @SuppressWarnings({ "unchecked", "rawtypes" })
         public <T2> Builder<T2,T2> attributeWhenReady(Entity source, AttributeSensor<T2> sensor) {
             this.source = checkNotNull(source, "source");

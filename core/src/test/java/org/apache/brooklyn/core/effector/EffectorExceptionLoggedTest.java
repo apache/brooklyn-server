@@ -78,6 +78,7 @@ public class EffectorExceptionLoggedTest extends BrooklynAppUnitTestSupport {
         }
     }
 
+    @Override
     protected BrooklynProperties getBrooklynProperties() {
         BrooklynProperties result = BrooklynProperties.Factory.newEmpty();
         result.put(Entitlements.GLOBAL_ENTITLEMENT_MANAGER, ThrowingEntitlementManager.class.getName());

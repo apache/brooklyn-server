@@ -56,6 +56,7 @@ public class HaMasterCheckFilter implements Filter {
     protected ManagementContext mgmt;
 
     private HaHotCheckHelperAbstract helper = new HaHotCheckHelperAbstract() {
+        @Override
         public ManagementContext mgmt() {
             return mgmt;
         }

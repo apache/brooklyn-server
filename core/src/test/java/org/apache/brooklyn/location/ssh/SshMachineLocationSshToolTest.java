@@ -51,12 +51,14 @@ public class SshMachineLocationSshToolTest extends BrooklynAppUnitTestSupport {
     // See EntitySshToolTest in software-base for an equivalent that configures the SshTool on the 
     // management context and on the entity.
     
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();
         RecordingSshTool.clear();
     }
 
+    @Override
     @AfterMethod(alwaysRun=true)
     public void tearDown() throws Exception {
         RecordingSshTool.clear();

@@ -44,7 +44,7 @@ public class MultimapSerializer extends StdSerializer<Multimap<?, ?>> {
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     protected MultimapSerializer() {
-        super((Class<Multimap<?, ?>>) (Class) Multimap.class);
+        super((Class) Multimap.class);
     }
 
     @Override

@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.Date;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
@@ -55,7 +54,6 @@ import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
-import org.apache.brooklyn.core.entity.lifecycle.Lifecycle.Transition;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceNotUpLogic;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
@@ -306,6 +304,7 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
                         .suppressDuplicates(true)
                         .onException(Functions.constant(Boolean.FALSE))
                         .callable(new Callable<Boolean>() {
+                            @Override
                             public Boolean call() {
                                 return getDriver().isRunning();
                             }
@@ -613,7 +612,9 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
         if (DynamicTasks.getTaskQueuingContext() != null) {
             getLifecycleEffectorTasks().start(locations);
         } else {
-            Task<?> task = Tasks.builder().displayName("start (sequential)").body(new Runnable() { public void run() { getLifecycleEffectorTasks().start(locations); } }).build();
+            Task<?> task = Tasks.builder().displayName("start (sequential)").body(new Runnable() {
+                @Override public void run() { getLifecycleEffectorTasks().start(locations); }
+            }).build();
             Entities.submit(this, task).getUnchecked();
         }
     }
@@ -635,7 +636,9 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
         if (DynamicTasks.getTaskQueuingContext() != null) {
             getLifecycleEffectorTasks().stop(ConfigBag.EMPTY);
         } else {
-            Task<?> task = Tasks.builder().displayName("stop").body(new Runnable() { public void run() { getLifecycleEffectorTasks().stop(ConfigBag.EMPTY); } }).build();
+            Task<?> task = Tasks.builder().displayName("stop").body(new Runnable() {
+                @Override public void run() { getLifecycleEffectorTasks().stop(ConfigBag.EMPTY); }
+            }).build();
             Entities.submit(this, task).getUnchecked();
         }
     }
@@ -649,7 +652,9 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
         if (DynamicTasks.getTaskQueuingContext() != null) {
             getLifecycleEffectorTasks().restart(ConfigBag.EMPTY);
         } else {
-            Task<?> task = Tasks.builder().displayName("restart").body(new Runnable() { public void run() { getLifecycleEffectorTasks().restart(ConfigBag.EMPTY); } }).build();
+            Task<?> task = Tasks.builder().displayName("restart").body(new Runnable() {
+                @Override public void run() { getLifecycleEffectorTasks().restart(ConfigBag.EMPTY); }
+            }).build();
             Entities.submit(this, task).getUnchecked();
         }
     }

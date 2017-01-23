@@ -38,9 +38,10 @@ public class TaskFinalizationTest {
     // integration because it can take a while (and finalizers aren't even guaranteed)
     @Test(groups="Integration")
     public void testFinalizerInvoked() throws InterruptedException {
-        BasicTask<?> t = new BasicTask<Void>(new Runnable() { public void run() { /* no op */ }});
+        BasicTask<?> t = new BasicTask<Void>(new Runnable() { @Override public void run() { /* no op */ }});
         final Semaphore x = new Semaphore(0);
         t.setFinalizer(new BasicTask.TaskFinalizer() {
+            @Override
             public void onTaskFinalization(Task<?> t) {
                 synchronized (x) { 
                     x.release();

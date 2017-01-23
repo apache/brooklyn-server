@@ -89,6 +89,7 @@ public class ReachableSocketFinder {
                 .limitTimeTo(timeout)
                 .backoffTo(Duration.FIVE_SECONDS)
                 .until(new Callable<Boolean>() {
+                        @Override
                         public Boolean call() {
                             Optional<HostAndPort> reachableSocket = tryReachable(sockets, Duration.FIVE_SECONDS);
                             if (reachableSocket.isPresent()) {

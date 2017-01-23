@@ -68,6 +68,7 @@ public class SoftwareEffectorTest {
     public static final Effector<String> GET_REMOTE_DATE_1 = Effectors.effector(String.class, "getRemoteDate")
             .description("retrieves the date from the remote machine")
             .impl(new SshEffectorBody<String>() {
+                @Override
                 public String call(ConfigBag parameters) {
                     queue( ssh("date").requiringZeroAndReturningStdout() );
                     return last(String.class);
@@ -103,6 +104,7 @@ public class SoftwareEffectorTest {
     public void testBadExitCodeCaught() {
         Task<Void> call = Entities.invokeEffector(app, app, Effectors.effector(Void.class, "badExitCode")
                 .impl(new SshEffectorBody<Void>() {
+                    @Override
                     public Void call(ConfigBag parameters) {
                         queue( ssh(COMMAND_THAT_DOES_NOT_EXIST).requiringZeroAndReturningStdout() );
                         return null;
@@ -127,6 +129,7 @@ public class SoftwareEffectorTest {
         
         Task<Void> call = Entities.invokeEffector(app, app, Effectors.effector(Void.class, "badExitCode")
                 .impl(new SshEffectorBody<Void>() {
+                    @Override
                     public Void call(ConfigBag parameters) {
                         sshTasks[0] = queue( ssh(COMMAND_THAT_DOES_NOT_EXIST).requiringExitCodeZero() );
                         return null;

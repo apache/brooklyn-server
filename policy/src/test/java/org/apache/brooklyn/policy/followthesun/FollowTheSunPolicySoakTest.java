@@ -232,8 +232,10 @@ public class FollowTheSunPolicySoakTest extends AbstractFollowTheSunPolicyTest {
 
             // Assert that the items all end up in the location with maximum load-generation
             Asserts.succeedsEventually(MutableMap.of("timeout", timeout_ms), new Runnable() {
+                @Override
                 public void run() {
                     Iterable<Location> itemLocs = Iterables.transform(movableItems, new Function<MockItemEntity, Location>() {
+                        @Override
                         public Location apply(MockItemEntity input) {
                             BalanceableContainer<?> container = input.getAttribute(Movable.CONTAINER);
                             Collection<Location> locs = (container != null) ? container.getLocations(): null;
@@ -241,6 +243,7 @@ public class FollowTheSunPolicySoakTest extends AbstractFollowTheSunPolicyTest {
                         }});
                     
                     Iterable<String> itemLocNames = Iterables.transform(itemLocs, new Function<Location, String>() {
+                        @Override
                         public String apply(Location input) {
                             return (input != null) ? input.getDisplayName() : null;
                         }});

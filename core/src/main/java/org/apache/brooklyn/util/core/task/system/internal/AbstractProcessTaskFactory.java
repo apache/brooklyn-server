@@ -100,6 +100,7 @@ public abstract class AbstractProcessTaskFactory<T extends AbstractProcessTaskFa
     public ProcessTaskFactory<Boolean> returningIsExitCodeZero() {
         if (requireExitCodeZero==null) allowingNonZeroExitCode();
         return returning(new Function<ProcessTaskWrapper<?>,Boolean>() {
+            @Override
             public Boolean apply(ProcessTaskWrapper<?> input) {
                 return input.getExitCode()==0;
             }

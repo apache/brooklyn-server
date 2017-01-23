@@ -90,6 +90,7 @@ public class HttpFeedIntegrationTest extends BrooklynAppUnitTestSupport {
         
         EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_INT, 200);
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 String val = entity.getAttribute(SENSOR_STRING);
                 assertTrue(val != null && val.contains("Hello, World"), "val="+val);
@@ -120,6 +121,7 @@ public class HttpFeedIntegrationTest extends BrooklynAppUnitTestSupport {
 
         EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_INT, 200);
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 String val = entity.getAttribute(SENSOR_STRING);
                 assertTrue(val != null && val.contains("Hello, World"), "val="+val);
@@ -148,6 +150,7 @@ public class HttpFeedIntegrationTest extends BrooklynAppUnitTestSupport {
 
         EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_INT, 401);
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 String val = entity.getAttribute(SENSOR_STRING);
                 assertTrue(val != null && val.equals("Failed!"), "val=" + val);

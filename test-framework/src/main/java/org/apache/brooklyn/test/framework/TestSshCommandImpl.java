@@ -41,7 +41,6 @@ import java.util.concurrent.Callable;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
-import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableList;

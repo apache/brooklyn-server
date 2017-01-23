@@ -394,6 +394,7 @@ public abstract class MachineLifecycleEffectorTasks {
             this.location = location;
         }
 
+        @Override
         public MachineLocation call() throws Exception {
             // Blocks if a latch was configured.
             entity().getConfig(BrooklynConfigKeys.PROVISION_LATCH);
@@ -439,6 +440,7 @@ public abstract class MachineLifecycleEffectorTasks {
             this.location = location;
         }
 
+        @Override
         public MachineLocation call() throws NoMachinesAvailableException {
             return location.obtain(flags);
         }
@@ -454,6 +456,7 @@ public abstract class MachineLifecycleEffectorTasks {
         private PreStartTask(MachineLocation machine) {
             this.machine = machine;
         }
+        @Override
         public void run() {
             log.info("Starting {} on machine {}", entity(), machine);
             Collection<Location> oldLocs = entity().getLocations();
@@ -608,6 +611,7 @@ public abstract class MachineLifecycleEffectorTasks {
     }
 
     private class PostStartTask implements Runnable {
+        @Override
         public void run() {
             postStartCustom();
         }
@@ -858,18 +862,21 @@ public abstract class MachineLifecycleEffectorTasks {
     }
 
     private class StopAnyProvisionedMachinesTask implements Callable<StopMachineDetails<Integer>> {
+        @Override
         public StopMachineDetails<Integer> call() {
             return stopAnyProvisionedMachines();
         }
     }
 
     private class SuspendAnyProvisionedMachinesTask implements Callable<StopMachineDetails<Integer>> {
+        @Override
         public StopMachineDetails<Integer> call() {
             return suspendAnyProvisionedMachines();
         }
     }
 
     private class StopProcessesAtMachineTask implements Callable<String> {
+        @Override
         public String call() {
             DynamicTasks.markInessential();
             stopProcessesAtMachine();
@@ -879,6 +886,7 @@ public abstract class MachineLifecycleEffectorTasks {
     }
 
     private class StopFeedsAtMachineTask implements Callable<String> {
+        @Override
         public String call() {
             DynamicTasks.markInessential();
             for (Feed feed : entity().feeds().getFeeds()) {
@@ -890,6 +898,7 @@ public abstract class MachineLifecycleEffectorTasks {
     }
 
     private class StopMachineTask implements Callable<String> {
+        @Override
         public String call() {
             DynamicTasks.markInessential();
             stop(ConfigBag.newInstance().configure(StopSoftwareParameters.STOP_MACHINE_MODE, StopMode.IF_NOT_STOPPED));
@@ -899,6 +908,7 @@ public abstract class MachineLifecycleEffectorTasks {
     }
 
     private class PreStopCustomTask implements Callable<String> {
+        @Override
         public String call() {
             if (entity().getAttribute(SoftwareProcess.SERVICE_STATE_ACTUAL) == Lifecycle.STOPPED) {
                 log.debug("Skipping stop of entity " + entity() + " when already stopped");
@@ -912,6 +922,7 @@ public abstract class MachineLifecycleEffectorTasks {
     }
 
     private class PostStopCustomTask implements Callable<Void> {
+        @Override
         public Void call() {
             postStopCustom();
             return null;

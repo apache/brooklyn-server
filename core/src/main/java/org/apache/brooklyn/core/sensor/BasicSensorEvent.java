@@ -40,12 +40,16 @@ public class BasicSensorEvent<T> implements SensorEvent<T> {
     private final T value;
     private final long timestamp;
     
+    @Override
     public T getValue() { return value; }
 
+    @Override
     public Sensor<T> getSensor() { return sensor; }
 
+    @Override
     public Entity getSource() { return source; }
 
+    @Override
     public long getTimestamp() { return timestamp; }
 
     /** arguments should not be null (except in certain limited testing situations) */

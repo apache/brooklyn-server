@@ -53,7 +53,6 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.guava.Maybe.Absent;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;

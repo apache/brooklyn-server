@@ -66,7 +66,7 @@ public class SoftwareProcessEntityRebindTest extends RebindTestFixtureWithApp {
         origApp.start(ImmutableList.of(origLoc));
         assertEquals(origLoc.inUseCount.get(), 1);
         
-        newApp = (TestApplication) rebind();
+        newApp = rebind();
         MyProvisioningLocation newLoc = (MyProvisioningLocation) Iterables.getOnlyElement(newApp.getLocations());
         assertEquals(newLoc.inUseCount.get(), 1);
         
@@ -90,7 +90,7 @@ public class SoftwareProcessEntityRebindTest extends RebindTestFixtureWithApp {
         ServiceProblemsLogic.updateProblemsIndicator((EntityLocal)origE, "test", "fire");
         EntityAsserts.assertAttributeEqualsEventually(origE, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
 
-        newApp = (TestApplication) rebind();
+        newApp = rebind();
         MyService newE = (MyService) Iterables.getOnlyElement(newApp.getChildren());
         assertTrue(newE.getDriver() != null, "driver should be initialized");
     }
@@ -111,7 +111,7 @@ public class SoftwareProcessEntityRebindTest extends RebindTestFixtureWithApp {
         ServiceStateLogic.setExpectedState(origE, Lifecycle.ON_FIRE);
         EntityAsserts.assertAttributeEqualsEventually(origE, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
 
-        newApp = (TestApplication) rebind();
+        newApp = rebind();
         MyService newE = (MyService) Iterables.getOnlyElement(newApp.getChildren());
         assertNull(newE.getDriver(), "driver should not be initialized because entity is in a permanent failure");
     }

@@ -66,29 +66,36 @@ public class BasicSensor<T> implements Sensor<T> {
     }
 
     /** @see Sensor#getTypeToken() */
+    @Override
     public TypeToken<T> getTypeToken() { return TypeTokens.getTypeToken(typeToken, type); }
     
     /** @see Sensor#getType() */
+    @Override
     public Class<? super T> getType() { return TypeTokens.getRawType(typeToken, type); }
  
     /** @see Sensor#getTypeName() */
+    @Override
     public String getTypeName() { 
         return getType().getName();
     }
  
     /** @see Sensor#getName() */
+    @Override
     public String getName() { return name; }
  
     /** @see Sensor#getNameParts() */
+    @Override
     public synchronized List<String> getNameParts() {
         if (nameParts==null) nameParts = ImmutableList.copyOf(dots.split(name));
         return nameParts; 
     }
  
     /** @see Sensor#getDescription() */
+    @Override
     public String getDescription() { return description; }
     
     /** @see Sensor#newEvent(Entity, Object) */
+    @Override
     public SensorEvent<T> newEvent(Entity producer, T value) {
         return new BasicSensorEvent<T>(this, producer, value);
     }

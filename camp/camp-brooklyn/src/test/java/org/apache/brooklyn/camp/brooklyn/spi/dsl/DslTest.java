@@ -170,6 +170,7 @@ public class DslTest extends BrooklynAppUnitTestSupport {
                     
                     final String expectedValue = Identifiers.makeRandomId(10);
                     Runnable job = new Runnable() {
+                        @Override
                         public void run() {
                             entity.sensors().set(TestApplication.MY_ATTRIBUTE, expectedValue);
                         }
@@ -378,6 +379,7 @@ public class DslTest extends BrooklynAppUnitTestSupport {
         protected void preResolve(final TestEntity entity) {
             expectedValue = Identifiers.makeRandomId(10);
             Runnable job = new Runnable() {
+                @Override
                 public void run() {
                     entity.sensors().set(sensor, expectedValue);
                 }
@@ -500,6 +502,7 @@ public class DslTest extends BrooklynAppUnitTestSupport {
         // and does this using BrooklynTaskTags.getTargetOrContextEntity(Tasks.current()).
         // If we are not in a task executed by the context entity, then this lookup will fail. 
         Callable<Maybe<?>> job = new Callable<Maybe<?>>() {
+            @Override
             public Maybe<?> call() throws Exception {
                 return Tasks.resolving(dsl).as(type)
                         .context(context)

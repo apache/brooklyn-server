@@ -42,7 +42,6 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 
 public class TestEffectorImpl extends TargetableTestComponentImpl implements TestEffector {
@@ -53,6 +52,7 @@ public class TestEffectorImpl extends TargetableTestComponentImpl implements Tes
     /**
      * {@inheritDoc}
      */
+    @Override
     public void start(Collection<? extends Location> locations) {
         ServiceStateLogic.setExpectedState(this, Lifecycle.STARTING);
         try {
@@ -105,6 +105,7 @@ public class TestEffectorImpl extends TargetableTestComponentImpl implements Tes
     /**
      * {@inheritDoc}
      */
+    @Override
     public void stop() {
         setUpAndRunState(false, Lifecycle.STOPPED);
     }
@@ -112,6 +113,7 @@ public class TestEffectorImpl extends TargetableTestComponentImpl implements Tes
     /**
      * {@inheritDoc}
      */
+    @Override
     public void restart() {
         final Collection<Location> locations = Lists.newArrayList(getLocations());
         stop();

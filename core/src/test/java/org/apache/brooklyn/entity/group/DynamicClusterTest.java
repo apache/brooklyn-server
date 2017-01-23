@@ -438,6 +438,7 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
         try {
             for (int i = 0; i < 10; i++) {
                 executor.submit(new Runnable() {
+                    @Override
                     public void run() {
                         try {
                             cluster.resize(2);
@@ -1290,6 +1291,7 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
 
         // app.start blocks so in the failure case this test would block forever.
         Asserts.assertReturnsEventually(new Runnable() {
+            @Override
             public void run() {
                 app.start(ImmutableList.of(app.newSimulatedLocation()));
                 EntityAsserts.assertAttributeEqualsEventually(cluster, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);

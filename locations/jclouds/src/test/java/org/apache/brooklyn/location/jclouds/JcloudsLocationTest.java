@@ -395,6 +395,7 @@ public class JcloudsLocationTest implements JcloudsLocationConfig {
                 managementContext, ImmutableMap.<ConfigKey<?>, Object>of(
                         LocationConfigKeys.CLOUD_MACHINE_NAMER_CLASS, machineNamerClass));
         jcloudsLocation.tryObtainAndCheck(ImmutableMap.of(CustomMachineNamer.MACHINE_NAME_TEMPLATE, "ignored"), new Predicate<ConfigBag>() {
+            @Override
             public boolean apply(ConfigBag input) {
                 Assert.assertEquals(input.get(LocationConfigKeys.CLOUD_MACHINE_NAMER_CLASS), machineNamerClass);
                 return true;
@@ -410,6 +411,7 @@ public class JcloudsLocationTest implements JcloudsLocationConfig {
                 CustomMachineNamer.MACHINE_NAME_TEMPLATE, "ignored",
                 LocationConfigKeys.CLOUD_MACHINE_NAMER_CLASS, machineNamerClass);
         jcloudsLocation.tryObtainAndCheck(flags, new Predicate<ConfigBag>() {
+            @Override
             public boolean apply(ConfigBag input) {
                 Assert.assertEquals(input.get(LocationConfigKeys.CLOUD_MACHINE_NAMER_CLASS), machineNamerClass);
                 return true;
@@ -484,10 +486,10 @@ public class JcloudsLocationTest implements JcloudsLocationConfig {
             
             // explicitly invoke this customizer, to comply with tests
             for (JcloudsLocationCustomizer customizer : getCustomizers(config().getBag())) {
-                customizer.customize(this, null, (JcloudsMachineLocation)result);
+                customizer.customize(this, null, result);
             }
             for (MachineLocationCustomizer customizer : getMachineCustomizers(config().getBag())) {
-                customizer.customize((JcloudsMachineLocation)result);
+                customizer.customize(result);
             }
 
             return result;

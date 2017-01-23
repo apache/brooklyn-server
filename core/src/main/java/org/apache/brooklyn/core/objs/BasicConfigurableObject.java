@@ -63,6 +63,7 @@ public class BasicConfigurableObject implements Configurable, Identifiable, Mana
         this.managementContext = managementContext;
     }
 
+    @Override
     public ManagementContext getBrooklynManagementContext() {
         return managementContext;
     }
@@ -83,6 +84,7 @@ public class BasicConfigurableObject implements Configurable, Identifiable, Mana
         return config().set(key, value);
     }
 
+    @Override
     public <T> T getConfig(ConfigKey<T> key) {
         return config().get(key);
     }

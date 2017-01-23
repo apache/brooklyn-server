@@ -33,6 +33,7 @@ import com.thoughtworks.xstream.XStream;
 @Test
 public class StringKeyMapConverterTest extends ConverterTestFixture {
 
+    @Override
     protected void registerConverters(XStream xstream) {
         super.registerConverters(xstream);
         xstream.alias("map", Map.class, LinkedHashMap.class);

@@ -38,6 +38,7 @@ public class BrooklynMementoPersisterJcloudsObjectStoreTest extends BrooklynMeme
     @Override @BeforeMethod
     public void setUp() throws Exception { super.setUp(); }
     
+    @Override
     protected LocalManagementContext newPersistingManagementContext() {
         objectStore = new JcloudsBlobStoreBasedObjectStore(
             BlobStoreTest.PERSIST_TO_OBJECT_STORE_FOR_TEST_SPEC, BlobStoreTest.CONTAINER_PREFIX+"-"+Identifiers.makeRandomId(4));

@@ -212,6 +212,7 @@ public class TestEffectorTest extends BrooklynAppUnitTestSupport {
     
     protected void assertStartFails(final TestApplication app, final Class<? extends Throwable> clazz, Duration execTimeout) throws Exception {
         Runnable task = new Runnable() {
+            @Override
             public void run() {
                 try {
                     app.start(locs);

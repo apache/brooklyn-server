@@ -43,6 +43,7 @@ public class TestCaseImpl extends TargetableTestComponentImpl implements TestCas
     /**
      * {@inheritDoc}
      */
+    @Override
     public void start(Collection<? extends Location> locations) {
         ServiceStateLogic.setExpectedState(this, Lifecycle.STARTING);
         try {
@@ -71,6 +72,7 @@ public class TestCaseImpl extends TargetableTestComponentImpl implements TestCas
     /**
      * {@inheritDoc}
      */
+    @Override
     public void stop() {
         ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPING);
         sensors().set(Attributes.SERVICE_UP, false);
@@ -88,6 +90,7 @@ public class TestCaseImpl extends TargetableTestComponentImpl implements TestCas
     /**
      * {@inheritDoc}
      */
+    @Override
     public void restart() {
         final Collection<Location> locations = Lists.newArrayList(getLocations());
         stop();

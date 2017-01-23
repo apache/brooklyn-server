@@ -160,9 +160,9 @@ public class LocationResourceTest extends BrooklynRestResourceTest {
     @SuppressWarnings("deprecation")
     @Test
     public void testGetLocationConfig() {
-        SimulatedLocation parentLoc = (SimulatedLocation) getManagementContext().getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class)
+        SimulatedLocation parentLoc = getManagementContext().getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class)
                 .configure("myParentKey", "myParentVal"));
-        SimulatedLocation loc = (SimulatedLocation) getManagementContext().getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class)
+        SimulatedLocation loc = getManagementContext().getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class)
                 .parent(parentLoc)
                 .configure("mykey", "myval")
                 .configure("password", "mypassword"));

@@ -30,6 +30,7 @@ public class HighAvailabilityManagerFileBasedTest extends HighAvailabilityManage
 
     private File dir;
 
+    @Override
     protected FileBasedObjectStore newPersistenceObjectStore() {
         if (dir!=null)
             throw new IllegalStateException("Test does not support multiple object stores");

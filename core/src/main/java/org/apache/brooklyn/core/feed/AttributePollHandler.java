@@ -122,7 +122,7 @@ public class AttributePollHandler<V> implements PollHandler<V> {
             logProblem("failure", val);
 
             try {
-                setSensor(config.hasFailureHandler() ? config.getOnFailure().apply((V)val) : val);
+                setSensor(config.hasFailureHandler() ? config.getOnFailure().apply(val) : val);
             } catch (Exception e) {
                 if (feed.isConnected()) {
                     log.warn("Error computing " + getBriefDescription() + "; val=" + val+": "+ e, e);

@@ -244,6 +244,7 @@ public class ShellFeed extends AbstractFeed {
         }
     }
     
+    @Override
     @SuppressWarnings("unchecked")
     protected Poller<SshPollValue> getPoller() {
         return (Poller<SshPollValue>) super.getPoller();

@@ -78,6 +78,7 @@ public class GeoBytesHostGeoLookup implements HostGeoLookup {
     
     private static boolean LOGGED_GEO_LOOKUP_UNAVAILABLE = false;
     
+    @Override
     public HostGeoInfo getHostGeoInfo(InetAddress address) throws MalformedURLException, IOException {
         String url = getPropertiesLookupUrlFor(address);
         if (log.isDebugEnabled())

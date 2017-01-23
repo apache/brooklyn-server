@@ -164,6 +164,7 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
     }
 
     /** returns a copy of this resolver which can be queried, even if the original (single-use instance) has already been copied */
+    @Override
     public ValueResolver<T> clone() {
         ValueResolver<T> result = new ValueResolver<T>(value, type)
             .context(exec).description(description)
@@ -285,6 +286,7 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
             throw new NullPointerException("type must be set to resolve, for '"+value+"'"+(description!=null ? ", "+description : ""));
     }
 
+    @Override
     public T get() {
         Maybe<T> m = getMaybe();
         if (m.isPresent()) return m.get();
@@ -366,6 +368,7 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
                 //including tasks, above
                 if (!vfuture.isDone()) {
                     Callable<Maybe> callable = new Callable<Maybe>() {
+                        @Override
                         public Maybe call() throws Exception {
                             return Durations.get(vfuture, timer);
                         } };
@@ -388,6 +391,7 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
                         return Maybe.absent("Embedding in task needed for '"+getDescription()+"' but no execution context available");
                         
                     Callable<Object> callable = new Callable<Object>() {
+                        @Override
                         public Object call() throws Exception {
                             try {
                                 Tasks.setBlockingDetails("Retrieving "+ds);

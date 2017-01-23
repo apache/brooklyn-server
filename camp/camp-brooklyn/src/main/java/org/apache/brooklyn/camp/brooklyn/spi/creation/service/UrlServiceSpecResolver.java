@@ -20,7 +20,6 @@ package org.apache.brooklyn.camp.brooklyn.spi.creation.service;
 
 import java.util.Set;
 
-import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
@@ -28,8 +27,6 @@ import org.apache.brooklyn.camp.brooklyn.BrooklynCampConstants;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
 import org.apache.brooklyn.core.resolve.entity.EntitySpecResolver;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
-import org.apache.brooklyn.core.typereg.RegisteredTypes;
-import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.net.Urls;

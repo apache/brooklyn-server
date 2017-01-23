@@ -520,6 +520,7 @@ public class JmxHelper {
     
     public Set<ObjectInstance> findMBeans(final ObjectName objectName) {
         return invokeWithReconnect(new Callable<Set<ObjectInstance>>() {
+                @Override
                 public Set<ObjectInstance> call() throws Exception {
                     return getConnectionOrFail().queryMBeans(objectName, null);
                 }});
@@ -583,6 +584,7 @@ public class JmxHelper {
                     .limitTimeTo(timeout, timeUnit)
                     .every(500, TimeUnit.MILLISECONDS)
                     .until(new Callable<Boolean>() {
+                            @Override
                             public Boolean call() {
                                 connect(timeoutMillis);
                                 beans.set(findMBeans(objectName));
@@ -623,6 +625,7 @@ public class JmxHelper {
         
         if (realObjectName != null) {
             Object result = invokeWithReconnect(new Callable<Object>() {
+                    @Override
                     public Object call() throws Exception {
                         return getConnectionOrFail().getAttribute(realObjectName, attribute);
                     }});
@@ -643,6 +646,7 @@ public class JmxHelper {
         
         if (realObjectName != null) {
             invokeWithReconnect(new Callable<Void>() {
+                    @Override
                     public Void call() throws Exception {
                         getConnectionOrFail().setAttribute(realObjectName, new javax.management.Attribute(attribute, val));
                         return null;
@@ -670,6 +674,7 @@ public class JmxHelper {
         }
         
         Object result = invokeWithReconnect(new Callable<Object>() {
+                @Override
                 public Object call() throws Exception {
                     return getConnectionOrFail().invoke(realObjectName, method, arguments, signature);
                 }});
@@ -693,6 +698,7 @@ public class JmxHelper {
     
     public void addNotificationListener(final ObjectName objectName, final NotificationListener listener, final NotificationFilter filter) {
         invokeWithReconnect(new Callable<Void>() {
+                @Override
                 public Void call() throws Exception {
                     getConnectionOrFail().addNotificationListener(objectName, listener, filter, null);
                     return null;
@@ -709,6 +715,7 @@ public class JmxHelper {
     
     public void removeNotificationListener(final ObjectName objectName, final NotificationListener listener, final NotificationFilter filter) {
         if (isConnected()) invokeWithReconnect(new Callable<Void>() {
+                @Override
                 public Void call() throws Exception {
                     getConnectionOrFail().removeNotificationListener(objectName, listener, filter, null);
                     return null;

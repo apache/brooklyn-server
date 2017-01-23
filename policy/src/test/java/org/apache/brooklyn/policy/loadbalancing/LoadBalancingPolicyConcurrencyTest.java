@@ -191,7 +191,7 @@ public class LoadBalancingPolicyConcurrencyTest extends AbstractLoadBalancingPol
                 }});
         }
         
-        assertWorkratesEventually(containers, items, Collections.nCopies((int)(NUM_CONTAINERS/2), 40d), WORKRATE_JITTER*2);
+        assertWorkratesEventually(containers, items, Collections.nCopies(NUM_CONTAINERS/2, 40d), WORKRATE_JITTER*2);
     }
     
     @Test(groups="WIP")

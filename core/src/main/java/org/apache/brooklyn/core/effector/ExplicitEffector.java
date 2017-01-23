@@ -37,6 +37,7 @@ public abstract class ExplicitEffector<I,T> extends AbstractEffector<T> {
         super(name, type, parameters, description);
     }
 
+    @Override
     public T call(Entity entity, Map parameters) {
         return invokeEffector((I) entity, (Map<String,?>)parameters );
     }
@@ -58,6 +59,7 @@ public abstract class ExplicitEffector<I,T> extends AbstractEffector<T> {
             super(name, type, parameters, description);
             this.body = body;
         }
+        @Override
         public T invokeEffector(I trait, Map<String,?> parameters) { return body.call(trait, parameters); }
         
         @Override

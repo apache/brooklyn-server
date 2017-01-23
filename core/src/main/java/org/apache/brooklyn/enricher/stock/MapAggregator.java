@@ -21,8 +21,6 @@ package org.apache.brooklyn.enricher.stock;
 import java.util.Collection;
 import java.util.Map;
 
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.common.reflect.TypeToken;
@@ -32,7 +30,6 @@ import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.text.StringPredicates;
 
 /**
  * Building on {@link AbstractMultipleSensorAggregator} for a pair of source sensors(on multiple children and/or members)

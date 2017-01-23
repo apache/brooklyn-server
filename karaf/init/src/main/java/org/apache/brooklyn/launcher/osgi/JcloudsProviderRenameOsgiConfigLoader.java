@@ -34,6 +34,7 @@ public class JcloudsProviderRenameOsgiConfigLoader extends OsgiConfigLoader {
     }
 
     // Called by OSGi
+    @Override
     public void init() {
         LOG.trace("DeserializingJcloudsRenamesProvider.OsgiConfigLoader.init: registering loader");
         DeserializingJcloudsRenamesProvider.INSTANCE.getLoaders().add(this);
@@ -41,6 +42,7 @@ public class JcloudsProviderRenameOsgiConfigLoader extends OsgiConfigLoader {
     }
 
     // Called by OSGi
+    @Override
     public void destroy() {
         LOG.trace("DeserializingJcloudsRenamesProvider.OsgiConfigLoader.destroy: unregistering loader");
         boolean removed = DeserializingJcloudsRenamesProvider.INSTANCE.getLoaders().remove(this);
@@ -50,6 +52,7 @@ public class JcloudsProviderRenameOsgiConfigLoader extends OsgiConfigLoader {
     }
 
     // Called by OSGi when configuration changes
+    @Override
     public void updateProperties(Map properties) {
         LOG.debug("DeserializingJcloudsRenamesProvider.OsgiConfigLoader.updateProperties: clearing cache, so jclouds renames will be reloaded");
         DeserializingJcloudsRenamesProvider.INSTANCE.reset();

@@ -54,7 +54,7 @@ public class BasicManagementNodeSyncRecord implements ManagementNodeSyncRecord, 
         protected Long remoteTimestamp;
 
         protected Builder self() {
-            return (Builder) this;
+            return this;
         }
         public Builder brooklynVersion(String val) {
             brooklynVersion = val; return self();

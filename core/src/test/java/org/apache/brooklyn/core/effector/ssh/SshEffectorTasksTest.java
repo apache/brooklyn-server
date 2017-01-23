@@ -138,8 +138,8 @@ public class SshEffectorTasksTest {
     @Test(groups="Integration")
     public void testNonRunningPid() {
         ProcessTaskWrapper<Integer> t = submit(SshEffectorTasks.codePidRunning(99999));
-        Assert.assertNotEquals(t.getTask().getUnchecked(), (Integer)0);
-        Assert.assertNotEquals(t.getExitCode(), (Integer)0);
+        Assert.assertNotEquals(t.getTask().getUnchecked(), 0);
+        Assert.assertNotEquals(t.getExitCode(), 0);
         ProcessTaskWrapper<Boolean> t2 = submit(SshEffectorTasks.isPidRunning(99999));
         Assert.assertFalse(t2.getTask().getUnchecked());
     }

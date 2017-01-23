@@ -106,6 +106,7 @@ public abstract class NetworkingEffectorsLiveTests extends BrooklynAppLiveTestSu
 
     protected Predicate<SecurityGroup> ruleExistsPredicate(final int fromPort, final int toPort, final IpProtocol ipProtocol) {
         return new Predicate<SecurityGroup>() {
+            @Override
             public boolean apply(SecurityGroup scipPermission) {
                 for (IpPermission ipPermission : scipPermission.getIpPermissions()) {
                     if (ipPermission.getFromPort() == fromPort && ipPermission.getToPort() == toPort && ipPermission.getIpProtocol() == ipProtocol) {

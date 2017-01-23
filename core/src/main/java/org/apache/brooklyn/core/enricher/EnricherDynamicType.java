@@ -32,6 +32,7 @@ public class EnricherDynamicType extends BrooklynDynamicType<Enricher, AbstractE
         super(enricher);
     }
     
+    @Override
     public EnricherType getSnapshot() {
         return (EnricherType) super.getSnapshot();
     }

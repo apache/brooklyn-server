@@ -45,6 +45,7 @@ public class XmlPerformanceTest extends AbstractPerformanceTest {
                 .iterations(numIterations)
                 .minAcceptablePerSecond(minRatePerSec)
                 .job(new Runnable() {
+                    @Override
                     public void run() {
                         String xml = "<a><b>myb</b></a>";
                         XmlUtil.xpath(xml, "/a/b[text()]");

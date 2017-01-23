@@ -33,7 +33,6 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.file.ArchiveBuilder;
 import org.apache.brooklyn.util.core.file.ArchiveUtils;
-import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.net.Urls;

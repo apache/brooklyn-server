@@ -32,6 +32,7 @@ public class PolicyDynamicType extends BrooklynDynamicType<Policy, AbstractPolic
         super(policy);
     }
     
+    @Override
     public PolicyType getSnapshot() {
         return (PolicyType) super.getSnapshot();
     }

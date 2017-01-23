@@ -29,7 +29,6 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
-import org.apache.brooklyn.rest.BrooklynRestApiLauncher;
 import org.apache.brooklyn.rest.BrooklynRestApiLauncherTestFixture;
 import org.apache.brooklyn.rest.security.provider.TestSecurityProvider;
 import org.apache.brooklyn.util.http.HttpAsserts;

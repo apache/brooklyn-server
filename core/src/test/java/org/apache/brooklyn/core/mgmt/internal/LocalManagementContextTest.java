@@ -111,6 +111,7 @@ public class LocalManagementContextTest {
         properties.put("myname", "myval");
         context = LocalManagementContextForTests.builder(true).useProperties(properties).build();
         PropertiesReloadListener listener = new PropertiesReloadListener() {
+            @Override
             public void reloaded() {
                 reloadedCallbackCount.incrementAndGet();
             }

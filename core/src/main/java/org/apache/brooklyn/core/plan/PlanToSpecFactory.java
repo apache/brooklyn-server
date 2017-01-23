@@ -22,8 +22,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.ServiceLoader;
-
 import org.apache.brooklyn.api.framework.FrameworkLookup;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer;

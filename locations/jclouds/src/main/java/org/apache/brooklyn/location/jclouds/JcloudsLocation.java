@@ -1338,7 +1338,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
     /** returns the jclouds Template which describes the image to be built, for the given config and compute service */
     public Template buildTemplate(ComputeService computeService, ConfigBag config, Collection<JcloudsLocationCustomizer> customizers) {
-        TemplateBuilder templateBuilder = (TemplateBuilder) config.get(TEMPLATE_BUILDER);
+        TemplateBuilder templateBuilder = config.get(TEMPLATE_BUILDER);
         if (templateBuilder==null) {
             templateBuilder = new PortableTemplateBuilder<PortableTemplateBuilder<?>>();
         } else {
@@ -2242,7 +2242,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         try {
             // FIXME: Needs to release port forwarding for WinRmMachineLocations
             if (machine instanceof JcloudsMachineLocation) {
-                releasePortForwarding((JcloudsMachineLocation)machine);
+                releasePortForwarding(machine);
             }
         } catch (Exception e) {
             LOG.error("Problem releasing port-forwarding for machine "+machine+" in "+this+", instance id "+instanceId+
@@ -2354,6 +2354,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     subtasks.put(
                             "Close port-forward "+hostAndPortOverride+"->"+loginPort,
                             new Runnable() {
+                                @Override
                                 public void run() {
                                     LOG.debug("Closing port-forwarding at {} for machine {}: {}->{}", new Object[] {this, machine, hostAndPortOverride, loginPort});
                                     portForwarder.closePortForwarding(node.get(), loginPort, hostAndPortOverride, Protocol.TCP);
@@ -2377,6 +2378,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     subtasks.put(
                             "Close port-forward "+publicEndpoint+"->"+targetPort,
                             new Runnable() {
+                                @Override
                                 public void run() {
                                     LOG.debug("Closing port-forwarding at {} for machine {}: {}->{}", new Object[] {this, machine, publicEndpoint, targetPort});
                                     portForwarder.closePortForwarding(node.get(), targetPort, publicEndpoint, protocol);
@@ -2546,6 +2548,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
         try {
             Callable<Boolean> checker = new Callable<Boolean>() {
+                @Override
                 public Boolean call() {
                     final WinRmMachineLocation machine = machinesToTry.getLeft();
                     WinRmToolResponse response = machine.executeCommand(
@@ -2675,6 +2678,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
         try {
             Callable<Boolean> checker = new Callable<Boolean>() {
+                @Override
                 public Boolean call() {
                     for (Map.Entry<SshMachineLocation, LoginCredentials> entry : machinesToTry.entrySet()) {
                         SshMachineLocation machine = entry.getKey();

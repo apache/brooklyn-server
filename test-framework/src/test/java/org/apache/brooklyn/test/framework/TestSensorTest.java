@@ -134,6 +134,7 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
 
         // Wait long enough that we expect the assertion to have been attempted
         executor.submit(new Runnable() {
+            @Override
             public void run() {
                 Time.sleep(Duration.millis(250));
                 app.sensors().set(STRING_SENSOR, testId);
@@ -313,6 +314,7 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
         // been checked).
         entity.sensors().set(serviceStateSensor, Lifecycle.STARTING);
         executor.submit(new Runnable() {
+            @Override
             public void run() {
                 Time.sleep(Duration.millis(50));
                 entity.sensors().set(serviceStateSensor, Lifecycle.RUNNING);
@@ -399,6 +401,7 @@ public class TestSensorTest extends BrooklynAppUnitTestSupport {
     
     protected void assertStartFails(final TestApplication app, final Class<? extends Throwable> clazz, Duration execTimeout) throws Exception {
         Runnable task = new Runnable() {
+            @Override
             public void run() {
                 try {
                     app.start(locs);

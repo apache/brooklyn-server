@@ -37,6 +37,7 @@ public class ClosureEntityFactory<T extends Entity> extends AbstractConfigurable
         this.closure = closure;
     }
 
+    @Override
     public T newEntity2(Map flags, Entity parent) {
         if (closure.getMaximumNumberOfParameters()>1)
             return closure.call(flags, parent);

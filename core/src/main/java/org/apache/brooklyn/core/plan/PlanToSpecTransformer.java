@@ -34,6 +34,7 @@ import com.google.common.annotations.Beta;
  * that is, different ways of taking an application plan and returning an {@link EntitySpec},
  * and a {@link CatalogItem} and returning an {@link AbstractBrooklynObjectSpec}.
  * @deprecated since 0.9.0 use {@link BrooklynTypePlanTransformer} */
+@Deprecated
 @Beta
 public interface PlanToSpecTransformer extends ManagementContextInjectable {
     

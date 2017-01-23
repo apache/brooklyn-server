@@ -126,6 +126,7 @@ public class DownloadProducerFromProperties implements Function<DownloadRequirem
         this.config = config;
     }
     
+    @Override
     public DownloadTargets apply(DownloadRequirement downloadRequirement) {
         List<Rule> rules = generateRules();
         BasicDownloadTargets.Builder result = BasicDownloadTargets.builder();

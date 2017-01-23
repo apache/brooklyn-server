@@ -208,6 +208,7 @@ public class TypeCoercions {
     }
     
     /** @deprecated since 0.10.0 see {@link Boxing#PRIMITIVE_TO_BOXED} and its <code>inverse()</code> method */
+    @Deprecated
     @SuppressWarnings("rawtypes")
     public static final Map<Class,Class> BOXED_TO_UNBOXED_TYPES = ImmutableMap.<Class,Class>builder().
             put(Integer.class, Integer.TYPE).

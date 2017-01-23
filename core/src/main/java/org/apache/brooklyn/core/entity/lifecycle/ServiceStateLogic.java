@@ -137,7 +137,7 @@ public class ServiceStateLogic {
                     }
                     if (changed) {
                         map = MutableMap.copyOf(map);
-                        map.put(key, (TVal)v);
+                        map.put(key, v);
                     }
                 }
                 if (changed || created) {

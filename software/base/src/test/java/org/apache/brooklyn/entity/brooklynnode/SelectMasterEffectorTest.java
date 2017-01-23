@@ -64,12 +64,13 @@ public class SelectMasterEffectorTest extends BrooklynAppUnitTestSupport {
     protected HttpCallback http; 
     protected Poller<Void> poller;
 
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();
 
         // because the effector calls wait for a state change, use a separate thread to drive that 
-        poller = new Poller<Void>((EntityLocal)app, false);
+        poller = new Poller<Void>(app, false);
         poller.scheduleAtFixedRate(
             new Callable<Void>() {
                 @Override
@@ -94,6 +95,7 @@ public class SelectMasterEffectorTest extends BrooklynAppUnitTestSupport {
                 .configure(MockBrooklynNode.HTTP_CLIENT_CALLBACK, http)));
     }
     
+    @Override
     @AfterMethod(alwaysRun=true)
     public void tearDown() throws Exception {
         poller.stop();

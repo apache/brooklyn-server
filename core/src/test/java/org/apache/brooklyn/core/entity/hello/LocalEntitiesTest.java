@@ -204,6 +204,7 @@ public class LocalEntitiesTest extends BrooklynAppUnitTestSupport {
         final Semaphore s1 = new Semaphore(0);
         final Object[] sonsConfig = new Object[1];
         Thread t = new Thread(new Runnable() {
+            @Override
             public void run() {
                 log.info("started");
                 s1.release();
@@ -245,6 +246,7 @@ public class LocalEntitiesTest extends BrooklynAppUnitTestSupport {
         HelloEntity dad = app.createAndManageChild(EntitySpec.create(HelloEntity.class));
         HelloEntity son = dad.addChild(EntitySpec.create(HelloEntity.class)
                 .configure(HelloEntity.MY_NAME, transform(attributeWhenReady(dad, HelloEntity.FAVOURITE_NAME), new Function<String,String>() {
+                    @Override
                     public String apply(String input) {
                         return input+input.charAt(input.length()-1)+"y";
                     }})));
@@ -262,6 +264,7 @@ public class LocalEntitiesTest extends BrooklynAppUnitTestSupport {
         // the unnecessary (HelloEntity) cast is required as a work-around to an IntelliJ issue that prevents Brooklyn from launching from the IDE
         HelloEntity son = (HelloEntity) dad.addChild(EntitySpec.create(HelloEntity.class)
                 .configure(HelloEntity.MY_NAME, transform(attributeWhenReady(dad, HelloEntity.FAVOURITE_NAME, (Closure)null), new Function<String,String>() {
+                    @Override
                     public String apply(String input) {
                         return input+input.charAt(input.length()-1)+"y";
                     }})));

@@ -388,7 +388,7 @@ public class CustomAggregatingEnricherDeprecatedTest {
         Assert.assertEquals(i1, (Integer)i2);
      }
     private void assertEquals(Double i1, double i2) {
-        Assert.assertEquals(i1, (Double)i2);
+        Assert.assertEquals(i1, i2);
     }
 
     private void aggregateIsEventually(final CustomAggregatingEnricher<Integer, Integer> cae, final int avg) {

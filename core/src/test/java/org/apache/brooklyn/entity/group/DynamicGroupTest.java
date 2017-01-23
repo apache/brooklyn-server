@@ -33,7 +33,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
@@ -124,6 +123,7 @@ public class DynamicGroupTest {
         final Entity e3 = app.addChild(EntitySpec.create(TestEntity.class).displayName("myname"));
         
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 assertEqualsIgnoringOrder(group.getMembers(), ImmutableSet.of(e3));
             }});
@@ -151,6 +151,7 @@ public class DynamicGroupTest {
         e1.sensors().set(MY_ATTRIBUTE, "yes");
         
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 assertEqualsIgnoringOrder(group.getMembers(), ImmutableSet.of(e1));
             }});
@@ -159,6 +160,7 @@ public class DynamicGroupTest {
         e1.sensors().set(MY_ATTRIBUTE, "no");
         
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 assertEqualsIgnoringOrder(group.getMembers(), ImmutableSet.of());
             }});
@@ -191,6 +193,7 @@ public class DynamicGroupTest {
         e2.sensors().set(MY_ATTRIBUTE, "yes");
         
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 assertEqualsIgnoringOrder(group.getMembers(), ImmutableSet.of(e2));
             }});
@@ -204,6 +207,7 @@ public class DynamicGroupTest {
         Entities.unmanage(e1);
         
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 assertEqualsIgnoringOrder(group.getMembers(), ImmutableSet.of());
             }});
@@ -223,12 +227,14 @@ public class DynamicGroupTest {
         e3.setParent(app);
         Entities.manage(e3);
         Asserts.succeedsContinually(MutableMap.of("timeout", VERY_SHORT_WAIT_MS), new Runnable() {
+            @Override
             public void run() {
                 assertEquals(ImmutableSet.copyOf(group.getMembers()), ImmutableSet.of(e1, e2));
             }});
                 
         Entities.unmanage(e3);
         Asserts.succeedsContinually(MutableMap.of("timeout", VERY_SHORT_WAIT_MS), new Runnable() {
+            @Override
             public void run() {
                 assertEqualsIgnoringOrder(ImmutableSet.copyOf(group.getMembers()), ImmutableSet.of(e1, e2));
             }});
@@ -244,6 +250,7 @@ public class DynamicGroupTest {
         e3.setParent(app);
         Entities.manage(e3);
         Asserts.succeedsContinually(MutableMap.of("timeout", VERY_SHORT_WAIT_MS), new Runnable() {
+            @Override
             public void run() {
                 assertEqualsIgnoringOrder(ImmutableSet.copyOf(group.getMembers()), ImmutableSet.of(e1, e2));
             }});
@@ -265,6 +272,7 @@ public class DynamicGroupTest {
         final List<Exception> exceptions = new CopyOnWriteArrayList<Exception>();
         
         app.subscriptions().subscribe(group, DynamicGroup.MEMBER_ADDED, new SensorEventListener<Entity>() {
+            @Override
             public void onEvent(SensorEvent<Entity> event) {
                 try {
                     TestEntity val = (TestEntity) event.getValue();
@@ -279,6 +287,7 @@ public class DynamicGroupTest {
             }});
 
         app.subscriptions().subscribe(group, DynamicGroup.MEMBER_REMOVED, new SensorEventListener<Entity>() {
+            @Override
             public void onEvent(SensorEvent<Entity> event) {
                 try {
                     TestEntity val = (TestEntity) event.getValue();
@@ -297,6 +306,7 @@ public class DynamicGroupTest {
             final TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
             LOG.debug("Created: entity {}", i);
             Asserts.succeedsEventually(new Runnable() {
+                @Override
                 public void run() {
                     assertTrue(entitiesNotified.contains(entity));
                 }
@@ -307,6 +317,7 @@ public class DynamicGroupTest {
         }
 
         Asserts.succeedsEventually(ImmutableMap.of("timeout", Duration.of(10, TimeUnit.SECONDS)), new Runnable() {
+            @Override
             public void run() {
                 int added = addedNotifications.get(),
                     removed = removedNotifications.get(),
@@ -378,6 +389,7 @@ public class DynamicGroupTest {
         }
 
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 assertTrue(notificationCount.get() == (NUM_CYCLES*2) || exceptions.size() > 0);
             }});
@@ -455,6 +467,7 @@ public class DynamicGroupTest {
         }
         
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 assertEqualsIgnoringOrder(group2.getMembers(), ImmutableSet.of(e3));
             }});
@@ -552,6 +565,7 @@ public class DynamicGroupTest {
 
     private <T> void assertContainsEventually(final Collection<? extends T> vals, final T val) {
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 assertTrue(vals.contains(val));
             }});

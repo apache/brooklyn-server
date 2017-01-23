@@ -140,6 +140,7 @@ public abstract class AbstractYamlTest {
     }
     
     /** @deprecated since 0.10.0, use {@link #createAndStartApplication(String)} instead */
+    @Deprecated
     protected Entity createAndStartApplication(Reader input) throws Exception {
         return createAndStartApplication(Streams.readFully(input));
     }

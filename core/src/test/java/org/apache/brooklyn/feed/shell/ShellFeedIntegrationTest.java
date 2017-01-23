@@ -117,6 +117,7 @@ public class ShellFeedIntegrationTest extends BrooklynAppUnitTestSupport {
                 .build();
 
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 String val = entity.getAttribute(SENSOR_STRING);
                 assertTrue(val != null && val.contains("timed out after 1ms"), "val=" + val);
@@ -134,6 +135,7 @@ public class ShellFeedIntegrationTest extends BrooklynAppUnitTestSupport {
                 .build();
         
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 String val = entity.getAttribute(SENSOR_STRING);
                 assertTrue(val != null && val.contains("hello MYVAL"), "val="+val);
@@ -150,6 +152,7 @@ public class ShellFeedIntegrationTest extends BrooklynAppUnitTestSupport {
                 .build();
         
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 String val = entity.getAttribute(SENSOR_STRING);
                 assertTrue(val != null && val.contains("hello"), "val="+val);
@@ -168,6 +171,7 @@ public class ShellFeedIntegrationTest extends BrooklynAppUnitTestSupport {
                 .build();
         
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 String val = entity.getAttribute(SENSOR_STRING);
                 assertTrue(val != null && val.contains(cmd), "val="+val);
@@ -193,6 +197,7 @@ public class ShellFeedIntegrationTest extends BrooklynAppUnitTestSupport {
                 .build();
         
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 String val = entity.getAttribute(SENSOR_STRING);
                 assertTrue(val != null && val.contains("Exit status (on failure) 123"), "val="+val);
@@ -207,6 +212,7 @@ public class ShellFeedIntegrationTest extends BrooklynAppUnitTestSupport {
                 .poll(new ShellPollConfig<Long>(SENSOR_LONG)
                         .command("df -P | tail -1")
                         .onSuccess(new Function<SshPollValue, Long>() {
+                            @Override
                             public Long apply(SshPollValue input) {
                                 String[] parts = input.getStdout().split("[ \\t]+");
                                 System.out.println("input="+input+"; parts="+Arrays.toString(parts));
@@ -215,6 +221,7 @@ public class ShellFeedIntegrationTest extends BrooklynAppUnitTestSupport {
                 .build();
         
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 Long val = entity.getAttribute(SENSOR_LONG);
                 assertTrue(val != null && val >= 0, "val="+val);

@@ -29,6 +29,7 @@ public class EnumCaseForgivingSingleValueConverter extends EnumSingleValueConver
         enumType = type;
     }
 
+    @Override
     public Object fromString(String str) {
         return EnumCaseForgivingConverter.resolve(enumType, str);
     }

@@ -64,6 +64,7 @@ public class EnrichersYamlTest extends AbstractYamlTest {
         Assert.assertEquals(enricher.getConfig(TestEnricher.CONF_FROM_FUNCTION), "$brooklyn: is a fun place");
         
         Entity target = ((EntityInternal)app).getExecutionContext().submit(MutableMap.of(), new Callable<Entity>() {
+            @Override
             public Entity call() {
                 return enricher.getConfig(TestEnricher.TARGET_ENTITY);
             }}).get();
@@ -71,6 +72,7 @@ public class EnrichersYamlTest extends AbstractYamlTest {
         Assert.assertEquals(target.getDisplayName(), "testentity");
         Assert.assertEquals(target, app.getChildren().iterator().next());
         Entity targetFromFlag = ((EntityInternal)app).getExecutionContext().submit(MutableMap.of(), new Callable<Entity>() {
+            @Override
             public Entity call() {
                 return enricher.getConfig(TestEnricher.TARGET_ENTITY_FROM_FLAG);
             }}).get();
@@ -187,6 +189,7 @@ public class EnrichersYamlTest extends AbstractYamlTest {
         Asserts.assertTrue(enricher instanceof Propagator, "Expected enricher to be Propagator, found:" + enricher);
         final Propagator propagator = (Propagator)enricher;
         Entity producer = ((EntityInternal)parentEntity).getExecutionContext().submit(MutableMap.of(), new Callable<Entity>() {
+            @Override
             public Entity call() {
                 return propagator.getConfig(Propagator.PRODUCER);
             }}).get();
@@ -263,7 +266,7 @@ public class EnrichersYamlTest extends AbstractYamlTest {
             Entity fromConfig = ((EntityInternal)entity).getExecutionContext().submit(MutableMap.of(), new Callable<Entity>() {
                 @Override
                 public Entity call() throws Exception {
-                    return (Entity) enricher.getConfig(key);
+                    return enricher.getConfig(key);
                 }
             }).get();
             Assert.assertEquals(fromConfig, keyToEntity.get(key));

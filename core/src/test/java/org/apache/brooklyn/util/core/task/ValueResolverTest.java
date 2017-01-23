@@ -87,6 +87,7 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
         // Below, we call ValueResolver.getMaybe() in app's execution context. Therefore it will execute the task.
         Maybe<String>  result = app.getExecutionContext()
                 .submit(new Callable<Maybe<String> >() {
+                    @Override
                     public Maybe<String>  call() throws Exception {
                         return Tasks.resolving(t).as(String.class).timeout(Asserts.DEFAULT_LONG_TIMEOUT).getMaybe();
                     }})
@@ -102,6 +103,7 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
         // However, it will quickly timeout as the task will not have completed.
         Maybe<String>  result = app.getExecutionContext()
                 .submit(new Callable<Maybe<String> >() {
+                    @Override
                     public Maybe<String>  call() throws Exception {
                         return Tasks.resolving(t).as(String.class).timeout(Duration.ZERO).getMaybe();
                     }})
@@ -153,6 +155,7 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
     public void testGetImmediatelyInTask() throws Exception {
         final MyImmediateAndDeferredSupplier supplier = new MyImmediateAndDeferredSupplier();
         Task<CallInfo> task = app.getExecutionContext().submit(new Callable<CallInfo>() {
+            @Override
             public CallInfo call() {
                 return myUniquelyNamedMethod();
             }
@@ -286,7 +289,7 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
         public static CallInfo newInstance() {
             Exception e = new Exception("for stacktrace");
             e.fillInStackTrace();
-            return new CallInfo(e.getStackTrace(), (Task<?>) Tasks.current());
+            return new CallInfo(e.getStackTrace(), Tasks.current());
         }
         
         CallInfo(StackTraceElement[] stackTrace, Task<?> task) {
@@ -297,6 +300,7 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
     
     public static final Task<String> newSleepTask(final Duration timeout, final String result) {
         return Tasks.<String>builder().body(new Callable<String>() { 
+            @Override
             public String call() { 
                 Time.sleep(timeout); 
                 return result; 
@@ -306,6 +310,7 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
     
     public static final Task<String> newThrowTask(final Duration timeout) {
         return Tasks.<String>builder().body(new Callable<String>() { 
+            @Override
             public String call() {
                 Time.sleep(timeout); 
                 throw new IllegalStateException("intended, during tests");

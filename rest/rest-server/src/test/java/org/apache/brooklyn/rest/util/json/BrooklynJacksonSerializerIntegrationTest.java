@@ -25,9 +25,6 @@ import java.util.Map;
 import javax.ws.rs.core.MediaType;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestApplication;
@@ -59,6 +56,7 @@ public class BrooklynJacksonSerializerIntegrationTest extends BrooklynAppUnitTes
     URI entityUrl;
     URI configUri;
 
+    @Override
     @BeforeMethod(alwaysRun = true)
     public void setUp() throws Exception {
         super.setUp();

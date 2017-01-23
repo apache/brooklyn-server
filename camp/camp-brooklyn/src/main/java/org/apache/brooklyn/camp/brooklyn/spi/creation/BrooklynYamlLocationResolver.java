@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
-import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationDefinition;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -129,7 +128,7 @@ public class BrooklynYamlLocationResolver {
     }
     
     protected LocationSpec<?> resolveLocation(String spec, Map<?,?> flags) {
-        LocationDefinition ldef = mgmt.getLocationRegistry().getDefinedLocationByName((String)spec);
+        LocationDefinition ldef = mgmt.getLocationRegistry().getDefinedLocationByName(spec);
         if (ldef!=null)
             // found it as a named location
             return mgmt.getLocationRegistry().getLocationSpec(ldef, flags).get();

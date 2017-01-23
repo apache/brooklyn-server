@@ -44,14 +44,17 @@ public class BasicLocationDefinition implements LocationDefinition {
         this.config = config==null ? ImmutableMap.<String, Object>of() : ImmutableMap.<String, Object>copyOf(config);
     }
 
+    @Override
     public String getId() {
         return id;
     }
 
+    @Override
     public String getName() {
         return name;
     }
     
+    @Override
     public String getSpec() {
         return spec;
     }

@@ -30,7 +30,6 @@ import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.guava.Maybe.Absent;
 import org.apache.brooklyn.util.text.KeyValueParser;
 
 import com.google.common.collect.ImmutableMap;

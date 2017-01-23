@@ -94,6 +94,7 @@ public class LocationSpec<T extends Location> extends AbstractBrooklynObjectSpec
         return result;
     }
     
+    @Override
     protected void checkValidType(Class<? extends T> type) {
         checkIsImplementation(type, Location.class);
         checkIsNewStyleImplementation(type);
@@ -147,6 +148,7 @@ public class LocationSpec<T extends Location> extends AbstractBrooklynObjectSpec
      * @return Read-only construction flags
      * @see SetFromFlag declarations on the location type
      */
+    @Override
     public Map<String, ?> getFlags() {
         return Collections.unmodifiableMap(flags);
     }
@@ -154,6 +156,7 @@ public class LocationSpec<T extends Location> extends AbstractBrooklynObjectSpec
     /**
      * @return Read-only configuration values
      */
+    @Override
     public Map<ConfigKey<?>, Object> getConfig() {
         return Collections.unmodifiableMap(config);
     }

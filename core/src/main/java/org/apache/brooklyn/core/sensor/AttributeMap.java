@@ -144,7 +144,7 @@ public final class AttributeMap {
             }
         }
 
-        T oldValue = (T) update(attribute.getNameParts(), newValue);
+        T oldValue = update(attribute.getNameParts(), newValue);
         
         return (isNull(oldValue)) ? null : oldValue;
     }

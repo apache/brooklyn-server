@@ -22,7 +22,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -170,6 +169,7 @@ public class LocalhostExternalIpLoader {
             }
 
             new Thread() {
+                @Override
                 public void run() {
                     for (String url : candidateUrls) {
                         try {

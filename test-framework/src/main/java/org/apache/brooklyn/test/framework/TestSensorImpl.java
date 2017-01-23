@@ -53,6 +53,7 @@ public class TestSensorImpl extends TargetableTestComponentImpl implements TestS
     /**
      * {@inheritDoc}
      */
+    @Override
     public void start(Collection<? extends Location> locations) {
         final AtomicReference<String> sensor = new AtomicReference<>();
         
@@ -95,6 +96,7 @@ public class TestSensorImpl extends TargetableTestComponentImpl implements TestS
     /**
      * {@inheritDoc}
      */
+    @Override
     public void stop() {
         setUpAndRunState(false, Lifecycle.STOPPED);
     }
@@ -102,6 +104,7 @@ public class TestSensorImpl extends TargetableTestComponentImpl implements TestS
     /**
      * {@inheritDoc}
      */
+    @Override
     public void restart() {
         final Collection<Location> locations = Lists.newArrayList(getLocations());
         stop();
@@ -116,6 +119,7 @@ public class TestSensorImpl extends TargetableTestComponentImpl implements TestS
      */
     private Predicate<Object> isEqualTo(final Object value) {
         return new Predicate<Object>() {
+            @Override
             public boolean apply(final Object input) {
                 return (input != null) && Objects.equal(TypeCoercions.coerce(value, input.getClass()), input);
             }

@@ -23,6 +23,7 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.jclouds.compute.options.TemplateOptions;
 
 class LoginUserPrivateKeyDataOption implements TemplateOptionCustomizer {
+    @Override
     public void apply(TemplateOptions t, ConfigBag props, Object v) {
         if (v != null) {
             t.overrideLoginPrivateKey(v.toString());

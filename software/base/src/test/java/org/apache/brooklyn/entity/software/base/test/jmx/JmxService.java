@@ -76,6 +76,7 @@ public class JmxService {
     
     /**
      * @deprecated since 0.6.0; either needs abandoning, or updating to support JmxSupport (and JmxmpAgent, etc) */
+    @Deprecated
     public JmxService(Entity e) throws Exception {
         this(e.getAttribute(Attributes.HOSTNAME) != null ? e.getAttribute(Attributes.HOSTNAME) : "localhost", 
                  e.getAttribute(UsesJmx.JMX_PORT) != null ? e.getAttribute(UsesJmx.JMX_PORT) : null);
@@ -174,7 +175,7 @@ public class JmxService {
     }
     
     public StandardEmitterMBean registerMBean(List<String> notifications, String name) throws InstanceAlreadyExistsException, MBeanRegistrationException, NotCompliantMBeanException, MalformedObjectNameException, NullPointerException {
-        String[] types = (String[]) notifications.toArray(new String[0]);
+        String[] types = notifications.toArray(new String[0]);
         MBeanNotificationInfo info = new MBeanNotificationInfo(types, Notification.class.getName(), "Notification");
         NotificationEmitter emitter = new NotificationBroadcasterSupport(info);
         StandardEmitterMBean mbean = new StandardEmitterMBean(emitter, NotificationEmitter.class, emitter);

@@ -74,6 +74,7 @@ public class TestEntityImpl extends AbstractEntity implements TestEntity {
         this.constructorProperties = properties;
     }
     
+    @Override
     public AbstractEntity configure(Map flags) {
         this.configureProperties = flags;
         return super.configure(flags);

@@ -224,7 +224,7 @@ public class LocalLocationManager implements LocationManagerInternal {
             }
         }
 
-        recursively(loc, new Predicate<AbstractLocation>() { public boolean apply(AbstractLocation it) {
+        recursively(loc, new Predicate<AbstractLocation>() { @Override public boolean apply(AbstractLocation it) {
             ManagementTransitionMode mode = getLastManagementTransitionMode(it.getId());
             if (mode==null) {
                 setManagementTransitionMode(it, mode = initialMode);
@@ -264,6 +264,7 @@ public class LocalLocationManager implements LocationManagerInternal {
         unmanage(loc, ManagementTransitionMode.guessing(BrooklynObjectManagementMode.MANAGED_PRIMARY, BrooklynObjectManagementMode.NONEXISTENT));
     }
     
+    @Override
     public void unmanage(final Location loc, final ManagementTransitionMode mode) {
         unmanage(loc, mode, false);
     }
@@ -303,7 +304,7 @@ public class LocalLocationManager implements LocationManagerInternal {
             // Need to store all child entities as onManagementStopping removes a child from the parent entity
             
             // As above, see TODO in LocalEntityManager about recursive management / unmanagement v manageAll/unmanageAll
-            recursively(loc, new Predicate<AbstractLocation>() { public boolean apply(AbstractLocation it) {
+            recursively(loc, new Predicate<AbstractLocation>() { @Override public boolean apply(AbstractLocation it) {
                 if (shouldSkipUnmanagement(it)) return false;
                 boolean result = unmanageNonRecursiveRemoveFromRecords(it, mode);
                 if (result) {

@@ -37,6 +37,7 @@ public class TaskTags {
 
     public static void addTagDynamically(TaskAdaptable<?> task, final Object tag) {
         ((BasicTask<?>)task.asTask()).applyTagModifier(new Function<Set<Object>, Void>() {
+            @Override
             public Void apply(@Nullable Set<Object> input) {
                 input.add(tag);
                 return null;
@@ -46,6 +47,7 @@ public class TaskTags {
     
     public static void addTagsDynamically(TaskAdaptable<?> task, final Object tag1, final Object ...tags) {
         ((BasicTask<?>)task.asTask()).applyTagModifier(new Function<Set<Object>, Void>() {
+            @Override
             public Void apply(@Nullable Set<Object> input) {
                 input.add(tag1);
                 for (Object tag: tags) input.add(tag);

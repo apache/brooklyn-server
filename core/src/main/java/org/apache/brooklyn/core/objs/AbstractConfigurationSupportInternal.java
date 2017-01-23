@@ -96,6 +96,7 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
         // ValueResolver.
         
         Callable<T> job = new Callable<T>() {
+            @Override
             public T call() {
                 try {
                     return get(key);
@@ -242,6 +243,7 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
         return getConfigsInternal();
     }
 
+    @Override
     public Map<ConfigKey<?>,Object> getAllLocalRaw() {
         return getConfigsInternal().getAllConfigLocalRaw();
     }

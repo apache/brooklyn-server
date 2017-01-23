@@ -147,7 +147,7 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
         }
 
         Maybe<?> resultMaybe = Tasks.resolving(object, Object.class)
-                .context(((EntityInternal)entity()).getExecutionContext())
+                .context(entity().getExecutionContext())
                 .deep(true)
                 .immediately(immediate)
                 .recursive(false)

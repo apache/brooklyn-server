@@ -106,6 +106,7 @@ public interface SshTool extends ShellTool {
      * @param maxAttempts
      * @throws SshException
      */
+    @Deprecated
     public void connect(int maxAttempts);
 
     public void disconnect();

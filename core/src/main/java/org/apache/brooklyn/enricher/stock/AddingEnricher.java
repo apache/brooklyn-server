@@ -44,6 +44,7 @@ import org.apache.brooklyn.core.sensor.BasicSensorEvent;
  * @deprecated since 0.7.0; use {@link Enrichers.builder()}
  * @see Combiner if need to sub-class
  */
+@Deprecated
 public class AddingEnricher extends AbstractEnricher implements SensorEventListener {
 
     private Sensor[] sources;
@@ -54,6 +55,7 @@ public class AddingEnricher extends AbstractEnricher implements SensorEventListe
         this.target = target;
     }
 
+    @Override
     public void setEntity(EntityLocal entity) {
         super.setEntity(entity);
         

@@ -101,7 +101,7 @@ public class ReflectionsTest {
         public CI1(String x, int y0, int y1, int ...yy) {
             constructorArgs = Lists.newArrayList();
             constructorArgs.addAll(ImmutableList.of(x, y0, y1));
-            for (int yi: yy) constructorArgs.add((Integer)yi);
+            for (int yi: yy) constructorArgs.add(yi);
         }
         public static String m1(String x, int y) {
             return x+y;

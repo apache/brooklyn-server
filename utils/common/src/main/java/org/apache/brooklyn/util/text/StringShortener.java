@@ -40,6 +40,7 @@ public class StringShortener {
         String id;
         int len;
         
+        @Override
         public int apply(LinkedHashMap<String, String> words, int maxlen, int length) {
             String v = words.get(id);
             if (v!=null && v.length()>len) {
@@ -79,6 +80,7 @@ public class StringShortener {
         }
         String id;
         
+        @Override
         public int apply(LinkedHashMap<String, String> words, int maxlen, int length) {
             String v = words.get(id);
             if (v!=null) {

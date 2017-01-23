@@ -58,6 +58,7 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
     private TestApplication app;
     private TestEntity entity;
     
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() {
         locs = ImmutableList.of(new SimulatedLocation());
@@ -65,6 +66,7 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
         entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
     }
 
+    @Override
     @AfterMethod(alwaysRun=true)
     public void tearDown() throws Exception {
         if (app != null) Entities.destroyAll(app.getManagementContext());
@@ -84,6 +86,7 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
         final AtomicReference<String> bval = new AtomicReference<String>("bval-too-early");
         entity.config().set(TestEntity.CONF_MAP_THING.subKey("akey"), DependentConfiguration.whenDone(Callables.returning("aval")));
         entity.config().set(TestEntity.CONF_MAP_THING.subKey("bkey"), DependentConfiguration.whenDone(new Callable<String>() {
+                @Override
                 public String call() {
                     return bval.get();
                 }}));
@@ -99,6 +102,7 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
         entity.config().set(TestEntity.CONF_MAP_THING, (Map) MutableMap.of(
                 "akey", DependentConfiguration.whenDone(Callables.returning("aval")),
                 "bkey", DependentConfiguration.whenDone(new Callable<String>() {
+                    @Override
                     public String call() {
                         return bval.get();
                     }})));

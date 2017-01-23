@@ -184,6 +184,7 @@ public class TaskBuilder<T> {
     /** returns a a factory based on this builder */
     public TaskFactory<Task<T>> buildFactory() {
         return new TaskFactory<Task<T>>() {
+            @Override
             public Task<T> newTask() {
                 return build();
             }

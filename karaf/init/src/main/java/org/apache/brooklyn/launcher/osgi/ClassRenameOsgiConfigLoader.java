@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.launcher.osgi;
 
-import org.apache.brooklyn.core.mgmt.persist.ConfigLoader;
 import org.apache.brooklyn.core.mgmt.persist.DeserializingClassRenamesProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,6 +47,7 @@ public class ClassRenameOsgiConfigLoader extends OsgiConfigLoader {
     }
 
     // Called by OSGi
+    @Override
     public void init() {
         LOG.trace("DeserializingClassRenamesProvider.OsgiConfigLoader.init: registering loader");
         DeserializingClassRenamesProvider.INSTANCE.getLoaders().add(this);
@@ -55,6 +55,7 @@ public class ClassRenameOsgiConfigLoader extends OsgiConfigLoader {
     }
 
     // Called by OSGi
+    @Override
     public void destroy() {
         LOG.trace("DeserializingClassRenamesProvider.OsgiConfigLoader.destroy: unregistering loader");
         boolean removed = DeserializingClassRenamesProvider.INSTANCE.getLoaders().remove(this);
@@ -64,6 +65,7 @@ public class ClassRenameOsgiConfigLoader extends OsgiConfigLoader {
     }
 
     // Called by OSGi when configuration changes
+    @Override
     public void updateProperties(Map properties) {
         LOG.debug("DeserializingClassRenamesProvider.OsgiConfigLoader.updateProperties: clearing cache, so class-renames will be reloaded");
         DeserializingClassRenamesProvider.INSTANCE.reset();

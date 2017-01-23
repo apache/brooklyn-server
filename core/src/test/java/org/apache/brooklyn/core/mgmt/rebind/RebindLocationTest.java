@@ -57,6 +57,7 @@ public class RebindLocationTest extends RebindTestFixtureWithApp {
     @SuppressWarnings("unused")
     private MyEntity origE;
     
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();
@@ -68,7 +69,7 @@ public class RebindLocationTest extends RebindTestFixtureWithApp {
         MyLocation origLoc = new MyLocation(MutableMap.of("name", "mylocname"));
         origApp.start(ImmutableList.of(origLoc));
 
-        newApp = (TestApplication) rebind();
+        newApp = rebind();
         MyEntity newE = (MyEntity) Iterables.find(newApp.getChildren(), Predicates.instanceOf(MyEntity.class));
 
         assertEquals(newApp.getLocations().size(), 1, "locs="+newE.getLocations());
@@ -83,7 +84,7 @@ public class RebindLocationTest extends RebindTestFixtureWithApp {
         MyLocation origLoc = new MyLocation(MutableMap.of("name", "mylocname"));
         origApp.start(ImmutableList.of(origLoc));
         
-        newApp = (TestApplication) rebind();
+        newApp = rebind();
         MyLocation newLoc = (MyLocation) Iterables.get(newApp.getLocations(), 0);
         
         assertEquals(newLoc.getId(), origLoc.getId());
@@ -95,7 +96,7 @@ public class RebindLocationTest extends RebindTestFixtureWithApp {
         MyLocationCustomProps origLoc = new MyLocationCustomProps(MutableMap.of("name", "mylocname", "myfield", "myval"));
         origApp.start(ImmutableList.of(origLoc));
 
-        newApp = (TestApplication) rebind();
+        newApp = rebind();
         MyLocationCustomProps newLoc2 = (MyLocationCustomProps) Iterables.get(newApp.getLocations(), 0);
         
         assertEquals(newLoc2.getId(), origLoc.getId());
@@ -109,7 +110,7 @@ public class RebindLocationTest extends RebindTestFixtureWithApp {
         MyLocation origLoc = new MyLocation(MutableMap.of("myfield", "myval"));
         origApp.start(ImmutableList.of(origLoc));
 
-        newApp = (TestApplication) rebind();
+        newApp = rebind();
         MyLocation newLoc = (MyLocation) Iterables.get(newApp.getLocations(), 0);
         
         assertEquals(newLoc.myfield, "myval");
@@ -124,7 +125,7 @@ public class RebindLocationTest extends RebindTestFixtureWithApp {
         assertEquals(origLoc.myAtomicLong.get(), 124L);
         origApp.getManagementContext().getRebindManager().getChangeListener().onChanged(origLoc);
         
-        newApp = (TestApplication) rebind();
+        newApp = rebind();
         MyLocation newLoc = (MyLocation) Iterables.get(newApp.getLocations(), 0);
         
         // should get _modified_ value, not the one in the config map
@@ -139,7 +140,7 @@ public class RebindLocationTest extends RebindTestFixtureWithApp {
                 .configure(MyLocation.MY_CONFIG_WITHOUT_SETFROMFLAG, "myVal for witout setFromFlag"));
         origApp.start(ImmutableList.of(origLoc));
 
-        newApp = (TestApplication) rebind();
+        newApp = rebind();
         MyLocation newLoc = (MyLocation) Iterables.get(newApp.getLocations(), 0);
         
         assertEquals(newLoc.getConfig(MyLocation.MY_CONFIG_WITH_SETFROMFLAG_NO_SHORT_NAME), "myVal for with setFromFlag noShortName");
@@ -153,7 +154,7 @@ public class RebindLocationTest extends RebindTestFixtureWithApp {
         origLoc.myTransientFieldNotSetFromFlag = "myval";
         origApp.start(ImmutableList.of(origLoc));
 
-        newApp = (TestApplication) rebind();
+        newApp = rebind();
         MyLocation newLoc = (MyLocation) Iterables.get(newApp.getLocations(), 0);
 
         // transient fields normally not persisted
@@ -165,7 +166,7 @@ public class RebindLocationTest extends RebindTestFixtureWithApp {
         MyLocation origLoc = new MyLocation(MutableMap.of("myTransientFieldSetFromFlag", "myval"));
         origApp.start(ImmutableList.of(origLoc));
 
-        newApp = (TestApplication) rebind();
+        newApp = rebind();
         MyLocation newLoc = (MyLocation) Iterables.get(newApp.getLocations(), 0);
         
         assertEquals(newLoc.myTransientFieldSetFromFlag, null);
@@ -223,6 +224,7 @@ public class RebindLocationTest extends RebindTestFixtureWithApp {
     /**
      * @deprecated since 0.7; support for rebinding old-style locations is deprecated
      */
+    @Deprecated
     @Test
     public void testHandlesOldStyleLocation() throws Exception {
         MyOldStyleLocation origLoc = new MyOldStyleLocation(ImmutableMap.of("myfield", "myval"));
@@ -265,7 +267,7 @@ public class RebindLocationTest extends RebindTestFixtureWithApp {
         origApp.start(ImmutableList.of(origLoc));
 
         newApp = rebind();
-        Location newLoc = (Location) newManagementContext.getLocationManager().getLocation(origLoc.getId());
+        Location newLoc = newManagementContext.getLocationManager().getLocation(origLoc.getId());
 
         Asserts.assertEqualsIgnoringOrder(newLoc.tags().getTags(), ImmutableSet.of("foo", newApp));
     }

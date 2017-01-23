@@ -20,7 +20,6 @@ package org.apache.brooklyn.entity.system_service;
 
 import java.util.Set;
 
-import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -30,12 +29,10 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.EffectorTasks;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.Attributes;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedStream;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
-import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.ssh.SshPutTaskWrapper;

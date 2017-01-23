@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.location.jclouds;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static org.jclouds.compute.options.RunScriptOptions.Builder.overrideLoginCredentials;
 import static org.jclouds.compute.util.ComputeServiceUtils.execHttpResponse;
 import static org.jclouds.scriptbuilder.domain.Statements.appendFile;
@@ -41,8 +40,6 @@ import javax.annotation.Nullable;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
-import org.apache.brooklyn.core.mgmt.persist.DeserializingJcloudsRenamesProvider;
-import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.net.Networking;
@@ -85,7 +82,6 @@ import com.google.common.annotations.Beta;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.FluentIterable;
@@ -325,6 +321,7 @@ public class JcloudsUtil implements JcloudsLocationConfig {
     /**
      * @deprecated since 0.9.0; use {@link #getFirstReachableAddress(NodeMetadata, Duration)}
      */
+    @Deprecated
     public static String getFirstReachableAddress(ComputeServiceContext context, NodeMetadata node) {
         // Previously this called jclouds `sshForNode().apply(Node)` to check all IPs of node (private+public),
         // to find one that is reachable. It does `openSocketFinder.findOpenSocketOnNode(node, node.getLoginPort(), ...)`.

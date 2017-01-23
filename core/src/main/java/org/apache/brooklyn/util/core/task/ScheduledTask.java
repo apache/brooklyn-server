@@ -143,6 +143,7 @@ public class ScheduledTask extends BasicTask<Object> {
         }
     }
     
+    @Override
     protected String getActiveTaskStatusString(int verbosity) {
         StringBuilder rv = new StringBuilder("Scheduler");
         if (runCount > 0) {
@@ -182,11 +183,13 @@ public class ScheduledTask extends BasicTask<Object> {
         }
     }
     
+    @Override
     public void blockUntilEnded() {
         while (!isDone()) super.blockUntilEnded();
     }
 
     /** @return The value of the most recently run task */
+    @Override
     public Object get() throws InterruptedException, ExecutionException {
         blockUntilStarted();
         blockUntilFirstScheduleStarted();

@@ -32,6 +32,7 @@ import org.apache.brooklyn.util.core.flags.SetFromFlag;
  * 
  * @deprecated since 0.7.0; use {@link Enrichers.builder()}
  */
+@Deprecated
 public abstract class AbstractTypeTransformingEnricher<T,U> extends AbstractEnricher implements SensorEventListener<T> {
     
     @SetFromFlag
@@ -52,6 +53,7 @@ public abstract class AbstractTypeTransformingEnricher<T,U> extends AbstractEnri
         this.target = target;
     }
     
+    @Override
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public void setEntity(EntityLocal entity) {
         super.setEntity(entity);

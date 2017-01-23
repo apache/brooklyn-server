@@ -37,6 +37,7 @@ public interface SoftwareProcessDriver extends EntityDriver {
     /**
      * The entity whose components we are controlling.
      */
+    @Override
     EntityLocal getEntity();
 
     /**

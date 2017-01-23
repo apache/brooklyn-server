@@ -48,10 +48,12 @@ public class HighAvailabilityManagerInMemoryTest extends HighAvailabilityManager
 
     private static final Logger log = LoggerFactory.getLogger(HighAvailabilityManagerInMemoryTest.class);
     
+    @Override
     protected PersistenceObjectStore newPersistenceObjectStore() {
         return new InMemoryObjectStore();
     }
     
+    @Override
     public void testGetManagementPlaneStatus() throws Exception {
         super.testGetManagementPlaneStatus();
     }

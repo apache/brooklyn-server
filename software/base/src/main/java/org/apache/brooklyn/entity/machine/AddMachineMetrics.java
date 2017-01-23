@@ -36,7 +36,6 @@ import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.enricher.stock.PercentageEnricher;
-import org.apache.brooklyn.enricher.stock.Transformer;
 import org.apache.brooklyn.enricher.stock.YamlRollingTimeWindowMeanEnricher;
 import org.apache.brooklyn.enricher.stock.YamlTimeWeightedDeltaEnricher;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;

@@ -243,6 +243,7 @@ public class TestFrameworkAssertions {
         try {
             Repeater.create()
                     .until(new Callable<Boolean>() {
+                        @Override
                         public Boolean call() {
                             try {
                                 Object actual = options.supplier.get();

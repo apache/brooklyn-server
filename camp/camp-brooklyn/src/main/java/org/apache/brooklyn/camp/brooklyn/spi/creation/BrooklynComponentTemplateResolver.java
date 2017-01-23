@@ -459,7 +459,7 @@ public class BrooklynComponentTemplateResolver {
             else if (input instanceof Iterable<?>)
                 return transformSpecialFlags((Iterable<?>)input);
             else
-                return transformSpecialFlags((Object)input);
+                return transformSpecialFlags(input);
         }
 
         protected Map<?, ?> transformSpecialFlags(Map<?, ?> flag) {

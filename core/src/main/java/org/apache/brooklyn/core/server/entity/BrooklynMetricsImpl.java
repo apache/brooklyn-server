@@ -47,6 +47,7 @@ public class BrooklynMetricsImpl extends AbstractEntity implements BrooklynMetri
         executor = Executors.newSingleThreadScheduledExecutor(threadFactory);
         executor.scheduleWithFixedDelay(
                 new Runnable() {
+                    @Override
                     public void run() {
                         refreshSensors();
                     }}, 

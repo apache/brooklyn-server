@@ -48,6 +48,7 @@ import com.google.common.collect.ImmutableMap;
  * @deprecated since 0.7.0; use {@link Enrichers.builder()}
  * @see Aggregator if need to sub-class
  */
+@Deprecated
 public abstract class AbstractAggregatingEnricher<S,T> extends AbstractEnricher implements SensorEventListener<S> {
     
     private static final Logger LOG = LoggerFactory.getLogger(AbstractAggregatingEnricher.class);

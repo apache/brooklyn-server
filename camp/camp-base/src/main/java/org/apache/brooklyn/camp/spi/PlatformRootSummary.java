@@ -60,6 +60,7 @@ public class PlatformRootSummary extends AbstractResource {
         
         protected Builder(String type) { super(type); }
         
+        @Override
         protected void initialize() {
             super.initialize();
             // TODO a better way not to have an ID here (new subclass BasicIdentifiableResource for other BasicResource instances)
