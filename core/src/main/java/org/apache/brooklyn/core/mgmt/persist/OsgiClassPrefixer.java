@@ -58,7 +58,14 @@ public class OsgiClassPrefixer {
     
     public Optional<String> getPrefix(Class<?> type) {
         Optional<Bundle> bundle  = (bundleRetriever != null) ? bundleRetriever.apply(type) : Osgis.getBundleOf(type);
-        if (bundle.isPresent() && !whiteListRetriever.isBundleWhiteListed(bundle.get())) {
+        if (bundle.isPresent()) {
+            // Previously we didn't include the bundle prefix for whitelisted bundles. However,
+            // that means once a bundle is whitelisted it must always be whitelisted. That is 
+            // annoying for customer-upgrades of persisted state created pre-karaf. For those 
+            // upgrades, the temporary whitelist is a useful way to allow rebind to complete 
+            // successfully. The persisted state will then be re-written with the appropriate
+            // prefixes. It is also better that we treat persistence/rebind of classes from 
+            // Brooklyn bundles in the same way as customer bundles.
             return Optional.of(bundle.get().getSymbolicName() + DELIMITER);
         }
         return Optional.absent();

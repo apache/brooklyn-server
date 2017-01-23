@@ -70,7 +70,7 @@ public class OsgiClassPrefixerTest {
             }
         };
         OsgiClassPrefixer prefixer = new OsgiClassPrefixer(bundleRetriever);
-        assertAbsent(prefixer.getPrefix(String.class));
+        assertPresent(prefixer.getPrefix(String.class), "org.apache.brooklyn.my-bundle:");
     }
     
     @Test
