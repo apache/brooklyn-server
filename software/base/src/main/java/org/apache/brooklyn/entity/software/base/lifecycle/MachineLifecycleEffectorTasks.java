@@ -41,6 +41,7 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.effector.EffectorBody;
 import org.apache.brooklyn.core.effector.Effectors;
@@ -64,6 +65,7 @@ import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
+import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.entity.machine.MachineInitTasks;
 import org.apache.brooklyn.entity.machine.ProvidesProvisioningFlags;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
@@ -93,6 +95,8 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -401,6 +405,12 @@ public abstract class MachineLifecycleEffectorTasks {
             if (!(location instanceof LocalhostMachineProvisioningLocation))
                 log.info("Starting {}, obtaining a new location instance in {} with ports {}", new Object[]{entity(), location, flags.get("inboundPorts")});
             entity().sensors().set(SoftwareProcess.PROVISIONING_LOCATION, location);
+
+            Predicate<? super ConfigKey<?>> predicate = Predicates.not(ConfigPredicates.nameMatchesRegex("identity|credential|spec.*|machineCreationSemaphore"));
+            for (ConfigKey<?> configKey : location.config().findKeys(predicate)) {
+                AttributeSensor newSensor = Sensors.newStringSensor(String.format("%s.%s", SoftwareProcess.PROVISIONING_LOCATION.getName(), configKey.getName()));
+                entity().sensors().set(newSensor, location.config().get(configKey).toString());
+            }
             Transition expectedState = entity().sensors().get(Attributes.SERVICE_STATE_EXPECTED);
             
             // BROOKLYN-263: see corresponding code in doStop()
