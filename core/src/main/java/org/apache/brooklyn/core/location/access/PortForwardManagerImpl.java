@@ -83,9 +83,6 @@ public class PortForwardManagerImpl extends AbstractLocation implements PortForw
 
     private final Map<AssociationListener, Predicate<? super AssociationMetadata>> associationListeners = new ConcurrentHashMap<AssociationListener, Predicate<? super AssociationMetadata>>();
 
-    @Deprecated
-    protected final Map<String,String> publicIpIdToHostname = new LinkedHashMap<String,String>();
-    
     // horrible hack -- see javadoc above
     private final AtomicInteger portReserved = new AtomicInteger(11000);
 
@@ -122,19 +119,16 @@ public class PortForwardManagerImpl extends AbstractLocation implements PortForw
                 Map<String,String> publicIpIdToHostnameCopy;
                 synchronized (mutex) {
                     mappingsCopy = MutableMap.copyOf(mappings);
-                    publicIpIdToHostnameCopy = MutableMap.copyOf(publicIpIdToHostname);
                 }
                 return getMementoWithProperties(MutableMap.<String,Object>of(
                         "mappings", mappingsCopy, 
-                        "portReserved", portReserved.get(), 
-                        "publicIpIdToHostname", publicIpIdToHostnameCopy));
+                        "portReserved", portReserved.get()));
             }
             @Override
             protected void doReconstruct(RebindContext rebindContext, LocationMemento memento) {
                 super.doReconstruct(rebindContext, memento);
                 mappings.putAll( Preconditions.checkNotNull((Map<String, PortMapping>) memento.getCustomField("mappings"), "mappings was not serialized correctly"));
                 portReserved.set( (Integer)memento.getCustomField("portReserved"));
-                publicIpIdToHostname.putAll( Preconditions.checkNotNull((Map<String, String>)memento.getCustomField("publicIpIdToHostname"), "publicIpIdToHostname was not serialized correctly") );
             }
         };
     }
@@ -175,9 +169,7 @@ public class PortForwardManagerImpl extends AbstractLocation implements PortForw
 
     protected void associateImpl(String publicIpId, HostAndPort publicEndpoint, Location l, int privatePort) {
         synchronized (mutex) {
-            String publicIp = publicEndpoint.getHostText();
             int publicPort = publicEndpoint.getPort();
-            recordPublicIpHostname(publicIpId, publicIp);
             PortMapping mapping = new PortMapping(publicIpId, publicEndpoint, l, privatePort);
             PortMapping oldMapping = getPortMappingWithPublicSide(publicIpId, publicPort);
             log.debug(this+" associating public "+publicEndpoint+" on "+publicIpId+" with private port "+privatePort+" at "+l+" ("+mapping+")"
@@ -314,11 +306,6 @@ public class PortForwardManagerImpl extends AbstractLocation implements PortForw
     }
 
     @Override
-    public boolean isClient() {
-        return false;
-    }
-
-    @Override
     public void addAssociationListener(AssociationListener listener, Predicate<? super AssociationMetadata> filter) {
         associationListeners.put(listener, filter);
     }
@@ -356,117 +343,18 @@ public class PortForwardManagerImpl extends AbstractLocation implements PortForw
 
     
     ///////////////////////////////////////////////////////////////////////////////////
-    // Deprecated
-    ///////////////////////////////////////////////////////////////////////////////////
-
-    @Override
-    @Deprecated
-    public PortMapping acquirePublicPortExplicit(String publicIpId, int port) {
-        PortMapping mapping = new PortMapping(publicIpId, port, null, -1);
-        log.debug("assigning explicit public port "+port+" at "+publicIpId);
-        PortMapping result;
-        synchronized (mutex) {
-            result = mappings.put(makeKey(publicIpId, port), mapping);
-        }
-        onChanged();
-        return result;
-    }
-
-    @Override
-    @Deprecated
-    public boolean forgetPortMapping(PortMapping m) {
-        return forgetPortMapping(m.publicIpId, m.publicPort);
-    }
-
-    @Override
-    @Deprecated
-    public void recordPublicIpHostname(String publicIpId, String hostnameOrPublicIpAddress) {
-        log.debug("recording public IP "+publicIpId+" associated with "+hostnameOrPublicIpAddress);
-        synchronized (mutex) {
-            String old = publicIpIdToHostname.put(publicIpId, hostnameOrPublicIpAddress);
-            if (old!=null && !old.equals(hostnameOrPublicIpAddress))
-                log.warn("Changing hostname recorded against public IP "+publicIpId+"; from "+old+" to "+hostnameOrPublicIpAddress);
-        }
-        onChanged();
-    }
-
-    @Override
-    @Deprecated
-    public String getPublicIpHostname(String publicIpId) {
-        synchronized (mutex) {
-            return publicIpIdToHostname.get(publicIpId);
-        }
-    }
-    
-    @Override
-    @Deprecated
-    public boolean forgetPublicIpHostname(String publicIpId) {
-        log.debug("forgetting public IP "+publicIpId+" association");
-        boolean result;
-        synchronized (mutex) {
-            result = (publicIpIdToHostname.remove(publicIpId) != null);
-        }
-        onChanged();
-        return result;
-    }
-
-    @Override
-    @Deprecated
-    public int acquirePublicPort(String publicIpId, Location l, int privatePort) {
-        int publicPort;
-        synchronized (mutex) {
-            PortMapping old = getPortMappingWithPrivateSide(l, privatePort);
-            // only works for 1 public IP ID per location (which is the norm)
-            if (old!=null && old.publicIpId.equals(publicIpId)) {
-                log.debug("request to acquire public port at "+publicIpId+" for "+l+":"+privatePort+", reusing old assignment "+old);
-                return old.getPublicPort();
-            }
-            
-            publicPort = acquirePublicPort(publicIpId);
-            log.debug("request to acquire public port at "+publicIpId+" for "+l+":"+privatePort+", allocating "+publicPort);
-            associateImpl(publicIpId, publicPort, l, privatePort);
-        }
-        onChanged();
-        return publicPort;
-    }
-
-    @Override
-    @Deprecated
-    public void associate(String publicIpId, int publicPort, Location l, int privatePort) {
-        synchronized (mutex) {
-            associateImpl(publicIpId, publicPort, l, privatePort);
-        }
-        onChanged();
-    }
-
-    protected void associateImpl(String publicIpId, int publicPort, Location l, int privatePort) {
-        synchronized (mutex) {
-            PortMapping mapping = new PortMapping(publicIpId, publicPort, l, privatePort);
-            PortMapping oldMapping = getPortMappingWithPublicSide(publicIpId, publicPort);
-            log.debug("associating public port "+publicPort+" on "+publicIpId+" with private port "+privatePort+" at "+l+" ("+mapping+")"
-                    +(oldMapping == null ? "" : " (overwriting "+oldMapping+" )"));
-            mappings.put(makeKey(publicIpId, publicPort), mapping);
-        }
-    }
-
-    ///////////////////////////////////////////////////////////////////////////////////
     // Internal only; make protected when deprecated interface method removed
     ///////////////////////////////////////////////////////////////////////////////////
 
-    @Override
-    public HostAndPort getPublicHostAndPort(PortMapping m) {
+    protected HostAndPort getPublicHostAndPort(PortMapping m) {
         if (m.publicEndpoint == null) {
-            String hostname = getPublicIpHostname(m.publicIpId);
-            if (hostname==null)
-                throw new IllegalStateException("No public hostname associated with "+m.publicIpId+" (mapping "+m+")");
-            return HostAndPort.fromParts(hostname, m.publicPort);
+            throw new IllegalStateException("No public hostname associated with mapping " + m);
         } else {
             return m.publicEndpoint;
         }
     }
 
-    @Override
-    public PortMapping getPortMappingWithPublicSide(String publicIpId, int publicPort) {
+    protected PortMapping getPortMappingWithPublicSide(String publicIpId, int publicPort) {
         synchronized (mutex) {
             return mappings.get(makeKey(publicIpId, publicPort));
         }
@@ -493,8 +381,7 @@ public class PortForwardManagerImpl extends AbstractLocation implements PortForw
         return result;
     }
 
-    @Override
-    public PortMapping getPortMappingWithPrivateSide(Location l, int privatePort) {
+    protected PortMapping getPortMappingWithPrivateSide(Location l, int privatePort) {
         synchronized (mutex) {
             for (PortMapping m: mappings.values())
                 if (l.equals(m.getTarget()) && privatePort==m.privatePort) return m;
