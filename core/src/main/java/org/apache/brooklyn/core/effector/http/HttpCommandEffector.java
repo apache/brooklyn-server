@@ -57,7 +57,7 @@ public final class HttpCommandEffector extends AddEffector {
     public static final ConfigKey<String> EFFECTOR_HTTP_PASSWORD = ConfigKeys.newStringConfigKey("httpPassword");
     public static final ConfigKey<Map<String, String>> EFFECTOR_HTTP_HEADERS = new MapConfigKey(String.class, "headers");
     public static final ConfigKey<Map<String, Object>> EFFECTOR_HTTP_PAYLOAD = new MapConfigKey(String.class, "httpPayload");
-    public static final ConfigKey<String> JSON_PATH = ConfigKeys.newStringConfigKey("jsonPath", "JSON path to select in HTTP response; default $", "$");
+    public static final ConfigKey<String> JSON_PATH = ConfigKeys.newStringConfigKey("jsonPath", "JSON path to select in HTTP response");
     public static final ConfigKey<String> PUBLISH_SENSOR = ConfigKeys.newStringConfigKey("publishSensor", "Sensor name where to store json path extracted value");
 
     public HttpCommandEffector(ConfigBag params) {
