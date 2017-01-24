@@ -41,6 +41,7 @@ public class KubernetesClientRegistryImpl implements KubernetesClientRegistry {
             if (certs.clientKeyData.isPresent()) configBuilder.withClientKeyData(toBase64Encoding(certs.clientKeyData.get()));
             if (certs.clientKeyAlgo.isPresent()) configBuilder.withClientKeyAlgo(certs.clientKeyAlgo.get());
             if (certs.clientKeyPassphrase.isPresent()) configBuilder.withClientKeyPassphrase(certs.clientKeyPassphrase.get());
+            // TODO configBuilder.withTrustCerts(true);
         }
 
         String username = conf.get(KubernetesLocationConfig.ACCESS_IDENTITY);
@@ -52,9 +53,16 @@ public class KubernetesClientRegistryImpl implements KubernetesClientRegistry {
         String token = conf.get(KubernetesLocationConfig.OAUTH_TOKEN);
         if (Strings.isNonBlank(token)) configBuilder.withOauthToken(token);
 
+        Integer timeout = conf.get(KubernetesLocationConfig.TIMEOUT);
+        if (timeout != null && timeout > 0) {
+            configBuilder.withRequestTimeout(timeout);
+            configBuilder.withRollingTimeout(timeout * 1000L);
+            configBuilder.withScaleTimeout(timeout * 1000L);
+        }
+
         return new DefaultKubernetesClient(configBuilder.build());
     }
-    
+
     private String toBase64Encoding(String val) {
         return BaseEncoding.base64().encode(val.getBytes());
     }

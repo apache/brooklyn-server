@@ -74,6 +74,13 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
             .constraint(Predicates.<String>notNull())
             .build();
 
+    ConfigKey<Integer> TIMEOUT = ConfigKeys.builder(Integer.class)
+            .name("timeout")
+            .description("The timeout in seconds for the client")
+            .defaultValue(60)
+            .constraint(Predicates.<Integer>notNull())
+            .build();
+
     ConfigKey<String> NAMESPACE = ConfigKeys.builder(String.class)
             .name("namespace")
             .description("Namespace where resources will live; the default is 'amp'")
