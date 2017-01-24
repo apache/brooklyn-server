@@ -2,7 +2,6 @@ package io.cloudsoft.amp.containerservice.kubernetes.location;
 
 import java.io.InputStream;
 import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.List;
@@ -33,6 +32,7 @@ import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
+import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Identifiers;
@@ -78,6 +78,7 @@ import io.fabric8.kubernetes.api.model.PodList;
 import io.fabric8.kubernetes.api.model.PodTemplateSpec;
 import io.fabric8.kubernetes.api.model.PodTemplateSpecBuilder;
 import io.fabric8.kubernetes.api.model.QuantityBuilder;
+import io.fabric8.kubernetes.api.model.ReplicationController;
 import io.fabric8.kubernetes.api.model.ResourceRequirements;
 import io.fabric8.kubernetes.api.model.ResourceRequirementsBuilder;
 import io.fabric8.kubernetes.api.model.Secret;
@@ -173,10 +174,19 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
 
     @Override
     public void release(MachineLocation machine) {
-        final String namespace = machine.config().get(NAMESPACE);
-        final String deployment = machine.config().get(DEPLOYMENT);
-        final String pod = machine.config().get(POD);
-        final String service = machine.config().get(SERVICE);
+        Entity entity = validateCallerContext(machine);
+        if (isKubernetesResource(entity)) {
+            deleteKubernetesResourceLocation(entity, machine);
+        } else {
+            deleteKubernetesContainerLocation(entity, machine);
+        }
+    }
+
+    protected void deleteKubernetesContainerLocation(Entity entity, MachineLocation machine) {
+        final String namespace = entity.sensors().get(KUBERNETES_NAMESPACE);
+        final String deployment = entity.sensors().get(KUBERNETES_DEPLOYMENT);
+        final String pod = entity.sensors().get(KUBERNETES_POD);
+        final String service = entity.sensors().get(KUBERNETES_SERVICE);
 
         undeploy(namespace, deployment, pod);
 
@@ -196,6 +206,30 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         Boolean delete = machine.config().get(DELETE_EMPTY_NAMESPACE);
         if (delete) {
             deleteEmptyNamespace(namespace);
+        }
+    }
+
+    protected void deleteKubernetesResourceLocation(Entity entity, MachineLocation machine) {
+        final String namespace = entity.sensors().get(KUBERNETES_NAMESPACE);
+        final String resourceType = entity.sensors().get(KubernetesResource.RESOURCE_TYPE);
+        final String resourceName = entity.sensors().get(KubernetesResource.RESOURCE_NAME);
+
+        switch (resourceType) {
+            case "Deployment":
+                client.extensions().deployments().inNamespace(namespace).withName(resourceName).delete();
+                break;
+            case "Service":
+                client.services().inNamespace(namespace).withName(resourceName).delete();
+                break;
+            case "ReplicationController":
+                client.replicationControllers().inNamespace(namespace).withName(resourceName).delete();
+                break;
+            case "Namespace":
+                client.namespaces().withName(resourceName).delete();
+                break;
+            default:
+                LOG.warn("Unhandled resource type {}: {} not deleted", resourceType, resourceName);
+                break;
         }
     }
 
@@ -251,18 +285,18 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         String templateContents = Streams.readFullyString(resource);
         String processedContents = TemplateProcessor.processTemplateContents(templateContents, (EntityInternal) entity, setup.getAllConfig());
         InputStream processedResource = Streams.newInputStreamWithContents(processedContents);
+
         final List<HasMetadata> result = getClient().load(processedResource).createOrReplace();
 
         ExitCondition exitCondition = new ExitCondition() {
             @Override
             public Boolean call() {
-                for (HasMetadata metadata : result) {
-                    LOG.debug("Resource {} (type {}) deployed to {}",
-                            metadata.getMetadata().getName(), metadata.getKind(), metadata.getMetadata().getNamespace());
-                    List<HasMetadata> check = client.resource(metadata).fromServer().get();
-                    if (check.size() == 0 || check.get(0).getMetadata() == null) {
-                        return false;
-                    }
+                if (result.isEmpty()) {
+                    return false;
+                }
+                List<HasMetadata> check = client.resource(result.get(0)).fromServer().get();
+                if (check.size() == 0 || check.get(0).getMetadata() == null) {
+                    return false;
                 }
                 return true;
             }
@@ -273,10 +307,51 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         };
         waitForExitCondition(exitCondition);
 
-        // TODO iterate through the HasMetadata looking for kind of type deployment or pod
+        HasMetadata metadata = result.get(0);
+        String resourceType = metadata.getKind();
+        String resourceName = metadata.getMetadata().getName();
+        String namespace = metadata.getMetadata().getNamespace();
+        LOG.debug("Resource {} (type {}) deployed to {}", resourceName, resourceType, namespace);
+
+        entity.sensors().set(KUBERNETES_NAMESPACE, namespace);
+        entity.sensors().set(KubernetesResource.RESOURCE_NAME, resourceName);
+        entity.sensors().set(KubernetesResource.RESOURCE_TYPE, resourceType);
 
         LocationSpec<SshMachineLocation> locationSpec = LocationSpec.create(SshMachineLocation.class)
                         .configure(CALLER_CONTEXT, setup.get(CALLER_CONTEXT));
+
+        if (resourceType.equals("Deployment") || resourceType.equals("ReplicationController") || resourceType.equals("Pod")) {
+            Map<String, String> labels = MutableMap.of();
+            if (resourceType.equals("Deployment")) {
+                Deployment deployment = (Deployment) metadata;
+                labels = deployment.getSpec().getTemplate().getMetadata().getLabels();
+            } else if (resourceType.equals("ReplicationController")) {
+                ReplicationController replicationController = (ReplicationController) metadata;
+                labels = replicationController.getSpec().getTemplate().getMetadata().getLabels();
+            } else if (resourceType.equals("Pod")) {
+                Pod pod = (Pod) metadata;
+                labels = pod.getMetadata().getLabels();
+            }
+            Pod pod = getPod(namespace, labels);
+
+            InetAddress node = Networking.getInetAddressWithFixedName(pod.getSpec().getNodeName());
+            String podAddress = pod.getStatus().getPodIP();
+            locationSpec.configure("address", node);
+            locationSpec.configure(SshMachineLocation.PRIVATE_ADDRESSES, ImmutableSet.of(podAddress));
+        } else if (resourceType.equals("Service")) {
+            Service service = getService(namespace, resourceName);
+            List<String> external = service.getSpec().getExternalIPs();
+            String cluster = service.getSpec().getClusterIP();
+            String loadBalancer = service.getSpec().getLoadBalancerIP();
+            String portal = service.getSpec().getPortalIP();
+            LOG.info("Service addresses: external {}; cluster {}; loadBalancer {}; portal {}",
+                    new Object[] { external, cluster, loadBalancer, portal });
+
+            locationSpec.configure("address", cluster);
+        } else {
+            LOG.info("Resource {} with type {} has no associated address", resourceName, resourceType);
+            locationSpec.configure("address", "0.0.0.0");
+        }
         SshMachineLocation machine = getManagementContext().getLocationManager().createLocation(locationSpec);
         return machine;
     }
@@ -307,6 +382,11 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         deploy(namespace.getMetadata().getName(), entity, metadata, deploymentName, container, replicas, secrets);
         Service service = exposeService(namespace.getMetadata().getName(), metadata, deploymentName, inboundPorts);
         Pod pod = getPod(namespace.getMetadata().getName(), metadata);
+
+        entity.sensors().set(KubernetesLocationConfig.KUBERNETES_NAMESPACE, namespace.getMetadata().getName());
+        entity.sensors().set(KubernetesLocationConfig.KUBERNETES_DEPLOYMENT, deploymentName);
+        entity.sensors().set(KubernetesLocationConfig.KUBERNETES_POD, pod.getMetadata().getName());
+        entity.sensors().set(KubernetesLocationConfig.KUBERNETES_SERVICE, service.getMetadata().getName());
 
         LocationSpec<SshMachineLocation> locationSpec = prepareLocationSpec(entity, setup, namespace, deploymentName, service, pod);
         SshMachineLocation machine = getManagementContext().getLocationManager().createLocation(locationSpec);
@@ -537,7 +617,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         LOG.debug("Deployed deployment {} in namespace {}.", deployment, namespace);
     }
 
-    protected Service exposeService(final String namespace, Map<String, String> metadata, final String serviceName, Iterable<Integer> inboundPorts) {
+    protected Service exposeService(String namespace, Map<String, String> metadata, String serviceName, Iterable<Integer> inboundPorts) {
         List<ServicePort> servicePorts = Lists.newArrayList();
         for (Integer inboundPort : inboundPorts) {
             servicePorts.add(new ServicePortBuilder().withName(Integer.toString(inboundPort)).withPort(inboundPort).build());
@@ -550,6 +630,13 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 .endSpec()
                 .build();
         client.services().inNamespace(namespace).create(service);
+
+        service = getService(namespace, serviceName);
+        LOG.debug("Exposed service {} in namespace {}.", service, namespace);
+        return service;
+    }
+
+    protected Service getService(final String namespace, final String serviceName) {
         ExitCondition exitCondition = new ExitCondition() {
             @Override
             public Boolean call() {
@@ -575,47 +662,38 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
             }
         };
         waitForExitCondition(exitCondition);
-        LOG.debug("Exposed service {} in namespace {}.", service, namespace);
 
         return client.services().inNamespace(namespace).withName(serviceName).get();
     }
 
     protected LocationSpec<SshMachineLocation> prepareLocationSpec(Entity entity, ConfigBag setup, Namespace namespace, String deploymentName, Service service, Pod pod) {
-        try {
-            InetAddress node = InetAddress.getByName(pod.getSpec().getNodeName());
-            String podAddress = pod.getStatus().getPodIP();
-            LocationSpec<SshMachineLocation> locationSpec = LocationSpec.create(SshMachineLocation.class)
-                    .configure("address", node)
-                    .configure(SshMachineLocation.PRIVATE_ADDRESSES, ImmutableSet.of(podAddress))
-                    .configure(KubernetesLocationConfig.NAMESPACE, namespace.getMetadata().getName())
-                    .configure(KubernetesLocationConfig.DEPLOYMENT, deploymentName)
-                    .configure(KubernetesLocationConfig.POD, pod.getMetadata().getName())
-                    .configure(KubernetesLocationConfig.SERVICE, service.getMetadata().getName())
-                    .configure(CALLER_CONTEXT, setup.get(CALLER_CONTEXT));
-            if (!isDockerContainer(entity)) {
-                Optional<ServicePort> sshPort = Iterables.tryFind(service.getSpec().getPorts(), new Predicate<ServicePort>() {
-                        @Override
-                        public boolean apply(ServicePort input) {
-                            return input.getProtocol().equalsIgnoreCase("TCP") && input.getPort().intValue() == 22;
-                        }
-                    });
-                Optional<Integer> sshPortNumber;
-                if (sshPort.isPresent()) {
-                    sshPortNumber = Optional.of(sshPort.get().getNodePort());
-                } else {
-                    LOG.warn("No port-mapping found to ssh port 22, for container {}", service);
-                    sshPortNumber = Optional.absent();
-                }
-                locationSpec.configure(CloudLocationConfig.USER, setup.get(KubernetesLocationConfig.LOGIN_USER))
-                        .configure(SshMachineLocation.PASSWORD, setup.get(KubernetesLocationConfig.LOGIN_USER_PASSWORD))
-                        .configureIfNotNull(SshMachineLocation.SSH_PORT, sshPortNumber.orNull())
-                        .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, true)
-                        .configure(BrooklynConfigKeys.ONBOX_BASE_DIR, "/tmp");
+        InetAddress node = Networking.getInetAddressWithFixedName(pod.getSpec().getNodeName());
+        String podAddress = pod.getStatus().getPodIP();
+        LocationSpec<SshMachineLocation> locationSpec = LocationSpec.create(SshMachineLocation.class)
+                .configure("address", node)
+                .configure(SshMachineLocation.PRIVATE_ADDRESSES, ImmutableSet.of(podAddress))
+                .configure(CALLER_CONTEXT, setup.get(CALLER_CONTEXT));
+        if (!isDockerContainer(entity)) {
+            Optional<ServicePort> sshPort = Iterables.tryFind(service.getSpec().getPorts(), new Predicate<ServicePort>() {
+                    @Override
+                    public boolean apply(ServicePort input) {
+                        return input.getProtocol().equalsIgnoreCase("TCP") && input.getPort().intValue() == 22;
+                    }
+                });
+            Optional<Integer> sshPortNumber;
+            if (sshPort.isPresent()) {
+                sshPortNumber = Optional.of(sshPort.get().getNodePort());
+            } else {
+                LOG.warn("No port-mapping found to ssh port 22, for container {}", service);
+                sshPortNumber = Optional.absent();
             }
-            return locationSpec;
-        } catch (UnknownHostException uhe) {
-            throw Throwables.propagate(uhe);
+            locationSpec.configure(CloudLocationConfig.USER, setup.get(KubernetesLocationConfig.LOGIN_USER))
+                    .configure(SshMachineLocation.PASSWORD, setup.get(KubernetesLocationConfig.LOGIN_USER_PASSWORD))
+                    .configureIfNotNull(SshMachineLocation.SSH_PORT, sshPortNumber.orNull())
+                    .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, true)
+                    .configure(BrooklynConfigKeys.ONBOX_BASE_DIR, "/tmp");
         }
+        return locationSpec;
     }
 
     protected void createPersistentVolumes(List<String> volumes) {
@@ -652,6 +730,15 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     protected Entity validateCallerContext(ConfigBag setup) {
         // Lookup entity flags
         Object callerContext = setup.get(LocationConfigKeys.CALLER_CONTEXT);
+        if (callerContext == null || !(callerContext instanceof Entity)) {
+            throw new IllegalStateException("Invalid caller context: " + callerContext);
+        }
+        return (Entity) callerContext;
+    }
+
+    protected Entity validateCallerContext(MachineLocation machine) {
+        // Lookup entity flags
+        Object callerContext = machine.config().get(LocationConfigKeys.CALLER_CONTEXT);
         if (callerContext == null || !(callerContext instanceof Entity)) {
             throw new IllegalStateException("Invalid caller context: " + callerContext);
         }
