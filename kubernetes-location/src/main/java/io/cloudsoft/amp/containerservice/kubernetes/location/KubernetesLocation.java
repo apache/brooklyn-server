@@ -214,22 +214,38 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         final String resourceType = entity.sensors().get(KubernetesResource.RESOURCE_TYPE);
         final String resourceName = entity.sensors().get(KubernetesResource.RESOURCE_NAME);
 
-        switch (resourceType) {
-            case "Deployment":
-                client.extensions().deployments().inNamespace(namespace).withName(resourceName).delete();
-                break;
-            case "Service":
-                client.services().inNamespace(namespace).withName(resourceName).delete();
-                break;
-            case "ReplicationController":
-                client.replicationControllers().inNamespace(namespace).withName(resourceName).delete();
-                break;
-            case "Namespace":
-                client.namespaces().withName(resourceName).delete();
-                break;
-            default:
-                LOG.warn("Unhandled resource type {}: {} not deleted", resourceType, resourceName);
-                break;
+        try {
+            switch (resourceType) {
+                case "Deployment":
+                    client.extensions().deployments().inNamespace(namespace).withName(resourceName).delete();
+                    break;
+                case "ReplicaSet":
+                    client.extensions().replicaSets().inNamespace(namespace).withName(resourceName).delete();
+                    break;
+                case "ConfigMap":
+                    client.configMaps().inNamespace(namespace).withName(resourceName).delete();
+                    break;
+                case "PersistentVolume":
+                    client.persistentVolumes().withName(resourceName).delete();
+                    break;
+                case "Secret":
+                    client.secrets().inNamespace(namespace).withName(resourceName).delete();
+                    break;
+                case "Service":
+                    client.services().inNamespace(namespace).withName(resourceName).delete();
+                    break;
+                case "ReplicationController":
+                    client.replicationControllers().inNamespace(namespace).withName(resourceName).delete();
+                    break;
+                case "Namespace":
+                    client.namespaces().withName(resourceName).delete();
+                    break;
+                default:
+                    LOG.warn("Unhandled resource type {}: {} not deleted", resourceType, resourceName);
+                    break;
+            }
+        } catch (KubernetesClientException kce) {
+            LOG.warn("Error deleting resource {}: {}", resourceName, kce);
         }
     }
 

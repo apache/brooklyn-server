@@ -1,8 +1,18 @@
 package io.cloudsoft.amp.containerservice.kubernetes.location;
 
+import static com.google.common.base.Predicates.and;
+import static com.google.common.base.Predicates.equalTo;
+import static com.google.common.base.Predicates.not;
+import static com.google.common.base.Predicates.notNull;
 import static io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationLiveTest.CREDENTIAL;
 import static io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationLiveTest.IDENTITY;
 import static io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationLiveTest.KUBERNETES_ENDPOINT;
+import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEqualsEventually;
+import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEventually;
+import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEventuallyNonNull;
+import static org.apache.brooklyn.core.entity.EntityAsserts.assertEntityHealthy;
+import static org.apache.brooklyn.test.Asserts.succeedsEventually;
+import static org.apache.brooklyn.util.http.HttpAsserts.assertHttpStatusCodeEventuallyEquals;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -13,16 +23,14 @@ import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.network.OnPublicNetworkEnricher;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
+import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
-import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.util.http.HttpAsserts;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.logging.log4j.util.Strings;
@@ -36,8 +44,7 @@ import com.google.common.net.HostAndPort;
 
 import io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer;
 import io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesPod;
-import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocation;
-import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationConfig;
+import io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesResource;
 
 /**
  * Live tests for deploying simple blueprints. Particularly useful during dev, but not so useful
@@ -118,7 +125,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         Entity app = createStartWaitAndLogApplication(yaml);
         VanillaSoftwareProcess entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, VanillaSoftwareProcess.class));
 
-        String publicMapped = EntityAsserts.assertAttributeEventuallyNonNull(entity, Sensors.newStringSensor("netcat.endpoint.mapped.public"));
+        String publicMapped = assertAttributeEventuallyNonNull(entity, Sensors.newStringSensor("netcat.endpoint.mapped.public"));
         HostAndPort publicPort = HostAndPort.fromString(publicMapped);
 
         assertTrue(Networking.isReachable(publicPort), "publicPort="+publicPort);
@@ -196,11 +203,11 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         DockerContainer entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, DockerContainer.class));
 
         Entities.dumpInfo(app);
-        String publicMapped = EntityAsserts.assertAttributeEventuallyNonNull(entity, Sensors.newStringSensor("docker.port.8080.mapped.public"));
+        String publicMapped = assertAttributeEventuallyNonNull(entity, Sensors.newStringSensor("docker.port.8080.mapped.public"));
         HostAndPort publicPort = HostAndPort.fromString(publicMapped);
 
         assertReachableEventually(publicPort);
-        HttpAsserts.assertHttpStatusCodeEventuallyEquals("http://"+publicPort.getHostText()+":"+publicPort.getPort(), 200);
+        assertHttpStatusCodeEventuallyEquals("http://"+publicPort.getHostText()+":"+publicPort.getPort(), 200);
     }
 
 
@@ -280,10 +287,10 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         DockerContainer mysql = Iterables.find(containers, EntityPredicates.displayNameEqualTo("mysql"));
         DockerContainer wordpress = Iterables.find(containers, EntityPredicates.displayNameEqualTo("wordpress"));
 
-        String mysqlPublicPort = EntityAsserts.assertAttributeEventuallyNonNull(mysql, Sensors.newStringSensor("docker.port.3306.mapped.public"));
+        String mysqlPublicPort = assertAttributeEventuallyNonNull(mysql, Sensors.newStringSensor("docker.port.3306.mapped.public"));
         assertReachableEventually(HostAndPort.fromString(mysqlPublicPort));
 
-        String wordpressPublicPort = EntityAsserts.assertAttributeEventuallyNonNull(wordpress, Sensors.newStringSensor("docker.port.80.mapped.public"));
+        String wordpressPublicPort = assertAttributeEventuallyNonNull(wordpress, Sensors.newStringSensor("docker.port.80.mapped.public"));
         assertReachableEventually(HostAndPort.fromString(wordpressPublicPort));
 
         // TODO more assertions (e.g. wordpress can successfully reach the database)
@@ -308,15 +315,36 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         DockerContainer container = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, DockerContainer.class));
 
         Entities.dumpInfo(app);
-        String publicMapped = EntityAsserts.assertAttributeEventuallyNonNull(container, Sensors.newStringSensor("docker.port.8080.mapped.public"));
+        String publicMapped = assertAttributeEventuallyNonNull(container, Sensors.newStringSensor("docker.port.8080.mapped.public"));
         HostAndPort publicPort = HostAndPort.fromString(publicMapped);
 
         assertReachableEventually(publicPort);
-        HttpAsserts.assertHttpStatusCodeEventuallyEquals("http://"+publicPort.getHostText()+":"+publicPort.getPort(), 200);
+        assertHttpStatusCodeEventuallyEquals("http://"+publicPort.getHostText()+":"+publicPort.getPort(), 200);
+    }
+
+    @Test(groups={"Live"})
+    public void testNginxResource() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                locationYaml,
+                "services:",
+                "  - type: " + KubernetesResource.class.getName(),
+                "    id: nginx",
+                "    name: \"nginx\"",
+                "    brooklyn.config:",
+                "      resource: classpath://nginx.yaml");
+        Entity app = createStartWaitAndLogApplication(yaml);
+        KubernetesResource entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, KubernetesResource.class));
+
+        assertEntityHealthy(entity);
+        assertAttributeEqualsEventually(entity, KubernetesResource.RESOURCE_NAME, "nginx-controller");
+        assertAttributeEqualsEventually(entity, KubernetesResource.RESOURCE_TYPE, "ReplicationController");
+        assertAttributeEqualsEventually(entity, KubernetesLocationConfig.KUBERNETES_NAMESPACE, "default");
+        assertAttributeEventually(entity, SoftwareProcess.ADDRESS, and(notNull(), not(equalTo("0.0.0.0"))));
+        assertAttributeEventually(entity, SoftwareProcess.SUBNET_ADDRESS, and(notNull(), not(equalTo("0.0.0.0"))));
     }
 
     protected void assertReachableEventually(final HostAndPort hostAndPort) {
-        Asserts.succeedsEventually(new Runnable() {
+        succeedsEventually(new Runnable() {
             public void run() {
                 assertTrue(Networking.isReachable(hostAndPort), "publicPort="+hostAndPort);
             }});
