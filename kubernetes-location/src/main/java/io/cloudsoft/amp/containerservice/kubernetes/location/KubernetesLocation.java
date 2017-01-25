@@ -5,6 +5,7 @@ import java.net.InetAddress;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -16,6 +17,8 @@ import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
 import org.apache.brooklyn.api.location.PortRange;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.location.AbstractLocation;
@@ -24,6 +27,8 @@ import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
+import org.apache.brooklyn.core.network.OnPublicNetworkEnricher;
+import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -348,6 +353,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 labels = replicationController.getSpec().getTemplate().getMetadata().getLabels();
             }
             Pod pod = resourceType.equals("Pod") ? getPod(namespace, resourceName) : getPod(namespace, labels);
+            entity.sensors().set(KubernetesLocationConfig.KUBERNETES_POD, pod.getMetadata().getName());
 
             InetAddress node = Networking.getInetAddressWithFixedName(pod.getSpec().getNodeName());
             String podAddress = pod.getStatus().getPodIP();
@@ -367,6 +373,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
 
             try {
                 Pod pod = getPod(namespace, podName);
+                entity.sensors().set(KubernetesLocationConfig.KUBERNETES_POD, podName);
 
                 InetAddress node = Networking.getInetAddressWithFixedName(pod.getSpec().getNodeName());
                 locationSpec.configure("address", node);
@@ -382,6 +389,16 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         if (resourceType.equals("Service")) {
             Service service = getService(namespace, resourceName);
             registerPortMappings(machine, service);
+
+            List<ServicePort> ports = service.getSpec().getPorts();
+            for (ServicePort port : ports) {
+                String protocol = port.getProtocol();
+                if ("TCP".equalsIgnoreCase(protocol)) {
+                    Integer targetPort = port.getTargetPort().getIntVal();
+                    AttributeSensor<Integer> sensor = Sensors.newIntegerSensor("kubernetes.port." + port.getName());
+                    entity.sensors().set(sensor, targetPort);
+                }
+            }
         }
 
         return machine;
@@ -468,6 +485,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         for (ServicePort port : ports) {
             String protocol = port.getProtocol();
             Integer targetPort = port.getTargetPort().getIntVal();
+
             if (!"TCP".equalsIgnoreCase(protocol)) {
                 LOG.debug("Ignoring port mapping {} for {} because only TCP is currently supported", port, machine);
             } else if (targetPort == null) {
