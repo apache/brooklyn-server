@@ -128,9 +128,7 @@ public class SoftwareProcessEntityLatchTest extends BrooklynAppUnitTestSupport {
             public Void apply(MyService entity) {
                 String taskName = (latch == SoftwareProcess.STOP_LATCH) ? "stop" : "start";
                 assertEffectorBlockingDetailsEventually(entity, taskName, "Acquiring " + latch + " " + latchSemaphore);
-                if (latch != SoftwareProcess.START_LATCH) {
-                    assertDriverEventsEquals(entity, preLatchEvents);
-                }
+                assertDriverEventsEquals(entity, preLatchEvents);
                 latchSemaphore.release(entity);
                 return null;
             }
@@ -153,9 +151,7 @@ public class SoftwareProcessEntityLatchTest extends BrooklynAppUnitTestSupport {
         }
 
         assertEffectorBlockingDetailsEventually(entity, task.getDisplayName(), "Waiting for config " + latch.getName());
-        if (latch != SoftwareProcess.START_LATCH) {
-            assertDriverEventsEquals(entity, preLatchEvents);
-        }
+        assertDriverEventsEquals(entity, preLatchEvents);
         assertFalse(task.isDone());
 
         app.sensors().set(latchSensor, latchValue);
@@ -246,8 +242,13 @@ public class SoftwareProcessEntityLatchTest extends BrooklynAppUnitTestSupport {
     }
 
     private void assertDriverEventsEquals(MyService entity, List<String> expectedEvents) {
-        List<String> events = ((SimulatedDriver)entity.getDriver()).events;
-        assertEquals(events, expectedEvents, "events="+events);
+        SimulatedDriver driver = (SimulatedDriver)entity.getDriver();
+        if (driver != null) {
+            List<String> events = driver.events;
+            assertEquals(events, expectedEvents, "events="+events);
+        } else {
+            assertEquals(expectedEvents.size(), 0);
+        }
     }
 
     private void assertEffectorBlockingDetailsEventually(final Entity entity, final String effectorName, final String blockingDetailsSnippet) {

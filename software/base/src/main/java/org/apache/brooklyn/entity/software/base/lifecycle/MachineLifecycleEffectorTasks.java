@@ -25,7 +25,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
-import java.util.concurrent.atomic.AtomicReference;
 
 import javax.annotation.Nullable;
 
@@ -113,9 +112,9 @@ import com.google.common.reflect.TypeToken;
  * <ul>
  *  <li> {@link #startProcessesAtMachine(Supplier)} (required)
  *  <li> {@link #stopProcessesAtMachine()} (required, but can be left blank if you assume the VM will be destroyed)
- *  <li> {@link #preStartCustom(MachineLocation, AtomicReference)}
+ *  <li> {@link #preStartCustom(MachineLocation)}
  *  <li> {@link #postStartCustom()}
- *  <li> {@link #preStopConfirmCustom(AtomicReference)}
+ *  <li> {@link #preStopConfirmCustom()}
  *  <li> {@link #postStopCustom()}
  * </ul>
  * Note methods at this level typically look after the {@link Attributes#SERVICE_STATE_ACTUAL} sensor.
@@ -365,20 +364,12 @@ public abstract class MachineLifecycleEffectorTasks {
         Preconditions.checkState(locationS != null, "Unsupported location "+location+", when starting "+entity());
 
         final Supplier<MachineLocation> locationSF = locationS;
-        final AtomicReference<ReleaseableLatch> startLatchRef = new AtomicReference<>();
 
         // Opportunity to block startup until other dependent components are available
-        startLatchRef.set(waitForLatch(entity(), SoftwareProcess.START_LATCH));
-        try {
+        try (CloseableLatch latch = waitForCloseableLatch(entity(), SoftwareProcess.START_LATCH)) {
             preStartAtMachineAsync(locationSF);
             DynamicTasks.queue("start (processes)", new StartProcessesAtMachineTask(locationSF));
             postStartAtMachineAsync();
-        } finally {
-            DynamicTasks.drain(null, false);
-            ReleaseableLatch startLatch = startLatchRef.get();
-            if (startLatch != null) {
-                startLatch.release(entity());
-            }
         }
     }
 
@@ -463,9 +454,7 @@ public abstract class MachineLifecycleEffectorTasks {
 
     /**
      * Wraps a call to {@link #preStartCustom(MachineLocation)}, after setting the hostname and address.
-     * @deprecated since 0.11.0. Use {@link #preStartAtMachineAsync(Supplier, AtomicReference)} instead.
      */
-    @Deprecated
     protected void preStartAtMachineAsync(final Supplier<MachineLocation> machineS) {
         DynamicTasks.queue("pre-start", new PreStartTask(machineS.get()));
     }
@@ -756,16 +745,8 @@ public abstract class MachineLifecycleEffectorTasks {
     }
 
     protected void doStopLatching(ConfigBag parameters, Callable<StopMachineDetails<Integer>> stopTask) {
-        AtomicReference<ReleaseableLatch> stopLatchRef = new AtomicReference<>();
-        try {
-            stopLatchRef.set(waitForLatch(entity(), SoftwareProcess.STOP_LATCH));
+        try (CloseableLatch latch = waitForCloseableLatch(entity(), SoftwareProcess.STOP_LATCH)) {
             doStop(parameters, stopTask);
-        } finally {
-            DynamicTasks.drain(null, false);
-            ReleaseableLatch stopLatch = stopLatchRef.get();
-            if (stopLatch != null) {
-                stopLatch.release(entity());
-            }
         }
     }
 
@@ -1104,7 +1085,29 @@ public abstract class MachineLifecycleEffectorTasks {
         entity().sensors().set(Attributes.SUBNET_ADDRESS, null);
     }
 
-    public static ReleaseableLatch waitForLatch(EntityInternal entity, ConfigKey<Boolean> configKey) {
+    // Removes the checked Exception from the method signature
+    public static class CloseableLatch implements AutoCloseable {
+        private Entity caller;
+        private ReleaseableLatch releaseableLatch;
+
+        public CloseableLatch(Entity caller, ReleaseableLatch releaseableLatch) {
+            this.caller = caller;
+            this.releaseableLatch = releaseableLatch;
+        }
+
+        @Override
+        public void close() {
+            DynamicTasks.drain(null, false);
+            releaseableLatch.release(caller);
+        }
+    }
+
+    public static CloseableLatch waitForCloseableLatch(Entity entity, ConfigKey<Boolean> configKey) {
+        ReleaseableLatch releaseableLatch = waitForLatch((EntityInternal)entity, configKey);
+        return new CloseableLatch(entity, releaseableLatch);
+    }
+
+    private static ReleaseableLatch waitForLatch(EntityInternal entity, ConfigKey<Boolean> configKey) {
         Maybe<?> rawValue = entity.config().getRaw(configKey);
         if (rawValue.isAbsent()) {
             return ReleaseableLatch.NOP;

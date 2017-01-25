@@ -26,15 +26,18 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 
 import com.google.common.base.Function;
 
-// DeferredSupplier used as a marker interface to prevent coercion. When resolved it must evaluate to {@code Boolean.TRUE}.
 public interface ReleaseableLatch {
     /**
-     * Increment usage count for the {@code caller} entity
+     * Increment usage count for the {@code caller} entity. Implementations may ignore {@code caller}.
+     * 
+     * @param caller The entity latching on the object
      */
     void acquire(Entity caller);
 
     /**
-     * Decrement usage count for the {@code caller} entity
+     * Decrement usage count for the {@code caller} entity. Implementations may ignore {@code caller}.
+     *
+     * @param caller The entity latching on the object
      */
     void release(Entity caller);
 

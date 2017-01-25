@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
-import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -48,8 +47,8 @@ import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
-import org.apache.brooklyn.core.sensor.ReleaseableLatch;
 import org.apache.brooklyn.entity.software.base.lifecycle.MachineLifecycleEffectorTasks;
+import org.apache.brooklyn.entity.software.base.lifecycle.MachineLifecycleEffectorTasks.CloseableLatch;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
@@ -217,26 +216,8 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
         }});
     }
 
-    // Removes the checked Exception from the method signature
-    private static class CloseableLatch implements AutoCloseable {
-        private Entity caller;
-        private ReleaseableLatch releaseableLatch;
-
-        public CloseableLatch(Entity caller, ReleaseableLatch releaseableLatch) {
-            this.caller = caller;
-            this.releaseableLatch = releaseableLatch;
-        }
-
-        @Override
-        public void close() {
-            DynamicTasks.drain(null, false);
-            releaseableLatch.release(caller);
-        }
-    }
-
     private CloseableLatch waitForLatch(ConfigKey<Boolean> configKey) {
-        ReleaseableLatch releaseableLatch = MachineLifecycleEffectorTasks.waitForLatch((EntityInternal)entity, configKey);
-        return new CloseableLatch(entity, releaseableLatch);
+        return MachineLifecycleEffectorTasks.waitForCloseableLatch((EntityInternal)entity, configKey);
     }
 
     @Override
