@@ -122,13 +122,13 @@ public class SoftwareProcessDriverLifecycleEffectorTasks extends MachineLifecycl
     }
      
     @Override
-    protected void preStartCustom(MachineLocation machine, AtomicReference<ReleaseableLatch> startLatchRef) {
+    protected void preStartCustom(MachineLocation machine) {
         entity().initDriver(machine);
 
         // Note: must only apply config-sensors after adding to locations and creating driver; 
         // otherwise can't do things like acquire free port from location
         // or allowing driver to set up ports; but must be careful in init not to block on these!
-        super.preStartCustom(machine, startLatchRef);
+        super.preStartCustom(machine);
         
         entity().preStart();
     }
@@ -189,8 +189,8 @@ public class SoftwareProcessDriverLifecycleEffectorTasks extends MachineLifecycl
     }
     
     @Override
-    protected void preStopConfirmCustom(AtomicReference<ReleaseableLatch> stopLatchRef) {
-        super.preStopConfirmCustom(stopLatchRef);
+    protected void preStopConfirmCustom() {
+        super.preStopConfirmCustom();
         
         entity().preStopConfirmCustom();
     }

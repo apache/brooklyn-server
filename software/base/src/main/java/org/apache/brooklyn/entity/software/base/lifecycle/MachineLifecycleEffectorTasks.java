@@ -127,13 +127,6 @@ public abstract class MachineLifecycleEffectorTasks {
 
     private static final Logger log = LoggerFactory.getLogger(MachineLifecycleEffectorTasks.class);
 
-    private static final ThreadLocal<AtomicReference<ReleaseableLatch>> RELEASEABLE_LATCH_TL = new ThreadLocal<AtomicReference<ReleaseableLatch>>() {
-        @Override
-        protected AtomicReference<ReleaseableLatch> initialValue() {
-            return new AtomicReference<ReleaseableLatch>(ReleaseableLatch.NOP);
-        }
-    };
-
     public static final ConfigKey<Boolean> ON_BOX_BASE_DIR_RESOLVED = ConfigKeys.newBooleanConfigKey(
             "onbox.base.dir.resolved",
             "Whether the on-box base directory has been resolved (for internal use)");
@@ -373,13 +366,14 @@ public abstract class MachineLifecycleEffectorTasks {
 
         final Supplier<MachineLocation> locationSF = locationS;
         final AtomicReference<ReleaseableLatch> startLatchRef = new AtomicReference<>();
-        RELEASEABLE_LATCH_TL.set(startLatchRef);
+
+        // Opportunity to block startup until other dependent components are available
+        startLatchRef.set(waitForLatch(entity(), SoftwareProcess.START_LATCH));
         try {
             preStartAtMachineAsync(locationSF);
             DynamicTasks.queue("start (processes)", new StartProcessesAtMachineTask(locationSF));
             postStartAtMachineAsync();
         } finally {
-            RELEASEABLE_LATCH_TL.remove();
             DynamicTasks.drain(null, false);
             ReleaseableLatch startLatch = startLatchRef.get();
             if (startLatch != null) {
@@ -473,21 +467,14 @@ public abstract class MachineLifecycleEffectorTasks {
      */
     @Deprecated
     protected void preStartAtMachineAsync(final Supplier<MachineLocation> machineS) {
-        preStartAtMachineAsync(machineS, RELEASEABLE_LATCH_TL.get());
-    }
-
-    /** Wraps a call to {@link #preStartCustom(MachineLocation, AtomicReference)}, after setting the hostname and address. */
-    protected void preStartAtMachineAsync(final Supplier<MachineLocation> machineS, AtomicReference<ReleaseableLatch> startLatchRef) {
-        DynamicTasks.queue("pre-start", new PreStartTask(machineS.get(), startLatchRef));
+        DynamicTasks.queue("pre-start", new PreStartTask(machineS.get()));
     }
 
     private class PreStartTask implements Runnable {
         final MachineLocation machine;
-        final AtomicReference<ReleaseableLatch> startLatchRef;
 
-        private PreStartTask(MachineLocation machine, AtomicReference<ReleaseableLatch> startLatchRef) {
+        private PreStartTask(MachineLocation machine) {
             this.machine = machine;
-            this.startLatchRef = startLatchRef;
         }
         @Override
         public void run() {
@@ -556,12 +543,8 @@ public abstract class MachineLifecycleEffectorTasks {
                 }
             }
             resolveOnBoxDir(entity(), machine);
-            RELEASEABLE_LATCH_TL.set(startLatchRef);
-            try {
-                preStartCustom(machine);
-            } finally {
-                RELEASEABLE_LATCH_TL.set(null);
-            }
+            preStartCustom(machine);
+
         }
     }
 
@@ -622,22 +605,9 @@ public abstract class MachineLifecycleEffectorTasks {
                     "("+paramSummary+" not compatible: "+oldParam+" / "+newParam+"); "+newLoc+" may require manual removal.");
     }
 
-    /** @deprecated since 0.11.0. Use {@link #preStartCustom(MachineLocation, AtomicReference)} instead. */
     @Deprecated
     protected void preStartCustom(MachineLocation machine) {
-        preStartCustom(machine, RELEASEABLE_LATCH_TL.get());
-    }
-
-    /**
-     * Default pre-start hooks.
-     * <p>
-     * Can be extended by subclasses if needed.
-     */
-    protected void preStartCustom(MachineLocation machine, AtomicReference<ReleaseableLatch> startLatchRef) {
         ConfigToAttributes.apply(entity());
-
-        // Opportunity to block startup until other dependent components are available
-        startLatchRef.set(waitForLatch(entity(), SoftwareProcess.START_LATCH));
     }
 
     protected Map<String, Object> obtainProvisioningFlags(final MachineProvisioningLocation<?> location) {
@@ -787,11 +757,10 @@ public abstract class MachineLifecycleEffectorTasks {
 
     protected void doStopLatching(ConfigBag parameters, Callable<StopMachineDetails<Integer>> stopTask) {
         AtomicReference<ReleaseableLatch> stopLatchRef = new AtomicReference<>();
-        RELEASEABLE_LATCH_TL.set(stopLatchRef);
         try {
+            stopLatchRef.set(waitForLatch(entity(), SoftwareProcess.STOP_LATCH));
             doStop(parameters, stopTask);
         } finally {
-            RELEASEABLE_LATCH_TL.remove();
             DynamicTasks.drain(null, false);
             ReleaseableLatch stopLatch = stopLatchRef.get();
             if (stopLatch != null) {
@@ -1002,19 +971,8 @@ public abstract class MachineLifecycleEffectorTasks {
                 stopMode == StopMode.IF_NOT_STOPPED && !isStopped;
     }
 
-    /** @deprecated since 0.11.0. Use {@link #preStopConfirmCustom(AtomicReference)} instead. */
     @Deprecated
     protected void preStopConfirmCustom() {
-        preStopConfirmCustom(RELEASEABLE_LATCH_TL.get());
-    }
-
-    /** 
-     * Override to check whether stop can be executed.
-     * Throw if stop should be aborted.
-     */
-    protected void preStopConfirmCustom(AtomicReference<ReleaseableLatch> stopLatchRef) {
-        // Opportunity to block stop() until other dependent components are ready for it
-        stopLatchRef.set(waitForLatch(entity(), SoftwareProcess.STOP_LATCH));
     }
 
     protected void preStopCustom() {
