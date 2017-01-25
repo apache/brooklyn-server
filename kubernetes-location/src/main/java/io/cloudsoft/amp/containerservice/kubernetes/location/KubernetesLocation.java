@@ -2,6 +2,7 @@ package io.cloudsoft.amp.containerservice.kubernetes.location;
 
 import java.io.InputStream;
 import java.net.InetAddress;
+import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.List;
@@ -64,6 +65,7 @@ import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
 import io.fabric8.kubernetes.api.model.ContainerPort;
 import io.fabric8.kubernetes.api.model.ContainerPortBuilder;
+import io.fabric8.kubernetes.api.model.EndpointAddress;
 import io.fabric8.kubernetes.api.model.EndpointSubset;
 import io.fabric8.kubernetes.api.model.Endpoints;
 import io.fabric8.kubernetes.api.model.EnvVar;
@@ -344,26 +346,33 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
             } else if (resourceType.equals("ReplicationController")) {
                 ReplicationController replicationController = (ReplicationController) metadata;
                 labels = replicationController.getSpec().getTemplate().getMetadata().getLabels();
-            } else if (resourceType.equals("Pod")) {
-                Pod pod = (Pod) metadata;
-                labels = pod.getMetadata().getLabels();
             }
-            Pod pod = getPod(namespace, labels);
+            Pod pod = resourceType.equals("Pod") ? getPod(namespace, resourceName) : getPod(namespace, labels);
 
             InetAddress node = Networking.getInetAddressWithFixedName(pod.getSpec().getNodeName());
             String podAddress = pod.getStatus().getPodIP();
+
             locationSpec.configure("address", node);
             locationSpec.configure(SshMachineLocation.PRIVATE_ADDRESSES, ImmutableSet.of(podAddress));
         } else if (resourceType.equals("Service")) {
-            Service service = getService(namespace, resourceName);
-            List<String> external = service.getSpec().getExternalIPs();
-            String cluster = service.getSpec().getClusterIP();
-            String loadBalancer = service.getSpec().getLoadBalancerIP();
-            String portal = service.getSpec().getPortalIP();
-            LOG.info("Service addresses: external {}; cluster {}; loadBalancer {}; portal {}",
-                    new Object[] { external, cluster, loadBalancer, portal });
+            getService(namespace, resourceName);
 
-            locationSpec.configure("address", cluster);
+            Endpoints endpoints = client.endpoints().inNamespace(namespace).withName(resourceName).get();
+            EndpointSubset subset = endpoints.getSubsets().get(0);
+            EndpointAddress address = subset.getAddresses().get(0);
+            String podName = address.getTargetRef().getName();
+            String privateIp = address.getIp();
+
+            locationSpec.configure(SshMachineLocation.PRIVATE_ADDRESSES, ImmutableSet.of(privateIp));
+
+            try {
+                Pod pod = getPod(namespace, podName);
+
+                InetAddress node = Networking.getInetAddressWithFixedName(pod.getSpec().getNodeName());
+                locationSpec.configure("address", node);
+            } catch (KubernetesClientException kce) {
+                LOG.warn("Cannot find pod {} in namespace {} for service {}", new Object[] { podName, namespace, resourceName });
+            }
         } else {
             LOG.info("Resource {} with type {} has no associated address", resourceName, resourceType);
             locationSpec.configure("address", "0.0.0.0");
@@ -463,6 +472,8 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 LOG.debug("Ignoring port mapping {} for {} because only TCP is currently supported", port, machine);
             } else if (targetPort == null) {
                 LOG.debug("Ignoring port mapping {} for {} because targetPort.intValue is null", port, machine);
+            } else if (port.getNodePort() == null) {
+                LOG.debug("Ignoring port mapping {} to {} because port.getNodePort() is null", targetPort, machine);
             } else {
                 portForwardManager.associate(publicHostText, HostAndPort.fromParts(publicHostText, port.getNodePort()), machine, targetPort);
             }
@@ -499,6 +510,23 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         return client.namespaces().withName(name).get();
     }
 
+    protected Pod getPod(final String namespace, final String name) {
+        ExitCondition exitCondition = new ExitCondition() {
+            @Override
+            public Boolean call() {
+                Pod result = client.pods().inNamespace(namespace).withName(name).get();
+                return result != null && result.getStatus().getPodIP() != null;
+            }
+            @Override
+            public String getFailureMessage() {
+                return "Cannot find pod with name: " + name;
+            }
+        };
+        waitForExitCondition(exitCondition);
+        Pod result = client.pods().inNamespace(namespace).withName(name).get();
+        return result;
+    }
+
     protected Pod getPod(final String namespace, final Map<String, String> metadata) {
         ExitCondition exitCondition = new ExitCondition() {
             @Override
@@ -508,7 +536,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
             }
             @Override
             public String getFailureMessage() {
-                return "Cannot find pod  Pod with metadata: " + Joiner.on(" ").withKeyValueSeparator("=").join(metadata);
+                return "Cannot find pod with metadata: " + Joiner.on(" ").withKeyValueSeparator("=").join(metadata);
             }
         };
         waitForExitCondition(exitCondition);
