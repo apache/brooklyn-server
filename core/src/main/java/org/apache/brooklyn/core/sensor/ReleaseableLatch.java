@@ -21,13 +21,13 @@ package org.apache.brooklyn.core.sensor;
 import java.util.concurrent.Semaphore;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.util.core.task.DeferredSupplier;
-import org.apache.brooklyn.util.core.task.ImmediateSupplier;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.guava.Maybe;
+
+import com.google.common.base.Function;
 
 // DeferredSupplier used as a marker interface to prevent coercion. When resolved it must evaluate to {@code Boolean.TRUE}.
-public interface ReleaseableLatch extends DeferredSupplier<Boolean>, ImmediateSupplier<Boolean> {
+public interface ReleaseableLatch {
     /**
      * Increment usage count for the {@code caller} entity
      */
@@ -38,21 +38,21 @@ public interface ReleaseableLatch extends DeferredSupplier<Boolean>, ImmediateSu
      */
     void release(Entity caller);
 
-    static abstract class AbstractReleaseableLatch implements ReleaseableLatch {
-        // Instances coerce to TRUE as they are non-null.
-        @Override public Boolean get() {return Boolean.TRUE;}
-        @Override public Maybe<Boolean> getImmediately() {return Maybe.of(Boolean.TRUE);}
-    }
-
     ReleaseableLatch NOP = new Factory.NopLatch();
 
     static class Factory {
-        private static class NopLatch extends AbstractReleaseableLatch {
+        static {
+            TypeCoercions.registerAdapter(ReleaseableLatch.class, Boolean.class, new Function<ReleaseableLatch, Boolean>() {
+                @Override public Boolean apply(ReleaseableLatch input) { return Boolean.TRUE; }
+            });
+        }
+
+        private static class NopLatch implements ReleaseableLatch {
             @Override public void acquire(Entity caller) {}
             @Override public void release(Entity caller) {}
         }
 
-        private static class MaxConcurrencyLatch extends AbstractReleaseableLatch {
+        private static class MaxConcurrencyLatch implements ReleaseableLatch {
             private int permits;
             private transient final Semaphore sem;
 

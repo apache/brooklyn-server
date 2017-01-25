@@ -1152,6 +1152,7 @@ public abstract class MachineLifecycleEffectorTasks {
             return ReleaseableLatch.NOP;
         } else {
             ValueResolverIterator<Boolean> iter = resolveLatchIterator(entity, rawValue.get(), configKey);
+            // The iterator is used to prevent coercion; the value should always be the last one, but iter.last() will return a coerced Boolean
             Maybe<ReleaseableLatch> releasableLatchMaybe = iter.next(ReleaseableLatch.class);
             if (releasableLatchMaybe.isPresent()) {
                 ReleaseableLatch latch = releasableLatchMaybe.get();

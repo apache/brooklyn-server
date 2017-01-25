@@ -56,7 +56,6 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.TaskInternal;
-import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
@@ -286,14 +285,6 @@ public class SoftwareProcessEntityLatchTest extends BrooklynAppUnitTestSupport {
         public CountingLatch(ReleaseableLatch delegate, int maxConcurrency) {
             this.delegate = delegate;
             this.maxConcurrency = maxConcurrency;
-        }
-
-        public Boolean get() {
-            return delegate.get();
-        }
-
-        public Maybe<Boolean> getImmediately() {
-            return delegate.getImmediately();
         }
 
         public void acquire(Entity caller) {
