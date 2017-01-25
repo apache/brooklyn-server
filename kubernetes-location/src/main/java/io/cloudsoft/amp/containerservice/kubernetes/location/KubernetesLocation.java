@@ -369,6 +369,12 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
             locationSpec.configure("address", "0.0.0.0");
         }
         SshMachineLocation machine = getManagementContext().getLocationManager().createLocation(locationSpec);
+
+        if (resourceType.equals("Service")) {
+            Service service = getService(namespace, resourceName);
+            registerPortMappings(machine, service);
+        }
+
         return machine;
     }
 
@@ -448,7 +454,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 .getLocationManaged(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
         List<ServicePort> ports = service.getSpec().getPorts();
         String publicHostText = machine.getSshHostAndPort().getHostText();
-        LOG.debug("Recording port-mappings for container {} of {}: {}", new Object[] {machine, this, ports});
+        LOG.debug("Recording port-mappings for container {} of {}: {}", new Object[] { machine, this, ports });
 
         for (ServicePort port : ports) {
             String protocol = port.getProtocol();
