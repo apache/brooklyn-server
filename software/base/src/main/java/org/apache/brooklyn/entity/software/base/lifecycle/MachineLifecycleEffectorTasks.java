@@ -114,9 +114,9 @@ import com.google.common.reflect.TypeToken;
  *  <li> {@link #startProcessesAtMachine(Supplier)} (required)
  *  <li> {@link #stopProcessesAtMachine()} (required, but can be left blank if you assume the VM will be destroyed)
  *  <li> {@link #preStartCustom(MachineLocation, AtomicReference)}
- *  <li> {@link #postStartCustom(AtomicReference)}
+ *  <li> {@link #postStartCustom()}
  *  <li> {@link #preStopConfirmCustom(AtomicReference)}
- *  <li> {@link #postStopCustom(AtomicReference)}
+ *  <li> {@link #postStopCustom()}
  * </ul>
  * Note methods at this level typically look after the {@link Attributes#SERVICE_STATE_ACTUAL} sensor.
  *
@@ -380,6 +380,11 @@ public abstract class MachineLifecycleEffectorTasks {
             postStartAtMachineAsync();
         } finally {
             RELEASEABLE_LATCH_TL.remove();
+            DynamicTasks.drain(null, false);
+            ReleaseableLatch startLatch = startLatchRef.get();
+            if (startLatch != null) {
+                startLatch.release(entity());
+            }
         }
     }
 
@@ -644,38 +649,15 @@ public abstract class MachineLifecycleEffectorTasks {
 
     protected abstract String startProcessesAtMachine(final Supplier<MachineLocation> machineS);
 
-    /** @deprecated since 0.11.0. Use {@link #postStartAtMachineAsync(AtomicReference)} instead. */
-    @Deprecated
     protected void postStartAtMachineAsync() {
-        postStartAtMachineAsync(RELEASEABLE_LATCH_TL.get());
-    }
-
-    protected void postStartAtMachineAsync(AtomicReference<ReleaseableLatch> startLatchRef) {
-        DynamicTasks.queue("post-start", new PostStartTask(startLatchRef));
+        DynamicTasks.queue("post-start", new PostStartTask());
     }
 
     private class PostStartTask implements Runnable {
-        private AtomicReference<ReleaseableLatch> startLatchRef;
-
-        public PostStartTask(AtomicReference<ReleaseableLatch> startLatchRef) {
-            this.startLatchRef = startLatchRef;
-        }
-
         @Override
         public void run() {
-            RELEASEABLE_LATCH_TL.set(startLatchRef);
-            try {
-                postStartCustom();
-            } finally {
-                RELEASEABLE_LATCH_TL.remove();
-            }
+            postStartCustom();
         }
-    }
-
-    /** @deprecated since 0.11.0. Use {@link #postStartCustom(AtomicReference)} instead. */
-    @Deprecated
-    protected void postStartCustom() {
-        postStartCustom(RELEASEABLE_LATCH_TL.get());
     }
 
     /**
@@ -684,8 +666,8 @@ public abstract class MachineLifecycleEffectorTasks {
      * Can be extended by subclasses, and typically will wait for confirmation of start.
      * The service not set to running until after this. Also invoked following a restart.
      */
-    protected void postStartCustom(AtomicReference<ReleaseableLatch> startLatchRef) {
-        startLatchRef.get().release(entity());
+    protected void postStartCustom() {
+        // nothing by default
     }
 
     /**
@@ -792,7 +774,7 @@ public abstract class MachineLifecycleEffectorTasks {
      * If no errors were encountered call {@link #postStopCustom()} at the end.
      */
     public void stop(ConfigBag parameters) {
-        doStop(parameters, new StopAnyProvisionedMachinesTask());
+        doStopLatching(parameters, new StopAnyProvisionedMachinesTask());
     }
 
     /**
@@ -800,17 +782,26 @@ public abstract class MachineLifecycleEffectorTasks {
      * {@link #stopAnyProvisionedMachines}.
      */
     public void suspend(ConfigBag parameters) {
-        doStop(parameters, new SuspendAnyProvisionedMachinesTask());
+        doStopLatching(parameters, new SuspendAnyProvisionedMachinesTask());
     }
 
-    protected void doStop(ConfigBag parameters, Callable<StopMachineDetails<Integer>> stopTask) {
+    protected void doStopLatching(ConfigBag parameters, Callable<StopMachineDetails<Integer>> stopTask) {
         AtomicReference<ReleaseableLatch> stopLatchRef = new AtomicReference<>();
         RELEASEABLE_LATCH_TL.set(stopLatchRef);
         try {
-            preStopConfirmCustom();
+            doStop(parameters, stopTask);
         } finally {
             RELEASEABLE_LATCH_TL.remove();
+            DynamicTasks.drain(null, false);
+            ReleaseableLatch stopLatch = stopLatchRef.get();
+            if (stopLatch != null) {
+                stopLatch.release(entity());
+            }
         }
+    }
+
+    protected void doStop(ConfigBag parameters, Callable<StopMachineDetails<Integer>> stopTask) {
+        preStopConfirmCustom();
 
         log.info("Stopping {} in {}", entity(), entity().getLocations());
 
@@ -923,7 +914,7 @@ public abstract class MachineLifecycleEffectorTasks {
         entity().sensors().set(SoftwareProcess.SERVICE_UP, false);
         ServiceStateLogic.setExpectedState(entity(), Lifecycle.STOPPED);
 
-        DynamicTasks.queue("post-stop", new PostStopCustomTask(stopLatchRef));
+        DynamicTasks.queue("post-stop", new PostStopCustomTask());
 
         if (log.isDebugEnabled()) log.debug("Stopped software process entity "+entity());
     }
@@ -989,20 +980,9 @@ public abstract class MachineLifecycleEffectorTasks {
     }
 
     private class PostStopCustomTask implements Callable<Void> {
-        private AtomicReference<ReleaseableLatch> stopLatchRef;
-
-        public PostStopCustomTask(AtomicReference<ReleaseableLatch> stopLatchRef) {
-            this.stopLatchRef = stopLatchRef;
-        }
-
         @Override
         public Void call() {
-            RELEASEABLE_LATCH_TL.set(stopLatchRef);
-            try {
-                postStopCustom();
-            } finally {
-                RELEASEABLE_LATCH_TL.remove();
-            }
+            postStopCustom();
             return null;
         }
     }
@@ -1041,14 +1021,8 @@ public abstract class MachineLifecycleEffectorTasks {
         // nothing needed here
     }
 
-    /** @deprecated 0.11.0. Use {@link #postStopCustom(AtomicReference)} instead. */
-    @Deprecated
     protected void postStopCustom() {
-        postStopCustom(RELEASEABLE_LATCH_TL.get());
-    }
-
-    protected void postStopCustom(AtomicReference<ReleaseableLatch> stopLatchRef) {
-        stopLatchRef.get().release(entity());
+        // nothing needed here
     }
 
     protected void preRestartCustom() {

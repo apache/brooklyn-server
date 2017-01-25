@@ -28,15 +28,12 @@ import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.location.Machines;
-import org.apache.brooklyn.core.sensor.ReleaseableLatch;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.entity.software.base.lifecycle.MachineLifecycleEffectorTasks;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.util.collections.Jsonya;
-import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.Jsonya.Navigator;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.TaskTags;
@@ -48,6 +45,8 @@ import org.apache.brooklyn.util.ssh.BashCommands;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
@@ -59,7 +58,7 @@ import com.google.common.collect.ImmutableList;
  * <p>
  * Instances of this should use the {@link ChefConfig} config attributes to configure startup,
  * and invoke {@link #usePidFile(String)} or {@link #useService(String)} to determine check-running and stop behaviour.
- * Alternatively this can be subclassed and {@link #postStartCustom(AtomicReference)} and {@link #stopProcessesAtMachine()} overridden.
+ * Alternatively this can be subclassed and {@link #postStartCustom()} and {@link #stopProcessesAtMachine()} overridden.
  * 
  * @since 0.6.0
  **/
@@ -239,7 +238,7 @@ public class ChefLifecycleEffectorTasks extends MachineLifecycleEffectorTasks im
     }
 
     @Override
-    protected void postStartCustom(AtomicReference<ReleaseableLatch> startLatchRef) {
+    protected void postStartCustom() {
         boolean result = false;
         result |= tryCheckStartPid();
         result |= tryCheckStartService();
@@ -248,7 +247,7 @@ public class ChefLifecycleEffectorTasks extends MachineLifecycleEffectorTasks im
             log.warn("No way to check whether "+entity()+" is running; assuming yes");
         }
         entity().sensors().set(SoftwareProcess.SERVICE_UP, true);
-        super.postStartCustom(startLatchRef);
+        super.postStartCustom();
     }
     
     protected boolean tryCheckStartPid() {

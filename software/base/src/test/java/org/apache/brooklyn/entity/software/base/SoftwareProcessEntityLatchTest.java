@@ -29,13 +29,18 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.effector.AddEffector;
+import org.apache.brooklyn.core.effector.EffectorBody;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.sensor.ReleaseableLatch;
@@ -43,10 +48,13 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.entity.group.DynamicCluster;
 import org.apache.brooklyn.entity.software.base.SoftwareProcessEntityTest.MyService;
+import org.apache.brooklyn.entity.software.base.SoftwareProcessEntityTest.MyServiceImpl;
 import org.apache.brooklyn.entity.software.base.SoftwareProcessEntityTest.SimulatedDriver;
 import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.TaskInternal;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
@@ -175,9 +183,55 @@ public class SoftwareProcessEntityLatchTest extends BrooklynAppUnitTestSupport {
         // Check we have actually used the latch
         assertNotEquals(countingLatch.getMaxCounter(), 0, "Latch not acquired at all");
         // In theory this is 0 < maxCnt <= maxConcurrency contract, but in practice
-        // we should always reach the maximum due to the sleeps below.
+        // we should always reach the maximum due to the sleeps in CountingLatch.
         // Change if found to fail in the wild.
         assertEquals(countingLatch.getMaxCounter(), maxConcurrency);
+    }
+
+    @Test(dataProvider="latchAndTaskNamesProvider"/*, timeOut=Asserts.THIRTY_SECONDS_TIMEOUT_MS*/)
+    public void testFailedReleaseableUnblocks(final ConfigKey<Boolean> latch, List<String> _) throws Exception {
+        final int maxConcurrency = 1;
+        final ReleaseableLatch latchSemaphore = ReleaseableLatch.Factory.newMaxConcurrencyLatch(maxConcurrency);
+        final AttributeSensor<Object> latchSensor = Sensors.newSensor(Object.class, "latch");
+        final CountingLatch countingLatch = new CountingLatch(latchSemaphore, maxConcurrency);
+        // FIRST_MEMBER_SPEC latches are not guaranteed to be acquired before MEMBER_SPEC latches
+        // so the start effector could complete, but the counting latch will catch if there are
+        // any unreleased semaphores.
+        @SuppressWarnings({"unused"})
+        DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
+                .configure(DynamicCluster.INITIAL_SIZE, 2)
+                .configure(DynamicCluster.FIRST_MEMBER_SPEC, EntitySpec.create(FailingMyService.class)
+                        .configure(ConfigKeys.newConfigKey(Object.class, latch.getName()), (Object)DependentConfiguration.attributeWhenReady(app, latchSensor)))
+                .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(MyService.class)
+                        .configure(ConfigKeys.newConfigKey(Object.class, latch.getName()), (Object)DependentConfiguration.attributeWhenReady(app, latchSensor))));
+        app.sensors().set(latchSensor, countingLatch);
+        final Task<Void> startTask = Entities.invokeEffector(app, app, MyService.START, ImmutableMap.of("locations", ImmutableList.of(app.newLocalhostProvisioningLocation())));
+        //expected to fail but should complete quickly
+        assertTrue(startTask.blockUntilEnded(Asserts.DEFAULT_LONG_TIMEOUT), "timeout waiting for start effector to complete");
+        assertTrue(latch == SoftwareProcess.STOP_LATCH || startTask.isError());
+        final Task<Void> stopTask = Entities.invokeEffector(app, app, MyService.STOP, ImmutableMap.<String, Object>of());
+        //expected to fail but should complete quickly
+        assertTrue(stopTask.blockUntilEnded(Asserts.DEFAULT_LONG_TIMEOUT), "timeout waiting for stop effector to complete");
+        // stop task won't fail because the process stop failed; the error is ignored
+        assertTrue(stopTask.isDone());
+        assertEquals(countingLatch.getCounter(), 0);
+        // Check we have actually used the latch
+        assertNotEquals(countingLatch.getMaxCounter(), 0, "Latch not acquired at all");
+        // In theory this is 0 < maxCnt <= maxConcurrency contract, but in practice
+        // we should always reach the maximum due to the sleeps in CountingLatch.
+        // Change if found to fail in the wild.
+        assertEquals(countingLatch.getMaxCounter(), maxConcurrency);
+    }
+
+    protected EntityInitializer createFailingEffectorInitializer(String name) {
+        return new AddEffector(AddEffector.newEffectorBuilder(Void.class,
+                        ConfigBag.newInstance(ImmutableMap.of(AddEffector.EFFECTOR_NAME, name)))
+                .impl(new EffectorBody<Void>() {
+                    @Override
+                    public Void call(ConfigBag parameters) {
+                        throw new IllegalStateException("Failed to start");
+                    }
+                }).build());
     }
 
     protected List<String> getLatchPostTasks(final ConfigKey<?> latch) {
@@ -270,5 +324,80 @@ public class SoftwareProcessEntityLatchTest extends BrooklynAppUnitTestSupport {
             }
         }
 
+
     }
+
+    @ImplementedBy(FailingMyServiceImpl.class)
+    public static interface FailingMyService extends MyService {}
+    public static class FailingMyServiceImpl extends MyServiceImpl implements FailingMyService {
+        @Override
+        public Class<?> getDriverInterface() {
+            return FailingSimulatedDriver.class;
+        }
+    }
+    static class FailingSimulatedDriver extends SimulatedDriver {
+        public FailingSimulatedDriver(@SuppressWarnings("deprecation") org.apache.brooklyn.api.entity.EntityLocal entity, SshMachineLocation machine) {
+            super(entity, machine);
+        }
+
+        @Override
+        public void stop() {
+            super.stop();
+            failOnStep(SoftwareProcess.STOP_LATCH);
+        }
+
+        @Override
+        public void install() {
+            super.install();
+            failOnStep(SoftwareProcess.INSTALL_LATCH);
+        }
+
+        @Override
+        public void customize() {
+            super.customize();
+            failOnStep(SoftwareProcess.CUSTOMIZE_LATCH);
+        }
+
+        @Override
+        public void launch() {
+            super.launch();
+            failOnStep(SoftwareProcess.START_LATCH);
+            failOnStep(SoftwareProcess.LAUNCH_LATCH);
+        }
+
+        @Override
+        public void setup() {
+            super.setup();
+            failOnStep(SoftwareProcess.SETUP_LATCH);
+        }
+
+        @Override
+        public void copyInstallResources() {
+            super.copyInstallResources();
+            failOnStep(SoftwareProcess.INSTALL_RESOURCES_LATCH);
+        }
+
+        @Override
+        public void copyRuntimeResources() {
+            super.copyRuntimeResources();
+            failOnStep(SoftwareProcess.RUNTIME_RESOURCES_LATCH);
+        }
+
+        @Override
+        protected String getInstallLabelExtraSalt() {
+            return super.getInstallLabelExtraSalt();
+        }
+
+        protected void failOnStep(ConfigKey<Boolean> latch) {
+            if (((EntityInternal)entity).config().getRaw(latch).isPresent()) {
+                DynamicTasks.queue("Failing task", new Runnable() {
+                    @Override
+                    public void run() {
+                        throw new IllegalStateException("forced fail");
+                    }
+                });
+            }
+        }
+
+}
 }

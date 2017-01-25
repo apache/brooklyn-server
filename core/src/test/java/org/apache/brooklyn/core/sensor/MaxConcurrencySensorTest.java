@@ -30,7 +30,6 @@ import com.google.common.collect.ImmutableMap;
 
 public class MaxConcurrencySensorTest extends BrooklynAppUnitTestSupport {
     private static final AttributeSensor<Integer> MAX_PERMITS = Sensors.newIntegerSensor("max.permits");
-    private static final AttributeSensor<ReleaseableLatch> SENSOR = Sensors.newSensor(ReleaseableLatch.class, "myname");
 
     @Test
     public void testAddsStaticSensorOfTypeString() {
@@ -43,7 +42,7 @@ public class MaxConcurrencySensorTest extends BrooklynAppUnitTestSupport {
         int actualPermits = 10;
         app.sensors().set(MAX_PERMITS, actualPermits);
 
-        EntityAsserts.assertAttributeEventuallyNonNull(entity, SENSOR);
+        EntityAsserts.assertAttributeEventuallyNonNull(entity, (AttributeSensor<?>)entity.getEntityType().getSensor("myname"));
     }
 
 }

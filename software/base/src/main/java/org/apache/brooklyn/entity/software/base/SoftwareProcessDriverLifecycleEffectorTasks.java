@@ -88,7 +88,7 @@ public class SoftwareProcessDriverLifecycleEffectorTasks extends MachineLifecycl
             try {
                 // There's no preStartCustom call in the restart effector to get the latch value
                 // so nothing to release here - pass the nop value.
-                postStartCustom(new AtomicReference<>(ReleaseableLatch.NOP));
+                postStartCustom();
                 postRestartCustom();
             } finally {
                 ServiceStateLogic.setExpectedState(entity(), Lifecycle.RUNNING);
@@ -174,7 +174,7 @@ public class SoftwareProcessDriverLifecycleEffectorTasks extends MachineLifecycl
     }
 
     @Override
-    protected void postStartCustom(AtomicReference<ReleaseableLatch> startLatchRef) {
+    protected void postStartCustom() {
         entity().postDriverStart();
         if (entity().connectedSensors) {
             // many impls aren't idempotent - though they should be!
@@ -185,7 +185,7 @@ public class SoftwareProcessDriverLifecycleEffectorTasks extends MachineLifecycl
         }
         entity().waitForServiceUp();
         entity().postStart();
-        super.postStartCustom(startLatchRef);
+        super.postStartCustom();
     }
     
     @Override
@@ -261,10 +261,9 @@ public class SoftwareProcessDriverLifecycleEffectorTasks extends MachineLifecycl
     }
     
     @Override
-    protected void postStopCustom(AtomicReference<ReleaseableLatch> stopLatchRef) {
-        super.postStopCustom(stopLatchRef);
-        
+    protected void postStopCustom() {
         entity().postStop();
+        super.postStopCustom();
     }
 
     @Override

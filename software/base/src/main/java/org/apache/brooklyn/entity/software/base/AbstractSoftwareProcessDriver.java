@@ -223,14 +223,13 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
         private ReleaseableLatch releaseableLatch;
 
         public CloseableLatch(Entity caller, ReleaseableLatch releaseableLatch) {
-            super();
             this.caller = caller;
             this.releaseableLatch = releaseableLatch;
         }
 
         @Override
         public void close() {
-            DynamicTasks.waitForLast();
+            DynamicTasks.drain(null, false);
             releaseableLatch.release(caller);
         }
     }
