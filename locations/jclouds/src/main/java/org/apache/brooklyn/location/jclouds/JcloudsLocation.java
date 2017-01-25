@@ -1059,13 +1059,6 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     + " and os customized in "+Duration.of(customizedTimestamp).subtract(usableTimestamp).toStringRounded()+" - "+Joiner.on(", ").join(customisationForLogging)+")";
             LOG.info(logMessage);
 
-            if (customizers.size() > 0) {
-                machineLocation.config().set(JCLOUDS_LOCATION_CUSTOMIZERS, customizers);
-            }
-            if (machineCustomizers.size() > 0) {
-                machineLocation.config().set(MACHINE_LOCATION_CUSTOMIZERS, machineCustomizers);
-            }
-
             return machineLocation;
 
         } catch (Exception e) {
@@ -2027,6 +2020,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     protected JcloudsSshMachineLocation createJcloudsSshMachineLocation(
             ComputeService computeService, NodeMetadata node, Optional<Template> template,
             LoginCredentials userCredentials, HostAndPort managementHostAndPort, ConfigBag setup) throws IOException {
+
+        Collection<JcloudsLocationCustomizer> customizers = getCustomizers(setup);
+        Collection<MachineLocationCustomizer> machineCustomizers = getMachineCustomizers(setup);
         Map<?,?> sshConfig = extractSshConfig(setup, node);
         String nodeAvailabilityZone = extractAvailabilityZone(setup, node);
         String nodeRegion = extractRegion(setup, node);
@@ -2082,27 +2078,35 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     .configureIfNotNull(USE_PORT_FORWARDING, setup.get(USE_PORT_FORWARDING))
                     .configureIfNotNull(PORT_FORWARDER, setup.get(PORT_FORWARDER))
                     .configureIfNotNull(PORT_FORWARDING_MANAGER, setup.get(PORT_FORWARDING_MANAGER))
-                    .configureIfNotNull(SshMachineLocation.PRIVATE_ADDRESSES, node.getPrivateAddresses());
+                    .configureIfNotNull(SshMachineLocation.PRIVATE_ADDRESSES, node.getPrivateAddresses())
+                    .configureIfNotNull(JCLOUDS_LOCATION_CUSTOMIZERS, customizers.size() > 0 ? customizers : null)
+                    .configureIfNotNull(MACHINE_LOCATION_CUSTOMIZERS, machineCustomizers.size() > 0 ? machineCustomizers : null);
             return getManagementContext().getLocationManager().createLocation(spec);
         } else {
             LOG.warn("Using deprecated JcloudsSshMachineLocation constructor because " + this + " is not managed");
-            final MutableMap<Object, Object> properties = MutableMap.builder()
-                    .putAll(sshConfig)
-                    .put("displayName", displayName)
-                    .put("address", address)
-                    .put("port", port)
-                    .put("user", userCredentials.getUser())
-                    // The use of `getName` is intentional. See 11741d85b9f54 for details.
-                    .putIfNotNull(SshMachineLocation.PASSWORD.getName(), password)
-                    .putIfNotNull(SshMachineLocation.PRIVATE_KEY_DATA.getName(), privateKeyData)
-                    .put("callerContext", setup.get(CALLER_CONTEXT))
-                    .putIfNotNull(CLOUD_AVAILABILITY_ZONE_ID.getName(), nodeAvailabilityZone)
-                    .putIfNotNull(CLOUD_REGION_ID.getName(), nodeRegion)
-                    .put(USE_PORT_FORWARDING, setup.get(USE_PORT_FORWARDING))
-                    .put(PORT_FORWARDER, setup.get(PORT_FORWARDER))
-                    .put(PORT_FORWARDING_MANAGER, setup.get(PORT_FORWARDING_MANAGER))
-                    .put(SshMachineLocation.PRIVATE_ADDRESSES, node.getPrivateAddresses())
-                    .build();
+            final MutableMap.Builder<Object, Object> builder = MutableMap.builder()
+                .putAll(sshConfig)
+                .put("displayName", displayName)
+                .put("address", address)
+                .put("port", port)
+                .put("user", userCredentials.getUser())
+                // The use of `getName` is intentional. See 11741d85b9f54 for details.
+                .putIfNotNull(SshMachineLocation.PASSWORD.getName(), password)
+                .putIfNotNull(SshMachineLocation.PRIVATE_KEY_DATA.getName(), privateKeyData)
+                .put("callerContext", setup.get(CALLER_CONTEXT))
+                .putIfNotNull(CLOUD_AVAILABILITY_ZONE_ID.getName(), nodeAvailabilityZone)
+                .putIfNotNull(CLOUD_REGION_ID.getName(), nodeRegion)
+                .put(USE_PORT_FORWARDING, setup.get(USE_PORT_FORWARDING))
+                .put(PORT_FORWARDER, setup.get(PORT_FORWARDER))
+                .put(PORT_FORWARDING_MANAGER, setup.get(PORT_FORWARDING_MANAGER))
+                .put(SshMachineLocation.PRIVATE_ADDRESSES, node.getPrivateAddresses());
+            if (customizers.size() > 0) {
+                builder.put(JCLOUDS_LOCATION_CUSTOMIZERS, customizers);
+            }
+            if (machineCustomizers.size() > 0) {
+                builder.put(MACHINE_LOCATION_CUSTOMIZERS, machineCustomizers);
+            }
+            final MutableMap<Object, Object> properties = builder.build();
             return new JcloudsSshMachineLocation(properties, this, node);
         }
     }
@@ -2118,6 +2122,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     protected JcloudsWinRmMachineLocation createWinRmMachineLocation(
             ComputeService computeService, NodeMetadata node, Optional<Template> template,
             LoginCredentials userCredentials, HostAndPort winrmHostAndPort, ConfigBag setup) {
+
+        Collection<JcloudsLocationCustomizer> customizers = getCustomizers(setup);
+        Collection<MachineLocationCustomizer> machineCustomizers = getMachineCustomizers(setup);
         Map<?,?> winrmConfig = extractWinrmConfig(setup, node);
         String nodeAvailabilityZone = extractAvailabilityZone(setup, node);
         String nodeRegion = extractRegion(setup, node);
@@ -2149,7 +2156,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     .configureIfNotNull(SshMachineLocation.SCRIPT_DIR, setup.get(SshMachineLocation.SCRIPT_DIR))
                     .configureIfNotNull(USE_PORT_FORWARDING, setup.get(USE_PORT_FORWARDING))
                     .configureIfNotNull(PORT_FORWARDER, setup.get(PORT_FORWARDER))
-                    .configureIfNotNull(PORT_FORWARDING_MANAGER, setup.get(PORT_FORWARDING_MANAGER));
+                    .configureIfNotNull(PORT_FORWARDING_MANAGER, setup.get(PORT_FORWARDING_MANAGER))
+                    .configureIfNotNull(JCLOUDS_LOCATION_CUSTOMIZERS, customizers.size() > 0 ? customizers : null)
+                    .configureIfNotNull(MACHINE_LOCATION_CUSTOMIZERS, machineCustomizers.size() > 0 ? machineCustomizers : null);
             return getManagementContext().getLocationManager().createLocation(spec);
         } else {
             throw new UnsupportedOperationException("Cannot create WinRmMachineLocation because " + this + " is not managed");
