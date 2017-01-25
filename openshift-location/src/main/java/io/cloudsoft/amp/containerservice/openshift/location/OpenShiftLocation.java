@@ -1,20 +1,30 @@
 package io.cloudsoft.amp.containerservice.openshift.location;
 
+import java.net.InetAddress;
 import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
+import org.apache.brooklyn.util.net.Networking;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.collect.ImmutableSet;
+
 import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesClientRegistry;
 import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocation;
+import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationConfig;
 import io.fabric8.kubernetes.api.model.Container;
+import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Namespace;
+import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodTemplateSpec;
 import io.fabric8.kubernetes.api.model.PodTemplateSpecBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.openshift.api.model.DeploymentConfig;
 import io.fabric8.openshift.api.model.DeploymentConfigBuilder;
 import io.fabric8.openshift.api.model.DeploymentConfigStatus;
@@ -45,6 +55,53 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
             client = (OpenShiftClient) registry.getKubernetesClient(ResolvingConfigBag.newInstanceExtending(getManagementContext(), config));
         }
         return client;
+    }
+
+    @Override
+    protected boolean handleResourceDelete(String resourceType, String resourceName, String namespace) {
+        if (super.handleResourceDelete(resourceType, resourceName, namespace)) {
+            return true;
+        }
+
+        try {
+            switch (resourceType) {
+                case "DeploymentConfig":
+                    return client.deploymentConfigs().inNamespace(namespace).withName(resourceName).delete();
+                case "Project":
+                    return client.projects().withName(resourceName).delete();
+                case "Template":
+                    return client.templates().inNamespace(namespace).withName(resourceName).delete();
+                case "BuildConfig":
+                    return client.buildConfigs().inNamespace(namespace).withName(resourceName).delete();
+            }
+        } catch (KubernetesClientException kce) {
+            LOG.warn("Error deleting resource {}: {}", resourceName, kce);
+        }
+        return false;
+    }
+
+    @Override
+    protected boolean findResourceAddress(LocationSpec<SshMachineLocation> locationSpec, Entity entity, HasMetadata metadata, String resourceType, String resourceName, String namespace) {
+        if (super.findResourceAddress(locationSpec, entity, metadata, resourceType, resourceName, namespace)) {
+            return true;
+        }
+
+        if (resourceType.equals("DeploymentConfig")) {
+            DeploymentConfig deploymentConfig = (DeploymentConfig) metadata;
+            Map<String, String> labels = deploymentConfig.getSpec().getTemplate().getMetadata().getLabels();
+            Pod pod = getPod(namespace, labels);
+            entity.sensors().set(KubernetesLocationConfig.KUBERNETES_POD, pod.getMetadata().getName());
+
+            InetAddress node = Networking.getInetAddressWithFixedName(pod.getSpec().getNodeName());
+            String podAddress = pod.getStatus().getPodIP();
+
+            locationSpec.configure("address", node);
+            locationSpec.configure(SshMachineLocation.PRIVATE_ADDRESSES, ImmutableSet.of(podAddress));
+
+            return true;
+        } else {
+            return false;
+        }
     }
 
     @Override

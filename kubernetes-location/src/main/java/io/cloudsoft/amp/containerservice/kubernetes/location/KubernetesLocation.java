@@ -2,10 +2,8 @@ package io.cloudsoft.amp.containerservice.kubernetes.location;
 
 import java.io.InputStream;
 import java.net.InetAddress;
-import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -18,7 +16,6 @@ import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
-import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.location.AbstractLocation;
@@ -27,7 +24,6 @@ import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
-import org.apache.brooklyn.core.network.OnPublicNetworkEnricher;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -183,7 +179,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     public void release(MachineLocation machine) {
         Entity entity = validateCallerContext(machine);
         if (isKubernetesResource(entity)) {
-            deleteKubernetesResourceLocation(entity, machine);
+            deleteKubernetesResourceLocation(entity);
         } else {
             deleteKubernetesContainerLocation(entity, machine);
         }
@@ -216,44 +212,40 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         }
     }
 
-    protected void deleteKubernetesResourceLocation(Entity entity, MachineLocation machine) {
+    protected void deleteKubernetesResourceLocation(Entity entity) {
         final String namespace = entity.sensors().get(KUBERNETES_NAMESPACE);
         final String resourceType = entity.sensors().get(KubernetesResource.RESOURCE_TYPE);
         final String resourceName = entity.sensors().get(KubernetesResource.RESOURCE_NAME);
 
+        if (!handleResourceDelete(resourceType, resourceName, namespace)) {
+            LOG.warn("Resource {}: {} not deleted", resourceName, resourceType);
+        }
+    }
+
+    protected boolean handleResourceDelete(String resourceType, String resourceName, String namespace) {
         try {
             switch (resourceType) {
                 case "Deployment":
-                    client.extensions().deployments().inNamespace(namespace).withName(resourceName).delete();
-                    break;
+                    return client.extensions().deployments().inNamespace(namespace).withName(resourceName).delete();
                 case "ReplicaSet":
-                    client.extensions().replicaSets().inNamespace(namespace).withName(resourceName).delete();
-                    break;
+                    return client.extensions().replicaSets().inNamespace(namespace).withName(resourceName).delete();
                 case "ConfigMap":
-                    client.configMaps().inNamespace(namespace).withName(resourceName).delete();
-                    break;
+                    return client.configMaps().inNamespace(namespace).withName(resourceName).delete();
                 case "PersistentVolume":
-                    client.persistentVolumes().withName(resourceName).delete();
-                    break;
+                    return client.persistentVolumes().withName(resourceName).delete();
                 case "Secret":
-                    client.secrets().inNamespace(namespace).withName(resourceName).delete();
-                    break;
+                    return client.secrets().inNamespace(namespace).withName(resourceName).delete();
                 case "Service":
-                    client.services().inNamespace(namespace).withName(resourceName).delete();
-                    break;
+                    return client.services().inNamespace(namespace).withName(resourceName).delete();
                 case "ReplicationController":
-                    client.replicationControllers().inNamespace(namespace).withName(resourceName).delete();
-                    break;
+                    return client.replicationControllers().inNamespace(namespace).withName(resourceName).delete();
                 case "Namespace":
-                    client.namespaces().withName(resourceName).delete();
-                    break;
-                default:
-                    LOG.warn("Unhandled resource type {}: {} not deleted", resourceType, resourceName);
-                    break;
+                    return client.namespaces().withName(resourceName).delete();
             }
         } catch (KubernetesClientException kce) {
             LOG.warn("Error deleting resource {}: {}", resourceName, kce);
         }
+        return false;
     }
 
     protected void undeploy(final String namespace, final String deployment, final String pod) {
@@ -342,7 +334,32 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
 
         LocationSpec<SshMachineLocation> locationSpec = LocationSpec.create(SshMachineLocation.class)
                         .configure(CALLER_CONTEXT, setup.get(CALLER_CONTEXT));
+        if (!findResourceAddress(locationSpec, entity, metadata, resourceType, resourceName, namespace)) {
+            LOG.info("Resource {} with type {} has no associated address", resourceName, resourceType);
+            locationSpec.configure("address", "0.0.0.0");
+        }
 
+        SshMachineLocation machine = getManagementContext().getLocationManager().createLocation(locationSpec);
+
+        if (resourceType.equals("Service")) {
+            Service service = getService(namespace, resourceName);
+            registerPortMappings(machine, service);
+
+            List<ServicePort> ports = service.getSpec().getPorts();
+            for (ServicePort port : ports) {
+                String protocol = port.getProtocol();
+                if ("TCP".equalsIgnoreCase(protocol)) {
+                    Integer targetPort = port.getTargetPort().getIntVal();
+                    AttributeSensor<Integer> sensor = Sensors.newIntegerSensor("kubernetes.port." + port.getName());
+                    entity.sensors().set(sensor, targetPort);
+                }
+            }
+        }
+
+        return machine;
+    }
+
+    protected boolean findResourceAddress(LocationSpec<SshMachineLocation> locationSpec, Entity entity, HasMetadata metadata, String resourceType, String resourceName, String namespace) {
         if (resourceType.equals("Deployment") || resourceType.equals("ReplicationController") || resourceType.equals("Pod")) {
             Map<String, String> labels = MutableMap.of();
             if (resourceType.equals("Deployment")) {
@@ -360,6 +377,8 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
 
             locationSpec.configure("address", node);
             locationSpec.configure(SshMachineLocation.PRIVATE_ADDRESSES, ImmutableSet.of(podAddress));
+
+            return true;
         } else if (resourceType.equals("Service")) {
             getService(namespace, resourceName);
 
@@ -380,28 +399,11 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
             } catch (KubernetesClientException kce) {
                 LOG.warn("Cannot find pod {} in namespace {} for service {}", new Object[] { podName, namespace, resourceName });
             }
+
+            return true;
         } else {
-            LOG.info("Resource {} with type {} has no associated address", resourceName, resourceType);
-            locationSpec.configure("address", "0.0.0.0");
+            return false;
         }
-        SshMachineLocation machine = getManagementContext().getLocationManager().createLocation(locationSpec);
-
-        if (resourceType.equals("Service")) {
-            Service service = getService(namespace, resourceName);
-            registerPortMappings(machine, service);
-
-            List<ServicePort> ports = service.getSpec().getPorts();
-            for (ServicePort port : ports) {
-                String protocol = port.getProtocol();
-                if ("TCP".equalsIgnoreCase(protocol)) {
-                    Integer targetPort = port.getTargetPort().getIntVal();
-                    AttributeSensor<Integer> sensor = Sensors.newIntegerSensor("kubernetes.port." + port.getName());
-                    entity.sensors().set(sensor, targetPort);
-                }
-            }
-        }
-
-        return machine;
     }
 
     protected MachineLocation createKubernetesContainerLocation(Entity entity, ConfigBag setup) {
