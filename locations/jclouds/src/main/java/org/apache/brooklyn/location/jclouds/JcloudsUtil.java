@@ -34,7 +34,6 @@ import java.util.Properties;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.core.config.Sanitizer;
@@ -349,31 +348,56 @@ public class JcloudsUtil {
         return getFirstReachableAddress(node, Duration.FIVE_MINUTES);
     }
     
+    /**
+     * Uses {@link Networking#isReachablePredicate()} to determine reachability.
+     * @see #getReachableAddresses(NodeMetadata, Duration, Predicate)
+     */
     public static String getFirstReachableAddress(NodeMetadata node, Duration timeout) {
-        return getFirstReachableAddress(node, timeout, new Networking.IsReachablePredicate());
+        return getFirstReachableAddress(node, timeout, Networking.isReachablePredicate());
     }
 
+    /** @see #getReachableAddresses(NodeMetadata, Duration, Predicate) */
     public static String getFirstReachableAddress(NodeMetadata node, Duration timeout, Predicate<? super HostAndPort> socketTester) {
+        Iterable<HostAndPort> addresses = getReachableAddresses(node, timeout, socketTester);
+        HostAndPort address = Iterables.getFirst(addresses, null);
+        if (address != null) {
+            return address.getHostText();
+        } else {
+            throw new IllegalStateException("No reachable IPs for " + node + "; check whether the node is " +
+                    "reachable and whether it meets the requirements of the HostAndPort tester: " + socketTester);
+        }
+    }
+
+    /**
+     * @return The public and private addresses of node that are reachable.
+     * @see #getReachableAddresses(Iterable, Duration, Predicate)
+     */
+    public static Iterable<HostAndPort> getReachableAddresses(NodeMetadata node, Duration timeout, Predicate<? super HostAndPort> socketTester) {
         final int port = node.getLoginPort();
-        List<HostAndPort> sockets = FluentIterable
-                .from(Iterables.concat(node.getPublicAddresses(), node.getPrivateAddresses()))
+        return getReachableAddresses(Iterables.concat(node.getPublicAddresses(), node.getPrivateAddresses()), port, timeout, socketTester);
+    }
+
+    /** @see #getReachableAddresses(Iterable, Duration, Predicate) */
+    public static Iterable<HostAndPort> getReachableAddresses(Iterable<String> hosts, final int port, Duration timeout, Predicate<? super HostAndPort> socketTester) {
+        FluentIterable<HostAndPort> sockets = FluentIterable
+                .from(hosts)
                 .transform(new Function<String, HostAndPort>() {
                         @Override public HostAndPort apply(String input) {
                             return HostAndPort.fromParts(input, port);
-                        }})
-                .toList();
-        
-        ListeningExecutorService executor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool());
-        try {
-            ReachableSocketFinder finder = new ReachableSocketFinder(socketTester, executor);
-            HostAndPort result = finder.findOpenSocketOnNode(sockets, timeout);
-            return result.getHostText();
-        } catch (Exception e) {
-            Exceptions.propagateIfFatal(e);
-            throw new IllegalStateException("Unable to choose IP for "+node+"; check whether the node is reachable or whether it meets requirements of the HostAndPort tester: " + socketTester , e);
-        } finally {
-            executor.shutdownNow();
-        }
+                        }});
+        return getReachableAddresses(sockets, timeout, socketTester);
+    }
+
+    /**
+     * Uses {@link ReachableSocketFinder} to determine which sockets are reachable. Iterators
+     * are unmodifiable and are lazily evaluated.
+     * @param sockets The host-and-ports to test
+     * @param timeout Max time to try to connect to the ip:port
+     * @param socketTester A predicate determining reachability.
+     */
+    public static Iterable<HostAndPort> getReachableAddresses(Iterable<HostAndPort> sockets, Duration timeout, Predicate<? super HostAndPort> socketTester) {
+        ReachableSocketFinder finder = new ReachableSocketFinder(socketTester);
+        return finder.findOpenSocketsOnNode(sockets, timeout);
     }
 
     // Suggest at least 15 minutes for timeout

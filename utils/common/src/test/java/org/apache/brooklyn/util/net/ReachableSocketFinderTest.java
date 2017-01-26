@@ -70,7 +70,7 @@ public class ReachableSocketFinderTest {
     public void setUp() throws Exception {
         reachabilityResults = Maps.newConcurrentMap();
         executor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool());
-        finder = new ReachableSocketFinder(socketTester, executor);
+        finder = new ReachableSocketFinder(socketTester, Duration.ZERO);
     }
 
     @AfterMethod(alwaysRun=true)
@@ -92,11 +92,11 @@ public class ReachableSocketFinderTest {
     public void testReturnsReachableSocket() throws Exception {
         reachabilityResults.put(socket1, true);
         reachabilityResults.put(socket2, false);
-        assertEquals(finder.findOpenSocketOnNode(ImmutableList.of(socket1, socket2), Duration.ONE_SECOND), socket1);
+        assertEquals(finder.findOpenSocketOnNode(ImmutableList.of(socket1, socket2), Duration.millis(50)), socket1);
         
         reachabilityResults.put(socket1, false);
         reachabilityResults.put(socket2, true);
-        assertEquals(finder.findOpenSocketOnNode(ImmutableList.of(socket1, socket2), Duration.ONE_SECOND), socket2);
+        assertEquals(finder.findOpenSocketOnNode(ImmutableList.of(socket1, socket2), Duration.millis(50)), socket2);
     }
     
     @Test
@@ -126,7 +126,7 @@ public class ReachableSocketFinderTest {
         reachabilityResults.put(socket3, true);
         final Iterable<HostAndPort> expected = ImmutableList.of(socket1, socket3);
         final Iterable<HostAndPort> actual = finder.findOpenSocketsOnNode(
-                ImmutableList.of(socket1, socket2, socket3), Duration.millis(250));
+                ImmutableList.of(socket1, socket2, socket3), Duration.millis(100));
         assertEquals(actual, expected, "expected=" + expected + ", actual=" + Iterables.toString(actual));
     }
 
@@ -142,6 +142,8 @@ public class ReachableSocketFinderTest {
         // i.e. not in the order that reachability was determined.
         reachabilityResults.put(socket1, false);
         reachabilityResults.put(socket2, true);
+        // Set a custom grace period
+        finder = new ReachableSocketFinder(socketTester, Duration.FIVE_SECONDS);
         final Iterable<HostAndPort> actual = finder.findOpenSocketsOnNode(ImmutableList.of(socket1, socket2), Duration.TEN_SECONDS);
         final Iterable<HostAndPort> expected = ImmutableList.of(socket1, socket2);
         final Future<?> future = executor.submit(new Runnable() {
@@ -153,7 +155,7 @@ public class ReachableSocketFinderTest {
         });
 
         // Should keep trying
-        Asserts.succeedsContinually(ImmutableMap.of("timeout", Duration.ONE_SECOND), new Runnable() {
+        Asserts.succeedsContinually(ImmutableMap.of("timeout", Duration.millis(100)), new Runnable() {
             @Override public void run() {
                 assertFalse(future.isDone());
             }});
@@ -167,15 +169,14 @@ public class ReachableSocketFinderTest {
             }});
     }
 
-    // Wouldn't need to be integration if grace period were configurable.
-    @Test(groups = "Integration")
+    @Test
     public void testSocketResultIgnoredIfGracePeriodExpiresAfterFirstResultAvailable() {
         reachabilityResults.put(socket1, false);
         reachabilityResults.put(socket2, true);
 
-        final Iterable<HostAndPort> actual = finder.findOpenSocketsOnNode(ImmutableList.of(socket1, socket2), Duration.FIVE_MINUTES);
+        final Iterable<HostAndPort> actual = finder.findOpenSocketsOnNode(ImmutableList.of(socket1, socket2), Duration.ONE_SECOND);
         // Sleep through the grace period.
-        Time.sleep(Duration.seconds(10));
+        Time.sleep(50);
         reachabilityResults.put(socket1, true);
         assertEquals(actual, ImmutableList.of(socket2));
     }
@@ -183,7 +184,7 @@ public class ReachableSocketFinderTest {
     // Mark as integration, as can't rely (in Apache infra) for a port to stay unused during test!
     @Test(groups="Integration")
     public void testReturnsRealReachableSocket() throws Exception {
-        ReachableSocketFinder realFinder = new ReachableSocketFinder(executor);
+        ReachableSocketFinder realFinder = new ReachableSocketFinder();
         ServerSocket socket = connectToPort();
         try {
             HostAndPort addr = HostAndPort.fromParts(socket.getInetAddress().getHostAddress(), socket.getLocalPort());
@@ -201,7 +202,7 @@ public class ReachableSocketFinderTest {
     // And slow test - takes 5 seconds.
     @Test(groups="Integration")
     public void testFailsIfRealSocketUnreachable() throws Exception {
-        ReachableSocketFinder realFinder = new ReachableSocketFinder(executor);
+        ReachableSocketFinder realFinder = new ReachableSocketFinder();
         HostAndPort wrongAddr = HostAndPort.fromParts(Networking.getLocalHost().getHostAddress(), findAvailablePort());
         
         try {

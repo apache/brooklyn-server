@@ -37,7 +37,12 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class JcloudsLocationReachabilityPredicateInstantiationTest {
-    public static final HostAndPort ALLOWED_HOST_AND_PORT = HostAndPort.fromParts("localhost", 223);
+
+    protected static final AtomicInteger TEST_INIT_MAP_AND_EMPTY_CONSTRUCTOR_COUNTER = new AtomicInteger(0);
+    protected static final AtomicInteger TEST_INIT_DEFAULT_CONSTRUCTOR_COUNTER = new AtomicInteger(0);
+    private static final AtomicInteger TEST_INIT_MAP_CONSTRUCTOR_COUNTER = new AtomicInteger(0);
+    private static final HostAndPort ALLOWED_HOST_AND_PORT = HostAndPort.fromParts("localhost", 223);
+
     private BailOutJcloudsLocation jcloudsLocation;
 
     private final NodeMetadata node = new NodeMetadataBuilder()
@@ -62,7 +67,6 @@ public class JcloudsLocationReachabilityPredicateInstantiationTest {
         Assert.assertTrue(hostsMatchedHolder.contains(ALLOWED_HOST_AND_PORT.getHostText()));
     }
 
-    protected static final AtomicInteger TEST_INIT_DEFAULT_CONSTRUCTOR_COUNTER = new AtomicInteger(0);
     @Test
     public void testInitDefaultConstructor() throws Exception {
         Assert.assertEquals(TEST_INIT_DEFAULT_CONSTRUCTOR_COUNTER.get(), 0);
@@ -72,7 +76,6 @@ public class JcloudsLocationReachabilityPredicateInstantiationTest {
         Assert.assertEquals(TEST_INIT_DEFAULT_CONSTRUCTOR_COUNTER.get(), 1);
     }
 
-    protected static final AtomicInteger TEST_INIT_MAP_CONSTRUCTOR_COUNTER = new AtomicInteger(0);
     @Test
     public void testInitMapConstructor() {
         Assert.assertEquals(TEST_INIT_MAP_CONSTRUCTOR_COUNTER.get(), 0);
@@ -94,7 +97,6 @@ public class JcloudsLocationReachabilityPredicateInstantiationTest {
         Assert.assertTrue(hostsMatchedHolder.contains(ALLOWED_HOST_AND_PORT.getHostText()));
     }
 
-    protected static final AtomicInteger TEST_INIT_MAP_AND_EMPTY_CONSTRUCTOR_COUNTER = new AtomicInteger(0);
     @Test
     public void testInitEmptyConstructor() {
         Assert.assertEquals(TEST_INIT_MAP_AND_EMPTY_CONSTRUCTOR_COUNTER.get(), 0);
@@ -117,7 +119,8 @@ public class JcloudsLocationReachabilityPredicateInstantiationTest {
     }
 
     static class NoSuitableConstructorPredicate implements Predicate<HostAndPort> {
-        public NoSuitableConstructorPredicate(NoSuitableConstructorPredicate a) {}
+        public NoSuitableConstructorPredicate(NoSuitableConstructorPredicate a) {
+        }
 
         @Override
         public boolean apply(@Nullable HostAndPort input) {
@@ -160,7 +163,7 @@ public class JcloudsLocationReachabilityPredicateInstantiationTest {
 
         @Override
         public boolean apply(@Nullable HostAndPort input) {
-            ((List<String>)flags.get("hostsMatchedHolder")).add(input.getHostText());
+            ((List<String>) flags.get("hostsMatchedHolder")).add(input.getHostText());
             return true;
         }
     }
