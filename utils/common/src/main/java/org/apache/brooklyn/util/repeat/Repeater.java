@@ -43,6 +43,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.Callables;
+import com.google.common.util.concurrent.MoreExecutors;
 
 /**
  * Simple mechanism to repeat an operation periodically until a condition is satisfied.
@@ -88,6 +89,7 @@ public class Repeater implements Callable<Boolean> {
     private boolean rethrowException = false;
     private Predicate<? super Throwable> rethrowImmediatelyCondition = Exceptions.isFatalPredicate();
     private boolean warnOnUnRethrownException = true;
+    private ExecutorService executor = MoreExecutors.sameThreadExecutor();
 
     public Repeater() {
         this(null);
@@ -145,6 +147,26 @@ public class Repeater implements Callable<Boolean> {
     }
 
     /**
+     * Use a new thread for every iteration of the loop.
+     *
+     * @return {@literal this} to aid coding in a fluent style.
+     */
+    public Repeater threaded() {
+        this.executor = Executors.newSingleThreadExecutor();
+        return this;
+    }
+
+    /**
+     * @see #threaded()
+     * @param executor an {@link ExecutorService} to use when creating threads.
+     * @return {@literal this} to aid coding in a fluent style.
+     */
+    public Repeater threaded(ExecutorService executor) {
+        this.executor = executor;
+        return this;
+    }
+
+    /**
      * Set how long to wait between loop iterations.
      *
      * @param period how long to wait between loop iterations.
@@ -167,19 +189,24 @@ public class Repeater implements Callable<Boolean> {
     public Repeater every(groovy.time.Duration duration) {
         return every(Duration.of(duration));
     }
-    
-    /** sets a function which determines how long to delay on a given iteration between checks,
-     * with 0 being mapped to the initial delay (after the initial check) */
+
+    /**
+     * Sets a function which determines how long to delay on a given iteration between checks,
+     * with 0 being mapped to the initial delay (after the initial check)
+     */
     public Repeater delayOnIteration(Function<? super Integer,Duration> delayFunction) {
         Preconditions.checkNotNull(delayFunction, "delayFunction must not be null");
         this.delayOnIteration = delayFunction;
         return this;
     }
 
-    /** sets the {@link #delayOnIteration(Function)} function to be an exponential backoff as follows:
+    /**
+     * Sets the {@link #delayOnIteration(Function)} function to be an exponential backoff.
+     *
      * @param initialDelay  the delay on the first iteration, after the initial check
      * @param multiplier  the rate at which to increase the loop delay, must be >= 1
-     * @param finalDelay  an optional cap on the loop delay   */
+     * @param finalDelay  an optional cap on the loop delay
+     */
     public Repeater backoff(final Duration initialDelay, final double multiplier, @Nullable final Duration finalDelay) {
         Preconditions.checkNotNull(initialDelay, "initialDelay");
         Preconditions.checkArgument(multiplier>=1.0, "multiplier >= 1.0");
@@ -323,14 +350,13 @@ public class Repeater implements Callable<Boolean> {
         Throwable lastError = null;
         int iterations = 0;
         CountdownTimer timer = timeLimit!=null ? CountdownTimer.newInstanceStarted(timeLimit) : CountdownTimer.newInstancePaused(Duration.PRACTICALLY_FOREVER);
-        ExecutorService exec = Executors.newSingleThreadExecutor();
 
         try {
             while (true) {
                 Duration delayThisIteration = delayOnIteration.apply(iterations);
                 iterations++;
-    
-                Future<?> call = exec.submit(body);
+
+                Future<?> call = executor.submit(body);
                 try {
                     call.get(delayThisIteration.toMilliseconds(), TimeUnit.MILLISECONDS);
                 } catch (Throwable e) {
@@ -339,7 +365,7 @@ public class Repeater implements Callable<Boolean> {
                 } finally {
                     call.cancel(true);
                 }
-    
+
                 boolean done = false;
                 try {
                     lastError = null;
@@ -370,7 +396,7 @@ public class Repeater implements Callable<Boolean> {
                         }
                     }
                 }
-    
+
                 if (iterationLimit > 0 && iterations >= iterationLimit) {
                     log.debug("{}: condition not satisfied and exceeded iteration limit", description);
                     if (rethrowException && lastError != null) {
@@ -395,7 +421,7 @@ public class Repeater implements Callable<Boolean> {
                 Time.sleep(delayThisIteration);
             }
         } finally {
-           exec.shutdownNow(); 
+           executor.shutdownNow();
         }
     }
 
