@@ -19,6 +19,7 @@
 package org.apache.brooklyn.entity.software.base;
 
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
@@ -28,6 +29,7 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.trait.StartableMethods;
+import org.apache.brooklyn.core.sensor.ReleaseableLatch;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.ChildStartableMode;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.RestartSoftwareParameters;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.RestartSoftwareParameters.RestartMachineMode;
@@ -84,6 +86,8 @@ public class SoftwareProcessDriverLifecycleEffectorTasks extends MachineLifecycl
         @Override
         public void run() {
             try {
+                // There's no preStartCustom call in the restart effector to get the latch value
+                // so nothing to release here - pass the nop value.
                 postStartCustom();
                 postRestartCustom();
             } finally {
@@ -181,6 +185,7 @@ public class SoftwareProcessDriverLifecycleEffectorTasks extends MachineLifecycl
         }
         entity().waitForServiceUp();
         entity().postStart();
+        super.postStartCustom();
     }
     
     @Override
@@ -257,9 +262,8 @@ public class SoftwareProcessDriverLifecycleEffectorTasks extends MachineLifecycl
     
     @Override
     protected void postStopCustom() {
-        super.postStopCustom();
-        
         entity().postStop();
+        super.postStopCustom();
     }
 
     @Override

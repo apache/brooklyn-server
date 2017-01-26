@@ -52,6 +52,7 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.BasicTask;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
@@ -569,6 +570,25 @@ public class DependentConfiguration {
         );
     }
 
+    public static Maybe<ReleaseableLatch> maxConcurrencyImmediately(Object maxThreads) {
+        Maybe<?> resolvedMaxThreads = resolveImmediately(maxThreads);
+        if (resolvedMaxThreads.isAbsent()) return Maybe.absent();
+        Integer resolvedMaxThreadsInt = TypeCoercions.coerce(resolvedMaxThreads, Integer.class);
+
+        ReleaseableLatch result = ReleaseableLatch.Factory.newMaxConcurrencyLatch(resolvedMaxThreadsInt);
+        return Maybe.<ReleaseableLatch>of(result);
+    }
+
+    public static Task<ReleaseableLatch> maxConcurrency(Object maxThreads) {
+        List<TaskAdaptable<Object>> taskArgs = getTaskAdaptable(maxThreads);
+        Function<List<Object>, ReleaseableLatch> transformer = new MaxThreadsTransformerFunction(maxThreads);
+        return transformMultiple(
+                MutableMap.of("displayName", String.format("creating max concurrency semaphore(%s)", maxThreads)),
+                transformer,
+                taskArgs
+        );
+    }
+
     @SuppressWarnings("unchecked")
     private static List<TaskAdaptable<Object>> getTaskAdaptable(Object... args){
         List<TaskAdaptable<Object>> taskArgs = Lists.newArrayList();
@@ -624,13 +644,38 @@ public class DependentConfiguration {
 
     }
 
+    public static class MaxThreadsTransformerFunction implements Function<List<Object>, ReleaseableLatch> {
+        private final Object maxThreads;
+
+        public MaxThreadsTransformerFunction(Object maxThreads) {
+            this.maxThreads = maxThreads;
+        }
+
+        @Override
+        public ReleaseableLatch apply(List<Object> input) {
+            Iterator<?> taskArgsIterator = input.iterator();
+            Integer maxThreadsNum = resolveArgument(maxThreads, taskArgsIterator, Integer.class);
+            return ReleaseableLatch.Factory.newMaxConcurrencyLatch(maxThreadsNum);
+        }
+
+    }
+
+    /**
+     * Same as {@link #resolveArgument(Object, Iterator, Class) with type of String
+     */
+    private static String resolveArgument(Object argument, Iterator<?> taskArgsIterator) {
+        return resolveArgument(argument, taskArgsIterator, String.class);
+    }
+
     /**
      * Resolves the argument as follows:
      *
      * If the argument is a DeferredSupplier, we will block and wait for it to resolve. If the argument is TaskAdaptable or TaskFactory,
      * we will assume that the resolved task has been queued on the {@code taskArgsIterator}, otherwise the argument has already been resolved.
+     * 
+     * @param type coerces the return value to the requested type
      */
-    private static String resolveArgument(Object argument, Iterator<?> taskArgsIterator) {
+    private static <T> T resolveArgument(Object argument, Iterator<?> taskArgsIterator, Class<T> type) {
         Object resolvedArgument;
         if (argument instanceof TaskAdaptable) {
             resolvedArgument = taskArgsIterator.next();
@@ -639,7 +684,7 @@ public class DependentConfiguration {
         } else {
             resolvedArgument = argument;
         }
-        return String.valueOf(resolvedArgument);
+        return TypeCoercions.coerce(resolvedArgument, type);
     }
 
 

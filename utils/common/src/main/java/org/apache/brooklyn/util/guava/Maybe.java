@@ -157,6 +157,11 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
         return ofDisallowingNull(value);
     }
     
+    /** Creates a new Maybe object out of the {@link Optional} argument */
+    public static <T> Maybe<T> fromOptional(Optional<T> value) {
+        return Maybe.fromNullable(value.orNull());
+    }
+    
     /** creates an instance wrapping a {@link SoftReference}, so it might go absent later on.
      * if null is supplied the result is a present null. */
     public static <T> Maybe<T> soft(@Nonnull T value) {

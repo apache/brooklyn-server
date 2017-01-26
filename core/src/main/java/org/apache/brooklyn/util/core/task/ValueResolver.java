@@ -56,7 +56,7 @@ import com.google.common.reflect.TypeToken;
  * <p>
  * Fluent-style API exposes a number of other options.
  */
-public class ValueResolver<T> implements DeferredSupplier<T> {
+public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Object>> {
 
     // TODO most of these usages should be removed when we have
     // an ability to run resolution in a non-blocking mode
@@ -166,14 +166,29 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
     /** returns a copy of this resolver which can be queried, even if the original (single-use instance) has already been copied */
     @Override
     public ValueResolver<T> clone() {
-        ValueResolver<T> result = new ValueResolver<T>(value, type)
+        return cloneReplacingValueAndType(value, type);
+    }
+    
+    <S> ValueResolver<S> cloneReplacingValueAndType(Object newValue, Class<S> superType) {
+        // superType expected to be either type or Object.class
+        if (!superType.isAssignableFrom(type)) {
+            throw new IllegalStateException("superType must be assignable from " + type);
+        }
+        ValueResolver<S> result = new ValueResolver<S>(newValue, superType)
             .context(exec).description(description)
             .embedResolutionInTask(embedResolutionInTask)
             .deep(forceDeep)
             .timeout(timeout)
             .immediately(immediately)
             .recursive(recursive);
-        if (returnDefaultOnGet) result.defaultValue(defaultValue);
+        if (returnDefaultOnGet) {
+            if (!superType.isInstance(defaultValue)) {
+                throw new IllegalStateException("Existing default value " + defaultValue + " not compatible with new type " + superType);
+            }
+            @SuppressWarnings("unchecked")
+            S typedDefaultValue = (S)defaultValue;
+            result.defaultValue(typedDefaultValue);
+        }
         if (swallowExceptions) result.swallowExceptions();
         return result;
     }
@@ -287,13 +302,18 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
     }
 
     @Override
+    public ValueResolverIterator<T> iterator() {
+        return new ValueResolverIterator<T>(this);
+    }
+
+    @Override
     public T get() {
         Maybe<T> m = getMaybe();
         if (m.isPresent()) return m.get();
         if (returnDefaultOnGet) return defaultValue;
         return m.get();
     }
-    
+
     public Maybe<T> getMaybe() {
         Maybe<T> result = getMaybeInternal();
         if (log.isTraceEnabled()) {
@@ -324,7 +344,7 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
         if (timerU==null && timeout!=null)
             timerU = timeout.countdownTimer();
         final CountdownTimer timer = timerU;
-        if (timer!=null && !timer.isRunning())
+        if (timer!=null && !timer.isNotPaused())
             timer.start();
         
         checkTypeNotNull();
@@ -499,7 +519,10 @@ public class ValueResolver<T> implements DeferredSupplier<T> {
         if (parentOriginalValue!=null) return parentOriginalValue;
         return value;
     }
-    
+    protected Class<T> getType() {
+        return type;
+    }
+
     @Override
     public String toString() {
         return JavaClassNames.cleanSimpleClassName(this)+"["+JavaClassNames.cleanSimpleClassName(type)+" "+value+"]";

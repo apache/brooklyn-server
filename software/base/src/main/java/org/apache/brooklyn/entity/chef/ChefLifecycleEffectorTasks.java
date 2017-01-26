@@ -20,6 +20,7 @@ package org.apache.brooklyn.entity.chef;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.MachineLocation;
@@ -30,11 +31,9 @@ import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.entity.software.base.lifecycle.MachineLifecycleEffectorTasks;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.util.collections.Jsonya;
-import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.Jsonya.Navigator;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.TaskTags;
@@ -46,6 +45,8 @@ import org.apache.brooklyn.util.ssh.BashCommands;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
@@ -246,6 +247,7 @@ public class ChefLifecycleEffectorTasks extends MachineLifecycleEffectorTasks im
             log.warn("No way to check whether "+entity()+" is running; assuming yes");
         }
         entity().sensors().set(SoftwareProcess.SERVICE_UP, true);
+        super.postStartCustom();
     }
     
     protected boolean tryCheckStartPid() {

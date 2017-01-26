@@ -31,8 +31,6 @@ import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.entity.software.base.lifecycle.MachineLifecycleEffectorTasks;
 import org.apache.brooklyn.entity.stock.BasicStartable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation.LocalhostMachine;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
@@ -42,6 +40,8 @@ import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.ssh.BashCommands;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Predicates;
 import com.google.common.base.Splitter;
@@ -150,6 +150,7 @@ public class DynamicToyMySqlEntityBuilder {
                 // Really should set this with a Feed that checks pid periodically.
                 // Should this instead be using SERVICE_NOT_UP_INDICATORS?
                 entity().sensors().set(Attributes.SERVICE_UP, true);
+                super.postStartCustom();
             }
 
             @Override

@@ -44,8 +44,11 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
+import org.apache.brooklyn.entity.software.base.lifecycle.MachineLifecycleEffectorTasks;
+import org.apache.brooklyn.entity.software.base.lifecycle.MachineLifecycleEffectorTasks.CloseableLatch;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
@@ -132,8 +135,9 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
                 boolean skipInstall = locationInstalled.or(entityInstalled).or(false);
                 if (!skipInstall) {
                     DynamicTasks.queue("copy-pre-install-resources", new Runnable() { @Override public void run() {
-                        waitForConfigKey(BrooklynConfigKeys.PRE_INSTALL_RESOURCES_LATCH);
-                        copyPreInstallResources();
+                        try (CloseableLatch value = waitForLatch(BrooklynConfigKeys.PRE_INSTALL_RESOURCES_LATCH)) {
+                            copyPreInstallResources();
+                        }
                     }});
 
                     DynamicTasks.queue("pre-install", new Runnable() { @Override public void run() {
@@ -145,18 +149,21 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
                     }});
 
                     DynamicTasks.queue("setup", new Runnable() { @Override public void run() {
-                        waitForConfigKey(BrooklynConfigKeys.SETUP_LATCH);
-                        setup();
+                        try (CloseableLatch value = waitForLatch(BrooklynConfigKeys.SETUP_LATCH)) {
+                            setup();
+                        }
                     }});
 
                     DynamicTasks.queue("copy-install-resources", new Runnable() { @Override public void run() {
-                        waitForConfigKey(BrooklynConfigKeys.INSTALL_RESOURCES_LATCH);
-                        copyInstallResources();
+                        try (CloseableLatch value = waitForLatch(BrooklynConfigKeys.INSTALL_RESOURCES_LATCH)) {
+                            copyInstallResources();
+                        }
                     }});
 
                     DynamicTasks.queue("install (main)", new Runnable() { @Override public void run() {
-                        waitForConfigKey(BrooklynConfigKeys.INSTALL_LATCH);
-                        install();
+                        try (CloseableLatch value = waitForLatch(BrooklynConfigKeys.INSTALL_LATCH)) {
+                            install();
+                        }
                     }});
 
                     DynamicTasks.queue("post-install-command", new Runnable() { @Override public void run() {
@@ -171,8 +178,9 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
                 }});
 
                 DynamicTasks.queue("customize (main)", new Runnable() { @Override public void run() {
-                    waitForConfigKey(BrooklynConfigKeys.CUSTOMIZE_LATCH);
-                    customize();
+                    try (CloseableLatch value = waitForLatch(BrooklynConfigKeys.CUSTOMIZE_LATCH)) {
+                        customize();
+                    }
                 }});
 
                 DynamicTasks.queue("post-customize-command", new Runnable() { @Override public void run() {
@@ -181,9 +189,10 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
             }});
 
             DynamicTasks.queue("launch", new Runnable() { @Override public void run() {
-                DynamicTasks.queue("copy-runtime-resources", new Runnable() { @Override public void run() {
-                    waitForConfigKey(BrooklynConfigKeys.RUNTIME_RESOURCES_LATCH);
-                    copyRuntimeResources();
+                DynamicTasks.queue("copy-runtime-resources", new Runnable() { public void run() {
+                    try (CloseableLatch value = waitForLatch(BrooklynConfigKeys.RUNTIME_RESOURCES_LATCH)) {
+                        copyRuntimeResources();
+                    }
                 }});
 
                 DynamicTasks.queue("pre-launch-command", new Runnable() { @Override public void run() {
@@ -191,8 +200,9 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
                 }});
 
                 DynamicTasks.queue("launch (main)", new Runnable() { @Override public void run() {
-                    waitForConfigKey(BrooklynConfigKeys.LAUNCH_LATCH);
-                    launch();
+                    try (CloseableLatch value = waitForLatch(BrooklynConfigKeys.LAUNCH_LATCH)) {
+                        launch();
+                    }
                 }});
 
                 DynamicTasks.queue("post-launch-command", new Runnable() { @Override public void run() {
@@ -204,6 +214,10 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
         DynamicTasks.queue("post-launch", new Runnable() { @Override public void run() {
             postLaunch();
         }});
+    }
+
+    private CloseableLatch waitForLatch(ConfigKey<Boolean> configKey) {
+        return MachineLifecycleEffectorTasks.waitForCloseableLatch((EntityInternal)entity, configKey);
     }
 
     @Override
@@ -622,11 +636,6 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
 
     public String processTemplateContents(String templateContents, Map<String,? extends Object> extraSubstitutions) {
         return TemplateProcessor.processTemplateContents(templateContents, this, extraSubstitutions);
-    }
-
-    protected void waitForConfigKey(ConfigKey<?> configKey) {
-        Object val = entity.config().get(configKey);
-        if (val != null) log.debug("{} finished waiting for {} (value {}); continuing...", new Object[] {this, configKey, val});
     }
 
     public String getArchiveNameFormat() {

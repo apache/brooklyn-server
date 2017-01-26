@@ -64,6 +64,7 @@ import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
+import org.apache.brooklyn.core.sensor.ReleaseableLatch;
 import org.apache.brooklyn.entity.machine.MachineInitTasks;
 import org.apache.brooklyn.entity.machine.ProvidesProvisioningFlags;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
@@ -79,6 +80,7 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.core.task.ValueResolverIterator;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -112,7 +114,7 @@ import com.google.common.reflect.TypeToken;
  *  <li> {@link #stopProcessesAtMachine()} (required, but can be left blank if you assume the VM will be destroyed)
  *  <li> {@link #preStartCustom(MachineLocation)}
  *  <li> {@link #postStartCustom()}
- *  <li> {@link #preStopCustom()}
+ *  <li> {@link #preStopConfirmCustom()}
  *  <li> {@link #postStopCustom()}
  * </ul>
  * Note methods at this level typically look after the {@link Attributes#SERVICE_STATE_ACTUAL} sensor.
@@ -362,9 +364,13 @@ public abstract class MachineLifecycleEffectorTasks {
         Preconditions.checkState(locationS != null, "Unsupported location "+location+", when starting "+entity());
 
         final Supplier<MachineLocation> locationSF = locationS;
-        preStartAtMachineAsync(locationSF);
-        DynamicTasks.queue("start (processes)", new StartProcessesAtMachineTask(locationSF));
-        postStartAtMachineAsync();
+
+        // Opportunity to block startup until other dependent components are available
+        try (CloseableLatch latch = waitForCloseableLatch(entity(), SoftwareProcess.START_LATCH)) {
+            preStartAtMachineAsync(locationSF);
+            DynamicTasks.queue("start (processes)", new StartProcessesAtMachineTask(locationSF));
+            postStartAtMachineAsync();
+        }
     }
 
     private class StartProcessesAtMachineTask implements Runnable {
@@ -446,13 +452,16 @@ public abstract class MachineLifecycleEffectorTasks {
         }
     }
 
-    /** Wraps a call to {@link #preStartCustom(MachineLocation)}, after setting the hostname and address. */
+    /**
+     * Wraps a call to {@link #preStartCustom(MachineLocation)}, after setting the hostname and address.
+     */
     protected void preStartAtMachineAsync(final Supplier<MachineLocation> machineS) {
         DynamicTasks.queue("pre-start", new PreStartTask(machineS.get()));
     }
 
     private class PreStartTask implements Runnable {
         final MachineLocation machine;
+
         private PreStartTask(MachineLocation machine) {
             this.machine = machine;
         }
@@ -524,6 +533,7 @@ public abstract class MachineLifecycleEffectorTasks {
             }
             resolveOnBoxDir(entity(), machine);
             preStartCustom(machine);
+
         }
     }
 
@@ -584,17 +594,9 @@ public abstract class MachineLifecycleEffectorTasks {
                     "("+paramSummary+" not compatible: "+oldParam+" / "+newParam+"); "+newLoc+" may require manual removal.");
     }
 
-    /**
-     * Default pre-start hooks.
-     * <p>
-     * Can be extended by subclasses if needed.
-     */
+    @Deprecated
     protected void preStartCustom(MachineLocation machine) {
         ConfigToAttributes.apply(entity());
-
-        // Opportunity to block startup until other dependent components are available
-        Object val = entity().getConfig(SoftwareProcess.START_LATCH);
-        if (val != null) log.debug("{} finished waiting for start-latch {}; continuing...", entity(), val);
     }
 
     protected Map<String, Object> obtainProvisioningFlags(final MachineProvisioningLocation<?> location) {
@@ -731,7 +733,7 @@ public abstract class MachineLifecycleEffectorTasks {
      * If no errors were encountered call {@link #postStopCustom()} at the end.
      */
     public void stop(ConfigBag parameters) {
-        doStop(parameters, new StopAnyProvisionedMachinesTask());
+        doStopLatching(parameters, new StopAnyProvisionedMachinesTask());
     }
 
     /**
@@ -739,7 +741,13 @@ public abstract class MachineLifecycleEffectorTasks {
      * {@link #stopAnyProvisionedMachines}.
      */
     public void suspend(ConfigBag parameters) {
-        doStop(parameters, new SuspendAnyProvisionedMachinesTask());
+        doStopLatching(parameters, new SuspendAnyProvisionedMachinesTask());
+    }
+
+    protected void doStopLatching(ConfigBag parameters, Callable<StopMachineDetails<Integer>> stopTask) {
+        try (CloseableLatch latch = waitForCloseableLatch(entity(), SoftwareProcess.STOP_LATCH)) {
+            doStop(parameters, stopTask);
+        }
     }
 
     protected void doStop(ConfigBag parameters, Callable<StopMachineDetails<Integer>> stopTask) {
@@ -944,14 +952,8 @@ public abstract class MachineLifecycleEffectorTasks {
                 stopMode == StopMode.IF_NOT_STOPPED && !isStopped;
     }
 
-    /** 
-     * Override to check whether stop can be executed.
-     * Throw if stop should be aborted.
-     */
+    @Deprecated
     protected void preStopConfirmCustom() {
-        // Opportunity to block stop() until other dependent components are ready for it
-        Object val = entity().getConfig(SoftwareProcess.STOP_LATCH);
-        if (val != null) log.debug("{} finished waiting for stop-latch {}; continuing...", entity(), val);
     }
 
     protected void preStopCustom() {
@@ -1083,4 +1085,62 @@ public abstract class MachineLifecycleEffectorTasks {
         entity().sensors().set(Attributes.SUBNET_ADDRESS, null);
     }
 
+    // Removes the checked Exception from the method signature
+    public static class CloseableLatch implements AutoCloseable {
+        private Entity caller;
+        private ReleaseableLatch releaseableLatch;
+
+        public CloseableLatch(Entity caller, ReleaseableLatch releaseableLatch) {
+            this.caller = caller;
+            this.releaseableLatch = releaseableLatch;
+        }
+
+        @Override
+        public void close() {
+            DynamicTasks.drain(null, false);
+            releaseableLatch.release(caller);
+        }
+    }
+
+    public static CloseableLatch waitForCloseableLatch(Entity entity, ConfigKey<Boolean> configKey) {
+        ReleaseableLatch releaseableLatch = waitForLatch((EntityInternal)entity, configKey);
+        return new CloseableLatch(entity, releaseableLatch);
+    }
+
+    private static ReleaseableLatch waitForLatch(EntityInternal entity, ConfigKey<Boolean> configKey) {
+        Maybe<?> rawValue = entity.config().getRaw(configKey);
+        if (rawValue.isAbsent()) {
+            return ReleaseableLatch.NOP;
+        } else {
+            ValueResolverIterator<Boolean> iter = resolveLatchIterator(entity, rawValue.get(), configKey);
+            // The iterator is used to prevent coercion; the value should always be the last one, but iter.last() will return a coerced Boolean
+            Maybe<ReleaseableLatch> releasableLatchMaybe = iter.next(ReleaseableLatch.class);
+            if (releasableLatchMaybe.isPresent()) {
+                ReleaseableLatch latch = releasableLatchMaybe.get();
+                log.debug("{} finished waiting for {} (value {}); waiting to acquire the latch", new Object[] {entity, configKey, latch});
+                Tasks.setBlockingDetails("Acquiring " + configKey + " " + latch);
+                try {
+                    latch.acquire(entity);
+                } finally {
+                    Tasks.resetBlockingDetails();
+                }
+                log.debug("{} Acquired latch {} (value {}); continuing...", new Object[] {entity, configKey, latch});
+                return latch;
+            } else {
+                // If iter.next() above returned absent due to a resolve error next line will throw with the cause
+                Boolean val = iter.last().get();
+                if (rawValue != null) log.debug("{} finished waiting for {} (value {}); continuing...", new Object[] {entity, configKey, val});
+                return ReleaseableLatch.NOP;
+            }
+        }
+    }
+
+    private static ValueResolverIterator<Boolean> resolveLatchIterator(EntityInternal entity, Object val, ConfigKey<Boolean> key) {
+        return Tasks.resolving(val, Boolean.class)
+                .context(entity.getExecutionContext())
+                .description("config " + key.getName())
+                .iterator();
+    }
+
+    
 }
