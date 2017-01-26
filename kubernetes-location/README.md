@@ -92,3 +92,38 @@ Alternatively AMP can launch instances based on a `DockerContainer`, this means 
             env:
               WORDPRESS_DB_HOST: "wordpress-mysql"
               WORDPRESS_DB_PASSWORD: "password"
+
+#### Kubernetes location configuration
+
+To configure the kubernetes location for different kubernetes setups the following configuration params are available.
+
+- **caCertData** Data for CA certificate
+- **caCertFile** URL of resource containing CA certificate data
+- **clientCertData** Data for client certificate
+- **clientCertFile** URL of resource containing client certificate data
+- **clientKeyData** Data for client key
+- **clientKeyFile** URL of resource containing client key data
+- **clientKeyAlgo** Algorithm used for the client key
+- **clientKeyPassphrase** Passphrase used for the client key
+- **oauthToken** The OAuth token data for the current user
+- **namespace** Namespace where resources will live; the default is 'amp'
+- **namespace.create** Whether to create the namespace if it does not exist
+  - **default** true
+- **namespace.deleteEmpty** Whether to delete an empty namespace when releasing resources
+  - **default** false
+- **persistentVolumes** Set up persistent volumes.
+- **deployment** Deployment where resources will live.
+- **image** Docker image to be deployed into the pod
+- **osFamily** OS family, e.g. CentOS, Ubuntu
+- **osVersionRegex** Regular expression for the OS version to load
+- **env** Environment variables to inject when starting the container 
+- **replicas** Number of replicas of the pod
+  - **default** 1
+- **secrets** Kubernetes secrets to be added to the pod
+- **limits** Kubernetes resource limits
+- **privileged** Whether Kubernetes should allow privileged containers
+  - **default** false
+- **loginUser** Override the user who logs in initially to perform setup
+  - **default** root
+- **loginUser.password** Custom password for the user who logs in initially
+- **injectLoginCredential** Whether to inject login credentials (if null, will infer from image choice); ignored if explicit 'loginUser.password' supplied

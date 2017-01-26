@@ -130,7 +130,7 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
             .name("osFamily")
             .description("OS family, e.g. CentOS, Ubuntu")
             .build();
-    
+
     ConfigKey<String> OS_VERSION_REGEX = ConfigKeys.builder(String.class)
             .name("osVersionRegex")
             .description("Regular expression for the OS version to load")
@@ -139,13 +139,13 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
     @SuppressWarnings("serial")
     ConfigKey<Map<String, ?>> ENV = ConfigKeys.newConfigKey(
             new TypeToken<Map<String, ?>>() {},
-            "env", 
-            "Environment variables to inject when starting the container", 
+            "env",
+            "Environment variables to inject when starting the container",
             ImmutableMap.<String, Object>of());
 
     ConfigKey<Integer> REPLICAS = ConfigKeys.builder(Integer.class)
             .name("replicas")
-            .description("Number of replicas into the pod")
+            .description("Number of replicas of the pod")
             .constraint(Predicates.notNull())
             .defaultValue(1)
             .build();
@@ -170,10 +170,10 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
             .defaultValue(false)
             .build();
 
-    ConfigKey<KubernetesClientRegistry> KUBERNETES_CLIENT_REGISTRY = ConfigKeys.builder(KubernetesClientRegistry.class) 
+    ConfigKey<KubernetesClientRegistry> KUBERNETES_CLIENT_REGISTRY = ConfigKeys.builder(KubernetesClientRegistry.class)
             .name("kubernetesClientRegistry")
             .description("Registry/Factory for creating Kubernetes client; default is almost always fine, "
-                    + "except where tests want to customize behaviour") 
+                    + "except where tests want to customize behaviour")
             .defaultValue(KubernetesClientRegistryImpl.INSTANCE)
             .build();
 
@@ -189,9 +189,9 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
             .description("Custom password for the user who logs in initially")
             .constraint(Predicates.<String>notNull())
             .build();
-    
+
     ConfigKey<Boolean> INJECT_LOGIN_CREDENTIAL = ConfigKeys.builder(Boolean.class)
-            .name("injectLoginCredential") 
+            .name("injectLoginCredential")
             .description("Whether to inject login credentials (if null, will infer from image choice); ignored if explicit 'loginUser.password' supplied")
             .build();
 }

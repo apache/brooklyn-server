@@ -124,7 +124,7 @@ Alternatively AMP can launch instances based on a `DockerContainer`, this means 
 
     location:
       << see above >>
-    
+
     services:
     - type: io.cloudsoft.amp.container.kubernetes.entity.KubernetesPod
       brooklyn.children:
@@ -144,3 +144,8 @@ Alternatively AMP can launch instances based on a `DockerContainer`, this means 
           docker.container.imageName: wordpress:4.4-apache
           docker.container.inboundPorts: [ "80" ]
           env: { WORDPRESS_DB_HOST: "wordpress-mysql", WORDPRESS_DB_PASSWORD: "password" }
+
+#### OpenShift location configuration
+
+The OpenShift location inherits configuration from the [ Kubernetes ](../kubernetes-location/README.md) 
+location.
