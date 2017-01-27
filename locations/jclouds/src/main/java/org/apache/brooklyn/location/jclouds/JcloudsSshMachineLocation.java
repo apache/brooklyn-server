@@ -124,7 +124,7 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
 
     private transient Optional<Image> _image;
 
-    private RunScriptOnNode.Factory runScriptFactory;
+    private transient RunScriptOnNode.Factory runScriptFactory;
     
     public JcloudsSshMachineLocation() {
     }
@@ -144,8 +144,6 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
     public void init() {
         if (jcloudsParent != null) {
             super.init();
-            ComputeServiceContext context = jcloudsParent.getComputeService().getContext();
-            runScriptFactory = context.utils().injector().getInstance(RunScriptOnNode.Factory.class);
             if (node != null) {
                 setNode(node);
             }
@@ -163,11 +161,7 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
     public void rebind() {
         super.rebind();
         
-        if (jcloudsParent != null) {
-            // can be null on rebind, if location has been "orphaned" somehow
-            ComputeServiceContext context = jcloudsParent.getComputeService().getContext();
-            runScriptFactory = context.utils().injector().getInstance(RunScriptOnNode.Factory.class);
-        } else {
+        if (jcloudsParent == null) {
             LOG.warn("Location {} does not have parent; cannot retrieve jclouds compute-service or "
                     + "run-script factory; later operations may fail (continuing)", this);
         }
@@ -424,7 +418,7 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
     public ListenableFuture<ExecResponse> submitRunScript(Statement script, RunScriptOptions options) {
         Optional<NodeMetadata> node = getOptionalNode();
         if (node.isPresent()) {
-            return runScriptFactory.submit(node.get(), script, options);
+            return getRunScriptFactory().submit(node.get(), script, options);
         } else {
             throw new IllegalStateException("Node "+nodeId+" not present in "+getParent());
         }
@@ -600,4 +594,11 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
         if (value != null) builder.put(key, value);
     }
 
+    private synchronized RunScriptOnNode.Factory getRunScriptFactory() {
+        if (runScriptFactory == null) {
+            ComputeServiceContext context = jcloudsParent.getComputeService().getContext();
+            runScriptFactory = context.utils().injector().getInstance(RunScriptOnNode.Factory.class);
+        }
+        return runScriptFactory;
+    }
 }
