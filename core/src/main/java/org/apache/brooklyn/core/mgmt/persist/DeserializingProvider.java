@@ -66,7 +66,7 @@ public class DeserializingProvider {
                     builder.putAll(loader.load());
                 }
                 cache = builder.build();
-                LOG.info("Config cache loaded, size {}", cache.size());
+                LOG.debug("Config cache loaded, size {}", cache.size());
             }
             return cache;
         }
