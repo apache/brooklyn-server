@@ -106,7 +106,7 @@ Standard AMP blueprints can be deployed within an OpenShift cluster, here's a si
           inboundPorts: [ 22, 4321 ]
 
         launch.command: |
-          sudo yum install -y nc
+          yum install -y nc
           echo hello | nc -l 4321 &
           echo $! > $PID_FILE
 

@@ -41,10 +41,9 @@ Standard AMP blueprints can be deployed within a K8s cluster, here's a simple ex
           inboundPorts: [22, 4321]
 
         launch.command: |
+          yum install -y nc
           echo hello | nc -l 4321 &
           echo $! > $PID_FILE
-        checkRunning.command: |
-          true
 
 For each entity AMP will create a [_Deployment_](http://kubernetes.io/docs/user-guide/deployments/).
 This deployment contains a [_ReplicaSet_](http://kubernetes.io/docs/user-guide/replicasets/)
