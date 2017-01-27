@@ -110,12 +110,12 @@ Standard AMP blueprints can be deployed within an OpenShift cluster, here's a si
           echo hello | nc -l 4321 &
           echo $! > $PID_FILE
 
-For each entity AMP will create a [_DeploymentConfig_](https://docs.openshift.org/latest/architecture/core_concepts/deployments.html#deployments-and-deployment-configurations)
-containing a [_ReplicationController_](https://kubernetes.io/docs/user-guide/replication-controller/)
-containing replicas (defaulting to one) of a [_Pod_](http://kubernetes.io/docs/user-guide/pods/)
-containing a single SSHable container based on the `cloudsoft/centos:7` image.
+For each entity AMP will create a [_DeploymentConfig_](https://docs.openshift.org/latest/architecture/core_concepts/deployments.html#deployments-and-deployment-configurations).
+This deployment configuration contains a [_ReplicationController_](https://kubernetes.io/docs/user-guide/replication-controller/)
+with replicas (defaulting to one) of a [_Pod_](http://kubernetes.io/docs/user-guide/pods/).
+Each pod contains a single SSHable container based on the `cloudsoft/centos:7` image.
 
-It will install and launch the entity in the typical AMP way. Each `inboundPort` will be exposed as a
+It will then install and launch the entity. Each `inboundPort` will be exposed as a
 [_NodePort_](http://kubernetes.io/docs/user-guide/services/#type-nodeport) in a _Service_.
 
 #### DockerContainer based blueprints

@@ -46,12 +46,12 @@ Standard AMP blueprints can be deployed within a K8s cluster, here's a simple ex
         checkRunning.command: |
           true
 
-For each entity AMP will create a [_Deployment_](http://kubernetes.io/docs/user-guide/deployments/)
-containing a [_ReplicaSet_](http://kubernetes.io/docs/user-guide/replicasets/)
-containing replicas (defaulting to one) of a [_Pod_](http://kubernetes.io/docs/user-guide/pods/)
-containing a single SSHable container based on the `cloudsoft/centos:7` image.
+For each entity AMP will create a [_Deployment_](http://kubernetes.io/docs/user-guide/deployments/).
+This deployment contains a [_ReplicaSet_](http://kubernetes.io/docs/user-guide/replicasets/)
+of replicas (defaulting to one) of a [_Pod_](http://kubernetes.io/docs/user-guide/pods/).
+Each pod contains a single SSHable container based on the `cloudsoft/centos:7` image.
 
-It will install and launch the entity in the typical AMP way. Each `inboundPort` will be exposed as a
+It will then install and launch the entity. Each `inboundPort` will be exposed as a
 [_NodePort_](http://kubernetes.io/docs/user-guide/services/#type-nodeport) in a _Service_.
 
 To explain the config options:
