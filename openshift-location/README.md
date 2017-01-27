@@ -110,13 +110,13 @@ Standard AMP blueprints can be deployed within an OpenShift cluster, here's a si
           echo hello | nc -l 4321 &
           echo $! > $PID_FILE
 
-For each entity AMP will create a [DeploymentConfig](https://docs.openshift.org/latest/architecture/core_concepts/deployments.html#deployments-and-deployment-configurations)
-containing [ReplicationController](https://kubernetes.io/docs/user-guide/replication-controller/)
-for a single replica of a [Pod](http://kubernetes.io/docs/user-guide/pods/) containing a single
-SSHable container based on the `cloudsoft/centos:7` image. It will install and launch
-the entity in the typical AMP way. Each `inboundPort` will be exposed as a
-[NodePort service](http://kubernetes.io/docs/user-guide/services/#type-nodeport).
+For each entity AMP will create a [_DeploymentConfig_](https://docs.openshift.org/latest/architecture/core_concepts/deployments.html#deployments-and-deployment-configurations)
+containing a [_ReplicationController_](https://kubernetes.io/docs/user-guide/replication-controller/)
+containing replicas (defaulting to one) of a [_Pod_](http://kubernetes.io/docs/user-guide/pods/)
+containing a single SSHable container based on the `cloudsoft/centos:7` image.
 
+It will install and launch the entity in the typical AMP way. Each `inboundPort` will be exposed as a
+[_NodePort_](http://kubernetes.io/docs/user-guide/services/#type-nodeport) in a _Service_.
 
 #### DockerContainer based blueprints
 
@@ -145,23 +145,12 @@ Alternatively AMP can launch instances based on a `DockerContainer`, this means 
           docker.container.inboundPorts: [ "80" ]
           env: { WORDPRESS_DB_HOST: "wordpress-mysql", WORDPRESS_DB_PASSWORD: "password" }
 
+The `DockerContainer` entities each create their own _DeploymentConfig_, _ReplicationController_ and _Pod_ entities,
+in the same way as the standard AMP blueprint entities above.
+
 #### OpenShift location configuration
 
-The OpenShift location inherits configuration from the [ Kubernetes ](../kubernetes-location/README.md)
-location.
+The OpenShift location inherits configuration from the [Kubernetes](../kubernetes-location/README.md)
+location, with the following exception:
 
-For each `DockerContainer` AMP will create a [DeploymentConfig](https://docs.openshift.org/latest/architecture/core_concepts/deployments.html#deployments-and-deployment-configurations)
-containing a [ReplicationController](https://kubernetes.io/docs/user-guide/replication-controller/)
-for a [Pod](http://kubernetes.io/docs/user-guide/pods/) running the container.
-
-* `inboundPorts` The set of ports that should be exposed by the service.
-* `loginUser` The SSH username to access the container.
-* `loginUser.password` The password for the SSH user.
-* `namespace` The Kubernetes namespace and OpenShift project the Pod will be started in.
-* `deployment`
-* `env`
-* `replicas`
-* `secrets`
-* `privileged`
-* `persistentVolumes`
-*
+- **namespace** Also refers to the OpenShift project the Pod will be started in.

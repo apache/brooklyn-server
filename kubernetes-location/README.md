@@ -46,19 +46,19 @@ Standard AMP blueprints can be deployed within a K8s cluster, here's a simple ex
         checkRunning.command: |
           true
 
-For each entity AMP will create
-a [deployment](http://kubernetes.io/docs/user-guide/deployments/)
-containing a single [replica](http://kubernetes.io/docs/user-guide/replicasets/)
-of a [pod](http://kubernetes.io/docs/user-guide/pods/) containing a single
-SSHable container based on the `cloudsoft/centos:7` image. It will install and launch
-the entity in the typical AMP way. Each `inboundPort` will be exposed as a
-[NodePort service](http://kubernetes.io/docs/user-guide/services/#type-nodeport).
+For each entity AMP will create a [_Deployment_](http://kubernetes.io/docs/user-guide/deployments/)
+containing a [_ReplicaSet_](http://kubernetes.io/docs/user-guide/replicasets/)
+containing replicas (defaulting to one) of a [_Pod_](http://kubernetes.io/docs/user-guide/pods/)
+containing a single SSHable container based on the `cloudsoft/centos:7` image.
+
+It will install and launch the entity in the typical AMP way. Each `inboundPort` will be exposed as a
+[_NodePort_](http://kubernetes.io/docs/user-guide/services/#type-nodeport) in a _Service_.
 
 To explain the config options:
-* `env` The `cloudsoft/centos:7` image uses an environment variable named `ROOT_PASS`
-   to assign the SSH login user password.
-* `inboundPorts` The set of ports that should be exposed by the service.
 
+- **env**  The `cloudsoft/centos:7` image uses an environment variable named `CLOUDSOFT_ROOT_PASSWORD`
+   to assign the SSH login user password. This must match the `loginUser.password` configuration on the location.
+- **inboundPorts**  The set of ports that should be exposed by the service.
 
 #### Docker Container based blueprints
 
@@ -116,7 +116,7 @@ To configure the kubernetes location for different kubernetes setups the followi
 - **image** Docker image to be deployed into the pod
 - **osFamily** OS family, e.g. CentOS, Ubuntu
 - **osVersionRegex** Regular expression for the OS version to load
-- **env** Environment variables to inject when starting the container 
+- **env** Environment variables to inject when starting the container
 - **replicas** Number of replicas of the pod
   - **default** 1
 - **secrets** Kubernetes secrets to be added to the pod
