@@ -98,17 +98,17 @@ Standard AMP blueprints can be deployed within an OpenShift cluster, here's a si
       << see above >>
 
     services:
-    - type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
-      name: Simple Netcat Server
-
-      brooklyn.config:
-        provisioning.properties:
-          inboundPorts: [ 22, 4321 ]
-
-        launch.command: |
-          yum install -y nc
-          echo hello | nc -l 4321 &
-          echo $! > $PID_FILE
+      - type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
+        name: "Simple Netcat Server"
+        brooklyn.config:
+          provisioning.properties:
+            inboundPorts: [ 22, 4321 ]
+            env:
+              CLOUDSOFT_ROOT_PASSWORD: "p4ssw0rd"
+          launch.command: |
+            yum install -y nc
+            echo hello | nc -l 4321 &
+            echo $! > $PID_FILE
 
 For each entity AMP will create a [_DeploymentConfig_](https://docs.openshift.org/latest/architecture/core_concepts/deployments.html#deployments-and-deployment-configurations).
 This deployment configuration contains a [_ReplicationController_](https://kubernetes.io/docs/user-guide/replication-controller/)
@@ -118,6 +118,14 @@ Each pod contains a single SSHable container based on the `cloudsoft/centos:7` i
 It will then install and launch the entity. Each `inboundPort` will be exposed as a
 [_NodePort_](http://kubernetes.io/docs/user-guide/services/#type-nodeport) in a _Service_.
 
+The config options in the `provisioning.properties` section allow the location to be further customized for each entity, as follows:
+
+- **env**  The `cloudsoft/centos:7` image uses an environment variable named `CLOUDSOFT_ROOT_PASSWORD`
+   to assign the SSH login user password. This must match the `loginUser.password` configuration on the location.
+- **inboundPorts**  The set of ports that should be exposed by the service.
+
+Note the use of **deployment** in the `provisioning.properties` configuration, to set the hostname of the MySQL container to allow the Wordpress Apache server to connect to it.
+
 #### DockerContainer based blueprints
 
 Alternatively AMP can launch instances based on a `DockerContainer`, this means additional configuration such as custom docker images can be specified. Here's an example which sets up a [Wordpress](https://wordpress.org/) instance:
@@ -126,31 +134,38 @@ Alternatively AMP can launch instances based on a `DockerContainer`, this means 
       << see above >>
 
     services:
-    - type: io.cloudsoft.amp.container.kubernetes.entity.KubernetesPod
-      brooklyn.children:
-      - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
-        id: wordpress-mysql
-        name: MySQL
-        brooklyn.config:
-          docker.container.imageName: mysql:5.6
-          docker.container.inboundPorts: [ "3306" ]
-          env: { MYSQL_ROOT_PASSWORD: "password" }
-          provisioning.properties:
-            deployment: wordpress-mysql
-      - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
-        id: wordpress
-        name: Wordpress
-        brooklyn.config:
-          docker.container.imageName: wordpress:4.4-apache
-          docker.container.inboundPorts: [ "80" ]
-          env: { WORDPRESS_DB_HOST: "wordpress-mysql", WORDPRESS_DB_PASSWORD: "password" }
+      - type: io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesPod
+        brooklyn.children:
+          - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
+            id: wordpress-mysql
+            name: "MySQL"
+            brooklyn.config:
+              docker.container.imageName: mysql:5.6
+              docker.container.inboundPorts: [ "3306" ]
+              docker.container.environment:
+                MYSQL_ROOT_PASSWORD: "password"
+              provisioning.properties:
+                deployment: wordpress-mysql
+          - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
+            id: wordpress
+            name: "Wordpress"
+            brooklyn.config:
+              docker.container.imageName: wordpress:4.4-apache
+              docker.container.inboundPorts: [ "80" ]
+              docker.container.environment:
+                WORDPRESS_DB_HOST: "wordpress-mysql"
+                WORDPRESS_DB_PASSWORD: "password"
 
 The `DockerContainer` entities each create their own _DeploymentConfig_, _ReplicationController_ and _Pod_ entities,
-in the same way as the standard AMP blueprint entities above.
+in the same way as the standard AMP blueprint entities above. Each container entity can be further configured using the following options:
+
+- **docker.container.imageName** The Docker image to use for the container
+- **docker.container.inboundPorts** The set of ports on the container that should be exposed
+- **docker.container.environment** A map of environment variables for the container
 
 #### OpenShift location configuration
 
-The OpenShift location inherits configuration from the [Kubernetes](../kubernetes-location/README.md)
+The OpenShift location uses the same configuration options as the [Kubernetes](../kubernetes-location/README.md)
 location, with the following exception:
 
 - **namespace** Also refers to the OpenShift project the Pod will be started in.
