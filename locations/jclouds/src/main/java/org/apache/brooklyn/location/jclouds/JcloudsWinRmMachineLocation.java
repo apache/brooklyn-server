@@ -26,8 +26,6 @@ import java.util.Set;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.net.Networking;
-import org.jclouds.compute.ComputeServiceContext;
-import org.jclouds.compute.callables.RunScriptOnNode;
 import org.jclouds.compute.domain.Image;
 import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.Template;
@@ -277,8 +275,9 @@ public class JcloudsWinRmMachineLocation extends WinRmMachineLocation implements
         if (privateAddress.isPresent()) {
             return privateAddress.get();
         }
-        if (groovyTruth(node.getPublicAddresses())) {
-            return node.getPublicAddresses().iterator().next();
+        Set<String> publicAddresses = getPublicAddresses();
+        if (groovyTruth(publicAddresses)) {
+            return publicAddresses.iterator().next();
         }
         return null;
     }

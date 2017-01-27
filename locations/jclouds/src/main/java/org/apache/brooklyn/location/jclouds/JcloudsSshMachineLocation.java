@@ -370,8 +370,9 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
         if (privateAddress.isPresent()) {
             return privateAddress.get();
         }
-        if (groovyTruth(node.getPublicAddresses())) {
-            return node.getPublicAddresses().iterator().next();
+        Set<String> publicAddresses = getPublicAddresses();
+        if (groovyTruth(publicAddresses)) {
+            return publicAddresses.iterator().next();
         }
         return null;
     }
