@@ -26,12 +26,12 @@ Here is an example catalog item to add an OpenShift endpoint to your catalog loc
             << Generated client key (see below) >>
           namespace: << project name >>
           privileged: true
-          
+
 * Endpoint
 
-The endpoint key is the https URL of your OpenShift master. AMP connects to this to provision applications on the 
-cluster.          
-       
+The endpoint key is the https URL of your OpenShift master. AMP connects to this to provision applications on the
+cluster.
+
 * OpenShift Authorization
 
 The `caCertData`, `clientCertData` and `clientKeyData` are the credentials for your OpenShift cluster. Note that
@@ -39,7 +39,7 @@ they can also be given as paths to files using the keys `caCertFile`, `clientCer
 [OpenShift documentation](https://docs.openshift.com/enterprise/3.1/install_config/certificate_customization.html) for
 more detail on the content of these.
 
-An alternate way of authorizing your OpenShift is using OAuth. To obtain the token required you must use the `oc` command-line tool, 
+An alternate way of authorizing your OpenShift is using OAuth. To obtain the token required you must use the `oc` command-line tool,
 first to log in to OpenShift and then to display the token value, using the `whoami` command:
 
     oc login << endpoint >>
@@ -48,7 +48,7 @@ first to log in to OpenShift and then to display the token value, using the `who
 Which will output the token to the command line:
 
     mzUTj0JmWDYLSspumvW5B74rn8geKd6Qll11IPkaqeE
-    
+
 This is then set as the `oauthToken` field in the location:
 
     brooklyn.catalog:
@@ -64,58 +64,58 @@ This is then set as the `oauthToken` field in the location:
           privileged: true
 
 * Namespace
-   
+
 The `namespace` key relates to the project in which your AMP managed applications will deploy. If no project exists,
-you will first need to log into your OpenShift cluster and create a project. The `namespace` key should then contain 
+you will first need to log into your OpenShift cluster and create a project. The `namespace` key should then contain
 the ID of this.
 
 #### OpenShift Configuration
 
-AMP requires that you configure your OpenShift instance with the following options to allow it to fully provision and manage 
+AMP requires that you configure your OpenShift instance with the following options to allow it to fully provision and manage
 applications.
 
 * Container Privileges
 
-On the OpenShift master you need to ensure the configuration option `allowPrivilegedContainer` is set to `true` and 
-`runAsUser` to have `type: RunAsAny`. This can be configured using the [oc command](https://docs.openshift.com/enterprise/3.1/cli_reference/index.html) 
-to edit the cluster configuration:
+Depending on how the images you wish to use have been created, you may need to set up accounts and permissions to allow them to run.
+Containers written for the OpenShift platform follow certain rules such as logging to the console to allow centralized log
+management or avoiding the `root` user since the platform will use an arbitrary user id. For applications that follow these rules
+the default `restricted` security constraints are all that is needed. When using images from Docker Hub, or the `cloudsoft/centos:7`
+image used by native AMP entities, privileged access must be enabled. This can be done by creating a new user for your application,
+and assigning it the `privileged` or `anyuid` security constraints as described in the [documentation](https://docs.openshift.org/latest/admin_guide/manage_scc.html).
+
+Alternatively, for development systems where security is not an issue, you can edit the `restricted` constraint directly, and
+set the configuration option `allowPrivilegedContainer` to `true` and `runAsUser` to have type `RunAsAny`. This can be configured
+using the [oc command](https://docs.openshift.org/latest/cli_reference/index.html)  to edit the cluster configuration:
 
     oc login << endpoint >>
     sudo oc edit scc restricted
-    
+
 #### Plain-AMP blueprints
 
 Standard AMP blueprints can be deployed within an OpenShift cluster, here's a simple example:
 
     location:
       << see above >>
-    
+
     services:
     - type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
       name: Simple Netcat Server
-    
+
       brooklyn.config:
-        env:
-          ROOT_PASS: password
         provisioning.properties:
-          inboundPorts: [22, 4321]
-    
+          inboundPorts: [ 22, 4321 ]
+
         launch.command: |
+          sudo yum install -y nc
           echo hello | nc -l 4321 &
           echo $! > $PID_FILE
 
-For each entity AMP will create
-a [deployment](http://kubernetes.io/docs/user-guide/deployments/)
-containing a single [replica](http://kubernetes.io/docs/user-guide/replicasets/)
-of a [pod](http://kubernetes.io/docs/user-guide/pods/) containing a single
+For each entity AMP will create a [DeploymentConfig](https://docs.openshift.org/latest/architecture/core_concepts/deployments.html#deployments-and-deployment-configurations)
+containing [ReplicationController](https://kubernetes.io/docs/user-guide/replication-controller/)
+for a single replica of a [Pod](http://kubernetes.io/docs/user-guide/pods/) containing a single
 SSHable container based on the `cloudsoft/centos:7` image. It will install and launch
 the entity in the typical AMP way. Each `inboundPort` will be exposed as a
 [NodePort service](http://kubernetes.io/docs/user-guide/services/#type-nodeport).
-
-To explain the config options:
-* `env` The `cloudsoft/centos:7` image uses an environment variable named `ROOT_PASS`
-   to assign the SSH login user password.
-* `inboundPorts` The set of ports that should be exposed by the service.
 
 
 #### DockerContainer based blueprints
@@ -136,7 +136,7 @@ Alternatively AMP can launch instances based on a `DockerContainer`, this means 
           docker.container.inboundPorts: [ "3306" ]
           env: { MYSQL_ROOT_PASSWORD: "password" }
           provisioning.properties:
-            kubernetes.deployment: wordpress-mysql
+            deployment: wordpress-mysql
       - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
         id: wordpress
         name: Wordpress
@@ -147,5 +147,21 @@ Alternatively AMP can launch instances based on a `DockerContainer`, this means 
 
 #### OpenShift location configuration
 
-The OpenShift location inherits configuration from the [ Kubernetes ](../kubernetes-location/README.md) 
+The OpenShift location inherits configuration from the [ Kubernetes ](../kubernetes-location/README.md)
 location.
+
+For each `DockerContainer` AMP will create a [DeploymentConfig](https://docs.openshift.org/latest/architecture/core_concepts/deployments.html#deployments-and-deployment-configurations)
+containing a [ReplicationController](https://kubernetes.io/docs/user-guide/replication-controller/)
+for a [Pod](http://kubernetes.io/docs/user-guide/pods/) running the container.
+
+* `inboundPorts` The set of ports that should be exposed by the service.
+* `loginUser` The SSH username to access the container.
+* `loginUser.password` The password for the SSH user.
+* `namespace` The Kubernetes namespace and OpenShift project the Pod will be started in.
+* `deployment`
+* `env`
+* `replicas`
+* `secrets`
+* `privileged`
+* `persistentVolumes`
+*
