@@ -1,7 +1,7 @@
 ---
 section: Kubernetes Location
 section_type: inline
-section_position: 2.1
+section_position: 4
 ---
 
 ### Kubernetes Location
