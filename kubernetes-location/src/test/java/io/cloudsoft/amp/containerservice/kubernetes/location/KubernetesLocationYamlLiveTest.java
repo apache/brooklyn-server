@@ -30,7 +30,6 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
-import org.apache.brooklyn.entity.stock.BasicStartable;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.text.Identifiers;
@@ -43,6 +42,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.net.HostAndPort;
 
+import io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer;
 import io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesPod;
 import io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesResource;
 
@@ -82,10 +82,11 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         String yaml = Joiner.on("\n").join(
                 locationYaml,
                 "services:",
-                "- type: " + EmptySoftwareProcess.class.getName(),
-                "  brooklyn.config:",
-                "    provisioning.properties:",
-                "      " + KubernetesLocationConfig.LOGIN_USER_PASSWORD.getName() + ": " + customPassword);
+                "  - type: " + EmptySoftwareProcess.class.getName(),
+                "    brooklyn.config:",
+                "      provisioning.properties:",
+                "        " + KubernetesLocationConfig.LOGIN_USER_PASSWORD.getName() + ": " + customPassword);
+
         Entity app = createStartWaitAndLogApplication(yaml);
         EmptySoftwareProcess entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, EmptySoftwareProcess.class));
 
@@ -101,19 +102,17 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         String yaml = Joiner.on("\n").join(
                 locationYaml,
                 "services:",
-                "- type: " + VanillaSoftwareProcess.class.getName(),
-                "  brooklyn.parameters:",
-                "  - name: netcat.port",
-                "    type: port",
-                "    default: 8081",
-                "  brooklyn.config:",
-                "    install.command: |",
-                "      yum install -y nc",
-                "    launch.command: |",
-                "      echo $MESSAGE | nc -l $NETCAT_PORT &",
-                "      echo $! > $PID_FILE",
-                "    checkRunning.command: |",
-                "      true",
+                "  - type: " + VanillaSoftwareProcess.class.getName(),
+                "    brooklyn.parameters:",
+                "      - name: netcat.port",
+                "        type: port",
+                "        default: 8081",
+                "    brooklyn.config:",
+                "      install.command: |",
+                "        yum install -y nc",
+                "      launch.command: |",
+                "        echo $MESSAGE | nc -l $NETCAT_PORT &",
+                "        echo $! > $PID_FILE",
                 "    shell.env:",
                 "      MESSAGE: mymessage",
                 "      NETCAT_PORT: $brooklyn:attributeWhenReady(\"netcat.port\")",
@@ -122,6 +121,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "    brooklyn.config:",
                 "      " + OnPublicNetworkEnricher.SENSORS.getName() + ":",
                 "      - netcat.port");
+
         Entity app = createStartWaitAndLogApplication(yaml);
         VanillaSoftwareProcess entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, VanillaSoftwareProcess.class));
 
@@ -139,29 +139,26 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         String yaml = Joiner.on("\n").join(
                 locationYaml,
                 "services:",
-                "- type: " + VanillaSoftwareProcess.class.getName(),
-                "  name: server1",
-                "  brooklyn.parameters:",
-                "  - name: netcat.port",
-                "    type: port",
-                "    default: " + netcatPort,
-                "  brooklyn.config:",
-                "    install.command: |",
-                "      yum install -y nc",
-                "    launch.command: |",
-                "      echo " + message + " | nc -l " + netcatPort + " > netcat.out &",
-                "      echo $! > $PID_FILE",
-                "    checkRunning.command: |",
-                "      true",
-                "- type: " + VanillaSoftwareProcess.class.getName(),
-                "  name: server2",
-                "  brooklyn.config:",
-                "    install.command: |",
-                "      yum install -y nc",
-                "    launch.command: |",
-                "      true",
-                "    checkRunning.command: |",
-                "      true");
+                "  - type: " + VanillaSoftwareProcess.class.getName(),
+                "    name: server1",
+                "    brooklyn.parameters:",
+                "      - name: netcat.port",
+                "        type: port",
+                "        default: " + netcatPort,
+                "    brooklyn.config:",
+                "      install.command: |",
+                "        yum install -y nc",
+                "      launch.command: |",
+                "        echo " + message + " | nc -l " + netcatPort + " > netcat.out &",
+                "        echo $! > $PID_FILE",
+                "  - type: " + VanillaSoftwareProcess.class.getName(),
+                "    name: server2",
+                "    brooklyn.config:",
+                "      install.command: |",
+                "        yum install -y nc",
+                "      launch.command: true",
+                "      checkRunning.command: true");
+
         Entity app = createStartWaitAndLogApplication(yaml);
         Entities.dumpInfo(app);
 
@@ -191,16 +188,37 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
     }
 
     @Test(groups={"Live"})
+    public void testTomcatPod() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                locationYaml,
+                "services:",
+                "  - type: " + KubernetesPod.class.getName(),
+                "    brooklyn.config:",
+                "      docker.container.imageName: tomcat",
+                "      docker.container.inboundPorts: [ \"8080\" ]");
+
+        runTomcat(yaml);
+    }
+
+    @Test(groups={"Live"})
     public void testTomcatContainer() throws Exception {
         String yaml = Joiner.on("\n").join(
                 locationYaml,
                 "services:",
-                "- type: " + KubernetesPod.class.getName(),
-                "  brooklyn.config:",
-                "    docker.container.imageName: tomcat",
-                "    docker.container.inboundPorts: [ \"8080\" ]");
+                "  - type: " + DockerContainer.class.getName(),
+                "    brooklyn.config:",
+                "      docker.container.imageName: tomcat",
+                "      docker.container.inboundPorts: [ \"8080\" ]");
+
+        runTomcat(yaml);
+    }
+
+    /**
+     * Assumes that the {@link DockerContainer} entity uses port 8080.
+     */
+    protected void runTomcat(String yaml) throws Exception {
         Entity app = createStartWaitAndLogApplication(yaml);
-        KubernetesPod entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, KubernetesPod.class));
+        DockerContainer entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, DockerContainer.class));
 
         Entities.dumpInfo(app);
         String publicMapped = assertAttributeEventuallyNonNull(entity, Sensors.newStringSensor("docker.port.8080.mapped.public"));
@@ -220,7 +238,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "services:",
                 "  - type: " + KubernetesPod.class.getName(),
                 "    brooklyn.children:",
-                "      - type: " + KubernetesPod.class.getName(),
+                "      - type: " + DockerContainer.class.getName(),
                 "        id: wordpress-mysql",
                 "        name: mysql",
                 "        brooklyn.config:",
@@ -231,7 +249,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "            MYSQL_ROOT_PASSWORD: \"password\"",
                 "          provisioning.properties:",
                 "            deployment: wordpress-mysql-" + randomId,
-                "      - type: " + KubernetesPod.class.getName(),
+                "      - type: " + DockerContainer.class.getName(),
                 "        id: wordpress",
                 "        name: wordpress",
                 "        brooklyn.config:",
@@ -239,16 +257,16 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "          docker.container.inboundPorts:",
                 "            - \"80\"",
                 "          docker.container.environment:",
-                "            WORDPRESS_DB_HOST: \"wordpress-mysql\"",
+                "            WORDPRESS_DB_HOST: \"wordpress-mysql" + randomId + "\"",
                 "            WORDPRESS_DB_PASSWORD: \"password\"",
                 "          provisioning.properties:",
                 "            deployment: wordpress-" + randomId);
 
-        runWordpress(yaml);
+        runWordpress(yaml, randomId);
     }
 
     @Test(groups={"Live"})
-    public void testWordpressInSeperatePods() throws Exception {
+    public void testWordpressInPods() throws Exception {
         // TODO docker.container.inboundPorts doesn't accept list of ints - need to use quotes
         String randomId = Identifiers.makeRandomId(4);
         String yaml = Joiner.on("\n").join(
@@ -263,6 +281,8 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "        - \"3306\"",
                 "      docker.container.environment:",
                 "        MYSQL_ROOT_PASSWORD: \"password\"",
+                "      deployment: wordpress-mysql-" + randomId,
+                "      pod: wordpress-mysql-pod-" + randomId,
                 "  - type: " + KubernetesPod.class.getName(),
                 "    id: wordpress",
                 "    name: wordpress",
@@ -271,31 +291,35 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "      docker.container.inboundPorts:",
                 "        - \"80\"",
                 "      docker.container.environment:",
-                "        WORDPRESS_DB_HOST: \"wordpress-mysql\"",
+                "        WORDPRESS_DB_HOST: \"wordpress-mysql" + randomId + "\"",
                 "        WORDPRESS_DB_PASSWORD: \"password\"",
-                "      provisioning.properties:",
-                "        deployment: wordpress-" + randomId);
+                "      deployment: wordpress-" + randomId);
 
-        runWordpress(yaml);
+        runWordpress(yaml, randomId);
     }
 
     /**
-     * Assumes that the {@link KubernetesPod} entities have display names of "mysql" and "wordpress",
+     * Assumes that the {@link DockerContainer} entities have display names of "mysql" and "wordpress",
      * and that they use ports 3306 and 80 respectively.
      */
-    protected void runWordpress(String  yaml) throws Exception {
+    protected void runWordpress(String yaml, String randomId) throws Exception {
         Entity app = createStartWaitAndLogApplication(yaml);
         Entities.dumpInfo(app);
 
-        Iterable<KubernetesPod> containers = Entities.descendantsAndSelf(app, KubernetesPod.class);
-        KubernetesPod mysql = Iterables.find(containers, EntityPredicates.displayNameEqualTo("mysql"));
-        KubernetesPod wordpress = Iterables.find(containers, EntityPredicates.displayNameEqualTo("wordpress"));
+        Iterable<DockerContainer> containers = Entities.descendantsAndSelf(app, DockerContainer.class);
+        DockerContainer mysql = Iterables.find(containers, EntityPredicates.displayNameEqualTo("mysql"));
+        DockerContainer wordpress = Iterables.find(containers, EntityPredicates.displayNameEqualTo("wordpress"));
 
         String mysqlPublicPort = assertAttributeEventuallyNonNull(mysql, Sensors.newStringSensor("docker.port.3306.mapped.public"));
         assertReachableEventually(HostAndPort.fromString(mysqlPublicPort));
+        assertAttributeEqualsEventually(mysql, KubernetesPod.KUBERNETES_POD, "wordpress-mysql-pod-" + randomId);
+        assertAttributeEqualsEventually(mysql, KubernetesPod.KUBERNETES_NAMESPACE, "amp");
+        assertAttributeEqualsEventually(mysql, KubernetesPod.KUBERNETES_SERVICE, "wordpress-mysql-" + randomId);
 
         String wordpressPublicPort = assertAttributeEventuallyNonNull(wordpress, Sensors.newStringSensor("docker.port.80.mapped.public"));
         assertReachableEventually(HostAndPort.fromString(wordpressPublicPort));
+        assertAttributeEqualsEventually(wordpress, KubernetesPod.KUBERNETES_NAMESPACE, "amp");
+        assertAttributeEqualsEventually(wordpress, KubernetesPod.KUBERNETES_SERVICE, "wordpress-" + randomId);
 
         // TODO more assertions (e.g. wordpress can successfully reach the database)
     }
@@ -309,7 +333,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "    brooklyn.config:",
                 "      docker.container.imageName: tomcat",
                 "      docker.container.inboundPorts:",
-                "      - \"8080\"",
+                "        - \"8080\"",
                 "      shell.env:",
                 "        CLUSTER_ID: \"id\"",
                 "        CLUSTER_TOKEN: \"token\"");
@@ -343,7 +367,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         assertEntityHealthy(entity);
         assertAttributeEqualsEventually(entity, KubernetesResource.RESOURCE_NAME, "nginx-replication-controller");
         assertAttributeEqualsEventually(entity, KubernetesResource.RESOURCE_TYPE, "ReplicationController");
-        assertAttributeEqualsEventually(entity, KubernetesLocationConfig.KUBERNETES_NAMESPACE, "default");
+        assertAttributeEqualsEventually(entity, KubernetesResource.KUBERNETES_NAMESPACE, "default");
         assertAttributeEventually(entity, SoftwareProcess.ADDRESS, and(notNull(), not(equalTo("0.0.0.0"))));
         assertAttributeEventually(entity, SoftwareProcess.SUBNET_ADDRESS, and(notNull(), not(equalTo("0.0.0.0"))));
     }

@@ -3,6 +3,7 @@ package io.cloudsoft.amp.containerservice.kubernetes.location;
 import java.io.InputStream;
 import java.net.InetAddress;
 import java.nio.charset.Charset;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +18,7 @@ import org.apache.brooklyn.api.location.NoMachinesAvailableException;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.location.AbstractLocation;
@@ -49,6 +51,7 @@ import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -63,6 +66,7 @@ import com.google.common.net.HostAndPort;
 import io.cloudsoft.amp.containerservice.ThreadedRepeater;
 import io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer;
 import io.cloudsoft.amp.containerservice.dockerlocation.DockerJcloudsLocation;
+import io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesPod;
 import io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesResource;
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
@@ -98,7 +102,7 @@ import io.fabric8.kubernetes.api.model.extensions.DeploymentStatus;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 
-public class KubernetesLocation extends AbstractLocation implements MachineProvisioningLocation<MachineLocation>, CloudLocationConfig, KubernetesLocationConfig {
+public class KubernetesLocation extends AbstractLocation implements MachineProvisioningLocation<MachineLocation>, KubernetesLocationConfig {
 
     /*
      * TODO
@@ -173,6 +177,14 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         if (isKubernetesResource(entity)) {
             return createKubernetesResourceLocation(entity, setup);
         } else {
+            // Heuristic for determining whether KubernetesPod is simply a container
+            if (isKubernetesPod(entity) &&
+                    entity.config().get(DockerContainer.IMAGE_NAME) == null &&
+                    entity.config().get(DockerContainer.INBOUND_TCP_PORTS) == null &&
+                    entity.config().get(KubernetesPod.POD) == null &&
+                    entity.getChildren().size() > 0) {
+                return null;
+            }
             return createKubernetesContainerLocation(entity, setup);
         }
     }
@@ -188,10 +200,10 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     }
 
     protected void deleteKubernetesContainerLocation(Entity entity, MachineLocation machine) {
-        final String namespace = entity.sensors().get(KUBERNETES_NAMESPACE);
-        final String deployment = entity.sensors().get(KUBERNETES_DEPLOYMENT);
-        final String pod = entity.sensors().get(KUBERNETES_POD);
-        final String service = entity.sensors().get(KUBERNETES_SERVICE);
+        final String namespace = entity.sensors().get(KubernetesPod.KUBERNETES_NAMESPACE);
+        final String deployment = entity.sensors().get(KubernetesPod.KUBERNETES_DEPLOYMENT);
+        final String pod = entity.sensors().get(KubernetesPod.KUBERNETES_POD);
+        final String service = entity.sensors().get(KubernetesPod.KUBERNETES_SERVICE);
 
         undeploy(namespace, deployment, pod);
 
@@ -215,7 +227,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     }
 
     protected void deleteKubernetesResourceLocation(Entity entity) {
-        final String namespace = entity.sensors().get(KUBERNETES_NAMESPACE);
+        final String namespace = entity.sensors().get(KubernetesPod.KUBERNETES_NAMESPACE);
         final String resourceType = entity.sensors().get(KubernetesResource.RESOURCE_TYPE);
         final String resourceName = entity.sensors().get(KubernetesResource.RESOURCE_NAME);
 
@@ -227,21 +239,21 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     protected boolean handleResourceDelete(String resourceType, String resourceName, String namespace) {
         try {
             switch (resourceType) {
-                case "Deployment":
+                case KubernetesResource.DEPLOYMENT:
                     return client.extensions().deployments().inNamespace(namespace).withName(resourceName).delete();
-                case "ReplicaSet":
+                case KubernetesResource.REPLICA_SET:
                     return client.extensions().replicaSets().inNamespace(namespace).withName(resourceName).delete();
-                case "ConfigMap":
+                case KubernetesResource.CONFIG_MAP:
                     return client.configMaps().inNamespace(namespace).withName(resourceName).delete();
-                case "PersistentVolume":
+                case KubernetesResource.PERSISTENT_VOLUME:
                     return client.persistentVolumes().withName(resourceName).delete();
-                case "Secret":
+                case KubernetesResource.SECRET:
                     return client.secrets().inNamespace(namespace).withName(resourceName).delete();
-                case "Service":
+                case KubernetesResource.SERVICE:
                     return client.services().inNamespace(namespace).withName(resourceName).delete();
-                case "ReplicationController":
+                case KubernetesResource.REPLICATION_CONTROLLER:
                     return client.replicationControllers().inNamespace(namespace).withName(resourceName).delete();
-                case "Namespace":
+                case KubernetesResource.NAMESPACE:
                     return client.namespaces().withName(resourceName).delete();
             }
         } catch (KubernetesClientException kce) {
@@ -330,7 +342,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         String namespace = metadata.getMetadata().getNamespace();
         LOG.debug("Resource {} (type {}) deployed to {}", resourceName, resourceType, namespace);
 
-        entity.sensors().set(KUBERNETES_NAMESPACE, namespace);
+        entity.sensors().set(KubernetesPod.KUBERNETES_NAMESPACE, namespace);
         entity.sensors().set(KubernetesResource.RESOURCE_NAME, resourceName);
         entity.sensors().set(KubernetesResource.RESOURCE_TYPE, resourceType);
 
@@ -343,7 +355,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
 
         SshMachineLocation machine = getManagementContext().getLocationManager().createLocation(locationSpec);
 
-        if (resourceType.equals("Service")) {
+        if (resourceType.equals(KubernetesResource.SERVICE)) {
             Service service = getService(namespace, resourceName);
             registerPortMappings(machine, entity, service);
 
@@ -353,17 +365,17 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     }
 
     protected boolean findResourceAddress(LocationSpec<SshMachineLocation> locationSpec, Entity entity, HasMetadata metadata, String resourceType, String resourceName, String namespace) {
-        if (resourceType.equals("Deployment") || resourceType.equals("ReplicationController") || resourceType.equals("Pod")) {
+        if (resourceType.equals(KubernetesResource.DEPLOYMENT) || resourceType.equals(KubernetesResource.REPLICATION_CONTROLLER) || resourceType.equals(KubernetesResource.POD)) {
             Map<String, String> labels = MutableMap.of();
-            if (resourceType.equals("Deployment")) {
+            if (resourceType.equals(KubernetesResource.DEPLOYMENT)) {
                 Deployment deployment = (Deployment) metadata;
                 labels = deployment.getSpec().getTemplate().getMetadata().getLabels();
-            } else if (resourceType.equals("ReplicationController")) {
+            } else if (resourceType.equals(KubernetesResource.REPLICATION_CONTROLLER)) {
                 ReplicationController replicationController = (ReplicationController) metadata;
                 labels = replicationController.getSpec().getTemplate().getMetadata().getLabels();
             }
-            Pod pod = resourceType.equals("Pod") ? getPod(namespace, resourceName) : getPod(namespace, labels);
-            entity.sensors().set(KubernetesLocationConfig.KUBERNETES_POD, pod.getMetadata().getName());
+            Pod pod = resourceType.equals(KubernetesResource.POD) ? getPod(namespace, resourceName) : getPod(namespace, labels);
+            entity.sensors().set(KubernetesPod.KUBERNETES_POD, pod.getMetadata().getName());
 
             InetAddress node = Networking.getInetAddressWithFixedName(pod.getSpec().getNodeName());
             String podAddress = pod.getStatus().getPodIP();
@@ -372,7 +384,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
             locationSpec.configure(SshMachineLocation.PRIVATE_ADDRESSES, ImmutableSet.of(podAddress));
 
             return true;
-        } else if (resourceType.equals("Service")) {
+        } else if (resourceType.equals(KubernetesResource.SERVICE)) {
             getService(namespace, resourceName);
 
             Endpoints endpoints = client.endpoints().inNamespace(namespace).withName(resourceName).get();
@@ -385,7 +397,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
 
             try {
                 Pod pod = getPod(namespace, podName);
-                entity.sensors().set(KubernetesLocationConfig.KUBERNETES_POD, podName);
+                entity.sensors().set(KubernetesPod.KUBERNETES_POD, podName);
 
                 InetAddress node = Networking.getInetAddressWithFixedName(pod.getSpec().getNodeName());
                 locationSpec.configure("address", node);
@@ -400,22 +412,22 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     }
 
     protected MachineLocation createKubernetesContainerLocation(Entity entity, ConfigBag setup) {
-        String deploymentName = findDeploymentName(entity, setup);
-        Integer replicas = setup.get(REPLICAS);
-        List<String> volumes = setup.get(KubernetesLocationConfig.PERSISTENT_VOLUMES);
-        Map<String, String> secrets = setup.get(KubernetesLocationConfig.SECRETS);
-        Map<String, String> limits = setup.get(KubernetesLocationConfig.LIMITS);
-        Boolean privileged = setup.get(KubernetesLocationConfig.PRIVILEGED);
+        String deploymentName = lookup(KubernetesPod.DEPLOYMENT, entity, setup, entity.getId());
+        Integer replicas = lookup(KubernetesPod.REPLICAS, entity, setup);
+        List<String> volumes = lookup(KubernetesPod.PERSISTENT_VOLUMES, entity, setup);
+        Map<String, String> secrets = lookup(KubernetesPod.SECRETS, entity, setup);
+        Map<String, String> limits = lookup(KubernetesPod.LIMITS, entity, setup);
+        Boolean privileged = lookup(KubernetesPod.PRIVILEGED, entity, setup);
         String imageName = findImageName(entity, setup);
         Iterable<Integer> inboundPorts = findInboundPorts(entity, setup);
         Map<String, String> env = findEnvironmentVariables(entity, setup, imageName);
-        Map<String, String> metadata = findMetadata(entity, deploymentName);
+        Map<String, String> metadata = findMetadata(entity, setup, deploymentName);
 
         if (volumes != null) {
             createPersistentVolumes(volumes);
         }
 
-        Namespace namespace = createOrGetNamespace(setup.get(NAMESPACE), setup.get(CREATE_NAMESPACE));
+        Namespace namespace = createOrGetNamespace(lookup(NAMESPACE, entity, setup), setup.get(CREATE_NAMESPACE));
 
         if (secrets != null) {
             createSecrets(namespace.getMetadata().getName(), secrets);
@@ -426,10 +438,10 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         Service service = exposeService(namespace.getMetadata().getName(), metadata, deploymentName, inboundPorts);
         Pod pod = getPod(namespace.getMetadata().getName(), metadata);
 
-        entity.sensors().set(KubernetesLocationConfig.KUBERNETES_NAMESPACE, namespace.getMetadata().getName());
-        entity.sensors().set(KubernetesLocationConfig.KUBERNETES_DEPLOYMENT, deploymentName);
-        entity.sensors().set(KubernetesLocationConfig.KUBERNETES_POD, pod.getMetadata().getName());
-        entity.sensors().set(KubernetesLocationConfig.KUBERNETES_SERVICE, service.getMetadata().getName());
+        entity.sensors().set(KubernetesPod.KUBERNETES_NAMESPACE, namespace.getMetadata().getName());
+        entity.sensors().set(KubernetesPod.KUBERNETES_DEPLOYMENT, deploymentName);
+        entity.sensors().set(KubernetesPod.KUBERNETES_POD, pod.getMetadata().getName());
+        entity.sensors().set(KubernetesPod.KUBERNETES_SERVICE, service.getMetadata().getName());
 
         LocationSpec<SshMachineLocation> locationSpec = prepareLocationSpec(entity, setup, namespace, deploymentName, service, pod);
         SshMachineLocation machine = getManagementContext().getLocationManager().createLocation(locationSpec);
@@ -495,10 +507,6 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         }
 
         entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class).configure(OnPublicNetworkEnricher.MAP_MATCHING, "kubernetes.[a-zA-Z0-9][a-zA-Z0-9-_]*.port"));
-    }
-
-    protected String findDeploymentName(Entity entity, ConfigBag setup) {
-        return Optional.fromNullable(setup.get(KubernetesLocationConfig.DEPLOYMENT)).or(entity.getId());
     }
 
     protected synchronized Namespace createOrGetNamespace(final String name, Boolean create) {
@@ -573,14 +581,13 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
 
         String json = String.format("{\"https://index.docker.io/v1/\":{\"auth\":\"%s\"}}", auth);
         String base64encoded = BaseEncoding.base64().encode(json.getBytes(Charset.defaultCharset()));
-        secret = client.secrets().inNamespace(namespace)
-                .create(new SecretBuilder()
+        secret = new SecretBuilder()
                         .withNewMetadata()
                             .withName(secretName)
                         .endMetadata()
                         .withType("kubernetes.io/dockercfg")
                         .withData(ImmutableMap.of(".dockercfg", base64encoded))
-                        .build());
+                        .build();
         try {
             client.secrets().inNamespace(namespace).create(secret);
         } catch (KubernetesClientException e) {
@@ -642,6 +649,12 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 .withNewSpec()
                     .addToContainers(container)
                 .endSpec();
+        if (isKubernetesPod(entity)) {
+            String podName = entity.config().get(KubernetesPod.POD);
+            if (Strings.isNonBlank(podName)) {
+                podTemplateSpecBuilder.editOrNewMetadata().withName(podName).endMetadata();
+            }
+        }
         if (secrets != null) {
             for (String secretName : secrets.keySet()) {
                 podTemplateSpecBuilder.withNewSpec()
@@ -797,53 +810,55 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     protected Entity validateCallerContext(ConfigBag setup) {
         // Lookup entity flags
         Object callerContext = setup.get(LocationConfigKeys.CALLER_CONTEXT);
-        if (callerContext == null || !(callerContext instanceof Entity)) {
+        if (callerContext instanceof Entity) {
+            return (Entity) callerContext;
+        } else {
             throw new IllegalStateException("Invalid caller context: " + callerContext);
         }
-        return (Entity) callerContext;
     }
 
     protected Entity validateCallerContext(MachineLocation machine) {
         // Lookup entity flags
         Object callerContext = machine.config().get(LocationConfigKeys.CALLER_CONTEXT);
-        if (callerContext == null || !(callerContext instanceof Entity)) {
+        if (callerContext instanceof Entity) {
+            return (Entity) callerContext;
+        } else {
             throw new IllegalStateException("Invalid caller context: " + callerContext);
         }
-        return (Entity) callerContext;
     }
 
-
-    protected Map<String, String> findMetadata(Entity entity, String value) {
-        Map<String, String> metadata = Maps.newHashMap();
-        if (!isDockerContainer(entity)) {
-            metadata.put(SSHABLE_CONTAINER, value);
+    protected Map<String, String> findMetadata(Entity entity, ConfigBag setup, String value) {
+        Map<String, String> podMetadata = Maps.newLinkedHashMap();
+        if (isDockerContainer(entity)) {
+            podMetadata.put(IMMUTABLE_CONTAINER_KEY, value);
         } else {
-            metadata.put(IMMUTABLE_CONTAINER_KEY, value);
+            podMetadata.put(SSHABLE_CONTAINER, value);
         }
-        return metadata;
+
+        Map<String, Object> metadata = MutableMap.<String, Object>builder()
+                .putAll(MutableMap.copyOf(setup.get(KubernetesPod.METADATA)))
+                .putAll(MutableMap.copyOf(entity.config().get(KubernetesPod.METADATA)))
+                .putAll(podMetadata)
+                .build();
+        return Maps.transformValues(metadata, Functions.toStringFunction());
     }
 
     /**
-     * Appends the config's "env" with the {@code CLOUDSOFT_ROOT_PASSWORD} env if appropriate.
+     * Sets the {@code CLOUDSOFT_ROOT_PASSWORD} variable in the container environment if appropriate.
      * This is (approximately) the same behaviour as the {@link DockerJcloudsLocation} used for 
      * Swarm.
      * 
-     * Side-effects the {@code config}, to set the loginPassword if one is auto-generated.
-     * 
-     * TODO Longer term, we'll add a config key to the `DockerContainer` entity for env variables.
-     * We'll inject those when launching the container (and will do the same in 
-     * `DockerJcloudsLocation` for Swarm). What would the precedence be? Would we prefer the
-     * entity's config over the location's (or vice versa)? I think the entity's would take
-     * precedence, as a location often applies to a whole app so we might well want to override
-     * or augment it for specific entities.
+     * Side-effects the location {@code config} to set the {@link KubernetesLocationConfig#LOGIN_USER_PASSWORD loginUser.password}
+     * if one is auto-generated. Note that this injected value overrides any other settings configured for the
+     * container environment.
      */
-    protected Map<String, String> findEnvironmentVariables(Entity entity, ConfigBag config, String imageName) {
-        String loginUser = config.get(LOGIN_USER);
-        String loginPassword = config.get(LOGIN_USER_PASSWORD);
+    protected Map<String, String> findEnvironmentVariables(Entity entity, ConfigBag setup, String imageName) {
+        String loginUser = setup.get(LOGIN_USER);
+        String loginPassword = setup.get(LOGIN_USER_PASSWORD);
         Map<String, String> injections = Maps.newLinkedHashMap();
 
         // Check if login credentials should be injected
-        Boolean injectLoginCredentials = config.get(INJECT_LOGIN_CREDENTIAL);
+        Boolean injectLoginCredentials = setup.get(INJECT_LOGIN_CREDENTIAL);
         if (injectLoginCredentials == null) {
             for (String regex : IMAGE_DESCRIPTION_REGEXES_REQUIRING_INJECTED_LOGIN_CREDS) {
                 if (imageName != null && imageName.matches(regex)) {
@@ -856,11 +871,11 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         if (Boolean.TRUE.equals(injectLoginCredentials)) {
             if ((Strings.isBlank(loginUser) || "root".equals(loginUser))) {
                 loginUser = "root";
-                config.configure(LOGIN_USER, loginUser);
+                setup.configure(LOGIN_USER, loginUser);
 
                 if (Strings.isBlank(loginPassword)) {
                     loginPassword = Identifiers.makeRandomPassword(12);
-                    config.configure(LOGIN_USER_PASSWORD, loginPassword);
+                    setup.configure(LOGIN_USER_PASSWORD, loginPassword);
                 }
 
                 injections.put("CLOUDSOFT_ROOT_PASSWORD", loginPassword);
@@ -868,9 +883,9 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         }
 
         Map<String,Object> rawEnv = MutableMap.<String, Object>builder()
-                .putAll(injections)
-                .putAll(MutableMap.copyOf(config.get(ENV)))
+                .putAll(MutableMap.copyOf(setup.get(ENV)))
                 .putAll(MutableMap.copyOf(entity.config().get(DockerContainer.CONTAINER_ENVIRONMENT)))
+                .putAll(injections)
                 .build();
         return Maps.transformValues(rawEnv, Functions.toStringFunction());
     }
@@ -918,16 +933,40 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     }
 
     protected boolean isDockerContainer(Entity entity) {
-        return entity.getEntityType().getName().equalsIgnoreCase(DockerContainer.class.getName());
+        return implementsInterface(entity, DockerContainer.class);
+    }
+
+    protected boolean isKubernetesPod(Entity entity) {
+        return implementsInterface(entity, KubernetesPod.class);
     }
 
     protected boolean isKubernetesResource(Entity entity) {
-        return entity.getEntityType().getName().equalsIgnoreCase(KubernetesResource.class.getName());
+        return implementsInterface(entity, KubernetesResource.class);
+    }
+
+    protected boolean implementsInterface(Entity entity, Class<?> type) {
+        return Iterables.tryFind(Arrays.asList(entity.getClass().getInterfaces()), Predicates.instanceOf(type)).isPresent();
     }
 
     @Override
     public MachineProvisioningLocation<MachineLocation> newSubLocation(Map<?, ?> newFlags) {
-        return null;
+        throw new UnsupportedOperationException();
+    }
+
+    /** @see {@link #lookup(ConfigKey, Entity, ConfigBag, Object)} */
+    protected <T> T lookup(ConfigKey<T> config, Entity entity, ConfigBag setup) {
+        return lookup(config, entity, setup, null);
+    }
+
+    /**
+     * Looks up {@link ConfigKey configuration} with the entity value taking precedence over the
+     * location, and returning a default value (normally {@literal null}) if neither is present.
+     */
+    protected <T> T lookup(ConfigKey<T> config, Entity entity, ConfigBag setup, T defaultValue) {
+        Optional<T> entityValue = Optional.fromNullable(entity.config().get(config));
+        Optional<T> locationValue = Optional.fromNullable(setup.get(config));
+
+        return entityValue.or(locationValue).or(defaultValue);
     }
 
     protected void waitForExitCondition(ExitCondition exitCondition) {

@@ -1,23 +1,21 @@
 package io.cloudsoft.amp.containerservice.kubernetes.location;
 
-import java.util.List;
 import java.util.Map;
 
-import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 
-public interface KubernetesLocationConfig {
+public interface KubernetesLocationConfig extends CloudLocationConfig {
 
-    @SetFromFlag("endpoint")
     ConfigKey<String> MASTER_URL = LocationConfigKeys.CLOUD_ENDPOINT;
 
     ConfigKey<String> CA_CERT_DATA = ConfigKeys.builder(String.class)
@@ -110,16 +108,11 @@ public interface KubernetesLocationConfig {
             .build();
 
     @SuppressWarnings("serial")
-    ConfigKey<List<String>> PERSISTENT_VOLUMES = ConfigKeys.builder(new TypeToken<List<String>>() {})
-            .name("persistentVolumes")
-            .description("Set up persistent volumes.")
-            .constraint(Predicates.<List<String>>notNull())
-            .build();
-
-    ConfigKey<String> DEPLOYMENT = ConfigKeys.builder(String.class)
-            .name("deployment")
-            .description("Deployment where resources will live.")
-            .constraint(Predicates.<String>notNull())
+    ConfigKey<Map<String, ?>> ENV = ConfigKeys.builder(new TypeToken<Map<String, ?>>() {})
+            .name("env")
+            .description("Environment variables to inject when starting the container")
+            .defaultValue(ImmutableMap.<String, Object>of())
+            .constraint(Predicates.<Map<String, ?>>notNull())
             .build();
 
     ConfigKey<String> IMAGE = ConfigKeys.builder(String.class)
@@ -138,41 +131,7 @@ public interface KubernetesLocationConfig {
             .description("Regular expression for the OS version to load")
             .build();
 
-    @SuppressWarnings("serial")
-    ConfigKey<Map<String, ?>> ENV = ConfigKeys.newConfigKey(
-            new TypeToken<Map<String, ?>>() {},
-            "env",
-            "Environment variables to inject when starting the container",
-            ImmutableMap.<String, Object>of());
-
-    ConfigKey<Integer> REPLICAS = ConfigKeys.builder(Integer.class)
-            .name("replicas")
-            .description("Number of replicas of the pod")
-            .constraint(Predicates.notNull())
-            .defaultValue(1)
-            .build();
-
-    @SuppressWarnings("serial")
-    ConfigKey<Map<String, String>> SECRETS = ConfigKeys.builder(
-            new TypeToken<Map<String, String>>() {})
-            .name("secrets")
-            .description("Kubernetes secrets to be added to the pod")
-            .build();
-
-    @SuppressWarnings("serial")
-    ConfigKey<Map<String, String>> LIMITS = ConfigKeys.builder(
-            new TypeToken<Map<String, String>>() {})
-            .name("limits")
-            .description("Kubernetes resource limits")
-            .build();
-
-    ConfigKey<Boolean> PRIVILEGED = ConfigKeys.builder(Boolean.class)
-            .name("privileged")
-            .description("Whether Kubernetes should allow privileged containers")
-            .defaultValue(false)
-            .build();
-
-    ConfigKey<KubernetesClientRegistry> KUBERNETES_CLIENT_REGISTRY = ConfigKeys.builder(KubernetesClientRegistry.class)
+    ConfigKey<KubernetesClientRegistry> KUBERNETES_CLIENT_REGISTRY = ConfigKeys.builder(KubernetesClientRegistry.class) 
             .name("kubernetesClientRegistry")
             .description("Registry/Factory for creating Kubernetes client; default is almost always fine, "
                     + "except where tests want to customize behaviour")
@@ -195,22 +154,6 @@ public interface KubernetesLocationConfig {
     ConfigKey<Boolean> INJECT_LOGIN_CREDENTIAL = ConfigKeys.builder(Boolean.class)
             .name("injectLoginCredential")
             .description("Whether to inject login credentials (if null, will infer from image choice); ignored if explicit 'loginUser.password' supplied")
-            .build();
-
-    AttributeSensor<String> KUBERNETES_DEPLOYMENT = Sensors.builder(String.class, "kubernetes.deployment")
-            .description("Deployment resources run in")
-            .build();
-
-    AttributeSensor<String> KUBERNETES_NAMESPACE = Sensors.builder(String.class, "kubernetes.namespace")
-            .description("Namespace that resources run in")
-            .build();
-
-    AttributeSensor<String> KUBERNETES_SERVICE = Sensors.builder(String.class, "kubernetes.service")
-            .description("Service that exposes the deployment")
-            .build();
-
-    AttributeSensor<String> KUBERNETES_POD = Sensors.builder(String.class, "kubernetes.pod")
-            .description("Pod running the deployment")
             .build();
 
 }

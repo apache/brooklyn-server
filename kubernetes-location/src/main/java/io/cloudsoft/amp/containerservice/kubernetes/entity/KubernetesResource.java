@@ -25,4 +25,16 @@ public interface KubernetesResource extends SoftwareProcess {
                                              .description("Kubernetes resource name")
                                              .build();
 
+    AttributeSensor<String> KUBERNETES_NAMESPACE = KubernetesPod.KUBERNETES_NAMESPACE;
+
+    String POD = "Pod";
+    String DEPLOYMENT = "Deployment";
+    String REPLICA_SET = "ReplicaSet";
+    String CONFIG_MAP = "ConfigMap";
+    String PERSISTENT_VOLUME = "PersistentVolume";
+    String SECRET = "Secret";
+    String SERVICE = "Service";
+    String REPLICATION_CONTROLLER = "ReplicationController";
+    String NAMESPACE = "Namespace";
+
 }
