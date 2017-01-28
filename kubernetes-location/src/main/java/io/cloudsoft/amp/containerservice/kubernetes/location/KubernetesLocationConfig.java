@@ -7,7 +7,6 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
-import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.time.Duration;
@@ -16,7 +15,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 
-public interface KubernetesLocationConfig extends CloudLocationConfig {
+public interface KubernetesLocationConfig {
 
     @SetFromFlag("endpoint")
     ConfigKey<String> MASTER_URL = LocationConfigKeys.CLOUD_ENDPOINT;
@@ -89,13 +88,6 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
             .constraint(Predicates.<Duration>notNull())
             .build();
 
-    ConfigKey<String> NAMESPACE = ConfigKeys.builder(String.class)
-            .name("namespace")
-            .description("Namespace where resources will live; the default is 'amp'")
-            .defaultValue("amp")
-            .constraint(Predicates.<String>notNull())
-            .build();
-
     ConfigKey<Boolean> CREATE_NAMESPACE = ConfigKeys.builder(Boolean.class)
             .name("namespace.create")
             .description("Whether to create the namespace if it does not exist")
@@ -108,6 +100,13 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
             .description("Whether to delete an empty namespace when releasing resources")
             .defaultValue(false)
             .constraint(Predicates.<Boolean>notNull())
+            .build();
+
+    ConfigKey<String> NAMESPACE = ConfigKeys.builder(String.class)
+            .name("namespace")
+            .description("Namespace where resources will live; the default is 'amp'")
+            .defaultValue("amp")
+            .constraint(Predicates.<String>notNull())
             .build();
 
     @SuppressWarnings("serial")

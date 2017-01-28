@@ -30,6 +30,7 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
+import org.apache.brooklyn.entity.stock.BasicStartable;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.text.Identifiers;
@@ -42,7 +43,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.net.HostAndPort;
 
-import io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer;
 import io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesPod;
 import io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesResource;
 
@@ -70,7 +70,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         locationYaml = Joiner.on("\n").join(
                 "location:",
                 "  kubernetes:",
-                "    " + KubernetesLocationConfig.CLOUD_ENDPOINT.getName() + ": \"" + KUBERNETES_ENDPOINT + "\"",
+                "    " + KubernetesLocationConfig.MASTER_URL.getName() + ": \"" + KUBERNETES_ENDPOINT + "\"",
                 "    " + (Strings.isBlank(IDENTITY) ? "" : "identity: "+IDENTITY),
                 "    " + (Strings.isBlank(CREDENTIAL) ? "" : "credential: "+CREDENTIAL));
     }
@@ -195,12 +195,12 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         String yaml = Joiner.on("\n").join(
                 locationYaml,
                 "services:",
-                "- type: " + DockerContainer.class.getName(),
+                "- type: " + KubernetesPod.class.getName(),
                 "  brooklyn.config:",
                 "    docker.container.imageName: tomcat",
                 "    docker.container.inboundPorts: [ \"8080\" ]");
         Entity app = createStartWaitAndLogApplication(yaml);
-        DockerContainer entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, DockerContainer.class));
+        KubernetesPod entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, KubernetesPod.class));
 
         Entities.dumpInfo(app);
         String publicMapped = assertAttributeEventuallyNonNull(entity, Sensors.newStringSensor("docker.port.8080.mapped.public"));
@@ -212,32 +212,64 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
 
 
     @Test(groups={"Live"})
-    public void testWordpressInPod() throws Exception {
+    public void testWordpressInContainers() throws Exception {
         // TODO docker.container.inboundPorts doesn't accept list of ints - need to use quotes
         String randomId = Identifiers.makeRandomLowercaseId(4);
         String yaml = Joiner.on("\n").join(
                 locationYaml,
                 "services:",
-                "- type: " + KubernetesPod.class.getName(),
-                "  brooklyn.children:",
-                "  - type: " + DockerContainer.class.getName(),
+                "  - type: " + KubernetesPod.class.getName(),
+                "    brooklyn.children:",
+                "      - type: " + KubernetesPod.class.getName(),
+                "        id: wordpress-mysql",
+                "        name: mysql",
+                "        brooklyn.config:",
+                "          docker.container.imageName: mysql:5.6",
+                "          docker.container.inboundPorts:",
+                "            - \"3306\"",
+                "          docker.container.environment:",
+                "            MYSQL_ROOT_PASSWORD: \"password\"",
+                "          provisioning.properties:",
+                "            deployment: wordpress-mysql-" + randomId,
+                "      - type: " + KubernetesPod.class.getName(),
+                "        id: wordpress",
+                "        name: wordpress",
+                "        brooklyn.config:",
+                "          docker.container.imageName: wordpress:4.4-apache",
+                "          docker.container.inboundPorts:",
+                "            - \"80\"",
+                "          docker.container.environment:",
+                "            WORDPRESS_DB_HOST: \"wordpress-mysql\"",
+                "            WORDPRESS_DB_PASSWORD: \"password\"",
+                "          provisioning.properties:",
+                "            deployment: wordpress-" + randomId);
+
+        runWordpress(yaml);
+    }
+
+    @Test(groups={"Live"})
+    public void testWordpressInSeperatePods() throws Exception {
+        // TODO docker.container.inboundPorts doesn't accept list of ints - need to use quotes
+        String randomId = Identifiers.makeRandomId(4);
+        String yaml = Joiner.on("\n").join(
+                locationYaml,
+                "services:",
+                "  - type: " + KubernetesPod.class.getName(),
                 "    id: wordpress-mysql",
                 "    name: mysql",
                 "    brooklyn.config:",
                 "      docker.container.imageName: mysql:5.6",
                 "      docker.container.inboundPorts:",
-                "      - \"3306\"",
+                "        - \"3306\"",
                 "      docker.container.environment:",
                 "        MYSQL_ROOT_PASSWORD: \"password\"",
-                "      provisioning.properties:",
-                "        deployment: wordpress-mysql-" + randomId,
-                "  - type: " + DockerContainer.class.getName(),
+                "  - type: " + KubernetesPod.class.getName(),
                 "    id: wordpress",
                 "    name: wordpress",
                 "    brooklyn.config:",
                 "      docker.container.imageName: wordpress:4-apache",
                 "      docker.container.inboundPorts:",
-                "      - \"80\"",
+                "        - \"80\"",
                 "      docker.container.environment:",
                 "        WORDPRESS_DB_HOST: \"wordpress-mysql\"",
                 "        WORDPRESS_DB_PASSWORD: \"password\"",
@@ -247,45 +279,17 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         runWordpress(yaml);
     }
 
-    @Test(groups={"Live"})
-    public void testWordpressInSeperatePods() throws Exception {
-        // TODO docker.container.inboundPorts doesn't accept list of ints - need to use quotes
-        String yaml = Joiner.on("\n").join(
-                locationYaml,
-                "services:",
-                "- type: " + DockerContainer.class.getName(),
-                "  id: wordpress-mysql",
-                "  name: mysql",
-                "  brooklyn.config:",
-                "    docker.container.imageName: mysql:5.6",
-                "    docker.container.inboundPorts:",
-                "    - \"3306\"",
-                "    docker.container.environment:",
-                "      MYSQL_ROOT_PASSWORD: \"password\"",
-                "- type: " + DockerContainer.class.getName(),
-                "  id: wordpress",
-                "  name: wordpress",
-                "  brooklyn.config:",
-                "    docker.container.imageName: wordpress:4-apache",
-                "    docker.container.inboundPorts:",
-                "    - \"80\"",
-                "    docker.container.environment:",
-                "      WORDPRESS_DB_HOST: \"wordpress-mysql\"",
-                "      WORDPRESS_DB_PASSWORD: \"password\"");
-        runWordpress(yaml);
-    }
-
     /**
-     * Assumes that the {@link DockerContainer} entities have display names of "mysql" and "wordpress",
+     * Assumes that the {@link KubernetesPod} entities have display names of "mysql" and "wordpress",
      * and that they use ports 3306 and 80 respectively.
      */
     protected void runWordpress(String  yaml) throws Exception {
         Entity app = createStartWaitAndLogApplication(yaml);
         Entities.dumpInfo(app);
 
-        Iterable<DockerContainer> containers = Entities.descendantsAndSelf(app, DockerContainer.class);
-        DockerContainer mysql = Iterables.find(containers, EntityPredicates.displayNameEqualTo("mysql"));
-        DockerContainer wordpress = Iterables.find(containers, EntityPredicates.displayNameEqualTo("wordpress"));
+        Iterable<KubernetesPod> containers = Entities.descendantsAndSelf(app, KubernetesPod.class);
+        KubernetesPod mysql = Iterables.find(containers, EntityPredicates.displayNameEqualTo("mysql"));
+        KubernetesPod wordpress = Iterables.find(containers, EntityPredicates.displayNameEqualTo("wordpress"));
 
         String mysqlPublicPort = assertAttributeEventuallyNonNull(mysql, Sensors.newStringSensor("docker.port.3306.mapped.public"));
         assertReachableEventually(HostAndPort.fromString(mysqlPublicPort));
@@ -301,9 +305,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         String yaml = Joiner.on("\n").join(
                 locationYaml,
                 "services:",
-                "- type: " + KubernetesPod.class.getName(),
-                "  brooklyn.children:",
-                "  - type: " + DockerContainer.class.getName(),
+                "  - type: " + KubernetesPod.class.getName(),
                 "    brooklyn.config:",
                 "      docker.container.imageName: tomcat",
                 "      docker.container.inboundPorts:",
@@ -312,7 +314,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "        CLUSTER_ID: \"id\"",
                 "        CLUSTER_TOKEN: \"token\"");
         Entity app = createStartWaitAndLogApplication(yaml);
-        DockerContainer container = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, DockerContainer.class));
+        KubernetesPod container = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, KubernetesPod.class));
 
         Entities.dumpInfo(app);
 

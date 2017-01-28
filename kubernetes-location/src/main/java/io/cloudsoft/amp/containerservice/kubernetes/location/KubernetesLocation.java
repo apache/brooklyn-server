@@ -98,7 +98,7 @@ import io.fabric8.kubernetes.api.model.extensions.DeploymentStatus;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 
-public class KubernetesLocation extends AbstractLocation implements MachineProvisioningLocation<MachineLocation>, KubernetesLocationConfig {
+public class KubernetesLocation extends AbstractLocation implements MachineProvisioningLocation<MachineLocation>, CloudLocationConfig, KubernetesLocationConfig {
 
     /*
      * TODO
