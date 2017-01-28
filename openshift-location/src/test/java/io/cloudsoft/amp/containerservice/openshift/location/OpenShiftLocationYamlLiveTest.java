@@ -7,11 +7,12 @@ import static io.cloudsoft.amp.containerservice.openshift.location.OpenShiftLoca
 import static io.cloudsoft.amp.containerservice.openshift.location.OpenShiftLocationLiveTest.OPENSHIFT_ENDPOINT;
 
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
 
 import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationYamlLiveTest;
-import io.cloudsoft.amp.containerservice.openshift.location.OpenShiftLocation;
+import io.cloudsoft.amp.containerservice.openshift.entity.OpenShiftPod;
 
 /**
  * Tests YAML apps via the {@code openshift"} location, to an OpenShift endpoint.
@@ -53,7 +54,7 @@ public class OpenShiftLocationYamlLiveTest extends KubernetesLocationYamlLiveTes
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        
+
         locationYaml = Joiner.on("\n").join(
                 "location:",
                 "  openshift:",
@@ -65,4 +66,18 @@ public class OpenShiftLocationYamlLiveTest extends KubernetesLocationYamlLiveTes
                 "    " + OpenShiftLocation.PRIVILEGED.getName() + ": true",
                 "    " + OpenShiftLocation.LOGIN_USER_PASSWORD.getName() + ": p4ssw0rd");
     }
+
+    @Test(groups={"Live"})
+    public void testTomcatOpenShiftPod() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                locationYaml,
+                "services:",
+                "  - type: " + OpenShiftPod.class.getName(),
+                "    brooklyn.config:",
+                "      docker.container.imageName: tomcat",
+                "      docker.container.inboundPorts: [ \"8080\" ]");
+
+        runTomcat(yaml);
+    }
+
 }

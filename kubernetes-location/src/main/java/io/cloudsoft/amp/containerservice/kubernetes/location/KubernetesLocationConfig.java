@@ -107,6 +107,12 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
             .constraint(Predicates.<String>notNull())
             .build();
 
+    ConfigKey<Boolean> PRIVILEGED = ConfigKeys.builder(Boolean.class)
+            .name("privileged")
+            .description("Whether the pods use privileged containers")
+            .defaultValue(false)
+            .build();
+
     @SuppressWarnings("serial")
     ConfigKey<Map<String, ?>> ENV = ConfigKeys.builder(new TypeToken<Map<String, ?>>() {})
             .name("env")

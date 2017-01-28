@@ -23,6 +23,8 @@ public interface KubernetesPod extends DockerContainer {
 
     ConfigKey<String> NAMESPACE = KubernetesLocationConfig.NAMESPACE;
 
+    ConfigKey<Boolean> PRIVILEGED = KubernetesLocationConfig.PRIVILEGED;
+
     ConfigKey<String> POD = ConfigKeys.builder(String.class)
             .name("pod")
             .description("The name of the pod")
@@ -59,12 +61,6 @@ public interface KubernetesPod extends DockerContainer {
     ConfigKey<Map<String, String>> LIMITS = ConfigKeys.builder(new TypeToken<Map<String, String>>() {})
             .name("limits")
             .description("Container resource limits for the pod")
-            .build();
-
-    ConfigKey<Boolean> PRIVILEGED = ConfigKeys.builder(Boolean.class)
-            .name("privileged")
-            .description("Whether the container is privileged")
-            .defaultValue(false)
             .build();
 
     MapConfigKey<Object> METADATA = new MapConfigKey.Builder<Object>(Object.class, "metadata")

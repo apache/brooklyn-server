@@ -16,7 +16,8 @@ import com.google.common.collect.ImmutableSet;
 
 import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesClientRegistry;
 import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocation;
-import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationConfig;
+import io.cloudsoft.amp.containerservice.openshift.entity.OpenShiftPod;
+import io.cloudsoft.amp.containerservice.openshift.entity.OpenShiftResource;
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.Namespace;
@@ -65,13 +66,13 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
 
         try {
             switch (resourceType) {
-                case "DeploymentConfig":
+                case OpenShiftResource.DEPLOYMENT_CONFIG:
                     return client.deploymentConfigs().inNamespace(namespace).withName(resourceName).delete();
-                case "Project":
+                case OpenShiftResource.PROJECT:
                     return client.projects().withName(resourceName).delete();
-                case "Template":
+                case OpenShiftResource.TEMPLATE:
                     return client.templates().inNamespace(namespace).withName(resourceName).delete();
-                case "BuildConfig":
+                case OpenShiftResource.BUILD_CONFIG:
                     return client.buildConfigs().inNamespace(namespace).withName(resourceName).delete();
             }
         } catch (KubernetesClientException kce) {
@@ -86,11 +87,11 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
             return true;
         }
 
-        if (resourceType.equals("DeploymentConfig")) {
+        if (resourceType.equals(OpenShiftResource.DEPLOYMENT_CONFIG)) {
             DeploymentConfig deploymentConfig = (DeploymentConfig) metadata;
             Map<String, String> labels = deploymentConfig.getSpec().getTemplate().getMetadata().getLabels();
             Pod pod = getPod(namespace, labels);
-            entity.sensors().set(KubernetesLocationConfig.KUBERNETES_POD, pod.getMetadata().getName());
+            entity.sensors().set(OpenShiftPod.KUBERNETES_POD, pod.getMetadata().getName());
 
             InetAddress node = Networking.getInetAddressWithFixedName(pod.getSpec().getNodeName());
             String podAddress = pod.getStatus().getPodIP();
