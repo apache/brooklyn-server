@@ -63,7 +63,10 @@ public class LocationConfigMap extends AbstractConfigMapImpl<Location> {
         if (contextEntity != null) {
             return ((EntityInternal)contextEntity).getExecutionContext();
         } else {
-            log.debug("No resolving context found, will use global execution context. Could lead to NPE on DSL resolving.");
+            // Known places we get called without entity context:
+            // * unmanaging entity and subsequently its location
+            // * EntityResource.listTasks(String, String) returning a Task<SshMachineLocation> and calling toString() on the return value
+            log.trace("No resolving context found, will use global execution context. Could lead to NPE on DSL resolving.");
             if (bo==null) return null;
             ManagementContext mgmt = ((AbstractLocation)bo).getManagementContext();
             if (mgmt==null) return null;
