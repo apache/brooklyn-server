@@ -29,9 +29,6 @@ import javax.annotation.Nullable;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
-import org.apache.brooklyn.core.entity.factory.ClosureEntityFactory;
-import org.apache.brooklyn.core.entity.factory.ConfigurableEntityFactory;
-import org.apache.brooklyn.core.entity.factory.ConfigurableEntityFactoryFromEntityFactory;
 import org.apache.brooklyn.core.internal.BrooklynInitialization;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.sensor.Sensors;
@@ -89,27 +86,7 @@ public class TypeCoercions {
         return coercer.function(type);
     }
 
-    @SuppressWarnings({"unused", "deprecation", "unchecked", "rawtypes"})
     public static void registerDeprecatedBrooklynAdapters() {
-        registerAdapter(Closure.class, ConfigurableEntityFactory.class, new Function<Closure,ConfigurableEntityFactory>() {
-            @Override
-            public ConfigurableEntityFactory apply(Closure input) {
-                return new ClosureEntityFactory(input);
-            }
-        });
-        Function<?,?> ignoredVarHereToAllowSuppressDeprecationWarning1 = registerAdapter(org.apache.brooklyn.core.entity.factory.EntityFactory.class, ConfigurableEntityFactory.class, new Function<org.apache.brooklyn.core.entity.factory.EntityFactory,ConfigurableEntityFactory>() {
-            @Override
-            public ConfigurableEntityFactory apply(org.apache.brooklyn.core.entity.factory.EntityFactory input) {
-                if (input instanceof ConfigurableEntityFactory) return (ConfigurableEntityFactory)input;
-                return new ConfigurableEntityFactoryFromEntityFactory(input);
-            }
-        });
-        Function<?,?> ignoredVarHereToAllowSuppressDeprecationWarning2 = registerAdapter(Closure.class, org.apache.brooklyn.core.entity.factory.EntityFactory.class, new Function<Closure,org.apache.brooklyn.core.entity.factory.EntityFactory>() {
-            @Override
-            public org.apache.brooklyn.core.entity.factory.EntityFactory apply(Closure input) {
-                return new ClosureEntityFactory(input);
-            }
-        });
     }
     
     @SuppressWarnings("rawtypes")
