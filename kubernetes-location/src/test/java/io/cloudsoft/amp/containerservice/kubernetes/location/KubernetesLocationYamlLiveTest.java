@@ -41,12 +41,12 @@ import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationC
 
 /**
  * Live tests for deploying simple blueprints. Particularly useful during dev, but not so useful
- * after that (because assumes the existence of a kubernetes endpoint). It needs configured with 
+ * after that (because assumes the existence of a kubernetes endpoint). It needs configured with
  * something like:
- * 
+ *
  *   {@code -Dtest.amp.kubernetes.endpoint=http://10.104.2.206:8080}).
- * 
- * The QA Framework is more important for that - hence these tests (trying to be) kept simple 
+ *
+ * The QA Framework is more important for that - hence these tests (trying to be) kept simple
  * and focused.
  */
 public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
@@ -59,7 +59,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        
+
         locationYaml = Joiner.on("\n").join(
                 "location:",
                 "  kubernetes:",
@@ -67,11 +67,11 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "    " + (Strings.isBlank(IDENTITY) ? "" : "identity: "+IDENTITY),
                 "    " + (Strings.isBlank(CREDENTIAL) ? "" : "credential: "+CREDENTIAL));
     }
-    
+
     @Test(groups={"Live"})
     public void testLoginPasswordOverride() throws Exception {
         String customPassword = "myDifferentPassword";
-        
+
         String yaml = Joiner.on("\n").join(
                 locationYaml,
                 "services:",
@@ -81,7 +81,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "      " + KubernetesLocationConfig.LOGIN_USER_PASSWORD.getName() + ": " + customPassword);
         Entity app = createStartWaitAndLogApplication(yaml);
         EmptySoftwareProcess entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, EmptySoftwareProcess.class));
-        
+
         SshMachineLocation machine = Machines.findUniqueMachineLocation(entity.getLocations(), SshMachineLocation.class).get();
         assertEquals(machine.config().get(SshMachineLocation.PASSWORD), customPassword);
         assertTrue(machine.isSshable());
@@ -117,10 +117,10 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "      - netcat.port");
         Entity app = createStartWaitAndLogApplication(yaml);
         VanillaSoftwareProcess entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, VanillaSoftwareProcess.class));
-        
+
         String publicMapped = EntityAsserts.assertAttributeEventuallyNonNull(entity, Sensors.newStringSensor("netcat.endpoint.mapped.public"));
         HostAndPort publicPort = HostAndPort.fromString(publicMapped);
-        
+
         assertTrue(Networking.isReachable(publicPort), "publicPort="+publicPort);
     }
 
@@ -128,7 +128,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
     public void testInterContainerNetworking() throws Exception {
         String message = "mymessage";
         int netcatPort = 8081;
-        
+
         String yaml = Joiner.on("\n").join(
                 locationYaml,
                 "services:",
@@ -157,16 +157,16 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "      true");
         Entity app = createStartWaitAndLogApplication(yaml);
         Entities.dumpInfo(app);
-        
+
         Entity server1 = Iterables.find(Entities.descendantsAndSelf(app), EntityPredicates.displayNameEqualTo("server1"));
         Entity server2 = Iterables.find(Entities.descendantsAndSelf(app), EntityPredicates.displayNameEqualTo("server2"));
-        
+
         SshMachineLocation machine1 = Machines.findUniqueMachineLocation(server1.getLocations(), SshMachineLocation.class).get();
         SshMachineLocation machine2 = Machines.findUniqueMachineLocation(server2.getLocations(), SshMachineLocation.class).get();
-        
+
         String addr1 = server1.sensors().get(Attributes.SUBNET_ADDRESS);
         String addr2 = server2.sensors().get(Attributes.SUBNET_ADDRESS);
-        
+
         // Ping between containers
         int result1 = machine1.execCommands("ping-server2", ImmutableList.of("ping -c 4 " + addr2));
         int result2 = machine2.execCommands("ping-server1", ImmutableList.of("ping -c 4 " + addr1));
@@ -176,7 +176,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "echo \"fromServer2\" | nc " + addr1 + " " + netcatPort + " > netcat.out",
                 "cat netcat.out",
                 "grep " + message + " netcat.out"));
-        
+
         String errMsg = "result1="+result1+"; result2="+result2+"; result3="+result3;
         assertEquals(result1, 0, errMsg);
         assertEquals(result2, 0, errMsg);
@@ -194,11 +194,11 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "    docker.container.inboundPorts: [ \"8080\" ]");
         Entity app = createStartWaitAndLogApplication(yaml);
         DockerContainer entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, DockerContainer.class));
-        
+
         Entities.dumpInfo(app);
         String publicMapped = EntityAsserts.assertAttributeEventuallyNonNull(entity, Sensors.newStringSensor("docker.port.8080.mapped.public"));
         HostAndPort publicPort = HostAndPort.fromString(publicMapped);
-        
+
         assertReachableEventually(publicPort);
         HttpAsserts.assertHttpStatusCodeEventuallyEquals("http://"+publicPort.getHostText()+":"+publicPort.getPort(), 200);
     }
@@ -207,7 +207,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
     @Test(groups={"Live"})
     public void testWordpressInPod() throws Exception {
         // TODO docker.container.inboundPorts doesn't accept list of ints - need to use quotes
-        String randomId = Identifiers.makeRandomId(4);
+        String randomId = Identifiers.makeRandomLowercaseId(4);
         String yaml = Joiner.on("\n").join(
                 locationYaml,
                 "services:",
@@ -236,7 +236,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "        WORDPRESS_DB_PASSWORD: \"password\"",
                 "      provisioning.properties:",
                 "        deployment: wordpress-" + randomId);
-        
+
         runWordpress(yaml);
     }
 
@@ -275,17 +275,17 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
     protected void runWordpress(String  yaml) throws Exception {
         Entity app = createStartWaitAndLogApplication(yaml);
         Entities.dumpInfo(app);
-        
+
         Iterable<DockerContainer> containers = Entities.descendantsAndSelf(app, DockerContainer.class);
         DockerContainer mysql = Iterables.find(containers, EntityPredicates.displayNameEqualTo("mysql"));
         DockerContainer wordpress = Iterables.find(containers, EntityPredicates.displayNameEqualTo("wordpress"));
-        
+
         String mysqlPublicPort = EntityAsserts.assertAttributeEventuallyNonNull(mysql, Sensors.newStringSensor("docker.port.3306.mapped.public"));
         assertReachableEventually(HostAndPort.fromString(mysqlPublicPort));
-        
+
         String wordpressPublicPort = EntityAsserts.assertAttributeEventuallyNonNull(wordpress, Sensors.newStringSensor("docker.port.80.mapped.public"));
         assertReachableEventually(HostAndPort.fromString(wordpressPublicPort));
-        
+
         // TODO more assertions (e.g. wordpress can successfully reach the database)
     }
 
@@ -306,15 +306,15 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "        CLUSTER_TOKEN: \"token\"");
         Entity app = createStartWaitAndLogApplication(yaml);
         DockerContainer container = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, DockerContainer.class));
-        
+
         Entities.dumpInfo(app);
         String publicMapped = EntityAsserts.assertAttributeEventuallyNonNull(container, Sensors.newStringSensor("docker.port.8080.mapped.public"));
         HostAndPort publicPort = HostAndPort.fromString(publicMapped);
-        
+
         assertReachableEventually(publicPort);
         HttpAsserts.assertHttpStatusCodeEventuallyEquals("http://"+publicPort.getHostText()+":"+publicPort.getPort(), 200);
     }
-    
+
     protected void assertReachableEventually(final HostAndPort hostAndPort) {
         Asserts.succeedsEventually(new Runnable() {
             public void run() {
