@@ -28,7 +28,6 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -268,9 +267,9 @@ public class DynamicFabricImpl extends AbstractGroupImpl implements DynamicFabri
         
         if (locationName != null) {
             if (entity.getDisplayName()==null)
-                ((EntityLocal)entity).setDisplayName(entity.getEntityType().getSimpleName() +" ("+locationName+")");
+                entity.setDisplayName(entity.getEntityType().getSimpleName() +" ("+locationName+")");
             else if (!entity.getDisplayName().contains(locationName)) 
-                ((EntityLocal)entity).setDisplayName(entity.getDisplayName() +" ("+locationName+")");
+                entity.setDisplayName(entity.getDisplayName() +" ("+locationName+")");
         }
         if (entity.getParent()==null) entity.setParent(this);
         

@@ -34,7 +34,6 @@ import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.SubscriptionHandle;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -90,7 +89,7 @@ import com.google.common.collect.Lists;
 import groovy.lang.Closure;
 
 /** Conveniences for making tasks which run in entity {@link ExecutionContext}s, blocking on attributes from other entities, possibly transforming those;
- * these {@link Task} instances are typically passed in {@link EntityLocal#setConfig(ConfigKey, Object)}.
+ * these {@link Task} instances are typically passed in {@link Entity#setConfig(ConfigKey, Object)}.
  * <p>
  * If using a lot it may be useful to:
  * <pre>

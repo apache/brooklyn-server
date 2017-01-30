@@ -39,7 +39,6 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
@@ -119,7 +118,7 @@ public class VanillaJavaAppTest {
         final VanillaJavaApp javaProcess = app.createAndManageChild(EntitySpec.create(VanillaJavaApp.class)
             .configure("main", "my.Main").configure("classpath", ImmutableList.of("c1", "c2"))
             .configure("args", ImmutableList.of("a1", "a2")));
-        ((EntityLocal)javaProcess).config().set(UsesJava.JAVA_SYSPROPS, ImmutableMap.of("fooKey", "fooValue", "barKey", "barValue"));
+        javaProcess.config().set(UsesJava.JAVA_SYSPROPS, ImmutableMap.of("fooKey", "fooValue", "barKey", "barValue"));
         // TODO: how to test: launch standalone app that outputs system properties to stdout? Probe via JMX?
     }
 
@@ -205,7 +204,7 @@ public class VanillaJavaAppTest {
             .configure("args", ImmutableList.of()));
         app.start(ImmutableList.of(loc));
 
-        JavaAppUtils.connectJavaAppServerPolicies((EntityLocal)javaProcess);
+        JavaAppUtils.connectJavaAppServerPolicies(javaProcess);
         
         final List<Double> fractions = new CopyOnWriteArrayList<Double>();
         app.getManagementContext().getSubscriptionManager().subscribe(javaProcess, VanillaJavaApp.PROCESS_CPU_TIME_FRACTION_LAST, new SensorEventListener<Double>() {
@@ -252,7 +251,7 @@ public class VanillaJavaAppTest {
         VanillaJavaApp javaProcess = app.createAndManageChild(EntitySpec.create(VanillaJavaApp.class)
             .configure("main", main).configure("classpath", ImmutableList.of(BROOKLYN_THIS_CLASSPATH))
             .configure("args", ImmutableList.of()));
-        ((EntityLocal)javaProcess).config().set(UsesJmx.JMX_PORT, PortRanges.fromInteger(port));
+        javaProcess.config().set(UsesJmx.JMX_PORT, PortRanges.fromInteger(port));
         app.start(ImmutableList.of(loc));
 
         assertEquals(javaProcess.getAttribute(UsesJmx.JMX_PORT), (Integer)port);
@@ -266,8 +265,8 @@ public class VanillaJavaAppTest {
         final VanillaJavaApp javaProcess = app.createAndManageChild(EntitySpec.create(VanillaJavaApp.class)
             .configure("main", main).configure("classpath", ImmutableList.of(BROOKLYN_THIS_CLASSPATH))
             .configure("args", ImmutableList.of()));
-        ((EntityLocal)javaProcess).config().set(UsesJmx.JMX_PORT, PortRanges.fromInteger(port));
-        ((EntityLocal)javaProcess).config().set(UsesJmx.JMX_SSL_ENABLED, true);
+        javaProcess.config().set(UsesJmx.JMX_PORT, PortRanges.fromInteger(port));
+        javaProcess.config().set(UsesJmx.JMX_SSL_ENABLED, true);
         
         app.start(ImmutableList.of(loc));
         // will fail above if JMX can't connect, but also do some add'l checks
@@ -320,7 +319,7 @@ public class VanillaJavaAppTest {
         public AsserterForJmxConnection(VanillaJavaApp e) throws MalformedURLException {
             this.entity = e;
             
-            JmxHelper jmxHelper = new JmxHelper((EntityLocal)entity);
+            JmxHelper jmxHelper = new JmxHelper(entity);
             this.url = new JMXServiceURL(jmxHelper.getUrl());
             this.env = Maps.newLinkedHashMap(jmxHelper.getConnectionEnvVars());
         }

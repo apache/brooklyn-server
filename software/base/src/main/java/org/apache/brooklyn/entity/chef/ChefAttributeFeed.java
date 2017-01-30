@@ -28,6 +28,7 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -111,7 +112,7 @@ public class ChefAttributeFeed extends AbstractFeed {
 
     @SuppressWarnings("rawtypes")
     public static class Builder {
-        private EntityLocal entity;
+        private Entity entity;
         private boolean onlyIfServiceUp = false;
         private String nodeName;
         private Set<ChefAttributePollConfig> polls = Sets.newLinkedHashSet();
@@ -119,7 +120,7 @@ public class ChefAttributeFeed extends AbstractFeed {
         private String uniqueTag;
         private volatile boolean built;
 
-        public Builder entity(EntityLocal val) {
+        public Builder entity(Entity val) {
             this.entity = checkNotNull(val, "entity");
             return this;
         }
@@ -174,7 +175,7 @@ public class ChefAttributeFeed extends AbstractFeed {
         public ChefAttributeFeed build() {
             built = true;
             ChefAttributeFeed result = new ChefAttributeFeed(this);
-            result.setEntity(checkNotNull(entity, "entity"));
+            result.setEntity(checkNotNull((EntityLocal)entity, "entity"));
             result.start();
             return result;
         }
@@ -271,9 +272,9 @@ public class ChefAttributeFeed extends AbstractFeed {
     private static class CallInEntityExecutionContext<T> implements Callable<T> {
 
         private final Callable<T> job;
-        private EntityLocal entity;
+        private Entity entity;
 
-        private CallInEntityExecutionContext(EntityLocal entity, Callable<T> job) {
+        private CallInEntityExecutionContext(Entity entity, Callable<T> job) {
             this.job = job;
             this.entity = entity;
         }
@@ -292,10 +293,10 @@ public class ChefAttributeFeed extends AbstractFeed {
         private static final Iterable<String> PREFIXES = ImmutableList.of("", "automatic", "force_override", "override", "normal", "force_default", "default");
         private static final Splitter SPLITTER = Splitter.on('.');
 
-        private final EntityLocal entity;
+        private final Entity entity;
         private final Map<String, AttributeSensor<?>> chefAttributeSensors;
 
-        public SendChefAttributesToSensors(EntityLocal entity, Set<ChefAttributePollConfig<?>> polls) {
+        public SendChefAttributesToSensors(Entity entity, Set<ChefAttributePollConfig<?>> polls) {
             this.entity = entity;
             chefAttributeSensors = Maps.newLinkedHashMap();
             for (ChefAttributePollConfig<?> config : polls) {

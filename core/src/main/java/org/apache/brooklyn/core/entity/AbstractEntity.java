@@ -1037,7 +1037,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
      * if the attribtue sensor is not-set or null
      * <p>
      * returns old value 
-     * @deprecated on interface since 0.5.0; use {@link ConfigToAttributes#apply(EntityLocal, AttributeSensorAndConfigKey)} */
+     * @deprecated on interface since 0.5.0; use {@link ConfigToAttributes#apply(Entity, AttributeSensorAndConfigKey)} */
     @Deprecated
     public <T> T setAttribute(AttributeSensorAndConfigKey<?,T> configuredSensor) {
         T v = getAttribute(configuredSensor);

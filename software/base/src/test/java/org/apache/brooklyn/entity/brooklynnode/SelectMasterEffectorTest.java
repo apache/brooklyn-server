@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.concurrent.Callable;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
@@ -245,11 +244,11 @@ public class SelectMasterEffectorTest extends BrooklynAppUnitTestSupport {
     }
 
     public static void setManagementState(Entity entity, ManagementNodeState state) {
-        ((EntityLocal)entity).sensors().set(BrooklynNode.MANAGEMENT_NODE_STATE, state);
+        entity.sensors().set(BrooklynNode.MANAGEMENT_NODE_STATE, state);
     }
 
     public static void setPriority(Entity entity, int priority) {
-        ((EntityLocal)entity).sensors().set(MockBrooklynNode.HA_PRIORITY, priority);
+        entity.sensors().set(MockBrooklynNode.HA_PRIORITY, priority);
     }
 
     private void selectMaster(DynamicCluster cluster, String id) {

@@ -33,7 +33,6 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.EntityManager;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -227,7 +226,7 @@ public class LocalEntitiesTest extends BrooklynAppUnitTestSupport {
             assertEquals(null, sonsConfig[0]);
             for (Task tt : ((EntityInternal)dad).getExecutionContext().getTasks()) { log.info("task at dad:  {}, {}", tt, tt.getStatusDetail(false)); }
             for (Task tt : ((EntityInternal)son).getExecutionContext().getTasks()) { log.info("task at son:  {}, {}", tt, tt.getStatusDetail(false)); }
-            ((EntityLocal)dad).sensors().set(HelloEntity.FAVOURITE_NAME, "Dan");
+            dad.sensors().set(HelloEntity.FAVOURITE_NAME, "Dan");
             if (!s1.tryAcquire(2, TimeUnit.SECONDS)) fail("race mismatch, missing permits");
         }
         log.info("dad: "+dad.getAttribute(HelloEntity.FAVOURITE_NAME));
@@ -252,7 +251,7 @@ public class LocalEntitiesTest extends BrooklynAppUnitTestSupport {
                     }})));
         
         app.start(ImmutableList.of(loc));
-        ((EntityLocal)dad).sensors().set(HelloEntity.FAVOURITE_NAME, "Dan");
+        dad.sensors().set(HelloEntity.FAVOURITE_NAME, "Dan");
         assertEquals(son.getConfig(HelloEntity.MY_NAME), "Danny");
     }
     
@@ -270,7 +269,7 @@ public class LocalEntitiesTest extends BrooklynAppUnitTestSupport {
                     }})));
         
         app.start(ImmutableList.of(loc));
-        ((EntityLocal)dad).sensors().set(HelloEntity.FAVOURITE_NAME, "Dan");
+        dad.sensors().set(HelloEntity.FAVOURITE_NAME, "Dan");
         assertEquals(son.getConfig(HelloEntity.MY_NAME), "Danny");
     }
 

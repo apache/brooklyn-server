@@ -27,7 +27,6 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
@@ -40,7 +39,6 @@ import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceProblemsLogic;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixtureWithApp;
-import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.entity.software.base.SoftwareProcessEntityTest.MyService;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
@@ -87,7 +85,7 @@ public class SoftwareProcessEntityRebindTest extends RebindTestFixtureWithApp {
         assertEquals(origE.getAttribute(Attributes.SERVICE_STATE_EXPECTED).getState(), Lifecycle.RUNNING);
         EntityAsserts.assertAttributeEqualsEventually(origE, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
 
-        ServiceProblemsLogic.updateProblemsIndicator((EntityLocal)origE, "test", "fire");
+        ServiceProblemsLogic.updateProblemsIndicator(origE, "test", "fire");
         EntityAsserts.assertAttributeEqualsEventually(origE, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.ON_FIRE);
 
         newApp = rebind();

@@ -93,19 +93,19 @@ public class ServiceStateLogic {
     /** static only; not for instantiation */
     private ServiceStateLogic() {}
 
-    public static <TKey,TVal> TVal getMapSensorEntry(EntityLocal entity, AttributeSensor<Map<TKey,TVal>> sensor, TKey key) {
+    public static <TKey,TVal> TVal getMapSensorEntry(Entity entity, AttributeSensor<Map<TKey,TVal>> sensor, TKey key) {
         Map<TKey, TVal> map = entity.getAttribute(sensor);
         if (map==null) return null;
         return map.get(key);
     }
     
     @SuppressWarnings("unchecked")
-    public static <TKey,TVal> void clearMapSensorEntry(EntityLocal entity, AttributeSensor<Map<TKey,TVal>> sensor, TKey key) {
+    public static <TKey,TVal> void clearMapSensorEntry(Entity entity, AttributeSensor<Map<TKey,TVal>> sensor, TKey key) {
         updateMapSensorEntry(entity, sensor, key, (TVal)Entities.REMOVE);
     }
 
     /** update the given key in the given map sensor */
-    public static <TKey,TVal> void updateMapSensorEntry(EntityLocal entity, AttributeSensor<Map<TKey,TVal>> sensor, final TKey key, final TVal v) {
+    public static <TKey,TVal> void updateMapSensorEntry(Entity entity, AttributeSensor<Map<TKey,TVal>> sensor, final TKey key, final TVal v) {
         /*
          * Important to *not* modify the existing attribute value; must make a copy, modify that, and publish.
          * This is because a Propagator enricher will set this same value on another entity. There was very
@@ -220,28 +220,28 @@ public class ServiceStateLogic {
         
         /** puts the given value into the {@link Attributes#SERVICE_NOT_UP_INDICATORS} map as if the 
          * {@link UpdatingMap} enricher for the given key */
-        public static void updateNotUpIndicator(EntityLocal entity, String key, Object value) {
+        public static void updateNotUpIndicator(Entity entity, String key, Object value) {
             updateMapSensorEntry(entity, Attributes.SERVICE_NOT_UP_INDICATORS, key, value);
         }
         /** clears any entry for the given key in the {@link Attributes#SERVICE_NOT_UP_INDICATORS} map */
-        public static void clearNotUpIndicator(EntityLocal entity, String key) {
+        public static void clearNotUpIndicator(Entity entity, String key) {
             clearMapSensorEntry(entity, Attributes.SERVICE_NOT_UP_INDICATORS, key);
         }
-        /** as {@link #updateNotUpIndicator(EntityLocal, String, Object)} using the given sensor as the key */
-        public static void updateNotUpIndicator(EntityLocal entity, Sensor<?> sensor, Object value) {
+        /** as {@link #updateNotUpIndicator(Entity, String, Object)} using the given sensor as the key */
+        public static void updateNotUpIndicator(Entity entity, Sensor<?> sensor, Object value) {
             updateMapSensorEntry(entity, Attributes.SERVICE_NOT_UP_INDICATORS, sensor.getName(), value);
         }
-        /** as {@link #clearNotUpIndicator(EntityLocal, String)} using the given sensor as the key */
-        public static void clearNotUpIndicator(EntityLocal entity, Sensor<?> sensor) {
+        /** as {@link #clearNotUpIndicator(Entity, String)} using the given sensor as the key */
+        public static void clearNotUpIndicator(Entity entity, Sensor<?> sensor) {
             clearMapSensorEntry(entity, Attributes.SERVICE_NOT_UP_INDICATORS, sensor.getName());
         }
 
-        public static void updateNotUpIndicatorRequiringNonEmptyList(EntityLocal entity, AttributeSensor<? extends Collection<?>> collectionSensor) {
+        public static void updateNotUpIndicatorRequiringNonEmptyList(Entity entity, AttributeSensor<? extends Collection<?>> collectionSensor) {
             Collection<?> nodes = entity.getAttribute(collectionSensor);
             if (nodes==null || nodes.isEmpty()) ServiceNotUpLogic.updateNotUpIndicator(entity, collectionSensor, "Should have at least one entry");
             else ServiceNotUpLogic.clearNotUpIndicator(entity, collectionSensor);
         }
-        public static void updateNotUpIndicatorRequiringNonEmptyMap(EntityLocal entity, AttributeSensor<? extends Map<?,?>> mapSensor) {
+        public static void updateNotUpIndicatorRequiringNonEmptyMap(Entity entity, AttributeSensor<? extends Map<?,?>> mapSensor) {
             Map<?, ?> nodes = entity.getAttribute(mapSensor);
             if (nodes==null || nodes.isEmpty()) ServiceNotUpLogic.updateNotUpIndicator(entity, mapSensor, "Should have at least one entry");
             else ServiceNotUpLogic.clearNotUpIndicator(entity, mapSensor);
@@ -369,27 +369,27 @@ public class ServiceStateLogic {
         
         /** puts the given value into the {@link Attributes#SERVICE_PROBLEMS} map as if the 
          * {@link UpdatingMap} enricher for the given sensor reported this value */
-        public static void updateProblemsIndicator(EntityLocal entity, Sensor<?> sensor, Object value) {
+        public static void updateProblemsIndicator(Entity entity, Sensor<?> sensor, Object value) {
             updateMapSensorEntry(entity, Attributes.SERVICE_PROBLEMS, sensor.getName(), value);
         }
         /** clears any entry for the given sensor in the {@link Attributes#SERVICE_PROBLEMS} map */
-        public static void clearProblemsIndicator(EntityLocal entity, Sensor<?> sensor) {
+        public static void clearProblemsIndicator(Entity entity, Sensor<?> sensor) {
             clearMapSensorEntry(entity, Attributes.SERVICE_PROBLEMS, sensor.getName());
         }
-        /** as {@link #updateProblemsIndicator(EntityLocal, Sensor, Object)} */
-        public static void updateProblemsIndicator(EntityLocal entity, Effector<?> eff, Object value) {
+        /** as {@link #updateProblemsIndicator(Entity, Sensor, Object)} */
+        public static void updateProblemsIndicator(Entity entity, Effector<?> eff, Object value) {
             updateMapSensorEntry(entity, Attributes.SERVICE_PROBLEMS, eff.getName(), value);
         }
-        /** as {@link #clearProblemsIndicator(EntityLocal, Sensor)} */
-        public static void clearProblemsIndicator(EntityLocal entity, Effector<?> eff) {
+        /** as {@link #clearProblemsIndicator(Entity, Sensor)} */
+        public static void clearProblemsIndicator(Entity entity, Effector<?> eff) {
             clearMapSensorEntry(entity, Attributes.SERVICE_PROBLEMS, eff.getName());
         }
-        /** as {@link #updateProblemsIndicator(EntityLocal, Sensor, Object)} */
-        public static void updateProblemsIndicator(EntityLocal entity, String key, Object value) {
+        /** as {@link #updateProblemsIndicator(Entity, Sensor, Object)} */
+        public static void updateProblemsIndicator(Entity entity, String key, Object value) {
             updateMapSensorEntry(entity, Attributes.SERVICE_PROBLEMS, key, value);
         }
-        /** as {@link #clearProblemsIndicator(EntityLocal, Sensor)} */
-        public static void clearProblemsIndicator(EntityLocal entity, String key) {
+        /** as {@link #clearProblemsIndicator(Entity, Sensor)} */
+        public static void clearProblemsIndicator(Entity entity, String key) {
             clearMapSensorEntry(entity, Attributes.SERVICE_PROBLEMS, key);
         }
     }

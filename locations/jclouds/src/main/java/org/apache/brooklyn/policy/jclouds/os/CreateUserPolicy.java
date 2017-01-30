@@ -178,6 +178,6 @@ public class CreateUserPolicy extends AbstractPolicy implements SensorEventListe
             }
         }
         
-        ((EntityLocal)entity).sensors().set(VM_USER_CREDENTIALS, creds);
+        entity.sensors().set(VM_USER_CREDENTIALS, creds);
     }
 }

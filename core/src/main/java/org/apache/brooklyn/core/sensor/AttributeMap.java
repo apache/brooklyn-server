@@ -59,7 +59,7 @@ public final class AttributeMap {
     /**
      * Creates a new AttributeMap.
      *
-     * @param entity the EntityLocal this AttributeMap belongs to.
+     * @param entity the Entity this AttributeMap belongs to.
      * @throws NullPointerException if entity is null
      */
     public AttributeMap(AbstractEntity entity) {
@@ -71,7 +71,7 @@ public final class AttributeMap {
     /**
      * Creates a new AttributeMap.
      *
-     * @param entity  the EntityLocal this AttributeMap belongs to.
+     * @param entity  the Entity this AttributeMap belongs to.
      * @param storage the Map in which to store the values - should be concurrent or synchronized.
      * @throws NullPointerException if entity is null
      */

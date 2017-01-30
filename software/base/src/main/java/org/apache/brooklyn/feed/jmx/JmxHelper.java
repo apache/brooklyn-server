@@ -59,7 +59,7 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 
-import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.entity.java.JmxSupport;
 import org.apache.brooklyn.entity.java.UsesJmx;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -113,7 +113,7 @@ public class JmxHelper {
             .build();
 
     /** constructs a JMX URL suitable for connecting to the given entity, being smart about JMX/RMI vs JMXMP */
-    public static String toJmxUrl(EntityLocal entity) {
+    public static String toJmxUrl(Entity entity) {
         String url = entity.getAttribute(UsesJmx.JMX_URL);
         if (url != null) {
             return url;
@@ -149,7 +149,7 @@ public class JmxHelper {
         return "service:jmx:jmxmp://"+host+(jmxmpPort!=null ? ":"+jmxmpPort : "");
     }
     
-    final EntityLocal entity;
+    final Entity entity;
     final String url;
     final String user;
     final String password;
@@ -165,7 +165,7 @@ public class JmxHelper {
     // Tracks the MBeans we have failed to find for this JmsHelper's connection URL (so can log just once for each)
     private final Set<ObjectName> notFoundMBeans;
 
-    public JmxHelper(EntityLocal entity) {
+    public JmxHelper(Entity entity) {
         this(toJmxUrl(entity), entity, entity.getAttribute(UsesJmx.JMX_USER), entity.getAttribute(UsesJmx.JMX_PASSWORD));
         
         if (entity.getAttribute(UsesJmx.JMX_URL) == null) {
@@ -184,7 +184,7 @@ public class JmxHelper {
         this(url, null, user, password);
     }
     
-    public JmxHelper(String url, EntityLocal entity, String user, String password) {
+    public JmxHelper(String url, Entity entity, String user, String password) {
         this.url = url;
         this.entity = entity;
         this.user = user;

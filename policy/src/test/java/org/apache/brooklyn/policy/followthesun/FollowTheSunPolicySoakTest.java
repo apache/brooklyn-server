@@ -28,7 +28,6 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.location.SimulatedLocation;
@@ -211,7 +210,7 @@ public class FollowTheSunPolicySoakTest extends AbstractFollowTheSunPolicyTest {
                     double jitteredWorkrate = Math.max(0, baseWorkrate + (random.nextDouble()*jitter*2 - jitter));
                     workrates.put(source, jitteredWorkrate);
                 }
-                ((EntityLocal)item).sensors().set(MockItemEntity.ITEM_USAGE_METRIC, workrates);
+                item.sensors().set(MockItemEntity.ITEM_USAGE_METRIC, workrates);
             }
 
             // Stop containers, and start others
