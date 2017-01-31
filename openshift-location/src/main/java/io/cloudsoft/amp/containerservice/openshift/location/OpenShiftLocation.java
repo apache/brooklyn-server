@@ -112,7 +112,7 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
             @Override
             public Boolean call() {
                 Project actualProject = client.projects().withName(name).get();
-                return actualProject != null && actualProject.getStatus().getPhase().equals("Active");
+                return actualProject != null && actualProject.getStatus().getPhase().equals(PHASE_ACTIVE);
             }
             @Override
             public String getFailureMessage() {
@@ -136,7 +136,7 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
     protected synchronized void deleteEmptyNamespace(final String name) {
         if (!name.equals("default") && isNamespaceEmpty(name)) {
             if (client.projects().withName(name).get() != null &&
-                    !client.projects().withName(name).get().getStatus().getPhase().equals("Terminating")) {
+                    !client.projects().withName(name).get().getStatus().getPhase().equals(PHASE_TERMINATING)) {
                 client.projects().withName(name).delete();
                 ExitCondition exitCondition = new ExitCondition() {
                     @Override

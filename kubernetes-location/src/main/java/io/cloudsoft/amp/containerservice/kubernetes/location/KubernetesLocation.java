@@ -120,18 +120,26 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
 
     private static final Logger LOG = LoggerFactory.getLogger(KubernetesLocation.class);
 
-    public static final String SERVER_TYPE = "NodePort";
+    public static final String NODE_PORT = "NodePort";
+
     public static final String IMMUTABLE_CONTAINER_KEY = "immutable-container";
     public static final String SSHABLE_CONTAINER = "sshable-container";
     public static final String CLOUDSOFT_ENTITY_ID = "cloudsoft.io/entity-id";
     public static final String CLOUDSOFT_APPLICATION_ID = "cloudsoft.io/application-id";
+    public static final String KUBERNETES_DOCKERCFG = "kubernetes.io/dockercfg";
+
+    public static final String PHASE_TERMINATING = "Terminating";
+    public static final String PHASE_ACTIVE = "Active";
 
     /**
      * The regex for the image descriptions that support us injecting login credentials.
      */
-    private static final List<String> IMAGE_DESCRIPTION_REGEXES_REQUIRING_INJECTED_LOGIN_CREDS = ImmutableList.of(
+    public static final List<String> IMAGE_DESCRIPTION_REGEXES_REQUIRING_INJECTED_LOGIN_CREDS = ImmutableList.of(
             "cloudsoft/centos.*",
             "cloudsoft/ubuntu.*");
+
+    /** The environment variable for injecting login credentials. */
+    public static final String CLOUDSOFT_ROOT_PASSWORD = "CLOUDSOFT_ROOT_PASSWORD";
 
     private KubernetesClient client;
 
@@ -280,7 +288,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     protected synchronized void deleteEmptyNamespace(final String name) {
         if (!name.equals("default") && isNamespaceEmpty(name)) {
             if (client.namespaces().withName(name).get() != null &&
-                    !client.namespaces().withName(name).get().getStatus().getPhase().equals("Terminating")) {
+                    !client.namespaces().withName(name).get().getStatus().getPhase().equals(PHASE_TERMINATING)) {
                 client.namespaces().withName(name).delete();
                 ExitCondition exitCondition = new ExitCondition() {
                     @Override
@@ -515,7 +523,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
             @Override
             public Boolean call() {
                 Namespace actualNamespace = client.namespaces().withName(name).get();
-                return actualNamespace != null && actualNamespace.getStatus().getPhase().equals("Active");
+                return actualNamespace != null && actualNamespace.getStatus().getPhase().equals(PHASE_ACTIVE);
             }
             @Override
             public String getFailureMessage() {
@@ -585,7 +593,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                         .withNewMetadata()
                             .withName(secretName)
                         .endMetadata()
-                        .withType("kubernetes.io/dockercfg")
+                        .withType(KUBERNETES_DOCKERCFG)
                         .withData(ImmutableMap.of(".dockercfg", base64encoded))
                         .build();
         try {
@@ -706,7 +714,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 .withNewSpec()
                     .addToSelector(metadata)
                     .addToPorts(Iterables.toArray(servicePorts, ServicePort.class))
-                    .withType(SERVER_TYPE)
+                    .withType(NODE_PORT)
                 .endSpec()
                 .build();
         client.services().inNamespace(namespace).create(service);
@@ -878,7 +886,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                     setup.configure(LOGIN_USER_PASSWORD, loginPassword);
                 }
 
-                injections.put("CLOUDSOFT_ROOT_PASSWORD", loginPassword);
+                injections.put(CLOUDSOFT_ROOT_PASSWORD, loginPassword);
             }
         }
 
@@ -910,7 +918,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         }
     }
 
-    public static List<Integer> toIntPortList(Object v) {
+    protected List<Integer> toIntPortList(Object v) {
         if (v == null) return ImmutableList.of();
         PortRange portRange = PortRanges.fromIterable(ImmutableList.of(v));
         return ImmutableList.copyOf(portRange);
@@ -944,7 +952,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         return implementsInterface(entity, KubernetesResource.class);
     }
 
-    protected boolean implementsInterface(Entity entity, Class<?> type) {
+    public boolean implementsInterface(Entity entity, Class<?> type) {
         return Iterables.tryFind(Arrays.asList(entity.getClass().getInterfaces()), Predicates.instanceOf(type)).isPresent();
     }
 
@@ -954,7 +962,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     }
 
     /** @see {@link #lookup(ConfigKey, Entity, ConfigBag, Object)} */
-    protected <T> T lookup(ConfigKey<T> config, Entity entity, ConfigBag setup) {
+    public <T> T lookup(ConfigKey<T> config, Entity entity, ConfigBag setup) {
         return lookup(config, entity, setup, null);
     }
 
@@ -962,20 +970,20 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
      * Looks up {@link ConfigKey configuration} with the entity value taking precedence over the
      * location, and returning a default value (normally {@literal null}) if neither is present.
      */
-    protected <T> T lookup(ConfigKey<T> config, Entity entity, ConfigBag setup, T defaultValue) {
+    public <T> T lookup(ConfigKey<T> config, Entity entity, ConfigBag setup, T defaultValue) {
         Optional<T> entityValue = Optional.fromNullable(entity.config().get(config));
         Optional<T> locationValue = Optional.fromNullable(setup.get(config));
 
         return entityValue.or(locationValue).or(defaultValue);
     }
 
-    protected void waitForExitCondition(ExitCondition exitCondition) {
+    public void waitForExitCondition(ExitCondition exitCondition) {
         waitForExitCondition(exitCondition, Duration.ONE_SECOND, Duration.FIVE_MINUTES);
     }
 
-    protected void waitForExitCondition(ExitCondition exitCondition, Duration finalDelay, Duration duration) {
+    public void waitForExitCondition(ExitCondition exitCondition, Duration initial, Duration duration) {
         ReferenceWithError<Boolean> result = Repeater.create()
-                .backoffTo(finalDelay)
+                .backoff(initial, 1.2, duration)
                 .limitTimeTo(duration)
                 .until(exitCondition)
                 .runKeepingError();
