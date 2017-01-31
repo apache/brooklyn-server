@@ -21,6 +21,7 @@ import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.MachineLocation;
+import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
@@ -33,7 +34,6 @@ import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.logging.log4j.util.Strings;
@@ -214,16 +214,15 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "    brooklyn.config:",
                 "      docker.container.imageName: tomcat",
                 "      docker.container.inboundPorts: [ \"8080\" ]",
-                "      pod: tomcat-pod",
                 "      metadata:",
                 "        extra: test");
 
         DockerContainer entity = runTomcat(yaml);
-        assertAttributeEqualsEventually(entity, KubernetesPod.KUBERNETES_POD, "tomcat-pod"); 
 
         String namespace = entity.sensors().get(KubernetesPod.KUBERNETES_NAMESPACE);
+        String podName = entity.sensors().get(KubernetesPod.KUBERNETES_POD);
         KubernetesClient client = getClient(entity);
-        Pod pod = client.pods().inNamespace(namespace).withName("tomcat-pod").get();
+        Pod pod = client.pods().inNamespace(namespace).withName(podName).get();
         Map<String, String> labels = pod.getMetadata().getLabels();
         assertTrue(labels.containsKey("extra"));
         assertEquals(labels.get("extra"), "test");
@@ -299,7 +298,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
     @Test(groups={"Live"})
     public void testWordpressInPods() throws Exception {
         // TODO docker.container.inboundPorts doesn't accept list of ints - need to use quotes
-        String randomId = Identifiers.makeRandomId(4);
+        String randomId = Identifiers.makeRandomLowercaseId(4);
         String yaml = Joiner.on("\n").join(
                 locationYaml,
                 "services:",
@@ -313,7 +312,6 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "      docker.container.environment:",
                 "        MYSQL_ROOT_PASSWORD: \"password\"",
                 "      deployment: wordpress-mysql-" + randomId,
-                "      pod: wordpress-mysql-pod-" + randomId,
                 "  - type: " + KubernetesPod.class.getName(),
                 "    id: wordpress",
                 "    name: wordpress",
@@ -343,7 +341,6 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
 
         String mysqlPublicPort = assertAttributeEventuallyNonNull(mysql, Sensors.newStringSensor("docker.port.3306.mapped.public"));
         assertReachableEventually(HostAndPort.fromString(mysqlPublicPort));
-        assertAttributeEqualsEventually(mysql, KubernetesPod.KUBERNETES_POD, "wordpress-mysql-pod-" + randomId);
         assertAttributeEqualsEventually(mysql, KubernetesPod.KUBERNETES_NAMESPACE, "amp");
         assertAttributeEqualsEventually(mysql, KubernetesPod.KUBERNETES_SERVICE, "wordpress-mysql-" + randomId);
 
@@ -443,9 +440,9 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
     }
 
     public KubernetesClient getClient(Entity entity) {
-        Maybe<KubernetesLocation> location = Machines.findUniqueElement(entity.getLocations(), KubernetesLocation.class);
-        if (location.isPresentAndNonNull()) {
-            KubernetesLocation kubernetes = location.get();
+        MachineProvisioningLocation location = entity.sensors().get(SoftwareProcess.PROVISIONING_LOCATION);
+        if (location instanceof KubernetesLocation) {
+            KubernetesLocation kubernetes = (KubernetesLocation) location;
             ConfigBag config = kubernetes.config().getBag();
             KubernetesClientRegistry registry = kubernetes.config().get(KubernetesLocationConfig.KUBERNETES_CLIENT_REGISTRY);
             KubernetesClient client = registry.getKubernetesClient(config);

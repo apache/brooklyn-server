@@ -49,7 +49,6 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
-import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -190,7 +189,6 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
             if (isKubernetesPod(entity) &&
                     entity.config().get(DockerContainer.IMAGE_NAME) == null &&
                     entity.config().get(DockerContainer.INBOUND_TCP_PORTS) == null &&
-                    entity.config().get(KubernetesPod.POD) == null &&
                     entity.getChildren().size() > 0) {
                 return null;
             }
@@ -653,19 +651,12 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     protected void deploy(final String namespace, Entity entity, Map<String, String> metadata, final String deploymentName, Container container, final Integer replicas, Map<String, String> secrets) {
         PodTemplateSpecBuilder podTemplateSpecBuilder = new PodTemplateSpecBuilder()
                 .withNewMetadata()
+                    .addToLabels("name", deploymentName)
                     .addToLabels(metadata)
                 .endMetadata()
                 .withNewSpec()
                     .addToContainers(container)
                 .endSpec();
-        if (isKubernetesPod(entity)) {
-            String podName = entity.config().get(KubernetesPod.POD);
-            if (Strings.isNonBlank(podName)) {
-                podTemplateSpecBuilder.editOrNewMetadata().withName(podName).endMetadata();
-            }
-        } else {
-            podTemplateSpecBuilder.editOrNewMetadata().withName(deploymentName).endMetadata();
-        }
         if (secrets != null) {
             for (String secretName : secrets.keySet()) {
                 podTemplateSpecBuilder.withNewSpec()
@@ -956,7 +947,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     }
 
     public boolean implementsInterface(Entity entity, Class<?> type) {
-        return Iterables.tryFind(Arrays.asList(entity.getClass().getInterfaces()), Predicates.instanceOf(type)).isPresent();
+        return Iterables.tryFind(Arrays.asList(entity.getClass().getInterfaces()), Predicates.assignableFrom(type)).isPresent();
     }
 
     @Override

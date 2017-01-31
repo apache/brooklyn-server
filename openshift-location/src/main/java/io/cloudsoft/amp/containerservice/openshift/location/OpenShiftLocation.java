@@ -166,19 +166,12 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
     protected void deploy(final String namespace, Entity entity, Map<String, String> metadata, final String deploymentName, Container container, final Integer replicas, Map<String, String> secrets) {
         PodTemplateSpecBuilder podTemplateSpecBuilder = new PodTemplateSpecBuilder()
                 .withNewMetadata()
+                    .addToLabels("name", deploymentName)
                     .addToLabels(metadata)
                 .endMetadata()
                 .withNewSpec()
                     .addToContainers(container)
                 .endSpec();
-        if (isKubernetesPod(entity)) {
-            String podName = entity.config().get(KubernetesPod.POD);
-            if (Strings.isNonBlank(podName)) {
-                podTemplateSpecBuilder.editOrNewMetadata().withName(podName).endMetadata();
-            }
-        } else {
-            podTemplateSpecBuilder.editOrNewMetadata().withName(deploymentName).endMetadata();
-        }
         if (secrets != null) {
             for (String secretName : secrets.keySet()) {
                 podTemplateSpecBuilder.withNewSpec()

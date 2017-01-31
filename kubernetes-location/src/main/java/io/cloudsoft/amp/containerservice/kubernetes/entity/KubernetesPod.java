@@ -25,11 +25,6 @@ public interface KubernetesPod extends DockerContainer {
 
     ConfigKey<Boolean> PRIVILEGED = KubernetesLocationConfig.PRIVILEGED;
 
-    ConfigKey<String> POD = ConfigKeys.builder(String.class)
-            .name("pod")
-            .description("The name of the pod")
-            .build();
-
     @SuppressWarnings("serial")
     ConfigKey<List<String>> PERSISTENT_VOLUMES = ConfigKeys.builder(new TypeToken<List<String>>() {})
             .name("persistentVolumes")
