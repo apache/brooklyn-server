@@ -184,7 +184,7 @@ public class Repeater implements Callable<Boolean> {
      */
     public Repeater every(Duration duration) {
         Preconditions.checkNotNull(duration, "duration must not be null");
-        Preconditions.checkArgument(duration.toMilliseconds()>0, "period must be positive: %s", duration);
+        Preconditions.checkArgument(duration.isPositive(), "period must be positive: %s", duration);
         return delayOnIteration(Functions.constant(duration));
     }
 
@@ -321,7 +321,7 @@ public class Repeater implements Callable<Boolean> {
      */
     public Repeater limitTimeTo(Duration duration) {
         Preconditions.checkNotNull(duration, "duration must not be null");
-        Preconditions.checkArgument(duration.toMilliseconds() > 0, "deadline must be positive: %s", duration);
+        Preconditions.checkArgument(duration.isPositive(), "deadline must be positive: %s", duration);
         this.timeLimit = duration;
         return this;
     }
