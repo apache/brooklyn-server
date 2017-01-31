@@ -185,13 +185,6 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         if (isKubernetesResource(entity)) {
             return createKubernetesResourceLocation(entity, setup);
         } else {
-            // Heuristic for determining whether KubernetesPod is simply a container
-            if (isKubernetesPod(entity) &&
-                    entity.config().get(DockerContainer.IMAGE_NAME) == null &&
-                    entity.config().get(DockerContainer.INBOUND_TCP_PORTS) == null &&
-                    entity.getChildren().size() > 0) {
-                return null;
-            }
             return createKubernetesContainerLocation(entity, setup);
         }
     }

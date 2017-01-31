@@ -32,6 +32,7 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
+import org.apache.brooklyn.entity.stock.BasicStartable;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.net.Networking;
@@ -266,7 +267,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         String yaml = Joiner.on("\n").join(
                 locationYaml,
                 "services:",
-                "  - type: " + KubernetesPod.class.getName(),
+                "  - type: " + BasicStartable.class.getName(),
                 "    brooklyn.children:",
                 "      - type: " + DockerContainer.class.getName(),
                 "        id: wordpress-mysql",
