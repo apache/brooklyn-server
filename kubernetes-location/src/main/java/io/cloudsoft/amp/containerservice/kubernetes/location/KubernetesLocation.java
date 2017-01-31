@@ -552,7 +552,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
             @Override
             public Boolean call() {
                 PodList result = client.pods().inNamespace(namespace).withLabels(metadata).list();
-                return result.getItems().size() == 1 && result.getItems().get(0).getStatus().getPodIP() != null;
+                return result.getItems().size() >= 1 && result.getItems().get(0).getStatus().getPodIP() != null;
             }
             @Override
             public String getFailureMessage() {

@@ -315,6 +315,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         DockerContainer container = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, DockerContainer.class));
 
         Entities.dumpInfo(app);
+
         String publicMapped = assertAttributeEventuallyNonNull(container, Sensors.newStringSensor("docker.port.8080.mapped.public"));
         HostAndPort publicPort = HostAndPort.fromString(publicMapped);
 
@@ -335,8 +336,10 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         Entity app = createStartWaitAndLogApplication(yaml);
         KubernetesResource entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, KubernetesResource.class));
 
+        Entities.dumpInfo(app);
+
         assertEntityHealthy(entity);
-        assertAttributeEqualsEventually(entity, KubernetesResource.RESOURCE_NAME, "nginx-controller");
+        assertAttributeEqualsEventually(entity, KubernetesResource.RESOURCE_NAME, "nginx-resource");
         assertAttributeEqualsEventually(entity, KubernetesResource.RESOURCE_TYPE, "ReplicationController");
         assertAttributeEqualsEventually(entity, KubernetesLocationConfig.KUBERNETES_NAMESPACE, "default");
         assertAttributeEventually(entity, SoftwareProcess.ADDRESS, and(notNull(), not(equalTo("0.0.0.0"))));
