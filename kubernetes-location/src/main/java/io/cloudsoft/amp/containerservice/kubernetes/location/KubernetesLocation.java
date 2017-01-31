@@ -662,6 +662,8 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
             if (Strings.isNonBlank(podName)) {
                 podTemplateSpecBuilder.editOrNewMetadata().withName(podName).endMetadata();
             }
+        } else {
+            podTemplateSpecBuilder.editOrNewMetadata().withName(deploymentName).endMetadata();
         }
         if (secrets != null) {
             for (String secretName : secrets.keySet()) {

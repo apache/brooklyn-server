@@ -9,11 +9,13 @@ import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
 import org.apache.brooklyn.util.net.Networking;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableSet;
 
+import io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesPod;
 import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesClientRegistry;
 import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocation;
 import io.cloudsoft.amp.containerservice.openshift.entity.OpenShiftPod;
@@ -165,11 +167,18 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
         PodTemplateSpecBuilder podTemplateSpecBuilder = new PodTemplateSpecBuilder()
                 .withNewMetadata()
                     .addToLabels(metadata)
-                    .addToLabels("name", deploymentName)
                 .endMetadata()
                 .withNewSpec()
                     .addToContainers(container)
                 .endSpec();
+        if (isKubernetesPod(entity)) {
+            String podName = entity.config().get(KubernetesPod.POD);
+            if (Strings.isNonBlank(podName)) {
+                podTemplateSpecBuilder.editOrNewMetadata().withName(podName).endMetadata();
+            }
+        } else {
+            podTemplateSpecBuilder.editOrNewMetadata().withName(deploymentName).endMetadata();
+        }
         if (secrets != null) {
             for (String secretName : secrets.keySet()) {
                 podTemplateSpecBuilder.withNewSpec()
