@@ -73,7 +73,7 @@ public class BrooklynImageChooser implements Cloneable {
         return img.getName().toLowerCase().matches("(.*[^a-z])?"+pattern.toLowerCase()+"([^a-z].*)?");
     }
     
-    public double punishmentForOldOsVersions(Image img, OsFamily family, double minVersion) {
+    protected double punishmentForOldOsVersions(Image img, OsFamily family, double minVersion) {
         OperatingSystem os = img.getOperatingSystem();
         if (os!=null && family.equals(os.getFamily())) {
             String v = os.getVersion();
@@ -128,15 +128,18 @@ public class BrooklynImageChooser implements Cloneable {
 
     
         // prefer these guys, in stock brooklyn provisioning
-        score += punishmentForOldOsVersions(img, OsFamily.UBUNTU, 11);
-        score += punishmentForOldOsVersions(img, OsFamily.CENTOS, 6);
 
         OperatingSystem os = img.getOperatingSystem();
         if (os!=null) {
             if (os.getFamily()!=null) {
                 // preference for these open, popular OS (but only wrt versions above) 
-                if (os.getFamily().equals(OsFamily.CENTOS)) score += 2;
+                if (os.getFamily().equals(OsFamily.CENTOS)) {
+                    score += punishmentForOldOsVersions(img, OsFamily.CENTOS, 7);
+                    score += 3;
+
+                }
                 else if (os.getFamily().equals(OsFamily.UBUNTU)) {
+                    score += punishmentForOldOsVersions(img, OsFamily.UBUNTU, 12);
                     score += 2;
 
                     // prefer these LTS releases slightly above others (including above CentOS)
