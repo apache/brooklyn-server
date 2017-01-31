@@ -10,6 +10,7 @@ import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
+import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
@@ -74,11 +75,18 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
             .constraint(Predicates.<String>notNull())
             .build();
 
-    ConfigKey<Integer> TIMEOUT = ConfigKeys.builder(Integer.class)
+    ConfigKey<Duration> CLIENT_TIMEOUT = ConfigKeys.builder(Duration.class)
             .name("timeout")
-            .description("The timeout in seconds for the client")
-            .defaultValue(60)
-            .constraint(Predicates.<Integer>notNull())
+            .description("The timeout for the client")
+            .defaultValue(Duration.seconds(10))
+            .constraint(Predicates.<Duration>notNull())
+            .build();
+
+    ConfigKey<Duration> ACTION_TIMEOUT = ConfigKeys.builder(Duration.class)
+            .name("actionTimeout")
+            .description("The timeout for Kubernetes actions")
+            .defaultValue(Duration.ONE_MINUTE)
+            .constraint(Predicates.<Duration>notNull())
             .build();
 
     ConfigKey<String> NAMESPACE = ConfigKeys.builder(String.class)
@@ -190,7 +198,6 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
             .description("Whether to inject login credentials (if null, will infer from image choice); ignored if explicit 'loginUser.password' supplied")
             .build();
 
-
     AttributeSensor<String> KUBERNETES_DEPLOYMENT = Sensors.builder(String.class, "kubernetes.deployment")
             .description("Deployment resources run in")
             .build();
@@ -206,5 +213,6 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
     AttributeSensor<String> KUBERNETES_POD = Sensors.builder(String.class, "kubernetes.pod")
             .description("Pod running the deployment")
             .build();
+
 }
 

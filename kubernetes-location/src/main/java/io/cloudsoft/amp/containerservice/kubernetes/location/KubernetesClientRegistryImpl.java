@@ -7,6 +7,7 @@ import java.net.URL;
 
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.base.Throwables;
 import com.google.common.io.BaseEncoding;
@@ -53,11 +54,15 @@ public class KubernetesClientRegistryImpl implements KubernetesClientRegistry {
         String token = conf.get(KubernetesLocationConfig.OAUTH_TOKEN);
         if (Strings.isNonBlank(token)) configBuilder.withOauthToken(token);
 
-        Integer timeout = conf.get(KubernetesLocationConfig.TIMEOUT);
-        if (timeout != null && timeout > 0) {
-            configBuilder.withRequestTimeout(timeout);
-            configBuilder.withRollingTimeout(timeout * 1000L);
-            configBuilder.withScaleTimeout(timeout * 1000L);
+        Duration clientTimeout = conf.get(KubernetesLocationConfig.CLIENT_TIMEOUT);
+        if (clientTimeout.isPositive()) {
+            configBuilder.withConnectionTimeout((int) clientTimeout.toMilliseconds());
+            configBuilder.withRequestTimeout((int) clientTimeout.toMilliseconds());
+        }
+        Duration actionTimeout = conf.get(KubernetesLocationConfig.ACTION_TIMEOUT);
+        if (actionTimeout.isPositive()) {
+            configBuilder.withRollingTimeout(actionTimeout.toMilliseconds());
+            configBuilder.withScaleTimeout(actionTimeout.toMilliseconds());
         }
 
         return new DefaultKubernetesClient(configBuilder.build());
