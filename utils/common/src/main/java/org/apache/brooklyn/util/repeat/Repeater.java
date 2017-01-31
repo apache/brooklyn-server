@@ -89,6 +89,7 @@ public class Repeater implements Callable<Boolean> {
     private boolean rethrowException = false;
     private Predicate<? super Throwable> rethrowImmediatelyCondition = Exceptions.isFatalPredicate();
     private boolean warnOnUnRethrownException = true;
+    private boolean shutdown = false;
     private ExecutorService executor = MoreExecutors.sameThreadExecutor();
 
     public Repeater() {
@@ -153,12 +154,13 @@ public class Repeater implements Callable<Boolean> {
      */
     public Repeater threaded() {
         this.executor = Executors.newSingleThreadExecutor();
+        this.shutdown = true;
         return this;
     }
 
     /**
      * @see #threaded()
-     * @param executor an {@link ExecutorService} to use when creating threads.
+     * @param executor an externally managed {@link ExecutorService} to use when creating threads.
      * @return {@literal this} to aid coding in a fluent style.
      */
     public Repeater threaded(ExecutorService executor) {
@@ -343,6 +345,7 @@ public class Repeater implements Callable<Boolean> {
     }
 
     public ReferenceWithError<Boolean> runKeepingError() {
+        Preconditions.checkNotNull(body, "repeat() method has not been called to set the body");
         Preconditions.checkNotNull(exitCondition, "until() method has not been called to set the exit condition");
         Preconditions.checkNotNull(delayOnIteration, "every() method (or other delaySupplier() / backoff() method) has not been called to set the loop delay");
 
@@ -417,11 +420,13 @@ public class Repeater implements Callable<Boolean> {
                     }
                     return ReferenceWithError.newInstanceMaskingError(false, lastError);
                 }
-    
+
                 Time.sleep(delayThisIteration);
             }
         } finally {
-           executor.shutdownNow();
+            if (shutdown) {
+                executor.shutdownNow();
+            }
         }
     }
 
