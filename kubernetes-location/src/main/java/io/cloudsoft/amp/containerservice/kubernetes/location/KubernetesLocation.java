@@ -49,6 +49,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -976,7 +977,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         Optional<T> entityValue = Optional.fromNullable(entity.config().get(config));
         Optional<T> locationValue = Optional.fromNullable(setup.get(config));
 
-        return entityValue.or(locationValue).or(defaultValue);
+        return Iterables.getFirst(Optional.presentInstances(Arrays.asList(entityValue, locationValue)), defaultValue);
     }
 
     public void waitForExitCondition(ExitCondition exitCondition) {

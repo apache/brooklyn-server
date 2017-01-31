@@ -28,20 +28,17 @@ public interface KubernetesPod extends DockerContainer {
     ConfigKey<String> POD = ConfigKeys.builder(String.class)
             .name("pod")
             .description("The name of the pod")
-            .constraint(Predicates.<String>notNull())
             .build();
 
     @SuppressWarnings("serial")
     ConfigKey<List<String>> PERSISTENT_VOLUMES = ConfigKeys.builder(new TypeToken<List<String>>() {})
             .name("persistentVolumes")
             .description("Persistent volumes used by the pod")
-            .constraint(Predicates.<List<String>>notNull())
             .build();
 
     ConfigKey<String> DEPLOYMENT = ConfigKeys.builder(String.class)
             .name("deployment")
             .description("The name of the service the deployed pod will use")
-            .constraint(Predicates.<String>notNull())
             .build();
 
     ConfigKey<Integer> REPLICAS = ConfigKeys.builder(Integer.class)
