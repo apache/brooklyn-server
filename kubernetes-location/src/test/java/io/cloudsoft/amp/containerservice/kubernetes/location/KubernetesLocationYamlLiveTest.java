@@ -118,14 +118,14 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "      launch.command: |",
                 "        echo $MESSAGE | nc -l $NETCAT_PORT &",
                 "        echo $! > $PID_FILE",
-                "    shell.env:",
-                "      MESSAGE: mymessage",
-                "      NETCAT_PORT: $brooklyn:attributeWhenReady(\"netcat.port\")",
-                "  brooklyn.enrichers:",
-                "  - type: " + OnPublicNetworkEnricher.class.getName(),
-                "    brooklyn.config:",
-                "      " + OnPublicNetworkEnricher.SENSORS.getName() + ":",
-                "      - netcat.port");
+                "      shell.env:",
+                "        MESSAGE: mymessage",
+                "        NETCAT_PORT: $brooklyn:attributeWhenReady(\"netcat.port\")",
+                "    brooklyn.enrichers:",
+                "      - type: " + OnPublicNetworkEnricher.class.getName(),
+                "        brooklyn.config:",
+                "          " + OnPublicNetworkEnricher.SENSORS.getName() + ":",
+                "            - netcat.port");
 
         Entity app = createStartWaitAndLogApplication(yaml);
         VanillaSoftwareProcess entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, VanillaSoftwareProcess.class));
