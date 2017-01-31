@@ -1,0 +1,16 @@
+{
+  "args": {
+    "login": "myLogin"
+  },
+  "headers": {
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+    "Accept-Encoding": "gzip, deflate, sdch, br",
+    "Accept-Language": "en-US,en;q=0.8,it;q=0.6",
+    "Cookie": "_ga=GA1.2.1060288368.1484053495; _gat=1",
+    "Host": "httpbin.org",
+    "Upgrade-Insecure-Requests": "1",
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.95 Safari/537.36"
+  },
+  "origin": "93.61.99.89",
+  "url": "https://httpbin.org/get?login=myLogin"
+}

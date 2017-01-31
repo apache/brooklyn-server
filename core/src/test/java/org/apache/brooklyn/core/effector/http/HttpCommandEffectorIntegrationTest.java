@@ -40,7 +40,7 @@ import com.jayway.jsonpath.JsonPath;
 
 public class HttpCommandEffectorIntegrationTest {
 
-    final static Effector<String> EFFECTOR_GITHUB_APACHE_ACCOUNT = Effectors.effector(String.class, "GithubApacheAccount").buildAbstract();
+    final static Effector<String> EFFECTOR_HTTPBIN = Effectors.effector(String.class, "Httpbin").buildAbstract();
 
     private TestApplication app;
     private EntityLocal entity;
@@ -60,20 +60,20 @@ public class HttpCommandEffectorIntegrationTest {
     @Test(groups="Integration")
     public void testHttpEffector() throws Exception {
         new HttpCommandEffector(ConfigBag.newInstance()
-                .configure(HttpCommandEffector.EFFECTOR_NAME, "GithubApacheAccount")
-                .configure(HttpCommandEffector.EFFECTOR_URI, "https://api.github.com/users/apache")
+                .configure(HttpCommandEffector.EFFECTOR_NAME, "Httpbin")
+                .configure(HttpCommandEffector.EFFECTOR_URI, "https://httpbin.org/get?login=myLogin")
                 .configure(HttpCommandEffector.EFFECTOR_HTTP_VERB, "GET")
         ).apply(entity);
 
-        String val = entity.invoke(EFFECTOR_GITHUB_APACHE_ACCOUNT, MutableMap.<String,String>of()).get();
-        Assert.assertEquals(JsonPath.parse(val).read("$.login", String.class), "apache");
+        String val = entity.invoke(EFFECTOR_HTTPBIN, MutableMap.<String,String>of()).get();
+        Assert.assertEquals(JsonPath.parse(val).read("$.args.login", String.class), "myLogin");
     }
 
     @Test(groups="Integration")
     public void testHttpEffectorWithPayload() throws Exception {
         new HttpCommandEffector(ConfigBag.newInstance()
-                .configure(HttpCommandEffector.EFFECTOR_NAME, "CreateGist")
-                .configure(HttpCommandEffector.EFFECTOR_URI, "https://api.github.com/gists")
+                .configure(HttpCommandEffector.EFFECTOR_NAME, "HttpbinPost")
+                .configure(HttpCommandEffector.EFFECTOR_URI, "https://httpbin.org/post")
                 .configure(HttpCommandEffector.EFFECTOR_HTTP_VERB, "POST")
                 .configure(HttpCommandEffector.EFFECTOR_HTTP_PAYLOAD, ImmutableMap.<String, Object>of(
                         "description", "Created via API", 
@@ -84,42 +84,42 @@ public class HttpCommandEffectorIntegrationTest {
                 .configure(HttpCommandEffector.PUBLISH_SENSOR, "result")
         ).apply(entity);
 
-        String url = entity.invoke(Effectors.effector(String.class, "CreateGist").buildAbstract(), MutableMap.<String,String>of()).get();
+        String url = entity.invoke(Effectors.effector(String.class, "HttpbinPost").buildAbstract(), MutableMap.<String,String>of()).get();
         Assert.assertNotNull(url, "url");
     }
 
     @Test(groups="Integration")
     public void testHttpEffectorWithJsonPath() throws Exception {
         new HttpCommandEffector(ConfigBag.newInstance()
-                .configure(HttpCommandEffector.EFFECTOR_NAME, "GithubApacheAccount")
-                .configure(HttpCommandEffector.EFFECTOR_URI, "https://api.github.com/users/apache")
+                .configure(HttpCommandEffector.EFFECTOR_NAME, "Httpbin")
+                .configure(HttpCommandEffector.EFFECTOR_URI, "https://httpbin.org/get?id=myId")
                 .configure(HttpCommandEffector.EFFECTOR_HTTP_VERB, "GET")
-                .configure(HttpCommandEffector.JSON_PATH, "$.login")
+                .configure(HttpCommandEffector.JSON_PATH, "$.args.id")
                 .configure(HttpCommandEffector.PUBLISH_SENSOR, "result")
         ).apply(entity);
 
-        String val = entity.invoke(EFFECTOR_GITHUB_APACHE_ACCOUNT, MutableMap.<String,String>of()).get();
-        Assert.assertEquals(val, "apache");
-        Assert.assertEquals(entity.sensors().get(Sensors.newStringSensor("result")), "apache");
+        String val = entity.invoke(EFFECTOR_HTTPBIN, MutableMap.<String,String>of()).get();
+        Assert.assertEquals(val, "myId");
+        Assert.assertEquals(entity.sensors().get(Sensors.newStringSensor("result")), "myId");
     }
     
     @Test(groups="Integration")
     public void testHttpEffectorWithParameters() throws Exception {
         new HttpCommandEffector(ConfigBag.newInstance()
-                .configure(HttpCommandEffector.EFFECTOR_NAME, "GithubApacheAccount")
-                .configure(HttpCommandEffector.EFFECTOR_URI, "https://api.github.com/users/$user")
+                .configure(HttpCommandEffector.EFFECTOR_NAME, "Httpbin")
+                .configure(HttpCommandEffector.EFFECTOR_URI, "https://httpbin.org/get")                
                 .configure(HttpCommandEffector.EFFECTOR_HTTP_VERB, "GET")
                 .configure(HttpCommandEffector.EFFECTOR_PARAMETER_DEFS,
-                        MutableMap.<String,Object>of("user", MutableMap.of("defaultValue", "apache"))))
+                        MutableMap.<String,Object>of("uri", MutableMap.of("defaultValue", "https://httpbin.org/get"))))
                 .apply(entity);
 
         String val;
         // explicit value
-        val = entity.invoke(EFFECTOR_GITHUB_APACHE_ACCOUNT, MutableMap.of("user", "github")).get();
-        Assert.assertEquals(JsonPath.parse(val).read("$.login", String.class), "github");
+        val = entity.invoke(EFFECTOR_HTTPBIN, MutableMap.of("uri", "https://httpbin.org/ip")).get();
+        Assert.assertNotNull(JsonPath.parse(val).read("$.origin", String.class));
 
         // default value
-        val = entity.invoke(EFFECTOR_GITHUB_APACHE_ACCOUNT, MutableMap.<String,String>of()).get();
-        Assert.assertEquals(JsonPath.parse(val).read("$.login", String.class), "apache");
+        val = entity.invoke(EFFECTOR_HTTPBIN, MutableMap.<String,String>of()).get();
+        Assert.assertEquals(JsonPath.parse(val).read("$.url", String.class), "https://httpbin.org/get");
     }
 }

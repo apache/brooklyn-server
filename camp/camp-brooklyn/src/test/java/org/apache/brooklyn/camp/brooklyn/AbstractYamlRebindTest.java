@@ -29,9 +29,12 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
+<<<<<<< 3d318e4e78085519233bcc763e22320ca40403df
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampPlatform;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampPlatformLauncherNoServer;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
+=======
+>>>>>>> add more tests for HttpCommandEffector
 import org.apache.brooklyn.camp.spi.Assembly;
 import org.apache.brooklyn.camp.spi.AssemblyTemplate;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
@@ -59,13 +62,13 @@ import com.google.common.collect.Iterables;
 
 public class AbstractYamlRebindTest extends RebindTestFixture<StartableApplication> {
 
-    private static final Logger LOG = LoggerFactory.getLogger(AbstractYamlTest.class);
+    private static final Logger LOG = LoggerFactory.getLogger(AbstractYamlRebindTest.class);
     protected static final String TEST_VERSION = "0.1.2";
 
     protected BrooklynCampPlatform platform;
     protected BrooklynCampPlatformLauncherNoServer launcher;
     private boolean forceUpdate;
-    
+
     @BeforeMethod(alwaysRun = true)
     @Override
     public void setUp() throws Exception {
@@ -106,7 +109,7 @@ public class AbstractYamlRebindTest extends RebindTestFixture<StartableApplicati
         }
         return result;
     }
-    
+
     @Override
     protected StartableApplication createApp() {
         return null;
@@ -116,11 +119,11 @@ public class AbstractYamlRebindTest extends RebindTestFixture<StartableApplicati
     protected ManagementContext mgmt() {
         return (newManagementContext != null) ? newManagementContext : origManagementContext;
     }
-    
+
     ///////////////////////////////////////////////////
     // TODO code below is duplicate of AbstractYamlTest
     ///////////////////////////////////////////////////
-    
+
     protected void waitForApplicationTasks(Entity app) {
         Set<Task<?>> tasks = BrooklynTaskTags.getTasksInEntityContext(mgmt().getExecutionManager(), app);
         getLogger().info("Waiting on " + tasks.size() + " task(s)");
@@ -149,7 +152,7 @@ public class AbstractYamlRebindTest extends RebindTestFixture<StartableApplicati
     protected Entity createAndStartApplication(String... multiLineYaml) throws Exception {
         return createAndStartApplication(joinLines(multiLineYaml));
     }
-    
+
     protected Entity createAndStartApplication(String input) throws Exception {
         return createAndStartApplication(input, MutableMap.<String,String>of());
     }
@@ -168,18 +171,18 @@ public class AbstractYamlRebindTest extends RebindTestFixture<StartableApplicati
     protected Entity createStartWaitAndLogApplication(String... input) throws Exception {
         return createStartWaitAndLogApplication(joinLines(input));
     }
-    
+
     protected Entity createStartWaitAndLogApplication(String input) throws Exception {
         return createStartWaitAndLogApplication(new StringReader(input));
     }
-    
+
     protected Entity createStartWaitAndLogApplication(Reader input) throws Exception {
         Entity app = createAndStartApplication(input);
         waitForApplicationTasks(app);
 
         getLogger().info("App started:");
         Entities.dumpInfo(app);
-        
+
         return app;
     }
 

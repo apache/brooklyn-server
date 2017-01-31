@@ -93,14 +93,14 @@ public class CompositeEffector extends AddEffector {
             final List<String> effectorNames = EntityInitializers.resolve(allConfig, EFFECTORS);
             final Boolean override = allConfig.get(OVERRIDE);
 
-            List <Object> results = Lists.newArrayList();
+            List<Object> results = Lists.newArrayList();
             if (!override) {
                 Optional<Effector<?>> effectorOptional = Iterables.tryFind(entity().getEntityType().getEffectors(), new Predicate<Effector<?>>() {
-                            @Override
-                            public boolean apply(@Nullable Effector<?> input) {
-                                return input.getName().equals("original-" + effector.getName());
-                            }
-                        });
+                    @Override
+                    public boolean apply(@Nullable Effector<?> input) {
+                        return input.getName().equals("original-" + effector.getName());
+                    }
+                });
                 // if it is a stop effector, it has to be executed as last effector
                 if (effectorOptional.isPresent()) {
                     if (effectorOptional.get().getName().endsWith("-stop")) {
@@ -110,7 +110,7 @@ public class CompositeEffector extends AddEffector {
                     }
                 }
             }
-            
+
             for (String eff : effectorNames) {
                 results.add(invokeEffectorNamed(eff, params));
             }
@@ -125,7 +125,7 @@ public class CompositeEffector extends AddEffector {
                 // TODO
             }
             return entity().invoke(effector.get(), params.getAllConfig()).getUnchecked();
-            
+
         }
     }
 

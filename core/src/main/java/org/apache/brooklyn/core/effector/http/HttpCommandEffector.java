@@ -18,9 +18,14 @@
  */
 package org.apache.brooklyn.core.effector.http;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
@@ -45,8 +50,12 @@ import org.apache.brooklyn.util.http.executor.HttpResponse;
 import org.apache.brooklyn.util.http.executor.UsernamePassword;
 import org.apache.brooklyn.util.http.executor.apacheclient.HttpExecutorImpl;
 
+import com.google.common.base.Enums;
+import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.io.ByteStreams;
+import com.google.common.net.HttpHeaders;
 import com.jayway.jsonpath.JsonPath;
 
 public final class HttpCommandEffector extends AddEffector {
@@ -60,6 +69,10 @@ public final class HttpCommandEffector extends AddEffector {
     public static final ConfigKey<String> JSON_PATH = ConfigKeys.newStringConfigKey("jsonPath", "JSON path to select in HTTP response");
     public static final ConfigKey<String> PUBLISH_SENSOR = ConfigKeys.newStringConfigKey("publishSensor", "Sensor name where to store json path extracted value");
 
+    private enum HttpVerb {
+        GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, TRACE;
+    }
+
     public HttpCommandEffector(ConfigBag params) {
         super(newEffectorBuilder(params).build());
     }
@@ -69,7 +82,7 @@ public final class HttpCommandEffector extends AddEffector {
         eff.impl(new Body(eff.buildAbstract(), params));
         return eff;
     }
-    
+
     protected static class Body extends EffectorBody<String> {
         private final Effector<?> effector;
         private final ConfigBag params;
@@ -97,32 +110,12 @@ public final class HttpCommandEffector extends AddEffector {
                 public Object call() throws Exception {
                     HttpExecutor httpExecutor = HttpExecutorImpl.newInstance();
 
-                    String body = "";
-                    if (payload != null && !payload.isEmpty() && headers.containsKey("Content-Type")) {
-                        body = Jsonya.newInstance().put(payload).toString();
-                    }
-                    HttpRequest.Builder httpRequestBuilder = new HttpRequest.Builder()
-                            .body(body.getBytes())
-                            .uri(URI.create(uri))
-                            .method(httpVerb)
-                            .config(HttpConfig.builder()
-                                    .trustSelfSigned(true)
-                                    .trustAll(true)
-                                    .laxRedirect(true)
-                                    .build());
-
-                    if (headers != null) {
-                        httpRequestBuilder.headers(headers);
-                    }
-
-                    if (httpUsername != null && httpPassword != null) {
-                        httpRequestBuilder.credentials(new UsernamePassword(httpUsername, httpPassword));
-                    }
-                    
-                    HttpRequest httpRequest = httpRequestBuilder.build();
+                    String body = getBodyFromPayload(payload, headers);
+                    HttpRequest request = buildHttpRequest(httpVerb, uri, headers, httpUsername, httpPassword, body);
                     ByteArrayOutputStream out = new ByteArrayOutputStream();
                     try {
-                        HttpResponse response = httpExecutor.execute(httpRequest);
+                        HttpResponse response = httpExecutor.execute(request);
+                        validateResponse(response);
                         ByteStreams.copy(response.getContent(), out);
                         return new String(out.toByteArray());
                     } catch (IOException e) {
@@ -131,14 +124,64 @@ public final class HttpCommandEffector extends AddEffector {
                 }
             }).build();
 
-            String val = (String) queue(t).getUnchecked();
-            if (jsonPath != null) {
-                String extractedValue = JsonPath.parse(val).read(jsonPath, String.class);
+            String responseBody = (String) queue(t).getUnchecked();
+
+            if (jsonPath == null) return responseBody;
+            String extractedValue = JsonPath.parse(responseBody).read(jsonPath, String.class);
+            if (publishSensor != null) {
                 entity().sensors().set(Sensors.newStringSensor(publishSensor), extractedValue);
-                return extractedValue;
-            } else {
-                return val;
             }
+            return extractedValue;
+        }
+
+        private void validateResponse(HttpResponse response) {
+            int statusCode = response.code();
+            if (statusCode == 401) {
+                throw new RuntimeException("Authorization exception");
+            } else if (statusCode == 404) {
+                throw new RuntimeException("Resource not found");
+            } else if (statusCode >= 500) {
+                throw new RuntimeException("Server error");
+            }
+        }
+
+        private HttpRequest buildHttpRequest(String httpVerb, String url, Map<String, String> headers, String httpUsername, String httpPassword, String body) throws MalformedURLException, URISyntaxException {
+            // validate url string
+            URI uri = new URL(url).toURI();
+            // validate HTTP verb
+            validateHttpVerb(httpVerb);
+            HttpRequest.Builder httpRequestBuilder = new HttpRequest.Builder()
+                    .body(body.getBytes())
+                    .uri(uri)
+                    .method(httpVerb)
+                    .config(HttpConfig.builder()
+                            .trustSelfSigned(true)
+                            .trustAll(true)
+                            .laxRedirect(true)
+                            .build());
+
+            if (headers != null) {
+                httpRequestBuilder.headers(headers);
+            }
+
+            if (httpUsername != null && httpPassword != null) {
+                httpRequestBuilder.credentials(new UsernamePassword(httpUsername, httpPassword));
+            }
+
+            return httpRequestBuilder.build();
+        }
+
+        private void validateHttpVerb(String httpVerb) {
+            Optional<HttpVerb> state = Enums.getIfPresent(HttpVerb.class, httpVerb.toUpperCase());
+            checkArgument(state.isPresent(), "Expected one of %s but was %s", Joiner.on(',').join(HttpVerb.values()), httpVerb);
+        }
+
+        private String getBodyFromPayload(Map<String, Object> payload, Map<String, String> headers) {
+            String body = "";
+            if (payload != null && !payload.isEmpty() && headers.containsKey(HttpHeaders.CONTENT_TYPE)) {
+                body = Jsonya.newInstance().put(payload).toString();
+            }
+            return body;
         }
 
     }
