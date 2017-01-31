@@ -17,6 +17,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 import java.util.List;
+import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.MachineLocation;
@@ -31,6 +32,8 @@ import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.logging.log4j.util.Strings;
@@ -45,6 +48,8 @@ import com.google.common.net.HostAndPort;
 import io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer;
 import io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesPod;
 import io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesResource;
+import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.client.KubernetesClient;
 
 /**
  * Live tests for deploying simple blueprints. Particularly useful during dev, but not so useful
@@ -201,6 +206,30 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
     }
 
     @Test(groups={"Live"})
+    public void testTomcatPodExtras() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                locationYaml,
+                "services:",
+                "  - type: " + KubernetesPod.class.getName(),
+                "    brooklyn.config:",
+                "      docker.container.imageName: tomcat",
+                "      docker.container.inboundPorts: [ \"8080\" ]",
+                "      pod: tomcat-pod",
+                "      metadata:",
+                "        extra: test");
+
+        DockerContainer entity = runTomcat(yaml);
+        assertAttributeEqualsEventually(entity, KubernetesPod.KUBERNETES_POD, "tomcat-pod"); 
+
+        String namespace = entity.sensors().get(KubernetesPod.KUBERNETES_NAMESPACE);
+        KubernetesClient client = getClient(entity);
+        Pod pod = client.pods().inNamespace(namespace).withName("tomcat-pod").get();
+        Map<String, String> labels = pod.getMetadata().getLabels();
+        assertTrue(labels.containsKey("extra"));
+        assertEquals(labels.get("extra"), "test");
+    }
+
+    @Test(groups={"Live"})
     public void testTomcatContainer() throws Exception {
         String yaml = Joiner.on("\n").join(
                 locationYaml,
@@ -216,7 +245,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
     /**
      * Assumes that the {@link DockerContainer} entity uses port 8080.
      */
-    protected void runTomcat(String yaml) throws Exception {
+    protected DockerContainer runTomcat(String yaml) throws Exception {
         Entity app = createStartWaitAndLogApplication(yaml);
         DockerContainer entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, DockerContainer.class));
 
@@ -226,6 +255,8 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
 
         assertReachableEventually(publicPort);
         assertHttpStatusCodeEventuallyEquals("http://"+publicPort.getHostText()+":"+publicPort.getPort(), 200);
+
+        return entity;
     }
 
 
@@ -409,5 +440,17 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
             public void run() {
                 assertTrue(Networking.isReachable(hostAndPort), "publicPort="+hostAndPort);
             }});
+    }
+
+    public KubernetesClient getClient(Entity entity) {
+        Maybe<KubernetesLocation> location = Machines.findUniqueElement(entity.getLocations(), KubernetesLocation.class);
+        if (location.isPresentAndNonNull()) {
+            KubernetesLocation kubernetes = location.get();
+            ConfigBag config = kubernetes.config().getBag();
+            KubernetesClientRegistry registry = kubernetes.config().get(KubernetesLocationConfig.KUBERNETES_CLIENT_REGISTRY);
+            KubernetesClient client = registry.getKubernetesClient(config);
+            return client;
+        }
+        throw new IllegalStateException("Cannot find KubernetesLocation on entity: " + Iterables.toString(entity.getLocations()));
     }
 }
