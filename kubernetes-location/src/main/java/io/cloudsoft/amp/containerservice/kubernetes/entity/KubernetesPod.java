@@ -77,4 +77,6 @@ public interface KubernetesPod extends DockerContainer {
     AttributeSensor<String> KUBERNETES_POD = Sensors.builder(String.class, "kubernetes.pod")
             .description("Pod running the deployment")
             .build();
+
+    String EMPTY = "Empty";
 }

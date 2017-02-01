@@ -259,15 +259,50 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         return entity;
     }
 
-
     @Test(groups={"Live"})
-    public void testWordpressInContainers() throws Exception {
+    public void testWordpressInContainersWithStartableParent() throws Exception {
         // TODO docker.container.inboundPorts doesn't accept list of ints - need to use quotes
         String randomId = Identifiers.makeRandomLowercaseId(4);
         String yaml = Joiner.on("\n").join(
                 locationYaml,
                 "services:",
                 "  - type: " + BasicStartable.class.getName(),
+                "    brooklyn.children:",
+                "      - type: " + DockerContainer.class.getName(),
+                "        id: wordpress-mysql",
+                "        name: mysql",
+                "        brooklyn.config:",
+                "          docker.container.imageName: mysql:5.6",
+                "          docker.container.inboundPorts:",
+                "            - \"3306\"",
+                "          docker.container.environment:",
+                "            MYSQL_ROOT_PASSWORD: \"password\"",
+                "          provisioning.properties:",
+                "            deployment: wordpress-mysql-" + randomId,
+                "      - type: " + DockerContainer.class.getName(),
+                "        id: wordpress",
+                "        name: wordpress",
+                "        brooklyn.config:",
+                "          docker.container.imageName: wordpress:4.4-apache",
+                "          docker.container.inboundPorts:",
+                "            - \"80\"",
+                "          docker.container.environment:",
+                "            WORDPRESS_DB_HOST: \"wordpress-mysql" + randomId + "\"",
+                "            WORDPRESS_DB_PASSWORD: \"password\"",
+                "          provisioning.properties:",
+                "            deployment: wordpress-" + randomId);
+
+        runWordpress(yaml, randomId);
+    }
+
+    @Test(groups={"Live"})
+    public void testWordpressInContainersWithPodParent() throws Exception {
+        // TODO docker.container.inboundPorts doesn't accept list of ints - need to use quotes
+        String randomId = Identifiers.makeRandomLowercaseId(4);
+        String yaml = Joiner.on("\n").join(
+                locationYaml,
+                "services:",
+                "  - type: " + KubernetesPod.class.getName(),
                 "    brooklyn.children:",
                 "      - type: " + DockerContainer.class.getName(),
                 "        id: wordpress-mysql",

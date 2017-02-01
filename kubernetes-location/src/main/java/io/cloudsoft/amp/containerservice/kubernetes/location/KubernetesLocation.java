@@ -128,6 +128,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     public static final String CLOUDSOFT_APPLICATION_ID = "cloudsoft.io/application-id";
     public static final String KUBERNETES_DOCKERCFG = "kubernetes.io/dockercfg";
 
+    public static final String PHASE_AVAILABLE = "Available";
     public static final String PHASE_TERMINATING = "Terminating";
     public static final String PHASE_ACTIVE = "Active";
 
@@ -185,15 +186,41 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         if (isKubernetesResource(entity)) {
             return createKubernetesResourceLocation(entity, setup);
         } else {
+            // Heuristic for determining whether KubernetesPod is simply a parent entity
+            if (isKubernetesPod(entity) &&
+                    entity.config().get(DockerContainer.IMAGE_NAME) == null &&
+                    entity.config().get(DockerContainer.INBOUND_TCP_PORTS) == null &&
+                    entity.getChildren().size() > 0) {
+                return createEmptyKubernetesMachineLocation(entity);
+            }
             return createKubernetesContainerLocation(entity, setup);
         }
+    }
+
+    /** @deprecated This mechanism will be removed in future releases */
+    @Deprecated
+    public KubernetesEmptyMachineLocation createEmptyKubernetesMachineLocation(Entity entity) {
+        LOG.warn("IMPORTANT: Deprecated behaviour: Use of KubernetesPod as a parent entity is deprecated and support will be removed in future versions");
+
+        LocationSpec<KubernetesEmptyMachineLocation> locationSpec = LocationSpec.create(KubernetesEmptyMachineLocation.class)
+                .configure(KubernetesLocationConfig.CALLER_CONTEXT, entity)
+                .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_TYPE, KubernetesPod.EMPTY)
+                .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_NAME, entity.getId());
+
+        KubernetesEmptyMachineLocation machine = getManagementContext().getLocationManager().createLocation(locationSpec);
+
+        return machine;
     }
 
     @Override
     public void release(MachineLocation machine) {
         Entity entity = validateCallerContext(machine);
         if (isKubernetesResource(entity)) {
-            deleteKubernetesResourceLocation(entity);
+            if (machine instanceof KubernetesEmptyMachineLocation && KubernetesPod.EMPTY.equals(machine.config().get(KubernetesMachineLocation.KUBERNETES_RESOURCE_TYPE))) {
+                // Nothing to do, the location does not represent a Kubernetes resource
+            } else {
+                deleteKubernetesResourceLocation(entity);
+            }
         } else {
             deleteKubernetesContainerLocation(entity, machine);
         }
@@ -346,25 +373,27 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         entity.sensors().set(KubernetesResource.RESOURCE_NAME, resourceName);
         entity.sensors().set(KubernetesResource.RESOURCE_TYPE, resourceType);
 
-        LocationSpec<SshMachineLocation> locationSpec = LocationSpec.create(SshMachineLocation.class)
-                        .configure(CALLER_CONTEXT, setup.get(CALLER_CONTEXT));
+        LocationSpec<? extends KubernetesMachineLocation> locationSpec = LocationSpec.create(KubernetesSshMachineLocation.class);
         if (!findResourceAddress(locationSpec, entity, metadata, resourceType, resourceName, namespace)) {
             LOG.info("Resource {} with type {} has no associated address", resourceName, resourceType);
-            locationSpec.configure("address", "0.0.0.0");
+            locationSpec = LocationSpec.create(KubernetesEmptyMachineLocation.class);
         }
+        locationSpec.configure(CALLER_CONTEXT, setup.get(CALLER_CONTEXT))
+                .configure(KubernetesMachineLocation.KUBERNETES_NAMESPACE, namespace)
+                .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_NAME, resourceName)
+                .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_TYPE, resourceType);
 
-        SshMachineLocation machine = getManagementContext().getLocationManager().createLocation(locationSpec);
+        KubernetesMachineLocation machine = getManagementContext().getLocationManager().createLocation(locationSpec);
 
-        if (resourceType.equals(KubernetesResource.SERVICE)) {
+        if (resourceType.equals(KubernetesResource.SERVICE) && machine instanceof KubernetesSshMachineLocation) {
             Service service = getService(namespace, resourceName);
-            registerPortMappings(machine, entity, service);
-
+            registerPortMappings((KubernetesSshMachineLocation) machine, entity, service);
         }
 
         return machine;
     }
 
-    protected boolean findResourceAddress(LocationSpec<SshMachineLocation> locationSpec, Entity entity, HasMetadata metadata, String resourceType, String resourceName, String namespace) {
+    protected boolean findResourceAddress(LocationSpec<? extends KubernetesMachineLocation> locationSpec, Entity entity, HasMetadata metadata, String resourceType, String resourceName, String namespace) {
         if (resourceType.equals(KubernetesResource.DEPLOYMENT) || resourceType.equals(KubernetesResource.REPLICATION_CONTROLLER) || resourceType.equals(KubernetesResource.POD)) {
             Map<String, String> labels = MutableMap.of();
             if (resourceType.equals(KubernetesResource.DEPLOYMENT)) {
@@ -443,8 +472,12 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         entity.sensors().set(KubernetesPod.KUBERNETES_POD, pod.getMetadata().getName());
         entity.sensors().set(KubernetesPod.KUBERNETES_SERVICE, service.getMetadata().getName());
 
-        LocationSpec<SshMachineLocation> locationSpec = prepareLocationSpec(entity, setup, namespace, deploymentName, service, pod);
-        SshMachineLocation machine = getManagementContext().getLocationManager().createLocation(locationSpec);
+        LocationSpec<KubernetesSshMachineLocation> locationSpec = prepareSshableLocationSpec(entity, setup, namespace, deploymentName, service, pod)
+                .configure(KubernetesMachineLocation.KUBERNETES_NAMESPACE, namespace.getMetadata().getName())
+                .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_NAME, deploymentName)
+                .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_TYPE, KubernetesResource.DEPLOYMENT);
+
+        KubernetesSshMachineLocation machine = getManagementContext().getLocationManager().createLocation(locationSpec);
         registerPortMappings(machine, entity, service);
         if (!isDockerContainer(entity)) {
             waitForSshable(machine, Duration.FIVE_MINUTES);
@@ -482,11 +515,11 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         }
     }
 
-    protected void registerPortMappings(SshMachineLocation machine, Entity entity, Service service) {
+    protected void registerPortMappings(KubernetesSshMachineLocation machine, Entity entity, Service service) {
         PortForwardManager portForwardManager = (PortForwardManager) getManagementContext().getLocationRegistry()
                 .getLocationManaged(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
         List<ServicePort> ports = service.getSpec().getPorts();
-        String publicHostText = machine.getSshHostAndPort().getHostText();
+        String publicHostText = ((SshMachineLocation) machine).getSshHostAndPort().getHostText();
         LOG.debug("Recording port-mappings for container {} of {}: {}", new Object[] { machine, this, ports });
 
         for (ServicePort port : ports) {
@@ -741,10 +774,10 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         return client.services().inNamespace(namespace).withName(serviceName).get();
     }
 
-    protected LocationSpec<SshMachineLocation> prepareLocationSpec(Entity entity, ConfigBag setup, Namespace namespace, String deploymentName, Service service, Pod pod) {
+    protected LocationSpec<KubernetesSshMachineLocation> prepareSshableLocationSpec(Entity entity, ConfigBag setup, Namespace namespace, String deploymentName, Service service, Pod pod) {
         InetAddress node = Networking.getInetAddressWithFixedName(pod.getSpec().getNodeName());
         String podAddress = pod.getStatus().getPodIP();
-        LocationSpec<SshMachineLocation> locationSpec = LocationSpec.create(SshMachineLocation.class)
+        LocationSpec<KubernetesSshMachineLocation> locationSpec = LocationSpec.create(KubernetesSshMachineLocation.class)
                 .configure("address", node)
                 .configure(SshMachineLocation.PRIVATE_ADDRESSES, ImmutableSet.of(podAddress))
                 .configure(CALLER_CONTEXT, setup.get(CALLER_CONTEXT));
@@ -775,13 +808,13 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         for (final String persistentVolume : volumes) {
             PersistentVolume volume = new PersistentVolumeBuilder()
                     .withNewMetadata()
-                    .withName(persistentVolume)
-                    .withLabels(ImmutableMap.of("type", "local")) // TODO make it configurable
+                        .withName(persistentVolume)
+                        .withLabels(ImmutableMap.of("type", "local")) // TODO make it configurable
                     .endMetadata()
                     .withNewSpec()
-                    .addToCapacity("storage", new QuantityBuilder().withAmount("20").build()) // TODO make it configurable
-                    .addToAccessModes("ReadWriteOnce") // TODO make it configurable
-                    .withNewHostPath().withPath("/tmp/pv-1").endHostPath() // TODO make it configurable
+                        .addToCapacity("storage", new QuantityBuilder().withAmount("20").build()) // TODO make it configurable
+                        .addToAccessModes("ReadWriteOnce") // TODO make it configurable
+                        .withNewHostPath().withPath("/tmp/pv-1").endHostPath() // TODO make it configurable
                     .endSpec()
                     .build();
             client.persistentVolumes().create(volume);
@@ -790,7 +823,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 public Boolean call() {
                     PersistentVolume pv = client.persistentVolumes().withName(persistentVolume).get();
                     return pv != null && pv.getStatus() != null
-                            && pv.getStatus().getPhase().equals("Available");
+                            && pv.getStatus().getPhase().equals(PHASE_AVAILABLE);
                 }
                 @Override
                 public String getFailureMessage() {
