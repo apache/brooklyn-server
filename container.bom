@@ -8,7 +8,7 @@ brooklyn.catalog:
     qa: tests/docker.tests.bom
 
   items:
-    - id: docker-container
+    - id: docker-container-entity
       name: "Docker Container"
       description: |
         An easy way to launch a Docker container
@@ -16,3 +16,131 @@ brooklyn.catalog:
       iconUrl: https://raw.githubusercontent.com/docker-library/docs/c350af05d3fac7b5c3f6327ac82fe4d990d8729c/docker/logo.png
       item:
         type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
+        brooklyn.parameters:
+          - name: docker.container.imageName
+            label: "Docker Container Image Name"
+            description: |
+              The name of the image to use when starting the Docker container
+            type: string
+          - name: docker.container.inboundPorts
+            label: "Docker Container Inbound Ports"
+            description: |
+              A list of ports to be opened for inbound access to the container
+            type: java.util.List
+          - name: docker.container.environment
+            label: "Docker Container Environmrnt"
+            description: |
+              A map of the environment variables to be set when launching the Docker container
+            type: java.util.Map
+
+    - id: kubernetes-pod-entity
+      name: "Kubernetes Pod"
+      description: |
+        An easy way to launch a Kubernetes Pod
+      itemType: entity
+      iconUrl: https://pbs.twimg.com/media/Bt_pEfqCAAAiVyz.png
+      item:
+        type: io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesPod
+        brooklyn.parameters:
+          - name: docker.container.imageName
+            label: "Docker Container Image Name"
+            description: |
+              The name of the image to use when starting the Docker container
+            type: string
+          - name: docker.container.inboundPorts
+            label: "Docker Container Inbound Ports"
+            description: |
+              A list of ports to be opened for inbound access to the container
+            type: java.util.List
+          - name: docker.container.environment
+            label: "Docker Container Environmrnt"
+            description: |
+              A map of the environment variables to be set when launching the Docker container
+            type: java.util.Map
+          - name: deployment
+            label: "Deployment"
+            description: |
+              The name of the service the deployed pod will use
+            type: string
+          - name: metadata
+            label: "Metadata"
+            description: |
+              Metadata to set on the pod
+            type: java.util.Map
+          - name: replicas
+            label: "Replicas"
+            description: |
+              Number of replicas in the pod
+            type: integer
+			defaultValue: 1
+
+    - id: kubernetes-resource-entity
+      name: "Kubernetes resource"
+      description: |
+        An easy way to launch a Kubernetes resource defined by a YAML file
+      itemType: entity
+      iconUrl: https://pbs.twimg.com/media/Bt_pEfqCAAAiVyz.png
+      item:
+        type: io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesResource
+		brooklyn.parameters:
+          - name: resource
+            label: "Resource"
+            description: |
+              Kubernetes resource YAML file URI
+            type: string
+
+    - id: openshift-pod-entity
+      name: "OpenShift Pod"
+      description: |
+        An easy way to launch an OpenShift Pod
+      itemType: entity
+      iconUrl: https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/OpenShift-LogoType.svg/225px-OpenShift-LogoType.svg.png
+      item:
+        type: io.cloudsoft.amp.containerservice.openshift.entity.OpenShiftPod
+        brooklyn.parameters:
+          - name: docker.container.imageName
+            label: "Docker Container Image Name"
+            description: |
+              The name of the image to use when starting the Docker container
+            type: string
+          - name: docker.container.inboundPorts
+            label: "Docker Container Inbound Ports"
+            description: |
+              A list of ports to be opened for inbound access to the container
+            type: java.util.List
+          - name: docker.container.environment
+            label: "Docker Container Environmrnt"
+            description: |
+              A map of the environment variables to be set when launching the Docker container
+            type: java.util.Map
+          - name: deployment
+            label: "Deployment"
+            description: |
+              The name of the service the deployed pod will use
+            type: string
+          - name: metadata
+            label: "Metadata"
+            description: |
+              Metadata to set on the pod
+            type: java.util.Map
+          - name: replicas
+            label: "Replicas"
+            description: |
+              Number of replicas in the pod
+            type: integer
+			defaultValue: 1
+
+    - id: openshift-resource-entity
+      name: "Kubernetes resource"
+      description: |
+        An easy way to launch an OpenShift resource defined by a YAML file
+      itemType: entity
+      iconUrl: https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/OpenShift-LogoType.svg/225px-OpenShift-LogoType.svg.png
+      item:
+        type: io.cloudsoft.amp.containerservice.openshift.entity.OpenShiftResource
+		brooklyn.parameters:
+          - name: resource
+            label: "Resource"
+            description: |
+              Kubernetes resource YAML file URI
+            type: string
