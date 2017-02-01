@@ -293,9 +293,15 @@
                     </supportedProjectTypes>
                     <instructions>
                         <Export-Package>brooklyn.*,org.apache.brooklyn.*</Export-Package>
+                        <!--
+                          org.apache.brooklyn.rt.felix and org.apache.felix.framework are not used by code paths when working in Karaf
+                          javax.annotation;version=[1.2,2) is needed to force wiring the Brooklyn class space to javax.annotation-api.
+                            Avoids rewiring down the line when brooklyn-rest-resources is loaded.
+                        -->
                         <Import-Package>
                             !org.apache.brooklyn.rt.felix,
                             !org.apache.felix.framework,
+                            javax.annotation;version="[1.2,2)",
                             *
                         </Import-Package>
                     </instructions>
