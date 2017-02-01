@@ -1,4 +1,4 @@
-package io.cloudsoft.amp.containerservice.kubernetes.location;
+package io.cloudsoft.amp.containerservice.kubernetes.location.machine;
 
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 

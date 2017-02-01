@@ -1,4 +1,4 @@
-package io.cloudsoft.amp.containerservice.kubernetes.location;
+package io.cloudsoft.amp.containerservice.kubernetes.location.machine;
 
 import java.net.InetAddress;
 import java.util.Set;

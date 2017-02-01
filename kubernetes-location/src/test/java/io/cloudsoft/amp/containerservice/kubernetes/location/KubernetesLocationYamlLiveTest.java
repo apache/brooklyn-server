@@ -7,6 +7,7 @@ import static com.google.common.base.Predicates.notNull;
 import static io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationLiveTest.CREDENTIAL;
 import static io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationLiveTest.IDENTITY;
 import static io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationLiveTest.KUBERNETES_ENDPOINT;
+import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEquals;
 import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEqualsEventually;
 import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEventually;
 import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEventuallyNonNull;
@@ -296,6 +297,47 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
     }
 
     @Test(groups={"Live"})
+    public void testWordpressInPodsWithStartableParent() throws Exception {
+        // TODO docker.container.inboundPorts doesn't accept list of ints - need to use quotes
+        String randomId = Identifiers.makeRandomLowercaseId(4);
+        String yaml = Joiner.on("\n").join(
+                locationYaml,
+                "services:",
+                "  - type: " + BasicStartable.class.getName(),
+                "    brooklyn.children:",
+                "      - type: " + KubernetesPod.class.getName(),
+                "        id: wordpress-mysql",
+                "        name: mysql",
+                "        brooklyn.config:",
+                "          docker.container.imageName: mysql:5.6",
+                "          docker.container.inboundPorts:",
+                "            - \"3306\"",
+                "          docker.container.environment:",
+                "            MYSQL_ROOT_PASSWORD: \"password\"",
+                "          deployment: wordpress-mysql-" + randomId,
+                "      - type: " + KubernetesPod.class.getName(),
+                "        id: wordpress",
+                "        name: wordpress",
+                "        brooklyn.config:",
+                "          docker.container.imageName: wordpress:4.4-apache",
+                "          docker.container.inboundPorts:",
+                "            - \"80\"",
+                "          docker.container.environment:",
+                "            WORDPRESS_DB_HOST: \"wordpress-mysql" + randomId + "\"",
+                "            WORDPRESS_DB_PASSWORD: \"password\"",
+                "          deployment: wordpress-" + randomId);
+
+        runWordpress(yaml, randomId);
+    }
+
+    /**
+     * Testing original behaviour of KubernetesPod as parent entity containing containers,
+     * to ensure no regressions.
+     *
+     * @deprecated this capability will be deleted in a future release
+     */
+    @Deprecated
+    @Test(groups={"Live"})
     public void testWordpressInContainersWithPodParent() throws Exception {
         // TODO docker.container.inboundPorts doesn't accept list of ints - need to use quotes
         String randomId = Identifiers.makeRandomLowercaseId(4);
@@ -377,13 +419,13 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
 
         String mysqlPublicPort = assertAttributeEventuallyNonNull(mysql, Sensors.newStringSensor("docker.port.3306.mapped.public"));
         assertReachableEventually(HostAndPort.fromString(mysqlPublicPort));
-        assertAttributeEqualsEventually(mysql, KubernetesPod.KUBERNETES_NAMESPACE, "amp");
-        assertAttributeEqualsEventually(mysql, KubernetesPod.KUBERNETES_SERVICE, "wordpress-mysql-" + randomId);
+        assertAttributeEquals(mysql, KubernetesPod.KUBERNETES_NAMESPACE, "amp");
+        assertAttributeEquals(mysql, KubernetesPod.KUBERNETES_SERVICE, "wordpress-mysql-" + randomId);
 
         String wordpressPublicPort = assertAttributeEventuallyNonNull(wordpress, Sensors.newStringSensor("docker.port.80.mapped.public"));
         assertReachableEventually(HostAndPort.fromString(wordpressPublicPort));
-        assertAttributeEqualsEventually(wordpress, KubernetesPod.KUBERNETES_NAMESPACE, "amp");
-        assertAttributeEqualsEventually(wordpress, KubernetesPod.KUBERNETES_SERVICE, "wordpress-" + randomId);
+        assertAttributeEquals(wordpress, KubernetesPod.KUBERNETES_NAMESPACE, "amp");
+        assertAttributeEquals(wordpress, KubernetesPod.KUBERNETES_SERVICE, "wordpress-" + randomId);
 
         // TODO more assertions (e.g. wordpress can successfully reach the database)
     }

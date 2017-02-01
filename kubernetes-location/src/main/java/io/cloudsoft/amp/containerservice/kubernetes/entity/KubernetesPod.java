@@ -10,6 +10,7 @@ import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.util.math.MathPredicates;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
@@ -39,7 +40,7 @@ public interface KubernetesPod extends DockerContainer {
     ConfigKey<Integer> REPLICAS = ConfigKeys.builder(Integer.class)
             .name("replicas")
             .description("Number of replicas in the pod")
-            .constraint(Predicates.notNull())
+            .constraint(MathPredicates.greaterThanOrEqual(1d))
             .defaultValue(1)
             .build();
 
