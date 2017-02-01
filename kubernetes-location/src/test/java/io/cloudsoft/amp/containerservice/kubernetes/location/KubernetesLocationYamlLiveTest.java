@@ -204,7 +204,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "      docker.container.imageName: tomcat",
                 "      docker.container.inboundPorts: [ \"8080\" ]");
 
-        runTomcat(yaml);
+        runTomcat(yaml, KubernetesPod.class);
     }
 
     @Test(groups={"Live"})
@@ -219,7 +219,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "      metadata:",
                 "        extra: test");
 
-        DockerContainer entity = runTomcat(yaml);
+        KubernetesPod entity = runTomcat(yaml, KubernetesPod.class);
 
         String namespace = entity.sensors().get(KubernetesPod.KUBERNETES_NAMESPACE);
         String podName = entity.sensors().get(KubernetesPod.KUBERNETES_POD);
@@ -240,15 +240,15 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "      docker.container.imageName: tomcat",
                 "      docker.container.inboundPorts: [ \"8080\" ]");
 
-        runTomcat(yaml);
+        runTomcat(yaml, DockerContainer.class);
     }
 
     /**
-     * Assumes that the {@link DockerContainer} entity uses port 8080.
+     * Assumes that the container entity uses port 8080.
      */
-    protected DockerContainer runTomcat(String yaml) throws Exception {
+    protected <T extends Entity> T runTomcat(String yaml, Class<T> type) throws Exception {
         Entity app = createStartWaitAndLogApplication(yaml);
-        DockerContainer entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, DockerContainer.class));
+        T entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, type));
 
         Entities.dumpInfo(app);
         String publicMapped = assertAttributeEventuallyNonNull(entity, Sensors.newStringSensor("docker.port.8080.mapped.public"));
@@ -443,8 +443,32 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "      shell.env:",
                 "        CLUSTER_ID: \"id\"",
                 "        CLUSTER_TOKEN: \"token\"");
+
         Entity app = createStartWaitAndLogApplication(yaml);
-        KubernetesPod container = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, KubernetesPod.class));
+        checkPod(app, KubernetesPod.class);
+    }
+
+    /* Test disabled as QA framework AMP does not have catalog entries deployed yet */
+    @Test(groups={"Live"}, enabled=false)
+    public void testPodCatalogEntry() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                locationYaml,
+                "services:",
+                "  - type: kubernetes-pod-entity",
+                "    brooklyn.config:",
+                "      docker.container.imageName: tomcat",
+                "      docker.container.inboundPorts:",
+                "        - \"8080\"",
+                "      shell.env:",
+                "        CLUSTER_ID: \"id\"",
+                "        CLUSTER_TOKEN: \"token\"");
+
+        Entity app = createStartWaitAndLogApplication(yaml);
+        checkPod(app, KubernetesPod.class);
+    }
+
+    protected <T extends Entity> void checkPod(Entity app, Class<T> type) {
+        T container = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, type));
 
         Entities.dumpInfo(app);
 
@@ -465,8 +489,13 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "    name: \"nginx-replication-controller\"",
                 "    brooklyn.config:",
                 "      resource: classpath://nginx-replication-controller.yaml");
+
         Entity app = createStartWaitAndLogApplication(yaml);
-        KubernetesResource entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, KubernetesResource.class));
+        checkNginxResource(app, KubernetesResource.class);
+    }
+
+    protected <T extends Entity> void checkNginxResource(Entity app, Class<T> type) {
+        T entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, type));
 
         Entities.dumpInfo(app);
 
