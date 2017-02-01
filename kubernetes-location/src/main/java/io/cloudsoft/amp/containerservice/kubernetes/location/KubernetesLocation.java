@@ -7,6 +7,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
@@ -60,6 +61,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.common.io.BaseEncoding;
 import com.google.common.net.HostAndPort;
 
@@ -418,23 +420,35 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
             return true;
         } else if (resourceType.equals(KubernetesResource.SERVICE)) {
             getService(namespace, resourceName);
-
             Endpoints endpoints = client.endpoints().inNamespace(namespace).withName(resourceName).get();
-            EndpointSubset subset = endpoints.getSubsets().get(0);
-            EndpointAddress address = subset.getAddresses().get(0);
-            String podName = address.getTargetRef().getName();
-            String privateIp = address.getIp();
+            Set<String> privateIps = Sets.newLinkedHashSet();
+            Set<String> podNames = Sets.newLinkedHashSet();
+            for (EndpointSubset subset : endpoints.getSubsets()) {
+                for (EndpointAddress address : subset.getAddresses()) {
+                    String podName = address.getTargetRef().getName();
+                    podNames.add(podName);
+                    String privateIp = address.getIp();
+                    privateIps.add(privateIp);
+                }
+            }
+            locationSpec.configure(SshMachineLocation.PRIVATE_ADDRESSES, ImmutableSet.copyOf(privateIps));
 
-            locationSpec.configure(SshMachineLocation.PRIVATE_ADDRESSES, ImmutableSet.of(privateIp));
+            if (podNames.size() > 0) {
+                // Use the first pod name from the list; warn when multiple pods are referenced
+                String podName = Iterables.get(podNames, 0);
+                if (podNames.size() > 1) {
+                    LOG.warn("Multiple pods referenced by service {} in namespace {}, using {}: {}",
+                            new Object[] { resourceName, namespace, podName, Iterables.toString(podNames) });
+                }
+                try {
+                    Pod pod = getPod(namespace, podName);
+                    entity.sensors().set(KubernetesPod.KUBERNETES_POD, podName);
 
-            try {
-                Pod pod = getPod(namespace, podName);
-                entity.sensors().set(KubernetesPod.KUBERNETES_POD, podName);
-
-                InetAddress node = Networking.getInetAddressWithFixedName(pod.getSpec().getNodeName());
-                locationSpec.configure("address", node);
-            } catch (KubernetesClientException kce) {
-                LOG.warn("Cannot find pod {} in namespace {} for service {}", new Object[] { podName, namespace, resourceName });
+                    InetAddress node = Networking.getInetAddressWithFixedName(pod.getSpec().getNodeName());
+                    locationSpec.configure("address", node);
+                } catch (KubernetesClientException kce) {
+                    LOG.warn("Cannot find pod {} in namespace {} for service {}", new Object[] { podName, namespace, resourceName });
+                }
             }
 
             return true;
@@ -478,7 +492,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         LocationSpec<KubernetesSshMachineLocation> locationSpec = prepareSshableLocationSpec(entity, setup, namespace, deploymentName, service, pod)
                 .configure(KubernetesMachineLocation.KUBERNETES_NAMESPACE, namespace.getMetadata().getName())
                 .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_NAME, deploymentName)
-                .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_TYPE, KubernetesResource.DEPLOYMENT);
+                .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_TYPE, getContainerResourceType());
 
         KubernetesSshMachineLocation machine = getManagementContext().getLocationManager().createLocation(locationSpec);
         registerPortMappings(machine, entity, service);
@@ -487,6 +501,10 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         }
 
         return machine;
+    }
+
+    protected String getContainerResourceType() {
+        return KubernetesResource.DEPLOYMENT;
     }
 
     protected void waitForSshable(final SshMachineLocation machine, Duration timeout) {
@@ -556,7 +574,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
             @Override
             public String getFailureMessage() {
                 Namespace actualNamespace = client.namespaces().withName(name).get();
-                return "Namespace for " + name + " " + (actualNamespace == null ? "absent" : " status " + actualNamespace.getStatus()); 
+                return "Namespace for " + name + " " + (actualNamespace == null ? "absent" : " status " + actualNamespace.getStatus());
             }
         };
         if (namespace != null) {
@@ -876,9 +894,9 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
 
     /**
      * Sets the {@code CLOUDSOFT_ROOT_PASSWORD} variable in the container environment if appropriate.
-     * This is (approximately) the same behaviour as the {@link DockerJcloudsLocation} used for 
+     * This is (approximately) the same behaviour as the {@link DockerJcloudsLocation} used for
      * Swarm.
-     * 
+     *
      * Side-effects the location {@code config} to set the {@link KubernetesLocationConfig#LOGIN_USER_PASSWORD loginUser.password}
      * if one is auto-generated. Note that this injected value overrides any other settings configured for the
      * container environment.
@@ -959,7 +977,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         Optional<String> imageName = new ImageChooser().chooseImage(osFamily, osVersion);
         if (imageName.isPresent()) return imageName.get();
 
-        throw new IllegalStateException("No matching image found for " + entity 
+        throw new IllegalStateException("No matching image found for " + entity
                 + " (no explicit image name, osFamily=" + osFamily + "; osVersion=" + osVersion + ")");
     }
 

@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.ImmutableSet;
 
 import io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesPod;
+import io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesResource;
 import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesClientRegistry;
 import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocation;
 import io.cloudsoft.amp.containerservice.openshift.entity.OpenShiftPod;
@@ -218,6 +219,11 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
         };
         waitForExitCondition(exitCondition);
         LOG.debug("Deployed {} to namespace {}.", deployment, namespace);
+    }
+
+    @Override
+    protected String getContainerResourceType() {
+        return OpenShiftResource.DEPLOYMENT_CONFIG;
     }
 
     @Override
