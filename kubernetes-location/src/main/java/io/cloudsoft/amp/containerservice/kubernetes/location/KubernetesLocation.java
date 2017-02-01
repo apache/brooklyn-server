@@ -107,7 +107,7 @@ import io.fabric8.kubernetes.api.model.extensions.DeploymentStatus;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 
-public class KubernetesLocation extends AbstractLocation implements MachineProvisioningLocation<MachineLocation>, KubernetesLocationConfig {
+public class KubernetesLocation extends AbstractLocation implements MachineProvisioningLocation<KubernetesMachineLocation>, KubernetesLocationConfig {
 
     /*
      * TODO
@@ -182,7 +182,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     }
 
     @Override
-    public MachineLocation obtain(Map<?, ?> flags) throws NoMachinesAvailableException {
+    public KubernetesMachineLocation obtain(Map<?, ?> flags) throws NoMachinesAvailableException {
         ConfigBag setupRaw = ConfigBag.newInstanceExtending(config().getBag(), flags);
         ConfigBag setup = ResolvingConfigBag.newInstanceExtending(getManagementContext(), setupRaw);
 
@@ -218,7 +218,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     }
 
     @Override
-    public void release(MachineLocation machine) {
+    public void release(KubernetesMachineLocation machine) {
         Entity entity = validateCallerContext(machine);
         if (isKubernetesResource(entity)) {
             if (machine instanceof KubernetesEmptyMachineLocation && KubernetesPod.EMPTY.equals(machine.config().get(KubernetesMachineLocation.KUBERNETES_RESOURCE_TYPE))) {
@@ -340,7 +340,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         return null;
     }
 
-    protected MachineLocation createKubernetesResourceLocation(Entity entity, ConfigBag setup) {
+    protected KubernetesMachineLocation createKubernetesResourceLocation(Entity entity, ConfigBag setup) {
         String resourceUri = entity.config().get(KubernetesResource.RESOURCE_FILE);
         InputStream resource = ResourceUtils.create(entity).getResourceFromUrl(resourceUri);
         String templateContents = Streams.readFullyString(resource);
@@ -457,7 +457,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         }
     }
 
-    protected MachineLocation createKubernetesContainerLocation(Entity entity, ConfigBag setup) {
+    protected KubernetesMachineLocation createKubernetesContainerLocation(Entity entity, ConfigBag setup) {
         String deploymentName = lookup(KubernetesPod.DEPLOYMENT, entity, setup, entity.getId());
         Integer replicas = lookup(KubernetesPod.REPLICAS, entity, setup);
         List<String> volumes = lookup(KubernetesPod.PERSISTENT_VOLUMES, entity, setup);
@@ -998,7 +998,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     }
 
     @Override
-    public MachineProvisioningLocation<MachineLocation> newSubLocation(Map<?, ?> newFlags) {
+    public MachineProvisioningLocation<KubernetesMachineLocation> newSubLocation(Map<?, ?> newFlags) {
         throw new UnsupportedOperationException();
     }
 

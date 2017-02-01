@@ -9,16 +9,14 @@ import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
 import org.apache.brooklyn.util.net.Networking;
-import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableSet;
 
-import io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesPod;
-import io.cloudsoft.amp.containerservice.kubernetes.entity.KubernetesResource;
 import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesClientRegistry;
 import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocation;
+import io.cloudsoft.amp.containerservice.kubernetes.location.machine.KubernetesMachineLocation;
 import io.cloudsoft.amp.containerservice.openshift.entity.OpenShiftPod;
 import io.cloudsoft.amp.containerservice.openshift.entity.OpenShiftResource;
 import io.fabric8.kubernetes.api.model.Container;
@@ -85,7 +83,7 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
     }
 
     @Override
-    protected boolean findResourceAddress(LocationSpec<SshMachineLocation> locationSpec, Entity entity, HasMetadata metadata, String resourceType, String resourceName, String namespace) {
+    protected boolean findResourceAddress(LocationSpec<? extends KubernetesMachineLocation> locationSpec, Entity entity, HasMetadata metadata, String resourceType, String resourceName, String namespace) {
         if (super.findResourceAddress(locationSpec, entity, metadata, resourceType, resourceName, namespace)) {
             return true;
         }
