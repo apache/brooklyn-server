@@ -29,9 +29,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.net.HostAndPort;
 
-import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocation;
-import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocationConfig;
-
 /**
 /**
  * Live tests for deploying simple containers. Particularly useful during dev, but not so useful

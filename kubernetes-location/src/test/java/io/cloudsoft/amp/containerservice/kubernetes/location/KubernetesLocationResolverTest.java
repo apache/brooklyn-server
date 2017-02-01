@@ -13,8 +13,6 @@ import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import io.cloudsoft.amp.containerservice.kubernetes.location.KubernetesLocation;
-
 public class KubernetesLocationResolverTest extends BrooklynMgmtUnitTestSupport {
 
     private static final Logger LOG = LoggerFactory.getLogger(KubernetesLocationResolverTest.class);

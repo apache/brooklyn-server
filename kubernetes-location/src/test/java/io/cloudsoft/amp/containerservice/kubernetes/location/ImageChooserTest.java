@@ -6,8 +6,6 @@ import static org.testng.Assert.assertFalse;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import io.cloudsoft.amp.containerservice.kubernetes.location.ImageChooser;
-
 public class ImageChooserTest {
 
     private ImageChooser chooser;

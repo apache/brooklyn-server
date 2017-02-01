@@ -12,7 +12,6 @@ import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.math.MathPredicates;
 
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 

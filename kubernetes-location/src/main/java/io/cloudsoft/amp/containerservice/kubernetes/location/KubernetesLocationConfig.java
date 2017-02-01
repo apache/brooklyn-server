@@ -5,10 +5,8 @@ import java.util.Map;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
-import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.util.core.flags.SetFromFlag;
-import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
+import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;

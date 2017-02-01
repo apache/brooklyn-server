@@ -13,8 +13,6 @@ import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import io.cloudsoft.amp.containerservice.openshift.location.OpenShiftLocation;
-
 public class OpenShiftLocationResolverTest extends BrooklynMgmtUnitTestSupport {
 
     private static final Logger LOG = LoggerFactory.getLogger(OpenShiftLocationResolverTest.class);
