@@ -17,7 +17,7 @@ services:
       - type: io.cloudsoft.amp.containerservice.dockercontainer.DockerContainer
         id: wordpress
         brooklyn.config:
-          docker.container.imageName: wordpress:4.4-apache
+          docker.container.imageName: wordpress:4-apache
           docker.container.inboundPorts: [ "80" ]
           docker.container.environment:
             WORDPRESS_DB_HOST: "wordpress-mysql"

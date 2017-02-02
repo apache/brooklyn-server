@@ -48,7 +48,7 @@ Once your Docker container location has been configured, AMP can launch instance
       id: wordpress
       name: Wordpress
       brooklyn.config:
-        docker.container.imageName: wordpress:4.4-apache
+        docker.container.imageName: wordpress:4-apache
         docker.container.inboundPorts:
         - "80"
         provisioning.properties:

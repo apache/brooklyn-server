@@ -83,7 +83,7 @@ Alternatively AMP can launch instances based on a `DockerContainer`, this means 
         id: wordpress
         name: "Wordpress"
         brooklyn.config:
-          docker.container.imageName: wordpress:4.4-apache
+          docker.container.imageName: wordpress:4-apache
           docker.container.inboundPorts: [ "80" ]
           docker.container.environment:
             WORDPRESS_DB_HOST: "wordpress-mysql"
