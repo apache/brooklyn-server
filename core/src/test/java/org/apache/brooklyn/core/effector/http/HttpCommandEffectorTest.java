@@ -44,8 +44,10 @@ import org.testng.annotations.Test;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
+import com.google.common.net.HttpHeaders;
 import com.google.mockwebserver.MockResponse;
 import com.google.mockwebserver.RecordedRequest;
 
@@ -54,7 +56,7 @@ public class HttpCommandEffectorTest extends BrooklynAppUnitTestSupport {
     private static final Logger log = LoggerFactory.getLogger(HttpCommandEffectorTest.class);
     private static final String DEFAULT_ENDPOINT = "/";
 
-    final static Effector<String> EFFECTOR_HTTP_COMMAND = Effectors.effector(String.class, "http-command-effector").buildAbstract();
+    public final static Effector<String> EFFECTOR_HTTP_COMMAND = Effectors.effector(String.class, "http-command-effector").buildAbstract();
 
     protected BetterMockWebServer server;
     protected URL baseUrl;
@@ -78,7 +80,7 @@ public class HttpCommandEffectorTest extends BrooklynAppUnitTestSupport {
    }
 
    protected MockResponse jsonResponse(String resource) {
-      return new MockResponse().addHeader("Content-Type", "application/json").setBody(stringFromResource(resource));
+      return new MockResponse().addHeader(HttpHeaders.CONTENT_TYPE, "application/json").setBody(stringFromResource(resource));
    }
 
    protected MockResponse response404() {
@@ -141,6 +143,88 @@ public class HttpCommandEffectorTest extends BrooklynAppUnitTestSupport {
       );
       TestEntity testEntity = app.createAndManageChild(buildEntitySpec(httpCommandEffector));
       testEntity.invoke(EFFECTOR_HTTP_COMMAND, MutableMap.<String,String>of()).get();
+   }
+
+   @Test
+   public void testPayloadWithContentTypeHeaderJson() throws InterruptedException {
+      server.enqueue(jsonResponse("map-response.json"));
+
+      httpCommandEffector = new HttpCommandEffector(ConfigBag.newInstance()
+              .configure(HttpCommandEffector.EFFECTOR_NAME, EFFECTOR_HTTP_COMMAND.getName())
+              .configure(HttpCommandEffector.EFFECTOR_URI, url("/post"))
+              .configure(HttpCommandEffector.EFFECTOR_HTTP_VERB, "POST")
+              .configure(HttpCommandEffector.EFFECTOR_HTTP_PAYLOAD, ImmutableMap.of("key", "value"))
+              .configure(HttpCommandEffector.EFFECTOR_HTTP_HEADERS, ImmutableMap.of(HttpHeaders.CONTENT_TYPE, "application/json"))
+              .configure(HttpCommandEffector.JSON_PATH, "$.data")
+      );
+      assertNotNull(httpCommandEffector);
+      TestEntity testEntity = app.createAndManageChild(buildEntitySpec(httpCommandEffector));
+      Object output = testEntity.invoke(EFFECTOR_HTTP_COMMAND, ImmutableMap.<String, Object>of()).getUnchecked(Duration.minutes(1));
+      assertEquals(output, "{\"key\", \"value\"}");
+
+      assertEquals(server.getRequestCount(), 1);
+      assertSent(server, "POST", "/post");
+   }
+
+   @Test
+   public void testPayloadWithoutContentTypeHeader() throws InterruptedException {
+      server.enqueue(jsonResponse("map-response.json"));
+
+      httpCommandEffector = new HttpCommandEffector(ConfigBag.newInstance()
+              .configure(HttpCommandEffector.EFFECTOR_NAME, EFFECTOR_HTTP_COMMAND.getName())
+              .configure(HttpCommandEffector.EFFECTOR_URI, url("/post"))
+              .configure(HttpCommandEffector.EFFECTOR_HTTP_VERB, "POST")
+              .configure(HttpCommandEffector.EFFECTOR_HTTP_PAYLOAD, ImmutableMap.of("key", "value"))
+              .configure(HttpCommandEffector.JSON_PATH, "$.data")
+      );
+      assertNotNull(httpCommandEffector);
+      TestEntity testEntity = app.createAndManageChild(buildEntitySpec(httpCommandEffector));
+      Object output = testEntity.invoke(EFFECTOR_HTTP_COMMAND, ImmutableMap.<String, Object>of()).getUnchecked(Duration.seconds(1));
+      assertEquals(output, "{\"key\", \"value\"}");
+
+      assertEquals(server.getRequestCount(), 1);
+      assertSent(server, "POST", "/post");
+   }
+
+   @Test
+   public void testListPayloadWithoutContentTypeHeader() throws InterruptedException {
+      server.enqueue(jsonResponse("list-response.json"));
+
+      httpCommandEffector = new HttpCommandEffector(ConfigBag.newInstance()
+              .configure(HttpCommandEffector.EFFECTOR_NAME, EFFECTOR_HTTP_COMMAND.getName())
+              .configure(HttpCommandEffector.EFFECTOR_URI, url("/post"))
+              .configure(HttpCommandEffector.EFFECTOR_HTTP_VERB, "POST")
+              .configure(HttpCommandEffector.EFFECTOR_HTTP_PAYLOAD, ImmutableList.of("key", "value"))
+              .configure(HttpCommandEffector.JSON_PATH, "$.data")
+      );
+      assertNotNull(httpCommandEffector);
+      TestEntity testEntity = app.createAndManageChild(buildEntitySpec(httpCommandEffector));
+      Object output = testEntity.invoke(EFFECTOR_HTTP_COMMAND, ImmutableMap.<String, Object>of()).getUnchecked(Duration.seconds(1));
+      assertEquals(output, "[\"key\", \"value\"]");
+
+      assertEquals(server.getRequestCount(), "[\"key\", \"value\"]");
+      assertSent(server, "POST", "/post");
+   }
+
+   @Test
+   public void testPayloadWithContentTypeHeaderXml() throws InterruptedException {
+      server.enqueue(jsonResponse("int-response.json"));
+
+      httpCommandEffector = new HttpCommandEffector(ConfigBag.newInstance()
+              .configure(HttpCommandEffector.EFFECTOR_NAME, EFFECTOR_HTTP_COMMAND.getName())
+              .configure(HttpCommandEffector.EFFECTOR_URI, url("/post"))
+              .configure(HttpCommandEffector.EFFECTOR_HTTP_VERB, "POST")
+              .configure(HttpCommandEffector.EFFECTOR_HTTP_PAYLOAD, 1)
+              .configure(HttpCommandEffector.EFFECTOR_HTTP_HEADERS, ImmutableMap.of(HttpHeaders.CONTENT_TYPE, "application/xml"))
+              .configure(HttpCommandEffector.JSON_PATH, "$.data")
+      );
+      assertNotNull(httpCommandEffector);
+      TestEntity testEntity = app.createAndManageChild(buildEntitySpec(httpCommandEffector));
+      Object output = testEntity.invoke(EFFECTOR_HTTP_COMMAND, ImmutableMap.<String, Object>of()).getUnchecked(Duration.seconds(1));
+      assertEquals(output, "1");
+
+      assertEquals(server.getRequestCount(), 1);
+      assertSent(server, "POST", "/post");
    }
 
    @Test

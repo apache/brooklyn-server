@@ -18,10 +18,11 @@
  */
 package org.apache.brooklyn.core.effector;
 
+import static org.apache.brooklyn.core.entity.trait.Startable.START;
+import static org.apache.brooklyn.core.entity.trait.Startable.STOP;
+
 import java.util.List;
 import java.util.Map;
-
-import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.EntityLocal;
@@ -36,11 +37,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.reflect.TypeToken;
 
@@ -48,11 +46,14 @@ import com.google.common.reflect.TypeToken;
 public class CompositeEffector extends AddEffector {
 
     private static final Logger LOG = LoggerFactory.getLogger(CompositeEffector.class);
+    private static final String ORIGINAL_PREFIX = "original-";
 
-    public static final ConfigKey<List<String>> EFFECTORS = ConfigKeys.newConfigKey(new TypeToken<List<String>>() {}, "effectors",
+    public static final ConfigKey<List<String>> EFFECTORS = ConfigKeys.newConfigKey(new TypeToken<List<String>>() {
+                                                                                    }, "effectors",
             "Effector names to be chained together in the composite effector", ImmutableList.<String>of());
     public static final ConfigKey<Boolean> OVERRIDE = ConfigKeys.newBooleanConfigKey("override",
             "Wheter additional defined effectors should override pre-existing effector with same name or not (default: false)", Boolean.FALSE);
+
     public CompositeEffector(ConfigBag params) {
         super(newEffectorBuilder(params).build());
     }
@@ -61,8 +62,8 @@ public class CompositeEffector extends AddEffector {
         this(ConfigBag.newInstance(params));
     }
 
-    public static EffectorBuilder<String> newEffectorBuilder(ConfigBag params) {
-        EffectorBuilder<String> eff = AddEffector.newEffectorBuilder(String.class, params);
+    public static EffectorBuilder<List> newEffectorBuilder(ConfigBag params) {
+        EffectorBuilder<List> eff = AddEffector.newEffectorBuilder(List.class, params);
         eff.impl(new Body(eff.buildAbstract(), params));
         return eff;
     }
@@ -71,13 +72,13 @@ public class CompositeEffector extends AddEffector {
     public void apply(EntityLocal entity) {
         Maybe<Effector<?>> effectorMaybe = entity.getEntityType().getEffectorByName(effector.getName());
         if (!effectorMaybe.isAbsentOrNull()) {
-            Effector<?> original = Effectors.effector(effectorMaybe.get()).name("original-" + effector.getName()).build();
-            ((EntityInternal)entity).getMutableEntityType().addEffector(original);
+            Effector<?> original = Effectors.effector(effectorMaybe.get()).name(ORIGINAL_PREFIX + effector.getName()).build();
+            ((EntityInternal) entity).getMutableEntityType().addEffector(original);
         }
         super.apply(entity);
     }
 
-    protected static class Body extends EffectorBody<String> {
+    protected static class Body extends EffectorBody<List> {
         private final Effector<?> effector;
         private final ConfigBag params;
 
@@ -88,46 +89,47 @@ public class CompositeEffector extends AddEffector {
         }
 
         @Override
-        public String call(final ConfigBag params) {
+        public List<Object> call(final ConfigBag params) {
             ConfigBag allConfig = ConfigBag.newInstanceCopying(this.params).putAll(params);
             final List<String> effectorNames = EntityInitializers.resolve(allConfig, EFFECTORS);
             final Boolean override = allConfig.get(OVERRIDE);
 
             List<Object> results = Lists.newArrayList();
-            if (!override) {
-                Optional<Effector<?>> effectorOptional = Iterables.tryFind(entity().getEntityType().getEffectors(), new Predicate<Effector<?>>() {
-                    @Override
-                    public boolean apply(@Nullable Effector<?> input) {
-                        return input.getName().equals("original-" + effector.getName());
-                    }
-                });
-                // if it is a stop effector, it has to be executed as last effector
-                if (effectorOptional.isPresent()) {
-                    if (effectorOptional.get().getName().endsWith("-stop")) {
-                        effectorNames.add(effectorOptional.get().getName());
-                    } else {
-                        effectorNames.add(0, effectorOptional.get().getName());
-                    }
-                }
-            }
 
+            if (!override && isStartRedefined()) {
+                results.add(invokeEffectorNamed(ORIGINAL_PREFIX + START.getName(), params));
+            }
             for (String eff : effectorNames) {
                 results.add(invokeEffectorNamed(eff, params));
             }
-            return Iterables.toString(results);
+            if (!override && isStopRedefined()) {
+                results.add(invokeEffectorNamed(ORIGINAL_PREFIX + STOP.getName(), params));
+            }
+            return results;
+        }
+
+        private boolean isStartRedefined() {
+            return isEffectorRedefined(ORIGINAL_PREFIX + START.getName());
+        }
+
+        private boolean isStopRedefined() {
+            return isEffectorRedefined(ORIGINAL_PREFIX + STOP.getName());
+        }
+
+        private boolean isEffectorRedefined(String effectorName) {
+            return entity().getEntityType().getEffectorByName(effectorName).isPresent();
         }
 
         private Object invokeEffectorNamed(String effectorName, ConfigBag params) {
-            LOG.debug("{} invoking effector on {}, effector={}, parameters={}",
+            LOG.info("{} invoking effector on {}, effector={}, parameters={}",
                     new Object[]{this, entity(), effectorName, params});
             Maybe<Effector<?>> effector = entity().getEntityType().getEffectorByName(effectorName);
             if (effector.isAbsent()) {
-                // TODO
+                throw new IllegalStateException("Cannot find effector " + effectorName);
             }
             return entity().invoke(effector.get(), params.getAllConfig()).getUnchecked();
-
         }
-    }
 
+    }
 
 }

@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.effector.http;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -49,28 +50,33 @@ import org.apache.brooklyn.util.http.executor.HttpRequest;
 import org.apache.brooklyn.util.http.executor.HttpResponse;
 import org.apache.brooklyn.util.http.executor.UsernamePassword;
 import org.apache.brooklyn.util.http.executor.apacheclient.HttpExecutorImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Enums;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.io.ByteStreams;
 import com.google.common.net.HttpHeaders;
 import com.jayway.jsonpath.JsonPath;
 
 public final class HttpCommandEffector extends AddEffector {
 
+    private static final Logger LOG = LoggerFactory.getLogger(HttpCommandEffector.class);
+
     public static final ConfigKey<String> EFFECTOR_URI = ConfigKeys.newStringConfigKey("uri");
     public static final ConfigKey<String> EFFECTOR_HTTP_VERB = ConfigKeys.newStringConfigKey("httpVerb");
     public static final ConfigKey<String> EFFECTOR_HTTP_USERNAME = ConfigKeys.newStringConfigKey("httpUsername");
     public static final ConfigKey<String> EFFECTOR_HTTP_PASSWORD = ConfigKeys.newStringConfigKey("httpPassword");
     public static final ConfigKey<Map<String, String>> EFFECTOR_HTTP_HEADERS = new MapConfigKey(String.class, "headers");
-    public static final ConfigKey<Map<String, Object>> EFFECTOR_HTTP_PAYLOAD = new MapConfigKey(String.class, "httpPayload");
+    public static final ConfigKey<Object> EFFECTOR_HTTP_PAYLOAD = ConfigKeys.newConfigKey(Object.class, "httpPayload");
     public static final ConfigKey<String> JSON_PATH = ConfigKeys.newStringConfigKey("jsonPath", "JSON path to select in HTTP response");
     public static final ConfigKey<String> PUBLISH_SENSOR = ConfigKeys.newStringConfigKey("publishSensor", "Sensor name where to store json path extracted value");
 
+    public static final String APPLICATION_JSON = "application/json";
+
     private enum HttpVerb {
-        GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, TRACE;
+        GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, TRACE
     }
 
     public HttpCommandEffector(ConfigBag params) {
@@ -89,29 +95,28 @@ public final class HttpCommandEffector extends AddEffector {
 
         public Body(Effector<?> eff, final ConfigBag params) {
             this.effector = eff;
-            Preconditions.checkNotNull(params.getAllConfigRaw().get(EFFECTOR_URI.getName()), "uri must be supplied when defining this effector");
-            Preconditions.checkNotNull(params.getAllConfigRaw().get(EFFECTOR_HTTP_VERB.getName()), "HTTP verb must be supplied when defining this effector");
+            checkNotNull(params.getAllConfigRaw().get(EFFECTOR_URI.getName()), "uri must be supplied when defining this effector");
+            checkNotNull(params.getAllConfigRaw().get(EFFECTOR_HTTP_VERB.getName()), "HTTP verb must be supplied when defining this effector");
             this.params = params;
         }
 
         @Override
         public String call(final ConfigBag params) {
             ConfigBag allConfig = ConfigBag.newInstanceCopying(this.params).putAll(params);
-            final String uri = EntityInitializers.resolve(allConfig, EFFECTOR_URI);
-            final String httpVerb = EntityInitializers.resolve(allConfig, EFFECTOR_HTTP_VERB);
+            final URI uri = convertToURI(EntityInitializers.resolve(allConfig, EFFECTOR_URI));
+            final String httpVerb = isValidHttpVerb(EntityInitializers.resolve(allConfig, EFFECTOR_HTTP_VERB));
             final String httpUsername = EntityInitializers.resolve(allConfig, EFFECTOR_HTTP_USERNAME);
             final String httpPassword = EntityInitializers.resolve(allConfig, EFFECTOR_HTTP_PASSWORD);
             final Map<String, String> headers = EntityInitializers.resolve(allConfig, EFFECTOR_HTTP_HEADERS);
-            final Map<String, Object> payload = EntityInitializers.resolve(allConfig, EFFECTOR_HTTP_PAYLOAD);
+            final Object payload = EntityInitializers.resolve(allConfig, EFFECTOR_HTTP_PAYLOAD);
             final String jsonPath = EntityInitializers.resolve(allConfig, JSON_PATH);
             final String publishSensor = EntityInitializers.resolve(allConfig, PUBLISH_SENSOR);
+            final HttpExecutor httpExecutor = HttpExecutorImpl.newInstance();
+
+            final HttpRequest request = buildHttpRequest(httpVerb, uri, headers, httpUsername, httpPassword, payload);
             Task t = Tasks.builder().displayName(effector.getName()).body(new Callable<Object>() {
                 @Override
                 public Object call() throws Exception {
-                    HttpExecutor httpExecutor = HttpExecutorImpl.newInstance();
-
-                    String body = getBodyFromPayload(payload, headers);
-                    HttpRequest request = buildHttpRequest(httpVerb, uri, headers, httpUsername, httpPassword, body);
                     ByteArrayOutputStream out = new ByteArrayOutputStream();
                     try {
                         HttpResponse response = httpExecutor.execute(request);
@@ -127,11 +132,22 @@ public final class HttpCommandEffector extends AddEffector {
             String responseBody = (String) queue(t).getUnchecked();
 
             if (jsonPath == null) return responseBody;
+
             String extractedValue = JsonPath.parse(responseBody).read(jsonPath, String.class);
             if (publishSensor != null) {
                 entity().sensors().set(Sensors.newStringSensor(publishSensor), extractedValue);
             }
             return extractedValue;
+        }
+
+        private URI convertToURI(String url) {
+            try {
+                return new URL(url).toURI();
+            } catch (MalformedURLException e) {
+                throw Exceptions.propagate(e);
+            } catch (URISyntaxException e) {
+                throw Exceptions.propagate(e);
+            }
         }
 
         private void validateResponse(HttpResponse response) {
@@ -145,13 +161,8 @@ public final class HttpCommandEffector extends AddEffector {
             }
         }
 
-        private HttpRequest buildHttpRequest(String httpVerb, String url, Map<String, String> headers, String httpUsername, String httpPassword, String body) throws MalformedURLException, URISyntaxException {
-            // validate url string
-            URI uri = new URL(url).toURI();
-            // validate HTTP verb
-            validateHttpVerb(httpVerb);
+        private HttpRequest buildHttpRequest(String httpVerb, URI uri, Map<String, String> headers, String httpUsername, String httpPassword, Object payload) {
             HttpRequest.Builder httpRequestBuilder = new HttpRequest.Builder()
-                    .body(body.getBytes())
                     .uri(uri)
                     .method(httpVerb)
                     .config(HttpConfig.builder()
@@ -164,6 +175,19 @@ public final class HttpCommandEffector extends AddEffector {
                 httpRequestBuilder.headers(headers);
             }
 
+            if (payload != null) {
+                String body = "";
+                String contentType = headers.get(HttpHeaders.CONTENT_TYPE);
+                if (contentType == null || contentType.equalsIgnoreCase(APPLICATION_JSON)) {
+                    LOG.warn("Content-Type not specified. Using {}, as default (continuing)", APPLICATION_JSON);
+                    body = toJsonString(payload);
+                } else if (!(payload instanceof String) && !contentType.equalsIgnoreCase(APPLICATION_JSON)) {
+                    LOG.warn("the http request may fail with payload {} and 'Content-Type= {}, (continuing)", payload, contentType);
+                    body = payload.toString();
+                }
+                httpRequestBuilder.body(body.getBytes());
+            }
+
             if (httpUsername != null && httpPassword != null) {
                 httpRequestBuilder.credentials(new UsernamePassword(httpUsername, httpPassword));
             }
@@ -171,17 +195,14 @@ public final class HttpCommandEffector extends AddEffector {
             return httpRequestBuilder.build();
         }
 
-        private void validateHttpVerb(String httpVerb) {
+        private String isValidHttpVerb(String httpVerb) {
             Optional<HttpVerb> state = Enums.getIfPresent(HttpVerb.class, httpVerb.toUpperCase());
             checkArgument(state.isPresent(), "Expected one of %s but was %s", Joiner.on(',').join(HttpVerb.values()), httpVerb);
+            return httpVerb;
         }
 
-        private String getBodyFromPayload(Map<String, Object> payload, Map<String, String> headers) {
-            String body = "";
-            if (payload != null && !payload.isEmpty() && headers.containsKey(HttpHeaders.CONTENT_TYPE)) {
-                body = Jsonya.newInstance().put(payload).toString();
-            }
-            return body;
+        private String toJsonString(Object payload) {
+            return Jsonya.newInstance().add(payload).toString();
         }
 
     }

@@ -18,6 +18,12 @@
  */
 package org.apache.brooklyn.core.effector;
 
+import static org.apache.brooklyn.test.Asserts.assertEquals;
+import static org.apache.brooklyn.test.Asserts.assertNull;
+import static org.apache.brooklyn.test.Asserts.assertTrue;
+
+import java.util.List;
+
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -36,11 +42,11 @@ import com.google.common.collect.ImmutableList;
 
 public class CompositeEffectorIntegrationTest {
 
-    final static Effector<String> EFFECTOR_START = Effectors.effector(String.class, "start").buildAbstract();
+    final static Effector<List> EFFECTOR_START = Effectors.effector(List.class, "start").buildAbstract();
 
     private TestApplication app;
     private EntityLocal entity;
-    
+
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         app = TestApplication.Factory.newManagedInstanceForTests();
@@ -58,21 +64,28 @@ public class CompositeEffectorIntegrationTest {
         new HttpCommandEffector(ConfigBag.newInstance()
                 .configure(HttpCommandEffector.EFFECTOR_NAME, "eff1")
                 .configure(HttpCommandEffector.EFFECTOR_URI, "https://api.github.com/users/apache")
-                .configure(HttpCommandEffector.EFFECTOR_HTTP_VERB, "GET"))
+                .configure(HttpCommandEffector.EFFECTOR_HTTP_VERB, "GET")
+                .configure(HttpCommandEffector.JSON_PATH, "$.login"))
                 .apply(entity);
         new HttpCommandEffector(ConfigBag.newInstance()
                 .configure(HttpCommandEffector.EFFECTOR_NAME, "eff2")
                 .configure(HttpCommandEffector.EFFECTOR_URI, "https://api.github.com/users/brooklyncentral")
-                .configure(HttpCommandEffector.EFFECTOR_HTTP_VERB, "GET"))
+                .configure(HttpCommandEffector.EFFECTOR_HTTP_VERB, "GET")
+                .configure(HttpCommandEffector.JSON_PATH, "$.login"))
                 .apply(entity);
         new CompositeEffector(ConfigBag.newInstance()
                 .configure(CompositeEffector.EFFECTOR_NAME, "start")
                 .configure(CompositeEffector.EFFECTORS, ImmutableList.of("eff1", "eff2")))
                 .apply(entity);
 
-        String val = entity.invoke(EFFECTOR_START, MutableMap.<String,String>of()).get();
-        // TODO
-        System.out.println(val);
+        List<Object> results = entity.invoke(EFFECTOR_START, MutableMap.<String,String>of()).get();
+
+        assertEquals(results.size(), 3);
+        assertNull(results.get(0));
+        assertTrue(results.get(1) instanceof String);
+        assertEquals(results.get(1), "apache");
+        assertTrue(results.get(2) instanceof String);
+        assertEquals(results.get(2), "brooklyncentral");
     }
 
 }
