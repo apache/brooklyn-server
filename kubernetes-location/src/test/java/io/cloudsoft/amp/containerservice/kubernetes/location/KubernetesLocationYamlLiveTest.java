@@ -288,7 +288,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "          docker.container.inboundPorts:",
                 "            - \"80\"",
                 "          docker.container.environment:",
-                "            WORDPRESS_DB_HOST: \"wordpress-mysql" + randomId + "\"",
+                "            WORDPRESS_DB_HOST: \"wordpress-mysql-" + randomId + "\"",
                 "            WORDPRESS_DB_PASSWORD: \"password\"",
                 "          provisioning.properties:",
                 "            deployment: wordpress-" + randomId);
@@ -323,7 +323,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "          docker.container.inboundPorts:",
                 "            - \"80\"",
                 "          docker.container.environment:",
-                "            WORDPRESS_DB_HOST: \"wordpress-mysql" + randomId + "\"",
+                "            WORDPRESS_DB_HOST: \"wordpress-mysql-" + randomId + "\"",
                 "            WORDPRESS_DB_PASSWORD: \"password\"",
                 "          deployment: wordpress-" + randomId);
 
@@ -365,7 +365,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "          docker.container.inboundPorts:",
                 "            - \"80\"",
                 "          docker.container.environment:",
-                "            WORDPRESS_DB_HOST: \"wordpress-mysql" + randomId + "\"",
+                "            WORDPRESS_DB_HOST: \"wordpress-mysql-" + randomId + "\"",
                 "            WORDPRESS_DB_PASSWORD: \"password\"",
                 "          provisioning.properties:",
                 "            deployment: wordpress-" + randomId);
@@ -398,7 +398,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "      docker.container.inboundPorts:",
                 "        - \"80\"",
                 "      docker.container.environment:",
-                "        WORDPRESS_DB_HOST: \"wordpress-mysql" + randomId + "\"",
+                "        WORDPRESS_DB_HOST: \"wordpress-mysql-" + randomId + "\"",
                 "        WORDPRESS_DB_PASSWORD: \"password\"",
                 "      deployment: wordpress-" + randomId);
 

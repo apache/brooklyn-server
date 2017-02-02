@@ -6,7 +6,7 @@ import java.util.Set;
 import org.apache.brooklyn.api.location.MachineDetails;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.OsDetails;
-import org.apache.brooklyn.core.location.AbstractLocation;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.net.Networking;
 
 import com.google.common.collect.ImmutableSet;
@@ -16,7 +16,7 @@ import com.google.common.collect.ImmutableSet;
  *
  * @see {@link KubernetesSshMachineLocation}
  */
-public class KubernetesEmptyMachineLocation extends AbstractLocation implements KubernetesMachineLocation {
+public class KubernetesEmptyMachineLocation extends SshMachineLocation implements KubernetesMachineLocation {
 
     @Override
     public String getHostname() {

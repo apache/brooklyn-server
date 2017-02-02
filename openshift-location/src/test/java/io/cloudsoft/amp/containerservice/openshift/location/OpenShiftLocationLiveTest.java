@@ -41,8 +41,8 @@ public class OpenShiftLocationLiveTest extends KubernetesLocationLiveTest {
                 .put("caCert", CA_CERT_FILE)
                 .put("clientCert", CLIENT_CERT_FILE)
                 .put("clientKey", CLIENT_KEY_FILE)
-                .put("kubernetes.namespace", NAMESPACE)
-                .put("kubernetes.privileged", "true")
+                .put("namespace", NAMESPACE)
+                .put("privileged", true)
                 .putAll(flags)
                 .build();
         return (OpenShiftLocation) mgmt.getLocationRegistry().getLocationManaged("openshift", allFlags);

@@ -30,6 +30,8 @@ import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolv
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.core.network.OnPublicNetworkEnricher;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.entity.software.base.SoftwareProcess;
+import org.apache.brooklyn.entity.software.base.SoftwareProcess.ChildStartableMode;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -209,6 +211,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
 
         LocationSpec<KubernetesEmptyMachineLocation> locationSpec = LocationSpec.create(KubernetesEmptyMachineLocation.class)
                 .configure(KubernetesLocationConfig.CALLER_CONTEXT, entity)
+                .configure("address", "0.0.0.0")
                 .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_TYPE, KubernetesPod.EMPTY)
                 .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_NAME, entity.getId());
 

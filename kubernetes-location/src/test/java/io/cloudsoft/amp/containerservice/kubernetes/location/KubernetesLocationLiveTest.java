@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.location.MachineDetails;
-import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.OsDetails;
 import org.apache.brooklyn.core.location.BasicMachineDetails;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
@@ -29,27 +28,30 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.net.HostAndPort;
 
+import io.cloudsoft.amp.containerservice.kubernetes.location.machine.KubernetesMachineLocation;
+import io.cloudsoft.amp.containerservice.kubernetes.location.machine.KubernetesSshMachineLocation;
+
 /**
 /**
  * Live tests for deploying simple containers. Particularly useful during dev, but not so useful
- * after that (because assumes the existence of a kubernetes endpoint). It needs configured with 
+ * after that (because assumes the existence of a kubernetes endpoint). It needs configured with
  * something like:
- * 
+ *
  *   {@code -Dtest.amp.kubernetes.endpoint=http://10.104.2.206:8080}).
- * 
- * The QA Framework is more important for that - hence these tests (trying to be) kept simple 
+ *
+ * The QA Framework is more important for that - hence these tests (trying to be) kept simple
  * and focused.
  */
 public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
 
     private static final Logger LOG = LoggerFactory.getLogger(KubernetesLocationLiveTest.class);
-    
+
     public static final String KUBERNETES_ENDPOINT = System.getProperty("test.amp.kubernetes.endpoint", "");
     public static final String IDENTITY = System.getProperty("test.amp.kubernetes.identity", "");
     public static final String CREDENTIAL = System.getProperty("test.amp.kubernetes.credential", "");
 
     protected KubernetesLocation loc;
-    protected List<MachineLocation> machines;
+    protected List<KubernetesMachineLocation> machines;
 
     @BeforeMethod(alwaysRun=true)
     @Override
@@ -62,7 +64,7 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
     @AfterMethod(alwaysRun=true)
     @Override
     public void tearDown() throws Exception {
-        for (MachineLocation machine : machines) {
+        for (KubernetesMachineLocation machine : machines) {
             try {
                 loc.release(machine);
             } catch (Exception e) {
@@ -71,7 +73,7 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
         }
         super.tearDown();
     }
-    
+
     protected KubernetesLocation newKubernetesLocation(Map<String, ?> flags) throws Exception {
         Map<String,?> allFlags = MutableMap.<String,Object>builder()
                 .put("identity", IDENTITY)
@@ -179,7 +181,7 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
                 .put(LocationConfigKeys.CALLER_CONTEXT.getName(), app)
                 .build());
         assertTrue(machine.isSshable());
-        
+
         String publicHostText = machine.getSshHostAndPort().getHostText();
         PortForwardManager pfm = (PortForwardManager) mgmt.getLocationRegistry().getLocationManaged(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
         for (int targetPort : inboundPorts) {
@@ -200,13 +202,14 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
         assertTrue(osName != null && osName.toLowerCase().contains(expectedNamePart), "osDetails="+osDetails);
         assertTrue(osVersion != null && osVersion.toLowerCase().contains(expectedVersionPart), "osDetails="+osDetails);
     }
-    
+
     protected SshMachineLocation newContainerMachine(KubernetesLocation loc, Map<?, ?> flags) throws Exception {
-        MachineLocation result = loc.obtain(flags);
+        KubernetesMachineLocation result = loc.obtain(flags);
         machines.add(result);
+        assertTrue(result instanceof KubernetesSshMachineLocation);
         return (SshMachineLocation) result;
     }
-    
+
     protected void assertMachinePasswordSecure(SshMachineLocation machine) {
         String password = machine.config().get(SshMachineLocation.PASSWORD);
         assertTrue(password.length() > 10, "password="+password);
