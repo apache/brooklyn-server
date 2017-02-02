@@ -13,5 +13,7 @@ Cloudsoft AMP can deploy applications to:
 
 - [Docker containers](docker-container-location.html)
 - [Docker Swarms](docker-swarm-location.html)
+- [Kubernetes Clusters](../kubernetes-location)
+- [Openshift Clusters](../openshift-location)
 
 both provisioned by Cloudsoft AMP and set up manually.
