@@ -31,6 +31,7 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.MachineLocation;
@@ -131,7 +132,7 @@ public class HttpFeed extends AbstractFeed {
     }
     
     public static class Builder {
-        private EntityLocal entity;
+        private Entity entity;
         private boolean onlyIfServiceUp = false;
         private Supplier<URI> baseUriProvider;
         private Duration period = Duration.millis(500);
@@ -145,7 +146,7 @@ public class HttpFeed extends AbstractFeed {
         private HttpExecutor httpExecutor;
         private volatile boolean built;
 
-        public Builder entity(EntityLocal val) {
+        public Builder entity(Entity val) {
             this.entity = val;
             return this;
         }
@@ -230,7 +231,7 @@ public class HttpFeed extends AbstractFeed {
         public HttpFeed build() {
             built = true;
             HttpFeed result = new HttpFeed(this);
-            result.setEntity(checkNotNull(entity, "entity"));
+            result.setEntity(checkNotNull((EntityLocal)entity, "entity"));
             if (suspended) result.suspend();
             result.start();
             return result;

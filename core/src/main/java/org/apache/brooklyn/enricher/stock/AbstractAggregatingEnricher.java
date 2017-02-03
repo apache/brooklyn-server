@@ -90,7 +90,7 @@ public abstract class AbstractAggregatingEnricher<S,T> extends AbstractEnricher 
         synchronized (values) {
             S vo = values.get(producer);
             if (vo==null) {
-                S initialVal = ((EntityLocal)producer).getAttribute(source);
+                S initialVal = producer.getAttribute(source);
                 values.put(producer, initialVal != null ? initialVal : defaultValue);
                 //we might skip in onEvent in the short window while !values.containsKey(producer)
                 //but that's okay because the put which would have been done there is done here now

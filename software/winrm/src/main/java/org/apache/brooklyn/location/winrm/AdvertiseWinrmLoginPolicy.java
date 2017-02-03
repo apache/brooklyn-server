@@ -76,6 +76,6 @@ public class AdvertiseWinrmLoginPolicy extends AbstractPolicy implements SensorE
         
         LOG.info("Advertising user "+user+" @ "+hostname+":"+port);
         
-        ((EntityLocal)entity).sensors().set(VM_USER_CREDENTIALS, creds);
+        entity.sensors().set(VM_USER_CREDENTIALS, creds);
     }
 }

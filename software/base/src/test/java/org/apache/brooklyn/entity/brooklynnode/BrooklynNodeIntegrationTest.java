@@ -34,7 +34,6 @@ import java.util.concurrent.ExecutionException;
 
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
@@ -671,7 +670,7 @@ services:
         // Clear the startup app so it's not started second time, in addition to the rebind state
         // TODO remove this once the startup app is created only if no previous persistence state
         brooklynNode.config().set(BrooklynNode.APP, (String)null);
-        ((EntityLocal)brooklynNode).sensors().set(BrooklynNode.APP, null);
+        brooklynNode.sensors().set(BrooklynNode.APP, null);
         
         // Restart the process; expect persisted state to have been restored, so apps still known about
         brooklynNode.invoke(BrooklynNode.RESTART, ImmutableMap.<String, Object>of(

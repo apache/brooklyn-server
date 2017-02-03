@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 
-import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
@@ -50,7 +50,7 @@ import com.google.common.base.Objects;
 public class Poller<V> {
     public static final Logger log = LoggerFactory.getLogger(Poller.class);
 
-    private final EntityLocal entity;
+    private final Entity entity;
     private final boolean onlyIfServiceUp;
     private final Set<Callable<?>> oneOffJobs = new LinkedHashSet<Callable<?>>();
     private final Set<PollJob<V>> pollJobs = new LinkedHashSet<PollJob<V>>();
@@ -95,10 +95,10 @@ public class Poller<V> {
     
     /** @deprecated since 0.7.0, pass in whether should run onlyIfServiceUp */
     @Deprecated
-    public Poller(EntityLocal entity) {
+    public Poller(Entity entity) {
         this(entity, false);
     }
-    public Poller(EntityLocal entity, boolean onlyIfServiceUp) {
+    public Poller(Entity entity, boolean onlyIfServiceUp) {
         this.entity = entity;
         this.onlyIfServiceUp = onlyIfServiceUp;
     }

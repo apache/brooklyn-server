@@ -29,7 +29,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.slf4j.Logger;
@@ -242,7 +241,7 @@ public class LoadBalancingPolicyConcurrencyTest extends AbstractLoadBalancingPol
                             return;
                         }
                         double jitteredWorkrate = workrate + (random.nextDouble()*jitter*2 - jitter);
-                        ((EntityLocal)item).sensors().set(TEST_METRIC, (int) Math.max(0, jitteredWorkrate));
+                        item.sensors().set(TEST_METRIC, (int) Math.max(0, jitteredWorkrate));
                     }
                 },
                 0, WORKRATE_UPDATE_PERIOD_MS, TimeUnit.MILLISECONDS);

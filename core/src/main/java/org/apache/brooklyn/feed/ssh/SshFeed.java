@@ -28,6 +28,7 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -108,7 +109,7 @@ public class SshFeed extends AbstractFeed {
     }
     
     public static class Builder {
-        private EntityLocal entity;
+        private Entity entity;
         private boolean onlyIfServiceUp = false;
         private Supplier<SshMachineLocation> machine;
         private Duration period = Duration.of(500, TimeUnit.MILLISECONDS);
@@ -117,7 +118,7 @@ public class SshFeed extends AbstractFeed {
         private String uniqueTag;
         private volatile boolean built;
         
-        public Builder entity(EntityLocal val) {
+        public Builder entity(Entity val) {
             this.entity = val;
             return this;
         }
@@ -162,7 +163,7 @@ public class SshFeed extends AbstractFeed {
         public SshFeed build() {
             built = true;
             SshFeed result = new SshFeed(this);
-            result.setEntity(checkNotNull(entity, "entity"));
+            result.setEntity(checkNotNull((EntityLocal)entity, "entity"));
             result.start();
             return result;
         }

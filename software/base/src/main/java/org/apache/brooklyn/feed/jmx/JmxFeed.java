@@ -31,6 +31,7 @@ import javax.management.NotificationFilter;
 import javax.management.NotificationListener;
 import javax.management.ObjectName;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -118,7 +119,7 @@ public class JmxFeed extends AbstractFeed {
     }
     
     public static class Builder {
-        private EntityLocal entity;
+        private Entity entity;
         private JmxHelper helper;
         private long jmxConnectionTimeout = JMX_CONNECTION_TIMEOUT_MS;
         private long period = 500;
@@ -129,7 +130,7 @@ public class JmxFeed extends AbstractFeed {
         private String uniqueTag;
         private volatile boolean built;
         
-        public Builder entity(EntityLocal val) {
+        public Builder entity(Entity val) {
             this.entity = val;
             return this;
         }
@@ -167,7 +168,7 @@ public class JmxFeed extends AbstractFeed {
         public JmxFeed build() {
             built = true;
             JmxFeed result = new JmxFeed(this);
-            result.setEntity(checkNotNull(entity, "entity"));
+            result.setEntity(checkNotNull((EntityLocal)entity, "entity"));
             result.start();
             return result;
         }

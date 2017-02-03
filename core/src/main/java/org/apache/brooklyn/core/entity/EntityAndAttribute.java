@@ -21,7 +21,6 @@ package org.apache.brooklyn.core.entity;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 
 import com.google.common.base.Objects;
@@ -68,7 +67,7 @@ public class EntityAndAttribute<T> implements Supplier<T> {
     }
 
     public void setValue(T val) {
-        ((EntityLocal)entity).sensors().set(attribute, val);
+        entity.sensors().set(attribute, val);
     }
 
     /**
