@@ -40,7 +40,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
@@ -49,14 +48,16 @@ import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
+import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.RecordingSensorEventListener;
-import org.apache.brooklyn.core.entity.factory.EntityFactory;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.trait.Changeable;
@@ -65,18 +66,21 @@ import org.apache.brooklyn.core.entity.trait.Resizable;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
+import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.core.test.entity.BlockingEntity;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.collections.QuorumCheck.QuorumChecks;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.time.Time;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -87,12 +91,12 @@ import org.testng.annotations.Test;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.util.concurrent.Atomics;
 
 
 public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
@@ -117,10 +121,10 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
-    public void constructionRequiresThatNewEntityArgumentIsAnEntityFactory() throws Exception {
+    public void testRequiresThatMemberSpecArgumentIsAnEntitySpec() throws Exception {
         try {
             app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
-                    .configure("factory", "error"));
+                    .configure("memberSpec", "error"));
             Asserts.shouldHaveFailedPreviously();
         } catch (Exception e) {
             Asserts.expectedFailure(e);
@@ -128,7 +132,7 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
-    public void startRequiresThatNewEntityArgumentIsGiven() throws Exception {
+    public void startRequiresThatMemberSpecArgumentIsGiven() throws Exception {
         DynamicCluster c = app.createAndManageChild(EntitySpec.create(DynamicCluster.class));
         try {
             c.start(ImmutableList.of(loc));
@@ -199,12 +203,9 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
-    public void resizeFromZeroToOneStartsANewEntityAndSetsItsParent() throws Exception {
+    public void resizeFromZeroToOneStartsANewChildEntity() throws Exception {
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
-                .configure("factory", new EntityFactory() {
-                    @Override public Entity newEntity(Map flags, Entity parent) {
-                        return new TestEntityImpl(flags);
-                    }}));
+                .configure("memberSpec", EntitySpec.create(TestEntity.class)));
 
         cluster.start(ImmutableList.of(loc));
 
@@ -300,10 +301,7 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
     @Test
     public void resizeDownByTwoAndDownByOne() throws Exception {
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
-                .configure("factory", new EntityFactory() {
-                    @Override public Entity newEntity(Map flags, Entity parent) {
-                        return new TestEntityImpl(flags);
-                    }}));
+                .configure("memberSpec", EntitySpec.create(TestEntity.class)));
 
         cluster.start(ImmutableList.of(loc));
 
@@ -325,11 +323,7 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
     @Test
     public void currentSizePropertyReflectsActualClusterSize() throws Exception {
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
-                .configure("factory", new EntityFactory() {
-                    @Override public Entity newEntity(Map flags, Entity parent) {
-                        return new TestEntityImpl(flags);
-                    }}));
-
+                .configure("memberSpec", EntitySpec.create(TestEntity.class)));
 
         assertEquals(cluster.getCurrentSize(), (Integer)0);
 
@@ -359,10 +353,7 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
     @Test
     public void clusterSizeAfterStartIsInitialSize() throws Exception {
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
-                .configure("factory", new EntityFactory() {
-                    @Override public Entity newEntity(Map flags, Entity parent) {
-                        return new TestEntityImpl(flags);
-                    }})
+                .configure("memberSpec", EntitySpec.create(TestEntity.class))
                 .configure("initialSize", 2));
 
         cluster.start(ImmutableList.of(loc));
@@ -374,36 +365,21 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
     @Test
     public void clusterLocationIsPassedOnToEntityStart() throws Exception {
         List<SimulatedLocation> locations = ImmutableList.of(loc);
-        final AtomicReference<Collection<? extends Location>> stashedLocations = Atomics.newReference();
         
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
-                .configure("factory", new EntityFactory() {
-                    @Override public Entity newEntity(Map flags, Entity parent) {
-                        return new TestEntityImpl(parent) {
-                            @Override
-                            public void start(Collection<? extends Location> loc) {
-                                super.start(loc);
-                                stashedLocations.set(loc);
-                            }
-                        };
-                    }})
+                .configure("memberSpec", EntitySpec.create(TestEntity.class))
                 .configure("initialSize", 1));
 
         cluster.start(locations);
         TestEntity entity = (TestEntity) Iterables.get(cluster.getMembers(), 0);
         
-        assertNotNull(stashedLocations.get());
-        assertEquals(stashedLocations.get().size(), 1);
-        assertEquals(ImmutableList.copyOf(stashedLocations.get()), locations);
+        assertEquals(ImmutableList.copyOf(entity.getLocations()), locations);
     }
 
     @Test
     public void resizeFromOneToZeroChangesClusterSize() throws Exception {
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
-                .configure("factory", new EntityFactory() {
-                    @Override public Entity newEntity(Map flags, Entity parent) {
-                        return new TestEntityImpl(flags);
-                    }})
+                .configure("memberSpec", EntitySpec.create(TestEntity.class))
                 .configure("initialSize", 1));
 
         cluster.start(ImmutableList.of(loc));
@@ -419,15 +395,19 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
     @Test
     public void concurrentResizesToSameNumberCreatesCorrectNumberOfNodes() throws Exception {
         final int OVERHEAD_MS = 500;
-        final int STARTUP_TIME_MS = 50;
-        final AtomicInteger numStarted = new AtomicInteger(0);
+        final Duration STARTUP_TIME = Duration.millis(50);
+        final AtomicInteger numCreated = new AtomicInteger(0);
+
         final DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
-                .configure("factory", new EntityFactory() {
-                    @Override public Entity newEntity(Map flags, Entity parent) {
-                        Time.sleep(STARTUP_TIME_MS);
-                        numStarted.incrementAndGet();
-                        return new TestEntityImpl(flags, parent);
-                    }}));
+                .configure("memberSpec", EntitySpec.create(BlockingEntity.class)
+                        .configure(BlockingEntity.STARTUP_DELAY, STARTUP_TIME)));
+
+        cluster.subscriptions().subscribe(cluster, AbstractEntity.CHILD_ADDED, new SensorEventListener<Entity>() {
+            @Override public void onEvent(SensorEvent<Entity> event) {
+                if (event.getValue() instanceof BlockingEntity) {
+                    numCreated.incrementAndGet();
+                }
+            }});
 
         assertEquals(cluster.getCurrentSize(), (Integer)0);
         cluster.start(ImmutableList.of(loc));
@@ -449,31 +429,34 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
             }
 
             executor.shutdown();
-            assertTrue(executor.awaitTermination(10*STARTUP_TIME_MS+OVERHEAD_MS, TimeUnit.MILLISECONDS));
+            assertTrue(executor.awaitTermination(10*STARTUP_TIME.toMilliseconds()+OVERHEAD_MS, TimeUnit.MILLISECONDS));
             if (throwables.size() > 0) throw Exceptions.propagate(throwables.get(0));
             assertEquals(cluster.getCurrentSize(), (Integer)2);
             assertEquals(cluster.getAttribute(Changeable.GROUP_SIZE), (Integer)2);
-            assertEquals(numStarted.get(), 2);
+            Asserts.succeedsEventually(new Runnable() {
+                public void run() {
+                    assertEquals(numCreated.get(), 2);
+                }});
         } finally {
             executor.shutdownNow();
         }
     }
 
-    @Test(enabled = false)
+    @Test
     public void stoppingTheClusterStopsTheEntity() throws Exception {
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
-                .configure("factory", new EntityFactory() {
-                    @Override public Entity newEntity(Map flags, Entity parent) {
-                        return new TestEntityImpl(flags);
-                    }})
+                .configure("memberSpec", EntitySpec.create(BlockingEntity.class))
                 .configure("initialSize", 1));
 
         cluster.start(ImmutableList.of(loc));
         TestEntity entity = (TestEntity) Iterables.get(cluster.getMembers(), 0);
-        
+        TestEntityImpl deproxiedEntity = (TestEntityImpl) Entities.deproxy(entity);
         assertEquals(entity.getCounter().get(), 1);
         cluster.stop();
-        assertEquals(entity.getCounter().get(), 0);
+        
+        // Need to use deproxiedEntity, because entity-proxy would intercept method call, and it
+        // would fail because the entity has been unmanaged.
+        assertEquals(deproxiedEntity.getCounter().get(), 0);
     }
 
     /**
@@ -485,14 +468,11 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
         final AtomicInteger counter = new AtomicInteger(0);
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
                 .configure("initialSize", 0)
-                .configure("factory", new EntityFactory() {
-                    @Override public Entity newEntity(Map flags, Entity parent) {
-                        int num = counter.incrementAndGet();
-                        return app.getManagementContext().getEntityManager().createEntity(EntitySpec.create(FailingEntity.class)
-                                .configure(flags)
-                                .configure(FailingEntity.FAIL_ON_START, (num==failNum))
-                                .parent(parent));
-                    }}));
+                .configure("memberSpec", EntitySpec.create(FailingEntity.class)
+                        .configure(FailingEntity.FAIL_ON_START_CONDITION, new Predicate<FailingEntity>() {
+                            @Override public boolean apply(FailingEntity input) {
+                                return counter.incrementAndGet() == failNum;
+                            }})));
 
         cluster.start(ImmutableList.of(loc));
         resizeExpectingError(cluster, 3);
@@ -524,14 +504,11 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
                 .configure("initialSize", 2)
                 .configure(DynamicCluster.INITIAL_QUORUM_SIZE, 1)
-                .configure("factory", new EntityFactory() {
-                    @Override public Entity newEntity(Map flags, Entity parent) {
-                        int num = counter.incrementAndGet();
-                        return app.getManagementContext().getEntityManager().createEntity(EntitySpec.create(FailingEntity.class)
-                                .configure(flags)
-                                .configure(FailingEntity.FAIL_ON_START, (num==failNum))
-                                .parent(parent));
-                    }}));
+                .configure("memberSpec", EntitySpec.create(FailingEntity.class)
+                        .configure(FailingEntity.FAIL_ON_START_CONDITION, new Predicate<FailingEntity>() {
+                            @Override public boolean apply(FailingEntity input) {
+                                return counter.incrementAndGet() == failNum;
+                            }})));
 
         cluster.start(ImmutableList.of(loc));
         
@@ -549,14 +526,11 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
         final AtomicInteger counter = new AtomicInteger(0);
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
                 .configure("initialSize", 2)
-                .configure("factory", new EntityFactory() {
-                    @Override public Entity newEntity(Map flags, Entity parent) {
-                        int num = counter.incrementAndGet();
-                        return app.getManagementContext().getEntityManager().createEntity(EntitySpec.create(FailingEntity.class)
-                                .configure(flags)
-                                .configure(FailingEntity.FAIL_ON_START, (num==failNum))
-                                .parent(parent));
-                    }}));
+                .configure("memberSpec", EntitySpec.create(FailingEntity.class)
+                        .configure(FailingEntity.FAIL_ON_START_CONDITION, new Predicate<FailingEntity>() {
+                            @Override public boolean apply(FailingEntity input) {
+                                return counter.incrementAndGet() == failNum;
+                            }})));
 
         try {
             cluster.start(ImmutableList.of(loc));
@@ -592,19 +566,19 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testCanQuarantineFailedEntities() throws Exception {
+        final AttributeSensor<Boolean> failureMarker = Sensors.newBooleanSensor("failureMarker");
         final int failNum = 2;
         final AtomicInteger counter = new AtomicInteger(0);
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
                 .configure("quarantineFailedEntities", true)
                 .configure("initialSize", 0)
-                .configure("factory", new EntityFactory() {
-                    @Override public Entity newEntity(Map flags, Entity parent) {
-                        int num = counter.incrementAndGet();
-                        return app.getManagementContext().getEntityManager().createEntity(EntitySpec.create(FailingEntity.class)
-                                .configure(flags)
-                                .configure(FailingEntity.FAIL_ON_START, (num==failNum))
-                                .parent(parent));
-                    }}));
+                .configure("memberSpec", EntitySpec.create(FailingEntity.class)
+                        .configure(FailingEntity.FAIL_ON_START_CONDITION, new Predicate<FailingEntity>() {
+                            @Override public boolean apply(FailingEntity input) {
+                                boolean fail = counter.incrementAndGet() == failNum;
+                                input.sensors().set(failureMarker, fail);
+                                return fail;
+                            }})));
 
         cluster.start(ImmutableList.of(loc));
         resizeExpectingError(cluster, 3);
@@ -617,7 +591,7 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
 
         assertEquals(cluster.getAttribute(DynamicCluster.QUARANTINE_GROUP).getMembers().size(), 1);
         for (Entity member : cluster.getAttribute(DynamicCluster.QUARANTINE_GROUP).getMembers()) {
-            assertTrue(((FailingEntity)member).getConfig(FailingEntity.FAIL_ON_START));
+            assertTrue(member.sensors().get(failureMarker));
         }
     }
 
@@ -629,14 +603,11 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
                 // default is quarantineFailedEntities==true
                 .configure("quarantineFailedEntities", false)
                 .configure("initialSize", 0)
-                .configure("factory", new EntityFactory() {
-                    @Override public Entity newEntity(Map flags, Entity parent) {
-                        int num = counter.incrementAndGet();
-                        return app.getManagementContext().getEntityManager().createEntity(EntitySpec.create(FailingEntity.class)
-                                .configure(flags)
-                                .configure(FailingEntity.FAIL_ON_START, (num==failNum))
-                                .parent(parent));
-                    }}));
+                .configure("memberSpec", EntitySpec.create(FailingEntity.class)
+                        .configure(FailingEntity.FAIL_ON_START_CONDITION, new Predicate<FailingEntity>() {
+                            @Override public boolean apply(FailingEntity input) {
+                                return counter.incrementAndGet() == failNum;
+                            }})));
 
         cluster.start(ImmutableList.of(loc));
         
@@ -684,23 +655,18 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
         runQuarantineFailedEntitiesRespectsFilter(AllowedException.class, NoMachinesAvailableException.class, filter);
     }
     
-    protected void runQuarantineFailedEntitiesRespectsFilter(Class<? extends Exception> allowedException, 
-            Class<? extends Exception> disallowedException, Predicate<Throwable> quarantineFilter) throws Exception {
-        final List<Class<? extends Exception>> failureCauses = ImmutableList.<Class<? extends Exception>>of(allowedException, disallowedException);
-        final AtomicInteger counter = new AtomicInteger(0);
+    protected void runQuarantineFailedEntitiesRespectsFilter(final Class<? extends Exception> allowedException, 
+            final Class<? extends Exception> disallowedException, Predicate<Throwable> quarantineFilter) throws Exception {
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
                 .configure("quarantineFailedEntities", true)
                 .configure("initialSize", 0)
                 .configure("quarantineFilter", quarantineFilter)
-                .configure("factory", new EntityFactory() {
-                    @Override public Entity newEntity(Map flags, Entity parent) {
-                        int num = counter.getAndIncrement();
-                        return app.getManagementContext().getEntityManager().createEntity(EntitySpec.create(FailingEntity.class)
-                                .configure(flags)
-                                .configure(FailingEntity.FAIL_ON_START, true)
-                                .configure(FailingEntity.EXCEPTION_CLAZZ, failureCauses.get(num))
-                                .parent(parent));
-                    }}));
+                .configure(DynamicCluster.FIRST_MEMBER_SPEC, EntitySpec.create(FailingEntity.class)
+                        .configure(FailingEntity.FAIL_ON_START, true)
+                        .configure(FailingEntity.EXCEPTION_CLAZZ, allowedException))
+                .configure(DynamicCluster.MEMBER_SPEC, EntitySpec.create(FailingEntity.class)
+                        .configure(FailingEntity.FAIL_ON_START, true)
+                        .configure(FailingEntity.EXCEPTION_CLAZZ, disallowedException)));
 
         cluster.start(ImmutableList.of(loc));
         resizeExpectingError(cluster, 2);
@@ -715,14 +681,17 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
     @Test
     public void defaultRemovalStrategyShutsDownNewestFirstWhenResizing() throws Exception {
         final List<Entity> creationOrder = Lists.newArrayList();
+        
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
                 .configure("initialSize", 0)
-                .configure("factory", new EntityFactory<Entity>() {
-                    @Override public Entity newEntity(Map flags, Entity parent) {
-                        Entity result = new TestEntityImpl(flags);
-                        creationOrder.add(result);
-                        return result;
-                    }}));
+                .configure("memberSpec", EntitySpec.create(TestEntity.class)));
+
+        cluster.subscriptions().subscribe(cluster, AbstractEntity.CHILD_ADDED, new SensorEventListener<Entity>() {
+            @Override public void onEvent(SensorEvent<Entity> event) {
+                if (event.getValue() instanceof TestEntity) {
+                    creationOrder.add(event.getValue());
+                }
+            }});
 
         cluster.start(ImmutableList.of(loc));
         cluster.resize(1);
@@ -733,6 +702,7 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
         Thread.sleep(1);
         
         cluster.resize(2);
+        Asserts.eventually(Suppliers.ofInstance(creationOrder), CollectionFunctionals.sizeEquals(2));
         assertEquals(cluster.getCurrentSize(), (Integer)2);
         assertEquals(ImmutableSet.copyOf(cluster.getMembers()), ImmutableSet.copyOf(creationOrder), "actual="+cluster.getMembers());
 
@@ -745,10 +715,7 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
     @Test
     public void resizeLoggedAsEffectorCall() throws Exception {
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
-                .configure("factory", new EntityFactory() {
-                    @Override public Entity newEntity(Map flags, Entity parent) {
-                        return new TestEntityImpl(flags);
-                    }}));
+                .configure("memberSpec", EntitySpec.create(TestEntity.class)));
 
         app.start(ImmutableList.of(loc));
         cluster.resize(1);
@@ -761,18 +728,14 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
-    public void testStoppedChildIsRemoveFromGroup() throws Exception {
+    public void testUnmanagedChildIsRemoveFromGroup() throws Exception {
         final DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
                 .configure("initialSize", 1)
-                .configure("factory", new EntityFactory() {
-                    @Override public Entity newEntity(Map flags, Entity parent) {
-                        return new TestEntityImpl(flags);
-                    }}));
+                .configure("memberSpec", EntitySpec.create(TestEntity.class)));
 
         cluster.start(ImmutableList.of(loc));
 
         final TestEntity child = (TestEntity) Iterables.get(cluster.getMembers(), 0);
-        child.stop();
         Entities.unmanage(child);
 
         Asserts.succeedsEventually(MutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
@@ -796,15 +759,12 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
         };
 
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
-                .configure("factory", new EntityFactory() {
-                    @Override public Entity newEntity(Map flags, Entity parent) {
-                        return new TestEntityImpl(flags);
-                    }})
+                .configure("memberSpec", EntitySpec.create(TestEntity.class))
                 .configure("initialSize", 10)
                 .configure("removalStrategy", removalStrategy));
 
         cluster.start(ImmutableList.of(loc));
-        Set origMembers = ImmutableSet.copyOf(cluster.getMembers());
+        Set<?> origMembers = ImmutableSet.copyOf(cluster.getMembers());
 
         for (int i = 10; i >= 0; i--) {
             cluster.resize(i);
@@ -827,14 +787,11 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
         };
         
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
-                .configure("factory", new EntityFactory() {
-                    @Override public Entity newEntity(Map flags, Entity parent) {
-                        return new TestEntityImpl(flags);
-                    }})
+                .configure("memberSpec", EntitySpec.create(TestEntity.class))
                 .configure("initialSize", 10));
 
         cluster.start(ImmutableList.of(loc));
-        Set origMembers = ImmutableSet.copyOf(cluster.getMembers());
+        Set<?> origMembers = ImmutableSet.copyOf(cluster.getMembers());
 
         cluster.setRemovalStrategy(removalStrategy);
 
@@ -853,16 +810,9 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
         
         final DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
                 .configure("initialSize", 0)
-                .configure("factory", new EntityFactory() {
-                    @Override public Entity newEntity(Map flags, Entity parent) {
-                        try {
-                            executingLatch.countDown();
-                            continuationLatch.await();
-                            return new TestEntityImpl(flags);
-                        } catch (InterruptedException e) {
-                            throw Exceptions.propagate(e);
-                        }
-                    }}));
+                .configure("memberSpec", EntitySpec.create(BlockingEntity.class)
+                        .configure(BlockingEntity.STARTUP_LATCH, continuationLatch)
+                        .configure(BlockingEntity.EXECUTING_STARTUP_NOTIFICATION_LATCH, executingLatch)));
 
         cluster.start(ImmutableList.of(loc));
 
@@ -872,15 +822,16 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
                 }});
         
         try {
-            // wait for resize to be executing
+            // wait for resize to be executing; it will be waiting for start() to complete on
+            // the newly created member.
             thread.start();
             executingLatch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS);
 
             // ensure can still call methods on group, to query/update membership
-            assertEquals(ImmutableList.copyOf(cluster.getMembers()), ImmutableList.of());
-            assertEquals(cluster.getCurrentSize(), (Integer)0);
+            assertEquals(cluster.getMembers().size(), 1);
+            assertEquals(cluster.getCurrentSize(), (Integer)1);
             assertFalse(cluster.hasMember(cluster));
-            cluster.addMember(cluster);
+            assertTrue(cluster.addMember(cluster));
             assertTrue(cluster.removeMember(cluster));
 
             // allow the resize to complete
@@ -896,10 +847,7 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
     public void testReplacesMember() throws Exception {
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
                 .configure("initialSize", 1)
-                .configure("factory", new EntityFactory() {
-                    @Override public Entity newEntity(Map flags, Entity parent) {
-                        return new TestEntityImpl(flags);
-                    }}));
+                .configure("memberSpec", EntitySpec.create(TestEntity.class)));
 
         cluster.start(ImmutableList.of(loc));
         Entity member = Iterables.get(cluster.getMembers(), 0);
@@ -919,10 +867,7 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
     public void testReplaceMemberThrowsIfMemberIdDoesNotResolve() throws Exception {
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
                 .configure("initialSize", 1)
-                .configure("factory", new EntityFactory() {
-                    @Override public Entity newEntity(Map flags, Entity parent) {
-                        return new TestEntityImpl(flags);
-                    }}));
+                .configure("memberSpec", EntitySpec.create(TestEntity.class)));
 
         cluster.start(ImmutableList.of(loc));
         Entity member = Iterables.get(cluster.getMembers(), 0);
@@ -942,10 +887,7 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
     public void testReplaceMemberThrowsIfNotMember() throws Exception {
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
                 .configure("initialSize", 1)
-                .configure("factory", new EntityFactory() {
-                    @Override public Entity newEntity(Map flags, Entity parent) {
-                        return new TestEntityImpl(flags);
-                    }}));
+                .configure("memberSpec", EntitySpec.create(TestEntity.class)));
 
         cluster.start(ImmutableList.of(loc));
         Entity member = Iterables.get(cluster.getMembers(), 0);
@@ -966,14 +908,11 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
         final int failNum = 2;
         final AtomicInteger counter = new AtomicInteger(0);
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
-                .configure("factory", new EntityFactory() {
-                    @Override public Entity newEntity(Map flags, Entity parent) {
-                        int num = counter.incrementAndGet();
-                        return app.getManagementContext().getEntityManager().createEntity(EntitySpec.create(FailingEntity.class)
-                                .configure(flags)
-                                .configure(FailingEntity.FAIL_ON_START, (num==failNum))
-                                .parent(parent));
-                    }}));
+                .configure("memberSpec", EntitySpec.create(FailingEntity.class)
+                        .configure(FailingEntity.FAIL_ON_START_CONDITION, new Predicate<FailingEntity>() {
+                            @Override public boolean apply(FailingEntity input) {
+                                return counter.incrementAndGet() == failNum;
+                            }})));
 
         cluster.start(ImmutableList.of(loc));
         Entity member = Iterables.get(cluster.getMembers(), 0);
@@ -994,14 +933,11 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
         final AtomicInteger counter = new AtomicInteger(0);
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
                 .configure("initialSize", 1)
-                .configure("factory", new EntityFactory() {
-                    @Override public Entity newEntity(Map flags, Entity parent) {
-                        int num = counter.incrementAndGet();
-                        return app.getManagementContext().getEntityManager().createEntity(EntitySpec.create(FailingEntity.class)
-                                .configure(flags)
-                                .configure(FailingEntity.FAIL_ON_STOP, (num==failNum))
-                                .parent(parent));
-                    }}));
+                .configure("memberSpec", EntitySpec.create(FailingEntity.class)
+                        .configure(FailingEntity.FAIL_ON_STOP_CONDITION, new Predicate<FailingEntity>() {
+                            @Override public boolean apply(FailingEntity input) {
+                                return counter.incrementAndGet() == failNum;
+                            }})));
 
         cluster.start(ImmutableList.of(loc));
         Entity member = Iterables.get(cluster.getMembers(), 0);
@@ -1101,12 +1037,8 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
         int clusterSize = 5;
 
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
-                .configure("factory", new EntityFactory() {
-                    @Override
-                    public Entity newEntity(Map flags, Entity parent) {
-                        return new TestEntityImpl(flags);
-                    }
-                }).configure("initialSize", clusterSize));
+                .configure("memberSpec", EntitySpec.create(TestEntity.class))
+                .configure("initialSize", clusterSize));
 
         cluster.start(ImmutableList.of(loc));
 
@@ -1123,12 +1055,8 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
         int clusterSize = 5;
 
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
-                .configure("factory", new EntityFactory() {
-                    @Override
-                    public Entity newEntity(Map flags, Entity parent) {
-                        return new TestEntityImpl(flags);
-                    }
-                }).configure("initialSize", clusterSize));
+                .configure("memberSpec", EntitySpec.create(TestEntity.class))
+                .configure("initialSize", clusterSize));
 
         cluster.start(ImmutableList.of(loc));
 
@@ -1148,12 +1076,8 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
         int clusterSize = 5;
 
         DynamicCluster cluster = app.createAndManageChild(EntitySpec.create(DynamicCluster.class)
-                .configure("factory", new EntityFactory() {
-                    @Override
-                    public Entity newEntity(Map flags, Entity parent) {
-                        return new TestEntityImpl(flags);
-                    }
-                }).configure("initialSize", clusterSize));
+                .configure("memberSpec", EntitySpec.create(TestEntity.class))
+                .configure("initialSize", clusterSize));
 
         cluster.start(ImmutableList.of(loc));
 

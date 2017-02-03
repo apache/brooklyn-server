@@ -24,6 +24,7 @@ import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
+import org.apache.brooklyn.util.time.Duration;
 
 /**
  * Mock entity that blocks on startup via the {@link CountDownLatch} argument.
@@ -42,4 +43,8 @@ public interface BlockingEntity extends TestEntity {
     
     @SetFromFlag("executingShutdownNotificationLatch")
     public static final ConfigKey<CountDownLatch> EXECUTING_SHUTDOWN_NOTIFICATION_LATCH = new BasicConfigKey<CountDownLatch>(CountDownLatch.class, "test.executingShutdownNotificationLatch", "");
+    
+    public static final ConfigKey<Duration> STARTUP_DELAY = new BasicConfigKey<Duration>(Duration.class, "startupLatch", "Delay before starting");
+    
+    public static final ConfigKey<Duration> SHUTDOWN_DELAY = new BasicConfigKey<Duration>(Duration.class, "startupLatch", "Delay before stopping");
 }
