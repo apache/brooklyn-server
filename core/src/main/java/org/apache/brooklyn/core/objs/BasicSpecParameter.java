@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.core.objs;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -56,6 +58,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 
 public class BasicSpecParameter<T> implements SpecParameter<T>{
@@ -203,7 +206,16 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
 
         private static final Map<String, Predicate<?>> BUILT_IN_CONSTRAINTS = ImmutableMap.<String, Predicate<?>>of(
                 "required", StringPredicates.isNonBlank());
-
+        
+        private static final Map<String, Function<Object, Predicate<?>>> BUILT_IN_CONSTRAINT_FACTORIES = ImmutableMap.<String, Function<Object, Predicate<?>>>of(
+                "regex", new Function<Object, Predicate<?>>() {
+                    @Override public Predicate<?> apply(Object input) {
+                        // TODO Could try to handle deferred supplier as well?
+                        checkArgument(input instanceof String, "Constraint regex value must be a string, but got %s (%s)",
+                                (input == null ? "null" : input.getClass().getName()), input);
+                        return StringPredicates.matchesRegex((String)input);
+                    }});
+        
         public static List<SpecParameter<?>> parseParameters(List<?> inputsRaw, Function<Object, Object> specialFlagTransformer, BrooklynClassLoadingContext loader) {
             if (inputsRaw == null) return ImmutableList.of();
             List<SpecParameter<?>> inputs = new ArrayList<>(inputsRaw.size());
@@ -279,25 +291,21 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
         }
 
         @SuppressWarnings({ "unchecked", "rawtypes" })
-        private static Predicate parseConstraints(Object obj, BrooklynClassLoadingContext loader) {
-            List constraintsRaw;
+        private static Predicate<?> parseConstraints(Object obj, BrooklynClassLoadingContext loader) {
+            List<?> constraintsRaw;
             if (obj == null) {
                 constraintsRaw = ImmutableList.of();
             } else if (obj instanceof String) {
                 constraintsRaw = ImmutableList.of(obj);
             } else if (obj instanceof List) {
-                constraintsRaw = (List) obj;
+                constraintsRaw = (List<?>) obj;
             } else {
-                throw new IllegalArgumentException ("The constraint '" + obj + "' for a catalog input is invalid format - string or list supported");
+                throw new IllegalArgumentException ("The constraint '" + obj + "' for a catalog input is invalid format - "
+                        + "string or list supported");
             }
-            List<Predicate> constraints = new ArrayList(constraintsRaw.size());
+            List<Predicate<?>> constraints = new ArrayList<>(constraintsRaw.size());
             for (Object untypedConstraint : constraintsRaw) {
-                String constraint = (String)untypedConstraint;
-                if (BUILT_IN_CONSTRAINTS.containsKey(constraint)) {
-                    constraints.add(BUILT_IN_CONSTRAINTS.get(constraint));
-                } else {
-                    throw new IllegalArgumentException("The constraint '" + constraint + "' for a catalog input is not recognized as a built-in (" + BUILT_IN_CONSTRAINTS.keySet() + ")");
-                }
+                constraints.add(parseConstraint(untypedConstraint, loader));
             }
             if (!constraints.isEmpty()) {
                 if (constraints.size() == 1) {
@@ -307,6 +315,43 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
                 }
             } else {
                 return Predicates.alwaysTrue();
+            }
+        }
+        
+        private static Predicate<?> parseConstraint(Object untypedConstraint, BrooklynClassLoadingContext loader) {
+            // TODO Could try to handle deferred supplier as well?
+            if (untypedConstraint instanceof Predicate) {
+                // An explicit predicate (e.g. via "$brooklyn:object: ...")
+                return (Predicate<?>) untypedConstraint;
+            } else if (untypedConstraint instanceof String) {
+                // build-in simple declaration, such as "required"
+                String constraint = (String)untypedConstraint;
+                if (BUILT_IN_CONSTRAINTS.containsKey(constraint)) {
+                    return BUILT_IN_CONSTRAINTS.get(constraint);
+                } else {
+                    throw new IllegalArgumentException("The constraint '" + constraint + "' for a catalog input is not "
+                            + "recognized as a built-in (" + BUILT_IN_CONSTRAINTS.keySet() + " or " 
+                            + BUILT_IN_CONSTRAINT_FACTORIES.keySet() + ")");
+                }
+            } else if (untypedConstraint instanceof Map) {
+                // For example "regex: foo.*"
+                Map<?,?> constraint = (Map<?,?>)untypedConstraint;
+                if (constraint.size() == 1) {
+                    Object key = Iterables.getOnlyElement(constraint.keySet());
+                    Object val = constraint.get(key);
+                    if (BUILT_IN_CONSTRAINT_FACTORIES.containsKey(key)) {
+                        Function<Object, Predicate<?>> factory = BUILT_IN_CONSTRAINT_FACTORIES.get(key);
+                        return factory.apply(val);
+                    } else {
+                        throw new IllegalArgumentException("The constraint '" + constraint + "' for a catalog input is not "
+                                + "recognized as a built-in (" + BUILT_IN_CONSTRAINTS.keySet() + ")");
+                    }
+                } else {
+                    throw new IllegalArgumentException("The config key constraint '" + constraint + "' is not supported - "
+                            + "it can handle only single key:value constraint.");
+                }
+            } else {
+                throw new IllegalArgumentException("The constraint '" + untypedConstraint + "' for a catalog input is not recognized");
             }
         }
         
