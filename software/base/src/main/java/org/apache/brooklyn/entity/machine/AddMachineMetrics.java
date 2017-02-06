@@ -89,6 +89,7 @@ public class AddMachineMetrics implements EntityInitializer {
     public static SshFeed createMachineMetricsFeed(Entity entity) {
         boolean retrieveUsageMetrics = entity.config().get(SoftwareProcess.RETRIEVE_USAGE_METRICS);
         return SshFeed.builder()
+                .uniqueTag("machineMetricsFeed")
                 .period(Duration.THIRTY_SECONDS)
                 .entity(entity)
                 .poll(SshPollConfig.forSensor(MachineAttributes.UPTIME)
@@ -160,5 +161,4 @@ public class AddMachineMetrics implements EntityInitializer {
                         }))
                 .build();
     }
-
 }
