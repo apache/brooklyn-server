@@ -229,7 +229,7 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
     @Test
     public void testSetConfigKeyClear() throws Exception {
         entity.config().set(TestEntity.CONF_SET_THING.subKey(), "aval");
-        entity.config().set((ConfigKey)TestEntity.CONF_SET_THING, SetModifications.clearing());
+        entity.config().set((ConfigKey)TestEntity.CONF_SET_THING, (Object) SetModifications.clearing());
         // for now defaults to null, but empty list might be better? or whatever the default is?
         assertEquals(entity.getConfig(TestEntity.CONF_SET_THING), null);
     }
@@ -290,7 +290,7 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
     @Test // ListConfigKey deprecated, as order no longer guaranteed
     public void testListConfigKeyClear() throws Exception {
         entity.config().set(TestEntity.CONF_LIST_THING.subKey(), "aval");
-        entity.config().set((ConfigKey)TestEntity.CONF_LIST_THING, ListModifications.clearing());
+        entity.config().set((ConfigKey)TestEntity.CONF_LIST_THING, (Object) ListModifications.clearing());
         // for now defaults to null, but empty list might be better? or whatever the default is?
         assertEquals(entity.getConfig(TestEntity.CONF_LIST_THING), null);
     }
@@ -346,7 +346,7 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
     @Test
     public void testMapConfigClearMod() throws Exception {
         entity.config().set(TestEntity.CONF_MAP_THING.subKey("akey"), "aval");
-        entity.config().set((ConfigKey)TestEntity.CONF_MAP_THING, MapModifications.clearing());
+        entity.config().set((ConfigKey)TestEntity.CONF_MAP_THING, (Object) MapModifications.clearing());
         // for now defaults to null, but empty map might be better? or whatever the default is?
         assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING), null);
     }

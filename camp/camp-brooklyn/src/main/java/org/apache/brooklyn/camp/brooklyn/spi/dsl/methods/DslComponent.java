@@ -502,8 +502,8 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             if (targetEntityMaybe.isAbsent()) return Maybe.absent("Target entity not available");
             EntityInternal targetEntity = (EntityInternal) targetEntityMaybe.get();
 
-            ConfigKey<?> key = targetEntity.getEntityType().getConfigKey(keyName);
-            Maybe<? extends Object> result = targetEntity.config().getNonBlocking(key != null ? key : ConfigKeys.newConfigKey(Object.class, keyName));
+            ConfigKey<Object> key = (ConfigKey<Object>) targetEntity.getEntityType().getConfigKey(keyName);
+            Maybe<Object> result = targetEntity.config().getNonBlocking(key != null ? key : ConfigKeys.newConfigKey(Object.class, keyName));
             return Maybe.<Object>cast(result);
         }
 
@@ -517,7 +517,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                         @Override
                         public Object call() throws Exception {
                             Entity targetEntity = component.get();
-                            ConfigKey<?> key = targetEntity.getEntityType().getConfigKey(keyName);
+                            ConfigKey<Object> key = (ConfigKey<Object>) targetEntity.getEntityType().getConfigKey(keyName);
                             return targetEntity.getConfig(key != null ? key : ConfigKeys.newConfigKey(Object.class, keyName));
                         }})
                     .build();
