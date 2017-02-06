@@ -159,12 +159,17 @@ public class Repeater implements Callable<Boolean> {
     }
 
     /**
-     * @see #threaded()
+     * Use the passed in {@link ExecutorService executor} to generate threads for every iteration
+     * of the loop. Because the executor is externally managed it will not be
+     * {@link ExecutorService#shutdownNow() shut down} by us when we finish.
+     *
+     * @see {@link #threaded()}
      * @param executor an externally managed {@link ExecutorService} to use when creating threads.
      * @return {@literal this} to aid coding in a fluent style.
      */
     public Repeater threaded(ExecutorService executor) {
         this.executor = executor;
+        this.shutdown = false;
         return this;
     }
 
