@@ -257,6 +257,43 @@ public class DslTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
+    public void testFormatString() throws Exception {
+        // literals (non-deferred) can be resolved immediately
+        assertEquals(BrooklynDslCommon.formatString("myval"), "myval");
+        assertEquals(BrooklynDslCommon.formatString("%s", "myval"), "myval");
+        
+        BrooklynDslDeferredSupplier<?> arg = BrooklynDslCommon.attributeWhenReady(TestApplication.MY_ATTRIBUTE.getName());
+        BrooklynDslDeferredSupplier<?> dsl = (BrooklynDslDeferredSupplier<?>) BrooklynDslCommon.formatString("%s", arg);
+        
+        Maybe<?> actualValue = execDslImmediately(dsl, String.class, app, true);
+        assertTrue(actualValue.isAbsent());
+
+        app.sensors().set(TestApplication.MY_ATTRIBUTE, "myval");
+        assertEquals(execDslEventually(dsl, String.class, app, Asserts.DEFAULT_LONG_TIMEOUT).get(), "myval");
+        assertEquals(execDslImmediately(dsl, String.class, app, true).get(), "myval");
+    }
+
+    @Test
+    public void testUrlEncode() throws Exception {
+        String origVal = "name@domain?!/&:%";
+        String encodedVal = "name%40domain%3F%21%2F%26%3A%25";
+        
+        // literals (non-deferred) can be resolved immediately
+        assertEquals(BrooklynDslCommon.urlEncode("myval"), "myval");
+        assertEquals(BrooklynDslCommon.urlEncode(origVal), encodedVal);
+        
+        BrooklynDslDeferredSupplier<?> arg = BrooklynDslCommon.attributeWhenReady(TestApplication.MY_ATTRIBUTE.getName());
+        BrooklynDslDeferredSupplier<?> dsl = (BrooklynDslDeferredSupplier<?>) BrooklynDslCommon.urlEncode(arg);
+        
+        Maybe<?> actualValue = execDslImmediately(dsl, String.class, app, true);
+        assertTrue(actualValue.isAbsent());
+
+        app.sensors().set(TestApplication.MY_ATTRIBUTE, origVal);
+        assertEquals(execDslEventually(dsl, String.class, app, Asserts.DEFAULT_LONG_TIMEOUT).get(), encodedVal);
+        assertEquals(execDslImmediately(dsl, String.class, app, true).get(), encodedVal);
+    }
+
+    @Test
     public void testEntityNotFound() throws Exception {
         BrooklynDslDeferredSupplier<?> dsl = BrooklynDslCommon.entity("myIdDoesNotExist");
         try {

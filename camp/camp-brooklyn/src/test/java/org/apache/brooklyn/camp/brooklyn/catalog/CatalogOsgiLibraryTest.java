@@ -53,7 +53,6 @@ import org.testng.annotations.Test;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.io.BaseEncoding;
-import com.google.common.net.UrlEscapers;
 
 public class CatalogOsgiLibraryTest extends AbstractYamlTest {
     
@@ -220,14 +219,34 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
         CatalogItem<?, ?> item = mgmt().getCatalog().getCatalogItem("simple-osgi-library", "1.0");
         assertCatalogLibraryUrl(item, classpathUrl);
     }
-    
-    // TODO See https://issues.apache.org/jira/browse/BROOKLYN-421
-    //      Need to somehow escape the username and password (or include them explicitly as a 
-    //      "Authorization" header instead of embedding them in the URI).
+
     @Test(groups="Broken")
     public void testLibraryUrlUsingExternalizedConfigForCredentials() throws Exception {
+        runLibraryUrlUsingExternalizedConfigForCredentials(true);
+    }
+    
+    @Test
+    public void testLibraryUrlUsingExternalizedConfigForCredentialsLenient() throws Exception {
+        runLibraryUrlUsingExternalizedConfigForCredentials(false);
+    }
+    
+    /**
+     * See https://issues.apache.org/jira/browse/BROOKLYN-421.
+     * 
+     * TODO java.net.URLEncoder.encode() gets it wrong for:
+     * <ul>
+     *   <li>" " (i.e. space - char %20). It turns that into "+" in the url.
+     *   <li>"*" (i.e char %2A) is not escaped - this is wrong according to https://en.wikipedia.org/wiki/Percent-encoding (RFC 3986).
+     * </ul>
+     */
+    protected void runLibraryUrlUsingExternalizedConfigForCredentials(boolean includeUrlEncoderBrokenChars) throws Exception {
+        StringBuilder passwordBuilder = new StringBuilder();
+        for (int i = 1; i < 128; i++) {
+            if (!includeUrlEncoderBrokenChars && (i == 32 || i == 42)) continue;
+            passwordBuilder.append((char)i);
+        }
         String username = "myuser@mydomain.com";
-        String password = "Myp4ss@?/:!";
+        String password = passwordBuilder.toString();
         
         // Add an externalized config provider, which will return us a username + password
         Map<String, String> externalConfig = ImmutableMap.of("username", username, "password", password);
@@ -242,8 +261,10 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
                 "  libraries:",
                 "  - $brooklyn:formatString:",
                 "    - http://%s:%s@" + jarUrl.getHost() + ":" + jarUrl.getPort() + jarUrl.getPath(),
-                "    - $brooklyn:external(\"myprovider\", \"username\")",
-                "    - $brooklyn:external(\"myprovider\", \"password\")",
+                "    - $brooklyn:urlEncode:",
+                "      - $brooklyn:external(\"myprovider\", \"username\")",
+                "    - $brooklyn:urlEncode:",
+                "      - $brooklyn:external(\"myprovider\", \"password\")",
                 "  item:",
                 "    services:",
                 "    - type: org.apache.brooklyn.test.osgi.entities.SimpleApplication");
@@ -257,8 +278,13 @@ public class CatalogOsgiLibraryTest extends AbstractYamlTest {
         assertEquals(authHeader, expectedHeader, "headers=" + Arrays.toString(req.getAllHeaders()));
 
         // Expect url to have been correctly escaped
-        String escapedUsername = UrlEscapers.urlFragmentEscaper().escape(username);
-        String escapedPassword = UrlEscapers.urlFragmentEscaper().escape(password);
+        String escapedUsername = "myuser%40mydomain.com";
+        String escapedPassword;
+        if (includeUrlEncoderBrokenChars) {
+            escapedPassword = "%01%02%03%04%05%06%07%08%09%0A%0B%0C%0D%0E%0F%10%11%12%13%14%15%16%17%18%19%1A%1B%1C%1D%1E%1F%20%21%22%23%24%25%26%27%28%29%2A%2B%2C-.%2F0123456789%3A%3B%3C%3D%3E%3F%40ABCDEFGHIJKLMNOPQRSTUVWXYZ%5B%5C%5D%5E_%60abcdefghijklmnopqrstuvwxyz%7B%7C%7D%7E%7F";
+        } else {
+            escapedPassword = "%01%02%03%04%05%06%07%08%09%0A%0B%0C%0D%0E%0F%10%11%12%13%14%15%16%17%18%19%1A%1B%1C%1D%1E%1F%21%22%23%24%25%26%27%28%29%2B%2C-.%2F0123456789%3A%3B%3C%3D%3E%3F%40ABCDEFGHIJKLMNOPQRSTUVWXYZ%5B%5C%5D%5E_%60abcdefghijklmnopqrstuvwxyz%7B%7C%7D%7E%7F";
+        }
         String expectedUrl = "http://" + escapedUsername + ":" + escapedPassword+ "@" + jarUrl.getHost() + ":" + jarUrl.getPort() + jarUrl.getPath();
         
         CatalogItem<?, ?> item = mgmt().getCatalog().getCatalogItem("simple-osgi-library", "1.0");

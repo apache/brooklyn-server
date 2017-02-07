@@ -62,6 +62,7 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.commons.beanutils.BeanUtils;
@@ -311,6 +312,27 @@ public class BrooklynDslCommon {
     }
 
     /**
+     * Returns the arg with characters escaped so it is a valid part of a URL, or a 
+     * {@link BrooklynDslDeferredSupplier} that returns this if the arguments are not yet fully 
+     * resolved.
+     * 
+     * See {@link Urls#encode(String)} for further details (it currently uses the encoding rules for
+     * "x-www-form-urlencoded")
+     * 
+     * Do not call with a whole URL unless you want everything escaped (e.g. "http://myhost" will be
+     * encoded as "http%3A%2F%2Fmyhost").
+     */
+    @DslAccessible
+    public static Object urlEncode(Object arg) {
+        if (resolved(arg)) {
+            // if all args are resolved, apply the transform now
+            return (arg == null) ? null : Urls.encode(arg.toString());
+        } else {
+            return new DslUrlEncode(arg);
+        }
+    }
+
+    /**
      * Returns a formatted string or a {@link BrooklynDslDeferredSupplier} if the arguments
      * are not yet fully resolved.
      */
@@ -332,6 +354,50 @@ public class BrooklynDslCommon {
             return new DslRegexReplacement(source, pattern, replacement);
         }
     }
+    
+    /**
+     * Deferred execution of escaping a URL.
+     *
+     * @see DependentConfiguration#urlEncode(Object)
+     */
+    protected static class DslUrlEncode extends BrooklynDslDeferredSupplier<String> {
+
+        private static final long serialVersionUID = -4849297712650560863L;
+
+        private final Object arg;
+
+        public DslUrlEncode(Object arg) {
+            this.arg = arg;
+        }
+
+        @Override
+        public final Maybe<String> getImmediately() {
+            return DependentConfiguration.urlEncodeImmediately(arg);
+        }
+
+        @Override
+        public Task<String> newTask() {
+            return DependentConfiguration.urlEncode(arg);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(arg);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            DslUrlEncode that = DslUrlEncode.class.cast(obj);
+            return Objects.equal(this.arg, that.arg);
+        }
+
+        @Override
+        public String toString() {
+            return "$brooklyn:urlEncode("+arg+")";
+        }
+    }
 
     /**
      * Deferred execution of String formatting.
@@ -342,8 +408,8 @@ public class BrooklynDslCommon {
 
         private static final long serialVersionUID = -4849297712650560863L;
 
-        private String pattern;
-        private Object[] args;
+        private final String pattern;
+        private final Object[] args;
 
         public DslFormatString(String pattern, Object ...args) {
             this.pattern = pattern;
