@@ -23,15 +23,10 @@ import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.annotation.Effector;
-import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.MethodEffector;
 import org.apache.brooklyn.core.entity.trait.Startable;
-import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
-import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.entity.group.SequenceGroup;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
-import org.apache.brooklyn.util.text.StringPredicates;
-
-import com.google.common.base.Predicates;
 
 /**
  * An entity that supplies a sequence of values through an effector.
@@ -44,46 +39,23 @@ import com.google.common.base.Predicates;
  *     sequence.start: 0
  *     sequence.increment: 1
  *     sequence.format: "global-%03d"
- *     sequence.name: "global"
  * }</pre>
  */
 @ImplementedBy(SequenceEntityImpl.class)
 public interface SequenceEntity extends Entity, Startable {
 
+    AttributeSensor<Integer> SEQUENCE_VALUE = SequenceGroup.SEQUENCE_VALUE;
+
+    AttributeSensor<String> SEQUENCE_STRING = SequenceGroup.SEQUENCE_STRING;
+
     @SetFromFlag("sequenceStart")
-    ConfigKey<Integer> SEQUENCE_START = ConfigKeys.builder(Integer.class)
-            .name("sequence.start")
-            .description("The starting point of the sequence")
-            .defaultValue(1)
-            .constraint(Predicates.<Integer>notNull())
-            .build();
+    ConfigKey<Integer> SEQUENCE_START = SequenceGroup.SEQUENCE_START;
 
     @SetFromFlag("sequenceIncrement")
-    ConfigKey<Integer> SEQUENCE_INCREMENT =  ConfigKeys.builder(Integer.class)
-            .name("sequence.increment")
-            .description("The sequence increment for the next value")
-            .defaultValue(1)
-            .constraint(Predicates.<Integer>notNull())
-            .build();
+    ConfigKey<Integer> SEQUENCE_INCREMENT = SequenceGroup.SEQUENCE_INCREMENT;
 
     @SetFromFlag("sequenceFormat")
-    ConfigKey<String> SEQUENCE_FORMAT = ConfigKeys.builder(String.class)
-            .name("sequence.format")
-            .description("A format used to generate a string representation of the sequence")
-            .defaultValue("%d")
-            .constraint(StringPredicates.containsRegex("%[-#+ 0,(]*[0-9]*[doxX]"))
-            .build();
-
-    @SetFromFlag("sequenceName")
-    AttributeSensorAndConfigKey<String, String> SEQUENCE_NAME = ConfigKeys.newStringSensorAndConfigKey("sequence.name", "The name of the sequence", "sequence");
-
-    AttributeSensor<Integer> SEQUENCE_VALUE = Sensors.builder(Integer.class, "sequence.value")
-            .description("The current value of the sequence")
-            .build();
-
-    AttributeSensor<String> SEQUENCE_STRING = Sensors.builder(String.class, "sequence.string")
-            .description("The current value of the sequence formatted as a string")
-            .build();
+    ConfigKey<String> SEQUENCE_FORMAT = SequenceGroup.SEQUENCE_FORMAT;
 
     MethodEffector<Void> RESET = new MethodEffector<Void>(SequenceEntity.class, "reset");
     MethodEffector<Void> INCREMENT = new MethodEffector<Void>(SequenceEntity.class, "increment");

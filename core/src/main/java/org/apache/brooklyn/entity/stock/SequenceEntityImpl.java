@@ -22,17 +22,16 @@ import java.util.Collection;
 
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.core.entity.AbstractEntity;
-import org.apache.brooklyn.core.feed.ConfigToAttributes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SequenceEntityImpl extends AbstractEntity implements SequenceEntity {
 
+    private static final Logger LOG = LoggerFactory.getLogger(SequenceEntity.class);
+
+    private Object mutex = new Object();
+
     public SequenceEntityImpl() { }
-
-    public void init() {
-        super.init();
-
-        ConfigToAttributes.apply(this, SEQUENCE_NAME);
-    }
 
     @Override
     public void start(Collection<? extends Location> locations) {
@@ -52,48 +51,63 @@ public class SequenceEntityImpl extends AbstractEntity implements SequenceEntity
         start(getLocations());
     }
 
-    protected void sequence(Integer value) {
-        String format = config().get(SEQUENCE_FORMAT);
-
-        sensors().set(SEQUENCE_VALUE, value);
-        sensors().set(SEQUENCE_STRING, String.format(format, value));
-    }
-
     @Override
     public Integer currentValue() {
-        return sensors().get(SEQUENCE_VALUE);
+        synchronized (mutex) {
+            return sensors().get(SEQUENCE_VALUE);
+        }
     }
 
     @Override
     public String currentString() {
-        return sensors().get(SEQUENCE_STRING);
+        synchronized (mutex) {
+            return sensors().get(SEQUENCE_STRING);
+        }
     }
 
     @Override
-    public synchronized Integer nextValue() {
-        increment();
-        return currentValue();
+    public Integer nextValue() {
+        synchronized (mutex) {
+            increment();
+            return currentValue();
+        }
     }
 
     @Override
-    public synchronized String nextString() {
-        increment();
-        return currentString();
+    public String nextString() {
+        synchronized (mutex) {
+            increment();
+            return currentString();
+        }
     }
 
     @Override
-    public synchronized Void increment() {
-        Integer increment = config().get(SEQUENCE_INCREMENT);
-        Integer current = currentValue();
-        sequence(current + increment);
-        return null;
+    public Void increment() {
+        synchronized (mutex) {
+            Integer increment = config().get(SEQUENCE_INCREMENT);
+            Integer current = currentValue();
+            sequence(current + increment);
+            return null;
+        }
     }
 
     @Override
-    public synchronized Void reset() {
-        Integer start = config().get(SEQUENCE_START);
-        sequence(start);
-        return null;
+    public Void reset() {
+        synchronized (mutex) {
+            Integer start = config().get(SEQUENCE_START);
+            sequence(start);
+            return null;
+        }
+    }
+
+    private void sequence(Integer value) {
+        String format = config().get(SEQUENCE_FORMAT);
+        String string = String.format(format, value);
+
+        sensors().set(SEQUENCE_VALUE, value);
+        sensors().set(SEQUENCE_STRING, string);
+
+        LOG.debug("Sequence for {} set to {}", this, value);
     }
 
 }
