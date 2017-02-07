@@ -61,7 +61,6 @@ public class SequenceEntityTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testSequenceInitialConfig() throws Exception {
         sequence = app.addChild(EntitySpec.create(SequenceEntity.class)
-                .configure(SequenceEntity.SEQUENCE_NAME, "forty-two")
                 .configure(SequenceEntity.SEQUENCE_START, 42)
                 .configure(SequenceEntity.SEQUENCE_FORMAT, "id-%02x"));
         app.start(ImmutableList.of(loc1));
@@ -70,7 +69,6 @@ public class SequenceEntityTest extends BrooklynAppUnitTestSupport {
 
         assertAttributeEquals(sequence, SequenceEntity.SEQUENCE_VALUE, 42);
         assertAttributeEquals(sequence, SequenceEntity.SEQUENCE_STRING, "id-2a");
-        assertAttributeEquals(sequence, SequenceEntity.SEQUENCE_NAME, "forty-two");
     }
 
     @Test
