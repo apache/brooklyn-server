@@ -189,7 +189,7 @@ public class RepeaterTest {
         assertTrue(difference < 4 * LIMIT, "Difference was: " + difference);
     }
 
-    @Test(expectedExceptions = { IllegalStateException.class })
+    @Test(expectedExceptions = { NullPointerException.class })
     public void runFailsIfUntilWasNotSet() {
         new Repeater("runFailsIfUntilWasNotSet")
             .every(Duration.millis(10))
@@ -197,7 +197,7 @@ public class RepeaterTest {
         fail("Expected exception was not thrown");
     }
 
-    @Test(expectedExceptions = { IllegalStateException.class })
+    @Test(expectedExceptions = { NullPointerException.class })
     public void runFailsIfEveryWasNotSet() {
         new Repeater("runFailsIfEveryWasNotSet")
             .until(Callables.returning(true))

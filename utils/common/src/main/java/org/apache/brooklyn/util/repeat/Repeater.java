@@ -21,7 +21,9 @@ package org.apache.brooklyn.util.repeat;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import javax.annotation.Nullable;
@@ -41,6 +43,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.Callables;
+import com.google.common.util.concurrent.MoreExecutors;
 
 /**
  * Simple mechanism to repeat an operation periodically until a condition is satisfied.
@@ -68,13 +71,15 @@ public class Repeater implements Callable<Boolean> {
 
     private static final Logger log = LoggerFactory.getLogger(Repeater.class);
 
-    /** A small initial duration that something should wait between repeats, 
+    /**
+     * A small initial duration that something should wait between repeats,
      * e.g. when doing {@link #backoffTo(Duration)}.
      * <p>
      * Chosen to be small enough that a user won't notice at all,
-     * but we're not going to be chewing up CPU while waiting. */  
+     * but we're not going to be chewing up CPU while waiting.
+     */
     public static final Duration DEFAULT_REAL_QUICK_PERIOD = Duration.millis(10);
-    
+
     private final String description;
     private Callable<?> body = Callables.returning(null);
     private Callable<Boolean> exitCondition;
@@ -84,6 +89,8 @@ public class Repeater implements Callable<Boolean> {
     private boolean rethrowException = false;
     private Predicate<? super Throwable> rethrowImmediatelyCondition = Exceptions.isFatalPredicate();
     private boolean warnOnUnRethrownException = true;
+    private boolean shutdown = false;
+    private ExecutorService executor = MoreExecutors.sameThreadExecutor();
 
     public Repeater() {
         this(null);
@@ -142,6 +149,32 @@ public class Repeater implements Callable<Boolean> {
     }
 
     /**
+     * Use a new thread for every iteration of the loop.
+     *
+     * @return {@literal this} to aid coding in a fluent style.
+     */
+    public Repeater threaded() {
+        this.executor = Executors.newSingleThreadExecutor();
+        this.shutdown = true;
+        return this;
+    }
+
+    /**
+     * Use the passed in {@link ExecutorService executor} to generate threads for every iteration
+     * of the loop. Because the executor is externally managed it will not be
+     * {@link ExecutorService#shutdownNow() shut down} by us when we finish.
+     *
+     * @see {@link #threaded()}
+     * @param executor an externally managed {@link ExecutorService} to use when creating threads.
+     * @return {@literal this} to aid coding in a fluent style.
+     */
+    public Repeater threaded(ExecutorService executor) {
+        this.executor = executor;
+        this.shutdown = false;
+        return this;
+    }
+
+    /**
      * Set how long to wait between loop iterations.
      *
      * @param period how long to wait between loop iterations.
@@ -157,26 +190,31 @@ public class Repeater implements Callable<Boolean> {
      */
     public Repeater every(Duration duration) {
         Preconditions.checkNotNull(duration, "duration must not be null");
-        Preconditions.checkArgument(duration.toMilliseconds()>0, "period must be positive: %s", duration);
+        Preconditions.checkArgument(duration.isPositive(), "period must be positive: %s", duration);
         return delayOnIteration(Functions.constant(duration));
     }
 
     public Repeater every(groovy.time.Duration duration) {
         return every(Duration.of(duration));
     }
-    
-    /** sets a function which determines how long to delay on a given iteration between checks,
-     * with 0 being mapped to the initial delay (after the initial check) */
+
+    /**
+     * Sets a function which determines how long to delay on a given iteration between checks,
+     * with 0 being mapped to the initial delay (after the initial check)
+     */
     public Repeater delayOnIteration(Function<? super Integer,Duration> delayFunction) {
         Preconditions.checkNotNull(delayFunction, "delayFunction must not be null");
         this.delayOnIteration = delayFunction;
         return this;
     }
 
-    /** sets the {@link #delayOnIteration(Function)} function to be an exponential backoff as follows:
+    /**
+     * Sets the {@link #delayOnIteration(Function)} function to be an exponential backoff.
+     *
      * @param initialDelay  the delay on the first iteration, after the initial check
      * @param multiplier  the rate at which to increase the loop delay, must be >= 1
-     * @param finalDelay  an optional cap on the loop delay   */
+     * @param finalDelay  an optional cap on the loop delay
+     */
     public Repeater backoff(final Duration initialDelay, final double multiplier, @Nullable final Duration finalDelay) {
         Preconditions.checkNotNull(initialDelay, "initialDelay");
         Preconditions.checkArgument(multiplier>=1.0, "multiplier >= 1.0");
@@ -289,7 +327,7 @@ public class Repeater implements Callable<Boolean> {
      */
     public Repeater limitTimeTo(Duration duration) {
         Preconditions.checkNotNull(duration, "duration must not be null");
-        Preconditions.checkArgument(duration.toMilliseconds() > 0, "deadline must be positive: %s", duration);
+        Preconditions.checkArgument(duration.isPositive(), "deadline must be positive: %s", duration);
         this.timeLimit = duration;
         return this;
     }
@@ -302,89 +340,99 @@ public class Repeater implements Callable<Boolean> {
     public boolean run() {
         return runKeepingError().getWithoutError();
     }
-    
+
     public void runRequiringTrue() {
         Stopwatch timer = Stopwatch.createStarted();
         ReferenceWithError<Boolean> result = runKeepingError();
         result.checkNoError();
-        if (!result.get()) 
+        if (!result.get()) {
             throw new IllegalStateException(description+" unsatisfied after "+Duration.of(timer));
+        }
     }
-    
+
     public ReferenceWithError<Boolean> runKeepingError() {
-        Preconditions.checkState(body != null, "repeat() method has not been called to set the body");
-        Preconditions.checkState(exitCondition != null, "until() method has not been called to set the exit condition");
-        Preconditions.checkState(delayOnIteration != null, "every() method (or other delaySupplier() / backoff() method) has not been called to set the loop delay");
+        Preconditions.checkNotNull(body, "repeat() method has not been called to set the body");
+        Preconditions.checkNotNull(exitCondition, "until() method has not been called to set the exit condition");
+        Preconditions.checkNotNull(delayOnIteration, "every() method (or other delaySupplier() / backoff() method) has not been called to set the loop delay");
 
         boolean hasLoggedTransientException = false;
         Throwable lastError = null;
         int iterations = 0;
         CountdownTimer timer = timeLimit!=null ? CountdownTimer.newInstanceStarted(timeLimit) : CountdownTimer.newInstancePaused(Duration.PRACTICALLY_FOREVER);
 
-        while (true) {
-            Duration delayThisIteration = delayOnIteration.apply(iterations);
-            iterations++;
+        try {
+            while (true) {
+                Duration delayThisIteration = delayOnIteration.apply(iterations);
+                iterations++;
 
-            try {
-                body.call();
-            } catch (Throwable e) {
-                log.warn(description, e);
-                if (rethrowImmediatelyCondition.apply(e)) throw Exceptions.propagate(e);
-            }
-
-            boolean done = false;
-            try {
-                lastError = null;
-                done = exitCondition.call();
-                hasLoggedTransientException = false;
-            } catch (Throwable e) {
-                if (hasLoggedTransientException) {
-                    if (log.isDebugEnabled()) log.debug(description + " (repeated failure; excluding stacktrace): " + e);
-                } else {
-                    if (log.isDebugEnabled()) log.debug(description, e);
-                    hasLoggedTransientException = true;
+                Future<?> call = executor.submit(body);
+                try {
+                    call.get(delayThisIteration.toMilliseconds(), TimeUnit.MILLISECONDS);
+                } catch (Throwable e) {
+                    log.warn(description, e);
+                    if (rethrowImmediatelyCondition.apply(e)) throw Exceptions.propagate(e);
+                } finally {
+                    call.cancel(true);
                 }
-                lastError = e;
-                if (rethrowImmediatelyCondition.apply(e)) throw Exceptions.propagate(e);
-            }
-            if (done) {
-                if (log.isDebugEnabled()) log.debug("{}: condition satisfied", description);
-                return ReferenceWithError.newInstanceWithoutError(true);
-            } else {
-                if (log.isDebugEnabled()) {
-                    String msg = String.format("%s: unsatisfied during iteration %s %s", description, iterations,
-                        (iterationLimit > 0 ? "(max "+iterationLimit+" attempts)" : "") + 
-                        (timer.isNotPaused() ? "("+Time.makeTimeStringRounded(timer.getDurationRemaining())+" remaining)" : ""));
-                    if (iterations == 1) {
-                        log.debug(msg);
+
+                boolean done = false;
+                try {
+                    lastError = null;
+                    done = exitCondition.call();
+                    hasLoggedTransientException = false;
+                } catch (Throwable e) {
+                    if (hasLoggedTransientException) {
+                        log.debug("{}: repeated failure; excluding stacktrace: {}", description, e);
                     } else {
-                        log.trace(msg);
+                        log.debug(description, e);
+                        hasLoggedTransientException = true;
+                    }
+                    lastError = e;
+                    if (rethrowImmediatelyCondition.apply(e)) throw Exceptions.propagate(e);
+                }
+                if (done) {
+                    log.debug("{}: condition satisfied", description);
+                    return ReferenceWithError.newInstanceWithoutError(true);
+                } else {
+                    if (log.isDebugEnabled()) {
+                        String msg = String.format("%s: unsatisfied during iteration %s %s", description, iterations,
+                            (iterationLimit > 0 ? "(max "+iterationLimit+" attempts)" : "") + 
+                            (timer.isNotPaused() ? "("+Time.makeTimeStringRounded(timer.getDurationRemaining())+" remaining)" : ""));
+                        if (iterations == 1) {
+                            log.debug(msg);
+                        } else {
+                            log.trace(msg);
+                        }
                     }
                 }
-            }
 
-            if (iterationLimit > 0 && iterations >= iterationLimit) {
-                if (log.isDebugEnabled()) log.debug("{}: condition not satisfied and exceeded iteration limit", description);
-                if (rethrowException && lastError != null) {
-                    log.warn("{}: error caught checking condition (rethrowing): {}", description, lastError.getMessage());
-                    throw Exceptions.propagate(lastError);
+                if (iterationLimit > 0 && iterations >= iterationLimit) {
+                    log.debug("{}: condition not satisfied and exceeded iteration limit", description);
+                    if (rethrowException && lastError != null) {
+                        log.warn("{}: error caught checking condition (rethrowing): {}", description, lastError.getMessage());
+                        throw Exceptions.propagate(lastError);
+                    }
+                    if (warnOnUnRethrownException && lastError != null)
+                        log.warn("{}: error caught checking condition: {}", description, lastError.getMessage());
+                    return ReferenceWithError.newInstanceMaskingError(false, lastError);
                 }
-                if (warnOnUnRethrownException && lastError != null)
-                    log.warn("{}: error caught checking condition: {}", description, lastError.getMessage());
-                return ReferenceWithError.newInstanceMaskingError(false, lastError);
-            }
-
-            if (timer.isExpired()) {
-                if (log.isDebugEnabled()) log.debug("{}: condition not satisfied, with {} elapsed (limit {})", 
-                    new Object[] { description, Time.makeTimeStringRounded(timer.getDurationElapsed()), Time.makeTimeStringRounded(timeLimit) });
-                if (rethrowException && lastError != null) {
-                    log.error("{}: error caught checking condition: {}", description, lastError.getMessage());
-                    throw Exceptions.propagate(lastError);
+    
+                if (timer.isExpired()) {
+                    log.debug("{}: condition not satisfied, with {} elapsed (limit {})", 
+                        new Object[] { description, Time.makeTimeStringRounded(timer.getDurationElapsed()), Time.makeTimeStringRounded(timeLimit) });
+                    if (rethrowException && lastError != null) {
+                        log.error("{}: error caught checking condition: {}", description, lastError.getMessage());
+                        throw Exceptions.propagate(lastError);
+                    }
+                    return ReferenceWithError.newInstanceMaskingError(false, lastError);
                 }
-                return ReferenceWithError.newInstanceMaskingError(false, lastError);
-            }
 
-            Time.sleep(delayThisIteration);
+                Time.sleep(delayThisIteration);
+            }
+        } finally {
+            if (shutdown) {
+                executor.shutdownNow();
+            }
         }
     }
 
