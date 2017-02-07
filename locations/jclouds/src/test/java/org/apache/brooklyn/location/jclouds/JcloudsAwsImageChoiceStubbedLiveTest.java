@@ -79,7 +79,7 @@ public class JcloudsAwsImageChoiceStubbedLiveTest extends AbstractJcloudsStubbed
         Image image = template.getImage();
 
         LOG.info("default="+image);
-        assertUbuntu(image, "14.04");
+        assertCentos(image, "7.0");
     }
     
     // See testUbuntu14Image
