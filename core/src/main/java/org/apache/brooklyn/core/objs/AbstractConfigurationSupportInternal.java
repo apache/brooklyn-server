@@ -144,6 +144,7 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
                 .as(Object.class)
                 .defaultValue(marker)
                 .immediately(true)
+                .deep(true)
                 .context(getContext())
                 .swallowExceptions()
                 .get();
