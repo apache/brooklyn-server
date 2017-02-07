@@ -18,22 +18,22 @@
  */
 package org.apache.brooklyn.entity.group;
 
+import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttribute;
+import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEquals;
+import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEqualsEventually;
 import static org.apache.brooklyn.test.Asserts.assertEqualsIgnoringOrder;
-import static org.apache.brooklyn.test.Asserts.*;
-import static org.apache.brooklyn.core.entity.EntityAsserts.*;
-
-import java.util.Set;
+import static org.apache.brooklyn.test.Asserts.assertTrue;
+import static org.apache.brooklyn.test.Asserts.succeedsEventually;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityPredicates;
+import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
-import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -43,7 +43,7 @@ import com.google.common.collect.ImmutableSet;
 
 public class SequenceGroupTest extends BrooklynAppUnitTestSupport {
 
-    private TestApplication app;
+    private SimulatedLocation loc1;
     private SequenceGroup group;
     private TestEntity e1, e2, e3;
 
@@ -51,33 +51,35 @@ public class SequenceGroupTest extends BrooklynAppUnitTestSupport {
     @Override
     public void setUp() throws Exception {
         super.setUp();
-
-        app = TestApplication.Factory.newManagedInstanceForTests();
-        group = app.createAndManageChild(EntitySpec.create(SequenceGroup.class)
-                .configure(SequenceGroup.SEQUENCE_STRING_SENSOR, Sensors.newStringSensor("test.sequence"))
-                .configure(SequenceGroup.SEQUENCE_FORMAT, "test-%02d"));
-        e1 = app.createAndManageChild(EntitySpec.create(TestEntity.class));
-        e2 = app.createAndManageChild(EntitySpec.create(TestEntity.class));
-        e3 = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        loc1 = mgmt.getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class));
     }
 
-    @AfterMethod(alwaysRun=true)
-    @Override
-    public void tearDown() throws Exception {
-        if (app != null) Entities.destroyAll(app.getManagementContext());
-
-        super.tearDown();
+    protected void createTestEntities() throws Exception {
+        e1 = app.createAndManageChild(EntitySpec.create(TestEntity.class).displayName("test-one"));
+        e2 = app.createAndManageChild(EntitySpec.create(TestEntity.class).displayName("test-two"));
+        e3 = app.createAndManageChild(EntitySpec.create(TestEntity.class).displayName("test-three"));
     }
-
 
     @Test
     public void testGroupDefaults() throws Exception {
+        group = app.addChild(EntitySpec.create(SequenceGroup.class));
+        createTestEntities();
+        app.start(ImmutableList.of(loc1));
+
+        assertAttributeEqualsEventually(group, SequenceGroup.RUNNING, true);
+
+        assertAttribute(group, SequenceGroup.SEQUENCE_VALUE, Predicates.isNull());
         assertTrue(group.getMembers().isEmpty());
     }
 
     @Test
     public void testGroupWithMatchingFilterReturnsOnlyMatchingMembers() throws Exception {
-        group.setEntityFilter(EntityPredicates.idEqualTo(e1.getId()));
+        group = app.addChild(EntitySpec.create(SequenceGroup.class)
+                .configure(SequenceGroup.ENTITY_FILTER, EntityPredicates.displayNameEqualTo("test-one")));
+        createTestEntities();
+        app.start(ImmutableList.of(loc1));
+
+        assertAttributeEqualsEventually(group, SequenceGroup.RUNNING, true);
 
         assertEqualsIgnoringOrder(group.getMembers(), ImmutableList.of(e1));
         assertAttributeEquals(e1, SequenceGroup.SEQUENCE_VALUE, 1);
@@ -86,9 +88,17 @@ public class SequenceGroupTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testGroupConfiguration() throws Exception {
-        group.setEntityFilter(EntityPredicates.idEqualTo(e1.getId()));
+        group = app.addChild(EntitySpec.create(SequenceGroup.class)
+                .configure(SequenceGroup.SEQUENCE_STRING_SENSOR,  Sensors.newStringSensor("test.sequence"))
+                .configure(SequenceGroup.SEQUENCE_FORMAT, "test-%02d")
+                .configure(SequenceGroup.ENTITY_FILTER, EntityPredicates.displayNameEqualTo("test-one")));
+        createTestEntities();
+        app.start(ImmutableList.of(loc1));
+
+        assertAttributeEqualsEventually(group, SequenceGroup.RUNNING, true);
 
         assertEqualsIgnoringOrder(group.getMembers(), ImmutableList.of(e1));
+        assertAttributeEquals(e1, SequenceGroup.SEQUENCE_VALUE, 1);
         assertAttributeEquals(e1, SequenceGroup.SEQUENCE_STRING, null);
         assertAttributeEquals(e1, Sensors.newStringSensor("test.sequence"), "test-01");
     }
@@ -97,13 +107,17 @@ public class SequenceGroupTest extends BrooklynAppUnitTestSupport {
     public void testAlternateGroupConfiguration() throws Exception {
         AttributeSensor<Integer> value = Sensors.newIntegerSensor("test.value");
         AttributeSensor<String> string = Sensors.newStringSensor("test.string");
-        group = app.createAndManageChild(EntitySpec.create(SequenceGroup.class)
+        group = app.addChild(EntitySpec.create(SequenceGroup.class)
                 .configure(SequenceGroup.SEQUENCE_START, 12345)
                 .configure(SequenceGroup.SEQUENCE_INCREMENT, 678)
                 .configure(SequenceGroup.SEQUENCE_VALUE_SENSOR, value)
                 .configure(SequenceGroup.SEQUENCE_STRING_SENSOR, string)
-                .configure(SequenceGroup.SEQUENCE_FORMAT, "0x%04X"));
-        group.setEntityFilter(EntityPredicates.hasInterfaceMatching(".*TestEntity"));
+                .configure(SequenceGroup.SEQUENCE_FORMAT, "0x%04X")
+                .configure(SequenceGroup.ENTITY_FILTER, EntityPredicates.hasInterfaceMatching(".*TestEntity")));
+        createTestEntities();
+        app.start(ImmutableList.of(loc1));
+
+        assertAttributeEqualsEventually(group, SequenceGroup.RUNNING, true);
 
         assertEqualsIgnoringOrder(group.getMembers(), ImmutableSet.of(e1, e2, e3));
         assertAttributeEquals(e1, value, 12345);
@@ -116,7 +130,12 @@ public class SequenceGroupTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testGroupWithMatchingFilterReturnsEverythingThatMatches() throws Exception {
-        group.setEntityFilter(Predicates.alwaysTrue());
+        group = app.addChild(EntitySpec.create(SequenceGroup.class)
+                .configure(SequenceGroup.ENTITY_FILTER, Predicates.alwaysTrue()));
+        createTestEntities();
+        app.start(ImmutableList.of(loc1));
+
+        assertAttributeEqualsEventually(group, SequenceGroup.RUNNING, true);
 
         assertEqualsIgnoringOrder(group.getMembers(), ImmutableSet.of(e1, e2, e3, app, group));
         assertAttributeEquals(app, SequenceGroup.SEQUENCE_VALUE, 1);
@@ -130,8 +149,14 @@ public class SequenceGroupTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testGroupDetectsNewlyManagedMatchingMember() throws Exception {
-        group.setEntityFilter(EntityPredicates.displayNameEqualTo("myname"));
-        final Entity e = app.addChild(EntitySpec.create(TestEntity.class).displayName("myname"));
+        group = app.addChild(EntitySpec.create(SequenceGroup.class)
+                .configure(SequenceGroup.ENTITY_FILTER, EntityPredicates.displayNameEqualTo("test-four")));
+        createTestEntities();
+        app.start(ImmutableList.of(loc1));
+
+        assertAttributeEqualsEventually(group, SequenceGroup.RUNNING, true);
+
+        final Entity e = app.addChild(EntitySpec.create(TestEntity.class).displayName("test-four"));
 
         succeedsEventually(new Runnable() {
             public void run() {
@@ -142,8 +167,13 @@ public class SequenceGroupTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
-    public void testGroupUsesNewFilter() throws Exception {
-        group.setEntityFilter(EntityPredicates.hasInterfaceMatching(".*TestEntity"));
+    public void testGroupAddsNewMatchingMember() throws Exception {
+        group = app.addChild(EntitySpec.create(SequenceGroup.class)
+                .configure(SequenceGroup.ENTITY_FILTER, EntityPredicates.hasInterfaceMatching(".*TestEntity")));
+        createTestEntities();
+        app.start(ImmutableList.of(loc1));
+
+        assertAttributeEqualsEventually(group, SequenceGroup.RUNNING, true);
 
         assertEqualsIgnoringOrder(group.getMembers(), ImmutableSet.of(e1, e2, e3));
         assertAttributeEquals(e1, SequenceGroup.SEQUENCE_VALUE, 1);

@@ -28,6 +28,8 @@ import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.entity.group.SequenceGroup;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 
+import com.google.common.base.Supplier;
+
 /**
  * An entity that supplies a sequence of values through an effector.
  * <p>
@@ -38,15 +40,12 @@ import org.apache.brooklyn.util.core.flags.SetFromFlag;
  *   brooklyn.config:
  *     sequence.start: 0
  *     sequence.increment: 1
- *     sequence.format: "global-%03d"
  * }</pre>
  */
 @ImplementedBy(SequenceEntityImpl.class)
-public interface SequenceEntity extends Entity, Startable {
+public interface SequenceEntity extends Entity, Startable, Supplier<Integer> {
 
     AttributeSensor<Integer> SEQUENCE_VALUE = SequenceGroup.SEQUENCE_VALUE;
-
-    AttributeSensor<String> SEQUENCE_STRING = SequenceGroup.SEQUENCE_STRING;
 
     @SetFromFlag("sequenceStart")
     ConfigKey<Integer> SEQUENCE_START = SequenceGroup.SEQUENCE_START;
@@ -54,15 +53,10 @@ public interface SequenceEntity extends Entity, Startable {
     @SetFromFlag("sequenceIncrement")
     ConfigKey<Integer> SEQUENCE_INCREMENT = SequenceGroup.SEQUENCE_INCREMENT;
 
-    @SetFromFlag("sequenceFormat")
-    ConfigKey<String> SEQUENCE_FORMAT = SequenceGroup.SEQUENCE_FORMAT;
-
     MethodEffector<Void> RESET = new MethodEffector<Void>(SequenceEntity.class, "reset");
     MethodEffector<Void> INCREMENT = new MethodEffector<Void>(SequenceEntity.class, "increment");
-    MethodEffector<Integer> CURRENT_VALUE = new MethodEffector<Integer>(SequenceEntity.class, "currentValue");
-    MethodEffector<String> CURRENT_STRING = new MethodEffector<String>(SequenceEntity.class, "currentString");
-    MethodEffector<Integer> NEXT_VALUE = new MethodEffector<Integer>(SequenceEntity.class, "nextValue");
-    MethodEffector<String> NEXT_STRING = new MethodEffector<String>(SequenceEntity.class, "nextString");
+    MethodEffector<Integer> GET = new MethodEffector<Integer>(SequenceEntity.class, "get");
+    MethodEffector<Integer> INCREMENT_AND_GET = new MethodEffector<Integer>(SequenceEntity.class, "incrementAndGet");
 
     @Effector(description = "Reset the sequence to initial value")
     Void reset();
@@ -71,14 +65,9 @@ public interface SequenceEntity extends Entity, Startable {
     Void increment();
 
     @Effector(description = "Return the current numeric value of the sequence")
-    Integer currentValue();
+    Integer get();
 
-    @Effector(description = "Return the current string representation of the sequence")
-    String currentString();
+    @Effector(description = "Update and return the next value of the sequence")
+    Integer incrementAndGet();
 
-    @Effector(description = "Update and return the next numeric value of the sequence")
-    Integer nextValue();
-
-    @Effector(description = "Update and return the next string representation of the sequence")
-    String nextString();
 }

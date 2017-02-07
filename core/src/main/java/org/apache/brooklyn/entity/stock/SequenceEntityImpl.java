@@ -52,32 +52,17 @@ public class SequenceEntityImpl extends AbstractEntity implements SequenceEntity
     }
 
     @Override
-    public Integer currentValue() {
+    public Integer get() {
         synchronized (mutex) {
             return sensors().get(SEQUENCE_VALUE);
         }
     }
 
     @Override
-    public String currentString() {
-        synchronized (mutex) {
-            return sensors().get(SEQUENCE_STRING);
-        }
-    }
-
-    @Override
-    public Integer nextValue() {
+    public Integer incrementAndGet() {
         synchronized (mutex) {
             increment();
-            return currentValue();
-        }
-    }
-
-    @Override
-    public String nextString() {
-        synchronized (mutex) {
-            increment();
-            return currentString();
+            return get();
         }
     }
 
@@ -85,7 +70,7 @@ public class SequenceEntityImpl extends AbstractEntity implements SequenceEntity
     public Void increment() {
         synchronized (mutex) {
             Integer increment = config().get(SEQUENCE_INCREMENT);
-            Integer current = currentValue();
+            Integer current = get();
             sequence(current + increment);
             return null;
         }
@@ -101,12 +86,7 @@ public class SequenceEntityImpl extends AbstractEntity implements SequenceEntity
     }
 
     private void sequence(Integer value) {
-        String format = config().get(SEQUENCE_FORMAT);
-        String string = String.format(format, value);
-
         sensors().set(SEQUENCE_VALUE, value);
-        sensors().set(SEQUENCE_STRING, string);
-
         LOG.debug("Sequence for {} set to {}", this, value);
     }
 

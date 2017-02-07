@@ -55,7 +55,7 @@ import com.google.common.reflect.TypeToken;
  *                 - $brooklyn:attributeWhenReady("application.id")
  *           - $brooklyn:object:
  *               type: org.apache.brooklyn.core.entity.EntityPredicates
- *               factoryMethod.name: "configEquelTo"
+ *               factoryMethod.name: "configEqualTo"
  *               factoryMethod.args:
  *                 - "sequence.set"
  *                 - true
@@ -65,11 +65,6 @@ import com.google.common.reflect.TypeToken;
  *     sequenceValueSensor: $brooklyn:sensor("entity.sequence")
  *     sequenceStringSensor: $brooklyn:sensor("entity.name")
  * }</pre>
- * <p>
- * <b>IMPORTANT</b> Relationship management will fail in unpredictable ways
- * if an entity is a member of multiple sequences that use the same
- * {@link #SEQUENCE_VALUE_SENSOR sensor}, however this usage will probably
- * not have the desired effect in any case.
  */
 @ImplementedBy(SequenceGroupImpl.class)
 public interface SequenceGroup extends DynamicGroup {

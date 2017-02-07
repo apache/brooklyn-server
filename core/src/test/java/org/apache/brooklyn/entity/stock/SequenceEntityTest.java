@@ -55,20 +55,17 @@ public class SequenceEntityTest extends BrooklynAppUnitTestSupport {
         assertAttributeEqualsEventually(sequence, Startable.SERVICE_UP, true);
 
         assertAttributeEquals(sequence, SequenceEntity.SEQUENCE_VALUE, 0);
-        assertAttributeEquals(sequence, SequenceEntity.SEQUENCE_STRING, "0");
     }
 
     @Test
     public void testSequenceInitialConfig() throws Exception {
         sequence = app.addChild(EntitySpec.create(SequenceEntity.class)
-                .configure(SequenceEntity.SEQUENCE_START, 42)
-                .configure(SequenceEntity.SEQUENCE_FORMAT, "id-%02x"));
+                .configure(SequenceEntity.SEQUENCE_START, 42));
         app.start(ImmutableList.of(loc1));
 
         assertAttributeEqualsEventually(sequence, Startable.SERVICE_UP, true);
 
         assertAttributeEquals(sequence, SequenceEntity.SEQUENCE_VALUE, 42);
-        assertAttributeEquals(sequence, SequenceEntity.SEQUENCE_STRING, "id-2a");
     }
 
     @Test
@@ -78,54 +75,41 @@ public class SequenceEntityTest extends BrooklynAppUnitTestSupport {
 
         EntityAsserts.assertAttributeEqualsEventually(sequence, Startable.SERVICE_UP, true);
 
-        assertEquals(sequence.currentValue(), Integer.valueOf(1));
-        assertEquals(sequence.currentString(), "1");
+        assertEquals(sequence.get(), Integer.valueOf(1));
         assertAttributeEquals(sequence, SequenceEntity.SEQUENCE_VALUE, 1);
-        assertAttributeEquals(sequence, SequenceEntity.SEQUENCE_STRING, "1");
 
         sequence.increment();
 
-        assertEquals(sequence.currentValue(), Integer.valueOf(2));
-        assertEquals(sequence.currentString(), "2");
+        assertEquals(sequence.get(), Integer.valueOf(2));
         assertAttributeEquals(sequence, SequenceEntity.SEQUENCE_VALUE, 2);
-        assertAttributeEquals(sequence, SequenceEntity.SEQUENCE_STRING, "2");
 
         sequence.invoke(SequenceEntity.INCREMENT, ImmutableMap.<String, Object>of()).getUnchecked();
 
-        assertEquals(sequence.currentValue(), Integer.valueOf(3));
-        assertEquals(sequence.currentString(), "3");
+        assertEquals(sequence.get(), Integer.valueOf(3));
         assertAttributeEquals(sequence, SequenceEntity.SEQUENCE_VALUE, 3);
-        assertAttributeEquals(sequence, SequenceEntity.SEQUENCE_STRING, "3");
     }
 
     @Test
     public void testSequenceIncrementEffectorConfig() throws Exception {
         sequence = app.addChild(EntitySpec.create(SequenceEntity.class)
                 .configure(SequenceEntity.SEQUENCE_START, 0)
-                .configure(SequenceEntity.SEQUENCE_INCREMENT, 2)
-                .configure(SequenceEntity.SEQUENCE_FORMAT, "%03d"));
+                .configure(SequenceEntity.SEQUENCE_INCREMENT, 2));
         app.start(ImmutableList.of(loc1));
 
         EntityAsserts.assertAttributeEqualsEventually(sequence, Startable.SERVICE_UP, true);
 
-        assertEquals(sequence.currentValue(), Integer.valueOf(0));
-        assertEquals(sequence.currentString(), "000");
+        assertEquals(sequence.get(), Integer.valueOf(0));
         assertAttributeEquals(sequence, SequenceEntity.SEQUENCE_VALUE, 0);
-        assertAttributeEquals(sequence, SequenceEntity.SEQUENCE_STRING, "000");
 
         sequence.increment();
 
-        assertEquals(sequence.currentValue(), Integer.valueOf(2));
-        assertEquals(sequence.currentString(), "002");
+        assertEquals(sequence.get(), Integer.valueOf(2));
         assertAttributeEquals(sequence, SequenceEntity.SEQUENCE_VALUE, 2);
-        assertAttributeEquals(sequence, SequenceEntity.SEQUENCE_STRING, "002");
 
         sequence.invoke(SequenceEntity.INCREMENT, ImmutableMap.<String, Object>of()).getUnchecked();
 
-        assertEquals(sequence.currentValue(), Integer.valueOf(4));
-        assertEquals(sequence.currentString(), "004");
+        assertEquals(sequence.get(), Integer.valueOf(4));
         assertAttributeEquals(sequence, SequenceEntity.SEQUENCE_VALUE, 4);
-        assertAttributeEquals(sequence, SequenceEntity.SEQUENCE_STRING, "004");
     }
 
     @Test
@@ -135,19 +119,16 @@ public class SequenceEntityTest extends BrooklynAppUnitTestSupport {
 
         assertAttributeEqualsEventually(sequence, Startable.SERVICE_UP, true);
 
-        assertEquals(sequence.currentValue(), Integer.valueOf(1));
-        assertEquals(sequence.currentString(), "1");
+        assertEquals(sequence.get(), Integer.valueOf(1));
 
-        Integer nextValue = sequence.invoke(SequenceEntity.NEXT_VALUE, ImmutableMap.<String, Object>of()).getUnchecked();
+        Integer nextValue = sequence.invoke(SequenceEntity.INCREMENT_AND_GET, ImmutableMap.<String, Object>of()).getUnchecked();
         assertEquals(nextValue, Integer.valueOf(2));
 
-        String nextString = sequence.invoke(SequenceEntity.NEXT_STRING, ImmutableMap.<String, Object>of()).getUnchecked();
-        assertEquals(nextString, "3");
+        nextValue = sequence.invoke(SequenceEntity.INCREMENT_AND_GET, ImmutableMap.<String, Object>of()).getUnchecked();
+        assertEquals(nextValue, Integer.valueOf(3));
 
-        assertEquals(sequence.currentValue(), Integer.valueOf(3));
-        assertEquals(sequence.currentString(), "3");
+        assertEquals(sequence.get(), Integer.valueOf(3));
         assertAttributeEquals(sequence, SequenceEntity.SEQUENCE_VALUE, 3);
-        assertAttributeEquals(sequence, SequenceEntity.SEQUENCE_STRING, "3");
     }
 
     @Test
@@ -157,23 +138,19 @@ public class SequenceEntityTest extends BrooklynAppUnitTestSupport {
 
         assertAttributeEqualsEventually(sequence, Startable.SERVICE_UP, true);
 
-        assertEquals(sequence.currentValue(), Integer.valueOf(1));
+        assertEquals(sequence.get(), Integer.valueOf(1));
 
         sequence.increment();
         sequence.increment();
         sequence.increment();
 
-        assertEquals(sequence.currentValue(), Integer.valueOf(4));
-        assertEquals(sequence.currentString(), "4");
+        assertEquals(sequence.get(), Integer.valueOf(4));
         assertAttributeEquals(sequence, SequenceEntity.SEQUENCE_VALUE, 4);
-        assertAttributeEquals(sequence, SequenceEntity.SEQUENCE_STRING, "4");
 
         sequence.invoke(SequenceEntity.RESET, ImmutableMap.<String, Object>of()).getUnchecked();
 
-        assertEquals(sequence.currentValue(), Integer.valueOf(1));
-        assertEquals(sequence.currentString(), "1");
+        assertEquals(sequence.get(), Integer.valueOf(1));
         assertAttributeEquals(sequence, SequenceEntity.SEQUENCE_VALUE, 1);
-        assertAttributeEquals(sequence, SequenceEntity.SEQUENCE_STRING, "1");
     }
 
 }

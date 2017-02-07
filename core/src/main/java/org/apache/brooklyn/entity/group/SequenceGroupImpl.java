@@ -33,6 +33,11 @@ public class SequenceGroupImpl extends DynamicGroupImpl implements SequenceGroup
 
     public SequenceGroupImpl() { }
 
+    public void init() {
+        super.init();
+        reset();
+    }
+
     @Override
     public Void reset() {
         synchronized (memberChangeMutex) {
@@ -41,14 +46,6 @@ public class SequenceGroupImpl extends DynamicGroupImpl implements SequenceGroup
             Integer initial = config().get(SEQUENCE_START);
             sensors().set(SEQUENCE_NEXT, initial);
             return null;
-        }
-    }
-
-    @Override
-    public void rescanEntities() {
-        synchronized (memberChangeMutex) {
-            reset();
-            super.rescanEntities();
         }
     }
 
@@ -96,6 +93,7 @@ public class SequenceGroupImpl extends DynamicGroupImpl implements SequenceGroup
 
         entity.sensors().set(valueSensor, current);
         entity.sensors().set(stringSensor, string);
+        LOG.debug("Sequence on {} set to to {}", entity, current);
 
         sensors().set(SEQUENCE_CURRENT, entity);
 
