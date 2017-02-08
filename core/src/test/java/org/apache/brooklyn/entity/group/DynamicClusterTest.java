@@ -1042,12 +1042,7 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
 
         cluster.start(ImmutableList.of(loc));
 
-        Iterator<Entity> clusterMembersIterator = cluster.getMembers().iterator();
-
-        for (Integer expectedClusterMemberId = 0; expectedClusterMemberId < clusterSize; expectedClusterMemberId++) {
-            Entity clusterMember = clusterMembersIterator.next();
-            assertEquals(clusterMember.config().get(CLUSTER_MEMBER_ID), expectedClusterMemberId);
-        }
+        assertMemberIdSensors(cluster, ImmutableList.of(0, 1, 2, 3, 4));
     }
 
     @Test
@@ -1063,12 +1058,7 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
         int positiveResizeDelta = 3;
         cluster.resizeByDelta(positiveResizeDelta);
 
-        Iterator<Entity> clusterMembersIterator = cluster.getMembers().iterator();
-
-        for (Integer expectedClusterMemberId = 0; expectedClusterMemberId < clusterSize + positiveResizeDelta; expectedClusterMemberId++) {
-            Entity clusterMember = clusterMembersIterator.next();
-            assertEquals(clusterMember.config().get(CLUSTER_MEMBER_ID), expectedClusterMemberId);
-        }
+        assertMemberIdSensors(cluster, ImmutableList.of(0, 1, 2, 3, 4, 5, 6, 7));
     }
 
     @Test
@@ -1087,16 +1077,47 @@ public class DynamicClusterTest extends BrooklynAppUnitTestSupport {
         int positiveResizeDelta = 2;
         cluster.resizeByDelta(positiveResizeDelta);
 
-        Iterator<Entity> clusterMembersIterator = cluster.getMembers().iterator();
+        assertMemberIdSensors(cluster, ImmutableList.of(0, 1, 5, 6));
+    }
 
-        Integer[] expectedClusterMemberIds = {0, 1, 5, 6};
+    @Test
+    public void testClustersHaveIndependentCounters() throws Exception {
+        int numClusters = 2;
+        int clusterInitialSize = 1;
+        int clusterSizeDelta = 1;
+        List<DynamicCluster> clusters = Lists.newArrayList();
+        for (int i = 0; i < numClusters; i++) {
+            DynamicCluster cluster = app.addChild(EntitySpec.create(DynamicCluster.class)
+                    .configure("memberSpec", EntitySpec.create(TestEntity.class))
+                    .configure("initialSize", clusterInitialSize));
+            cluster.start(ImmutableList.of(loc));
+            clusters.add(cluster);
+        }
 
-        for (Integer expectedClusterMemberId : expectedClusterMemberIds) {
-            Entity clusterMember = clusterMembersIterator.next();
-            assertEquals(clusterMember.config().get(CLUSTER_MEMBER_ID), expectedClusterMemberId);
+        // Each cluster has its own independent count, so should start with 0.
+        for (DynamicCluster cluster : clusters) {
+            List<Integer> expectedIds = ImmutableList.of(0);
+            assertMemberIdSensors(cluster, expectedIds);
+        }
+        
+        // Each cluster should continue using its own independent count when resized.
+        for (DynamicCluster cluster : clusters) {
+            cluster.resizeByDelta(clusterSizeDelta);
+        }
+        for (DynamicCluster cluster : clusters) {
+            List<Integer> expectedIds = ImmutableList.of(0, 1);
+            assertMemberIdSensors(cluster, expectedIds);
         }
     }
 
+    private void assertMemberIdSensors(DynamicCluster cluster, List<Integer> expectedIds) {
+        List<Entity> members = ImmutableList.copyOf(cluster.getMembers());
+        assertEquals(members.size(), expectedIds.size(), "members="+members+"; expectedIds="+expectedIds);
+        for (int i = 0; i < members.size(); i++) {
+            assertEquals(members.get(i).config().get(CLUSTER_MEMBER_ID), expectedIds.get(i));
+        }
+    }
+    
     @Test
     public void testResizeStrategies() throws Exception {
         int clusterSize = 5;
