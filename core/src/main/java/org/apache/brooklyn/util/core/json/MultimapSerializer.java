@@ -56,7 +56,7 @@ public class MultimapSerializer extends StdSerializer<Multimap<?, ?>> {
 
     private void writeEntries(Multimap<?, ?> value, JsonGenerator jgen, SerializerProvider provider) throws IOException {
         for (Map.Entry<?, ? extends Collection<?>> entry : value.asMap().entrySet()) {
-            provider.findKeySerializer(provider.constructType(String.class), null)
+            provider.findKeySerializer(provider.constructType(Object.class), null)
                     .serialize(entry.getKey(), jgen, provider);
             provider.defaultSerializeValue(Lists.newArrayList(entry.getValue()), jgen);
         }
