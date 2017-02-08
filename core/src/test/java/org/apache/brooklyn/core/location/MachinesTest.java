@@ -90,6 +90,11 @@ public class MachinesTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
+    public void testFindUniqueElementAbsentWhenItemsNull() throws Exception {
+        assertTrue(Machines.findUniqueElement(null, SshMachineLocation.class).isAbsent());
+    }
+
+    @Test
     public void testFindSubnetIpFromAttribute() throws Exception {
         TestEntity entity = app.addChild(EntitySpec.create(TestEntity.class)
                 .location(sshMachineSpec));
