@@ -19,6 +19,7 @@
 package org.apache.brooklyn.entity.group;
 
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.ImplementedBy;
@@ -123,8 +124,8 @@ public interface SequenceGroup extends DynamicGroup {
             .description("The current entity in the sequence")
             .build();
 
-    AttributeSensor<Integer> SEQUENCE_NEXT = Sensors.builder(Integer.class, "sequence.next")
-            .description("The next value of the sequence")
+    AttributeSensor<AtomicInteger> SEQUENCE_STATE = Sensors.builder(AtomicInteger.class, "sequence.state")
+            .description("The current state of the sequence")
             .build();
 
     AttributeSensor<Map<String, Integer>> SEQUENCE_CACHE = Sensors.builder(new TypeToken<Map<String, Integer>>() { }, "sequence.cache")

@@ -19,6 +19,7 @@
 package org.apache.brooklyn.entity.group;
 
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -44,7 +45,8 @@ public class SequenceGroupImpl extends DynamicGroupImpl implements SequenceGroup
             sensors().set(SEQUENCE_CACHE, Maps.<String, Integer>newConcurrentMap());
             sensors().set(SEQUENCE_CURRENT, null);
             Integer initial = config().get(SEQUENCE_START);
-            sensors().set(SEQUENCE_NEXT, initial);
+            AtomicInteger state = new AtomicInteger(initial);
+            sensors().set(SEQUENCE_STATE, state);
             return null;
         }
     }
@@ -86,7 +88,10 @@ public class SequenceGroupImpl extends DynamicGroupImpl implements SequenceGroup
 
     private Integer sequence(Entity entity) {
         String format = config().get(SEQUENCE_FORMAT);
-        Integer current = sensors().get(SEQUENCE_NEXT);
+        Integer increment = config().get(SEQUENCE_INCREMENT);
+        AtomicInteger state = sensors().get(SEQUENCE_STATE);
+        Integer current = state.getAndAdd(increment);
+
         String string = String.format(format, current);
         AttributeSensor<Integer> valueSensor = config().get(SEQUENCE_VALUE_SENSOR);
         AttributeSensor<String> stringSensor = config().get(SEQUENCE_STRING_SENSOR);
@@ -96,12 +101,7 @@ public class SequenceGroupImpl extends DynamicGroupImpl implements SequenceGroup
         LOG.debug("Sequence on {} set to to {}", entity, current);
 
         sensors().set(SEQUENCE_CURRENT, entity);
-
-        Integer increment = config().get(SEQUENCE_INCREMENT);
-        Integer next = current + increment;
-        LOG.debug("Sequence for {} incremented to {}", this, next);
-
-        sensors().set(SEQUENCE_NEXT, next);
+        LOG.debug("Sequence for {} incremented to {}", this, state.get());
 
         return current;
     }

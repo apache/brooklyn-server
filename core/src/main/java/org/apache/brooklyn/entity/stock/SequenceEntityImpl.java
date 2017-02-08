@@ -19,6 +19,7 @@
 package org.apache.brooklyn.entity.stock;
 
 import java.util.Collection;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.core.entity.AbstractEntity;
@@ -61,7 +62,7 @@ public class SequenceEntityImpl extends AbstractEntity implements SequenceEntity
     @Override
     public Integer incrementAndGet() {
         synchronized (mutex) {
-            increment();
+            sequence();
             return get();
         }
     }
@@ -69,9 +70,7 @@ public class SequenceEntityImpl extends AbstractEntity implements SequenceEntity
     @Override
     public Void increment() {
         synchronized (mutex) {
-            Integer increment = config().get(SEQUENCE_INCREMENT);
-            Integer current = get();
-            sequence(current + increment);
+            sequence();
             return null;
         }
     }
@@ -80,14 +79,19 @@ public class SequenceEntityImpl extends AbstractEntity implements SequenceEntity
     public Void reset() {
         synchronized (mutex) {
             Integer start = config().get(SEQUENCE_START);
-            sequence(start);
+            AtomicInteger state =  new AtomicInteger(start);
+            sensors().set(SEQUENCE_STATE, state);
+            sensors().set(SEQUENCE_VALUE, state.get());
             return null;
         }
     }
 
-    private void sequence(Integer value) {
-        sensors().set(SEQUENCE_VALUE, value);
-        LOG.debug("Sequence for {} set to {}", this, value);
+    private void sequence() {
+        Integer increment = config().get(SEQUENCE_INCREMENT);
+        AtomicInteger state = sensors().get(SEQUENCE_STATE);
+        Integer current = state.addAndGet(increment);
+        sensors().set(SEQUENCE_VALUE, current);
+        LOG.debug("Sequence for {} set to {}", this, current);
     }
 
 }

@@ -22,8 +22,10 @@ import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttribute;
 import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEquals;
 import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEqualsEventually;
 import static org.apache.brooklyn.test.Asserts.assertEqualsIgnoringOrder;
-import static org.apache.brooklyn.test.Asserts.assertTrue;
+import static org.apache.brooklyn.test.Asserts.*;
 import static org.apache.brooklyn.test.Asserts.succeedsEventually;
+
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -83,7 +85,8 @@ public class SequenceGroupTest extends BrooklynAppUnitTestSupport {
 
         assertEqualsIgnoringOrder(group.getMembers(), ImmutableList.of(e1));
         assertAttributeEquals(e1, SequenceGroup.SEQUENCE_VALUE, 1);
-        assertAttributeEquals(group, SequenceGroup.SEQUENCE_NEXT, 2);
+        AtomicInteger state = group.sensors().get(SequenceGroup.SEQUENCE_STATE);
+        assertEquals(state.get(), 2);
     }
 
     @Test
@@ -143,8 +146,9 @@ public class SequenceGroupTest extends BrooklynAppUnitTestSupport {
         assertAttributeEquals(e1, SequenceGroup.SEQUENCE_VALUE, 3);
         assertAttributeEquals(e2, SequenceGroup.SEQUENCE_VALUE, 4);
         assertAttributeEquals(e3, SequenceGroup.SEQUENCE_VALUE, 5);
-        assertAttributeEquals(group, SequenceGroup.SEQUENCE_NEXT, 6);
         assertAttributeEquals(group, SequenceGroup.SEQUENCE_CURRENT, e3);
+        AtomicInteger state = group.sensors().get(SequenceGroup.SEQUENCE_STATE);
+        assertEquals(state.get(), 6);
     }
 
     @Test
@@ -162,7 +166,8 @@ public class SequenceGroupTest extends BrooklynAppUnitTestSupport {
             public void run() {
                 assertEqualsIgnoringOrder(group.getMembers(), ImmutableSet.of(e));
                 assertAttributeEquals(e, SequenceGroup.SEQUENCE_VALUE, 1);
-                assertAttributeEquals(group, SequenceGroup.SEQUENCE_NEXT, 2);
+                AtomicInteger state = group.sensors().get(SequenceGroup.SEQUENCE_STATE);
+                assertEquals(state.get(), 2);
             }});
     }
 
@@ -179,8 +184,9 @@ public class SequenceGroupTest extends BrooklynAppUnitTestSupport {
         assertAttributeEquals(e1, SequenceGroup.SEQUENCE_VALUE, 1);
         assertAttributeEquals(e2, SequenceGroup.SEQUENCE_VALUE, 2);
         assertAttributeEquals(e3, SequenceGroup.SEQUENCE_VALUE, 3);
-        assertAttributeEquals(group, SequenceGroup.SEQUENCE_NEXT, 4);
         assertAttributeEquals(group, SequenceGroup.SEQUENCE_CURRENT, e3);
+        AtomicInteger state = group.sensors().get(SequenceGroup.SEQUENCE_STATE);
+        assertEquals(state.get(), 4);
 
         final Entity e = app.addChild(EntitySpec.create(TestEntity.class));
 
@@ -188,8 +194,9 @@ public class SequenceGroupTest extends BrooklynAppUnitTestSupport {
             public void run() {
                 assertEqualsIgnoringOrder(group.getMembers(), ImmutableSet.of(e1, e2, e3, e));
                 assertAttributeEquals(e, SequenceGroup.SEQUENCE_VALUE, 4);
-                assertAttributeEquals(group, SequenceGroup.SEQUENCE_NEXT, 5);
                 assertAttributeEquals(group, SequenceGroup.SEQUENCE_CURRENT, e);
+                AtomicInteger state = group.sensors().get(SequenceGroup.SEQUENCE_STATE);
+                assertEquals(state.get(), 5);
             }});
     }
 }

@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.entity.stock;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -46,6 +48,8 @@ import com.google.common.base.Supplier;
 public interface SequenceEntity extends Entity, Startable, Supplier<Integer> {
 
     AttributeSensor<Integer> SEQUENCE_VALUE = SequenceGroup.SEQUENCE_VALUE;
+
+    AttributeSensor<AtomicInteger> SEQUENCE_STATE = SequenceGroup.SEQUENCE_STATE;
 
     @SetFromFlag("sequenceStart")
     ConfigKey<Integer> SEQUENCE_START = SequenceGroup.SEQUENCE_START;

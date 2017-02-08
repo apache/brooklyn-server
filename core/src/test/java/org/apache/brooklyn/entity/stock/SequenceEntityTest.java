@@ -113,7 +113,7 @@ public class SequenceEntityTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
-    public void testSequenceNextEffectors() throws Exception {
+    public void testSequenceIncrementAndGetEffector() throws Exception {
         sequence = app.addChild(EntitySpec.create(SequenceEntity.class));
         app.start(ImmutableList.of(loc1));
 
