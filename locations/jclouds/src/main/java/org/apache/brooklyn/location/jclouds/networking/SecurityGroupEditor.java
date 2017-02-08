@@ -92,12 +92,11 @@ public class SecurityGroupEditor {
 
     /**
      * Create the security group. As we use jclouds, groups are created with names prefixed
-     * with {@link #JCLOUDS_PREFIX}. This method is idempotent.
+     * with {@link #JCLOUDS_PREFIX_REGEX}. This method is idempotent.
      * @param name Name of the group to create
      * @return The created group.
      */
     public SecurityGroup createSecurityGroup(final String name) {
-
         LOG.debug("Creating security group {} in {}", name, location);
         Callable<SecurityGroup> callable = new Callable<SecurityGroup>() {
             @Override
@@ -119,18 +118,17 @@ public class SecurityGroupEditor {
      * @return true if the group was found and removed.
      */
     public boolean removeSecurityGroup(final SecurityGroup group) {
-
         LOG.debug("Removing security group {} in {}", group.getName(), location);
         Callable<Boolean> removeIt = new RemoveSecurityGroup(group.getId());
         return runOperationWithRetry(removeIt);
     }
+
     /**
      * Removes a security group and its permissions.
      * @param groupId The jclouds id (provider id) of the group (including region code)
      * @return true if the group was found and removed.
      */
     public boolean removeSecurityGroup(final String groupId) {
-
         LOG.debug("Removing security group {} in {}", groupId, location);
         Callable<Boolean> removeIt = new RemoveSecurityGroup(groupId);
         return runOperationWithRetry(removeIt);
@@ -156,7 +154,8 @@ public class SecurityGroupEditor {
 
     /**
      * Find a security group with the given name. As we use jclouds, groups are created with names prefixed
-     * with {@link #JCLOUDS_PREFIX}. For convenience this method accepts names either with or without the prefix.
+     * with {@link #JCLOUDS_PREFIX_REGEX}. For convenience this method accepts names either with or without
+     * the prefix.
      * @param name Name of the group to find.
      * @return An optional of the group.
      * @throws AmbiguousGroupName in the unexpected case that the cloud returns more than one matching group.
@@ -197,7 +196,7 @@ public class SecurityGroupEditor {
      * Add a permission to the security group. This operation is idempotent (will return the group unmodified if the
      * permission already exists on it).
      * @param group The group to update
-     * @param permissions The new permissions
+     * @param permission The new permission
      * @return The updated group with the added permissions.
      */
     public SecurityGroup addPermission(final SecurityGroup group, final IpPermission permission) {
@@ -235,12 +234,7 @@ public class SecurityGroupEditor {
                 return true;
             }
         }
-
-        if (e.toString().contains("already exists")) {
-            return true;
-        }
-
-        return false;
+        return e.toString().contains("already exists");
     }
 
 
