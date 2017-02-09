@@ -16,6 +16,7 @@ import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.location.AbstractLocation;
@@ -24,6 +25,7 @@ import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
+import org.apache.brooklyn.core.network.OnPublicNetworkEnricher;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -343,17 +345,8 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
 
         if (resourceType.equals("Service")) {
             Service service = getService(namespace, resourceName);
-            registerPortMappings(machine, service);
+            registerPortMappings(machine, entity, service);
 
-            List<ServicePort> ports = service.getSpec().getPorts();
-            for (ServicePort port : ports) {
-                String protocol = port.getProtocol();
-                if ("TCP".equalsIgnoreCase(protocol)) {
-                    Integer targetPort = port.getTargetPort().getIntVal();
-                    AttributeSensor<Integer> sensor = Sensors.newIntegerSensor("kubernetes.port." + port.getName());
-                    entity.sensors().set(sensor, targetPort);
-                }
-            }
         }
 
         return machine;
@@ -440,7 +433,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
 
         LocationSpec<SshMachineLocation> locationSpec = prepareLocationSpec(entity, setup, namespace, deploymentName, service, pod);
         SshMachineLocation machine = getManagementContext().getLocationManager().createLocation(locationSpec);
-        registerPortMappings(machine, service);
+        registerPortMappings(machine, entity, service);
         if (!isDockerContainer(entity)) {
             waitForSshable(machine, Duration.FIVE_MINUTES);
         }
@@ -477,7 +470,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         }
     }
 
-    protected void registerPortMappings(SshMachineLocation machine, Service service) {
+    protected void registerPortMappings(SshMachineLocation machine, Entity entity, Service service) {
         PortForwardManager portForwardManager = (PortForwardManager) getManagementContext().getLocationRegistry()
                 .getLocationManaged(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
         List<ServicePort> ports = service.getSpec().getPorts();
@@ -496,8 +489,12 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 LOG.debug("Ignoring port mapping {} to {} because port.getNodePort() is null", targetPort, machine);
             } else {
                 portForwardManager.associate(publicHostText, HostAndPort.fromParts(publicHostText, port.getNodePort()), machine, targetPort);
+                AttributeSensor<Integer> sensor = Sensors.newIntegerSensor("kubernetes." + Strings.maybeNonBlank(port.getName()).or(targetPort.toString()) + ".port");
+                entity.sensors().set(sensor, targetPort);
             }
         }
+
+        entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class).configure(OnPublicNetworkEnricher.MAP_MATCHING, "kubernetes.[a-zA-Z0-9][a-zA-Z0-9-_]*.port"));
     }
 
     protected String findDeploymentName(Entity entity, ConfigBag setup) {

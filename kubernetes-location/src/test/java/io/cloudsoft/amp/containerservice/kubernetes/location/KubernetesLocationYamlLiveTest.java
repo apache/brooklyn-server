@@ -372,9 +372,9 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
 
         Entities.dumpInfo(app);
 
-        Integer httpPort = assertAttributeEventuallyNonNull(nginxService, Sensors.newIntegerSensor("kubernetes.port.http"));
-        assertEquals(httpPort, Integer.valueOf(8080));
-        String httpPublicPort = assertAttributeEventuallyNonNull(nginxService, Sensors.newStringSensor("kubernetes.port.http.mapped.public"));
+        Integer httpPort = assertAttributeEventuallyNonNull(nginxService, Sensors.newIntegerSensor("kubernetes.http.port"));
+        assertEquals(httpPort, Integer.valueOf(80));
+        String httpPublicPort = assertAttributeEventuallyNonNull(nginxService, Sensors.newStringSensor("kubernetes.http.endpoint.mapped.public"));
         assertReachableEventually(HostAndPort.fromString(httpPublicPort));
     }
 
