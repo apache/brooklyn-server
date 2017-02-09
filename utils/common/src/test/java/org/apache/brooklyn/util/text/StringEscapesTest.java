@@ -115,4 +115,9 @@ public class StringEscapesTest {
             JavaStringEscapes.unwrapJsonishListIfPossible("\"\",,x,\"\""));
     }
 
+    @Test
+    public void testBashEscapeNewLine() {
+        Assert.assertEquals(StringEscapes.BashStringEscapes.wrapBash(""+'\n'), "\"\\n\"");
+    }
+
 }
