@@ -42,7 +42,7 @@ public class KubernetesClientRegistryImpl implements KubernetesClientRegistry {
             if (certs.clientKeyData.isPresent()) configBuilder.withClientKeyData(toBase64Encoding(certs.clientKeyData.get()));
             if (certs.clientKeyAlgo.isPresent()) configBuilder.withClientKeyAlgo(certs.clientKeyAlgo.get());
             if (certs.clientKeyPassphrase.isPresent()) configBuilder.withClientKeyPassphrase(certs.clientKeyPassphrase.get());
-            // TODO configBuilder.withTrustCerts(true);
+            // TODO Should we also set configBuilder.withTrustCerts(true) here?
         }
 
         String username = conf.get(KubernetesLocationConfig.ACCESS_IDENTITY);
@@ -58,11 +58,15 @@ public class KubernetesClientRegistryImpl implements KubernetesClientRegistry {
         if (clientTimeout.isPositive()) {
             configBuilder.withConnectionTimeout((int) clientTimeout.toMilliseconds());
             configBuilder.withRequestTimeout((int) clientTimeout.toMilliseconds());
+        } else {
+            throw new IllegalArgumentException("Kubernetes client timeout should be a positive duration: " + clientTimeout.toString());
         }
         Duration actionTimeout = conf.get(KubernetesLocationConfig.ACTION_TIMEOUT);
         if (actionTimeout.isPositive()) {
             configBuilder.withRollingTimeout(actionTimeout.toMilliseconds());
             configBuilder.withScaleTimeout(actionTimeout.toMilliseconds());
+        } else {
+            throw new IllegalArgumentException("Kubernetes action timeout should be a positive duration: " + actionTimeout.toString());
         }
 
         return new DefaultKubernetesClient(configBuilder.build());
