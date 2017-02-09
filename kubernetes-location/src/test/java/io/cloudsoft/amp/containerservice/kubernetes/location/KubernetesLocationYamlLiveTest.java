@@ -324,26 +324,58 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
     }
 
     @Test(groups={"Live"})
-    public void testNginxResource() throws Exception {
+    public void testNginxReplicationController() throws Exception {
         String yaml = Joiner.on("\n").join(
                 locationYaml,
                 "services:",
                 "  - type: " + KubernetesResource.class.getName(),
-                "    id: nginx",
-                "    name: \"nginx\"",
+                "    id: nginx-replication-controller",
+                "    name: \"nginx-replication-controller\"",
                 "    brooklyn.config:",
-                "      resource: classpath://nginx.yaml");
+                "      resource: classpath://nginx-replication-controller.yaml");
         Entity app = createStartWaitAndLogApplication(yaml);
         KubernetesResource entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, KubernetesResource.class));
 
         Entities.dumpInfo(app);
 
         assertEntityHealthy(entity);
-        assertAttributeEqualsEventually(entity, KubernetesResource.RESOURCE_NAME, "nginx-resource");
+        assertAttributeEqualsEventually(entity, KubernetesResource.RESOURCE_NAME, "nginx-replication-controller");
         assertAttributeEqualsEventually(entity, KubernetesResource.RESOURCE_TYPE, "ReplicationController");
         assertAttributeEqualsEventually(entity, KubernetesLocationConfig.KUBERNETES_NAMESPACE, "default");
         assertAttributeEventually(entity, SoftwareProcess.ADDRESS, and(notNull(), not(equalTo("0.0.0.0"))));
         assertAttributeEventually(entity, SoftwareProcess.SUBNET_ADDRESS, and(notNull(), not(equalTo("0.0.0.0"))));
+    }
+
+    @Test(groups={"Live"})
+    public void testNginxService() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                locationYaml,
+                "services:",
+                "  - type: " + KubernetesResource.class.getName(),
+                "    id: nginx-replication-controller",
+                "    name: \"nginx-replication-controller\"",
+                "    brooklyn.config:",
+                "      resource: classpath://nginx-replication-controller.yaml",
+                "  - type: " + KubernetesResource.class.getName(),
+                "    id: nginx-service",
+                "    name: \"nginx-service\"",
+                "    brooklyn.config:",
+                "      resource: classpath://nginx-service.yaml");
+        Entity app = createStartWaitAndLogApplication(yaml);
+
+        Iterable<KubernetesResource> resources = Entities.descendantsAndSelf(app, KubernetesResource.class);
+        KubernetesResource nginxReplicationController = Iterables.find(resources, EntityPredicates.displayNameEqualTo("nginx-replication-controller"));
+        KubernetesResource nginxService = Iterables.find(resources, EntityPredicates.displayNameEqualTo("nginx-service"));
+
+        assertEntityHealthy(nginxReplicationController);
+        assertEntityHealthy(nginxService);
+
+        Entities.dumpInfo(app);
+
+        Integer httpPort = assertAttributeEventuallyNonNull(nginxService, Sensors.newIntegerSensor("kubernetes.port.http"));
+        assertEquals(httpPort, Integer.valueOf(8080));
+        String httpPublicPort = assertAttributeEventuallyNonNull(nginxService, Sensors.newStringSensor("kubernetes.port.http.mapped.public"));
+        assertReachableEventually(HostAndPort.fromString(httpPublicPort));
     }
 
     protected void assertReachableEventually(final HostAndPort hostAndPort) {
