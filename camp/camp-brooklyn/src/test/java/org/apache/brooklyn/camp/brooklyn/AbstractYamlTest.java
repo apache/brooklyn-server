@@ -240,6 +240,10 @@ public abstract class AbstractYamlTest {
         return countCatalogItemsMatching(RegisteredTypePredicates.IS_LOCATION);
     }
 
+    protected int countCatalogPolicies() {
+        return countCatalogItemsMatching(RegisteredTypePredicates.IS_POLICY);
+    }
+
     protected int countCatalogItemsMatching(Predicate<? super RegisteredType> filter) {
         return Iterables.size(mgmt().getTypeRegistry().getMatching(filter));
     }
