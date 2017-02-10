@@ -169,7 +169,7 @@ public class BasicConfigInheritance implements ConfigInheritance {
      * if a key is not defined at an ancestor, a descendant setting this value false will not prevent it 
      * from inheriting values from ancestors.
      * <p> 
-     * typical use case for setting this is false is where a key is consumed and descendants should not
+     * typical use case for setting this to false is where a key is consumed and descendants should not
      * "reconsume" it.  for example setting files to install on a VM need only be applied once,
      * and if it has <b>runtime management</b> hierarchy descendants which also understand that field they
      * should not install the same files. 

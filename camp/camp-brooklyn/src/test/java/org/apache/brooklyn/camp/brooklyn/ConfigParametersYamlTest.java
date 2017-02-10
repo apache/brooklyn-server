@@ -554,7 +554,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "        type: string",
                 "        default: myDefaultVal",
                 "      brooklyn.config:",
-                "        my.other.key: $brooklyn:config(\"my.param.key\")");
+                "        key2: $brooklyn:config(\"my.param.key\")");
 
         addCatalogItems(
                 "brooklyn.catalog:",
@@ -566,15 +566,26 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "      - name: my.param.key",
                 "        type: string",
                 "        default: myDefaultValInOuter",
-                "      type: entity-with-keys");
+                "      type: entity-with-keys",
+                "      brooklyn.config:",
+                "        key3: $brooklyn:config(\"my.param.key\")",
+                "        key3.from.root: $brooklyn:scopeRoot().config(\"my.param.key\")");
         
         String yaml = Joiner.on("\n").join(
                 "services:",
-                "- type: wrapper-entity");
+                "- type: wrapper-entity",
+                "  brooklyn.config:",
+                "    key4: $brooklyn:config(\"my.param.key\")",
+                "    key4.from.root: $brooklyn:scopeRoot().config(\"my.param.key\")");
         
         Entity app = createStartWaitAndLogApplication(yaml);
         final TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
-        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("my.other.key")), "myDefaultValInOuter");
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("my.param.key")), "myDefaultValInOuter");
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key2")), "myDefaultValInOuter");
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key3")), "myDefaultValInOuter");
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key3.from.root")), "myDefaultValInOuter");
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key4")), "myDefaultValInOuter");
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key4.from.root")), "myDefaultValInOuter");
     }
     
     @Test
@@ -595,7 +606,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "        description: description one",
                 "        default: myDefaultVal",
                 "      brooklyn.config:",
-                "        my.other.key: $brooklyn:config(\"my.param.key\")");
+                "        key2: $brooklyn:config(\"my.param.key\")");
 
         addCatalogItems(
                 "brooklyn.catalog:",
@@ -606,11 +617,18 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "      brooklyn.parameters:",
                 "      - name: my.param.key",
                 "        description: description two",
-                "      type: entity-with-keys");
+                "      type: entity-with-keys",
+                "      brooklyn.config:",
+                "        key3: $brooklyn:config(\"my.param.key\")",
+                "        key3.from.root: $brooklyn:scopeRoot().config(\"my.param.key\")");
+
         
         String yaml = Joiner.on("\n").join(
                 "services:",
-                "- type: wrapper-entity");
+                "- type: wrapper-entity",
+                "  brooklyn.config:",
+                "    key4: $brooklyn:config(\"my.param.key\")",
+                "    key4.from.root: $brooklyn:scopeRoot().config(\"my.param.key\")");
         
         Entity app = createStartWaitAndLogApplication(yaml);
         final TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
@@ -618,6 +636,13 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         ConfigKey<?> key = Iterables.getOnlyElement( entity.config().findKeysDeclared(ConfigPredicates.nameEqualTo("my.param.key")) );
         assertEquals(key.getDescription(), "description two");
         assertEquals(entity.config().get(key), "myDefaultVal");
+        
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("my.param.key")), "myDefaultVal");
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key2")), "myDefaultVal");
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key3")), "myDefaultVal");
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key3.from.root")), "myDefaultVal");
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key4")), "myDefaultVal");
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key4.from.root")), "myDefaultVal");
     }
     
     @Test

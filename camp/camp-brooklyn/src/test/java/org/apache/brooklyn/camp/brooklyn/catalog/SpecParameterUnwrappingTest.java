@@ -176,13 +176,13 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         AbstractBrooklynObjectSpec<?,?> spec = catalog.peekSpec(item);
         List<SpecParameter<?>> params = spec.getParameters();
         // should have simple in parent yaml type and sample from parent java type
-        Asserts.assertSize(params, getDefaultsFor(type.getSimpleName()) + 2);
+        Asserts.assertSize(params, getNumDefaultConfigKeysFor(type.getSimpleName()) + 2);
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());
         assertTrue(Iterables.tryFind(params, labelEqualTo("simple")).isPresent());
         assertTrue(Iterables.tryFind(params, nameEqualTo(SHARED_CONFIG.getName())).isPresent());
     }
 
-    private int getDefaultsFor(String simpleName) {
+    private int getNumDefaultConfigKeysFor(String simpleName) {
         switch (simpleName) {
         case "ConfigEntityForTest":
             return NUM_ENTITY_DEFAULT_CONFIG_KEYS;
@@ -216,7 +216,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         AbstractBrooklynObjectSpec<?,?> spec = catalog.peekSpec(item);
         List<SpecParameter<?>> params = spec.getParameters();
         // should have override locally, simple in parent yaml type, and sample from parent java type
-        Asserts.assertSize(params, getDefaultsFor(type.getSimpleName()) + 3);
+        Asserts.assertSize(params, getNumDefaultConfigKeysFor(type.getSimpleName()) + 3);
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());
         assertTrue(Iterables.tryFind(params, nameEqualTo("override")).isPresent());
     }
@@ -244,7 +244,7 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         AbstractBrooklynObjectSpec<?,?> spec = catalog.peekSpec(item);
         List<SpecParameter<?>> params = spec.getParameters();
         // should have simple locally (and in parent yaml type) and sample from parent java type
-        Asserts.assertSize(params, getDefaultsFor(type.getSimpleName()) + 2);
+        Asserts.assertSize(params, getNumDefaultConfigKeysFor(type.getSimpleName()) + 2);
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());
         assertTrue(Iterables.tryFind(params, labelEqualTo("override")).isPresent());
     }
