@@ -44,7 +44,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
@@ -253,7 +253,7 @@ public abstract class BrooklynDynamicType<T extends BrooklynObject, AbstractT ex
         }
         @Override
         public String toString() {
-            return Objects.toStringHelper(this).add("field", field).add("value", value).toString();
+            return MoreObjects.toStringHelper(this).add("field", field).add("value", value).toString();
         }
     }
     
