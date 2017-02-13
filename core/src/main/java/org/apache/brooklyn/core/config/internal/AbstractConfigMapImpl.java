@@ -103,10 +103,12 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         return (BrooklynObjectInternal)bo;
     }
     
+    @Override
     public <T> T getConfig(ConfigKey<T> key) {
         return getConfigImpl(key, false).getWithoutError().get();
     }
     
+    @Override
     public <T> T getConfig(HasConfigKey<T> key) {
         return getConfigImpl(key.getConfigKey(), false).getWithoutError().get();
     }
@@ -326,7 +328,7 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
     @SuppressWarnings("unchecked")
     protected <T> T coerce(Object value, Class<T> type) {
         if (type==null || value==null) return (T) value;
-        return (T) TypeCoercions.coerce(value, type);
+        return TypeCoercions.coerce(value, type);
     }
     
     protected <T> ReferenceWithError<ConfigValueAtContainer<TContainer,T>> getConfigImpl(final ConfigKey<T> queryKey, final boolean raw) {

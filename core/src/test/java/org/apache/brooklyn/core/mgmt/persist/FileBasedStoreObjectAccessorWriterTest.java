@@ -52,6 +52,7 @@ public class FileBasedStoreObjectAccessorWriterTest extends PersistenceStoreObje
         return new String(charArray);
     }
 
+    @Override
     protected StoreObjectAccessorWithLock newPersistenceStoreObjectAccessor() throws IOException {
         file = Os.newTempFile(getClass(), "txt");
         return new StoreObjectAccessorLocking(new FileBasedStoreObjectAccessor(file, ".tmp"));
@@ -63,6 +64,7 @@ public class FileBasedStoreObjectAccessorWriterTest extends PersistenceStoreObje
         return Duration.seconds(2);
     }
     
+    @Override
     @Test(groups="Integration")
     public void testLastModifiedTime() throws Exception {
         super.testLastModifiedTime();

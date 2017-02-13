@@ -25,5 +25,6 @@ public interface Lease<T> extends Closeable {
 
     T leasedObject();
     
+    @Override
     void close() throws IOException;
 }

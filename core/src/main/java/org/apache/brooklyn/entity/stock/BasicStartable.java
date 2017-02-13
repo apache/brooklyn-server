@@ -48,6 +48,7 @@ public interface BasicStartable extends Entity, Startable {
     @Deprecated
     public interface LocationsFilter extends Locations.LocationsFilter {
         /** @deprecated since 0.7.0; use {@link Locations#USE_FIRST_LOCATION} */
+        @Deprecated
         public static final LocationsFilter USE_FIRST_LOCATION = new LocationsFilter() {
             private static final long serialVersionUID = 3100091615409115890L;
 

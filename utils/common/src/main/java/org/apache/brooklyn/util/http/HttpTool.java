@@ -114,6 +114,7 @@ public class HttpTool {
 
         // sometimes openConnection hangs, so run in background
         Future<URLConnection> f = executor.submit(new Callable<URLConnection>() {
+            @Override
             public URLConnection call() {
                 try {
                     HttpsURLConnection.setDefaultHostnameVerifier(new HostnameVerifier() {

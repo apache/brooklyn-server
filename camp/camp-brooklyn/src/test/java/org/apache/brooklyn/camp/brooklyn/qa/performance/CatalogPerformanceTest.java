@@ -96,12 +96,14 @@ public class CatalogPerformanceTest extends AbstractYamlTest {
         Runnable preJob = null;
         
         Runnable job = new Runnable() {
+            @Override
             public void run() {
                 int i = counter.getAndIncrement();
                 items.set(addItems(i));
             }
         };
         Runnable postJob = new Runnable() {
+            @Override
             public void run() {
                 if (items.get() != null) {
                     for (CatalogItem<?, ?> item : items.get()) {
@@ -119,12 +121,14 @@ public class CatalogPerformanceTest extends AbstractYamlTest {
         final AtomicReference<List<CatalogItem<?,?>>> items = new AtomicReference<>();
         
         Runnable preJob = new Runnable() {
+            @Override
             public void run() {
                 int i = counter.getAndIncrement();
                 items.set(addItems(i));
             }
         };
         Runnable job = new Runnable() {
+            @Override
             public void run() {
                 for (CatalogItem<?, ?> item : items.get()) {
                     mgmt().getCatalog().peekSpec(item);
@@ -132,6 +136,7 @@ public class CatalogPerformanceTest extends AbstractYamlTest {
             }
         };
         Runnable postJob = new Runnable() {
+            @Override
             public void run() {
                 if (items.get() != null) {
                     for (CatalogItem<?, ?> item : items.get()) {
@@ -148,6 +153,7 @@ public class CatalogPerformanceTest extends AbstractYamlTest {
         final List<CatalogItem<?, ?>> items = addItems(0);
         
         Runnable job = new Runnable() {
+            @Override
             public void run() {
                 for (CatalogItem<?, ?> item : items) {
                     mgmt().getCatalog().peekSpec(item);

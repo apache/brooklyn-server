@@ -374,6 +374,7 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
         RebindTestUtils.checkCurrentMementoSerializable(origApp);
         newManagementContext = RebindTestUtils.newPersistingManagementContextUnstarted(mementoDir, classLoader);
         Thread thread = new Thread() {
+            @Override
             public void run() {
                 try {
                     newManagementContext.getRebindManager().rebind(classLoader, null, ManagementNodeState.MASTER);
@@ -425,6 +426,7 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
         RebindTestUtils.checkCurrentMementoSerializable(origApp);
         newManagementContext = new LocalManagementContext();
         Thread thread = new Thread() {
+            @Override
             public void run() {
                 try {
                     RebindTestUtils.rebind(RebindOptions.create()
@@ -638,7 +640,7 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
     @Test
     public void testRebindAttributeWithSpecialCharacters() throws Exception {
         String val = "abc\u001b";
-        assertEquals((int)val.charAt(3), 27); // expect that to give us unicode character 27
+        assertEquals(val.charAt(3), 27); // expect that to give us unicode character 27
         
         MyEntity origE = origApp.createAndManageChild(EntitySpec.create(MyEntity.class));
         origE.sensors().set(MyEntity.MY_SENSOR, val);
@@ -672,6 +674,7 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
     /**
      * @deprecated since 0.7; support for rebinding old-style entities is deprecated
      */
+    @Deprecated
     @Test
     public void testHandlesOldStyleEntity() throws Exception {
         MyOldStyleEntity origE = new MyOldStyleEntity(MutableMap.of("confName", "myval"), origApp);
@@ -848,10 +851,12 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
         public MyEntity2Impl() {
         }
 
+        @Override
         public List<String> getEvents() {
             return events;
         }
 
+        @Override
         public String getMyfield() {
             return myfield;
         }

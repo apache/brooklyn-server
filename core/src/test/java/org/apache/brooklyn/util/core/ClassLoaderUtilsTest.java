@@ -56,7 +56,6 @@ import org.apache.brooklyn.util.maven.MavenRetriever;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.apache.brooklyn.util.osgi.OsgiUtils;
 import org.osgi.framework.Bundle;
-import org.osgi.framework.Version;
 import org.osgi.framework.launch.Framework;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;

@@ -41,7 +41,6 @@ import java.util.concurrent.Callable;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
-import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -126,10 +125,14 @@ public class TestSshCommandImpl extends TargetableTestComponentImpl implements T
             final SshMachineLocation machineLocation =
                     Machines.findUniqueMachineLocation(resolveTarget().getLocations(), SshMachineLocation.class).get();
             final Duration timeout = getRequiredConfig(TIMEOUT);
+            final Duration backoffToPeriod = getRequiredConfig(BACKOFF_TO_PERIOD);
 
+            // TODO use TestFrameworkAssertions (or use Repeater in the same way as that does)?
+            // Perhaps extract a helper method in TestFrameworkAssertions, so get consistent behaviour
+            // for limitTimeTo, backoffTo, etc?
             ReferenceWithError<Boolean> result = Repeater.create("Running ssh-command tests")
                     .limitTimeTo(timeout)
-                    .every(timeout.multiply(0.1))
+                    .backoffTo((backoffToPeriod != null) ? backoffToPeriod : Duration.millis(500))
                     .until(new Callable<Boolean>() {
                         @Override
                         public Boolean call() throws Exception {

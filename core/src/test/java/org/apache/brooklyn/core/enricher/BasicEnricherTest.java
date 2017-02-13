@@ -48,6 +48,7 @@ public class BasicEnricherTest extends BrooklynAppUnitTestSupport {
     // TODO These tests are a copy of BasicPolicyTest, which is a code smell.
     // However, the src/main/java code does not contain as much duplication.
 
+    @Override
     protected void setUpApp() {
         EntitySpec<TestApplication> appSpec = EntitySpec.create(TestApplication.class, TestApplicationNoEnrichersImpl.class)
                 .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, shouldSkipOnBoxBaseDirResolution());

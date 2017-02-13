@@ -29,6 +29,7 @@ public class LocationDynamicType extends BrooklynDynamicType<Location, AbstractL
         super(location);
     }
     
+    @Override
     public LocationType getSnapshot() {
         return (LocationType) super.getSnapshot();
     }

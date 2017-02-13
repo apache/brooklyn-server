@@ -41,6 +41,7 @@ public class BasicEntityDriverManager implements EntityDriverManager {
         return reflective;
     }
     
+    @Override
     public <D extends EntityDriver> void registerDriver(Class<D> driverInterface, Class<? extends Location> locationClazz, Class<? extends D> driverClazz) {
         registry.registerDriver(driverInterface, locationClazz, driverClazz);
     }

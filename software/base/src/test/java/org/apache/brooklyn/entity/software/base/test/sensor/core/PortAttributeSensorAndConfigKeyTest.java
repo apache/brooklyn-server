@@ -45,8 +45,8 @@ public class PortAttributeSensorAndConfigKeyTest extends BrooklynAppUnitTestSupp
             PortAttributeSensorAndConfigKey.convertConfigToSensor(PortRange, Entity) line: 78   
             PortAttributeSensorAndConfigKey.convertConfigToSensor(Object, Entity) line: 1   
             PortAttributeSensorAndConfigKey(AttributeSensorAndConfigKey<ConfigType,SensorType>).getAsSensorValue(Entity) line: 93   
-            ConfigToAttributes.apply(EntityLocal, AttributeSensorAndConfigKey<?,T>) line: 28    
-            ConfigToAttributes.apply(EntityLocal) line: 17  
+            ConfigToAttributes.apply(Entity, AttributeSensorAndConfigKey<?,T>) line: 28    
+            ConfigToAttributes.apply(Entity) line: 17  
             SoftwareProcessDriverLifecycleEffectorTasks(MachineLifecycleEffectorTasks).preStartCustom(MachineLocation) line: 343    
             SoftwareProcessDriverLifecycleEffectorTasks.preStartCustom(MachineLocation) line: 69    
             MachineLifecycleEffectorTasks$6.run() line: 283 

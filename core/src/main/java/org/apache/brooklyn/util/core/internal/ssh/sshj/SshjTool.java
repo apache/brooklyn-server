@@ -319,6 +319,7 @@ public class SshjTool extends SshAbstractTool implements SshTool {
                 if (LOG.isDebugEnabled()) LOG.debug("Ignoring ssh exec-async configuration, because feature is disabled");
             }
             return new ToolAbstractExecScript(props) {
+                @Override
                 public int run() {
                     String scriptContents = toScript(props, commands, env);
                     if (LOG.isTraceEnabled()) LOG.trace("Running shell command at {} as script: {}", host, scriptContents);
@@ -358,6 +359,7 @@ public class SshjTool extends SshAbstractTool implements SshTool {
             private int stderrCount = 0;
             private Stopwatch timer;
 
+            @Override
             public int run() {
                 timer = Stopwatch.createStarted();
                 final String scriptContents = toScript(props, commands, env);
@@ -752,7 +754,7 @@ public class SshjTool extends SshAbstractTool implements SshTool {
             this.uid = getOptionalVal(props, PROP_OWNER_UID);
             this.path = checkNotNull(path, "path");
             this.contentsSupplier = checkNotNull(contentsSupplier, "contents");
-            this.length = Ints.checkedCast(checkNotNull((long)length, "size"));
+            this.length = Ints.checkedCast(checkNotNull(length, "size"));
         }
 
         @Override

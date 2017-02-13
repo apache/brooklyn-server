@@ -97,7 +97,7 @@ public class DynamicEntityTypeConfigTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testAddConfigKeyThroughEntity() throws Exception{
-        ((AbstractEntity)Entities.deproxy(entity)).configure(ImmutableList.<ConfigKey<?>>of(NEW_CONFIG));
+        Entities.deproxy(entity).configure(ImmutableList.<ConfigKey<?>>of(NEW_CONFIG));
         assertEquals(entity.getEntityType().getConfigKeys(), 
                 ImmutableSet.builder().addAll(DEFAULT_CONFIG_KEYS).add(NEW_CONFIG).build());
         

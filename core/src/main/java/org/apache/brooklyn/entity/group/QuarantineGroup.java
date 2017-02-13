@@ -19,10 +19,8 @@
 package org.apache.brooklyn.entity.group;
 
 import org.apache.brooklyn.api.entity.ImplementedBy;
-import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.annotation.Effector;
 import org.apache.brooklyn.core.annotation.EffectorParam;
-import org.apache.brooklyn.core.config.ConfigKeys;
 
 @ImplementedBy(QuarantineGroupImpl.class)
 public interface QuarantineGroup extends AbstractGroup {

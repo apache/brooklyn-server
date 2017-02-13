@@ -83,6 +83,7 @@ public abstract class JavaSoftwareProcessSshDriver extends AbstractSoftwareProce
 
     protected abstract String getLogFileLocation();
 
+    @Override
     public boolean isJmxEnabled() {
         return (entity instanceof UsesJmx) && (entity.getConfig(UsesJmx.USE_JMX));
     }
@@ -124,6 +125,7 @@ public abstract class JavaSoftwareProcessSshDriver extends AbstractSoftwareProce
     public List<String> getJavaOpts() {
         Iterable<String> sysprops = Iterables.transform(getJavaSystemProperties().entrySet(),
                 new Function<Map.Entry<String, ?>, String>() {
+                    @Override
                     public String apply(Map.Entry<String, ?> entry) {
                         String k = entry.getKey();
                         Object v = entry.getValue();
@@ -435,15 +437,16 @@ public abstract class JavaSoftwareProcessSshDriver extends AbstractSoftwareProce
 
     @Override
     public void setup() {
-        DynamicTasks.queue("install java", new Runnable() { public void run() {
-            installJava();
-        }});
+        DynamicTasks.queue("install java", new Runnable() {
+            @Override public void run() { installJava(); }
+        });
 
         // TODO check java version
 
         if (getEntity().getConfig(UsesJava.CHECK_JAVA_HOSTNAME_BUG)) {
-            DynamicTasks.queue("check java hostname bug", new Runnable() { public void run() {
-                checkJavaHostnameBug(); }});
+            DynamicTasks.queue("check java hostname bug", new Runnable() {
+                @Override public void run() { checkJavaHostnameBug(); }
+            });
         }
     }
 
@@ -452,8 +455,9 @@ public abstract class JavaSoftwareProcessSshDriver extends AbstractSoftwareProce
         super.copyRuntimeResources();
 
         if (isJmxEnabled()) {
-            DynamicTasks.queue("install jmx", new Runnable() { public void run() {
-                installJmxSupport(); }});
+            DynamicTasks.queue("install jmx", new Runnable() {
+                @Override public void run() { installJmxSupport(); }
+            });
         }
     }
 

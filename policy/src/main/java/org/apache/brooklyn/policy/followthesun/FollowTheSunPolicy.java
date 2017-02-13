@@ -81,6 +81,7 @@ public class FollowTheSunPolicy extends AbstractPolicy {
     private boolean loggedConstraintsIgnored = false;
     
     private final Function<Entity, Location> defaultLocationFinder = new Function<Entity, Location>() {
+        @Override
         public Location apply(Entity e) {
             Collection<Location> locs = e.getLocations();
             if (locs.isEmpty()) return null;
@@ -190,6 +191,7 @@ public class FollowTheSunPolicy extends AbstractPolicy {
             long delay = Math.max(0, (executorTime + minPeriodBetweenExecs) - now);
             
             executor.schedule(new Runnable() {
+                @Override
                 public void run() {
                     try {
                         executorTime = System.currentTimeMillis();
@@ -228,7 +230,7 @@ public class FollowTheSunPolicy extends AbstractPolicy {
     }
     
     private void onItemAdded(Movable item, boolean rebalanceNow) {
-        Entity parentContainer = (Entity) item.getAttribute(Movable.CONTAINER);
+        Entity parentContainer = item.getAttribute(Movable.CONTAINER);
         
         if (LOG.isTraceEnabled()) LOG.trace("{} recording addition of item {} in container {}", new Object[] {this, item, parentContainer});
         
@@ -236,7 +238,7 @@ public class FollowTheSunPolicy extends AbstractPolicy {
         
         // Update the model, including the current metric value (if any).
         Map<? extends Movable, Double> currentValue = item.getAttribute(itemUsageMetric);
-        boolean immovable = (Boolean)elvis(item.getConfig(Movable.IMMOVABLE), false);
+        boolean immovable = elvis(item.getConfig(Movable.IMMOVABLE), false);
         model.onItemAdded(item, parentContainer, immovable);
 
         if (currentValue != null) {

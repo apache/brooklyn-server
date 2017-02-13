@@ -32,36 +32,27 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.NamedStringTag;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
-import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.entity.group.DynamicCluster;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.testng.Assert;
 import org.testng.TestListenerAdapter;
 import org.testng.TestNG;
 import org.testng.annotations.Test;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.Iterables;
 
 
 public class CatalogYamlTemplateTest extends AbstractYamlTest {
     
-    private static final String SIMPLE_ENTITY_TYPE = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY;
-
-    @Override
-    protected boolean disableOsgi() {
-        return false;
-    }
-
     @Test
     public void testAddCatalogItem() throws Exception {
-        RegisteredType item = makeItem();
+        RegisteredType item = addCatalogItem("t1", TestEntity.class.getName());
         Assert.assertTrue(RegisteredTypePredicates.IS_APPLICATION.apply(item), "item: "+item);
         String yaml = RegisteredTypes.getImplementationDataStringForSpec(item);
         Assert.assertTrue(yaml.indexOf("sample comment")>=0,
@@ -74,10 +65,10 @@ public class CatalogYamlTemplateTest extends AbstractYamlTest {
 
     @Test
     public void testAddCatalogItemAndCheckSource() throws Exception {
-        // this will fail with the Eclipse TestNG plugin -- use the static main instead to run in eclipse!
+        // this may fail with old Eclipse TestNG plugins -- use the static main instead to run in eclipse!
         // see Yamls.KnownClassVersionException for details
         
-        RegisteredType item = makeItem();
+        RegisteredType item = addCatalogItem("t1", TestEntity.class.getName());
         String yaml = RegisteredTypes.getImplementationDataStringForSpec(item);
         Assert.assertTrue(yaml.indexOf("sample comment")>=0,
             "YAML did not include original comments; it was:\n"+yaml);
@@ -201,10 +192,14 @@ public class CatalogYamlTemplateTest extends AbstractYamlTest {
 
     @Test
     public void testMetadataOnSpecCreatedFromItem() throws Exception {
-        makeItem();
-        EntitySpec<? extends Application> spec = EntityManagementUtils.createEntitySpecForApplication(mgmt(), 
-            "services: [ { type: t1 } ]\n" +
-            "location: localhost");
+        addCatalogItem("t1", TestEntity.class.getName());
+
+        EntitySpec<? extends Application> spec = EntityManagementUtils.createEntitySpecForApplication(
+                mgmt(),
+                Joiner.on("\n").join(
+                        "location: localhost",
+                        "services:",
+                        "- type: t1"));
         
         List<NamedStringTag> yamls = BrooklynTags.findAll(BrooklynTags.YAML_SPEC_KIND, spec.getTags());
         Assert.assertEquals(yamls.size(), 1, "Expected 1 yaml tag; instead had: "+yamls);
@@ -212,7 +207,7 @@ public class CatalogYamlTemplateTest extends AbstractYamlTest {
         Asserts.assertStringContains(yaml, "services:", "t1", "localhost");
         
         EntitySpec<?> child = Iterables.getOnlyElement( spec.getChildren() );
-        Assert.assertEquals(child.getType().getName(), SIMPLE_ENTITY_TYPE);
+        Assert.assertEquals(child.getType().getName(), TestEntity.class.getName());
         Assert.assertEquals(child.getCatalogItemId(), "t1:"+TEST_VERSION);
     }
     
@@ -255,25 +250,21 @@ public class CatalogYamlTemplateTest extends AbstractYamlTest {
         Assert.assertEquals(spec.getCatalogItemId(), "app1r:1");
     }
     
-    private RegisteredType makeItem() {
-        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
-        
+    private RegisteredType addCatalogItem(String symbolicName, String templateType) {
         addCatalogItems(
             "brooklyn.catalog:",
-            "  id: t1",
+            "  id: " + symbolicName,
             "  itemType: template",
             "  name: My Catalog App",
             "  description: My description",
             "  icon_url: classpath://path/to/myicon.jpg",
             "  version: " + TEST_VERSION,
-            "  libraries:",
-            "  - url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
             "  item:",
             "    services:",
             "    # this sample comment should be included",
-            "    - type: " + SIMPLE_ENTITY_TYPE);
+            "    - type: " + templateType);
 
-        return mgmt().getTypeRegistry().get("t1", TEST_VERSION);
+        return mgmt().getTypeRegistry().get(symbolicName, TEST_VERSION);
     }
 
     // convenience for running in eclipse when the TestNG plugin drags in old version of snake yaml

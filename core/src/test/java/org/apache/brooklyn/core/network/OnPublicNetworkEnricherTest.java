@@ -97,7 +97,7 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
     public Object[][] provideInvalidVariants() {
         AttributeSensor<HostAndPort> hostAndPortSensor = Sensors.newSensor(HostAndPort.class, "test.hostAndPort");
         List<Object[]> result = Lists.newArrayList();
-        result.add(new Object[] {Attributes.MAIN_URI, (URI)null});
+        result.add(new Object[] {Attributes.MAIN_URI, null});
         result.add(new Object[] {TestEntity.NAME, "127.0.0.1:1234/my/path"}); // must have scheme
         result.add(new Object[] {Attributes.HTTP_PORT, null});
         result.add(new Object[] {Attributes.HTTP_PORT, 1234567});
@@ -105,7 +105,7 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
         result.add(new Object[] {TestEntity.NAME, "1234567"});
         result.add(new Object[] {TestEntity.NAME, "thisHasNoPort"});
         result.add(new Object[] {TestEntity.NAME, "portIsTooBig:1234567"});
-        result.add(new Object[] {hostAndPortSensor, (HostAndPort)null});
+        result.add(new Object[] {hostAndPortSensor, null});
         return result.toArray(new Object[result.size()][]);
     }
 
@@ -376,7 +376,7 @@ public class OnPublicNetworkEnricherTest extends BrooklynAppUnitTestSupport {
         
         // Ugly casting in java, but easy to get passed this when constructed from YAML
         entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class)
-                .configure(OnPublicNetworkEnricher.SENSORS, ((List<AttributeSensor<?>>)(List)ImmutableList.of("mysensor"))));
+                .configure(OnPublicNetworkEnricher.SENSORS, ((List)ImmutableList.of("mysensor"))));
 
         assertAttributeEqualsEventually("mysensor.mapped.public", "mypublichost:5678");
     }

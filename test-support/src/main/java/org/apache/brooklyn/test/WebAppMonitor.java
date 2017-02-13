@@ -70,6 +70,7 @@ public class WebAppMonitor implements Runnable {
         return this;
     }
     
+    @Override
     public void run() {
         synchronized (isActive) {
             if (isActive.getAndSet(true))

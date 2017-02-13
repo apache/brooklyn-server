@@ -28,6 +28,7 @@ public class LoadedClassLoader extends ClassLoader {
 
     Map<String, Class<?>> loadedClasses = new LinkedHashMap<String, Class<?>>();
     
+    @Override
     protected synchronized Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
         Class<?> result = loadedClasses.get(name);
         if (result==null) throw new ClassNotFoundException(""+name+" not known here");

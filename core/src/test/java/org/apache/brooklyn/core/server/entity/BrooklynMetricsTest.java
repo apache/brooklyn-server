@@ -70,6 +70,7 @@ public class BrooklynMetricsTest {
         app.start(ImmutableList.of(loc));
 
         Asserts.succeedsEventually(MutableMap.of("timeout", Duration.FIVE_SECONDS), new Runnable() {
+            @Override
             public void run() {
                 assertEquals(brooklynMetrics.getAttribute(BrooklynMetrics.TOTAL_EFFECTORS_INVOKED), (Long)1L);
                 assertTrue(brooklynMetrics.getAttribute(BrooklynMetrics.TOTAL_TASKS_SUBMITTED) > 0);
@@ -87,6 +88,7 @@ public class BrooklynMetricsTest {
         app.start(ImmutableList.of(loc));
 
         Asserts.succeedsEventually(MutableMap.of("timeout", Duration.FIVE_SECONDS), new Runnable() {
+            @Override
             public void run() {
                 assertEquals(brooklynMetrics.getAttribute(BrooklynMetrics.TOTAL_EFFECTORS_INVOKED), (Long)2L); // for app and testEntity's start
             }});
@@ -101,6 +103,7 @@ public class BrooklynMetricsTest {
         e.myEffector();
         
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 assertEquals(brooklynMetrics.getAttribute(BrooklynMetrics.TOTAL_EFFECTORS_INVOKED), (Long)(effsInvoked+1));
                 assertTrue(brooklynMetrics.getAttribute(BrooklynMetrics.TOTAL_TASKS_SUBMITTED) > tasksSubmitted);
@@ -112,6 +115,7 @@ public class BrooklynMetricsTest {
         e.sensors().set(TestEntity.SEQUENCE, 1);
         
         Asserts.succeedsEventually(MutableMap.of("timeout", Duration.FIVE_SECONDS), new Runnable() {
+            @Override
             public void run() {
                 assertTrue(brooklynMetrics.getAttribute(BrooklynMetrics.TOTAL_EVENTS_PUBLISHED) > eventsPublished);
                 assertTrue(brooklynMetrics.getAttribute(BrooklynMetrics.TOTAL_EVENTS_DELIVERED) > eventsDelivered);

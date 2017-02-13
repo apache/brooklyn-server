@@ -86,7 +86,7 @@ public class IfFunctions {
         }
         
         public IfFunctionBuilderApplying<I,O> ifPredicate(Predicate<I> test) {
-            return new IfFunctionBuilderApplying<I,O>(this, (Predicate<I>)test);
+            return new IfFunctionBuilderApplying<I,O>(this, test);
         }
         public IfFunctionBuilderApplying<I,O> ifEquals(I test) {
             return ifPredicate(Predicates.equalTo(test));
@@ -100,7 +100,7 @@ public class IfFunctions {
         }
         @SuppressWarnings("unchecked")
         public IfFunctionBuilder<I,O> defaultGet(Supplier<? extends O> defaultSupplier) {
-            return defaultApply((Function<I,O>)Functions.forSupplier(defaultSupplier));
+            return defaultApply(Functions.forSupplier(defaultSupplier));
         }
         public IfFunctionBuilder<I,O> defaultApply(Function<? super I,? extends O> defaultFunction) {
             IfFunctionBuilder<I, O> result = new IfFunctionBuilder<I,O>(this);
@@ -124,7 +124,7 @@ public class IfFunctions {
         }
         @SuppressWarnings("unchecked")
         public IfFunctionBuilder<I,O> get(Supplier<? extends O> supplier) {
-            return apply((Function<I,O>)Functions.forSupplier(supplier));
+            return apply(Functions.forSupplier(supplier));
         }
         public IfFunctionBuilder<I,O> apply(Function<? super I,? extends O> function) {
             IfFunctionBuilder<I, O> result = new IfFunctionBuilder<I,O>(input);
@@ -146,7 +146,7 @@ public class IfFunctions {
         }
         @SuppressWarnings("unchecked")
         public <O> IfFunctionBuilder<I,O> get(Supplier<? extends O> supplier) {
-            return apply((Function<I,O>)Functions.forSupplier(supplier));
+            return apply(Functions.forSupplier(supplier));
         }
         public <O> IfFunctionBuilder<I,O> apply(Function<? super I,? extends O> function) {
             IfFunctionBuilder<I, O> result = new IfFunctionBuilder<I,O>();

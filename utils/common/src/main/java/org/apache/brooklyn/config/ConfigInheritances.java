@@ -171,6 +171,7 @@ public class ConfigInheritances {
             this.key = key;
         }
         
+        @Override
         public Maybe<TValue> getDefaultValue() { 
             if (defaultValue!=null) return defaultValue;
             // explicit absent default value means don't look at key

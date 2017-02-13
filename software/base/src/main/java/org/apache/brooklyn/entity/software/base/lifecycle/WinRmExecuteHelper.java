@@ -97,6 +97,7 @@ public class WinRmExecuteHelper {
         if (task!=null) throw new IllegalStateException("task can only be generated once");
         TaskBuilder<Integer> tb = Tasks.<Integer>builder().displayName("winrm: "+summary).body(
                 new Callable<Integer>() {
+                    @Override
                     public Integer call() throws Exception {
                         return executeInternal();
                     }

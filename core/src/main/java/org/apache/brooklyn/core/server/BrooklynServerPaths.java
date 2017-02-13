@@ -244,7 +244,7 @@ public class BrooklynServerPaths {
         // note dir should be different for each instance if starting multiple instances
         // hence default including management node ID
         
-        cacheDir = TemplateProcessor.processTemplateContents(cacheDir, (ManagementContextInternal)mgmt, 
+        cacheDir = TemplateProcessor.processTemplateContents(cacheDir, mgmt, 
             MutableMap.of(BrooklynServerConfig.MGMT_BASE_DIR.getName(), getMgmtBaseDir(mgmt),
                 BrooklynServerConfig.MANAGEMENT_NODE_ID_PROPERTY, mgmt.getManagementNodeId(),
                 Os.TmpDirFinder.BROOKLYN_OS_TMPDIR_PROPERTY, Os.tmp()));

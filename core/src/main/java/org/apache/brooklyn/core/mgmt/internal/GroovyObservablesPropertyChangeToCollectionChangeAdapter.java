@@ -31,6 +31,7 @@ public class GroovyObservablesPropertyChangeToCollectionChangeAdapter implements
         this.delegate = delegate;
     }
 
+    @Override
     @SuppressWarnings("unchecked")
     public void propertyChange(PropertyChangeEvent evt) {
         if (evt instanceof ObservableList.ElementAddedEvent) {
@@ -51,10 +52,12 @@ public class GroovyObservablesPropertyChangeToCollectionChangeAdapter implements
         }
     }
 
+    @Override
     public int hashCode() {
         return delegate.hashCode();
     }
 
+    @Override
     public boolean equals(Object other) {
         if (other instanceof GroovyObservablesPropertyChangeToCollectionChangeAdapter)
             return delegate.equals(((GroovyObservablesPropertyChangeToCollectionChangeAdapter) other).delegate);

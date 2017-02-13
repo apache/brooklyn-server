@@ -24,7 +24,6 @@ import static org.testng.Assert.assertTrue;
 import java.util.List;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
-import org.apache.brooklyn.api.objs.SpecParameter;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;

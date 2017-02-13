@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 @Test
 public class InMemoryStoreObjectAccessorWriterTest extends PersistenceStoreObjectAccessorWriterTestFixture {
 
+    @Override
     protected StoreObjectAccessorWithLock newPersistenceStoreObjectAccessor() throws IOException {
         InMemoryObjectStore store = new InMemoryObjectStore();
         store.prepareForSharedUse(null, null);

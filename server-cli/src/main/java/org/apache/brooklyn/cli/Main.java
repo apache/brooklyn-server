@@ -753,7 +753,7 @@ public class Main extends AbstractMain {
             // Instantiate an app builder (wrapping app class in ApplicationBuilder, if necessary)
             if (ApplicationBuilder.class.isAssignableFrom(clazz)) {
                 Constructor<?> constructor = clazz.getConstructor();
-                return (ApplicationBuilder) constructor.newInstance();
+                return constructor.newInstance();
             } else if (StartableApplication.class.isAssignableFrom(clazz)) {
                 EntitySpec<? extends StartableApplication> appSpec;
                 if (tempclazz.isInterface())
@@ -768,7 +768,7 @@ public class Main extends AbstractMain {
                 // TODO grr; what to do about non-startable applications?
                 // without this we could return ApplicationBuilder rather than Object
                 Constructor<?> constructor = clazz.getConstructor();
-                return (AbstractApplication) constructor.newInstance();
+                return constructor.newInstance();
             } else if (AbstractEntity.class.isAssignableFrom(clazz)) {
                 // TODO Should we really accept any entity type, and just wrap it in an app? That's not documented!
                 return new ApplicationBuilder() {

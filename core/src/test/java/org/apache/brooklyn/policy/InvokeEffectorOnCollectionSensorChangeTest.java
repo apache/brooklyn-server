@@ -136,7 +136,7 @@ public class InvokeEffectorOnCollectionSensorChangeTest extends BrooklynAppUnitT
                 Predicates.<Collection<Object>>equalTo(ImmutableSet.<Object>of(4, 5)));
     }
 
-    @Test
+    @Test(groups="Integration")  // because slow
     public void testNothingHappensWhenSensorRepublishedUnchanged() {
         final ImmutableSet<Integer> input1 = ImmutableSet.of(1, 2, 3);
         testEntity.sensors().set(DEFAULT_SENSOR, input1);

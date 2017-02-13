@@ -451,7 +451,7 @@ public class Time {
     }
     /** @deprecated since 0.7.0 see {@link #parseElapsedTime(String)} */ @Deprecated
     public static long parseTimeString(String timeString) {
-        return (long) parseElapsedTime(timeString);
+        return parseElapsedTime(timeString);
     }
     /** @deprecated since 0.7.0 see {@link #parseElapsedTimeAsDouble(String)} */ @Deprecated
     public static double parseTimeStringAsDouble(String timeString) {
@@ -944,6 +944,7 @@ public class Time {
      * @deprecated since 0.7.0 use {@link #parseCalendar(String)} for general or {@link #parseCalendarFormat(String, DateFormat)} for a format,
      * plus {@link #parseCalendarUtc(String)} if you want to accept UTC
      */
+    @Deprecated
     public static Date parseDateString(String dateString, DateFormat format) {
         Maybe<Calendar> r = parseCalendarFormat(dateString, format);
         if (r.isPresent()) return r.get().getTime();

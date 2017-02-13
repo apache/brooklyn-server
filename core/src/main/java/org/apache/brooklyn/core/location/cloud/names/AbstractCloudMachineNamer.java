@@ -43,10 +43,12 @@ public abstract class AbstractCloudMachineNamer implements CloudMachineNamer {
     int defaultMachineNameSaltLength = CloudLocationConfig.VM_NAME_SALT_LENGTH.getDefaultValue();
     protected String separator = "-";
 
+    @Override
     public String generateNewMachineUniqueName(ConfigBag setup) {
         return generateNewIdReservingLength(setup, 0);
     }
     
+    @Override
     public String generateNewMachineUniqueNameFromGroupId(ConfigBag setup, String groupId) {
         int availSaltLength = getMaxNameLength(setup) - (groupId.length() + separator.length());
         int requestedSaltLength = getLengthForMachineUniqueNameSalt(setup, false);
@@ -57,6 +59,7 @@ public abstract class AbstractCloudMachineNamer implements CloudMachineNamer {
         return sanitize(groupId + separator + Identifiers.makeRandomId(Math.min(requestedSaltLength, availSaltLength))).toLowerCase();
     }
 
+    @Override
     public String generateNewGroupId(ConfigBag setup) {
         return sanitize(generateNewIdReservingLength(setup, getLengthForMachineUniqueNameSalt(setup, true))).toLowerCase();
     }

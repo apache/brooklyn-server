@@ -29,6 +29,7 @@ import org.slf4j.LoggerFactory;
 class AutoAssignFloatingIpOption implements TemplateOptionCustomizer {
     private static final Logger LOG = LoggerFactory.getLogger(AutoAssignFloatingIpOption.class);
 
+    @Override
     public void apply(TemplateOptions t, ConfigBag props, Object v) {
         if (t instanceof NovaTemplateOptions) {
             ((NovaTemplateOptions) t).autoAssignFloatingIp((Boolean) v);

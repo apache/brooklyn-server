@@ -83,6 +83,7 @@ public class StreamGobblerTest {
     
     private void assertEqualsEventually(final ByteArrayOutputStream out, final String expected) {
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 assertEquals(new String(out.toByteArray()), expected);
             }});

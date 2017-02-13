@@ -137,7 +137,7 @@ public class EntityConfigUsageTest extends BrooklynAppUnitTestSupport {
         TestEntity entity = parent.createAndManageChild(EntitySpec.create(TestEntity.class));
         
         assertEquals(entity.getConfig(strKey), "aval");
-        assertEquals(2, entity.getConfig(intKey), (Integer)2);
+        assertEquals(2, entity.getConfig(intKey), 2);
     }
     
     @Test
@@ -226,6 +226,7 @@ public class EntityConfigUsageTest extends BrooklynAppUnitTestSupport {
         final CountDownLatch latch = new CountDownLatch(1);
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
                 .configure(TestEntity.CONF_NAME, DependentConfiguration.whenDone(new Callable<String>() {
+                        @Override
                         public String call() {
                             try {
                                 latch.await(); return "aval";
@@ -236,6 +237,7 @@ public class EntityConfigUsageTest extends BrooklynAppUnitTestSupport {
         app.start(locs);
         
         Thread t = new Thread(new Runnable() {
+                @Override
                 public void run() {
                     try {
                         Thread.sleep(10+EARLY_RETURN_GRACE); latch.countDown();
@@ -272,6 +274,7 @@ public class EntityConfigUsageTest extends BrooklynAppUnitTestSupport {
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         TestEntity entity2 = app.createAndManageChild(EntitySpec.create(TestEntity.class)
                 .configure(TestEntity.CONF_NAME, DependentConfiguration.attributePostProcessedWhenReady(entity, TestEntity.NAME, Predicates.notNull(), new Function<String,String>() {
+                        @Override
                         public String apply(String input) {
                             return input+"mysuffix";
                         }})));
@@ -289,6 +292,7 @@ public class EntityConfigUsageTest extends BrooklynAppUnitTestSupport {
         app.start(locs);
         
         Thread t = new Thread(new Runnable() {
+            @Override
             public void run() {
                 try {
                     Thread.sleep(10+EARLY_RETURN_GRACE);

@@ -65,6 +65,7 @@ public abstract class SshToolAbstractPerformanceTest {
     @Test(groups = {"Integration"})
     public void testConsecutiveConnectAndDisconnect() throws Exception {
         Runnable task = new Runnable() {
+            @Override
             public void run() {
                 tool = newSshTool(MutableMap.of("host", "localhost"));
                 tool.connect();

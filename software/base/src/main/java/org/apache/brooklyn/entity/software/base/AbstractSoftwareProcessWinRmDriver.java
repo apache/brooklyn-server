@@ -197,6 +197,7 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
      * }
      * </pre>
      */
+    @Deprecated
     protected String getEntityVersionLabel() {
         return getEntityVersionLabel("_");
     }
@@ -204,6 +205,7 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
     /**
      * @deprecated since 0.5.0; instead rely on {@link org.apache.brooklyn.api.entity.drivers.downloads.DownloadResolverManager} to inc
      */
+    @Deprecated
     protected String getEntityVersionLabel(String separator) {
         return elvis(entity.getEntityType().getSimpleName(),
                entity.getClass().getName())+(getVersion() != null ? separator+getVersion() : "");

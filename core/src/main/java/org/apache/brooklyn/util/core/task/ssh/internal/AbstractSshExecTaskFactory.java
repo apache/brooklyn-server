@@ -44,6 +44,7 @@ public abstract class AbstractSshExecTaskFactory<T extends AbstractProcessTaskFa
     public ProcessTaskWrapper<RET> newTask() {
         dirty = false;
         return new ProcessTaskWrapper<RET>(this) {
+            @Override
             protected void run(ConfigBag config) {
                 Preconditions.checkNotNull(getMachine(), "machine");
                 if (Boolean.FALSE.equals(this.runAsScript)) {
@@ -52,6 +53,7 @@ public abstract class AbstractSshExecTaskFactory<T extends AbstractProcessTaskFa
                     this.exitCode = getMachine().execScript(config.getAllConfig(), getSummary(), commands, shellEnvironment);
                 }
             }
+            @Override
             protected String taskTypeShortName() { return "SSH"; }
         };
     }

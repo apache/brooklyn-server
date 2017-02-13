@@ -229,7 +229,7 @@ public class RebindPolicyTest extends RebindTestFixtureWithApp {
         assertTrue(origEnricher.success);
         assertTrue(origPolicy.success);
         
-        newApp = (TestApplication) rebind();
+        newApp = rebind();
         EnricherChecksEntityHierarchy newEnricher = (EnricherChecksEntityHierarchy) Iterables.getOnlyElement(newApp.enrichers());
         PolicyChecksEntityHierarchy newPolicy = (PolicyChecksEntityHierarchy) Iterables.getOnlyElement(newApp.policies());
 

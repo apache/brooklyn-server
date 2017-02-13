@@ -80,6 +80,7 @@ public class DependentConfigPollingYamlTest extends AbstractYamlTest {
         // the synchronized block if BrooklynDslDeferredSupplier.get().
         // The sleep is to ensure we really did get into the locking code.
         executor.submit(new Callable<Object>() {
+            @Override
             public Object call() {
                 return entity.config().get(TestEntity.CONF_NAME);
             }});
@@ -102,6 +103,7 @@ public class DependentConfigPollingYamlTest extends AbstractYamlTest {
 
         // Confirm we haven't left threads behind.
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 int postNumThreads = Thread.activeCount();
                 String msg = "pre="+preNumThreads+"; post="+postNumThreads+"; iterations="+numIterations;

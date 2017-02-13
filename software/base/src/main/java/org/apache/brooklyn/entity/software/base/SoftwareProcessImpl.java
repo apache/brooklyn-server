@@ -18,25 +18,11 @@
  */
 package org.apache.brooklyn.entity.software.base;
 
-import groovy.time.TimeDuration;
-
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.Date;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
-
-import org.apache.brooklyn.location.jclouds.networking.NetworkingEffectors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Functions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
@@ -55,24 +41,35 @@ import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
-import org.apache.brooklyn.core.entity.lifecycle.Lifecycle.Transition;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceNotUpLogic;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.feed.function.FunctionFeed;
 import org.apache.brooklyn.feed.function.FunctionPollConfig;
+import org.apache.brooklyn.location.jclouds.networking.NetworkingEffectors;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.task.BasicTask;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.core.task.ScheduledTask;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Functions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+
+import groovy.time.TimeDuration;
 
 /**
  * An {@link Entity} representing a piece of software which can be installed, run, and controlled.
@@ -306,6 +303,7 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
                         .suppressDuplicates(true)
                         .onException(Functions.constant(Boolean.FALSE))
                         .callable(new Callable<Boolean>() {
+                            @Override
                             public Boolean call() {
                                 return getDriver().isRunning();
                             }
@@ -390,21 +388,26 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
         } else {
             long delay = (long) (Math.random() * configuredMaxDelay.toMilliseconds());
             LOG.debug("Scheduled reconnection of sensors on {} in {}ms", this, delay);
-            Timer timer = new Timer();
-            timer.schedule(new TimerTask() {
-                @Override public void run() {
+            
+            // This is functionally equivalent to new scheduledExecutor.schedule(job, delay, TimeUnit.MILLISECONDS).
+            // It uses the entity's execution context to schedule and thus execute the job.
+            Map<?,?> flags = MutableMap.of("delay", Duration.millis(delay), "maxIterations", 1, "cancelOnException", true);
+            Callable<Void> job = new Callable<Void>() {
+                public Void call() {
                     try {
                         if (getManagementSupport().isNoLongerManaged()) {
                             LOG.debug("Entity {} no longer managed; ignoring scheduled connect sensors on rebind", SoftwareProcessImpl.this);
-                            return;
+                            return null;
                         }
                         connectSensors();
                     } catch (Throwable e) {
                         LOG.warn("Problem connecting sensors on rebind of "+SoftwareProcessImpl.this, e);
                         Exceptions.propagateIfFatal(e);
                     }
-                }
-            }, delay);
+                    return null;
+                }};
+            ScheduledTask scheduledTask = new ScheduledTask(flags, new BasicTask<Void>(job));
+            getExecutionContext().submit(scheduledTask);
         }
         // don't wait here - it may be long-running, e.g. if remote entity has died, and we don't want to block rebind waiting or cause it to fail
         // the service will subsequently show service not up and thus failure
@@ -613,7 +616,9 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
         if (DynamicTasks.getTaskQueuingContext() != null) {
             getLifecycleEffectorTasks().start(locations);
         } else {
-            Task<?> task = Tasks.builder().displayName("start (sequential)").body(new Runnable() { public void run() { getLifecycleEffectorTasks().start(locations); } }).build();
+            Task<?> task = Tasks.builder().displayName("start (sequential)").body(new Runnable() {
+                @Override public void run() { getLifecycleEffectorTasks().start(locations); }
+            }).build();
             Entities.submit(this, task).getUnchecked();
         }
     }
@@ -635,7 +640,9 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
         if (DynamicTasks.getTaskQueuingContext() != null) {
             getLifecycleEffectorTasks().stop(ConfigBag.EMPTY);
         } else {
-            Task<?> task = Tasks.builder().displayName("stop").body(new Runnable() { public void run() { getLifecycleEffectorTasks().stop(ConfigBag.EMPTY); } }).build();
+            Task<?> task = Tasks.builder().displayName("stop").body(new Runnable() {
+                @Override public void run() { getLifecycleEffectorTasks().stop(ConfigBag.EMPTY); }
+            }).build();
             Entities.submit(this, task).getUnchecked();
         }
     }
@@ -649,7 +656,9 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
         if (DynamicTasks.getTaskQueuingContext() != null) {
             getLifecycleEffectorTasks().restart(ConfigBag.EMPTY);
         } else {
-            Task<?> task = Tasks.builder().displayName("restart").body(new Runnable() { public void run() { getLifecycleEffectorTasks().restart(ConfigBag.EMPTY); } }).build();
+            Task<?> task = Tasks.builder().displayName("restart").body(new Runnable() {
+                @Override public void run() { getLifecycleEffectorTasks().restart(ConfigBag.EMPTY); }
+            }).build();
             Entities.submit(this, task).getUnchecked();
         }
     }

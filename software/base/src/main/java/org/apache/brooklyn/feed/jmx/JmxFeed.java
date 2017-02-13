@@ -31,6 +31,7 @@ import javax.management.NotificationFilter;
 import javax.management.NotificationListener;
 import javax.management.ObjectName;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -118,7 +119,7 @@ public class JmxFeed extends AbstractFeed {
     }
     
     public static class Builder {
-        private EntityLocal entity;
+        private Entity entity;
         private JmxHelper helper;
         private long jmxConnectionTimeout = JMX_CONNECTION_TIMEOUT_MS;
         private long period = 500;
@@ -129,7 +130,7 @@ public class JmxFeed extends AbstractFeed {
         private String uniqueTag;
         private volatile boolean built;
         
-        public Builder entity(EntityLocal val) {
+        public Builder entity(Entity val) {
             this.entity = val;
             return this;
         }
@@ -167,7 +168,7 @@ public class JmxFeed extends AbstractFeed {
         public JmxFeed build() {
             built = true;
             JmxFeed result = new JmxFeed(this);
-            result.setEntity(checkNotNull(entity, "entity"));
+            result.setEntity(checkNotNull((EntityLocal)entity, "entity"));
             result.start();
             return result;
         }
@@ -243,6 +244,7 @@ public class JmxFeed extends AbstractFeed {
         return getConfig(HELPER);
     }
     
+    @Override
     @SuppressWarnings("unchecked")
     protected Poller<Object> getPoller() {
         return (Poller<Object>) super.getPoller();
@@ -265,7 +267,7 @@ public class JmxFeed extends AbstractFeed {
         final SetMultimap<String, JmxAttributePollConfig<?>> attributePolls = getConfig(ATTRIBUTE_POLLS);
         
         getPoller().submit(new Callable<Void>() {
-               public Void call() {
+               @Override public Void call() {
                    getHelper().connect(getConfig(JMX_CONNECTION_TIMEOUT));
                    return null;
                }
@@ -274,7 +276,7 @@ public class JmxFeed extends AbstractFeed {
         
         for (final NotificationFilter filter : notificationSubscriptions.keySet()) {
             getPoller().submit(new Callable<Void>() {
-                public Void call() {
+                @Override public Void call() {
                     // TODO Could config.getObjectName have wildcards? Is this code safe?
                     Set<JmxNotificationSubscriptionConfig<?>> configs = notificationSubscriptions.get(filter);
                     NotificationListener listener = registerNotificationListener(configs);
@@ -334,6 +336,7 @@ public class JmxFeed extends AbstractFeed {
         
         getPoller().scheduleAtFixedRate(
                 new Callable<Object>() {
+                    @Override
                     public Object call() throws Exception {
                         if (log.isDebugEnabled()) log.debug("jmx operation polling for {} sensors at {} -> {}", new Object[] {getEntity(), getJmxUri(), operationName});
                         if (signature.size() == params.size()) {
@@ -364,6 +367,7 @@ public class JmxFeed extends AbstractFeed {
         // TODO Not good calling this holding the synchronization lock
         getPoller().scheduleAtFixedRate(
                 new Callable<Object>() {
+                    @Override
                     public Object call() throws Exception {
                         if (log.isTraceEnabled()) log.trace("jmx attribute polling for {} sensors at {} -> {}", new Object[] {getEntity(), getJmxUri(), jmxAttributeName});
                         return getHelper().getAttribute(objectName, jmxAttributeName);

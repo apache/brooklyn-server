@@ -83,7 +83,7 @@ public class TestApplicationImpl extends AbstractApplication implements TestAppl
     
     @Override
     public LocalhostMachineProvisioningLocation newLocalhostProvisioningLocation(Map<?,?> flags) {
-        return (LocalhostMachineProvisioningLocation) getManagementContext().getLocationManager().createLocation(
+        return getManagementContext().getLocationManager().createLocation(
             LocationSpec.create(LocalhostMachineProvisioningLocation.class).configure(flags));
     }
 

@@ -20,6 +20,7 @@ package org.apache.brooklyn.camp.brooklyn.catalog;
 
 import static org.testng.Assert.assertEquals;
 
+import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
@@ -39,6 +40,7 @@ import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
 /** Many of the same tests as per {@link OsgiVersionMoreEntityTest} but using YAML for catalog and entities, so catalog item ID is set automatically */
@@ -127,5 +129,44 @@ public class CatalogOsgiVersionMoreEntityRebindTest extends AbstractYamlRebindTe
         Entity newEntity = Iterables.getOnlyElement(newApp.getChildren());
         Location newLoc = Iterables.getOnlyElement(newEntity.getLocations());
         assertEquals(newLoc.getClass().getName(), locationType);
+    }
+    
+    @Test
+    public void testEffectorInBundleReferencedByStockCatalogItem() throws Exception {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_PATH);
+        
+        String effectorType = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_EFFECTOR;
+        
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  id: wrapped-entity",
+                "  version: 1.0",
+                "  item:",
+                "    services:",
+                "    - type: " + TestEntity.class.getName());
+    
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  id: with-effector-from-library",
+                "  version: 1.0",
+                "  brooklyn.libraries:",
+                "  - classpath:" + OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_PATH,
+                "  item:",
+                "    services:",
+                "    - type: " + BasicApplication.class.getName(),
+                "      brooklyn.children:",
+                "      - type: wrapped-entity:1.0",
+                "        brooklyn.initializers:",
+                "        - type: " + effectorType);
+
+        Entity app = createAndStartApplication("services: [ { type: 'with-effector-from-library:1.0' } ]");
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        Effector<?> effector = entity.getEntityType().getEffectorByName("myEffector").get();
+        entity.invoke(effector, ImmutableMap.<String, Object>of()).get();
+        
+        StartableApplication newApp = rebind();
+        Entity newEntity = Iterables.getOnlyElement(newApp.getChildren());
+        Effector<?> newEffector = newEntity.getEntityType().getEffectorByName("myEffector").get();
+        newEntity.invoke(newEffector, ImmutableMap.<String, Object>of()).get();
     }
 }

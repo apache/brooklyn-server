@@ -96,6 +96,7 @@ public class DynamicSequentialTaskTest {
     @Test
     public void testSimple() throws Exception {
         Callable<String> mainJob = new Callable<String>() {
+            @Override
             public String call() {
                 log.info("main job - "+Tasks.current());
                 messages.add("main");
@@ -125,6 +126,7 @@ public class DynamicSequentialTaskTest {
     
     public Callable<String> sayCallable(final String message, final Duration duration, final String message2) {
         return new Callable<String>() {
+            @Override
             public String call() {
                 try {
                     if (message != null) {

@@ -27,7 +27,6 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import org.apache.brooklyn.util.javalang.AtomicReferences;
 import org.jclouds.compute.domain.*;
 import org.jclouds.compute.options.TemplateOptions;
 import org.jclouds.compute.strategy.GetImageStrategy;

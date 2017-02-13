@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.concurrent.Callable;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
@@ -64,12 +63,13 @@ public class SelectMasterEffectorTest extends BrooklynAppUnitTestSupport {
     protected HttpCallback http; 
     protected Poller<Void> poller;
 
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();
 
         // because the effector calls wait for a state change, use a separate thread to drive that 
-        poller = new Poller<Void>((EntityLocal)app, false);
+        poller = new Poller<Void>(app, false);
         poller.scheduleAtFixedRate(
             new Callable<Void>() {
                 @Override
@@ -94,6 +94,7 @@ public class SelectMasterEffectorTest extends BrooklynAppUnitTestSupport {
                 .configure(MockBrooklynNode.HTTP_CLIENT_CALLBACK, http)));
     }
     
+    @Override
     @AfterMethod(alwaysRun=true)
     public void tearDown() throws Exception {
         poller.stop();
@@ -243,11 +244,11 @@ public class SelectMasterEffectorTest extends BrooklynAppUnitTestSupport {
     }
 
     public static void setManagementState(Entity entity, ManagementNodeState state) {
-        ((EntityLocal)entity).sensors().set(BrooklynNode.MANAGEMENT_NODE_STATE, state);
+        entity.sensors().set(BrooklynNode.MANAGEMENT_NODE_STATE, state);
     }
 
     public static void setPriority(Entity entity, int priority) {
-        ((EntityLocal)entity).sensors().set(MockBrooklynNode.HA_PRIORITY, priority);
+        entity.sensors().set(MockBrooklynNode.HA_PRIORITY, priority);
     }
 
     private void selectMaster(DynamicCluster cluster, String id) {

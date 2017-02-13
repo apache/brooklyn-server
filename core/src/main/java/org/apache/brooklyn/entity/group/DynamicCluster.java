@@ -35,7 +35,6 @@ import org.apache.brooklyn.core.annotation.EffectorParam;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.MethodEffector;
 import org.apache.brooklyn.core.entity.Attributes;
-import org.apache.brooklyn.core.entity.factory.EntityFactory;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.trait.MemberReplaceable;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
@@ -141,13 +140,6 @@ public interface DynamicCluster extends AbstractGroup, Cluster, MemberReplaceabl
             new TypeToken<EntitySpec<?>>() { },
             "dynamiccluster.firstmemberspec", "entity spec for creating new cluster members, used for the very first member if different", null);
 
-    /** @deprecated since 0.7.0; use {@link #MEMBER_SPEC} instead. */
-    @SuppressWarnings("rawtypes")
-    @Deprecated
-    @SetFromFlag("factory")
-    ConfigKey<EntityFactory> FACTORY = ConfigKeys.newConfigKey(
-            EntityFactory.class, "dynamiccluster.factory", "factory for creating new cluster members", null);
-
     @SetFromFlag("removalStrategy")
     ConfigKey<Function<Collection<Entity>, Entity>> REMOVAL_STRATEGY = ConfigKeys.newConfigKey(
             new TypeToken<Function<Collection<Entity>, Entity>>() {},
@@ -226,10 +218,6 @@ public interface DynamicCluster extends AbstractGroup, Cluster, MemberReplaceabl
     void setZoneFailureDetector(ZoneFailureDetector val);
 
     void setMemberSpec(EntitySpec<?> memberSpec);
-
-    /** @deprecated since 0.7.0; use {@link #setMemberSpec(EntitySpec)} */
-    @Deprecated
-    void setFactory(EntityFactory<?> factory);
 
     Entity addNode(Location loc, Map<?,?> extraFlags);
 }

@@ -70,6 +70,7 @@ public class SingleThreadedSchedulerTest {
         for (int i = 0; i < NUM_TIMES; i++) {
             final int counter = i;
             em.submit(MutableMap.of("tag", "category1"), new Runnable() {
+                @Override
                 public void run() {
                     result.add(counter);
                 }});
@@ -95,6 +96,7 @@ public class SingleThreadedSchedulerTest {
         final AtomicInteger counter = new AtomicInteger(0);
         for (int i = 0; i < NUM_TIMES; i++) {
             BasicTask<Void> t = new BasicTask<Void>(new Runnable() {
+                @Override
                 public void run() {
                     counter.incrementAndGet();
                 }});
@@ -120,6 +122,7 @@ public class SingleThreadedSchedulerTest {
         Future<Integer> future = em.submit(MutableMap.of("tag", "category1"), t);
 
         Thread thread = new Thread(new Runnable() {
+            @Override
             public void run() {
                 try {
                     Thread.sleep(10);
@@ -155,6 +158,7 @@ public class SingleThreadedSchedulerTest {
         
         final AtomicBoolean executed = new AtomicBoolean();
         BasicTask<?> t = new BasicTask<Void>(new Runnable() {
+            @Override
             public void run() {
                 executed.set(true);
             }});
@@ -185,6 +189,7 @@ public class SingleThreadedSchedulerTest {
     
     private Callable<Void> newLatchAwaiter(final CountDownLatch latch) {
         return new Callable<Void>() {
+            @Override
             public Void call() throws Exception {
                 latch.await();
                 return null;

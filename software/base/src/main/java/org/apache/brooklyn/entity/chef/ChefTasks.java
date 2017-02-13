@@ -58,6 +58,7 @@ public class ChefTasks {
     public static TaskFactory<?> installCookbooks(final String chefDirectory, final Map<String,String> cookbooksAndUrls, final boolean force) {
         return Tasks.<Void>builder().displayName("install "+(cookbooksAndUrls==null ? "0" : cookbooksAndUrls.size())+" cookbook"+Strings.s(cookbooksAndUrls)).body(
                 new Runnable() {
+                    @Override
                     public void run() {
                         Entity e = EffectorTasks.findEntity();
                         if (cookbooksAndUrls==null)

@@ -342,7 +342,7 @@ public class Tasks {
         }
     }
     public static Task<Void> fail(final String name, final Throwable optionalError) {
-        return Tasks.<Void>builder().dynamic(false).displayName(name).body(new Runnable() { public void run() { 
+        return Tasks.<Void>builder().dynamic(false).displayName(name).body(new Runnable() { @Override public void run() { 
             if (optionalError!=null) throw Exceptions.propagate(optionalError); else throw new RuntimeException("Failed: "+name);
         } }).build();
     }

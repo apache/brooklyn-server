@@ -206,6 +206,7 @@ public class RebindManagerImpl implements RebindManager {
     /**
      * @deprecated since 0.7.0; use {@link #setPeriodicPersistPeriod(Duration)}
      */
+    @Deprecated
     public void setPeriodicPersistPeriod(long periodMillis) {
         setPeriodicPersistPeriod(Duration.of(periodMillis, TimeUnit.MILLISECONDS));
     }
@@ -308,6 +309,7 @@ public class RebindManagerImpl implements RebindManager {
         Callable<Task<?>> taskFactory = new Callable<Task<?>>() {
             @Override public Task<Void> call() {
                 return Tasks.<Void>builder().dynamic(false).displayName("rebind (periodic run").body(new Callable<Void>() {
+                    @Override
                     public Void call() {
                         try {
                             rebind(null, null, mode);
@@ -594,6 +596,7 @@ public class RebindManagerImpl implements RebindManager {
         return result;
     }
 
+    @Override
     public boolean isAwaitingInitialRebind() {
         return isAwaitingInitialRebind;
     }

@@ -24,7 +24,6 @@ import java.util.Collection;
 import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.location.LocationDefinition;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
@@ -76,7 +75,7 @@ public class StubHostLocation extends AbstractLocation implements MachineProvisi
             machine = config().get(MACHINE);
         } else {
             dockerHost = (StubHost) checkNotNull(getConfig(OWNER), "owner");
-            machine = (SshMachineLocation) checkNotNull(getConfig(MACHINE), "machine");
+            machine = checkNotNull(getConfig(MACHINE), "machine");
             addReloadListener();
         }
     }
@@ -86,7 +85,7 @@ public class StubHostLocation extends AbstractLocation implements MachineProvisi
         super.rebind();
 
         dockerHost = (StubHost) getConfig(OWNER);
-        machine = (SshMachineLocation) getConfig(MACHINE);
+        machine = getConfig(MACHINE);
         
         if (getConfig(LOCATION_NAME) != null) {
             register();
@@ -148,7 +147,7 @@ public class StubHostLocation extends AbstractLocation implements MachineProvisi
         if (added == null) {
             throw new NoMachinesAvailableException(String.format("Failed to create container at %s", dockerHost));
         } else {
-            Entities.invokeEffector((EntityLocal) callerContext, added, Startable.START,  MutableMap.of("locations", ImmutableList.of(machine))).getUnchecked();
+            Entities.invokeEffector(callerContext, added, Startable.START,  MutableMap.of("locations", ImmutableList.of(machine))).getUnchecked();
         }
         StubContainer container = (StubContainer) added;
 

@@ -110,6 +110,7 @@ public interface RebindManager {
     /** Forcibly performs persistence, in the foreground 
      * @deprecated since 0.7.0; use {@link #forcePersistNow(boolean, PersistenceExceptionHandler)}, 
      * default parameter here is false to mean incremental, with null/default exception handler */
+    @Deprecated
     @VisibleForTesting
     public void forcePersistNow();
     /** Forcibly performs persistence, in the foreground, either full (all entities) or incremental;

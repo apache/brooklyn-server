@@ -26,7 +26,6 @@ import java.io.IOException;
 import java.util.List;
 
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
-import org.apache.brooklyn.util.core.internal.ssh.SshAbstractTool.SshAction;
 import org.apache.brooklyn.util.core.internal.ssh.sshj.SshjTool;
 import org.apache.brooklyn.util.core.internal.ssh.sshj.SshjTool.ShellAction;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -69,6 +68,7 @@ public class SshjToolAsyncStubIntegrationTest {
         counter = 0;
         
         tool = new SshjTool(ImmutableMap.<String,Object>of("host", "localhost")) {
+            @Override
             @SuppressWarnings("unchecked")
             protected <T, C extends SshAction<T>> T acquire(C action, int sshTries, Duration sshTriesTimeout) {
                 if (action instanceof SshjTool.ShellAction) {

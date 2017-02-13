@@ -113,6 +113,7 @@ Beyond this you get blacklisted and requests may time out, or return none.
     private static long LAST_FAILURE_UTC = -1;
     
     /** does the {@link #retrieveHostGeoInfo(InetAddress)}, but in the background with a default timeout */
+    @Override
     public HostGeoInfo getHostGeoInfo(InetAddress address) throws MalformedURLException, IOException {
         if (Duration.sinceUtc(LAST_FAILURE_UTC).compareTo(RETRY_INTERVAL) < 0) {
             // wait at least 60s since a failure
@@ -127,6 +128,7 @@ Beyond this you get blacklisted and requests may time out, or return none.
     public HostGeoInfo getHostGeoInfo(final InetAddress address, Duration timeout) throws MalformedURLException, IOException {
         final AtomicReference<HostGeoInfo> result = new AtomicReference<HostGeoInfo>();
         Thread lt = new Thread() {
+            @Override
             public void run() {
                 try {
                     result.set(retrieveHostGeoInfo(address));

@@ -46,7 +46,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.io.ByteSource;
-import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
 
 /** Implementation of {@link ShellTool} which runs locally. */
@@ -78,6 +77,7 @@ public class ProcessTool extends ShellAbstractTool implements ShellTool {
     @Override
     public int execScript(final Map<String,?> props, final List<String> commands, final Map<String,?> env) {
         return new ToolAbstractExecScript(props) {
+            @Override
             public int run() {
                 try {
                     String directory = getOptionalVal(props, PROP_DIRECTORY);

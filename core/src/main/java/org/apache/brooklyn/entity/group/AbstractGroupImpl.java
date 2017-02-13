@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
@@ -132,15 +131,15 @@ public abstract class AbstractGroupImpl extends AbstractEntity implements Abstra
             // FIXME do not set sensors on members; possibly we don't need FIRST at all, just look at the first in MEMBERS, and take care to guarantee order there
             Entity first = getAttribute(FIRST);
             if (first == null) {
-                ((EntityLocal) member).sensors().set(FIRST_MEMBER, true);
-                ((EntityLocal) member).sensors().set(FIRST, member);
+                member.sensors().set(FIRST_MEMBER, true);
+                member.sensors().set(FIRST, member);
                 sensors().set(FIRST, member);
             } else {
                 if (first.equals(member) || first.equals(member.getAttribute(FIRST))) {
                     // do nothing (rebinding)
                 } else {
-                    ((EntityLocal) member).sensors().set(FIRST_MEMBER, false);
-                    ((EntityLocal) member).sensors().set(FIRST, first);
+                    member.sensors().set(FIRST_MEMBER, false);
+                    member.sensors().set(FIRST, first);
                 }
             }
 

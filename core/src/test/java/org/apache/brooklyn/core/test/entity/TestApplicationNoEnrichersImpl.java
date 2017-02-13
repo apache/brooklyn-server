@@ -24,6 +24,7 @@ package org.apache.brooklyn.core.test.entity;
  */
 public class TestApplicationNoEnrichersImpl extends TestApplicationImpl {
     
+    @Override
     protected void initEnrichers() { /* none */ }
     
 }

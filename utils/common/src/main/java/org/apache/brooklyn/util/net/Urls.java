@@ -19,6 +19,7 @@
 package org.apache.brooklyn.util.net;
 
 import java.io.File;
+import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -30,6 +31,7 @@ import java.util.List;
 
 import javax.annotation.Nullable;
 
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.base.Function;
@@ -177,16 +179,38 @@ public class Urls {
         return result.toString();
     }
 
-    /** encodes the string suitable for use in a URL, using default character set
-     * (non-deprecated version of URLEncoder.encode) */
-    @SuppressWarnings("deprecation")
+    /**
+     * Encodes the string suitable for use in a URL, using default UTF-8 
+     * (version of URLEncoder.encode that does not throw checked exception)
+     */
     public static String encode(String text) {
-        return URLEncoder.encode(text);
+        /*
+         * TODO URLEncoder.encode is a HTML encoder, to make strings safe to use in 
+         * x-www-form-urlencoded. There is huge overlap between that and url-encoding, but
+         * they are not the same (e.g. space is converted to "+" rather than "%20", and
+         * "*" is not converted to "%2A").
+         * 
+         * Correct URL-encoding depends on which part of the URL it is. For example, guava's 
+         * UrlEscapers has separate escapers for path and fragment. Neither of these is 
+         * appropriate for escaping the password in "http://myusername@mypassword:myhost".
+         * 
+         * org.apache.commons.codec.net.URLCodec behaves the same as java.net.URLEncoder: it 
+         * is for "www-form-urlencoded".
+         */
+        try {
+            return URLEncoder.encode(text, "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            throw Exceptions.propagate(e);
+        }
     }
+    
     /** As {@link #encode(String)} */
-    @SuppressWarnings("deprecation")
     public static String decode(String text) {
-        return URLDecoder.decode(text);
+        try {
+            return URLDecoder.decode(text, "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            throw Exceptions.propagate(e);
+        }
     }
 
     /** returns the protocol (e.g. http) if one appears to be specified, or else null;

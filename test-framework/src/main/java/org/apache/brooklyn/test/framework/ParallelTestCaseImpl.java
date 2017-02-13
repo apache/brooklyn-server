@@ -41,6 +41,7 @@ public class ParallelTestCaseImpl extends TargetableTestComponentImpl implements
     /**
      * {@inheritDoc}
      */
+    @Override
     public void start(final Collection<? extends Location> locations) {
         // Let everyone know we're starting up (so that the GUI shows the correct icon).
         sensors().set(Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STARTING);
@@ -67,6 +68,7 @@ public class ParallelTestCaseImpl extends TargetableTestComponentImpl implements
     /**
      * {@inheritDoc}
      */
+    @Override
     public void stop() {
         // Let everyone know we're stopping (so that the GUI shows the correct icon).
         sensors().set(Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPING);
@@ -92,6 +94,7 @@ public class ParallelTestCaseImpl extends TargetableTestComponentImpl implements
     /**
      * {@inheritDoc}
      */
+    @Override
     public void restart() {
         // Let everyone know we're restarting (so that the GUI shows the correct icon).
         setServiceState(false, Lifecycle.STARTING);

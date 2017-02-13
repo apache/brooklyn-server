@@ -124,6 +124,7 @@ public class JmxmpAgent {
         // (e.g. if the app is compiled with java7 then run with java6, with a java6 agent here;
         // that causes the agent to launch, the main to fail, but the process to keep going)
         Thread t = new Thread() {
+            @Override
             public void run() {
                 doMainForeground(agentArgs);
             }
@@ -314,6 +315,7 @@ public class JmxmpAgent {
 
     public static final TrustManager newInspectAllTrustManager(final X509TrustManager delegate) {
         return new X509TrustManager() {
+            @Override
             public X509Certificate[] getAcceptedIssuers() {
                 // overriding this method fixes bug where non-accepted issuers have an "accept all" policy, in JMXMP/TLS
                 return new X509Certificate[0];

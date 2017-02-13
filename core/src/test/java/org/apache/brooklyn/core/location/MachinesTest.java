@@ -47,6 +47,7 @@ public class MachinesTest extends BrooklynAppUnitTestSupport {
     protected LocationSpec<LocalhostMachineProvisioningLocation> otherLocSpec;
     protected LocationSpec<LocalhostMachine> localMachineSpec;
     
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();
@@ -86,6 +87,11 @@ public class MachinesTest extends BrooklynAppUnitTestSupport {
         LocalhostMachineProvisioningLocation l2 = create(otherLocSpec);
         assertEquals(Machines.findUniqueMachineLocation(ImmutableList.of(l1, l2), SshMachineLocation.class).get(), l1);
         assertFalse(Machines.findUniqueMachineLocation(ImmutableList.of(l2), LocalhostMachine.class).isPresent());
+    }
+
+    @Test
+    public void testFindUniqueElementAbsentWhenItemsNull() throws Exception {
+        assertTrue(Machines.findUniqueElement(null, SshMachineLocation.class).isAbsent());
     }
 
     @Test

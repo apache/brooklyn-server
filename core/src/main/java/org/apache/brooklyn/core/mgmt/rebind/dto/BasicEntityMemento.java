@@ -300,6 +300,7 @@ public class BasicEntityMemento extends AbstractTreeNodeMemento implements Entit
         return Collections.unmodifiableMap(attributesByKey);
     }
 
+    @Override
     public List<Effector<?>> getEffectors() {
         return fromPersistedList(effectors);
     }

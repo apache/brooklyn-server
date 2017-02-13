@@ -42,7 +42,6 @@ import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 public class SystemServiceEnricherTest extends BrooklynAppLiveTestSupport {
     //requires /etc/init.d OS, for example CentOS 6.5

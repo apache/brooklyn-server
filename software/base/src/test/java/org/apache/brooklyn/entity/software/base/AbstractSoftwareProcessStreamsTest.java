@@ -48,6 +48,7 @@ public abstract class AbstractSoftwareProcessStreamsTest extends BrooklynAppLive
 
     protected abstract Map<String, String> getCommands();
 
+    @Override
     protected EntitySpec<? extends TestApplication> newAppSpec() {
         return EntitySpec.create(TestApplication.class)
                 .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, true);

@@ -60,6 +60,7 @@ public abstract class AbstractApplication extends AbstractEntity implements Star
     public AbstractApplication() {
     }
 
+    @Override
     public void init() { 
         super.init();
         initApp();

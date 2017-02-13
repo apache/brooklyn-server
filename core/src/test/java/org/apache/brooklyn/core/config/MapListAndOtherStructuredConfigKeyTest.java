@@ -58,6 +58,7 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
     private TestApplication app;
     private TestEntity entity;
     
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() {
         locs = ImmutableList.of(new SimulatedLocation());
@@ -65,6 +66,7 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
         entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
     }
 
+    @Override
     @AfterMethod(alwaysRun=true)
     public void tearDown() throws Exception {
         if (app != null) Entities.destroyAll(app.getManagementContext());
@@ -84,6 +86,7 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
         final AtomicReference<String> bval = new AtomicReference<String>("bval-too-early");
         entity.config().set(TestEntity.CONF_MAP_THING.subKey("akey"), DependentConfiguration.whenDone(Callables.returning("aval")));
         entity.config().set(TestEntity.CONF_MAP_THING.subKey("bkey"), DependentConfiguration.whenDone(new Callable<String>() {
+                @Override
                 public String call() {
                     return bval.get();
                 }}));
@@ -99,6 +102,7 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
         entity.config().set(TestEntity.CONF_MAP_THING, (Map) MutableMap.of(
                 "akey", DependentConfiguration.whenDone(Callables.returning("aval")),
                 "bkey", DependentConfiguration.whenDone(new Callable<String>() {
+                    @Override
                     public String call() {
                         return bval.get();
                     }})));
@@ -225,7 +229,7 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
     @Test
     public void testSetConfigKeyClear() throws Exception {
         entity.config().set(TestEntity.CONF_SET_THING.subKey(), "aval");
-        entity.config().set((ConfigKey)TestEntity.CONF_SET_THING, SetModifications.clearing());
+        entity.config().set((ConfigKey)TestEntity.CONF_SET_THING, (Object) SetModifications.clearing());
         // for now defaults to null, but empty list might be better? or whatever the default is?
         assertEquals(entity.getConfig(TestEntity.CONF_SET_THING), null);
     }
@@ -286,7 +290,7 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
     @Test // ListConfigKey deprecated, as order no longer guaranteed
     public void testListConfigKeyClear() throws Exception {
         entity.config().set(TestEntity.CONF_LIST_THING.subKey(), "aval");
-        entity.config().set((ConfigKey)TestEntity.CONF_LIST_THING, ListModifications.clearing());
+        entity.config().set((ConfigKey)TestEntity.CONF_LIST_THING, (Object) ListModifications.clearing());
         // for now defaults to null, but empty list might be better? or whatever the default is?
         assertEquals(entity.getConfig(TestEntity.CONF_LIST_THING), null);
     }
@@ -342,7 +346,7 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
     @Test
     public void testMapConfigClearMod() throws Exception {
         entity.config().set(TestEntity.CONF_MAP_THING.subKey("akey"), "aval");
-        entity.config().set((ConfigKey)TestEntity.CONF_MAP_THING, MapModifications.clearing());
+        entity.config().set((ConfigKey)TestEntity.CONF_MAP_THING, (Object) MapModifications.clearing());
         // for now defaults to null, but empty map might be better? or whatever the default is?
         assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING), null);
     }

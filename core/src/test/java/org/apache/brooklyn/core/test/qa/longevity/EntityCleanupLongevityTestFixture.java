@@ -146,6 +146,7 @@ public abstract class EntityCleanupLongevityTestFixture {
     
     protected void doTestStartAppThenThrowAway(String testName, final boolean stop) {
         doTestManyTimesAndAssertNoMemoryLeak(testName, new Runnable() {
+            @Override
             public void run() {
                 loc = managementContext.getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class));
                 app = newApp();

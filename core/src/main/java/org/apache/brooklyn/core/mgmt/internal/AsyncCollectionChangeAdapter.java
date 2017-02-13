@@ -44,6 +44,7 @@ public class AsyncCollectionChangeAdapter<Item> implements CollectionChangeListe
     @Override
     public void onItemAdded(final Item item) {
         executor.submit(MutableMap.of("tag", delegate), new Runnable() {
+            @Override
             public void run() {
                 try {
                     delegate.onItemAdded(item);
@@ -58,6 +59,7 @@ public class AsyncCollectionChangeAdapter<Item> implements CollectionChangeListe
     @Override
     public void onItemRemoved(final Item item) {
         executor.submit(MutableMap.of("tag", delegate), new Runnable() {
+            @Override
             public void run() {
                 try {
                     delegate.onItemRemoved(item);

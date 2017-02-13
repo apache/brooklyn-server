@@ -141,7 +141,7 @@ public class CatalogDto {
         result.contentsDescription = description;
         // Weird casts because compiler does not seem to like
         // .copyInto(Lists.<CatalogItemDtoAbstract<?, ?>>newArrayListWithExpectedSize(entries.size()));
-        result.entries = (List<CatalogItemDtoAbstract<?, ?>>) (List) FluentIterable.from(entries)
+        result.entries = (List) FluentIterable.from(entries)
                 .filter(CatalogItemDtoAbstract.class)
                 .copyInto(Lists.newArrayListWithExpectedSize(entries.size()));
         return result;

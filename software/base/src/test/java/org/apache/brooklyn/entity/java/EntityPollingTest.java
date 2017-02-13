@@ -156,6 +156,7 @@ public class EntityPollingTest {
     public void testEntityWithDelayedJmxStartupWillKeepRetrying() {
         // In 2 seconds time, we'll start the JMX server
         Thread t = new Thread(new Runnable() {
+            @Override
             public void run() {
                 try {
                     Thread.sleep(2000);

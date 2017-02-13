@@ -43,6 +43,7 @@ import com.google.common.collect.Sets;
 /**
  * @deprecated since 0.7.0; this code will move to src/tests/java
  */
+@Deprecated
 @JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY, getterVisibility = JsonAutoDetect.Visibility.NONE)
 public class MutableBrooklynMemento implements BrooklynMemento {
 

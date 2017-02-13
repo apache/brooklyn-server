@@ -112,6 +112,7 @@ public class RecordingSensorEventListener<T> implements SensorEventListener<T>, 
 
     public void assertHasEventEventually(final Predicate<? super SensorEvent<T>> filter) {
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 assertHasEvent(filter);
             }});

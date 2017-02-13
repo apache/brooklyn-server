@@ -162,7 +162,7 @@ public interface QuorumCheck {
         
         @Override
         public String toString() {
-            return "QuorumCheck["+(name!=null?name+";":"")+"require="+minRequiredSize+","+((int)100*minRequiredRatio)+"%"+(allowEmpty ? "|0" : "")+"]";
+            return "QuorumCheck["+(name!=null?name+";":"")+"require="+minRequiredSize+","+(100*minRequiredRatio)+"%"+(allowEmpty ? "|0" : "")+"]";
         }
     }
 

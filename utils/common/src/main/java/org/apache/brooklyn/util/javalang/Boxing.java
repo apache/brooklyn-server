@@ -116,7 +116,7 @@ public class Boxing {
                 Array.setShort(target, index, (Short)value);
             
             else if (type.equals(Void.TYPE))
-                Array.set(target, index, (Void)value);
+                Array.set(target, index, value);
             
             else 
                 // should not happen!

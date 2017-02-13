@@ -94,6 +94,7 @@ public class CreateUserPolicy extends AbstractPolicy implements SensorEventListe
             "Whether to reset the password used for user login",
             false);
 
+    @Override
     public void setEntity(EntityLocal entity) {
         super.setEntity(entity);
         subscriptions().subscribe(entity, AbstractEntity.LOCATION_ADDED, this);
@@ -110,6 +111,7 @@ public class CreateUserPolicy extends AbstractPolicy implements SensorEventListe
 
     protected void addUserAsync(final Entity entity, final SshMachineLocation machine) {
         ((EntityInternal)entity).getExecutionContext().execute(new Runnable() {
+            @Override
             public void run() {
                 addUser(entity, machine);
             }});
@@ -176,6 +178,6 @@ public class CreateUserPolicy extends AbstractPolicy implements SensorEventListe
             }
         }
         
-        ((EntityLocal)entity).sensors().set(VM_USER_CREDENTIALS, creds);
+        entity.sensors().set(VM_USER_CREDENTIALS, creds);
     }
 }

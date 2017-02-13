@@ -44,6 +44,10 @@ public interface LoaderDispatcher<T> {
                 return Maybe.<Class<?>>of(SystemFrameworkLoader.get().loadClassFromBundle(className, bundle));
             } catch (ClassNotFoundException e) {
                 return Maybe.absent("Failed to load class " + className + " from bundle " + bundle, e);
+            } catch (NoClassDefFoundError e) {
+                // Can happen if a bundle misbehaves (e.g. it doesn't include Import-Package for 
+                // all the packages it really needs.
+                return Maybe.absent("Failed to load class " + className + " from bundle " + bundle, e);
             }
         }
 
@@ -53,6 +57,10 @@ public interface LoaderDispatcher<T> {
                 return Maybe.<Class<?>>of(loader.loadClass(className));
             } catch (IllegalStateException e) {
                 propagateIfCauseNotClassNotFound(e);
+                return Maybe.absent("Failed to load class " + className + " from loader " + loader, e);
+            } catch (NoClassDefFoundError e) {
+                // Can happen if a bundle misbehaves (e.g. it doesn't include Import-Package for 
+                // all the packages it really needs.
                 return Maybe.absent("Failed to load class " + className + " from loader " + loader, e);
             }
         }
@@ -67,6 +75,10 @@ public interface LoaderDispatcher<T> {
                 propagateIfCauseNotClassNotFound(e);
                 return Maybe.absent("Failed to load class " + className + " from class loader " + classLoader, e);
             } catch (ClassNotFoundException e) {
+                return Maybe.absent("Failed to load class " + className + " from class loader " + classLoader, e);
+            } catch (NoClassDefFoundError e) {
+                // Can happen if a bundle misbehaves (e.g. it doesn't include Import-Package for 
+                // all the packages it really needs.
                 return Maybe.absent("Failed to load class " + className + " from class loader " + classLoader, e);
             }
         }

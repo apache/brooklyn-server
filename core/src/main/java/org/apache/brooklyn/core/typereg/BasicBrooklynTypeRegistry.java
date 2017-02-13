@@ -61,6 +61,7 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
         this.mgmt = mgmt;
     }
     
+    @Override
     public Iterable<RegisteredType> getAll() {
         return getMatching(Predicates.alwaysTrue());
     }

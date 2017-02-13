@@ -35,7 +35,6 @@ import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ComputeServic
 import org.apache.brooklyn.core.sensor.BasicNotificationSensor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.apache.brooklyn.policy.autoscaling.AutoScalerPolicy;
 import org.apache.brooklyn.policy.ha.HASensors.FailureDescriptor;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;

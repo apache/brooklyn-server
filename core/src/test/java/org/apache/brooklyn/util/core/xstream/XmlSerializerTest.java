@@ -50,8 +50,8 @@ public class XmlSerializerTest {
     @Test
     public void testIllegalXmlCharacter() throws Exception {
         String val = "PREFIX_\u001b\u0000_SUFFIX";
-        assertEquals((int)val.charAt(7), 27); // expect that to give us unicode character 27
-        assertEquals((int)val.charAt(8), 0); // expect that to give us unicode character 0
+        assertEquals(val.charAt(7), 27); // expect that to give us unicode character 27
+        assertEquals(val.charAt(8), 0); // expect that to give us unicode character 0
         assertSerializeAndDeserialize(val);
         assertSerializeAndDeserialize(new StringHolder(val));
     }

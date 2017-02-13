@@ -33,6 +33,7 @@ public interface PdpMatcher {
         public ArtifactMatcher(String artifactType) {
             this.artifactType = artifactType;
         }
+        @Override
         public boolean accepts(Object art) {
             return (art instanceof Artifact) && this.artifactType.equals( ((Artifact)art).getArtifactType() );
         }
@@ -43,6 +44,7 @@ public interface PdpMatcher {
         public ServiceMatcher(String serviceType) {
             this.serviceType = serviceType;
         }
+        @Override
         public boolean accepts(Object svc) {
             return (svc instanceof Service) && this.serviceType.equals( ((Service)svc).getServiceType() );
         }

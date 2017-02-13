@@ -27,6 +27,7 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.config.ConfigKey;
@@ -108,14 +109,14 @@ public class ShellFeed extends AbstractFeed {
     }
     
     public static class Builder {
-        private EntityLocal entity;
+        private Entity entity;
         private long period = 500;
         private TimeUnit periodUnits = TimeUnit.MILLISECONDS;
         private List<ShellPollConfig<?>> polls = Lists.newArrayList();
         private String uniqueTag;
         private volatile boolean built;
         
-        public Builder entity(EntityLocal val) {
+        public Builder entity(Entity val) {
             this.entity = val;
             return this;
         }
@@ -138,7 +139,7 @@ public class ShellFeed extends AbstractFeed {
         public ShellFeed build() {
             built = true;
             ShellFeed result = new ShellFeed(this);
-            result.setEntity(checkNotNull(entity, "entity"));
+            result.setEntity(checkNotNull((EntityLocal)entity, "entity"));
             result.start();
             return result;
         }
@@ -244,6 +245,7 @@ public class ShellFeed extends AbstractFeed {
         }
     }
     
+    @Override
     @SuppressWarnings("unchecked")
     protected Poller<SshPollValue> getPoller() {
         return (Poller<SshPollValue>) super.getPoller();

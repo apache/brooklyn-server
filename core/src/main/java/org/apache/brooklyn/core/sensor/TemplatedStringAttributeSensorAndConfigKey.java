@@ -61,6 +61,6 @@ public class TemplatedStringAttributeSensorAndConfigKey extends BasicAttributeSe
     @Override
     protected String convertConfigToSensor(String value, ManagementContext managementContext) {
         if (value == null) return null;
-        return TemplateProcessor.processTemplateContents(value, (ManagementContextInternal)managementContext, ImmutableMap.<String,Object>of());
+        return TemplateProcessor.processTemplateContents(value, managementContext, ImmutableMap.<String,Object>of());
     }
 }

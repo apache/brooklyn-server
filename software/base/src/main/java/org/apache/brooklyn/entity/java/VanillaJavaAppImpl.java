@@ -52,10 +52,15 @@ public class VanillaJavaAppImpl extends SoftwareProcessImpl implements VanillaJa
         super(properties, parent);
     }
 
+    @Override
     public String getMainClass() { return getConfig(MAIN_CLASS); }
+    @Override
     public List<String> getClasspath() { return getConfig(CLASSPATH); }
+    @Override
     public List<String> getClasspathFiles() { return getAttribute(CLASSPATH_FILES); }
+    @Override
     public Map getJvmDefines() { return getConfig(JVM_DEFINES); }
+    @Override
     public List getJvmXArgs() { return getConfig(JVM_XARGS); }
 
     public void addToClasspath(String url) {
@@ -98,6 +103,7 @@ public class VanillaJavaAppImpl extends SoftwareProcessImpl implements VanillaJa
         return VanillaJavaAppDriver.class;
     }
 
+    @Override
     public String getRunDir() {
         // FIXME Make this an attribute; don't assume it hsa to be ssh? What uses this?
         VanillaJavaAppSshDriver driver = (VanillaJavaAppSshDriver) getDriver();

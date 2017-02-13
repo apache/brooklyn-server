@@ -53,6 +53,7 @@ public class BrooklynMementoPersisterInMemorySizeIntegrationTest extends Brookly
 
     protected RecordingTransactionListener recorder;
 
+    @Override
     protected ManagementContext newPersistingManagementContext() {
         recorder = new RecordingTransactionListener("in-mem-test-"+Identifiers.makeRandomId(4));
         return RebindTestUtils.managementContextBuilder(classLoader, 

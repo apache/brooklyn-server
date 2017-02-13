@@ -67,6 +67,7 @@ public class HaHotCheckResourceFilter implements ContainerRequestFilter {
     private ResourceInfo resourceInfo;
     
     private HaHotCheckHelperAbstract helper = new HaHotCheckHelperAbstract() {
+        @Override
         public ManagementContext mgmt() {
             return mgmt.getContext(ManagementContext.class);
         }
@@ -112,6 +113,7 @@ public class HaHotCheckResourceFilter implements ContainerRequestFilter {
     }
 
     /** @deprecated since 0.9.0 use {@link BrooklynRestResourceUtils#getProblemMessageIfServerNotRunning(ManagementContext)} */
+    @Deprecated
     public static String lookForProblemIfServerNotRunning(ManagementContext mgmt) {
         return HaHotCheckHelperAbstract.getProblemMessageIfServerNotRunning(mgmt).orNull();
     }

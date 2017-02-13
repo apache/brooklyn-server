@@ -18,8 +18,8 @@
  */
 package org.apache.brooklyn.util.core.task;
 
-import static org.apache.brooklyn.util.groovy.GroovyJavaMethods.elvis;
-import static org.apache.brooklyn.util.groovy.GroovyJavaMethods.truth;
+import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvis;
+import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -98,7 +98,7 @@ public class ScheduledTask extends BasicTask<Object> {
         
         delay = Duration.of(elvis(flags.remove("delay"), 0));
         period = Duration.of(elvis(flags.remove("period"), null));
-        maxIterations = elvis(flags.remove("maxIterations"), null);
+        maxIterations = (Integer) elvis(flags.remove("maxIterations"), null);
         Object cancelFlag = flags.remove("cancelOnException");
         cancelOnException = cancelFlag == null || Boolean.TRUE.equals(cancelFlag);
     }
@@ -143,6 +143,7 @@ public class ScheduledTask extends BasicTask<Object> {
         }
     }
     
+    @Override
     protected String getActiveTaskStatusString(int verbosity) {
         StringBuilder rv = new StringBuilder("Scheduler");
         if (runCount > 0) {
@@ -152,7 +153,7 @@ public class ScheduledTask extends BasicTask<Object> {
             Duration start = Duration.sinceUtc(recentRun.getStartTimeUtc());
             rv.append(", last run ").append(start).append(" ago");
         }
-        if (truth(getNextScheduled())) {
+        if (groovyTruth(getNextScheduled())) {
             Duration untilNext = Duration.millis(getNextScheduled().getDelay(TimeUnit.MILLISECONDS));
             if (untilNext.isPositive())
                 rv.append(", next in ").append(untilNext);
@@ -182,15 +183,17 @@ public class ScheduledTask extends BasicTask<Object> {
         }
     }
     
+    @Override
     public void blockUntilEnded() {
         while (!isDone()) super.blockUntilEnded();
     }
 
     /** @return The value of the most recently run task */
+    @Override
     public Object get() throws InterruptedException, ExecutionException {
         blockUntilStarted();
         blockUntilFirstScheduleStarted();
-        return (truth(recentRun)) ? recentRun.get() : internalFuture.get();
+        return (groovyTruth(recentRun)) ? recentRun.get() : internalFuture.get();
     }
     
     @Override

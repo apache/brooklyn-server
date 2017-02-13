@@ -117,6 +117,7 @@ public class GroupTest extends BrooklynAppUnitTestSupport {
         
         group.addMember(entity1);
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 String msg = "events="+groupAddedListener.getEvents();
                 assertEquals(groupAddedListener.getEvents().size(), 1, msg);
@@ -127,6 +128,7 @@ public class GroupTest extends BrooklynAppUnitTestSupport {
         
         group.removeMember(entity1);
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 String msg = "events="+groupRemovedListener.getEvents();
                 assertEquals(groupRemovedListener.getEvents().size(), 1, msg);

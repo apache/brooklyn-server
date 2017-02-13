@@ -32,7 +32,7 @@ import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 
 /**
  * Base {@link Policy} implementation; all policies should extend this or its children
@@ -117,7 +117,8 @@ public abstract class AbstractPolicy extends AbstractEntityAdjunct implements Po
     
     @Override
     public String toString() {
-        return Objects.toStringHelper(getClass())
+        return MoreObjects.toStringHelper(getClass())
+                .add("id", getId())
                 .add("name", name)
                 .add("running", isRunning())
                 .toString();

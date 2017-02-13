@@ -170,6 +170,7 @@ public class DslTest extends BrooklynAppUnitTestSupport {
                     
                     final String expectedValue = Identifiers.makeRandomId(10);
                     Runnable job = new Runnable() {
+                        @Override
                         public void run() {
                             entity.sensors().set(TestApplication.MY_ATTRIBUTE, expectedValue);
                         }
@@ -253,6 +254,43 @@ public class DslTest extends BrooklynAppUnitTestSupport {
         BrooklynDslDeferredSupplier<?> dsl = BrooklynDslCommon.entity("myId");
         Maybe<?> actualValue = execDslImmediately(dsl, Entity.class, app, true);
         assertEquals(actualValue.get(), entity);
+    }
+
+    @Test
+    public void testFormatString() throws Exception {
+        // literals (non-deferred) can be resolved immediately
+        assertEquals(BrooklynDslCommon.formatString("myval"), "myval");
+        assertEquals(BrooklynDslCommon.formatString("%s", "myval"), "myval");
+        
+        BrooklynDslDeferredSupplier<?> arg = BrooklynDslCommon.attributeWhenReady(TestApplication.MY_ATTRIBUTE.getName());
+        BrooklynDslDeferredSupplier<?> dsl = (BrooklynDslDeferredSupplier<?>) BrooklynDslCommon.formatString("%s", arg);
+        
+        Maybe<?> actualValue = execDslImmediately(dsl, String.class, app, true);
+        assertTrue(actualValue.isAbsent());
+
+        app.sensors().set(TestApplication.MY_ATTRIBUTE, "myval");
+        assertEquals(execDslEventually(dsl, String.class, app, Asserts.DEFAULT_LONG_TIMEOUT).get(), "myval");
+        assertEquals(execDslImmediately(dsl, String.class, app, true).get(), "myval");
+    }
+
+    @Test
+    public void testUrlEncode() throws Exception {
+        String origVal = "name@domain?!/&:%";
+        String encodedVal = "name%40domain%3F%21%2F%26%3A%25";
+        
+        // literals (non-deferred) can be resolved immediately
+        assertEquals(BrooklynDslCommon.urlEncode("myval"), "myval");
+        assertEquals(BrooklynDslCommon.urlEncode(origVal), encodedVal);
+        
+        BrooklynDslDeferredSupplier<?> arg = BrooklynDslCommon.attributeWhenReady(TestApplication.MY_ATTRIBUTE.getName());
+        BrooklynDslDeferredSupplier<?> dsl = (BrooklynDslDeferredSupplier<?>) BrooklynDslCommon.urlEncode(arg);
+        
+        Maybe<?> actualValue = execDslImmediately(dsl, String.class, app, true);
+        assertTrue(actualValue.isAbsent());
+
+        app.sensors().set(TestApplication.MY_ATTRIBUTE, origVal);
+        assertEquals(execDslEventually(dsl, String.class, app, Asserts.DEFAULT_LONG_TIMEOUT).get(), encodedVal);
+        assertEquals(execDslImmediately(dsl, String.class, app, true).get(), encodedVal);
     }
 
     @Test
@@ -378,6 +416,7 @@ public class DslTest extends BrooklynAppUnitTestSupport {
         protected void preResolve(final TestEntity entity) {
             expectedValue = Identifiers.makeRandomId(10);
             Runnable job = new Runnable() {
+                @Override
                 public void run() {
                     entity.sensors().set(sensor, expectedValue);
                 }
@@ -500,6 +539,7 @@ public class DslTest extends BrooklynAppUnitTestSupport {
         // and does this using BrooklynTaskTags.getTargetOrContextEntity(Tasks.current()).
         // If we are not in a task executed by the context entity, then this lookup will fail. 
         Callable<Maybe<?>> job = new Callable<Maybe<?>>() {
+            @Override
             public Maybe<?> call() throws Exception {
                 return Tasks.resolving(dsl).as(type)
                         .context(context)

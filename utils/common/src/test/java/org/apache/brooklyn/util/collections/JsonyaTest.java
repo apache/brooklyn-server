@@ -143,6 +143,7 @@ public class JsonyaTest {
     @Test
     public void testPrimitivedAndLiteralledMap() {
         Object foo = new Object() {
+            @Override
             public String toString() { return "FOO"; }
         };
         
