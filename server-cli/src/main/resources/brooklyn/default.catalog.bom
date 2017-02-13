@@ -11,12 +11,14 @@ brooklyn.catalog:
 
   - id: server
     itemType: entity
+    iconUrl: classpath://brooklyn/icons/server.svg
     description: |
       Provision a server, with customizable provisioning.properties and credentials installed, 
       but no other special software process or scripts executed.
     item:
       type: org.apache.brooklyn.entity.software.base.EmptySoftwareProcess
       name: Server
+      iconUrl: classpath://brooklyn/icons/server.svg
 
   - id: vanilla-bash-server
     itemType: entity
@@ -42,11 +44,13 @@ brooklyn.catalog:
 
   - id: cluster
     itemType: entity
+    iconUrl: classpath://brooklyn/icons/cluster.svg
     description: |
       Create a cluster of entities, resizable, with starting size "initialSize",
       and using a spec supplied in the "memberSpec" key.
     item:
       type: org.apache.brooklyn.entity.group.DynamicCluster
+      iconUrl: classpath://brooklyn/icons/cluster.svg
 
   - id: 1-server-template
     itemType: template

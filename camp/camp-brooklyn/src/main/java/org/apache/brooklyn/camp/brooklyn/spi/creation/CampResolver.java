@@ -116,6 +116,9 @@ class CampResolver {
         }
 
         spec.catalogItemIdIfNotNull(item.getId());
+        if (!spec.getFlags().containsKey("iconUrl") && item.getIconUrl()!=null) {
+            spec.configure("iconUrl", item.getIconUrl());
+        }
 
         if (spec instanceof EntitySpec) {
             String name = spec.getDisplayName();
