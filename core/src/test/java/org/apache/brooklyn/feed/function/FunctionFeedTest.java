@@ -128,7 +128,7 @@ public class FunctionFeedTest extends BrooklynAppUnitTestSupport {
         Assert.assertFalse(feedAdded==feed0);
     }
     
-    @Test
+    @Test(groups="Integration")  // because slow
     public void testFeedDeDupeIgnoresSameObject() throws Exception {
         testPollsFunctionRepeatedlyToSetAttribute();
         entity.addFeed(feed);
