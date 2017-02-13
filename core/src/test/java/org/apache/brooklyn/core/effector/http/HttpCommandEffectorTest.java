@@ -202,7 +202,7 @@ public class HttpCommandEffectorTest extends BrooklynAppUnitTestSupport {
       Object output = testEntity.invoke(EFFECTOR_HTTP_COMMAND, ImmutableMap.<String, Object>of()).getUnchecked(Duration.seconds(1));
       assertEquals(output, "[\"key\", \"value\"]");
 
-      assertEquals(server.getRequestCount(), "[\"key\", \"value\"]");
+      assertEquals(server.getRequestCount(), 1);
       assertSent(server, "POST", "/post");
    }
 
