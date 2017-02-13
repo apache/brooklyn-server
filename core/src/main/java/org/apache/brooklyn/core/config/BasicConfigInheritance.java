@@ -184,7 +184,7 @@ public class BasicConfigInheritance implements ConfigInheritance {
      * of {@link #resolveWithParentCustomStrategy(ConfigValueAtContainer, ConfigValueAtContainer, org.apache.brooklyn.config.ConfigInheritance.ConfigInheritanceContext)} */
     @Nullable protected final String conflictResolutionStrategy;
     
-    /** @deprecated since 0.10.0 when this was introduced, now renamed {@link #localDefaultResolvesWithAncestorValue} */
+    /** @deprecated since 0.11.0 when this was introduced, now renamed {@link #localDefaultResolvesWithAncestorValue} */
     @Deprecated protected final Boolean useLocalDefaultValue;
     /** whether a local default value should be considered for resolution in the presence of an ancestor value.
      * can use true with {@link #CONFLICT_RESOLUTION_STRATEGY_OVERWRITE} to mean don't inherit, 
@@ -215,7 +215,7 @@ public class BasicConfigInheritance implements ConfigInheritance {
      * defines a local default value (with this field true) will have its conflict resolution strategy
      * applied with the ancestor's default value.
      * <p>
-     * if this is false, ancestor defaults are completely ignored; prior to 0.10.0 this was the normal behaviour,
+     * if this is false, ancestor defaults are completely ignored; prior to 0.11.0 this was the normal behaviour,
      * but it caused surprises where default values in parameters did not take effect.
      * <p>
      * as currently we only really use {@link #localDefaultResolvesWithAncestorValue} true when we
@@ -238,7 +238,7 @@ public class BasicConfigInheritance implements ConfigInheritance {
     @Nonnull
     protected final Boolean ancestorDefaultInheritable;
     
-    @Deprecated /** @deprecated since 0.10.0 use four-arg constructor */
+    @Deprecated /** @deprecated since 0.11.0 use four-arg constructor */
     protected BasicConfigInheritance(boolean isReinherited, @Nullable String conflictResolutionStrategy, boolean localDefaultResolvesWithAncestorValue) {
         this(isReinherited, conflictResolutionStrategy, localDefaultResolvesWithAncestorValue, true);
     }
@@ -362,7 +362,7 @@ public class BasicConfigInheritance implements ConfigInheritance {
         return conflictResolutionStrategy;
     }
     
-    @Deprecated /** @deprecated since 0.10.0 when it was introduced, prefer {@link #getLocalDefaultResolvesWithAncestorValue()} */
+    @Deprecated /** @deprecated since 0.11.0 when it was introduced, prefer {@link #getLocalDefaultResolvesWithAncestorValue()} */
     public boolean getUseLocalDefaultValue() {
         return getLocalDefaultResolvesWithAncestorValue();
     }
