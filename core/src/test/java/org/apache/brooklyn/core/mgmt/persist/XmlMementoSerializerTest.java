@@ -799,7 +799,7 @@ public class XmlMementoSerializerTest {
     public void testConfigInheritanceVals() throws Exception {
         ConfigInheritance val = BasicConfigInheritance.NEVER_INHERITED;
 
-        ConfigInheritance newVal = assertSerializeAndDeserialize(val); // TODO this line fails
+        ConfigInheritance newVal = assertSerializeAndDeserialize(val);
         Assert.assertSame(val, newVal);
     }
     

@@ -360,35 +360,35 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
                 queryKey.hasDefaultValue() ? coerceFn.apply(Maybe.of((Object)queryKey.getDefaultValue())) :
                     Maybe.<T>absent();
 
-                if (ownKey instanceof ConfigKeySelfExtracting) {
+        if (ownKey instanceof ConfigKeySelfExtracting) {
 
-                    Function<TContainer, Maybe<Object>> lookupFn = new Function<TContainer, Maybe<Object>>() {
-                        @Override public Maybe<Object> apply(TContainer input) {
-                            // lookup against ownKey as it may do extra resolution (eg grab *.* subkeys if a map)
-                            Maybe<Object> result = getRawValueAtContainer(input, ownKey);
-                            if (!raw) result = resolveRawValueFromContainer(input, ownKey, result);
-                            return result;
-                        }
-                    };
-                    Function<TContainer, TContainer> parentFn = new Function<TContainer, TContainer>() {
-                        @Override public TContainer apply(TContainer input) {
-                            return getParentOfContainer(input);
-                        }
-                    };
-                    AncestorContainerAndKeyValueIterator<TContainer, T> ckvi = new AncestorContainerAndKeyValueIterator<TContainer,T>(
-                            getContainer(), keyFn, lookupFn, coerceFn, parentFn);
-
-                    return ConfigInheritances.resolveInheriting(
-                            getContainer(), ownKey, coerceFn.apply(lookupFn.apply(getContainer())), defaultValue, 
-                            ckvi, InheritanceContext.RUNTIME_MANAGEMENT, getDefaultRuntimeInheritance());
-
-                } else {
-                    String message = "Config key "+ownKey+" of "+getBrooklynObject()+" is not a ConfigKeySelfExtracting; cannot retrieve value; returning default";
-                    LOG.warn(message);
-                    return ReferenceWithError.newInstanceThrowingError(new BasicConfigValueAtContainer<TContainer,T>(getContainer(), ownKey, null, false,
-                            defaultValue),
-                            new IllegalStateException(message));
+            Function<TContainer, Maybe<Object>> lookupFn = new Function<TContainer, Maybe<Object>>() {
+                @Override public Maybe<Object> apply(TContainer input) {
+                    // lookup against ownKey as it may do extra resolution (eg grab *.* subkeys if a map)
+                    Maybe<Object> result = getRawValueAtContainer(input, ownKey);
+                    if (!raw) result = resolveRawValueFromContainer(input, ownKey, result);
+                    return result;
                 }
+            };
+            Function<TContainer, TContainer> parentFn = new Function<TContainer, TContainer>() {
+                @Override public TContainer apply(TContainer input) {
+                    return getParentOfContainer(input);
+                }
+            };
+            AncestorContainerAndKeyValueIterator<TContainer, T> ckvi = new AncestorContainerAndKeyValueIterator<TContainer,T>(
+                    getContainer(), keyFn, lookupFn, coerceFn, parentFn);
+
+            return ConfigInheritances.resolveInheriting(
+                    getContainer(), ownKey, coerceFn.apply(lookupFn.apply(getContainer())), defaultValue, 
+                    ckvi, InheritanceContext.RUNTIME_MANAGEMENT, getDefaultRuntimeInheritance());
+
+        } else {
+            String message = "Config key "+ownKey+" of "+getBrooklynObject()+" is not a ConfigKeySelfExtracting; cannot retrieve value; returning default";
+            LOG.warn(message);
+            return ReferenceWithError.newInstanceThrowingError(new BasicConfigValueAtContainer<TContainer,T>(getContainer(), ownKey, null, false,
+                    defaultValue),
+                    new IllegalStateException(message));
+        }
     }
 
     @Override
@@ -436,10 +436,10 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
 
     @Override
     public Set<ConfigKey<?>> findKeysPresent(Predicate<? super ConfigKey<?>> filter) {
-        return findKeys(filter, KeyFindingMode.PRESENT_BUT_RESOLVED);
+        return findKeys(filter, KeyFindingMode.PRESENT_AND_RESOLVED);
     }
 
-    protected enum KeyFindingMode { DECLARED_OR_PRESENT, PRESENT_BUT_RESOLVED, PRESENT_NOT_RESOLVED }
+    protected enum KeyFindingMode { DECLARED_OR_PRESENT, PRESENT_AND_RESOLVED, PRESENT_NOT_RESOLVED }
 
     @SuppressWarnings("deprecation")
     protected Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> filter, KeyFindingMode mode) {
@@ -461,7 +461,7 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         if (getParent()!=null) {
             switch (mode) {
             case DECLARED_OR_PRESENT: result.addAll( getParentInternal().config().getInternalConfigMap().findKeysDeclared(filter) ); break;
-            case PRESENT_BUT_RESOLVED: result.addAll( getParentInternal().config().getInternalConfigMap().findKeysPresent(filter) ); break;
+            case PRESENT_AND_RESOLVED: result.addAll( getParentInternal().config().getInternalConfigMap().findKeysPresent(filter) ); break;
             case PRESENT_NOT_RESOLVED: result.addAll( getParentInternal().config().getInternalConfigMap().findKeys(filter) ); break;
             default:
                 throw new IllegalStateException("Unsupported key finding mode: "+mode);

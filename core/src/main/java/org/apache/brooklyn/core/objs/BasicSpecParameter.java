@@ -52,9 +52,12 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -67,6 +70,8 @@ import com.google.common.reflect.TypeToken;
 public class BasicSpecParameter<T> implements SpecParameter<T>{
     private static final long serialVersionUID = -4728186276307619778L;
 
+    private static final Logger log = LoggerFactory.getLogger(BasicSpecParameter.class);
+    
     private final String label;
 
     /** pinning may become a priority or other more expansive indicator */
@@ -142,7 +147,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this)
+        return MoreObjects.toStringHelper(this)
                 .add("label", label)
                 .add("pinned", pinned)
                 .add("type", configKey)
@@ -249,12 +254,12 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
                 hasRuntimeInheritance = true;
                 runtimeInheritance = parseInheritance(inputDef.get("inheritance.runtime"), loader);
             } else if (inputDef.containsKey("inheritance.parent")) {
-                // this alias will be deprecated
+                log.warn("Using deprecated key 'inheritance.parent' for "+inputDef+"; replace with 'inheritance.runtime'");
                 hasRuntimeInheritance = true;
                 runtimeInheritance = parseInheritance(inputDef.get("inheritance.parent"), loader);
             } else {
                 hasRuntimeInheritance = false;
-                runtimeInheritance = parseInheritance(null, loader);
+                runtimeInheritance = null;
             }
 
             boolean hasTypeInheritance = inputDef.containsKey("inheritance.type");
@@ -421,8 +426,8 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
 
     /**
      * Adds the given list of {@link SpecParameter parameters} to the provided
-     * {@link AbstractBrooklynObjectSpec spec} or generates a list from the
-     * spec if the provided list is empty.
+     * {@link AbstractBrooklynObjectSpec spec}, and if spec has no parameters it 
+     * also generates a list from the spec
      *
      * @see EntitySpec#parameters(List)
      */
@@ -445,24 +450,24 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
         }
 
         List<SpecParameter<?>> result = MutableList.<SpecParameter<?>>of();
+
         for (SpecParameter<?> p: newParams) {
+            final SpecParameter<?> existingP = existingToKeep.remove(p.getConfigKey().getName());
             if (p instanceof SpecParameterForInheritance) {
-                SpecParameter<?> existingP = existingToKeep.remove(p.getConfigKey().getName());
                 if (existingP!=null) {
                     p = ((SpecParameterForInheritance<?>)p).resolveWithAncestor(existingP);
                 } else {
-                    // TODO find config keys on the type (not available as parameters)
+                    ConfigKey<?> configKeyExtendedByThisParameter = null;
+                    // TODO find any matching config key declared on the type
                     /* we don't currently do this due to low priority; all it means if there is a config key in java,
                      * and a user wishes to expose it as a parameter, they have to redeclare everything;
-                     * nothing from the config key in java will be inherited */
-                    p = ((SpecParameterForInheritance<?>)p).resolveWithAncestor((ConfigKey<?>)null);
+                     * none of the fields from the config key in java will be inherited */
+                    p = ((SpecParameterForInheritance<?>)p).resolveWithAncestor(configKeyExtendedByThisParameter);
                 }
-                result.add(p);
-            } else {
-                existingToKeep.remove(p.getConfigKey().getName());
-                result.add(p);
             }
+            result.add(p);
         }
+
         result.addAll(existingToKeep.values());
         return result;
     }
@@ -494,9 +499,9 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
 
             return new BasicSpecParameter<>(
                     hasLabelSet ? getLabel() : ancestor.getLabel(), 
-                            hasPinnedSet ? isPinned() : ancestor.isPinned(), 
-                                    resolveWithAncestorConfigKey(ancestor.getConfigKey()), 
-                                    hasType ? getSensor() : ancestor.getSensor());
+                    hasPinnedSet ? isPinned() : ancestor.isPinned(), 
+                    resolveWithAncestorConfigKey(ancestor.getConfigKey()), 
+                    hasType ? getSensor() : ancestor.getSensor());
         }
 
         /** as {@link #resolveWithAncestor(SpecParameter)} but where the param redefines/extends a config key coming from a java supertype, rather than a parameter */
@@ -507,7 +512,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
         SpecParameter<?> resolveWithAncestor(ConfigKey<?> ancestor) {
             if (ancestor==null) return new BasicSpecParameter<>(getLabel(), isPinned(), getConfigKey(), getSensor());
 
-            // TODO probably want to do this (but it could get expensive!)
+            // TODO probably want to do this (but it could get expensive! - limited caching could help)
             //          Set<Class<?>> types = MutableSet.<Class<?>>builder()
             //                  .add(spec.getImplementation())
             //                  .add(spec.getType())

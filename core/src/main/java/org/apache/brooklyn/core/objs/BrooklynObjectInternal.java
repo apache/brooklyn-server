@@ -153,7 +153,7 @@ public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
         /** This is currently the only way to get some rolled up collections and raw,
          * and also to test for the presence of a value (without any default).
          * As more accessors are added callers may be asked to migrate. 
-         * Callers may also consider using {@link #findKeysDeprecated(com.google.common.base.Predicate)}
+         * Callers may also consider using {@link #findKeysDeclared(com.google.common.base.Predicate)}
          * although efficiency should be considered (this gives direct access whereas that does lookups and copies). */
         @Beta  // TODO provide more accessors and deprecate this
         ConfigMapWithInheritance<? extends BrooklynObject> getInternalConfigMap();

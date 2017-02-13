@@ -459,14 +459,27 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
         return Objects.hashCode(31, get());
     }
     
+    /** Two {@link Maybe} instances are equal if both present wrapping the same value,
+     * or if both are absent for any reason.
+     * <p>
+     * Specifically, in cases of absences, the reasons for absence are not compared.
+     * This could be revisited if there is compelling reason to do so, but in the main
+     * the cause of an absence is interesting for giving information to the user.
+     * Note this is different to the behaviour of {@link Optional} which says absences
+     * are only equal if they are the same instance.
+     */
     @Override
     public boolean equals(Object obj) {
         if (!(obj instanceof Maybe)) return false;
         Maybe<?> other = (Maybe<?>)obj;
-        if (!isPresent()) 
-            return !other.isPresent();
-        if (!other.isPresent())
+        if (!isPresent()) { 
+            if (other.isPresent()) return false;
+            // could compare exceptions; see javadoc
+            return true;
+        }
+        if (!other.isPresent()) {
             return false;
+        }
         return Objects.equal(get(), other.get());
     }
 

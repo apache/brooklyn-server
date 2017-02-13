@@ -49,6 +49,9 @@ public class BasicConfigInheritance implements ConfigInheritance {
     public static final String CONFLICT_RESOLUTION_STRATEGY_DEEP_MERGE = "deep_merge";
     public static final String CONFLICT_RESOLUTION_STRATEGY_OVERWRITE = "overwrite";
     
+    /** This class allows us to have constant instances of {@link ConfigInheritance}
+     * which have no internal fields (ie they don't extend {@link BasicConfigInheritance}) 
+     * so are pretty on serialization, but otherwise act identically. */
     public static abstract class DelegatingConfigInheritance implements ConfigInheritance {
         protected abstract ConfigInheritance getDelegate();
         
@@ -69,20 +72,24 @@ public class BasicConfigInheritance implements ConfigInheritance {
         public boolean equals(Object obj) {
             return super.equals(obj) || getDelegate().equals(obj);
         }
-        
+
+        @Override
+        public int hashCode() {
+            return getDelegate().hashCode();
+        }
+
         // standard deserialization method
         protected ConfigInheritance readResolve() {
             return returnEquivalentConstant(this);
         }
     }
-
+    
     private static ConfigInheritance returnEquivalentConstant(ConfigInheritance candidate) {
         for (ConfigInheritance knownMode: Arrays.asList(
                 NOT_REINHERITED, NOT_REINHERITED_ELSE_DEEP_MERGE, NEVER_INHERITED, OVERWRITE, BasicConfigInheritance.DEEP_MERGE)) {
             if (candidate.equals(knownMode)) return knownMode;
         }
-        if (candidate.equals(new BasicConfigInheritance(false, CONFLICT_RESOLUTION_STRATEGY_OVERWRITE, true, true))) {
-            // ignore the ancestor flag for this mode
+        if (candidate.equals(NEVER_INHERITED_OLD)) {
             return NEVER_INHERITED;
         }
         return candidate;
@@ -105,7 +112,7 @@ public class BasicConfigInheritance implements ConfigInheritance {
      * (ie the container does not expect it) to a container which does expect it, but it will not be passed down further. 
      * If the inheritor also defines a value the parent's value is ignored irrespective 
      * (as in {@link #OVERWRITE}; see {@link #NOT_REINHERITED_ELSE_DEEP_MERGE} if merging is desired). */
-    public static ConfigInheritance NOT_REINHERITED = new NotReinherited();
+    public static final ConfigInheritance NOT_REINHERITED = new NotReinherited();
     
     private static class NotReinheritedElseDeepMerge extends DelegatingConfigInheritance {
         final static BasicConfigInheritance DELEGATE = new BasicConfigInheritance(false, CONFLICT_RESOLUTION_STRATEGY_DEEP_MERGE, false, true); 
@@ -113,7 +120,7 @@ public class BasicConfigInheritance implements ConfigInheritance {
     }
     /** As {@link #NOT_REINHERITED} but in cases where a value is inherited because a parent did not recognize it,
      * if the inheritor also defines a value the two values should be merged. */
-    public static ConfigInheritance NOT_REINHERITED_ELSE_DEEP_MERGE = new NotReinheritedElseDeepMerge();
+    public static final ConfigInheritance NOT_REINHERITED_ELSE_DEEP_MERGE = new NotReinheritedElseDeepMerge();
     
     private static class NeverInherited extends DelegatingConfigInheritance {
         final static BasicConfigInheritance DELEGATE = new BasicConfigInheritance(false, CONFLICT_RESOLUTION_STRATEGY_OVERWRITE, true, false);
@@ -121,7 +128,11 @@ public class BasicConfigInheritance implements ConfigInheritance {
     }
     /** Indicates that a key's value should never be inherited, even if inherited from a value set on a container that does not know the key.
      * (Most usages will prefer {@link #NOT_REINHERITED}.) */
-    public static ConfigInheritance NEVER_INHERITED = new NeverInherited();
+    public static final ConfigInheritance NEVER_INHERITED = new NeverInherited();
+
+    /** In case we deserialize an old copy; the last arg (ancestor inherit default) is irrelevant
+     * so accept this as a synonym for {@link #NEVER_INHERITED}. */
+    private static final ConfigInheritance NEVER_INHERITED_OLD = new BasicConfigInheritance(false, CONFLICT_RESOLUTION_STRATEGY_OVERWRITE, true, true);
     
     private static class Overwrite extends DelegatingConfigInheritance {
         final static BasicConfigInheritance DELEGATE = new BasicConfigInheritance(true, CONFLICT_RESOLUTION_STRATEGY_OVERWRITE, false, true);
@@ -129,7 +140,7 @@ public class BasicConfigInheritance implements ConfigInheritance {
     }
     /** Indicates that if a key has a value at both an ancestor and a descendant, the descendant and his descendants
      * will prefer the value at the descendant. */
-    public static ConfigInheritance OVERWRITE = new Overwrite();
+    public static final ConfigInheritance OVERWRITE = new Overwrite();
     
     private static class DeepMerge extends DelegatingConfigInheritance {
         final static BasicConfigInheritance DELEGATE = new BasicConfigInheritance(true, CONFLICT_RESOLUTION_STRATEGY_DEEP_MERGE, false, true);
@@ -138,7 +149,7 @@ public class BasicConfigInheritance implements ConfigInheritance {
     /** Indicates that if a key has a value at both an ancestor and a descendant, the descendant and his descendants
      * should attempt to merge the values. If the values are not mergeable behaviour is undefined
      * (and often the descendant's value will simply overwrite). */
-    public static ConfigInheritance DEEP_MERGE = new DeepMerge();
+    public static final ConfigInheritance DEEP_MERGE = new DeepMerge();
 
     // support conversion from these legacy fields
     @SuppressWarnings("deprecation")
@@ -169,17 +180,27 @@ public class BasicConfigInheritance implements ConfigInheritance {
     /** a symbol indicating a conflict-resolution-strategy understood by the implementation.
      * in {@link BasicConfigInheritance} supported values are
      * {@link #CONFLICT_RESOLUTION_STRATEGY_DEEP_MERGE} and {@link #CONFLICT_RESOLUTION_STRATEGY_OVERWRITE}.
-     * subclasses may pass null or a different string if they provide a custom implementaton 
+     * subclasses may pass null or a different string if they provide a custom implementation 
      * of {@link #resolveWithParentCustomStrategy(ConfigValueAtContainer, ConfigValueAtContainer, org.apache.brooklyn.config.ConfigInheritance.ConfigInheritanceContext)} */
     @Nullable protected final String conflictResolutionStrategy;
     
     /** @deprecated since 0.10.0 when this was introduced, now renamed {@link #localDefaultResolvesWithAncestorValue} */
     @Deprecated protected final Boolean useLocalDefaultValue;
     /** whether a local default value should be considered for resolution in the presence of an ancestor value.
-     * can use true with overwrite to mean don't inherit, or true with merge to mean local default merged on top of inherited
+     * can use true with {@link #CONFLICT_RESOLUTION_STRATEGY_OVERWRITE} to mean don't inherit, 
+     * or true with {@link #CONFLICT_RESOLUTION_STRATEGY_DEEP_MERGE} to mean local default merged on top of inherited
      * (but be careful here, if local default is null in a merge it will delete ancestor values).
      * <p>
-     * in most cases this is false, meaning a default value is ignored if the parent has a value.
+     * in most cases this is false, meaning a default value is ignored if the parent has a value,
+     * but it can be used when a key supplies a default which should conflict-resolve with an ancestor value:
+     * a trivial example is when not reinheriting, a default should conflict-resolve (overwriting) an explicit ancestor value.
+     * more interesting potentially, this could indicate
+     * that a default value is being introduced which should be merged/combined with ancestors;
+     * we don't use this (config inheritance is complex enough and we don't have a compelling use case
+     * to expose more complexity to users) but having this as a concept, and the related
+     * {@link #ancestorDefaultInheritable} specifying (in this case) whether a local default should 
+     * resolve/merge/combine with ancestor defaults in addition to ancestor explicit values,
+     * means the logic in this refers to the right control dimensions rather than taking shortcuts. 
      * <p>
      * null should not be used. a boxed object is taken (as opposed to a primitive boolean) only in order to support migration.    
      */
@@ -187,7 +208,7 @@ public class BasicConfigInheritance implements ConfigInheritance {
     protected final Boolean localDefaultResolvesWithAncestorValue;
 
     /** whether a default set in an ancestor container's key definition will be considered as the
-     * local default value at descendants who don't define any other value (nothing set locally and local default is null);
+     * local default value at descendants who don't define any other value (nothing set locally and local default is null).
      * <p>
      * if true (now the usual behaviour), if an ancestor defines a default and a descendant doesn't, the ancestor's value will be taken as a default.
      * if it is also the case that localDefaultResolvesWithAncestorValue is true at the <i>ancestor</i> then a descendant who
@@ -196,6 +217,21 @@ public class BasicConfigInheritance implements ConfigInheritance {
      * <p>
      * if this is false, ancestor defaults are completely ignored; prior to 0.10.0 this was the normal behaviour,
      * but it caused surprises where default values in parameters did not take effect.
+     * <p>
+     * as currently we only really use {@link #localDefaultResolvesWithAncestorValue} true when we
+     * wish to block reinheritance, this is false in that case,
+     * and true in all other cases (where we wish to have ancestor inheritance, but only if there
+     * is no local value that should trump);
+     * however logically there are other possibilities, such as a local default expecting to
+     * merge/combine with an ancestor value, in which case we'd probably want this to be true
+     * to indicate the local default should combine with the ancestor default,
+     * but it could also make sense for this to be false, meaning the local default would
+     * merge with an explicit ancestor value but not with an ancestor default
+     * (see javadoc on {@link #localDefaultResolvesWithAncestorValue} for more info).
+     * <p>
+     * it gets complex and we've tried to simplify the config modes that we actually use,
+     * but have made efforts in the code to account for the different logical possibilities,
+     * hence the complexity of this.  
      * <p>
      * null should not be used. a boxed object is taken (as opposed to a primitive boolean) only in order to support migration.    
      */
@@ -232,6 +268,8 @@ public class BasicConfigInheritance implements ConfigInheritance {
     private boolean isSameRootInstanceAs(ConfigInheritance other) {
         if (other==null) return false;
         if (this==other) return true;
+        // we should consider the argument the same if it is a delegate to us,
+        // e.g. for when this method is invoked by the delegate comparing against its definition
         if (other instanceof DelegatingConfigInheritance) return isSameRootInstanceAs( ((DelegatingConfigInheritance)other).getDelegate() );
         return false;
     }
@@ -350,6 +388,7 @@ public class BasicConfigInheritance implements ConfigInheritance {
     // standard deserialization method
     private ConfigInheritance readResolve() {
         try {
+            // uses reflection because fields are declared final
             if (useLocalDefaultValue!=null) {
                 // move away from useLocalDefaultValue to localDefaultResolvesWithAncestorValue
                 
@@ -382,17 +421,27 @@ public class BasicConfigInheritance implements ConfigInheritance {
     }
 
     @Override
+    public int hashCode() {
+        return Objects.hash(conflictResolutionStrategy, isReinherited, localDefaultResolvesWithAncestorValue, ancestorDefaultInheritable);
+    }
+    
+    @Override
     public boolean equals(Object obj) {
         if (obj==null) return false;
-        if (obj instanceof DelegatingConfigInheritance) return equals( ((DelegatingConfigInheritance)obj).getDelegate() );
-        if (obj.getClass().equals(BasicConfigInheritance.class)) {
-            BasicConfigInheritance b = (BasicConfigInheritance)obj;
-            return Objects.equals(conflictResolutionStrategy, b.conflictResolutionStrategy) &&
-                Objects.equals(isReinherited, b.isReinherited) &&
-                Objects.equals(getLocalDefaultResolvesWithAncestorValue(), b.getLocalDefaultResolvesWithAncestorValue()) &&
-                Objects.equals(getAncestorDefaultInheritable(), b.getAncestorDefaultInheritable());
+        if (obj instanceof DelegatingConfigInheritance) {
+            return equals( ((DelegatingConfigInheritance)obj).getDelegate() );
+        }
+        if (obj instanceof BasicConfigInheritance) {
+            return equalsAfterResolvingDelegate((BasicConfigInheritance)obj);
         }
         return false;
+    }
+    
+    protected boolean equalsAfterResolvingDelegate(BasicConfigInheritance b) {
+        return (Objects.equals(conflictResolutionStrategy, b.conflictResolutionStrategy) &&
+            Objects.equals(isReinherited, b.isReinherited) &&
+            Objects.equals(getLocalDefaultResolvesWithAncestorValue(), b.getLocalDefaultResolvesWithAncestorValue()) &&
+            Objects.equals(getAncestorDefaultInheritable(), b.getAncestorDefaultInheritable()));        
     }
     
     @Override

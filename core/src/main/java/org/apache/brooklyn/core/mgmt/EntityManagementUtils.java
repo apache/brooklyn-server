@@ -318,8 +318,7 @@ public class EntityManagementUtils {
             // prevent merge only if a location is defined at both levels
             ((spec.getLocations().isEmpty() && spec.getLocationSpecs().isEmpty()) || 
                 (Iterables.getOnlyElement(spec.getChildren()).getLocations().isEmpty()) && Iterables.getOnlyElement(spec.getChildren()).getLocationSpecs().isEmpty())
-            // TODO what should we do with parameters? currently clobbers due to EntitySpec.parameters(...) behaviour.
-//            && (spec.getParameters().isEmpty() || Iterables.getOnlyElement(spec.getChildren()).getParameters().isEmpty())
+            // parameters are collapsed on merge so don't need to be considered here
             ;
     }
     /** @deprecated since 0.9.0 use {@link #canUnwrapEntity(EntitySpec)} */ @Deprecated

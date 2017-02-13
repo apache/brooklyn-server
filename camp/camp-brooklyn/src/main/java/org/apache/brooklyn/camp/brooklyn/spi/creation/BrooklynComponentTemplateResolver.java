@@ -409,7 +409,7 @@ public class BrooklynComponentTemplateResolver {
         //
         // I plan to propose a change on dev@brooklyn, to replace `@SetFromFlag`!
 
-        // need to de-dupe? (can't use Set bc FCKVR doesn't impl equals/hashcode)
+        // need to de-dupe? (can't use Set bc FCKAVR doesn't impl equals/hashcode)
         // TODO merge *bagFlags* with existing spec params, merge yaml w yaml parent params elsewhere
         List<FlagConfigKeyAndValueRecord> allKeys = MutableList.of();
         allKeys.addAll(FlagUtils.findAllParameterConfigKeys(spec.getParameters(), bagFlags));

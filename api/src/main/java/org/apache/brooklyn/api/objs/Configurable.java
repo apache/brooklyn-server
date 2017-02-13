@@ -103,7 +103,7 @@ public interface Configurable {
         @Deprecated
         Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> filter);
 
-        /** see {@link ConfigMap#findKeysDelcared(Predicate)}  */
+        /** see {@link ConfigMap#findKeysDeclared(Predicate)}  */
         public Set<ConfigKey<?>> findKeysDeclared(Predicate<? super ConfigKey<?>> filter);
 
         /** see {@link ConfigMap#findKeysPresent(Predicate)}  */
