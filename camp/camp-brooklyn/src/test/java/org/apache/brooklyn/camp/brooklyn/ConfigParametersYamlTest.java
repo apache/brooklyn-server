@@ -795,4 +795,62 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         
         assertEquals(entity.config().get(key), expectedEntityVal);
     }
+    
+    @Test(groups="Broken")
+    public void testConfigDefaultIsNotInheritedWith_LocalDefaultResolvesWithAncestorValue_SetToTrue() throws Exception {
+
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  itemType: entity",
+            "  version: 0.1",
+            "  items:",
+            "  - id: entity-with-keys",
+            "    item:",
+            "      type: "+TestEntity.class.getName(),
+            "      brooklyn.parameters:",
+            "      - name: my.param.key",
+            "        type: string",
+            "        inheritance.runtime: never",
+            "        description: description one",
+            "        default: myDefaultVal",
+            "      brooklyn.config:",
+            "        my.other.key: $brooklyn:config(\"my.param.key\")");
+
+        addCatalogItems(
+            "brooklyn.catalog:",
+            "  itemType: entity",
+            "  version: 0.1",
+            "  items:",
+            "  - id: wrapper-entity",
+            "    item:",
+            "      brooklyn.parameters:",
+            "      - name: my.param.key",
+            "        description: description two",
+            "      type: entity-with-keys");
+
+        String yaml = Joiner.on("\n").join(
+            "services:",
+            "- type: wrapper-entity");
+
+        Entity app = createStartWaitAndLogApplication(yaml);
+        final TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+        LOG.info("Config keys declared on "+entity+": "+entity.config().findKeysDeclared(Predicates.alwaysTrue()));
+        ConfigKey<?> key = Iterables.getOnlyElement( entity.config().findKeysDeclared(ConfigPredicates.nameEqualTo("my.param.key")) );
+        assertEquals(key.getDescription(), "description two");
+        assertEquals(entity.config().get(key), null);
+        
+        /*
+java.lang.AssertionError: expected [null] but found [myDefaultVal]
+Expected :null
+Actual   :myDefaultVal
+
+because we do not filter out hidden ancestor config keys whenever we populate the list of declared config keys, neither in:
+
+BasicSpecParameter.fromSpec(..), where we extend a spec from a spec; nor
+InternalEntityFactory.loadUnitializedEntity(...), where we create a spec for a java class; nor
+BrooklynDynamicType.buildConfigKeys(..), where we record the entity signature for a java type
+
+         */
+    }
+    
 }
