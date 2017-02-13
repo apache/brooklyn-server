@@ -111,7 +111,7 @@ public class SoftwareProcessEntityFeedRebindTest extends RebindTestFixtureWithAp
         }
 
         LOG.info("Rebinding "+numEntities+" entities");
-        newApp = (TestApplication) rebind();
+        newApp = rebind();
         
         // Slight pause is to give the feeds a chance to execute, to publish their event(s)
         Duration.sleep(delayAfterRebind);
@@ -201,6 +201,7 @@ public class SoftwareProcessEntityFeedRebindTest extends RebindTestFixtureWithAp
                             .suppressDuplicates(true)
                             .onException(Functions.constant(-1))
                             .callable(new Callable<Integer>() {
+                                @Override
                                 public Integer call() {
                                     if (!Entities.isManaged(MyServiceWithFeedsImpl.this)) {
                                         feedCalledWhenNotManaged = true;

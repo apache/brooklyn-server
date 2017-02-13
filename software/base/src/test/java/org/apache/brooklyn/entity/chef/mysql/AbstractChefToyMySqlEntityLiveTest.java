@@ -33,6 +33,7 @@ public abstract class AbstractChefToyMySqlEntityLiveTest extends AbstractToyMySq
         super.testMySqlOnProvisioningLocation();
     }
     
+    @Override
     protected MachineProvisioningLocation<? extends SshMachineLocation> createLocation() {
         return ChefLiveTestSupport.createLocation(mgmt);
     }

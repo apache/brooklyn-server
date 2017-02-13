@@ -149,7 +149,9 @@ public class RepeaterTest {
     public void runRespectsMaximumIterationLimitAndReturnsFalseIfReached() {
         final AtomicInteger iterations = new AtomicInteger();
         assertFalse(new Repeater("runRespectsMaximumIterationLimitAndReturnsFalseIfReached")
-            .repeat(new Runnable() { public void run() { iterations.incrementAndGet(); } })
+            .repeat(new Runnable() {
+                @Override public void run() { iterations.incrementAndGet(); }
+            })
             .every(Duration.millis(1))
             .until(Callables.returning(false))
             .limitIterationsTo(5)
@@ -187,7 +189,7 @@ public class RepeaterTest {
         assertTrue(difference < 4 * LIMIT, "Difference was: " + difference);
     }
 
-    @Test(expectedExceptions = { IllegalStateException.class })
+    @Test(expectedExceptions = { NullPointerException.class })
     public void runFailsIfUntilWasNotSet() {
         new Repeater("runFailsIfUntilWasNotSet")
             .every(Duration.millis(10))
@@ -195,7 +197,7 @@ public class RepeaterTest {
         fail("Expected exception was not thrown");
     }
 
-    @Test(expectedExceptions = { IllegalStateException.class })
+    @Test(expectedExceptions = { NullPointerException.class })
     public void runFailsIfEveryWasNotSet() {
         new Repeater("runFailsIfEveryWasNotSet")
             .until(Callables.returning(true))

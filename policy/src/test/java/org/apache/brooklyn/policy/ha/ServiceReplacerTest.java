@@ -124,7 +124,7 @@ public class ServiceReplacerTest {
             }});
     }
 
-    @Test(invocationCount=100)
+    @Test(invocationCount=100, groups="Integration")
     public void testSetsOnFireWhenFailToReplaceMemberManyTimes() throws Exception {
         testSetsOnFireWhenFailToReplaceMember();
     }

@@ -53,6 +53,7 @@ public class RegistryEntityDriverFactory implements EntityDriverManager {
         return lookupDriver(entity.getDriverInterface(), location) != null;
     }
 
+    @Override
     public <D extends EntityDriver> void registerDriver(Class<D> driverInterface, Class<? extends Location> locationClazz, Class<? extends D> driverClazz) {
         synchronized (registry) {
             registry.put(new DriverLocationTuple(driverInterface, locationClazz), driverClazz);

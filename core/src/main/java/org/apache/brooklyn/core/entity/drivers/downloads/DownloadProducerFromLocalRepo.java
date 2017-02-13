@@ -67,6 +67,7 @@ public class DownloadProducerFromLocalRepo implements Function<DownloadRequireme
         this.config = config;
     }
     
+    @Override
     public DownloadTargets apply(DownloadRequirement req) {
         Boolean enabled = config.getConfig(LOCAL_REPO_ENABLED);
         String path = config.getConfig(LOCAL_REPO_PATH);

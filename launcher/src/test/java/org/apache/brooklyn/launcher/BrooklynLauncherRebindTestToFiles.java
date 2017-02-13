@@ -45,16 +45,19 @@ import com.google.common.io.Files;
 
 public class BrooklynLauncherRebindTestToFiles extends BrooklynLauncherRebindTestFixture {
 
+    @Override
     protected String newTempPersistenceContainerName() {
         File persistenceDirF = Files.createTempDir();
         Os.deleteOnExitRecursively(persistenceDirF);
         return persistenceDirF.getAbsolutePath();
     }
     
+    @Override
     protected String badContainerName() {
         return "/path/does/not/exist/"+Identifiers.makeRandomId(4);
     }
     
+    @Override
     protected void checkPersistenceContainerNameIs(String expected) {
         String expectedFqp = new File(Os.tidyPath(expected)).getAbsolutePath();
         assertEquals(getPersistenceDir(lastMgmt()).getAbsolutePath(), expectedFqp);
@@ -66,6 +69,7 @@ public class BrooklynLauncherRebindTestToFiles extends BrooklynLauncherRebindTes
         return store.getBaseDir();
     }
 
+    @Override
     protected void checkPersistenceContainerNameIsDefault() {
         String expected = BrooklynServerPaths.newMainPersistencePathResolver(BrooklynProperties.Factory.newEmpty()).location(null).dir(null).resolve();
         checkPersistenceContainerNameIs(expected);

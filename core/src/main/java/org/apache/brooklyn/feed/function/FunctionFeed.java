@@ -25,9 +25,10 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.feed.AbstractFeed;
 import org.apache.brooklyn.core.feed.AttributePollHandler;
 import org.apache.brooklyn.core.feed.DelegatingPollHandler;
@@ -96,7 +97,7 @@ public class FunctionFeed extends AbstractFeed {
     }
     
     public static class Builder {
-        private EntityLocal entity;
+        private Entity entity;
         private boolean onlyIfServiceUp = false;
         private long period = 500;
         private TimeUnit periodUnits = TimeUnit.MILLISECONDS;
@@ -104,7 +105,7 @@ public class FunctionFeed extends AbstractFeed {
         private String uniqueTag;
         private volatile boolean built;
 
-        public Builder entity(EntityLocal val) {
+        public Builder entity(Entity val) {
             this.entity = val;
             return this;
         }
@@ -135,7 +136,7 @@ public class FunctionFeed extends AbstractFeed {
         public FunctionFeed build() {
             built = true;
             FunctionFeed result = new FunctionFeed(this);
-            result.setEntity(checkNotNull(entity, "entity"));
+            result.setEntity(checkNotNull((EntityInternal)entity, "entity"));
             result.start();
             return result;
         }

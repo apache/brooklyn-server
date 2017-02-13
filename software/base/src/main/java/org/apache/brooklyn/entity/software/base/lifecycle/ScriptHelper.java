@@ -189,11 +189,13 @@ public class ScriptHelper {
     }
 
     protected Runnable mutexAcquire = new Runnable() {
+        @Override
         public void run() {
         }
     };
 
     protected Runnable mutexRelease = new Runnable() {
+        @Override
         public void run() {
         }
     };
@@ -206,6 +208,7 @@ public class ScriptHelper {
      */
     public ScriptHelper useMutex(final WithMutexes mutexSupport, final String mutexId, final String description) {
         mutexAcquire = new Runnable() {
+            @Override
             public void run() {
                 try {
                     mutexSupport.acquireMutex(mutexId, description);
@@ -216,6 +219,7 @@ public class ScriptHelper {
         };
 
         mutexRelease = new Runnable() {
+            @Override
             public void run() {
                 mutexSupport.releaseMutex(mutexId);
             }
@@ -283,6 +287,7 @@ public class ScriptHelper {
         if (task!=null) throw new IllegalStateException("task can only be generated once");
         TaskBuilder<Integer> tb = Tasks.<Integer>builder().displayName("ssh: "+summary).body(
                 new Callable<Integer>() {
+                    @Override
                     public Integer call() throws Exception {
                         return executeInternal();
                     }

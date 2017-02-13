@@ -32,6 +32,7 @@ public interface MachineLocation extends AddressableLocation, HasNetworkAddresse
     /**
      * @return the machine's network address.
      */
+    @Override
     InetAddress getAddress();
 
     /** @deprecated since 0.7.0. Use getMachineDetails().getOsDetails() instead. */

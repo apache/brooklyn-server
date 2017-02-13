@@ -103,6 +103,7 @@ public class BrooklynNodeImpl extends SoftwareProcessImpl implements BrooklynNod
             this.unmanageEntity = unmanageEntity;
         }
 
+        @Override
         public void run() {
             if (latchTask != null) {
                 latchTask.blockUntilEnded();
@@ -180,7 +181,7 @@ public class BrooklynNodeImpl extends SoftwareProcessImpl implements BrooklynNod
         super.preRestart();
         //restart will kill the process, try to shut down before that
         shutdownGracefully();
-        DynamicTasks.queue("pre-restart", new Runnable() { public void run() {
+        DynamicTasks.queue("pre-restart", new Runnable() { @Override public void run() {
             //set by shutdown - clear it so the entity starts cleanly. Does the indicator bring any value at all?
             ServiceNotUpLogic.clearNotUpIndicator(BrooklynNodeImpl.this, SHUTDOWN.getName());
         }});

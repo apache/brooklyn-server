@@ -85,6 +85,7 @@ public class MapConfigKey<V> extends AbstractStructuredConfigKey<Map<String,V>,M
             typeInheritance(key.getTypeInheritance());
             constraint(key.getConstraint());
         }
+        @Override
         public Builder<V> self() {
             return this;
         }
@@ -108,9 +109,11 @@ public class MapConfigKey<V> extends AbstractStructuredConfigKey<Map<String,V>,M
             return new MapConfigKey<V>(this);
         }
         
+        @Override
         public String getName() {
             return name;
         }
+        @Override
         public String getDescription() {
             return description;
         }
@@ -152,9 +155,11 @@ public class MapConfigKey<V> extends AbstractStructuredConfigKey<Map<String,V>,M
         return String.format("%s[MapConfigKey:%s]", name, getTypeName());
     }
 
+    @Override
     public ConfigKey<V> subKey(String subName) {
         return super.subKey(subName);
     }
+    @Override
     public ConfigKey<V> subKey(String subName, String description) {
         return super.subKey(subName, description);
     }   

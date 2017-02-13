@@ -168,8 +168,10 @@ public class BrooklynConfigKeys {
             null);
 
     /** @deprecated since 0.7.0; use {@link #INSTALL_DIR} */
+    @Deprecated
     public static final ConfigKey<String> SUGGESTED_INSTALL_DIR = INSTALL_DIR.getConfigKey();
     /** @deprecated since 0.7.0; use {@link #RUN_DIR} */
+    @Deprecated
     public static final ConfigKey<String> SUGGESTED_RUN_DIR = RUN_DIR.getConfigKey();
 
     /*

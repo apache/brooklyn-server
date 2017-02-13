@@ -96,7 +96,6 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.collections.SetFromLiveMap;
-import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -499,6 +498,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         return this;
     }
 
+    @Override
     public void setManagementContext(ManagementContextInternal managementContext) {
         super.setManagementContext(managementContext);
         getManagementSupport().setManagementContext(managementContext);
@@ -844,6 +844,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
 
     // FIXME Can this really be deleted? Overridden by AbstractApplication; needs careful review
     /** @deprecated since 0.4.0 should not be needed / leaked outwith brooklyn internals / mgmt support? */
+    @Deprecated
     protected synchronized void setApplication(Application app) {
         if (application != null) {
             if (application.getId() != app.getId()) {
@@ -1036,7 +1037,8 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
      * if the attribtue sensor is not-set or null
      * <p>
      * returns old value 
-     * @deprecated on interface since 0.5.0; use {@link ConfigToAttributes#apply(EntityLocal, AttributeSensorAndConfigKey)} */
+     * @deprecated on interface since 0.5.0; use {@link ConfigToAttributes#apply(Entity, AttributeSensorAndConfigKey)} */
+    @Deprecated
     public <T> T setAttribute(AttributeSensorAndConfigKey<?,T> configuredSensor) {
         T v = getAttribute(configuredSensor);
         if (v!=null) return v;
@@ -1229,6 +1231,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
             ConfigConstraints.assertValid(AbstractEntity.this, key, val);
         }
         
+        @Override
         protected AbstractConfigMapImpl<?> getConfigsInternal() {
             return configsInternal;
         }
@@ -1259,6 +1262,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
             }
         }
         
+        @Override
         protected <T> void onConfigChanged(ConfigKey<T> key, Object val) {
             getManagementSupport().getEntityChangeListener().onConfigChanged(key);
         }
@@ -1312,7 +1316,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     @Override
     @Deprecated
     public <T> T setConfig(HasConfigKey<T> key, Task<T> val) {
-        return (T) config().set(key, val);
+        return config().set(key, val);
     }
 
     @SuppressWarnings("unchecked")
@@ -1525,6 +1529,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     /**
      * Default entity initialization sets ID sensors and calls {@link #initEnrichers()}.
      */
+    @Override
     public void init() {
         super.init();
         initEnrichers();
@@ -1994,6 +1999,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     // -------- EFFECTORS --------------
 
     /** Convenience for finding named effector in {@link EntityType#getEffectors()} {@link Map}. */
+    @Override
     public Effector<?> getEffector(String effectorName) {
         return entityType.getEffector(effectorName);
     }
@@ -2039,6 +2045,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
      * including the initial management started and subsequent management node master-change for this entity.
      * @deprecated since 0.4.0 override EntityManagementSupport.onManagementStarted if customization needed
      */
+    @Deprecated
     public void onManagementBecomingMaster() {}
     
     /**
@@ -2046,6 +2053,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
      * including the final management end and subsequent management node master-change for this entity.
      * @deprecated since 0.4.0 override EntityManagementSupport.onManagementStopped if customization needed
      */
+    @Deprecated
     public void onManagementNoLongerMaster() {}
 
     /**

@@ -123,6 +123,7 @@ public class RebindEnricherTest extends RebindTestFixtureWithApp {
         // my hypothesis is that the two events had exactly the same timestamp.
         Asserts.succeedsEventually(new Runnable() {
             private int counter;
+            @Override
             public void run() {
                 newApp.sensors().set(INT_METRIC, counter++);
                 assertNotNull(newApp.getAttribute(DOUBLE_METRIC));
@@ -139,6 +140,7 @@ public class RebindEnricherTest extends RebindTestFixtureWithApp {
         // my hypothesis is that the two events had exactly the same timestamp.
         Asserts.succeedsEventually(new Runnable() {
             private int counter;
+            @Override
             public void run() {
                 newApp.sensors().set(INT_METRIC, counter++);
                 assertNotNull(newApp.getAttribute(DOUBLE_METRIC));

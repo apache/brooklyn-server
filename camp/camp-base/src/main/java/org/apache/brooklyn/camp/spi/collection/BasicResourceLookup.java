@@ -34,10 +34,12 @@ public class BasicResourceLookup<T extends AbstractResource> extends AbstractRes
     Map<String,T> items = new MutableMap<String,T>();
     Map<String,ResolvableLink<T>> links = new MutableMap<String,ResolvableLink<T>>();
     
+    @Override
     public T get(String id) {
         return items.get(id);
     }
 
+    @Override
     public synchronized List<ResolvableLink<T>> links() {
         return new ArrayList<ResolvableLink<T>>(links.values());
     }

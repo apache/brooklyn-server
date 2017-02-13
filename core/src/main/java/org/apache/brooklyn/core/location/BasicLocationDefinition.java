@@ -33,25 +33,28 @@ public class BasicLocationDefinition implements LocationDefinition {
     private final String spec;
     private final Map<String,Object> config;
 
-    public BasicLocationDefinition(String name, String spec, Map<String,? extends Object> config) {
+    public BasicLocationDefinition(String name, String spec, Map<String, ?> config) {
         this(Identifiers.makeRandomId(8), name, spec, config);
     }
     
-    public BasicLocationDefinition(String id, String name, String spec, Map<String,? extends Object> config) {      
+    public BasicLocationDefinition(String id, String name, String spec, Map<String, ?> config) {      
         this.id = Preconditions.checkNotNull(id);
         this.name = name;
         this.spec = Preconditions.checkNotNull(spec);
         this.config = config==null ? ImmutableMap.<String, Object>of() : ImmutableMap.<String, Object>copyOf(config);
     }
 
+    @Override
     public String getId() {
         return id;
     }
 
+    @Override
     public String getName() {
         return name;
     }
     
+    @Override
     public String getSpec() {
         return spec;
     }

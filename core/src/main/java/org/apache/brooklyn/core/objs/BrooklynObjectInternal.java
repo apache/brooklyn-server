@@ -37,6 +37,7 @@ public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
     void setCatalogItemId(String id);
     
     // subclasses typically apply stronger typing
+    @Override
     RebindSupport<?> getRebindSupport();
     
     @Override
@@ -166,6 +167,7 @@ public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
         public void unsubscribeAll();
     }
     
+    @Override
     RelationSupportInternal<?> relations();
     
     public interface RelationSupportInternal<T extends BrooklynObject> extends BrooklynObject.RelationSupport<T> {

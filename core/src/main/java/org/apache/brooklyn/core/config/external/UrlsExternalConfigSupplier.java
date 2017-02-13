@@ -73,6 +73,7 @@ public class UrlsExternalConfigSupplier extends AbstractExternalConfigSupplier {
         return Objects.toStringHelper(this).add("name", getName()).toString();
     }
     
+    @Override
     public String get(String key) {
         String target = config.get(key);
         if (target == null) {

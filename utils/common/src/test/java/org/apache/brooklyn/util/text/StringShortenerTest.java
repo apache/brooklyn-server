@@ -44,6 +44,26 @@ public class StringShortenerTest {
     }
 
     @Test
+    public void testDisalowedCharactersShortener() {
+        StringShortener ss = new StringShortener()
+                .setAllowedCharacters(Identifiers.UPPER_CASE_ALPHA+Identifiers.LOWER_CASE_ALPHA+Identifiers.NUMERIC)
+                .separator("-")
+                .append("1", "he-llo")
+                .append("2", "_new")
+                .append("3", "w.o.r.l.d")
+                .canRemove("2")
+                .canTruncate("1", 2)
+                .canTruncate("3", 2);
+
+        Assert.assertEquals(ss.getStringOfMaxLength(12), "helloworld");
+        Assert.assertEquals(ss.getStringOfMaxLength(9), "hellworld");
+        Assert.assertEquals(ss.getStringOfMaxLength(6), "heworl");
+        Assert.assertEquals(ss.getStringOfMaxLength(5), "hewor");
+        Assert.assertEquals(ss.getStringOfMaxLength(4), "hewo");
+        Assert.assertEquals(ss.getStringOfMaxLength(0), "");
+    }
+
+        @Test
     public void testEdgeCases() {
         StringShortener ss = new StringShortener();
         ss.separator(null);

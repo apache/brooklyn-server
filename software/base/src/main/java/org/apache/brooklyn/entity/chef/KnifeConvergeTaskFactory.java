@@ -72,6 +72,7 @@ public class KnifeConvergeTaskFactory<RET> extends KnifeTaskFactory<RET> {
     /** construct the knife command, based on the settings on other methods
      * (called when instantiating the script, after all parameters sent)
      */
+    @Override
     protected List<String> initialKnifeParameters() {
         // runs inside the task so can detect entity/machine at runtime
         MutableList<String> result = new MutableList<String>();
@@ -209,6 +210,7 @@ public class KnifeConvergeTaskFactory<RET> extends KnifeTaskFactory<RET> {
         return self();
     }
     
+    @Override
     protected String buildKnifeCommand(int knifeCommandIndex) {
         String result = super.buildKnifeCommand(knifeCommandIndex);
         if (Boolean.TRUE.equals(runTwice))
@@ -236,6 +238,7 @@ public class KnifeConvergeTaskFactory<RET> extends KnifeTaskFactory<RET> {
         return (KnifeConvergeTaskFactory<String>) super.requiringZeroAndReturningStdout();
     }
 
+    @Override
     public KnifeConvergeTaskFactory<RET> knifeAddParameters(String word1, String ...words) {
         super.knifeAddParameters(word1, words);
         return self();

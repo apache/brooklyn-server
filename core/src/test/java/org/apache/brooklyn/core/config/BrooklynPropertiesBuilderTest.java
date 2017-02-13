@@ -58,7 +58,7 @@ public class BrooklynPropertiesBuilderTest {
                 .globalPropertiesFile(globalPropertiesFile.getAbsolutePath())
                 .build();
         
-        assertEquals(props.get("brooklyn.mykey"), "myval");
+        assertEquals(props.getConfig("brooklyn.mykey"), "myval");
     }
     
     @Test
@@ -76,8 +76,8 @@ public class BrooklynPropertiesBuilderTest {
                 .localPropertiesFile(localPropertiesFile.getAbsolutePath())
                 .build();
         
-        assertEquals(props.get("brooklyn.mykey"), "myvaloverriding");
-        assertEquals(props.get("brooklyn.mykey2"), "myvalglobal2");
-        assertEquals(props.get("brooklyn.mykeyLocal"), "myvallocal2");
+        assertEquals(props.getConfig("brooklyn.mykey"), "myvaloverriding");
+        assertEquals(props.getConfig("brooklyn.mykey2"), "myvalglobal2");
+        assertEquals(props.getConfig("brooklyn.mykeyLocal"), "myvallocal2");
     }
 }

@@ -18,10 +18,7 @@
  */
 package org.apache.brooklyn.rest.entitlement;
 
-import static org.apache.brooklyn.util.http.HttpTool.httpClientBuilder;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
-
 import java.net.URI;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -33,15 +30,10 @@ import org.apache.brooklyn.core.mgmt.entitlement.PerUserEntitlementManager;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.rest.BrooklynRestApiLauncher;
 import org.apache.brooklyn.rest.BrooklynRestApiLauncherTestFixture;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
-import org.apache.brooklyn.util.http.HttpAsserts;
 import org.apache.brooklyn.util.http.HttpTool;
-import org.apache.brooklyn.util.http.HttpTool.HttpClientBuilder;
 import org.apache.brooklyn.util.http.HttpToolResponse;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.HttpClient;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 

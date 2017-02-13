@@ -52,6 +52,7 @@ public class SetHostnameCustomizerTest extends BrooklynAppUnitTestSupport {
 
     private SetHostnameCustomizer customizer;
 
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();

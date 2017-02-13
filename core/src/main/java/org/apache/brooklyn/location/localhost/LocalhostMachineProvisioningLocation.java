@@ -18,8 +18,8 @@
  */
 package org.apache.brooklyn.location.localhost;
 
-import static org.apache.brooklyn.util.groovy.GroovyJavaMethods.elvis;
-import static org.apache.brooklyn.util.groovy.GroovyJavaMethods.truth;
+import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvis;
+import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 
 import java.io.File;
 import java.net.InetAddress;
@@ -114,6 +114,7 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
      * @deprecated since 0.6
      * @see #LocalhostMachineProvisioningLocation()
      */
+    @Deprecated
     public LocalhostMachineProvisioningLocation(Map properties) {
         super(properties);
     }
@@ -128,11 +129,12 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
         return LocationSpec.create(LocalhostMachineProvisioningLocation.class);
     }
     
+    @Override
     public LocalhostMachineProvisioningLocation configure(Map<?,?> flags) {
         super.configure(flags);
         
-        if (!truth(getDisplayName())) { setDisplayName("localhost"); }
-        if (!truth(address)) address = getLocalhostInetAddress();
+        if (!groovyTruth(getDisplayName())) { setDisplayName("localhost"); }
+        if (!groovyTruth(address)) address = getLocalhostInetAddress();
         // TODO should try to confirm this machine is accessible on the given address ... but there's no 
         // immediate convenience in java so early-trapping of that particular error is deferred
         
@@ -227,9 +229,10 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
     }
 
     public static synchronized void releasePort(InetAddress localAddress, int portNumber) {
-        portsInUse.remove((Object) portNumber);
+        portsInUse.remove(portNumber);
     }
 
+    @Override
     public void release(SshMachineLocation machine) {
         LocalhostMachine localMachine = (LocalhostMachine) machine;
         Set<Integer> portsObtained = Sets.newLinkedHashSet();
@@ -263,6 +266,7 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
             super();
         }
         /** @deprecated since 0.6.0 use no-arg constructor (and spec) then configure */
+        @Deprecated
         public LocalhostMachine(Map properties) {
             super(MutableMap.builder().putAll(properties).put("mutexSupport", mutexSupport).build());
         }
@@ -272,12 +276,14 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
             return mutexSupport;
         }
         
+        @Override
         public boolean obtainSpecificPort(int portNumber) {
             if (!isSudoAllowed() && portNumber <= 1024)
                 return false;
             return LocalhostMachineProvisioningLocation.obtainSpecificPort(getAddress(), portNumber);
         }
         
+        @Override
         public int obtainPort(PortRange range) {
             int r = LocalhostMachineProvisioningLocation.obtainPort(getAddress(), range);
             synchronized (portsObtained) {
@@ -290,7 +296,7 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
         @Override
         public void releasePort(int portNumber) {
             synchronized (portsObtained) {
-                portsObtained.remove((Object)portNumber);
+                portsObtained.remove(portNumber);
             }
             LocalhostMachineProvisioningLocation.releasePort(getAddress(), portNumber);
         }

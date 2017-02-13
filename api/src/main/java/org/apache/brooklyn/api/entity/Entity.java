@@ -72,6 +72,7 @@ public interface Entity extends BrooklynObject {
     /**
      * A display name; recommended to be a concise single-line description.
      */
+    @Override
     String getDisplayName();
     
     /** 
@@ -343,6 +344,7 @@ public interface Entity extends BrooklynObject {
         /**
          * @return A read-only thread-safe iterator over all the instances.
          */
+        @Override
         Iterator<T> iterator();
         
         int size();

@@ -248,6 +248,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
         
         // Task that resolves slowly
         executor.submit(new Callable<Object>() {
+            @Override
             public Object call() {
                 return app.sensors().set(Sensors.newStringSensor("myOtherSensor"), "myObject");
             }});
@@ -275,6 +276,7 @@ public class ConfigInheritanceYamlTest extends AbstractYamlTest {
         
         // Task that resolves slowly
         executor.submit(new Callable<Object>() {
+            @Override
             public Object call() {
                 return app.sensors().set(Sensors.newStringSensor("myOtherSensor"), "myObject");
             }});

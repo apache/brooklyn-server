@@ -369,6 +369,7 @@ public class SensorResourceTest extends BrooklynRestResourceTest {
         SleepingCallable(Duration duration) {
             this.duration = duration;
         }
+        @Override
         public Void call() throws Exception {
             Time.sleep(duration);
             return null;

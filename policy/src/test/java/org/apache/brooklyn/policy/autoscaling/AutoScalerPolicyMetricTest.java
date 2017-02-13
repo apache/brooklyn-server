@@ -176,6 +176,7 @@ public class AutoScalerPolicyMetricTest {
         
         // Assert our listener gets notified (once)
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 assertEquals(maxReachedEvents.size(), 1);
                 assertEquals(maxReachedEvents.get(0).getMaxAllowed(), 6);

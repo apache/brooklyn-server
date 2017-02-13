@@ -178,15 +178,15 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
 
     @Override
     public Response rename(String application, String entity, String newName) {
-        Entity entityLocal = brooklyn().getEntity(application, entity);
-        entityLocal.setDisplayName(newName);
+        Entity instance = brooklyn().getEntity(application, entity);
+        instance.setDisplayName(newName);
         return status(Response.Status.OK).build();
     }
 
     @Override
     public Response expunge(String application, String entity, boolean release) {
-        Entity entityLocal = brooklyn().getEntity(application, entity);
-        Task<?> task = brooklyn().expunge(entityLocal, release);
+        Entity instance = brooklyn().getEntity(application, entity);
+        Task<?> task = brooklyn().expunge(instance, release);
         TaskSummary summary = TaskTransformer.fromTask(ui.getBaseUriBuilder()).apply(task);
         return status(ACCEPTED).entity(summary).build();
     }

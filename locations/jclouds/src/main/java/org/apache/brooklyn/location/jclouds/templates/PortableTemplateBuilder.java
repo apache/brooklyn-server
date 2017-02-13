@@ -127,6 +127,7 @@ public class PortableTemplateBuilder<T extends PortableTemplateBuilder<?>> exten
         return result;
     }
 
+    @Override
     protected String makeNonTrivialArgumentsString() {
         String s = super.makeNonTrivialArgumentsString();
         TemplateOptions aggr = computeAggregatedOptions(false);

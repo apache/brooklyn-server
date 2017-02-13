@@ -81,7 +81,7 @@ public class BlobStorePersistencePerformanceTest extends AbstractPerformanceTest
                  .iterations(numIterations)
                  .minAcceptablePerSecond(minRatePerSec)
                  .job(new Runnable() {
-                     public void run() {
+                     @Override public void run() {
                          blobstoreAccessor.put(""+i.incrementAndGet());
                      }}));
      }
@@ -97,7 +97,7 @@ public class BlobStorePersistencePerformanceTest extends AbstractPerformanceTest
                  .iterations(numIterations)
                  .minAcceptablePerSecond(minRatePerSec)
                  .job(new Runnable() {
-                     public void run() {
+                     @Override public void run() {
                          blobstoreAccessor.get();
                      }}));
      }
@@ -121,7 +121,7 @@ public class BlobStorePersistencePerformanceTest extends AbstractPerformanceTest
                      .iterations(numIterations)
                      .minAcceptablePerSecond(minRatePerSec)
                      .job(new Runnable() {
-                         public void run() {
+                         @Override public void run() {
                              StoreObjectAccessor blobstoreAccessor = blobstoreAccessors.get(i.getAndIncrement());
                              blobstoreAccessor.delete();
                          }}));

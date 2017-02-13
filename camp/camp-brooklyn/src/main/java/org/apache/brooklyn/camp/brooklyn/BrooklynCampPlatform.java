@@ -97,10 +97,12 @@ public class BrooklynCampPlatform extends AggregatingCampPlatform implements Has
             this.platform = platform;
         }
         
+        @Override
         public Map<String, Object> parse(Map<String, Object> map) {
             return platform.pdp().applyInterpreters(map);
         }
         
+        @Override
         public Object parse(String val) {
             Map<String, Object> result = platform.pdp().applyInterpreters(ImmutableMap.of("dummyKey", val));
             checkState(result.keySet().equals(ImmutableSet.of("dummyKey")), "expected single result, but got %s", result);

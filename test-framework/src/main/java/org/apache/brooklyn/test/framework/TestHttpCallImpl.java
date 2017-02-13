@@ -52,6 +52,7 @@ public class TestHttpCallImpl extends TargetableTestComponentImpl implements Tes
     /**
      * {@inheritDoc}
      */
+    @Override
     public void start(Collection<? extends Location> locations) {
         String url = null;
 
@@ -64,13 +65,15 @@ public class TestHttpCallImpl extends TargetableTestComponentImpl implements Tes
             final String body = config().get(TARGET_BODY);
             final List<Map<String, Object>> assertions = getAssertions(this, ASSERTIONS);
             final Duration timeout = getConfig(TIMEOUT);
+            final Duration backoffToPeriod = getConfig(BACKOFF_TO_PERIOD);
             final HttpAssertionTarget target = getRequiredConfig(ASSERTION_TARGET);
             final boolean trustAll = getRequiredConfig(TRUST_ALL);
             if (!getChildren().isEmpty()) {
                 throw new RuntimeException(String.format("The entity [%s] cannot have child entities", getClass().getName()));
             }
             
-            doRequestAndCheckAssertions(ImmutableMap.of("timeout", timeout), assertions, target, method, url, headers, trustAll, body);
+            doRequestAndCheckAssertions(ImmutableMap.of("timeout", timeout, "backoffToPeriod", backoffToPeriod), 
+                    assertions, target, method, url, headers, trustAll, body);
             setUpAndRunState(true, Lifecycle.RUNNING);
 
         } catch (Throwable t) {
@@ -140,6 +143,7 @@ public class TestHttpCallImpl extends TargetableTestComponentImpl implements Tes
     /**
      * {@inheritDoc}
      */
+    @Override
     public void stop() {
         setUpAndRunState(false, Lifecycle.STOPPED);
     }
@@ -147,6 +151,7 @@ public class TestHttpCallImpl extends TargetableTestComponentImpl implements Tes
     /**
      * {@inheritDoc}
      */
+    @Override
     public void restart() {
         final Collection<Location> locations = Lists.newArrayList(getLocations());
         stop();

@@ -33,7 +33,6 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.EntityManager;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -204,6 +203,7 @@ public class LocalEntitiesTest extends BrooklynAppUnitTestSupport {
         final Semaphore s1 = new Semaphore(0);
         final Object[] sonsConfig = new Object[1];
         Thread t = new Thread(new Runnable() {
+            @Override
             public void run() {
                 log.info("started");
                 s1.release();
@@ -226,7 +226,7 @@ public class LocalEntitiesTest extends BrooklynAppUnitTestSupport {
             assertEquals(null, sonsConfig[0]);
             for (Task tt : ((EntityInternal)dad).getExecutionContext().getTasks()) { log.info("task at dad:  {}, {}", tt, tt.getStatusDetail(false)); }
             for (Task tt : ((EntityInternal)son).getExecutionContext().getTasks()) { log.info("task at son:  {}, {}", tt, tt.getStatusDetail(false)); }
-            ((EntityLocal)dad).sensors().set(HelloEntity.FAVOURITE_NAME, "Dan");
+            dad.sensors().set(HelloEntity.FAVOURITE_NAME, "Dan");
             if (!s1.tryAcquire(2, TimeUnit.SECONDS)) fail("race mismatch, missing permits");
         }
         log.info("dad: "+dad.getAttribute(HelloEntity.FAVOURITE_NAME));
@@ -245,12 +245,13 @@ public class LocalEntitiesTest extends BrooklynAppUnitTestSupport {
         HelloEntity dad = app.createAndManageChild(EntitySpec.create(HelloEntity.class));
         HelloEntity son = dad.addChild(EntitySpec.create(HelloEntity.class)
                 .configure(HelloEntity.MY_NAME, transform(attributeWhenReady(dad, HelloEntity.FAVOURITE_NAME), new Function<String,String>() {
+                    @Override
                     public String apply(String input) {
                         return input+input.charAt(input.length()-1)+"y";
                     }})));
         
         app.start(ImmutableList.of(loc));
-        ((EntityLocal)dad).sensors().set(HelloEntity.FAVOURITE_NAME, "Dan");
+        dad.sensors().set(HelloEntity.FAVOURITE_NAME, "Dan");
         assertEquals(son.getConfig(HelloEntity.MY_NAME), "Danny");
     }
     
@@ -262,12 +263,13 @@ public class LocalEntitiesTest extends BrooklynAppUnitTestSupport {
         // the unnecessary (HelloEntity) cast is required as a work-around to an IntelliJ issue that prevents Brooklyn from launching from the IDE
         HelloEntity son = (HelloEntity) dad.addChild(EntitySpec.create(HelloEntity.class)
                 .configure(HelloEntity.MY_NAME, transform(attributeWhenReady(dad, HelloEntity.FAVOURITE_NAME, (Closure)null), new Function<String,String>() {
+                    @Override
                     public String apply(String input) {
                         return input+input.charAt(input.length()-1)+"y";
                     }})));
         
         app.start(ImmutableList.of(loc));
-        ((EntityLocal)dad).sensors().set(HelloEntity.FAVOURITE_NAME, "Dan");
+        dad.sensors().set(HelloEntity.FAVOURITE_NAME, "Dan");
         assertEquals(son.getConfig(HelloEntity.MY_NAME), "Danny");
     }
 

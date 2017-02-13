@@ -217,7 +217,7 @@ public class LocationsYamlTest extends AbstractYamlTest {
         
         SshMachineLocation l1 = (SshMachineLocation)loc.obtain();
         assertUserAddress(l1, "root", "127.0.0.1");
-        assertUserAddress((SshMachineLocation)loc.obtain(), "brooklyn", "127.0.0.2");
+        assertUserAddress(loc.obtain(), "brooklyn", "127.0.0.2");
         Assert.assertEquals(l1.getConfig(SshMachineLocation.PRIVATE_KEY_FILE), "/tmp/key_file");
     }
 
@@ -236,11 +236,11 @@ public class LocationsYamlTest extends AbstractYamlTest {
         FixedListMachineProvisioningLocation<?> loc = (FixedListMachineProvisioningLocation<?>) Iterables.getOnlyElement(Entities.getAllInheritedLocations(child));
         Assert.assertEquals(loc.getChildren().size(), 5);
         
-        assertUserAddress((SshMachineLocation)loc.obtain(), "root", "127.0.0.1");
-        assertUserAddress((SshMachineLocation)loc.obtain(), "root", "127.0.0.2");
-        assertUserAddress((SshMachineLocation)loc.obtain(), "root", "127.0.127.1");
-        assertUserAddress((SshMachineLocation)loc.obtain(), "root", "127.0.127.2");
-        assertUserAddress((SshMachineLocation)loc.obtain(), "brooklyn", "127.0.0.127");
+        assertUserAddress(loc.obtain(), "root", "127.0.0.1");
+        assertUserAddress(loc.obtain(), "root", "127.0.0.2");
+        assertUserAddress(loc.obtain(), "root", "127.0.127.1");
+        assertUserAddress(loc.obtain(), "root", "127.0.127.2");
+        assertUserAddress(loc.obtain(), "brooklyn", "127.0.0.127");
     }
 
     @Test
@@ -264,11 +264,11 @@ public class LocationsYamlTest extends AbstractYamlTest {
         MultiLocation<?> loc = (MultiLocation<?>) Iterables.getOnlyElement(Entities.getAllInheritedLocations(child));
         Assert.assertEquals(loc.getSubLocations().size(), 2);
         
-        assertUserAddress((SshMachineLocation)loc.obtain(), "root", "127.0.0.1");
-        assertUserAddress((SshMachineLocation)loc.obtain(), "root", "127.0.0.2");
-        assertUserAddress((SshMachineLocation)loc.obtain(), "root", "127.0.127.1");
-        assertUserAddress((SshMachineLocation)loc.obtain(), "root", "127.0.127.2");
-        assertUserAddress((SshMachineLocation)loc.obtain(), "brooklyn", "127.0.0.127");
+        assertUserAddress(loc.obtain(), "root", "127.0.0.1");
+        assertUserAddress(loc.obtain(), "root", "127.0.0.2");
+        assertUserAddress(loc.obtain(), "root", "127.0.127.1");
+        assertUserAddress(loc.obtain(), "root", "127.0.127.2");
+        assertUserAddress(loc.obtain(), "brooklyn", "127.0.0.127");
     }
 
     public static void assertUserAddress(MachineLocation l, String user, String address) {

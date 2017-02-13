@@ -31,7 +31,6 @@ import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.EntityManager;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.Sensor;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
@@ -231,6 +230,7 @@ public class MembershipTrackingPolicyTest extends BrooklynAppUnitTestSupport {
 
     private void assertRecordsEventually(final RecordingMembershipTrackingPolicy policy, final List<Record>... validExpecteds) {
         Asserts.succeedsEventually(MutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
+            @Override
             public void run() {
                 for (List<Record> validExpected : validExpecteds) {
                     if (policy.records.equals(validExpected)) return;
@@ -245,6 +245,7 @@ public class MembershipTrackingPolicyTest extends BrooklynAppUnitTestSupport {
     
     private void assertRecordsContinually(final RecordingMembershipTrackingPolicy policy, final Record... expected) {
         Asserts.succeedsContinually(ImmutableMap.of("timeout", 100), new Runnable() {
+            @Override
             public void run() {
                 assertEquals(policy.records, ImmutableList.copyOf(expected), "actual="+policy.records);
             }});

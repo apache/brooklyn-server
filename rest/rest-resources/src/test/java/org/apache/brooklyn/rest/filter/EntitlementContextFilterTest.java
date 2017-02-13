@@ -79,7 +79,7 @@ public class EntitlementContextFilterTest extends BrooklynRestResourceTest {
     public void testEntitlementContextSet() {
         Response response = fetch("/test");
         assertEquals(response.getStatus(), HttpStatus.SC_OK);
-        String tag = (String) response.readEntity(String.class);
+        String tag = response.readEntity(String.class);
         assertEquals(tag, USER_PASS);
     }
 

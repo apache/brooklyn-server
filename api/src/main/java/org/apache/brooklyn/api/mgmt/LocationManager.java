@@ -78,6 +78,7 @@ public interface LocationManager {
      * @since 0.6.0 (added only for backwards compatibility, where locations are being created directly).
      * @deprecated in 0.6.0; use {@link #createLocation(LocationSpec)} instead.
      */
+    @Deprecated
     Location manage(Location loc);
     
     /**

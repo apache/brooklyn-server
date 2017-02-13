@@ -56,6 +56,7 @@ public class ItemsInContainersGroupTest {
         containerGroup = app.createAndManageChild(EntitySpec.create(DynamicGroup.class)
                 .displayName("containerGroup")
                 .configure(DynamicGroup.ENTITY_FILTER, new Predicate<Entity>() {
+                    @Override
                     public boolean apply(Entity input) {
                         return input instanceof MockContainerEntity && 
                                 input.getConfig(MockContainerEntity.MOCK_MEMBERSHIP) == "ingroup";
@@ -89,6 +90,7 @@ public class ItemsInContainersGroupTest {
         itemGroup = app.createAndManageChild(EntitySpec.create(ItemsInContainersGroup.class)
                 .displayName("itemGroupWithDispName2")
                 .configure(ItemsInContainersGroup.ITEM_FILTER, new Predicate<Entity>() {
+                    @Override
                     public boolean apply(Entity input) {
                         return "2".equals(input.getDisplayName());
                     }}));
@@ -166,6 +168,7 @@ public class ItemsInContainersGroupTest {
 
     private void assertItemsEventually(final MockItemEntity... expected) {
         Asserts.succeedsEventually(MutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
+            @Override
             public void run() {
                 assertEquals(ImmutableSet.copyOf(itemGroup.getMembers()), ImmutableSet.copyOf(expected));
             }});

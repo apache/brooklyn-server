@@ -255,12 +255,12 @@ public class BasicEntityRebindSupport extends AbstractBrooklynObjectRebindSuppor
             // aborted. We don't want to continue showing that state (e.g. the web-console would
             // then show the it as in-progress with the "spinning" icon).
             // Therefore we set the entity as on-fire, and add the indicator that says why.
-            markTransitioningEntityOnFireOnRebind((EntityInternal) entity, expectedState);
+            markTransitioningEntityOnFireOnRebind(entity, expectedState);
         }
         
         // Clear the provisioning/termination task-state; the task will have been aborted, so wrong to keep this state.
-        ((EntityInternal)entity).sensors().remove(AttributesInternal.INTERNAL_PROVISIONING_TASK_STATE);
-        ((EntityInternal)entity).sensors().remove(AttributesInternal.INTERNAL_TERMINATION_TASK_STATE);
+        entity.sensors().remove(AttributesInternal.INTERNAL_PROVISIONING_TASK_STATE);
+        entity.sensors().remove(AttributesInternal.INTERNAL_TERMINATION_TASK_STATE);
         
         super.instanceRebind(instance);
     }

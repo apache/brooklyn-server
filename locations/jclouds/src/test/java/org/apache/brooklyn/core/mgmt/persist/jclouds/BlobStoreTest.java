@@ -18,16 +18,14 @@
  */
 package org.apache.brooklyn.core.mgmt.persist.jclouds;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import java.io.IOException;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
-import org.apache.brooklyn.core.location.LocationConfigKeys;
-import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.location.jclouds.BlobStoreContextFactoryImpl;
+import org.apache.brooklyn.location.jclouds.JcloudsLocation;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.jclouds.blobstore.BlobStoreContext;
@@ -39,10 +37,6 @@ import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import org.apache.brooklyn.location.jclouds.JcloudsLocation;
-import org.apache.brooklyn.location.jclouds.JcloudsUtil;
-
-import com.google.common.base.Preconditions;
 
 @Test(groups={"Live", "Live-sanity"})
 public class BlobStoreTest {
@@ -51,9 +45,10 @@ public class BlobStoreTest {
      * Live tests as written require a location defined as follows:
      * 
      * <code>
-     * brooklyn.location.named.brooklyn-jclouds-objstore-test-1==jclouds:swift:https://ams01.objectstorage.softlayer.net/auth/v1.0
+     * brooklyn.location.named.brooklyn-jclouds-objstore-test-1==jclouds:openstack-swift:https://ams01.objectstorage.softlayer.net/auth/v1.0
      * brooklyn.location.named.brooklyn-jclouds-objstore-test-1.identity=IBMOS1234-5:yourname
      * brooklyn.location.named.brooklyn-jclouds-objstore-test-1.credential=0123abcd.......
+     * brooklyn.location.named.brooklyn-jclouds-objstore-test-1.jclouds.keystone.credential-type=tempAuthCredentials
      * </code>
      */
     public static final String PERSIST_TO_OBJECT_STORE_FOR_TEST_SPEC = "named:brooklyn-jclouds-objstore-test-1";
@@ -68,29 +63,12 @@ public class BlobStoreTest {
     private ManagementContext mgmt;
     private String testContainerName;
 
-    public synchronized BlobStoreContext getBlobStoreContext() {
-        if (context==null) {
-            if (location==null) {
-                Preconditions.checkNotNull(locationSpec, "locationSpec required for remote object store when location is null");
-                Preconditions.checkNotNull(mgmt, "mgmt required for remote object store when location is null");
-                location = (JcloudsLocation) mgmt.getLocationRegistry().getLocationManaged(locationSpec);
-            }
-            
-            String identity = checkNotNull(location.getConfig(LocationConfigKeys.ACCESS_IDENTITY), "identity must not be null");
-            String credential = checkNotNull(location.getConfig(LocationConfigKeys.ACCESS_CREDENTIAL), "credential must not be null");
-            String provider = checkNotNull(location.getConfig(LocationConfigKeys.CLOUD_PROVIDER), "provider must not be null");
-            String endpoint = location.getConfig(CloudLocationConfig.CLOUD_ENDPOINT);
-
-            context = JcloudsUtil.newBlobstoreContext(provider, endpoint, identity, credential);
-        }
-        return context;
-    }
-    
     @BeforeMethod(alwaysRun=true)
     public void setup() {
         testContainerName = CONTAINER_PREFIX+"-"+Identifiers.makeRandomId(8);
         mgmt = new LocalManagementContextForTests(BrooklynProperties.Factory.newDefault());
-        getBlobStoreContext();
+        location = (JcloudsLocation) mgmt.getLocationRegistry().getLocationManaged(locationSpec);
+        context = BlobStoreContextFactoryImpl.INSTANCE.newBlobStoreContext(location.config().getBag());
     }
     
     @AfterMethod(alwaysRun=true)

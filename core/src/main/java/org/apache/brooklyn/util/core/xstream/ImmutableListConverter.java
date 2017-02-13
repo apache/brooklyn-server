@@ -46,6 +46,7 @@ public class ImmutableListConverter extends CollectionConverter {
     // only differences are creating the overarching collection, which we do after the fact
     // (optimizing format on disk as opposed to in-memory), and we discard null values 
     // to avoid failing entirely.
+    @Override
     public Object unmarshal(HierarchicalStreamReader reader, UnmarshallingContext context) {
         Collection<?> collection = Lists.newArrayList();
         populateCollection(reader, context, collection);

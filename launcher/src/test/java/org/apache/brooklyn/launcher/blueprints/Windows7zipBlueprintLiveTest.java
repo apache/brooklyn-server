@@ -50,6 +50,7 @@ public class Windows7zipBlueprintLiveTest extends AbstractBlueprintTest {
     protected MachineProvisioningLocation<WinRmMachineLocation> location;
     protected WinRmMachineLocation machine;
 
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();
@@ -57,6 +58,7 @@ public class Windows7zipBlueprintLiveTest extends AbstractBlueprintTest {
         machine = location.obtain(ImmutableMap.of());
     }
     
+    @Override
     @AfterMethod(alwaysRun=true)
     public void tearDown() throws Exception {
         try {

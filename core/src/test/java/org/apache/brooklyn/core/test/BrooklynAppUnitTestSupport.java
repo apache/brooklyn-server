@@ -32,6 +32,7 @@ public class BrooklynAppUnitTestSupport extends BrooklynMgmtUnitTestSupport {
 
     protected TestApplication app;
 
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();

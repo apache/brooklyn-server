@@ -18,8 +18,6 @@
  */
 package org.apache.brooklyn.launcher.command.support;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.util.Collection;
@@ -31,11 +29,9 @@ import java.util.concurrent.Callable;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationDefinition;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.core.location.LocationConfigKeys;
-import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
+import org.apache.brooklyn.location.jclouds.BlobStoreContextFactoryImpl;
 import org.apache.brooklyn.location.jclouds.JcloudsLocation;
 import org.apache.brooklyn.location.jclouds.JcloudsLocationCustomizer;
-import org.apache.brooklyn.location.jclouds.JcloudsUtil;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.FatalConfigurationRuntimeException;
 import org.apache.brooklyn.util.stream.Streams;
@@ -333,12 +329,7 @@ public abstract class CloudExplorerSupport implements Callable<Void> {
 
         @Override
         protected void doCall(JcloudsLocation loc, String indent) throws Exception {
-            String identity = checkNotNull(loc.getConfig(LocationConfigKeys.ACCESS_IDENTITY), "identity must not be null");
-            String credential = checkNotNull(loc.getConfig(LocationConfigKeys.ACCESS_CREDENTIAL), "credential must not be null");
-            String provider = checkNotNull(loc.getConfig(LocationConfigKeys.CLOUD_PROVIDER), "provider must not be null");
-            String endpoint = loc.getConfig(CloudLocationConfig.CLOUD_ENDPOINT);
-
-            BlobStoreContext context = JcloudsUtil.newBlobstoreContext(provider, endpoint, identity, credential);
+            BlobStoreContext context = BlobStoreContextFactoryImpl.INSTANCE.newBlobStoreContext(loc.config().getBag());
             try {
                 org.jclouds.blobstore.BlobStore blobStore = context.getBlobStore();
                 doCall(blobStore, indent);

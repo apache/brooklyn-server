@@ -59,6 +59,7 @@ public class StringKeyMapConverter extends MapConverter {
         return Identifiers.isValidToken(key, VALID_XML_NODE_NAME_START_CHARS, VALID_XML_NODE_NAME_CHARS);
     }
     
+    @Override
     public boolean canConvert(Class type) {
         return super.canConvert(type) || type.getName().equals(MutableMap.class.getName());
     }

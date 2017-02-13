@@ -46,6 +46,7 @@ public class SoftwareProcessPersisterInMemorySizeIntegrationTest extends Brookly
     }
 
     // to allow selection for running in IDE
+    @Override
     public void testPersistenceVolumeFast() throws Exception {
         super.testPersistenceVolumeFast();
     }

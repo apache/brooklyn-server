@@ -16,15 +16,26 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.entity.factory;
+package org.apache.brooklyn.core.mgmt.persist;
 
-import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.location.Location;
+import static org.testng.Assert.assertEquals;
 
-/**
- * dispatch interface to allow an EntityFactory to indicate it might be able to discover
- * other factories for specific locations (e.g. if the location implements a custom entity-aware interface)
- */
-public interface EntityFactoryForLocation<T extends Entity> {
-    ConfigurableEntityFactory<T> newFactoryForLocation(Location l);
+import org.testng.annotations.Test;
+
+public class DeserializingJcloudsRenamesProviderTest {
+
+    @Test
+    public void testRenameNoop() throws Exception {
+        assertEquals(rename("aws-ec2"), "aws-ec2");
+    }
+
+    @Test
+    public void testRenamesDefinedInClasspathFile() throws Exception {
+        assertEquals(rename("openstack-mitaka-nova"), "openstack-nova");
+        assertEquals(rename("openstack-devtest-compute"), "openstack-nova");
+    }
+    
+    protected String rename(String val) throws Exception {
+        return DeserializingJcloudsRenamesProvider.INSTANCE.applyJcloudsRenames(val);
+    }
 }

@@ -62,6 +62,7 @@ public class EntityLifecycleEnrichersTest extends BrooklynAppUnitTestSupport {
         List<ListenableFuture<?>> futures = Lists.newArrayList();
         for (int i = 0; i < 100; i++) {
             ListenableFuture<Void> future = executor.submit(new Callable<Void>() {
+                @Override
                 public Void call() throws Exception {
                     TestEntity entity = app.addChild(EntitySpec.create(TestEntity.class));
                     entity.sensors().set(TestEntity.SERVICE_UP, true);

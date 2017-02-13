@@ -37,22 +37,27 @@ public class BasicMachineMetadata implements MachineManagementMixins.MachineMeta
         this.originalMetadata = originalMetadata;
     }
 
+    @Override
     public String getId() {
         return id;
     }
 
+    @Override
     public String getName() {
         return name;
     }
 
+    @Override
     public String getPrimaryIp() {
         return primaryIp;
     }
 
+    @Override
     public Boolean isRunning() {
         return isRunning;
     }
 
+    @Override
     public Object getOriginalMetadata() {
         return originalMetadata;
     }

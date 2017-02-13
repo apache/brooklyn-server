@@ -166,7 +166,7 @@ public class BasicSubscriptionContext implements SubscriptionContext {
         for (SubscriptionHandle s : subscriptionsCopy) {
             count++; 
             boolean result = unsubscribe(s); 
-            if (!result) LOG.warn("When unsubscribing from all of {}, unsubscribe of {} return false", subscriber, s);
+            if (!result) LOG.warn("When unsubscribing from all of {}, unsubscribe of {} returned false", subscriber, s);
         }
         return count;
     }

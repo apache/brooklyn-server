@@ -52,8 +52,8 @@ public class WebAppContextProvider {
      * @param warUrl The url from which the war should be obtained.
      */
     public WebAppContextProvider(String pathSpec, String warUrl) {
-        this.warUrl = warUrl;
-        String cleanPathSpec = pathSpec;
+        this.warUrl = checkNotNull(warUrl, "warUrl");
+        String cleanPathSpec = checkNotNull(pathSpec, "pathSpec");
         while (cleanPathSpec.startsWith("/")) {
             cleanPathSpec = cleanPathSpec.substring(1);
         }
@@ -116,7 +116,8 @@ public class WebAppContextProvider {
 
     @Override
     public String toString() {
-        return warUrl + "@" + pathSpec;
+        final String path = this.pathSpec.isEmpty() ? "/" : this.pathSpec;
+        return warUrl + "@" + path;
     }
 
 }

@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 class StringTagsOption implements TemplateOptionCustomizer {
     private static final Logger LOG = LoggerFactory.getLogger(StringTagsOption.class);
 
+    @Override
     public void apply(TemplateOptions t, ConfigBag props, Object v) {
         List<String> tags = Strings.toStringList(v);
         if (LOG.isDebugEnabled()) {

@@ -158,6 +158,7 @@ public class PersisterDeltaImpl implements Delta, MutableDelta {
         }
     }
 
+    @Override
     public void add(BrooklynObjectType type, Memento memento) {
         getMutableUncheckedObjectsOfType(type).add(memento);
     }
@@ -167,6 +168,7 @@ public class PersisterDeltaImpl implements Delta, MutableDelta {
         Iterables.addAll(getMutableUncheckedObjectsOfType(type), mementos);
     }
     
+    @Override
     public void removed(BrooklynObjectType type, Set<String> removedIdsOfType) {
         getRemovedIdsOfTypeMutable(type).addAll(removedIdsOfType);    
     }

@@ -81,6 +81,7 @@ public class SshCliTool extends SshAbstractTool implements SshTool {
         public B scpExecutable(String val) {
             this.scpExecutable = val; return self();
         }
+        @Override
         @SuppressWarnings("unchecked")
         public T build() {
             return (T) new SshCliTool(this);
@@ -186,6 +187,7 @@ public class SshCliTool extends SshAbstractTool implements SshTool {
     @Override
     public int execScript(final Map<String,?> props, final List<String> commands, final Map<String,?> env) {
         return new ToolAbstractExecScript(props) {
+            @Override
             public int run() {
                 String scriptContents = toScript(props, commands, env);
                 if (LOG.isTraceEnabled()) LOG.trace("Running shell command at {} as script: {}", host, scriptContents);

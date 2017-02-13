@@ -220,7 +220,7 @@ public class ObjectsYamlTest extends AbstractYamlTest {
         Entity entity = app.getChildren().iterator().next();
         Assert.assertTrue(entity instanceof TestEntity, "Expected TestEntity, found " + entity.getClass());
 
-        return (TestEntity)entity;
+        return entity;
     }
 
     @Test

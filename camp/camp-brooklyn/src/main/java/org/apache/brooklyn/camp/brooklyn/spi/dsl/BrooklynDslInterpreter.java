@@ -32,7 +32,6 @@ import org.apache.brooklyn.camp.spi.resolve.PlanInterpreter.PlanInterpreterAdapt
 import org.apache.brooklyn.camp.spi.resolve.interpret.PlanInterpretationNode;
 import org.apache.brooklyn.camp.spi.resolve.interpret.PlanInterpretationNode.Role;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -172,7 +171,7 @@ public class BrooklynDslInterpreter extends PlanInterpreterAdapter {
             // TODO Could move argument resolve in DslDeferredFunctionCall freeing each Deffered implementation
             // having to handle it separately. The shortcoming is that will lose the eager evaluation we have here.
             if (o instanceof BrooklynDslDeferredSupplier && !(o instanceof DslFunctionSource)) {
-                return new DslDeferredFunctionCall((BrooklynDslDeferredSupplier<?>) o, fn, args);
+                return new DslDeferredFunctionCall(o, fn, args);
             } else {
                 // Would prefer to keep the invocation logic encapsulated in DslDeferredFunctionCall, but
                 // for backwards compatibility will evaluate as much as possible eagerly (though it shouldn't matter in theory).

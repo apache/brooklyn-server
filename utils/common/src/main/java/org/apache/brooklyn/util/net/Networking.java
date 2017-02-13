@@ -539,6 +539,10 @@ public class Networking {
         }
     }
 
+    public static Predicate<HostAndPort> isReachablePredicate() {
+        return new IsReachablePredicate();
+    }
+
     public static class IsReachablePredicate implements Predicate<HostAndPort> {
         @Override public boolean apply(HostAndPort input) {
             return Networking.isReachable(input);

@@ -26,6 +26,7 @@ import org.testng.annotations.Test;
 @Test
 public class BrooklynMementoPersisterInMemoryTest extends BrooklynMementoPersisterTestFixture {
 
+    @Override
     protected ManagementContext newPersistingManagementContext() {
         return RebindTestUtils.managementContextBuilder(classLoader, new InMemoryObjectStore())
             .persistPeriod(Duration.millis(10)).buildStarted();

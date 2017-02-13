@@ -50,6 +50,7 @@ public class TimeWindowedList<T> {
     /**
      * @deprecated since 0.7.0; use {@link #TimeWindowedList(Duration)}
      */
+    @Deprecated
     public TimeWindowedList(long timePeriod) {
         this(Duration.millis(timePeriod));
     }

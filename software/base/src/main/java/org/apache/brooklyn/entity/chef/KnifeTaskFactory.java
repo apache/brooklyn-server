@@ -83,6 +83,7 @@ public class KnifeTaskFactory<RET> extends SystemProcessTaskFactory<KnifeTaskFac
     protected void insertKnifeCompletionListenerIntoCompletionListenersList(List<Function<ProcessTaskWrapper<?>, Void>> listeners) {
         // give a nice warning if chef/knife not set up correctly
         Function<ProcessTaskWrapper<?>, Void> propagateIfKnifeConfigFileMissing = new Function<ProcessTaskWrapper<?>, Void>() {
+            @Override
             public Void apply(@Nullable ProcessTaskWrapper<?> input) {
                 if (input.getExitCode()!=0 && input.getStderr().indexOf("WARNING: No knife configuration file found")>=0) {
                     String myConfig = knifeConfigFileOption();

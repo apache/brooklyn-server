@@ -77,10 +77,12 @@ public interface LiveTestEntity extends TestEntity {
             sensors().set(SERVICE_STATE, Lifecycle.STOPPED);
         }
 
+        @Override
         public MachineProvisioningLocation<?> getProvisioningLocation() {
             return provisioningLocation;
         }
 
+        @Override
         public JcloudsSshMachineLocation getObtainedLocation() {
             return obtainedLocation;
         }

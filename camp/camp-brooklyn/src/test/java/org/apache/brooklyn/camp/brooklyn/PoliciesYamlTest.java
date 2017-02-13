@@ -192,7 +192,7 @@ public class PoliciesYamlTest extends AbstractYamlTest {
             Entity fromConfig = ((EntityInternal)entity).getExecutionContext().submit(MutableMap.of(), new Callable<Entity>() {
                 @Override
                 public Entity call() throws Exception {
-                    return (Entity) policy.getConfig(key);
+                    return policy.getConfig(key);
                 }
             }).get();
             Assert.assertEquals(fromConfig, keyToEntity.get(key));

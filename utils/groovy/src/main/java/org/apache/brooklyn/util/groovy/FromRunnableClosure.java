@@ -22,7 +22,7 @@ import groovy.lang.Closure;
 
 import java.util.concurrent.Callable;
 
-import org.codehaus.groovy.runtime.ScriptBytecodeAdapter;
+import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 
 public class FromRunnableClosure<T> extends Closure<T> {
     private static final long serialVersionUID = 1L;
@@ -35,7 +35,7 @@ public class FromRunnableClosure<T> extends Closure<T> {
 
     @SuppressWarnings("unchecked")
     public T doCall() throws Throwable {
-        if (ScriptBytecodeAdapter.isCase(job, Callable.class)) {
+        if (DefaultGroovyMethods.isCase(job, Callable.class)) {
             return ((Callable<T>)job).call();
         } else {
             job.run();

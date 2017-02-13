@@ -43,6 +43,7 @@ public class RebindLocalhostLocationTest extends RebindTestFixtureWithApp {
     private LocalhostMachineProvisioningLocation origLoc;
     private SshMachineLocation origChildLoc;
     
+    @Override
     @BeforeMethod(alwaysRun=true)
 
     public void setUp() throws Exception {
@@ -75,7 +76,7 @@ public class RebindLocalhostLocationTest extends RebindTestFixtureWithApp {
         assertEquals(origChildLoc.execScript(Collections.<String,Object>emptyMap(), "mysummary", ImmutableList.of("true")), 0);
         origApp.start(ImmutableList.of(origLoc));
 
-        newApp = (TestApplication) rebind();
+        newApp = rebind();
         LocalhostMachineProvisioningLocation newLoc = (LocalhostMachineProvisioningLocation) Iterables.getOnlyElement(newApp.getLocations(), 0);
         SshMachineLocation newChildLoc = (SshMachineLocation) Iterables.get(newLoc.getChildren(), 0);
         assertEquals(newChildLoc.execScript(Collections.<String,Object>emptyMap(), "mysummary", ImmutableList.of("true")), 0);

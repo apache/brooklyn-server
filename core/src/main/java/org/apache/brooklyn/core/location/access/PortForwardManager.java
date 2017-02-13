@@ -83,6 +83,7 @@ public interface PortForwardManager extends Location {
             return privatePort;
         }
 
+        @Override
         public String toString() {
             return Objects.toStringHelper(this)
                     .add("publicIpId", publicIpId)
@@ -196,6 +197,7 @@ public interface PortForwardManager extends Location {
      */
     public boolean forgetPortMappings(String publicIpId);
     
+    @Override
     public String toVerboseString();
 
     

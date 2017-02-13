@@ -36,6 +36,7 @@ public class ActivePartialRebindVersionTest extends RebindTestFixtureWithApp {
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(ActivePartialRebindVersionTest.class);
     
+    @Override
     protected LocalManagementContext createOrigManagementContext() {
         return RebindTestUtils.managementContextBuilder(mementoDir, classLoader)
                 .persistPeriodMillis(getPersistPeriodMillis())

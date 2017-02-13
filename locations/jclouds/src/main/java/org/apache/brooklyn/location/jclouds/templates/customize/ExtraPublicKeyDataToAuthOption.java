@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 class ExtraPublicKeyDataToAuthOption implements TemplateOptionCustomizer {
     private static final Logger LOG = LoggerFactory.getLogger(ExtraPublicKeyDataToAuthOption.class);
 
+    @Override
     public void apply(TemplateOptions t, ConfigBag props, Object v) {
         // this is unreliable:
         // * seems now (Aug 2016) to be run *before* the TO.runScript which creates the user,

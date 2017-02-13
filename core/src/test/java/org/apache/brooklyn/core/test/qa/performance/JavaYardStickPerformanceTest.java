@@ -37,12 +37,14 @@ public class JavaYardStickPerformanceTest extends AbstractPerformanceTest {
 
     private ExecutorService executor;
     
+    @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();
         executor = Executors.newCachedThreadPool();
     }
     
+    @Override
     @AfterMethod(alwaysRun=true)
     public void tearDown() throws Exception {
         super.tearDown();
@@ -77,7 +79,8 @@ public class JavaYardStickPerformanceTest extends AbstractPerformanceTest {
                 .minAcceptablePerSecond(minRatePerSec)
                 .job(new Runnable() {
                     @Override public void run() {
-                        Future<?> future = executor.submit(new Runnable() { public void run() { i[0] = i[0] + 1; }});
+                        Future<?> future = executor.submit(new Runnable() { @Override
+                        public void run() { i[0] = i[0] + 1; }});
                         try {
                             future.get();
                         } catch (Exception e) {

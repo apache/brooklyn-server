@@ -40,6 +40,7 @@ public class WeightedObject<T> implements Comparable<WeightedObject<T>>{
      * Note that equals and compareTo are not consistent: x.compareTo(y)==0 iff x.equals(y) is 
      * highly recommended in Java, but is not required. This can make TreeSet etc behave poorly...
      */
+    @Override
     public int compareTo(WeightedObject<T> o) {
         double diff = o.getWeight() - weight;
         if (diff>0.0000000000000001) return -1;

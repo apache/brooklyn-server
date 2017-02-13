@@ -61,6 +61,7 @@ public class BetterMockWebServer {
         delegate.enqueue(response);
     }
 
+    @Override
     public boolean equals(Object obj) {
         return delegate.equals(obj);
     }
@@ -92,6 +93,7 @@ public class BetterMockWebServer {
         }
     }
 
+    @Override
     public int hashCode() {
         return delegate.hashCode();
     }
@@ -124,6 +126,7 @@ public class BetterMockWebServer {
         return delegate.toProxyAddress();
     }
 
+    @Override
     public String toString() {
         return delegate.toString();
     }

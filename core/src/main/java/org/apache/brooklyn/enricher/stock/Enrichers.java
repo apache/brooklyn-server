@@ -40,9 +40,6 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.collections.QuorumCheck;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
-import org.apache.brooklyn.util.text.StringPredicates;
-import org.apache.brooklyn.util.text.Strings;
-
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
@@ -265,7 +262,7 @@ public class Enrichers {
                 @SuppressWarnings({ "unchecked", "rawtypes" })
                 public Function<? super Collection<S>, ? extends T> get() {
                     // relies on TypeCoercion of result from Number to T, and type erasure for us to get away with it!
-                    return (Function)new ComputingSum((Number)defaultValueForUnreportedSensors, (Number)valueToReportIfNoSensors, publishing.getTypeToken());
+                    return new ComputingSum((Number)defaultValueForUnreportedSensors, (Number)valueToReportIfNoSensors, publishing.getTypeToken());
                 }
             };
             return self();
@@ -276,7 +273,7 @@ public class Enrichers {
                 @SuppressWarnings({ "unchecked", "rawtypes" })
                 public Function<? super Collection<S>, ? extends T> get() {
                     // relies on TypeCoercion of result from Number to T, and type erasure for us to get away with it!
-                    return (Function)new ComputingAverage((Number)defaultValueForUnreportedSensors, (Number)valueToReportIfNoSensors, publishing.getTypeToken());
+                    return new ComputingAverage((Number)defaultValueForUnreportedSensors, (Number)valueToReportIfNoSensors, publishing.getTypeToken());
                 }
             };
             return self();
@@ -306,6 +303,7 @@ public class Enrichers {
             if (publishing==null) return null;
             return "aggregator:"+publishing.getName();
         }
+        @Override
         public EnricherSpec<?> build() {
             return super.build().configure(MutableMap.builder()
                             .putIfNotNull(Aggregator.PRODUCER, fromEntity)
@@ -415,6 +413,7 @@ public class Enrichers {
             if (publishing==null) return null;
             return "combiner:"+publishing.getName();
         }
+        @Override
         public EnricherSpec<?> build() {
             return super.build().configure(MutableMap.builder()
                             .putIfNotNull(Combiner.PRODUCER, fromEntity)
@@ -473,6 +472,7 @@ public class Enrichers {
             if (publishing==null) return null;
             return "transformer:"+publishing.getName();
         }
+        @Override
         public EnricherSpec<?> build() {
             return super.build().configure(MutableMap.builder()
                             .putIfNotNull(Transformer.PRODUCER, fromEntity)
@@ -556,6 +556,7 @@ public class Enrichers {
             
             return "propagating["+fromId+":"+com.google.common.base.Joiner.on(",").join(summary)+"]";
         }
+        @Override
         public EnricherSpec<? extends Enricher> build() {
             return super.build().configure(MutableMap.builder()
                             .putIfNotNull(Propagator.PRODUCER, fromEntity)
@@ -615,6 +616,7 @@ public class Enrichers {
             if (targetSensor==null || fromSensor==null) return null;
             return "updating:"+targetSensor.getName()+"<-"+fromSensor.getName();
         }
+        @Override
         public EnricherSpec<?> build() {
             return super.build().configure(MutableMap.builder()
                             .put(UpdatingMap.TARGET_SENSOR, targetSensor)
@@ -686,6 +688,7 @@ public class Enrichers {
             if (transforming==null || publishing==null) return null;
             return "joiner:"+transforming.getName()+"->"+publishing.getName();
         }
+        @Override
         public EnricherSpec<?> build() {
             return super.build().configure(MutableMap.builder()
                             .putIfNotNull(Joiner.PRODUCER, fromEntity)
@@ -749,6 +752,7 @@ public class Enrichers {
             return self();
         }
 
+        @Override
         public EnricherSpec<?> build() {
             return super.build().configure(MutableMap.builder()
                     .put(Reducer.SOURCE_SENSORS, reducing)
@@ -856,7 +860,7 @@ public class Enrichers {
         }
         @SuppressWarnings({ "rawtypes", "unchecked" })
         @Override public T apply(Collection<T> input) {
-            return (T) sum((Collection)input, (Number)defaultValueForUnreportedSensors, (Number)valueToReportIfNoSensors, typeToken);
+            return (T) sum(input, defaultValueForUnreportedSensors, valueToReportIfNoSensors, typeToken);
         }
     }
 
@@ -867,7 +871,7 @@ public class Enrichers {
         }
         @SuppressWarnings({ "rawtypes", "unchecked" })
         @Override public T apply(Collection<T> input) {
-            return (T) average((Collection)input, (Number)defaultValueForUnreportedSensors, (Number)valueToReportIfNoSensors, typeToken);
+            return (T) average(input, defaultValueForUnreportedSensors, valueToReportIfNoSensors, typeToken);
         }
     }
 

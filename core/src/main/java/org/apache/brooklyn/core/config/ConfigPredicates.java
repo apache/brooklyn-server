@@ -83,21 +83,25 @@ public class ConfigPredicates {
     }
 
     /** @deprecated since 0.9.0; use {@link #nameStartsWith(String)} */
+    @Deprecated
     public static Predicate<ConfigKey<?>> startingWith(final String prefix) {
         return nameStartsWith(prefix);
     }
 
     /** @deprecated since 0.9.0; use {@link #nameMatchesGlob(String)} */
+    @Deprecated
     public static Predicate<ConfigKey<?>> matchingGlob(final String glob) {
         return nameMatchesGlob(glob);
     }
 
     /** @deprecated since 0.9.0; use {@link #nameMatchesRegex(String)} */
+    @Deprecated
     public static Predicate<ConfigKey<?>> matchingRegex(final String regex) {
         return nameMatchesRegex(regex);
     }
 
     /** @deprecated since 0.9.0; use {@link #nameSatisfies(Predicate)} */
+    @Deprecated
     public static Predicate<ConfigKey<?>> nameMatching(final Predicate<String> filter) {
         return nameSatisfies(filter);
     }

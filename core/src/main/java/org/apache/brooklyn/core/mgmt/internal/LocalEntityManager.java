@@ -345,7 +345,7 @@ public class LocalEntityManager implements EntityManagerInternal {
         checkManagementAllowed(e);
 
         final List<EntityInternal> allEntities = Lists.newArrayList();
-        Predicate<EntityInternal> manageEntity = new Predicate<EntityInternal>() { public boolean apply(EntityInternal it) {
+        Predicate<EntityInternal> manageEntity = new Predicate<EntityInternal>() { @Override public boolean apply(EntityInternal it) {
             ManagementTransitionMode mode = getLastManagementTransitionMode(it.getId());
             if (mode==null) {
                 setManagementTransitionMode(it, mode = initialMode);
@@ -382,7 +382,7 @@ public class LocalEntityManager implements EntityManagerInternal {
             }
             
             // check RO status is consistent
-            boolean isNowReadOnly = Boolean.TRUE.equals( ((EntityInternal)it).getManagementSupport().isReadOnly() );
+            boolean isNowReadOnly = Boolean.TRUE.equals( it.getManagementSupport().isReadOnly() );
             if (mode.isReadOnly()!=isNowReadOnly) {
                 throw new IllegalStateException("Read-only status mismatch for "+it+": "+mode+" / RO="+isNowReadOnly);
             }
@@ -430,6 +430,7 @@ public class LocalEntityManager implements EntityManagerInternal {
         unmanage(e, ManagementTransitionMode.guessing(BrooklynObjectManagementMode.MANAGED_PRIMARY, BrooklynObjectManagementMode.NONEXISTENT));
     }
     
+    @Override
     public void unmanage(final Entity e, final ManagementTransitionMode mode) {
         unmanage(e, mode, false);
     }
@@ -478,7 +479,7 @@ public class LocalEntityManager implements EntityManagerInternal {
             
             // Need to store all child entities as onManagementStopping removes a child from the parent entity
             final List<EntityInternal> allEntities =  Lists.newArrayList();
-            recursively(e, new Predicate<EntityInternal>() { public boolean apply(EntityInternal it) {
+            recursively(e, new Predicate<EntityInternal>() { @Override public boolean apply(EntityInternal it) {
                 if (shouldSkipUnmanagement(it)) return false;
                 allEntities.add(it);
                 it.getManagementSupport().onManagementStopping(info);

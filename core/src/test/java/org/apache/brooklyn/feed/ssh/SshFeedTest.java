@@ -99,10 +99,12 @@ public class SshFeedTest extends BrooklynAppUnitTestSupport {
         // Expect it to only execute once (i.e. share exec result for both sensors).
         // Wait several seconds, in case it takes a while to do the second exec.
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 assertEquals(RecordingSshMachineLocation.execScriptCalls, ImmutableList.of(ImmutableList.of(cmd)));
             }});
         Asserts.succeedsContinually(ImmutableMap.of("timeout", Duration.FIVE_SECONDS), new Runnable() {
+            @Override
             public void run() {
                 assertEquals(RecordingSshMachineLocation.execScriptCalls, ImmutableList.of(ImmutableList.of(cmd)));
             }});
@@ -129,6 +131,7 @@ public class SshFeedTest extends BrooklynAppUnitTestSupport {
         
         // Expect it to execute the different commands (i.e. not share)
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 assertEquals(ImmutableSet.copyOf(RecordingSshMachineLocation.execScriptCalls), ImmutableSet.of(ImmutableList.of(cmd), ImmutableList.of(cmd2)));
             }});
@@ -156,6 +159,7 @@ public class SshFeedTest extends BrooklynAppUnitTestSupport {
         
         // Expect it to execute the command twice, with different envs (i.e. not share)
         Asserts.succeedsEventually(new Runnable() {
+            @Override
             public void run() {
                 assertEquals(RecordingSshMachineLocation.execScriptCalls, ImmutableList.of(ImmutableList.of(cmd), ImmutableList.of(cmd)));
             }});

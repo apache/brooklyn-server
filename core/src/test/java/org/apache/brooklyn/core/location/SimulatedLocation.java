@@ -73,17 +73,21 @@ public class SimulatedLocation extends AbstractLocation implements MachineProvis
                 .configure(newFlags));
     }
 
+    @Override
     public MachineLocation obtain(Map<?,?> flags) {
         return this;
     }
 
+    @Override
     public void release(MachineLocation machine) {
     }
 
+    @Override
     public Map<String,Object> getProvisioningFlags(Collection<String> tags) {
         return MutableMap.<String,Object>of();
     }
     
+    @Override
     public InetAddress getAddress() {
         return address;
     }
@@ -104,6 +108,7 @@ public class SimulatedLocation extends AbstractLocation implements MachineProvis
         return ImmutableSet.of();
     }
 
+    @Override
     public synchronized boolean obtainSpecificPort(int portNumber) {
         if (!Iterables.contains(permittedPorts, portNumber)) return false;
         if (usedPorts.contains(portNumber)) return false;
@@ -111,12 +116,14 @@ public class SimulatedLocation extends AbstractLocation implements MachineProvis
         return true;
     }
 
+    @Override
     public synchronized int obtainPort(PortRange range) {
         for (int p: range)
             if (obtainSpecificPort(p)) return p;
         return -1;
     }
 
+    @Override
     public synchronized void releasePort(int portNumber) {
         usedPorts.remove(portNumber);
     }

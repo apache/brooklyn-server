@@ -122,6 +122,7 @@ public abstract class CompoundTask<T> extends BasicTask<List<T>> implements HasT
         return children;
     }
     
+    @Override
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public List<Task<?>> getChildren() {
         return (List) getChildrenTyped();

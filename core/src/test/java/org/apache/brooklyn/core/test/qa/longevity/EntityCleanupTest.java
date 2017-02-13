@@ -48,6 +48,7 @@ public class EntityCleanupTest extends EntityCleanupLongevityTestFixture {
     @Test
     public void testLocationCreatedAndUnmanaged() throws Exception {
         doTestManyTimesAndAssertNoMemoryLeak(JavaClassNames.niceClassAndMethod(), new Runnable() {
+            @Override
             public void run() {
                 loc = managementContext.getLocationManager().createLocation(LocationSpec.create(SimulatedLocation.class));
                 managementContext.getLocationManager().unmanage(loc);

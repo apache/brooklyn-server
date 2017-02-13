@@ -117,9 +117,8 @@ public class CsrfTokenFilterLauncherTest extends BrooklynRestApiLauncherTestFixt
             .build();
     }
 
-    protected void assertOkayResponse(HttpToolResponse response, String expecting) {
+    public static void assertOkayResponse(HttpToolResponse response, String expecting) {
         assertEquals(response.getResponseCode(), HttpStatus.SC_OK);
         assertEquals(response.getContentAsString(), expecting);
     }
-
 }

@@ -44,5 +44,11 @@ public interface BaseTest extends TargetableTestComponent, Startable {
     ConfigKey<Duration> TIMEOUT = ConfigKeys.newConfigKey(Duration.class, "timeout", "Time to wait on result",
         Duration.seconds(1));
 
+    /**
+     * Max time between checking the assertion (exponential backoff to this limit).
+     */
+    ConfigKey<Duration> BACKOFF_TO_PERIOD = ConfigKeys.newConfigKey(Duration.class, "backoffToPeriod", 
+            "Max time between checking the assertion (exponential backoff to this limit)",
+            Duration.millis(500));
 
 }

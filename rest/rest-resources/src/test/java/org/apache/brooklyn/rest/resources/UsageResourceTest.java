@@ -58,6 +58,8 @@ import org.apache.brooklyn.util.time.Time;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.Runnables;
+
 import javax.ws.rs.core.GenericType;
 
 @Test( // by using a different suite name we disallow interleaving other tests between the methods of this test class, which wrecks the test fixtures
@@ -335,7 +337,7 @@ public class UsageResourceTest extends BrooklynRestResourceTest {
     
     private void waitForTask(final String taskId) {
         boolean success = Repeater.create()
-                .repeat(new Runnable() { public void run() {}})
+                .repeat(Runnables.doNothing())
                 .until(new Callable<Boolean>() {
                     @Override public Boolean call() {
                         Response response = client().path("/activities/"+taskId).get();
@@ -357,14 +359,14 @@ public class UsageResourceTest extends BrooklynRestResourceTest {
     
     private Calendar roundDown(Calendar calendar) {
         long time = calendar.getTime().getTime();
-        long timeDown = ((long)(time / 1000)) * 1000;
+        long timeDown = (time / 1000) * 1000;
         return Time.newCalendarFromMillisSinceEpochUtc(timeDown);
     }
     
     @SuppressWarnings("unused")
     private Calendar roundUp(Calendar calendar) {
         long time = calendar.getTime().getTime();
-        long timeDown = ((long)(time / 1000)) * 1000;
+        long timeDown = (time / 1000) * 1000;
         long timeUp = (time == timeDown) ? time : timeDown + 1000;
         return Time.newCalendarFromMillisSinceEpochUtc(timeUp);
     }

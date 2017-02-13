@@ -26,7 +26,6 @@ import java.util.Collections;
 import java.util.List;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -159,7 +158,7 @@ public class LoadBalancingPolicySoakTest extends AbstractLoadBalancingPolicyTest
             
             for (int j = 0; j < numItems; j++) {
                 MockItemEntity item = items.get(j);
-                ((EntityLocal)item).sensors().set(MockItemEntity.TEST_METRIC, itemRates.get(j));
+                item.sensors().set(MockItemEntity.TEST_METRIC, itemRates.get(j));
             }
                 
             // Stop containers, and start others

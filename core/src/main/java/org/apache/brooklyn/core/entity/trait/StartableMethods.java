@@ -23,7 +23,6 @@ import java.util.Collections;
 import java.util.List;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.core.effector.Effectors;
@@ -48,20 +47,20 @@ public class StartableMethods {
     private StartableMethods() {}
 
     /** Common implementation for start in parent nodes; just invokes start on all children of the entity */
-    public static void start(EntityLocal e, Collection<? extends Location> locations) {
+    public static void start(Entity e, Collection<? extends Location> locations) {
         log.debug("Starting entity "+e+" at "+locations);
         DynamicTasks.queueIfPossible(startingChildren(e, locations)).orSubmitAsync(e).getTask().getUnchecked();
     }
     
     /** Common implementation for stop in parent nodes; just invokes stop on all children of the entity */
-    public static void stop(EntityLocal e) {
+    public static void stop(Entity e) {
         log.debug("Stopping entity "+e);
         DynamicTasks.queueIfPossible(stoppingChildren(e)).orSubmitAsync(e).getTask().getUnchecked();
         if (log.isDebugEnabled()) log.debug("Stopped entity "+e);
     }
 
     /** Common implementation for restart in parent nodes; just invokes restart on all children of the entity */
-    public static void restart(EntityLocal e) {
+    public static void restart(Entity e) {
         log.debug("Restarting entity "+e);
         DynamicTasks.queueIfPossible(restartingChildren(e)).orSubmitAsync(e).getTask().getUnchecked();
         if (log.isDebugEnabled()) log.debug("Restarted entity "+e);

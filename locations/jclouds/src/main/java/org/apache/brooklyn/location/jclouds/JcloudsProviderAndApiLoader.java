@@ -21,6 +21,7 @@ package org.apache.brooklyn.location.jclouds;
 import java.util.Map;
 import java.util.ServiceLoader;
 
+import org.apache.brooklyn.core.mgmt.persist.DeserializingJcloudsRenamesProvider;
 import org.apache.brooklyn.util.text.Strings;
 import org.jclouds.apis.ApiMetadata;
 import org.jclouds.apis.ApiPredicates;
@@ -84,6 +85,7 @@ public class JcloudsProviderAndApiLoader {
     }
     
     public static Optional<ProviderMetadata> getProvider(String id) {
+        id = DeserializingJcloudsRenamesProvider.INSTANCE.applyJcloudsRenames(id);
         if (LazyServiceLoader.INSTANCE.providers.containsKey(id)) {
             return Optional.of(LazyServiceLoader.INSTANCE.providers.get(id));
         }
@@ -91,6 +93,7 @@ public class JcloudsProviderAndApiLoader {
     }
 
     public static Optional<ApiMetadata> getApi(String id) {
+        id = DeserializingJcloudsRenamesProvider.INSTANCE.applyJcloudsRenames(id);
         if (LazyServiceLoader.INSTANCE.apis.containsKey(id)) {
             return Optional.of(LazyServiceLoader.INSTANCE.apis.get(id));
         }

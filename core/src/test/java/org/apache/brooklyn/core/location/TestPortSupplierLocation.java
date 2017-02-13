@@ -84,7 +84,7 @@ public class TestPortSupplierLocation extends BrooklynAppUnitTestSupport {
         
         ConfigToAttributes.apply(entity, ps);
         int p = entity.getAttribute(ps);
-        assertEquals((int)p, 1240);
+        assertEquals(p, 1240);
     }
 
 }

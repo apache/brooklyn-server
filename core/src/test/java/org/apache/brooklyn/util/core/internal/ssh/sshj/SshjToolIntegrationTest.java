@@ -76,6 +76,7 @@ public class SshjToolIntegrationTest extends SshToolAbstractIntegrationTest {
         final AtomicInteger callCount = new AtomicInteger();
         
         final SshTool localtool = new SshjTool(ImmutableMap.of("sshTries", 3, "host", "localhost", "privateKeyFile", "~/.ssh/id_rsa")) {
+            @Override
             protected SshAction<Session> newSessionAction() {
                 callCount.incrementAndGet();
                 throw new RuntimeException("Simulating ssh execution failure");
@@ -97,6 +98,7 @@ public class SshjToolIntegrationTest extends SshToolAbstractIntegrationTest {
         final AtomicInteger callCount = new AtomicInteger();
         final int successOnAttempt = 2;
         final SshTool localtool = new SshjTool(ImmutableMap.of("sshTries", 3, "host", "localhost", "privateKeyFile", "~/.ssh/id_rsa")) {
+            @Override
             protected SshAction<Session> newSessionAction() {
                 callCount.incrementAndGet();
                 if (callCount.incrementAndGet() >= successOnAttempt) {
@@ -116,6 +118,7 @@ public class SshjToolIntegrationTest extends SshToolAbstractIntegrationTest {
     public void testGivesUpAfterMaxTime() throws Exception {
         final AtomicInteger callCount = new AtomicInteger();
         final SshTool localtool = new SshjTool(ImmutableMap.of("sshTriesTimeout", 1000, "host", "localhost", "privateKeyFile", "~/.ssh/id_rsa")) {
+            @Override
             protected SshAction<Session> newSessionAction() {
                 callCount.incrementAndGet();
                 try {

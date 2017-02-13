@@ -203,6 +203,7 @@ public class Repeater {
      * @see #every(long, TimeUnit)
      * @deprecated specify unit
      */
+    @Deprecated
     public Repeater every(long duration) {
         return every(duration, TimeUnit.MILLISECONDS);
     }

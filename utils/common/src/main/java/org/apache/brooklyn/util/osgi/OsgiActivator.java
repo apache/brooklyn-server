@@ -23,11 +23,13 @@ import org.osgi.framework.BundleContext;
  */
 public class OsgiActivator implements BundleActivator {
 
+  @Override
   public void start(BundleContext context) throws Exception {
   }
 
+  @Override
   public void stop(BundleContext context) throws Exception {
       OsgiUtil.shutdown();
   }
-  
+
 }

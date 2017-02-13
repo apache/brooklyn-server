@@ -31,6 +31,7 @@ import org.slf4j.LoggerFactory;
 class SecurityGroupOption implements TemplateOptionCustomizer {
     private static final Logger LOG = LoggerFactory.getLogger(SecurityGroupOption.class);
 
+    @Override
     public void apply(TemplateOptions t, ConfigBag props, Object v) {
         if (t instanceof EC2TemplateOptions) {
             String[] securityGroups = toStringArray(v);

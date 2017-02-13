@@ -26,6 +26,7 @@ public class CampRestGuavas {
 
     public static final Function<AbstractResource,String> IDENTITY_OF_REST_RESOURCE = 
             new Function<AbstractResource,String>() {
+                @Override
                 public String apply(AbstractResource input) { return input.getId(); }
             };
 

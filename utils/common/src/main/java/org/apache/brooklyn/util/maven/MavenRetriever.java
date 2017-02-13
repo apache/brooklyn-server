@@ -30,6 +30,7 @@ import com.google.common.base.Function;
 public class MavenRetriever {
 
     public static final Function<MavenArtifact,String> CONDITIONAL_SNAPSHOT_URL_GENERATOR = new Function<MavenArtifact, String>() {
+        @Override
         public String apply(MavenArtifact artifact) {
             if (artifact.groupId.startsWith("org.apache")) {
                 return APACHE_SNAPSHOT_URL_GENERATOR.apply(artifact);
@@ -47,6 +48,7 @@ public class MavenRetriever {
 
     public static Function<MavenArtifact,String> nexusSnapshotUrlGenerator(final String baseUrl) {
         return new Function<MavenArtifact, String>() {
+            @Override
             public String apply(MavenArtifact artifact) {
                 return baseUrl+"/service/local/artifact/maven/redirect?" +
                         "r=snapshots&" +
@@ -60,6 +62,7 @@ public class MavenRetriever {
     }
 
     public static final Function<MavenArtifact,String> MAVEN_CENTRAL_URL_GENERATOR = new Function<MavenArtifact, String>() {
+        @Override
         public String apply(MavenArtifact artifact) {
             return "http://search.maven.org/remotecontent?filepath="+
                     Urls.encode(Strings.replaceAllNonRegex(artifact.groupId, ".", "/")+"/"+
@@ -69,6 +72,7 @@ public class MavenRetriever {
     };
 
     public static final Function<MavenArtifact,String> LOCAL_REPO_PATH_GENERATOR = new Function<MavenArtifact, String>() {
+        @Override
         public String apply(MavenArtifact artifact) {
             return System.getProperty("user.home")+"/.m2/repository/"+
                     Strings.replaceAllNonRegex(artifact.groupId, ".", "/")+"/"+

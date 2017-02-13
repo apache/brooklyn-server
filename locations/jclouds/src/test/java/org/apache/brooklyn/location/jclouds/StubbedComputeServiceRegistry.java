@@ -77,6 +77,7 @@ public class StubbedComputeServiceRegistry implements ComputeServiceRegistry {
         public SingleNodeCreator(NodeMetadata node) {
             this.node = node;
         }
+        @Override
         protected NodeMetadata newNode(String group, Template template) {
             return node;
         }

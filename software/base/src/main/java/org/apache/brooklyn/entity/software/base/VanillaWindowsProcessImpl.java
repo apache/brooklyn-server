@@ -20,7 +20,6 @@ package org.apache.brooklyn.entity.software.base;
 
 
 import com.google.common.collect.Iterables;
-import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
 
 public class VanillaWindowsProcessImpl extends SoftwareProcessImpl implements VanillaWindowsProcess {

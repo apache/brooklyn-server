@@ -28,6 +28,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.Entities;
@@ -38,6 +39,7 @@ import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests.Builder;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
+import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.net.Urls;
@@ -48,6 +50,8 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
+import com.google.common.collect.Iterables;
 
 public abstract class AbstractYamlTest {
 
@@ -69,6 +73,11 @@ public abstract class AbstractYamlTest {
     @BeforeMethod(alwaysRun = true)
     public void setUp() throws Exception {
         forceUpdate = false;
+        brooklynMgmt = setUpPlatform();
+        catalog = brooklynMgmt.getCatalog();
+    }
+
+    protected ManagementContext setUpPlatform() {
         launcher = new BrooklynCampPlatformLauncherNoServer() {
             @Override
             protected LocalManagementContext newMgmtContext() {
@@ -76,11 +85,10 @@ public abstract class AbstractYamlTest {
             }
         };
         launcher.launch();
-        brooklynMgmt = launcher.getBrooklynMgmt();
-        catalog = brooklynMgmt.getCatalog();
         platform = launcher.getCampPlatform();
+        return launcher.getBrooklynMgmt();
     }
-
+    
     protected LocalManagementContext newTestManagementContext() {
         Builder builder = LocalManagementContextForTests.builder(true).disableOsgi(disableOsgi());
         if (useDefaultProperties()) {
@@ -101,6 +109,10 @@ public abstract class AbstractYamlTest {
     @AfterMethod(alwaysRun = true)
     public void tearDown() throws Exception {
         if (brooklynMgmt != null) Entities.destroyAll(brooklynMgmt);
+        tearDownPlatform();
+    }
+
+    protected void tearDownPlatform() throws Exception {
         if (launcher != null) launcher.stopServers();
     }
 
@@ -132,6 +144,7 @@ public abstract class AbstractYamlTest {
     }
     
     /** @deprecated since 0.10.0, use {@link #createAndStartApplication(String)} instead */
+    @Deprecated
     protected Entity createAndStartApplication(Reader input) throws Exception {
         return createAndStartApplication(Streams.readFully(input));
     }
@@ -219,6 +232,22 @@ public abstract class AbstractYamlTest {
         return CatalogUtils.getVersionedId(id, TEST_VERSION);
     }
 
+    protected String ver(String id, String version) {
+        return CatalogUtils.getVersionedId(id, version);
+    }
+    
+    protected int countCatalogLocations() {
+        return countCatalogItemsMatching(RegisteredTypePredicates.IS_LOCATION);
+    }
+
+    protected int countCatalogPolicies() {
+        return countCatalogItemsMatching(RegisteredTypePredicates.IS_POLICY);
+    }
+
+    protected int countCatalogItemsMatching(Predicate<? super RegisteredType> filter) {
+        return Iterables.size(mgmt().getTypeRegistry().getMatching(filter));
+    }
+    
     public void forceCatalogUpdate() {
         forceUpdate = true;
     }

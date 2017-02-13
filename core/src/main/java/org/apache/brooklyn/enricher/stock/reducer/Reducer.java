@@ -34,7 +34,6 @@ import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.sensor.SensorPredicates;
 import org.apache.brooklyn.util.core.task.Tasks;
-import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.text.StringFunctions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

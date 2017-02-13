@@ -50,8 +50,6 @@ import org.apache.brooklyn.core.config.render.RendererHints;
 import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityPredicates;
-import org.apache.brooklyn.core.entity.factory.EntityFactory;
-import org.apache.brooklyn.core.entity.factory.EntityFactoryForLocation;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceProblemsLogic;
@@ -108,6 +106,8 @@ import com.google.common.util.concurrent.MoreExecutors;
  */
 public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicCluster {
 
+    private static final Logger LOG = LoggerFactory.getLogger(DynamicClusterImpl.class);
+
     @SuppressWarnings("serial")
     private static final AttributeSensor<Supplier<Integer>> NEXT_CLUSTER_MEMBER_ID = Sensors.newSensor(new TypeToken<Supplier<Integer>>() {},
             "next.cluster.member.id", "Returns the ID number of the next member to be added");
@@ -152,9 +152,6 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
         RendererHints.register(FIRST, RendererHints.namedActionWithUrl("Open", DelegateEntity.EntityUrl.entityUrl()));
         RendererHints.register(CLUSTER, RendererHints.namedActionWithUrl("Open", DelegateEntity.EntityUrl.entityUrl()));
     }
-
-
-    private static final Logger LOG = LoggerFactory.getLogger(DynamicClusterImpl.class);
 
     /**
      * Mutex for synchronizing during re-size operations.
@@ -337,22 +334,9 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
         return getConfig(MEMBER_SPEC);
     }
 
-    /** @deprecated since 0.7.0; use {@link #getMemberSpec()} */
-    @Deprecated
-    protected EntityFactory<?> getFactory() {
-        return getConfig(FACTORY);
-    }
-
     @Override
     public void setMemberSpec(EntitySpec<?> memberSpec) {
         setConfigEvenIfOwned(MEMBER_SPEC, memberSpec);
-    }
-
-    /** @deprecated since 0.7.0; use {@link #setMemberSpec(EntitySpec)} */
-    @Deprecated
-    @Override
-    public void setFactory(EntityFactory<?> factory) {
-        setConfigEvenIfOwned(FACTORY, factory);
     }
 
     private Location getLocation(boolean required) {
@@ -995,24 +979,12 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
         if (getMembers().isEmpty()) memberSpec = getFirstMemberSpec();
         if (memberSpec == null) memberSpec = getMemberSpec();
         
-        if (memberSpec != null) {
-            EntitySpec<?> specConfigured = EntitySpec.create(memberSpec).configure(flags);
-            if (loc!=null) specConfigured.location(loc);
-            return addChild(specConfigured);
+        if (memberSpec == null) {
+            throw new IllegalStateException("No member spec supplied for dynamic cluster "+this);
         }
-
-        EntityFactory<?> factory = getFactory();
-        if (factory == null) {
-            throw new IllegalStateException("No member spec nor entity factory supplied for dynamic cluster "+this);
-        }
-        EntityFactory<?> factoryToUse = (factory instanceof EntityFactoryForLocation) ? ((EntityFactoryForLocation<?>) factory).newFactoryForLocation(loc) : factory;
-        Entity entity = factoryToUse.newEntity(flags, this);
-        if (entity==null) {
-            throw new IllegalStateException("EntityFactory factory routine returned null entity, in "+this);
-        }
-        if (entity.getParent()==null) entity.setParent(this);
-
-        return entity;
+        EntitySpec<?> specConfigured = EntitySpec.create(memberSpec).configure(flags);
+        if (loc!=null) specConfigured.location(loc);
+        return addChild(specConfigured);
     }
 
     protected List<Entity> pickAndRemoveMembers(int delta) {

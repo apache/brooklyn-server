@@ -18,16 +18,12 @@
  */
 package org.apache.brooklyn.core.mgmt.persist.jclouds;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import java.util.List;
 
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
-import org.apache.brooklyn.core.location.LocationConfigKeys;
-import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
@@ -36,8 +32,8 @@ import org.jclouds.blobstore.domain.StorageMetadata;
 import org.jclouds.blobstore.options.ListContainerOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.brooklyn.location.jclouds.BlobStoreContextFactoryImpl;
 import org.apache.brooklyn.location.jclouds.JcloudsLocation;
-import org.apache.brooklyn.location.jclouds.JcloudsUtil;
 import org.apache.brooklyn.util.exceptions.FatalConfigurationRuntimeException;
 import org.apache.brooklyn.util.text.Strings;
 
@@ -84,6 +80,7 @@ public class JcloudsBlobStoreBasedObjectStore implements PersistenceObjectStore 
         getBlobStoreContext();
     }
 
+    @Override
     public String getSummaryName() {
         return (locationSpec!=null ? locationSpec : location)+":"+getContainerNameFull();
     }
@@ -96,12 +93,7 @@ public class JcloudsBlobStoreBasedObjectStore implements PersistenceObjectStore 
                 location = (JcloudsLocation) mgmt.getLocationRegistry().getLocationManaged(locationSpec);
             }
             
-            String identity = checkNotNull(location.getConfig(LocationConfigKeys.ACCESS_IDENTITY), "identity must not be null");
-            String credential = checkNotNull(location.getConfig(LocationConfigKeys.ACCESS_CREDENTIAL), "credential must not be null");
-            String provider = checkNotNull(location.getConfig(LocationConfigKeys.CLOUD_PROVIDER), "provider must not be null");
-            String endpoint = location.getConfig(CloudLocationConfig.CLOUD_ENDPOINT);
-
-            context = JcloudsUtil.newBlobstoreContext(provider, endpoint, identity, credential);
+            context = BlobStoreContextFactoryImpl.INSTANCE.newBlobStoreContext(location.config().getBag());
      
             // TODO do we need to get location from region? can't see the jclouds API.
             // doesn't matter in some places because it's already in the endpoint

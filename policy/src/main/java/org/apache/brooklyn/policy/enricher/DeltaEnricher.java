@@ -20,7 +20,6 @@ package org.apache.brooklyn.policy.enricher;
 
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvis;
 
-import org.apache.brooklyn.api.catalog.Catalog;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;

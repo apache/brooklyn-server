@@ -61,6 +61,7 @@ public class AssertsTest {
         
         try {
             Asserts.assertReturnsEventually(new Runnable() {
+                @Override
                 public void run() {
                     try {
                         Thread.sleep(60*1000);
@@ -86,6 +87,7 @@ public class AssertsTest {
     public void testAssertReturnsEventuallyPropagatesException() throws Exception {
         try {
             Asserts.assertReturnsEventually(new Runnable() {
+                @Override
                 public void run() {
                     throw new IllegalStateException("Simulating failure");
                 }},

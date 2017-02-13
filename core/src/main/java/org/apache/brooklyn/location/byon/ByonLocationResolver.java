@@ -102,7 +102,7 @@ public class ByonLocationResolver extends AbstractLocationResolver {
         Object hosts = config.getStringKey("hosts");
         config.remove("hosts");
         String user = (String) config.getStringKey("user");
-        Integer port = (Integer) TypeCoercions.coerce(config.getStringKey("port"), Integer.class);
+        Integer port = TypeCoercions.coerce(config.getStringKey("port"), Integer.class);
         Class<? extends MachineLocation> locationClass = getLocationClass(config.get(OS_FAMILY));
 
         MutableMap<String, Object> defaultProps = MutableMap.of();

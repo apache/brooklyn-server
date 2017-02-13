@@ -37,7 +37,9 @@ import com.google.common.annotations.Beta;
 @Beta
 public class SecurityGroupDefinition {
 
-    private Callable<String> groupNameFactory = new Callable<String>() { public String call() { return "br-sg-"+Identifiers.makeRandomId(8); } };
+    private Callable<String> groupNameFactory = new Callable<String>() {
+        @Override public String call() { return "br-sg-"+Identifiers.makeRandomId(8); }
+    };
     private List<IpPermission> ipPerms = MutableList.of();
     
     public void createGroupInAwsRegion(ComputeServiceContext computeServiceContext, String region) {
@@ -88,7 +90,9 @@ public class SecurityGroupDefinition {
     
     // TODO use cloud machine namer
     public SecurityGroupDefinition named(final String name) {
-        groupNameFactory = new Callable<String>() { public String call() { return name; } };
+        groupNameFactory = new Callable<String>() {
+            @Override public String call() { return name; }
+        };
         return this;
     }
     public String getName() { 

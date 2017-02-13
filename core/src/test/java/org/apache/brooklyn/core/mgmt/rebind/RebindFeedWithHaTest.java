@@ -87,7 +87,7 @@ public class RebindFeedWithHaTest extends RebindTestFixtureWithApp {
     public void testHttpFeedCleansUpAfterHaDisabledAndRunsAtFailover() throws Exception {
         TestEntity origEntity = origApp.createAndManageChild(EntitySpec.create(TestEntity.class).impl(RebindFeedTest.MyEntityWithHttpFeedImpl.class)
                 .configure(RebindFeedTest.MyEntityWithHttpFeedImpl.BASE_URL, baseUrl));
-        EntityAsserts.assertAttributeEqualsEventually(origEntity, SENSOR_INT, (Integer) 200);
+        EntityAsserts.assertAttributeEqualsEventually(origEntity, SENSOR_INT, 200);
         EntityAsserts.assertAttributeEqualsEventually(origEntity, SENSOR_STRING, "{\"foo\":\"myfoo\"}");
         assertEquals(origEntity.feeds().getFeeds().size(), 1);
         origManagementContext.getRebindManager().forcePersistNow();
@@ -109,7 +109,7 @@ public class RebindFeedWithHaTest extends RebindTestFixtureWithApp {
         }).runRequiringTrue();
         
         newManagementContext = createNewManagementContext();
-        newApp = (TestApplication) RebindTestUtils.rebind((LocalManagementContext)newManagementContext, classLoader);
+        newApp = (TestApplication) RebindTestUtils.rebind(newManagementContext, classLoader);
 
         TestEntity newEntity = (TestEntity) Iterables.getOnlyElement(newApp.getChildren());
         
@@ -119,7 +119,7 @@ public class RebindFeedWithHaTest extends RebindTestFixtureWithApp {
         // Expect the feed to still be polling
         newEntity.sensors().set(SENSOR_INT, null);
         newEntity.sensors().set(SENSOR_STRING, null);
-        EntityAsserts.assertAttributeEqualsEventually(newEntity, SENSOR_INT, (Integer)200);
+        EntityAsserts.assertAttributeEqualsEventually(newEntity, SENSOR_INT, 200);
         EntityAsserts.assertAttributeEqualsEventually(newEntity, SENSOR_STRING, "{\"foo\":\"myfoo\"}");
     }
 

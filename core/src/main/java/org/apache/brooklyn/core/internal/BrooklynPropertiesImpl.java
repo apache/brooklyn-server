@@ -62,9 +62,8 @@ import groovy.lang.Closure;
  * intention is that they are set during startup and not modified thereafter.
  */
 @SuppressWarnings("rawtypes")
-public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynProperties {
+public class BrooklynPropertiesImpl implements BrooklynProperties {
 
-    private static final long serialVersionUID = -945875483083108978L;
     private static final Logger LOG = LoggerFactory.getLogger(BrooklynPropertiesImpl.class);
 
     public static class Factory {
@@ -95,6 +94,7 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
             private BrooklynPropertiesImpl originalProperties = null;
 
             /** @deprecated since 0.7.0 use static methods in {@link Factory} to create */
+            @Deprecated
             public Builder() {
                 this(true);
             }
@@ -121,7 +121,7 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
              * Creates a Builder that when built, will return the BrooklynProperties passed to this constructor
              */
             private Builder(BrooklynPropertiesImpl originalProperties) {
-                this.originalProperties = new BrooklynPropertiesImpl().addFromMap(originalProperties);
+                this.originalProperties = new BrooklynPropertiesImpl().addFromMap(originalProperties.asMapWithStringKeys());
             }
 
             /**
@@ -165,8 +165,9 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
             }
 
             public BrooklynPropertiesImpl build() {
-                if (originalProperties != null) 
-                    return new BrooklynPropertiesImpl().addFromMap(originalProperties);
+                if (originalProperties != null) {
+                    return new BrooklynPropertiesImpl().addFromMap(originalProperties.asMapWithStringKeys());
+                }
 
                 BrooklynPropertiesImpl properties = new BrooklynPropertiesImpl();
 
@@ -189,6 +190,7 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
             }
 
             @Override
+            @SuppressWarnings("deprecation")
             public String toString() {
                 return Objects.toStringHelper(this)
                         .omitNullValues()
@@ -225,30 +227,42 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
         }
     }
 
+    /**
+     * The actual properties.
+     * <p>
+     * Care must be taken accessing/modifying these, to ensure it is correctly synchronized.
+     */
+    private final Map<String, Object> contents = new LinkedHashMap<>();
+    
     protected BrooklynPropertiesImpl() {
     }
 
+    @Override
     public BrooklynPropertiesImpl addEnvironmentVars() {
         addFrom(System.getenv());
         return this;
     }
 
+    @Override
     public BrooklynPropertiesImpl addSystemProperties() {
         addFrom(System.getProperties());
         return this;
     }
 
+    @Override
     public BrooklynPropertiesImpl addFrom(ConfigBag cfg) {
         addFrom(cfg.getAllConfig());
         return this;
     }
 
+    @Override
     @SuppressWarnings("unchecked")
     public BrooklynPropertiesImpl addFrom(Map map) {
         putAll(Maps.transformValues(map, StringFunctions.trim()));
         return this;
     }
 
+    @Override
     public BrooklynPropertiesImpl addFrom(InputStream i) {
         // Ugly way to load them in order, but Properties is a Hashtable so loses order otherwise.
         @SuppressWarnings({ "serial" })
@@ -272,7 +286,8 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
         }
         return this;
     }
-
+    
+    @Override
     public BrooklynPropertiesImpl addFrom(File f) {
         if (!f.exists()) {
             LOG.warn("Unable to find file '"+f.getAbsolutePath()+"' when loading properties; ignoring");
@@ -285,6 +300,7 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
             }
         }
     }
+    @Override
     public BrooklynPropertiesImpl addFrom(URL u) {
         try {
             return addFrom(u.openStream());
@@ -299,6 +315,7 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
      * for convenience if not starting with xxx: it is treated as a classpath reference or a file;
      * throws if not found (but does nothing if argument is null)
      */
+    @Override
     public BrooklynPropertiesImpl addFromUrl(String url) {
         try {
             if (url==null) return this;
@@ -310,6 +327,7 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
 
     /** expects a property already set in scope, whose value is acceptable to {@link #addFromUrl(String)};
      * if property not set, does nothing */
+    @Override
     public BrooklynPropertiesImpl addFromUrlProperty(String urlProperty) {
         String url = (String) get(urlProperty);
         if (url==null) addFromUrl(url);
@@ -319,12 +337,14 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
     /**
      * adds the indicated properties
      */
+    @Override
     public BrooklynPropertiesImpl addFromMap(Map properties) {
         putAll(properties);
         return this;
     }
 
     /** inserts the value under the given key, if it was not present */
+    @Override
     public boolean putIfAbsent(String key, Object value) {
         if (containsKey(key)) return false;
         put(key, value);
@@ -334,6 +354,7 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
     /** @deprecated attempts to call get with this syntax are probably mistakes; get(key, defaultValue) is fine but
      * Map is unlikely the key, much more likely they meant getFirst(flags, key).
      */
+    @Override
     @Deprecated
     public String get(Map flags, String key) {
         LOG.warn("Discouraged use of 'BrooklynProperties.get(Map,String)' (ambiguous); use getFirst(Map,String) or get(String) -- assuming the former");
@@ -384,11 +405,23 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
     }
 
     /** like normal map.put, except config keys are dereferenced on the way in */
-    @SuppressWarnings("unchecked")
-    public Object put(Object key, Object value) {
-        if (key instanceof HasConfigKey) key = ((HasConfigKey)key).getConfigKey().getName();
-        if (key instanceof ConfigKey) key = ((ConfigKey)key).getName();
-        return super.put(key, value);
+    @Override
+    public Object put(Object rawKey, Object value) {
+        String key;
+        if (rawKey == null) {
+            throw new NullPointerException("Null key not permitted in BrooklynProperties");
+        } else if (rawKey instanceof String) {
+            key = (String) rawKey;
+        } else if (rawKey instanceof CharSequence) {
+            key = rawKey.toString();
+        } else if (rawKey instanceof HasConfigKey) {
+            key = ((HasConfigKey)rawKey).getConfigKey().getName();
+        } else if (rawKey instanceof ConfigKey) {
+            key = ((ConfigKey)rawKey).getName();
+        } else {
+            throw new IllegalArgumentException("Invalid key (value='" + rawKey + "', type=" + rawKey.getClass().getName() + ") for BrooklynProperties");
+        }
+        return putImpl(key, value);
     }
 
     /** like normal map.putAll, except config keys are dereferenced on the way in */
@@ -399,18 +432,24 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
         }
     }
 
-    @SuppressWarnings("unchecked")
+    @Override
     public <T> Object put(HasConfigKey<T> key, T value) {
-        return super.put(key.getConfigKey().getName(), value);
+        return putImpl(key.getConfigKey().getName(), value);
     }
 
-    @SuppressWarnings("unchecked")
+    @Override
     public <T> Object put(ConfigKey<T> key, T value) {
-        return super.put(key.getName(), value);
+        return putImpl(key.getName(), value);
     }
-
+    
+    @Override
     public <T> boolean putIfAbsent(ConfigKey<T> key, T value) {
         return putIfAbsent(key.getName(), value);
+    }
+
+    @Override
+    public Object getConfig(String key) {
+        return get(key);
     }
 
     @Override
@@ -459,9 +498,12 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
 
     @Override
     public Map<ConfigKey<?>,Object> getAllConfigLocalRaw() {
-        Map<ConfigKey<?>, Object> result = new LinkedHashMap<ConfigKey<?>, Object>();
-        for (Object entry: entrySet())
-            result.put(new BasicConfigKey<Object>(Object.class, ""+((Map.Entry)entry).getKey()), ((Map.Entry)entry).getValue());
+        Map<ConfigKey<?>, Object> result = new LinkedHashMap<>();
+        synchronized (contents) {
+            for (Map.Entry<String, Object> entry : contents.entrySet()) {
+                result.put(new BasicConfigKey<Object>(Object.class, entry.getKey()), entry.getValue());
+            }
+        }
         return result;
     }
 
@@ -478,34 +520,105 @@ public class BrooklynPropertiesImpl extends LinkedHashMap implements BrooklynPro
     @Override
     public Set<ConfigKey<?>> findKeysDeclared(Predicate<? super ConfigKey<?>> filter) {
         Set<ConfigKey<?>> result = new LinkedHashSet<ConfigKey<?>>();
-        for (Object entry: entrySet()) {
-            ConfigKey<?> k = new BasicConfigKey<Object>(Object.class, ""+((Map.Entry)entry).getKey());
-            if (filter.apply(k))
-                result.add(new BasicConfigKey<Object>(Object.class, ""+((Map.Entry)entry).getKey()));
+        synchronized (contents) {
+            for (Object entry: contents.entrySet()) {
+                ConfigKey<?> k = new BasicConfigKey<Object>(Object.class, ""+((Map.Entry)entry).getKey());
+                if (filter.apply(k)) {
+                    result.add(k);
+                }
+            }
         }
         return result;
     }
 
-    @Override
-    public Set<ConfigKey<?>> findKeysPresent(Predicate<? super ConfigKey<?>> filter) {
-        return findKeysDeclared(filter);
-    }
+     @Override                                                                                                                                
+    public Set<ConfigKey<?>> findKeysPresent(Predicate<? super ConfigKey<?>> filter) {                                                       
+        return findKeysDeclared(filter);                                                                                                     
+    } 
 
     @Override
-    public BrooklynPropertiesImpl submap(Predicate<ConfigKey<?>> filter) {
+    public BrooklynProperties submap(Predicate<ConfigKey<?>> filter) {
         BrooklynPropertiesImpl result = Factory.newEmpty();
-        for (Object entry: entrySet()) {
-            ConfigKey<?> k = new BasicConfigKey<Object>(Object.class, ""+((Map.Entry)entry).getKey());
-            if (filter.apply(k))
-                result.put(((Map.Entry)entry).getKey(), ((Map.Entry)entry).getValue());
+        synchronized (contents) {
+            for (Map.Entry<String, Object> entry : contents.entrySet()) {
+                ConfigKey<?> k = new BasicConfigKey<Object>(Object.class, entry.getKey());
+                if (filter.apply(k)) {
+                    result.put(entry.getKey(), entry.getValue());
+                }
+            }
         }
         return result;
     }
 
-    @SuppressWarnings("unchecked")
+    @Override
+    public BrooklynProperties submapByName(Predicate<? super String> filter) {
+        BrooklynPropertiesImpl result = Factory.newEmpty();
+        synchronized (contents) {
+            for (Map.Entry<String, Object> entry : contents.entrySet()) {
+                if (filter.apply(entry.getKey())) {
+                    result.put(entry.getKey(), entry.getValue());
+                }
+            }
+        }
+        return result;
+    }
+
     @Override
     public Map<String, Object> asMapWithStringKeys() {
-        return this;
+        synchronized (contents) {
+            return MutableMap.copyOf(contents).asUnmodifiable();
+        }
     }
 
+    @Override
+    public boolean isEmpty() {
+        synchronized (contents) {
+            return contents.isEmpty();
+        }
+    }
+    
+    @Override
+    public int size() {
+        synchronized (contents) {
+            return contents.size();
+        }
+    }
+    
+    @Override
+    public boolean containsKey(String key) {
+        synchronized (contents) {
+            return contents.containsKey(key);
+        }
+    }
+
+    @Override
+    public boolean containsKey(ConfigKey<?> key) {
+        return containsKey(key.getName());
+    }
+    
+    @Override
+    public boolean remove(String key) {
+        synchronized (contents) {
+            boolean result = contents.containsKey(key);
+            contents.remove(key);
+            return result;
+        }
+    }
+    
+    @Override
+    public boolean remove(ConfigKey<?> key) {
+        return remove(key.getName());
+    }
+    
+    protected Object get(String key) {
+        synchronized (contents) {
+            return contents.get(key);
+        }
+    }
+    
+    protected Object putImpl(String key, Object value) {
+        synchronized (contents) {
+            return contents.put(key, value);
+        }
+    }
 }

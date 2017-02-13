@@ -111,6 +111,7 @@ public class AbstractLoadBalancingPolicyTest {
     // Using this utility, as it gives more info about the workrates of all containers rather than just the one that differs    
     protected void assertWorkrates(Collection<MockContainerEntity> containers, Collection<Double> expectedC, double precision) {
         Iterable<Double> actual = Iterables.transform(containers, new Function<MockContainerEntity, Double>() {
+            @Override
             public Double apply(MockContainerEntity input) {
                 return getContainerWorkrate(input);
             }});
@@ -134,6 +135,7 @@ public class AbstractLoadBalancingPolicyTest {
     protected void assertWorkratesEventually(final Collection<MockContainerEntity> containers, final Iterable<? extends Movable> items, final Collection<Double> expected, final double precision) {
         try {
             Asserts.succeedsEventually(MutableMap.of("timeout", TIMEOUT_MS), new Runnable() {
+                @Override
                 public void run() {
                     assertWorkrates(containers, expected, precision);
                 }});
@@ -156,6 +158,7 @@ public class AbstractLoadBalancingPolicyTest {
     protected void assertWorkratesContinually(final List<MockContainerEntity> containers, Iterable<? extends Movable> items, final List<Double> expected, final double precision) {
         try {
             Asserts.succeedsContinually(MutableMap.of("timeout", SHORT_WAIT_MS), new Runnable() {
+                @Override
                 public void run() {
                     assertWorkrates(containers, expected, precision);
                 }});

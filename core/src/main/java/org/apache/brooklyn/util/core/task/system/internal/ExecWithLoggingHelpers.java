@@ -163,6 +163,7 @@ public abstract class ExecWithLoggingHelpers {
             Tasks.setBlockingDetails(shortName+" executing, "+summaryForLogging);
             try {
                 return execWithTool(MutableMap.copyOf(toolFlags.getAllConfig()), new Function<ShellTool, Integer>() {
+                    @Override
                     public Integer apply(ShellTool tool) {
                         int result = execCommand.exec(tool, MutableMap.copyOf(execFlags.getAllConfig()), commands, env);
                         if (commandLogger!=null && commandLogger.isDebugEnabled()) 

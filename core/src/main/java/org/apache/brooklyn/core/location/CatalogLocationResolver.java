@@ -66,7 +66,7 @@ public class CatalogLocationResolver implements LocationResolver {
             log.warn("Use of deprecated catalog item "+item.getSymbolicName()+":"+item.getVersion());
         }
         
-        LocationSpec<?> origLocSpec = (LocationSpec<?>) managementContext.getTypeRegistry().createSpec(item, null, LocationSpec.class);
+        LocationSpec<?> origLocSpec = managementContext.getTypeRegistry().createSpec(item, null, LocationSpec.class);
         LocationSpec<?> locSpec = LocationSpec.create(origLocSpec).configure(locationFlags);
         return locSpec;
     }

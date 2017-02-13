@@ -84,48 +84,56 @@ public class TemplateBuilderCustomizers {
     }
 
     private static class MinRamTemplateBuilder implements TemplateBuilderCustomizer {
+        @Override
         public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
             tb.minRam((int) (ByteSizeStrings.parse(Strings.toString(v), "mb") / 1000 / 1000));
         }
     }
 
     private static class MinCoresTemplateBuilder implements TemplateBuilderCustomizer {
+        @Override
         public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
             tb.minCores(TypeCoercions.coerce(v, Double.class));
         }
     }
 
     private static class MinDiskTemplateBuilder implements TemplateBuilderCustomizer {
+        @Override
         public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
             tb.minDisk((int) (ByteSizeStrings.parse(Strings.toString(v), "gb") / 1000 / 1000 / 1000));
         }
     }
 
     private static class HardwareIdTemplateBuilder implements TemplateBuilderCustomizer {
+        @Override
         public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
             tb.hardwareId(v.toString());
         }
     }
 
     private static class ImageIdTemplateBuilder implements TemplateBuilderCustomizer {
+        @Override
         public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
             tb.imageId(v.toString());
         }
     }
 
     private static class ImageDescriptionRegexTemplateBuilder implements TemplateBuilderCustomizer {
+        @Override
         public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
             tb.imageDescriptionMatches(v.toString());
         }
     }
 
     private static class ImageNameRegexTemplateBuilder implements TemplateBuilderCustomizer {
+        @Override
         public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
             tb.imageNameMatches(v.toString());
         }
     }
 
     private static class OsFamilyTemplateBuilder implements TemplateBuilderCustomizer {
+        @Override
         public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
             Maybe<OsFamily> osFamily = Enums.valueOfIgnoreCase(OsFamily.class, v.toString());
             if (osFamily.isAbsent()) {
@@ -136,18 +144,21 @@ public class TemplateBuilderCustomizers {
     }
 
     private static class OsVersionRegexTemplateBuilder implements TemplateBuilderCustomizer {
+        @Override
         public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
             tb.osVersionMatches(v.toString());
         }
     }
 
     private static class TemplateSpecTemplateBuilder implements TemplateBuilderCustomizer {
+        @Override
         public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
             tb.from(TemplateBuilderSpec.parse(v.toString()));
         }
     }
 
     private static class Os64BitTemplateBuidler implements TemplateBuilderCustomizer {
+        @Override
         public void apply(TemplateBuilder tb, ConfigBag props, Object v) {
             Boolean os64Bit = TypeCoercions.coerce(v, Boolean.class);
             if (os64Bit != null) {

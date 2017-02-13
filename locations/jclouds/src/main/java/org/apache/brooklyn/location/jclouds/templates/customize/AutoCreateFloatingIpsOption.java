@@ -30,6 +30,7 @@ class AutoCreateFloatingIpsOption implements TemplateOptionCustomizer {
 
     private static final Logger LOG = LoggerFactory.getLogger(AutoCreateFloatingIpsOption.class);
     
+    @Override
     public void apply(TemplateOptions t, ConfigBag props, Object v) {
         LOG.warn("Using deprecated " + JcloudsLocationConfig.AUTO_CREATE_FLOATING_IPS + "; use " + JcloudsLocationConfig.AUTO_ASSIGN_FLOATING_IP + " instead");
         if (t instanceof NovaTemplateOptions) {

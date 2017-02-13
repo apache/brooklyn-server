@@ -79,6 +79,7 @@ public class Aggregator<T,U> extends AbstractAggregator<T,U> implements SensorEv
 
     public Aggregator() {}
 
+    @Override
     @SuppressWarnings("unchecked")
     protected void setEntityLoadingConfig() {
         super.setEntityLoadingConfig();
@@ -189,6 +190,7 @@ public class Aggregator<T,U> extends AbstractAggregator<T,U> implements SensorEv
         onUpdated();
     }
 
+    @Override
     protected void onUpdated() {
         try {
             emit(targetSensor, compute());

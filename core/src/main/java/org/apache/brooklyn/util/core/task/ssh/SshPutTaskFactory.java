@@ -107,6 +107,7 @@ public class SshPutTaskFactory extends SshPutTaskStub implements TaskFactory<Ssh
         return self();
     }
     
+    @Override
     public SshPutTaskWrapper newTask() {
         dirty = false;
         return new SshPutTaskWrapper(this);

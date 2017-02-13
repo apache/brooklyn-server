@@ -25,7 +25,6 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.entity.Attributes;
-import org.apache.brooklyn.core.entity.factory.EntityFactory;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.sensor.Sensors;
@@ -55,10 +54,6 @@ public interface DynamicFabric extends AbstractGroup, Startable, Fabric {
     ConfigKey<EntitySpec<?>> MEMBER_SPEC = ConfigKeys.newConfigKey(
             new TypeToken<EntitySpec<?>>() {}, "dynamiccfabric.memberspec", "entity spec for creating new cluster members", null);
 
-    @SetFromFlag("factory")
-    ConfigKey<EntityFactory<?>> FACTORY = ConfigKeys.newConfigKey(
-        new TypeToken<EntityFactory<?>>() {}, "dynamicfabric.factory", "factory for creating new cluster members", null);
-
     @SetFromFlag("displayNamePrefix")
     ConfigKey<String> DISPLAY_NAME_PREFIX = ConfigKeys.newStringConfigKey(
             "dynamicfabric.displayNamePrefix", "Display name prefix, for created children");
@@ -76,8 +71,6 @@ public interface DynamicFabric extends AbstractGroup, Startable, Fabric {
     AttributeSensor<Lifecycle> SERVICE_STATE_ACTUAL = Attributes.SERVICE_STATE_ACTUAL;
 
     public void setMemberSpec(EntitySpec<?> memberSpec);
-    
-    public void setFactory(EntityFactory<?> factory);
     
     public Integer getFabricSize();
 

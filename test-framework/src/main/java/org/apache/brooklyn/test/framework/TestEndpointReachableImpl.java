@@ -30,7 +30,6 @@ import java.util.Set;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
-import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.sensor.Sensors;
@@ -68,6 +67,7 @@ public class TestEndpointReachableImpl extends TargetableTestComponentImpl imple
         final String endpoint = getConfig(ENDPOINT);
         final Object endpointSensor = getConfig(ENDPOINT_SENSOR);
         final Duration timeout = getConfig(TIMEOUT);
+        final Duration backoffToPeriod = getConfig(BACKOFF_TO_PERIOD);
         final List<Map<String, Object>> assertions = getAssertions(this, ASSERTIONS);
         
         final Entity target = resolveTarget();
@@ -101,7 +101,9 @@ public class TestEndpointReachableImpl extends TargetableTestComponentImpl imple
         }
 
         try {
-            Asserts.succeedsEventually(ImmutableMap.of("timeout", timeout), new Runnable() {
+            // TODO use TestFrameworkAssertions (or use Repeater in the same way as that does)?
+            ImmutableMap<String, Duration> flags = ImmutableMap.of("timeout", timeout, "maxPeriod", backoffToPeriod);
+            Asserts.succeedsEventually(flags, new Runnable() {
                 @Override
                 public void run() {
                     HostAndPort val = supplier.get();
@@ -204,6 +206,7 @@ public class TestEndpointReachableImpl extends TargetableTestComponentImpl imple
     /**
      * {@inheritDoc}
      */
+    @Override
     public void stop() {
         setUpAndRunState(false, Lifecycle.STOPPED);
     }
@@ -211,6 +214,7 @@ public class TestEndpointReachableImpl extends TargetableTestComponentImpl imple
     /**
      * {@inheritDoc}
      */
+    @Override
     public void restart() {
         final Collection<Location> locations = Lists.newArrayList(getLocations());
         stop();

@@ -20,7 +20,6 @@ package org.apache.brooklyn.util.core.xstream;
 
 import static org.testng.Assert.assertTrue;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
 
@@ -29,7 +28,6 @@ import org.apache.brooklyn.util.core.xstream.CompilerCompatibilityTest.Enclosing
 import org.apache.brooklyn.util.core.xstream.CompilerCompatibilityTest.EnclosingClass.DynamicExtendingClass;
 import org.apache.brooklyn.util.core.xstream.CompilerCompatibilityTest.EnclosingClass.EnclosingDynamicClass;
 import org.apache.brooklyn.util.core.xstream.CompilerCompatibilityTest.EnclosingClass.EnclosingDynamicClass.NestedDynamicClass;
-import org.eclipse.jetty.util.log.Log;
 import org.testng.annotations.Test;
 
 import com.thoughtworks.xstream.XStream;

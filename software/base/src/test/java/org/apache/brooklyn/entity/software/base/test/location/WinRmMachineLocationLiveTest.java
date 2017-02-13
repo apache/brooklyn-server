@@ -526,6 +526,7 @@ public class WinRmMachineLocationLiveTest {
         for (int i = 0; i < NUM_RUNS; i++) {
             for (final Method method : methodsToRun) {
                 results.add(executor.submit(new Callable<Void>() {
+                    @Override
                     public Void call() throws Exception {
                         LOG.info("Executing "+method.getName()+" in thread "+Thread.currentThread());
                         Stopwatch stopwatch = Stopwatch.createStarted();

@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.google.common.base.Joiner;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.drivers.downloads.DownloadResolver;
 import org.apache.brooklyn.config.ConfigKey;
@@ -123,6 +124,7 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
     }
 
     /** returns location (tighten type, since we know it is an ssh machine location here) */
+    @Override
     public SshMachineLocation getLocation() {
         return (SshMachineLocation) super.getLocation();
     }
@@ -132,6 +134,7 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
         entity.sensors().set(SoftwareProcess.INSTALL_DIR, installDir);
     }
 
+    @Override
     public String getInstallDir() {
         if (installDir != null) return installDir;
 
@@ -177,6 +180,7 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
         entity.sensors().set(SoftwareProcess.RUN_DIR, runDir);
     }
 
+    @Override
     public String getRunDir() {
         if (runDir != null) return runDir;
 
@@ -239,6 +243,7 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
     /**
      * @deprecated since 0.10.0 This method will become private in a future release.
      */
+    @Override
     @Deprecated
     public int execute(List<String> script, String summaryForLogging) {
         return execute(Maps.newLinkedHashMap(), script, summaryForLogging);
@@ -360,6 +365,7 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
      * @param createParentDir Whether to create the parent target directory, if it doesn't already exist
      * @return The exit code of the SSH command run
      */
+    @Override
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public int copyResource(Map<Object,Object> sshFlags, String source, String target, boolean createParentDir) {
         // TODO use SshTasks.put instead, better logging
@@ -397,6 +403,7 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
      *
      * @see #copyResource(Map, String, String) for parameter descriptions.
      */
+    @Override
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public int copyResource(Map<Object,Object> sshFlags, InputStream source, String target, boolean createParentDir) {
         Map flags = Maps.newLinkedHashMap();
@@ -613,22 +620,29 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
                 // no pid, not running; 1 is not running
                 s.requireResultCode(Predicates.or(Predicates.equalTo(0), Predicates.equalTo(1)));
             } else if (STOPPING.equals(phase)) {
+                String stopCommand = Joiner.on('\n').join("PID=$(cat "+pidFile + ")",
+                        "test -n \"$PID\" || exit 0",
+                        "SIGTERM_USED=\"\"",
+                        "for i in $(seq 1 16); do",
+                        "  if ps -p $PID > /dev/null ; then",
+                        "     kill $PID",
+                        "     echo Attempted to stop PID $PID by sending SIGTERM.",
+                        "  else",
+                        "     echo Process $PID stopped successfully.",
+                        "     SIGTERM_USED=\"true\"",
+                        "     break",
+                        "  fi",
+                        "  sleep 1",
+                        "done",
+                        "if test -z $SIGTERM_USED; then",
+                        "  kill -9 $PID",
+                        "  echo Sent SIGKILL to $PID",
+                        "fi",
+                        "rm -f " + pidFile);
                 if (processOwner != null) {
-                    s.body.append(
-                            "export PID=$(" + BashCommands.sudoAsUser(processOwner, "cat "+pidFile) + ")",
-                            "test -n \"$PID\" || exit 0",
-                            BashCommands.sudoAsUser(processOwner, "kill $PID"),
-                            BashCommands.sudoAsUser(processOwner, "kill -9 $PID"),
-                            BashCommands.sudoAsUser(processOwner, "rm -f "+pidFile)
-                    );
+                    s.body.append(BashCommands.sudoAsUser(processOwner, stopCommand));
                 } else {
-                    s.body.append(
-                            "export PID=$(cat "+pidFile+")",
-                            "test -n \"$PID\" || exit 0",
-                            "kill $PID",
-                            "kill -9 $PID",
-                            "rm -f "+pidFile
-                    );
+                    s.body.append(stopCommand);
                 }
             } else if (KILLING.equals(phase)) {
                 if (processOwner != null) {
