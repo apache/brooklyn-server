@@ -28,12 +28,15 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.Effectors.EffectorBuilder;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils.CreationResult;
+import org.apache.brooklyn.util.collections.Jsonya;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.yaml.Yamls;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
-import com.google.gson.Gson;
+import com.google.common.collect.Iterables;
 
 /** Entity initializer which defines an effector which adds a child blueprint to an entity.
  * <p>
@@ -66,6 +69,17 @@ public class AddChildrenEffector extends AddEffector {
         return eff;
     }
 
+    private static String toJson(Map<?,?> x) {
+        // was:
+        // return new Gson().toJson(x);
+        // but GSON does funny things with DSL, whereas toString is the right thing to do
+        return Jsonya.newInstance().add(x).toString();
+    }
+    
+    private static boolean isJsonNotYaml(String x) {
+        return x.trim().startsWith("{");
+    }
+    
     protected static class Body extends EffectorBody<List<String>> {
 
         private final Effector<?> effector;
@@ -77,7 +91,7 @@ public class AddChildrenEffector extends AddEffector {
             String newBlueprint = null;
             Object yaml = params.get(BLUEPRINT_YAML);
             if (yaml instanceof Map) {
-                newBlueprint = new Gson().toJson(yaml);
+                newBlueprint = toJson((Map<?,?>)yaml);
             } else if (yaml instanceof String) {
                 newBlueprint = (String) yaml;
             } else if (yaml!=null) {
@@ -97,14 +111,32 @@ public class AddChildrenEffector extends AddEffector {
             autostart = params.get(AUTO_START);
         }
 
+        @SuppressWarnings("unchecked")
         @Override
         public List<String> call(ConfigBag params) {
             params = getMergedParams(effector, params);
             
             String blueprint = blueprintBase;
             if (!params.isEmpty()) { 
-                blueprint = blueprint+"\n"+"brooklyn.config: "+
-                    new Gson().toJson(params.getAllConfig());
+                Map<?,?> m = ((Map<?,?>)Iterables.getOnlyElement( Yamls.parseAll(blueprint) ));
+                if ( m.containsKey("brooklyn.config") ) {
+                    Map<?,?> cfg1 = (Map<?,?>) m.get("brooklyn.config");
+                    Map<Object,Object> cfgMergeFlat = MutableMap.<Object,Object>copyOf(cfg1).add(params.getAllConfig());
+                    if (cfgMergeFlat.size() < cfg1.size() + params.size()) {
+                        // there are quite complex merging strategies, but we need type info to apply them
+                        log.warn("Adding blueprint where same config key is supplied in blueprint and as parameters; preferring parameter (no merge), but behaviour may change. Recommended to use distinct keys.");
+                    }
+                    ((Map<Object,Object>)m).put("brooklyn.config", cfgMergeFlat);
+                    blueprint = toJson(m);
+                } else {
+                    if (isJsonNotYaml(blueprint)) {
+                        ((Map<Object,Object>)m).put("brooklyn.config", params.getAllConfig());
+                        blueprint = toJson(m);
+                    } else {
+                        blueprint = blueprint+"\n"+"brooklyn.config: "+
+                            toJson(params.getAllConfig());
+                    }
+                }
             }
 
             log.debug(this+" adding children to "+entity()+":\n"+blueprint);
