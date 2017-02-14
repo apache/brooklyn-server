@@ -606,7 +606,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 version = setFromItemIfUnset(version, itemAsMap, "version");
                 version = setFromItemIfUnset(version, itemAsMap, "template_version");
                 if (version==null) {
-                    log.warn("No version specified for catalog item " + symbolicName + ". Using default value.");
+                    log.debug("No version specified for catalog item " + symbolicName + ". Using default value.");
                     version = null;
                 }
             }

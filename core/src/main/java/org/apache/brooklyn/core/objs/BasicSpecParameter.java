@@ -156,12 +156,14 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
     }
 
     // Not CAMP specific since it's used to get the parameters from catalog items meta which are syntax independent.
-    public static List<SpecParameter<?>> fromConfigList(List<?> obj, Function<Object, Object> specialFlagsTransformer, BrooklynClassLoadingContext loader) {
+    /** Returns a list of {@link SpecParameterIncludingDefinitionForInheritance} objects from the given list;
+     * these should be resolved against ancestors before using, converting that object to {@link BasicSpecParameter} instances. */
+    public static List<SpecParameter<?>> parseParameterDefinitionList(List<?> obj, Function<Object, Object> specialFlagsTransformer, BrooklynClassLoadingContext loader) {
         return ParseYamlInputs.parseParameters(obj, specialFlagsTransformer, loader);
     }
 
     public static List<SpecParameter<?>> fromClass(ManagementContext mgmt, Class<?> type) {
-        return ParseClassParameters.parseParameters(getImplementedBy(mgmt, type));
+        return ParseClassParameters.collectParameters(getImplementedBy(mgmt, type));
     }
 
     public static List<SpecParameter<?>> fromSpec(ManagementContext mgmt, AbstractBrooklynObjectSpec<?, ?> spec) {
@@ -178,7 +180,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
         if (type == null) {
             type = getImplementedBy(mgmt, spec.getType());
         }
-        return ParseClassParameters.parseParameters(getImplementedBy(mgmt, type));
+        return ParseClassParameters.collectParameters(getImplementedBy(mgmt, type));
     }
 
     private static Class<?> getImplementedBy(ManagementContext mgmt, Class<?> type) {
@@ -227,7 +229,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
         }
 
         @SuppressWarnings({ "unchecked", "rawtypes" })
-        private static SpecParameterForInheritance<?> parseParameter(Object obj, Function<Object, Object> specialFlagTransformer, BrooklynClassLoadingContext loader) {
+        private static SpecParameterIncludingDefinitionForInheritance<?> parseParameter(Object obj, Function<Object, Object> specialFlagTransformer, BrooklynClassLoadingContext loader) {
             Map inputDef;
             if (obj instanceof String) {
                 inputDef = ImmutableMap.of("name", obj);
@@ -291,7 +293,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
                 configType = builder.build();
             }
 
-            return new SpecParameterForInheritance(label, pinned, configType, sensorType,
+            return new SpecParameterIncludingDefinitionForInheritance(label, pinned, configType, sensorType,
                     hasType, hasDefaultValue, hasConstraints, hasRuntimeInheritance, hasTypeInheritance);
         }
 
@@ -385,7 +387,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
             }
         }
 
-        public static List<SpecParameter<?>> parseParameters(Class<?> c) {
+        static List<SpecParameter<?>> collectParameters(Class<?> c) {
             MutableList<WeightedParameter> parameters = MutableList.<WeightedParameter>of();
             if (BrooklynObject.class.isAssignableFrom(c)) {
                 @SuppressWarnings("unchecked")
@@ -432,20 +434,25 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
      *
      * @see EntitySpec#parameters(List)
      */
-    public static void addParameters(AbstractBrooklynObjectSpec<?, ?> spec, List<? extends SpecParameter<?>> explicitParams, BrooklynClassLoadingContext loader) {
+    @Beta
+    public static void initializeSpecWithExplicitParameters(AbstractBrooklynObjectSpec<?, ?> spec, List<? extends SpecParameter<?>> explicitParams, BrooklynClassLoadingContext loader) {
+        // spec params list is empty if created from java (or there are none); non-empty if created from a parent entity spec
+        // so if empty, we may need to populate (or it is no op), and if non-empty, we can skip
         if (spec.getParameters().isEmpty()) {
             spec.parametersAdd(BasicSpecParameter.fromSpec(loader.getManagementContext(), spec));
         }
-        if (explicitParams.size() > 0) {
-            spec.parametersReplace(resolveParameters(explicitParams, spec.getParameters(), spec));
-        }
+        
+        // but now we need to filter non-reinheritable, and merge where params are extended/overridden 
+        spec.parametersReplace(resolveParameters(explicitParams, spec));
     }
 
     /** merge parameters against other parameters and known and type-inherited config keys */
-    static Collection<SpecParameter<?>> resolveParameters(Collection<? extends SpecParameter<?>> newParams, Collection<? extends SpecParameter<?>> existingReferenceParamsToKeep, AbstractBrooklynObjectSpec<?,?> spec) {
+    private static Collection<SpecParameter<?>> resolveParameters(Collection<? extends SpecParameter<?>> newParams, AbstractBrooklynObjectSpec<?,?> spec) {
+        Collection<? extends SpecParameter<?>> existingReferenceParams = spec.getParameters();
+        
         Map<String,SpecParameter<?>> existingToKeep = MutableMap.of();
-        if (existingReferenceParamsToKeep!=null) {
-            for (SpecParameter<?> p: existingReferenceParamsToKeep) {
+        if (existingReferenceParams!=null) {
+            for (SpecParameter<?> p: existingReferenceParams) {
                 if (ConfigInheritances.isKeyReinheritable(p.getConfigKey(), InheritanceContext.TYPE_DEFINITION)) {
                     existingToKeep.put(p.getConfigKey().getName(), p);
                 }
@@ -454,21 +461,19 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
 
         List<SpecParameter<?>> result = MutableList.<SpecParameter<?>>of();
 
-        for (SpecParameter<?> p: newParams) {
-            final SpecParameter<?> existingP = existingToKeep.remove(p.getConfigKey().getName());
-            if (p instanceof SpecParameterForInheritance) {
-                if (existingP!=null) {
-                    p = ((SpecParameterForInheritance<?>)p).resolveWithAncestor(existingP);
+        if (newParams!=null) {
+            for (SpecParameter<?> p: newParams) {
+                final SpecParameter<?> existingP = existingToKeep.remove(p.getConfigKey().getName());
+                if (p instanceof SpecParameterIncludingDefinitionForInheritance) {
+                    // config keys should be transformed to parameters and so should be found;
+                    // so the code below is correct whether existingP is set or is null 
+                    p = ((SpecParameterIncludingDefinitionForInheritance<?>)p).resolveWithAncestor(existingP);
                 } else {
-                    ConfigKey<?> configKeyExtendedByThisParameter = null;
-                    // TODO find any matching config key declared on the type
-                    /* we don't currently do this due to low priority; all it means if there is a config key in java,
-                     * and a user wishes to expose it as a parameter, they have to redeclare everything;
-                     * none of the fields from the config key in java will be inherited */
-                    p = ((SpecParameterForInheritance<?>)p).resolveWithAncestor(configKeyExtendedByThisParameter);
+                    // shouldn't happen; all calling logic should get SpecParameterForInheritance;
+                    log.warn("Found non-definitional spec parameter: "+p+" adding to "+spec);
                 }
+                result.add(p);
             }
-            result.add(p);
         }
 
         result.addAll(existingToKeep.values());
@@ -479,11 +484,11 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
      * for use with a subsequent merge with ancestor config keys; see {@link #resolveParameters(Collection, Collection, AbstractBrooklynObjectSpec)}*/
     @SuppressWarnings("serial")
     @Beta
-    static class SpecParameterForInheritance<T> extends BasicSpecParameter<T> {
+    static class SpecParameterIncludingDefinitionForInheritance<T> extends BasicSpecParameter<T> {
 
         private final boolean hasType, hasLabelSet, hasPinnedSet, hasDefaultValue, hasConstraints, hasRuntimeInheritance, hasTypeInheritance;
 
-        private <SensorType> SpecParameterForInheritance(String label, Boolean pinned, ConfigKey<T> config, AttributeSensor<SensorType> sensor,
+        private <SensorType> SpecParameterIncludingDefinitionForInheritance(String label, Boolean pinned, ConfigKey<T> config, AttributeSensor<SensorType> sensor,
                 boolean hasType, boolean hasDefaultValue, boolean hasConstraints, boolean hasRuntimeInheritance, boolean hasTypeInheritance) {
             super(Preconditions.checkNotNull(label!=null ? label : config.getName(), "label or config name must be set"), 
                     pinned==null ? true : pinned, config, sensor);
@@ -505,32 +510,6 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
                     hasPinnedSet ? isPinned() : ancestor.isPinned(), 
                     resolveWithAncestorConfigKey(ancestor.getConfigKey()), 
                     hasType ? getSensor() : ancestor.getSensor());
-        }
-
-        /** as {@link #resolveWithAncestor(SpecParameter)} but where the param redefines/extends a config key coming from a java supertype, rather than a parameter */
-        // TODO not used yet; see calls to the other resolveWithAncestor method,
-        // and see BrooklynComponentTemplateResolver.findAllConfigKeys;
-        // also note whilst it is easiest to do this here, logically it is messy,
-        // and arguably it should be done when converting the spec to an instance
-        SpecParameter<?> resolveWithAncestor(ConfigKey<?> ancestor) {
-            if (ancestor==null) return new BasicSpecParameter<>(getLabel(), isPinned(), getConfigKey(), getSensor());
-
-            // TODO probably want to do this (but it could get expensive! - limited caching could help)
-            //          Set<Class<?>> types = MutableSet.<Class<?>>builder()
-            //                  .add(spec.getImplementation())
-            //                  .add(spec.getType())
-            //                  .addAll(spec.getAdditionalInterfaces())
-            //                  .remove(null)
-            //                  .build();
-            //          // order above is important, respected below to take the first one defined 
-            //          MutableMap<String, ConfigKey<?>> result = MutableMap.copyOf(FlagUtils.findAllConfigKeys(null, types));
-
-            return new BasicSpecParameter<>(
-                    getLabel(), 
-                    isPinned(), 
-                    resolveWithAncestorConfigKey(ancestor),
-                    // TODO port sensor will be lost (see messy code above which sets the port sensor)
-                    getSensor());
         }
 
         @SuppressWarnings({ "unchecked", "rawtypes" })

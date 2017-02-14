@@ -332,6 +332,12 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
     }
 
     protected <T> ReferenceWithError<ConfigValueAtContainer<TContainer,T>> getConfigImpl(final ConfigKey<T> queryKey, final boolean raw) {
+        if (queryKey==null) {
+            return ReferenceWithError.newInstanceThrowingError(new BasicConfigValueAtContainer<TContainer,T>(getContainer(), null, null, false,
+                    null),
+                    new NullPointerException("Query key cannot be null"));
+        }
+    
         // In case this entity class has overridden the given key (e.g. to set default), then retrieve this entity's key
         Function<TContainer, ConfigKey<T>> keyFn = new Function<TContainer, ConfigKey<T>>() {
             @Override public ConfigKey<T> apply(TContainer input) {

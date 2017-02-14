@@ -45,7 +45,7 @@ public class BasicSpecParameterFromListTest extends BrooklynMgmtUnitTestSupport 
     @Test
     public void testInlineName() {
         String name = "minRam";
-        SpecParameter<?> input = parse(name);
+        SpecParameter<?> input = parseSpecParameterDefinition(name);
         assertEquals(input.getLabel(), name);
         assertTrue(input.isPinned());
         ConfigKey<?> type = input.getConfigKey();
@@ -53,14 +53,14 @@ public class BasicSpecParameterFromListTest extends BrooklynMgmtUnitTestSupport 
         assertEquals(type.getTypeToken(), TypeToken.of(String.class));
         assertNull(type.getDefaultValue());
         assertNull(type.getDescription());
-        assertNull(type.getInheritance());
+        assertTrue(type.getInheritanceByContext().values().isEmpty(), "Unexpected inheritance: "+type.getInheritanceByContext());
         assertConstraint(type.getConstraint(), Predicates.alwaysTrue());
     }
 
     @Test
     public void testOnlyName() {
         String name = "minRam";
-        SpecParameter<?> input = parse(ImmutableMap.of("name", name));
+        SpecParameter<?> input = parseSpecParameterDefinition(ImmutableMap.of("name", name));
         assertEquals(input.getLabel(), name);
         assertEquals(input.getConfigKey().getName(), name);
         assertEquals(input.getConfigKey().getTypeToken(), TypeToken.of(String.class));
@@ -68,7 +68,7 @@ public class BasicSpecParameterFromListTest extends BrooklynMgmtUnitTestSupport 
 
     @Test
     public void testUnusualName() {
-        parse(ImmutableMap.of("name", "name with spaces"));
+        parseSpecParameterDefinition(ImmutableMap.of("name", "name with spaces"));
     }
 
     @Test
@@ -80,7 +80,7 @@ public class BasicSpecParameterFromListTest extends BrooklynMgmtUnitTestSupport 
         String defaultValue = "VALUE";
         Boolean pinned = false;
         String constraint = "required";
-        SpecParameter<?> input = parse(ImmutableMap.builder()
+        SpecParameter<?> input = parseSpecParameterDefinition(ImmutableMap.builder()
                 .put("name", name)
                 .put("label", label)
                 .put("description", description)
@@ -98,7 +98,7 @@ public class BasicSpecParameterFromListTest extends BrooklynMgmtUnitTestSupport 
         assertEquals(type.getTypeToken(), TypeToken.of(String.class));
         assertEquals(type.getDefaultValue(), defaultValue);
         assertEquals(type.getDescription(), description);
-        assertNull(type.getInheritance());
+        assertTrue(type.getInheritanceByContext().values().isEmpty(), "Unexpected inheritance: "+type.getInheritanceByContext());
         assertConstraint(type.getConstraint(), StringPredicates.isNonBlank());
     }
 
@@ -108,7 +108,7 @@ public class BasicSpecParameterFromListTest extends BrooklynMgmtUnitTestSupport 
         String label = "1234";
         String description = "5678.56";
         String defaultValue = "444.12";
-        SpecParameter<?> input = parse(ImmutableMap.of(
+        SpecParameter<?> input = parseSpecParameterDefinition(ImmutableMap.of(
                 "name", name,
                 "label", label,
                 "description", description,
@@ -121,14 +121,14 @@ public class BasicSpecParameterFromListTest extends BrooklynMgmtUnitTestSupport 
         assertEquals(type.getName(), name);
         assertEquals(type.getDefaultValue(), defaultValue);
         assertEquals(type.getDescription(), description);
-        assertNull(type.getInheritance());
+        assertTrue(type.getInheritanceByContext().values().isEmpty(), "Unexpected inheritance: "+type.getInheritanceByContext());
     }
 
     @Test
     public void testConstraintAsArray() {
         String name = "minRam";
         String constraint = "required";
-        SpecParameter<?> input = parse(ImmutableMap.of(
+        SpecParameter<?> input = parseSpecParameterDefinition(ImmutableMap.of(
                 "name", name,
                 "constraints", ImmutableList.of(constraint)));
         ConfigKey<?> type = input.getConfigKey();
@@ -137,14 +137,14 @@ public class BasicSpecParameterFromListTest extends BrooklynMgmtUnitTestSupport 
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testMissingName() {
-        parse(ImmutableMap.of(
+        parseSpecParameterDefinition(ImmutableMap.of(
                 "type", "string"));
     }
 
     @Test
     public void testJavaType() {
         String name = "minRam";
-        SpecParameter<?> input = parse(ImmutableMap.of(
+        SpecParameter<?> input = parseSpecParameterDefinition(ImmutableMap.of(
                 "name", name,
                 "type", BasicSpecParameterFromListTest.class.getName()));
         assertEquals(input.getConfigKey().getTypeToken(), TypeToken.of(BasicSpecParameterFromListTest.class));
@@ -153,7 +153,7 @@ public class BasicSpecParameterFromListTest extends BrooklynMgmtUnitTestSupport 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testInvalidType() {
         String name = "minRam";
-        parse(ImmutableMap.of(
+        parseSpecParameterDefinition(ImmutableMap.of(
                 "name", name,
                 "type", "missing_type"));
     }
@@ -161,7 +161,7 @@ public class BasicSpecParameterFromListTest extends BrooklynMgmtUnitTestSupport 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testInvalidConstraint() {
         String name = "minRam";
-        parse(ImmutableMap.of(
+        parseSpecParameterDefinition(ImmutableMap.of(
                 "name", name,
                 "type", "missing_type"));
     }
@@ -171,7 +171,7 @@ public class BasicSpecParameterFromListTest extends BrooklynMgmtUnitTestSupport 
         String name = "pinned";
         String label = "Is pinned";
         String description = "Is pinned description";
-        SpecParameter<?> input = parse(ImmutableMap.of(
+        SpecParameter<?> input = parseSpecParameterDefinition(ImmutableMap.of(
                 "name", name,
                 "label", label,
                 "description", description));
@@ -179,9 +179,9 @@ public class BasicSpecParameterFromListTest extends BrooklynMgmtUnitTestSupport 
         assertTrue(input.isPinned());
     }
 
-    private SpecParameter<?> parse(Object def) {
+    private SpecParameter<?> parseSpecParameterDefinition(Object def) {
         BrooklynClassLoadingContext loader = JavaBrooklynClassLoadingContext.create(mgmt);
-        List<SpecParameter<?>> inputs = BasicSpecParameter.fromConfigList(ImmutableList.of(def), null, loader);
+        List<SpecParameter<?>> inputs = BasicSpecParameter.parseParameterDefinitionList(ImmutableList.of(def), null, loader);
         return Iterables.getOnlyElement(inputs);
     }
 
