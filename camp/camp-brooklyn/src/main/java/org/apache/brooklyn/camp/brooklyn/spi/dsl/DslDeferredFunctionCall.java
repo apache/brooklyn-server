@@ -58,10 +58,18 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
         return invokeOnDeferred(object, true);
     }
 
+    private static String toStringF(String fnName, Object args) {
+        return fnName + blankIfNull(args);
+    }
+    private static String blankIfNull(Object args) {
+        if (args==null) return "";
+        return args.toString();
+    }
+    
     @Override
     public Task<Object> newTask() {
         return Tasks.builder()
-                .displayName("Deferred function call " + object + "." + fnName + args + ")")
+                .displayName("Deferred function call " + object + "." + toStringF(fnName, args))
                 .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
                 .dynamic(false)
                 .body(new Callable<Object>() {
@@ -80,7 +88,7 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
 
             if (instance == null) {
                 throw new IllegalArgumentException("Deferred function call not found: " + 
-                        object + " evaluates to null (wanting to call " + fnName + args + "))");
+                        object + " evaluates to null (wanting to call " + toStringF(fnName, args) + ")");
             }
 
             return invokeOn(instance);
@@ -129,7 +137,7 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
                     return Maybe.of(Reflections.invokeMethodFromArgs(instance, m, instanceArgs));
                 } catch (IllegalArgumentException | IllegalAccessException | InvocationTargetException e) {
                     // If the method is there but not executable for whatever reason fail with a fatal error, don't return an absent.
-                    throw Exceptions.propagate(new InvocationTargetException(e, "Error invoking '"+fnName+instanceArgs+"' on '"+instance+"'"));
+                    throw Exceptions.propagateAnnotated("Error invoking '"+toStringF(fnName, instanceArgs)+"' on '"+instance+"'", e);
                 }
             } else {
                 // could do deferred execution if an argument is a deferred supplier:
